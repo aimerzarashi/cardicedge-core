@@ -1,0 +1,28 @@
+# MR と main への push でだけ実行する（同じ変更で二重に走らせない）
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+default:
+  image: golang:1.27.1-bookworm
+
+# make lint と同じ（gofmt の違反検出、go vet、staticcheck）
+lint:
+  script:
+    - files=$(gofmt -l .); if [ -n "$files" ]; then echo "gofmt:"; echo "$files"; exit 1; fi
+    - go vet ./...
+    - go tool staticcheck ./...
+
+# make test と同じ。DB は CI のサービスで起動する（migrations は未適用）
+test:
+  services:
+    - name: postgres:18.6
+      alias: core-db
+  variables:
+    POSTGRES_USER: core_user
+    POSTGRES_PASSWORD: core_password
+    POSTGRES_DB: core
+    DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+  script:
+    - go test ./... -race
