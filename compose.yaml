@@ -1,0 +1,58 @@
+services:
+  core:
+    build:
+      context: .
+      dockerfile: local/core/Dockerfile
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+      # Go のモジュール・ビルドキャッシュ。make up のたびに再ダウンロード・再ビルドしない
+      - go-mod:/home/dev/go
+      - go-build:/home/dev/.cache/go-build
+    # 他プロジェクトと衝突する場合は CORE_PORT で変更する
+    ports:
+      - ${CORE_PORT:-3333}:3333
+    # airをPID 1にしてdocker stopのSIGTERMを受け取らせる。
+    # 再ビルド・停止時はSIGINTを送り、アプリのグレースフルシャットダウンを待つ
+    command:
+      - air
+      - --build.cmd=go build -o ./tmp/main ./cmd/app
+      - --build.send_interrupt=true
+      # 引数ではdurationの文字列(15s)が解釈されず0sになるため、ナノ秒で指定する(15秒)
+      - --build.kill_delay=15000000000
+    stop_grace_period: 20s
+    # make up (--wait) はこれが healthy になるまで待つ。初回は air のビルドに時間がかかる
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+      # 起動中(start_period)は1秒間隔、以降はログを汚さないよう10秒間隔
+      start_period: 60s
+      start_interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+    depends_on:
+      core-db:
+        condition: service_healthy
+
+  core-db:
+    image: postgres:18.6
+    # ホストの SQLTools 等から接続するため公開する。衝突する場合は CORE_DB_PORT で変更する
+    ports:
+      - ${CORE_DB_PORT:-5432}:5432
+    environment:
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: core_password
+      POSTGRES_DB: core
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  go-mod:
+  go-build:
