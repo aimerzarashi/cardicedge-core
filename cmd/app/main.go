@@ -25,6 +25,15 @@ var (
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
+	// `app healthcheck`: 起動中の自プロセスの /health を確認して終了する（compose の healthcheck 用）
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := checkHealth(context.Background(), "http://127.0.0.1"+listenAddr+"/health"); err != nil {
+			slog.Error(err.Error())
+			os.Exit(1)
+		}
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 

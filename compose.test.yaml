@@ -1,0 +1,37 @@
+# game / cms のテスト用に、使い捨ての core と DB を起動する。
+# 利用側の compose から include し、利用側のプロジェクト名で起動する（開発用の core とは別のコンテナ・ネットワーク・DB になる）。
+# ホストにポートを公開せず、共有ネットワーク diecardomain にも参加しない
+services:
+  core:
+    build:
+      context: .
+      dockerfile: .build/Dockerfile
+    environment:
+      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+    healthcheck:
+      test: ["CMD", "/app", "healthcheck"]
+      start_period: 30s
+      start_interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      core-db:
+        condition: service_healthy
+
+  core-db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: core_password
+      POSTGRES_DB: core
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+    # データはコンテナ内の一時領域に置き、終了とともに破棄する
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
