@@ -30,6 +30,26 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
+## 他プロジェクトとの統合
+
+`make up` すると共有ネットワーク `diecardomain` に参加する（無ければ作成する）。
+game / cms は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
+
+## テスト用環境（compose.test.yaml）
+
+game / cms のテスト用に、使い捨ての core と DB を起動する compose。利用側の compose から include して使う。
+
+- core は本番用イメージ（`.build/Dockerfile`、distroless）で動かす。air は使わない
+- ホストにポートを公開せず、共有ネットワークにも参加しない。開発用の core と同時に起動できる
+- DB のデータは tmpfs に置き、終了とともに破棄する
+
+単体で試す場合:
+
+```bash
+docker compose -p core-test -f compose.test.yaml up -d --build --wait
+docker compose -p core-test -f compose.test.yaml down -v
+```
+
 ## DB マイグレーション
 
 `migrations/NNNN_name.sql` を置くと、PostgreSQL の初回起動時に `docker-entrypoint-initdb.d` の仕組みでファイル名順に適用される。

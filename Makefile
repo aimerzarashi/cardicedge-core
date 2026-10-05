@@ -1,7 +1,9 @@
 # 環境管理
 
+# 共有ネットワーク diecardomain が無ければ作成してから起動する
 .PHONY: up
 up:
+	@docker network inspect diecardomain >/dev/null 2>&1 || docker network create diecardomain >/dev/null
 	docker compose up -d --build --wait
 
 # DB を破棄する（次回 up で migrations が再適用される）。Go のキャッシュ用ボリュームは残す
