@@ -50,6 +50,17 @@ docker compose -p core-test -f compose.test.yaml up -d --build --wait
 docker compose -p core-test -f compose.test.yaml down -v
 ```
 
+## リリースとイメージ配布（CI）
+
+| パイプライン | ジョブ | 内容 |
+|---|---|---|
+| MR | lint / test | `make lint` / `make test` 相当 |
+| MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` に push |
+| main | lint / test / release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
+| タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>` と `:latest` に push |
+
+バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
+
 ## DB マイグレーション
 
 `migrations/NNNN_name.sql` を置くと、PostgreSQL の初回起動時に `docker-entrypoint-initdb.d` の仕組みでファイル名順に適用される。
