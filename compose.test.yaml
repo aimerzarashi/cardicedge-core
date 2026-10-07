@@ -16,6 +16,18 @@ services:
       timeout: 5s
       retries: 3
     depends_on:
+      core-migrate:
+        condition: service_completed_successfully
+
+  # 未適用のマイグレーションを適用して終了する（本番用イメージの /app migrate）
+  core-migrate:
+    build:
+      context: .
+      dockerfile: .build/Dockerfile
+    command: ["migrate"]
+    environment:
+      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+    depends_on:
       core-db:
         condition: service_healthy
 
@@ -25,8 +37,6 @@ services:
       POSTGRES_USER: core_user
       POSTGRES_PASSWORD: core_password
       POSTGRES_DB: core
-    volumes:
-      - ./migrations:/docker-entrypoint-initdb.d
     # データはコンテナ内の一時領域に置き、終了とともに破棄する
     tmpfs:
       - /var/lib/postgresql
