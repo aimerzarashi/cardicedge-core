@@ -40,7 +40,7 @@ lint:
     - go vet ./...
     - go tool staticcheck ./...
 
-# make test と同じ。DB は CI のサービスで起動する（migrations は未適用）
+# make test と同じ。DB は CI のサービスで起動し、go test の前に migrations を適用する
 test:
   stage: test
   extends: .on-mr-and-main
@@ -54,6 +54,7 @@ test:
     POSTGRES_DB: core
     DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
   script:
+    - go run ./cmd/app migrate
     - go test ./... -race
 
 # MR の確認用イメージ（手動）。GitLab Container Registry に mr-<MR番号> で push する

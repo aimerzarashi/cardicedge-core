@@ -6,11 +6,16 @@ up:
 	@docker network inspect diecardomain >/dev/null 2>&1 || docker network create diecardomain >/dev/null
 	docker compose up -d --build --wait
 
-# DB を破棄する（次回 up で migrations が再適用される）。Go のキャッシュ用ボリュームは残す
+# 停止して DB を破棄する（次回 up で migrations が最初から適用される）。Go のキャッシュ用ボリュームは残す
 .PHONY: down
 down:
 	docker compose rm -sfv core-db
 	docker compose down
+
+# 未適用のマイグレーションだけを適用する（DB を作り直さずに、追加した migrations を反映する）
+.PHONY: migrate
+migrate:
+	docker compose run --rm core-migrate
 
 # 開発ツール
 

@@ -14,11 +14,12 @@ Go・PostgreSQL はコンテナ内で動くため、ホストへのインスト�
 ## セットアップ
 
 ```bash
-make up    # app（air でホットリロード）と PostgreSQL を起動
-make fmt   # gofmt でフォーマットを修正
-make lint  # gofmt・go vet・staticcheck
-make test  # コンテナ内で go test ./... -race を実行
-make down  # 停止して DB のデータも破棄
+make up      # PostgreSQL を起動し、migrations を適用してから app（air でホットリロード）を起動
+make migrate # 未適用の migrations だけを適用（DB を作り直さない）
+make fmt     # gofmt でフォーマットを修正
+make lint    # gofmt・go vet・staticcheck
+make test    # コンテナ内で go test ./... -race を実行
+make down    # 停止して DB のデータも破棄
 ```
 
 | URL | 内容 |
@@ -63,5 +64,19 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 ## DB マイグレーション
 
-`migrations/NNNN_name.sql` を置くと、PostgreSQL の初回起動時に `docker-entrypoint-initdb.d` の仕組みでファイル名順に適用される。
-初回起動時にしか実行されないため、追加・変更したら `make down` → `make up` で DB を作り直す。
+`migrations/NNNN_name.sql` を置くと、`app migrate` が未適用のものだけを番号順に適用する（自作。外部ライブラリは使わない）。
+
+- SQL は `go:embed` で core のバイナリに埋め込まれる。イメージのバージョンと migrations は常に一致する
+- `make up` では core の起動前に core-migrate サービスが1回実行される。追加した migrations は `make migrate` で反映できる
+- 適用済みのものは `schema_migrations`（version, name, applied_at, execution_ms）に記録する
+- 1ファイルを1トランザクションで適用する。失敗したらそのファイルの変更と記録を戻す
+- 同時実行は `pg_advisory_lock` で防ぐ
+- 適用済みの最大より小さい未適用ファイル（番号の抜け）があれば、何も適用せずにエラーにする。番号を振り直して対処する
+- down（元に戻す）は無い。誤りは新しいマイグレーションで直す。適用済みのファイルは書き換えない
+
+| 環境 | 実行方法 |
+|---|---|
+| 開発（compose.yaml） | core-migrate サービス（`go run ./cmd/app migrate`）、`make migrate` |
+| テスト用（compose.test.yaml） | core-migrate サービス（本番用イメージの `/app migrate`） |
+| CI | test ジョブで `go run ./cmd/app migrate` を実行してから go test |
+| リリース・クラウド | 同じイメージで `/app migrate` を core の前に1回実行する |
