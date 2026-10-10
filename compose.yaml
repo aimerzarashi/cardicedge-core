@@ -40,19 +40,16 @@ services:
       - default
       - diecardomain
 
-  # 未適用のマイグレーションを適用して終了する（core の起動前に1回実行する。make migrate でも実行できる）
+  # 未適用のマイグレーションを Atlas で適用して終了する（core の起動前に1回実行する。make migrate でも実行できる）
   core-migrate:
     build:
       context: .
-      dockerfile: local/core/Dockerfile
-    working_dir: /usr/src/app
+      dockerfile: local/migrate/Dockerfile
+    # 開発中はリポジトリの migrations をそのまま使う（make migrate-hash で atlas.sum も書き換えるため読み書き可）
     volumes:
-      - ./:/usr/src/app
-      - go-mod:/home/dev/go
-      - go-build:/home/dev/.cache/go-build
-    command: ["go", "run", "./cmd/app", "migrate"]
+      - ./migrations:/migrations
     environment:
-      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
     depends_on:
       core-db:
         condition: service_healthy

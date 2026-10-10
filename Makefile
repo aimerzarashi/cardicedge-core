@@ -12,10 +12,15 @@ down:
 	docker compose rm -sfv core-db
 	docker compose down
 
-# 未適用のマイグレーションだけを適用する（DB を作り直さずに、追加した migrations を反映する）
+# 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）
 .PHONY: migrate
 migrate:
 	docker compose run --rm core-migrate
+
+# migrations/ のファイルを足したら実行し、atlas.sum を作り直す（SQL と一緒にコミットする）
+.PHONY: migrate-hash
+migrate-hash:
+	docker compose run --rm --no-deps --user $$(id -u):$$(id -g) core-migrate migrate hash --dir file:///migrations
 
 # 開発ツール
 
@@ -24,12 +29,13 @@ migrate:
 fmt:
 	docker compose exec core gofmt -w .
 
-# gofmt（違反ファイルの検出のみ。書き換えない）、go vet、staticcheck
+# gofmt（違反ファイルの検出のみ。書き換えない）、go vet、staticcheck、migrations の検査（origin/main との分岐点からの変更も見る）
 .PHONY: lint
 lint:
 	docker compose exec core sh -c 'files=$$(gofmt -l .); [ -z "$$files" ] || { echo "gofmt:"; echo "$$files"; exit 1; }'
 	docker compose exec core go vet ./...
 	docker compose exec core go tool staticcheck ./...
+	scripts/check-migrations.sh $$(git merge-base origin/main HEAD)
 
 # テスト
 
