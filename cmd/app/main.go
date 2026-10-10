@@ -37,15 +37,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// `app migrate`: 未適用のマイグレーションを適用して終了する（core の起動前に1回実行する）
-	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		if err := runMigrate(ctx); err != nil {
-			slog.Error(err.Error())
-			os.Exit(1)
-		}
-		return
-	}
-
 	if err := run(ctx); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)

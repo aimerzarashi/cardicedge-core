@@ -15,6 +15,9 @@ variables:
   DOCKER_VERSION: "29.8.2"
   # Docker Hub の配布先（タグのパイプラインで push する）
   DOCKERHUB_IMAGE: diecardomain/core
+  DOCKERHUB_MIGRATE_IMAGE: diecardomain/core-migrate
+  # local/migrate/Dockerfile の FROM と揃える
+  ATLAS_VERSION: "1.3.3"
 
 # lint / test は MR と main で実行する（タグのパイプラインでは実行しない）
 .on-mr-and-main:
@@ -30,17 +33,26 @@ variables:
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
 
-# make lint と同じ（gofmt の違反検出、go vet、staticcheck）
+# make lint と同じ（gofmt の違反検出、go vet、staticcheck、migrations の検査）
 lint:
   stage: test
   extends: .on-mr-and-main
   image: golang:1.27.1-bookworm
+  variables:
+    # 分岐点のコミットとの差分をとるため、全履歴を取得する（浅い clone だと分岐点が無いことがある）
+    GIT_DEPTH: 0
   script:
     - files=$(gofmt -l .); if [ -n "$files" ]; then echo "gofmt:"; echo "$files"; exit 1; fi
     - go vet ./...
     - go tool staticcheck ./...
+    # 適用済みのマイグレーションの変更・削除・改名も検査する。比較元は MR では対象ブランチとの分岐点、
+    # main では push 前の先頭（Maintainer が MR を経ずに直接 push した場合も検出するため）
+    - |
+      base=${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}
+      if [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
+      scripts/check-migrations.sh $base
 
-# make test と同じ。DB は CI のサービスで起動し、go test の前に migrations を適用する
+# make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する
 test:
   stage: test
   extends: .on-mr-and-main
@@ -54,10 +66,12 @@ test:
     POSTGRES_DB: core
     DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
   script:
-    - go run ./cmd/app migrate
+    - curl -sSfL -o /usr/local/bin/atlas "https://release.ariga.io/atlas/atlas-community-linux-amd64-v${ATLAS_VERSION}"
+    - chmod +x /usr/local/bin/atlas
+    - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
     - go test ./... -race
 
-# MR の確認用イメージ（手動）。GitLab Container Registry に mr-<MR番号> で push する
+# MR の確認用イメージ（手動）。アプリとマイグレーション用イメージを GitLab Container Registry に mr-<MR番号> で push する
 build-mr:
   stage: build
   extends: .docker
@@ -65,11 +79,17 @@ build-mr:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
+  # lint・test（migrations の検査を含む）が通らないうちは、確認用イメージも作らせない
+  needs: [lint, test]
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
     - IMAGE="$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID"
     - docker build --pull --build-arg BUILD_VERSION="mr-$CI_MERGE_REQUEST_IID" -t "$IMAGE" -f .build/Dockerfile .
     - docker push "$IMAGE"
+    # マイグレーション用イメージ
+    - MIGRATE_IMAGE="$CI_REGISTRY_IMAGE/migrate:mr-$CI_MERGE_REQUEST_IID"
+    - docker build --pull -t "$MIGRATE_IMAGE" -f local/migrate/Dockerfile .
+    - docker push "$MIGRATE_IMAGE"
   after_script:
     - docker logout "$CI_REGISTRY"
 
@@ -91,7 +111,7 @@ release:
       @semantic-release/gitlab@13.3.3
     - /tmp/semantic-release/node_modules/.bin/semantic-release
 
-# semantic-release が作ったタグのパイプラインで、そのタグのイメージを Docker Hub に配布する
+# semantic-release が作ったタグのパイプラインで、そのタグのアプリとマイグレーション用イメージを Docker Hub に配布する
 deploy:
   stage: deploy
   extends: .docker
@@ -102,5 +122,9 @@ deploy:
     - docker build --pull --build-arg BUILD_VERSION="$CI_COMMIT_TAG" -t "$DOCKERHUB_IMAGE:$CI_COMMIT_TAG" -t "$DOCKERHUB_IMAGE:latest" -f .build/Dockerfile .
     - docker push "$DOCKERHUB_IMAGE:$CI_COMMIT_TAG"
     - docker push "$DOCKERHUB_IMAGE:latest"
+    # マイグレーション用イメージ（アプリと同じタグ。本番ではアプリより先にジョブとして実行する）
+    - docker build --pull -t "$DOCKERHUB_MIGRATE_IMAGE:$CI_COMMIT_TAG" -t "$DOCKERHUB_MIGRATE_IMAGE:latest" -f local/migrate/Dockerfile .
+    - docker push "$DOCKERHUB_MIGRATE_IMAGE:$CI_COMMIT_TAG"
+    - docker push "$DOCKERHUB_MIGRATE_IMAGE:latest"
   after_script:
     - docker logout
