@@ -18,7 +18,7 @@ make up      # PostgreSQL を起動し、migrations を適用してから app（
 make migrate # 未適用の migrations だけを Atlas で適用（DB を作り直さない）
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make fmt     # gofmt でフォーマットを修正
-make lint    # gofmt・go vet・staticcheck・migrations の検査
+make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # コンテナ内で go test ./... -race を実行
 make down    # 停止して DB のデータも破棄
 ```
@@ -62,6 +62,25 @@ docker compose -p core-test -f compose.test.yaml down -v
 | タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>`・`:latest` と `diecardomain/core-migrate:<タグ>`・`:latest` に push |
 
 バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
+
+## カスタムリンター（tools/linter）
+
+参照プロジェクトの api のカスタムリンターを移植したもの（#8）。`make lint` と CI の lint で `go run ./tools/linter ./...` を実行する。対象の設定は `tools/linter/main.go` に書く（`make lint` と CI で同じ設定にするため）。
+
+| 検査 | 内容 |
+|---|---|
+| factory_enforcer | `internal` の値の型（`type Xxx string` 等）を、ほかのパッケージで型変換・生の値の代入で作ることを禁止し、生成関数（`NewXxx`）を使わせる。internal 全体を対象にするのは、値の型を足したパッケージを対象に入れ忘れないため。テストも対象（検証を通らない値でテストしないため）。生成コード（先頭に `Code generated ... DO NOT EDIT.` のあるファイル。sqlboiler・gqlgen 等）は自動で除く（生成関数を持たず、手で直せないため） |
+| import_alias_forbidder | core の中のパッケージを別名で import することを禁止する（外部のライブラリは名前の衝突で別名が要るため対象外）。生成コードは調べない |
+| testify_msgandargs_forbidder | testify の検査にメッセージを付けることを禁止する（テストの名前で仕様がわかるようにするため） |
+| test_context_enforcer | テストで `context.Background()`・`context.TODO()` を使わず `t.Context()` を使わせる |
+| trun_naming_enforcer | サブテスト（`t.Run`）の名前を、英小文字のスネークケース（`[a-z0-9]` を `_` でつなぐ）にし、兄弟（同じテーブル・同じ親）で重複させない。文字列リテラルの名前だけを調べる（入力から作る名前は調べない） |
+
+サブテストの名前は、Google の Go スタイルガイドに沿って、文章ではなく識別子のように付ける（例: `blank_subject`、`rejects_blank_issuer`）。その行の条件（と期待する結果）を表し、詳しい説明は失敗時のメッセージに書く。
+`go test -run` で絞り込みやすく、テストの実行器が空白を `_` に置き換えて読みにくくならず、`/` が絞り込みの区切りと衝突しないため。
+サブテストは、同じ振る舞いを入力を変えて確かめるテーブル駆動のときだけ使い、1 つの振る舞いは 1 つのテスト関数（`Test<対象>_<振る舞い>`）に書く。
+
+参照の api の「正常系/」「異常系/」で始める規則は、`/` を含むうえ、分類は付いても何を確かめるかが名前に出ないため採らなかった。
+名前に中身があるか（`case1` のような名前でないか）はレビューで見る。中身の無い名前の一覧をリンターに持つと、一覧を育て続けることになるため。
 
 ## DB マイグレーション
 
