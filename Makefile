@@ -29,12 +29,13 @@ migrate-hash:
 fmt:
 	docker compose exec core gofmt -w .
 
-# gofmt（違反ファイルの検出のみ。書き換えない）、go vet、staticcheck、migrations の検査（origin/main との分岐点からの変更も見る）
+# gofmt（違反ファイルの検出のみ。書き換えない）、go vet、staticcheck、カスタムリンター（tools/linter）、migrations の検査（origin/main との分岐点からの変更も見る）
 .PHONY: lint
 lint:
 	docker compose exec core sh -c 'files=$$(gofmt -l .); [ -z "$$files" ] || { echo "gofmt:"; echo "$$files"; exit 1; }'
 	docker compose exec core go vet ./...
 	docker compose exec core go tool staticcheck ./...
+	docker compose exec core go run ./tools/linter ./...
 	scripts/check-migrations.sh $$(git merge-base origin/main HEAD)
 
 # テスト

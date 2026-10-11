@@ -33,7 +33,7 @@ variables:
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
 
-# make lint と同じ（gofmt の違反検出、go vet、staticcheck、migrations の検査）
+# make lint と同じ（gofmt の違反検出、go vet、staticcheck、カスタムリンター、migrations の検査）
 lint:
   stage: test
   extends: .on-mr-and-main
@@ -45,6 +45,7 @@ lint:
     - files=$(gofmt -l .); if [ -n "$files" ]; then echo "gofmt:"; echo "$files"; exit 1; fi
     - go vet ./...
     - go tool staticcheck ./...
+    - go run ./tools/linter ./...
     # 適用済みのマイグレーションの変更・削除・改名も検査する。比較元は MR では対象ブランチとの分岐点、
     # main では push 前の先頭（Maintainer が MR を経ずに直接 push した場合も検出するため）
     - |
