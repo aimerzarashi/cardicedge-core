@@ -36,9 +36,13 @@ type NewEventTypeFunc[I ID, E Event[I]] func(EventName) EventType[I, E]
 // イベントの種別名（domain_event_types の名前）。各集約だけが生成関数で宣言する（EntityType と同じ理由で string にしない）
 type EventName string
 
-func NewEventName(name string) EventName { return EventName(name) }
+func NewEventName(name string) EventName {
+	return EventName(name)
+}
 
-func (n EventName) String() string { return string(n) }
+func (n EventName) String() string {
+	return string(n)
+}
 
 type InitialStateFunc[S any] func() S
 

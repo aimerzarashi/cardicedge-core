@@ -28,7 +28,9 @@ type generatedType struct{}
 
 func (*generatedType) AFact() {}
 
-func (*generatedType) String() string { return "generatedType" }
+func (*generatedType) String() string {
+	return "generatedType"
+}
 
 func exportGeneratedTypes(pass *analysis.Pass) {
 	for _, file := range pass.Files {

@@ -10,9 +10,13 @@ type ID int64
 
 var entityType = domain.NewEntityType("creature")
 
-func (ID) EntityType() domain.EntityType { return entityType }
+func (ID) EntityType() domain.EntityType {
+	return entityType
+}
 
-func (id ID) Int64() int64 { return int64(id) }
+func (id ID) Int64() int64 {
+	return int64(id)
+}
 
 func NewID(value int64) (ID, error) {
 	if value <= 0 {

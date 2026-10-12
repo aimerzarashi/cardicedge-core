@@ -34,9 +34,13 @@ func NewKey(t testing.TB, kid string) Key {
 	return Key{kid: kid, private: private}
 }
 
-func (k Key) Kid() string { return k.kid }
+func (k Key) Kid() string {
+	return k.kid
+}
 
-func (k Key) PublicKey() ed25519.PublicKey { return k.private.Public().(ed25519.PublicKey) }
+func (k Key) PublicKey() ed25519.PublicKey {
+	return k.private.Public().(ed25519.PublicKey)
+}
 
 // cms の JWT の中身（登録済みのクレームと、definePayload で入れる email・email_verified）
 type Claims struct {

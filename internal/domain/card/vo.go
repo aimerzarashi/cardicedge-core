@@ -25,7 +25,11 @@ func NewName(value string) (Name, error) {
 	return Name(trimmed), nil
 }
 
-func (n Name) String() string { return string(n) }
+func (n Name) String() string {
+	return string(n)
+}
 
 // 重複の判定にだけ使い、表示には使わない（全角「ＡＢＣ」と半角「ABC」を同じ名前として扱うため）
-func (n Name) Normalized() string { return norm.NFKC.String(string(n)) }
+func (n Name) Normalized() string {
+	return norm.NFKC.String(string(n))
+}
