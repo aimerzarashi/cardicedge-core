@@ -1,0 +1,14 @@
+# make gen-orm（開発用の core コンテナの中で、マイグレーション済みの core-db から生成する）
+output = "models"
+pkgname = "models"
+wipe = true
+no-tests = true
+
+[psql]
+  dbname = "core"
+  schema = "public"
+  host = "core-db"
+  port = 5432
+  user = "core_user"
+  pass = "core_password"
+  sslmode = "disable"

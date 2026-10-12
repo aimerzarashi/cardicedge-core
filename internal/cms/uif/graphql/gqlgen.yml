@@ -1,0 +1,24 @@
+# make gen-api
+schema:
+  - ./*.graphqls
+
+exec:
+  package: graphql
+  layout: single-file
+  filename: ./generated.go
+
+model:
+  filename: ./model/models_gen.go
+  package: model
+
+resolver:
+  package: graphql
+  layout: follow-schema
+  dir: .
+  filename_template: "{name}.resolvers.go"
+  preserve_resolver: true
+
+models:
+  UUID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID
