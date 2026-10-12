@@ -32,9 +32,9 @@ type RegisteredEvent struct {
 	Email       Email     `json:"email"`
 }
 
-const registeredEventType = "RegisteredEvent"
+var registeredEventType = domain.NewEventName("RegisteredEvent")
 
-func (*RegisteredEvent) EventType() string { return registeredEventType }
+func (*RegisteredEvent) EventType() domain.EventName { return registeredEventType }
 
 // payload の形を変えるときは上げ、Unmarshal で古い版を読み替える（保存済みのイベントは書き換えないため）
 func (*RegisteredEvent) SchemaVersion() int { return 1 }
@@ -46,28 +46,28 @@ type LinkedEvent struct {
 	Subject     Subject `json:"subject"`
 }
 
-const linkedEventType = "LinkedEvent"
+var linkedEventType = domain.NewEventName("LinkedEvent")
 
-func (*LinkedEvent) EventType() string { return linkedEventType }
+func (*LinkedEvent) EventType() domain.EventName { return linkedEventType }
 
 func (*LinkedEvent) SchemaVersion() int { return 1 }
 
 func Types() domain.AggregateTypes {
-	return domain.AggregateTypes{EntityType: entityType, EventTypes: []string{registeredEventType, linkedEventType}}
+	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{registeredEventType, linkedEventType}}
 }
 
-type EventType string
+type EventType domain.EventName
 
-func NewEventType(name string) domain.EventType[ID, Event] {
+func NewEventType(name domain.EventName) domain.EventType[ID, Event] {
 	return EventType(name)
 }
 
 func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, error) {
 	var event Event
 	switch t {
-	case registeredEventType:
+	case EventType(registeredEventType):
 		event = &RegisteredEvent{EventMeta: meta}
-	case linkedEventType:
+	case EventType(linkedEventType):
 		event = &LinkedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType

@@ -2,19 +2,20 @@ package eventstore
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 
-	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/typeregistry"
 )
 
 type eventStore[I domain.ID, E domain.Event[I], S any] struct {
-	registry     *typeregistry.Registry
+	registry     *domaindef.Registry
 	newID        domain.NewIDFunc[I]
 	newEventType domain.NewEventTypeFunc[I, E]
 	initialState domain.InitialStateFunc[S]
@@ -22,7 +23,7 @@ type eventStore[I domain.ID, E domain.Event[I], S any] struct {
 }
 
 func New[I domain.ID, E domain.Event[I], S any](
-	registry *typeregistry.Registry,
+	registry *domaindef.Registry,
 	newID domain.NewIDFunc[I],
 	newEventType domain.NewEventTypeFunc[I, E],
 	initialState domain.InitialStateFunc[S],
@@ -30,6 +31,16 @@ func New[I domain.ID, E domain.Event[I], S any](
 ) domain.EventStore[I, E, S] {
 	return &eventStore[I, E, S]{registry: registry, newID: newID, newEventType: newEventType, initialState: initialState, evolve: evolve}
 }
+
+// 同じ集約・同じ版のイベントの衝突（同時の更新）を、一意制約違反のエラーではなく、行が返らないことで知る。
+// エラーにすると PostgreSQL が ERROR のログを出し（衝突は異常ではないのにログが埋まる）、トランザクションも中断されるため。
+// sqlboiler の Insert は違反をエラーで返し、Upsert（DO NOTHING）は行が返らないと nil を返して衝突に気づけないため、SQL を直接書く
+const saveEventQuery = `
+	INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	ON CONFLICT (entity_type_id, entity_id, aggregate_version) DO NOTHING
+	RETURNING id
+`
 
 func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 	exec, err := rdb.GetExecutor(ctx)
@@ -51,20 +62,16 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 		if err != nil {
 			return err
 		}
-		row := &models.DomainEvent{
-			EntityTypeID:     entityTypeID,
-			EntityID:         meta.EntityID.Int64(),
-			AggregateVersion: meta.AggregateVersion,
-			EventTypeID:      eventTypeID,
-			EventTypeVersion: event.SchemaVersion(),
-			Payload:          payload,
+		var id int64
+		err = exec.QueryRowContext(ctx, saveEventQuery,
+			entityTypeID.Int16(), meta.EntityID.Int64(), meta.AggregateVersion, eventTypeID.Int16(), event.SchemaVersion(), payload,
 			// DB の現在時刻ではなく、イベントの発生時刻を残す（設計メモ 6 節の 4）
-			CreatedAt: meta.OccurredAt,
+			meta.OccurredAt,
+		).Scan(&id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ErrVersionConflict
 		}
-		if err := row.Insert(ctx, exec, boil.Infer()); err != nil {
-			if rdb.IsUniqueViolation(err) {
-				return domain.ErrVersionConflict
-			}
+		if err != nil {
 			return err
 		}
 	}
@@ -83,7 +90,7 @@ func (s *eventStore[I, E, S]) Load(ctx context.Context, entityID I) (S, error) {
 	}
 	// entity_id は種別をまたいで重なりうる（集約ごとに別の ID 型）ため、entity_type_id でも絞る（設計メモ 6 節の 3）
 	rows, err := models.DomainEvents(
-		models.DomainEventWhere.EntityTypeID.EQ(entityTypeID),
+		models.DomainEventWhere.EntityTypeID.EQ(entityTypeID.Int16()),
 		models.DomainEventWhere.EntityID.EQ(entityID.Int64()),
 		qm.OrderBy(models.DomainEventColumns.AggregateVersion+" ASC"),
 	).All(ctx, exec)
@@ -110,7 +117,7 @@ func (s *eventStore[I, E, S]) decode(row *models.DomainEvent) (E, error) {
 	if err != nil {
 		return zero, err
 	}
-	name, err := s.registry.EventTypeName(row.EventTypeID)
+	name, err := s.registry.EventTypeName(domaindef.NewEventTypeID(row.EventTypeID))
 	if err != nil {
 		return zero, err
 	}

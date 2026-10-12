@@ -50,7 +50,7 @@ game / cms は同じネットワーク経由で `http://core:3333` に接続す�
 - **cms の secret が漏れたとき**: cms の手順で jwks を作り直したら、core を再起動して古い鍵をすぐに捨てる（再起動しなくても 1 時間以内の取り直しで消える）
 - POST だけを受け付ける（ミューテーションを GET で実行させる CSRF を防ぐため）
 - **オペレーターの特定と紐づけ**: JWT の (iss, sub) に紐づいたオペレーターを、認可で使えるように context に載せる。まだ紐づいていなければ、JWT の確認済みのメールアドレス（`email`・`email_verified`。cms が JWT に入れる）で、登録済み・未紐づけのオペレーターを探して紐づける（初めてのログイン）。紐づけた後は (iss, sub) だけで識別し、メールアドレスは使わない。確認していないメールアドレスでは紐づけない（他人のメールアドレスでサインアップしても、オペレーターになれないように）
-- JWT が正しければ、オペレーターに紐づかなくても入口では拒否しない。オペレーターかどうか・権限は、操作ごとに認可で判定し、各操作の結果の型（`ForbiddenError`）で返す（最初にオペレーターを要する操作を足すときに作る）
+- JWT が正しければ、オペレーターに紐づかなくても入口では拒否しない。オペレーターかどうか・権限は、操作ごとに認可で判定し、各操作の結果の型（`ForbiddenError`）で返す
 
 | 環境変数 | 内容 |
 |---|---|
@@ -64,17 +64,25 @@ game / cms は同じネットワーク経由で `http://core:3333` に接続す�
 | 操作 | 内容 |
 |---|---|
 | `version` | core の版（GraphQL の仕様で Query が 1 つ以上要るため置く） |
+| `registerCreature` | Creature を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterCreatureSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 
 スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union で返し、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
+
+- **層の分担**: uif（GraphQL）は app 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。app 層が窓口になり、素の値を受け取ってドメインの型に変え、app 層の結果の型とエラーを返す（ドメインを変えても uif に及ばないように。参照の api は app 層が GraphQL の型を受け渡していたが、そうしない）
+- **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。app 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、app 層のコマンドが context から取り出す
+- **入力の誤り**: app 層が `command.InputErrors`（理由ごとの型 `RequiredInput`・`TooLongInput{Max}`・`InvalidFormatInput` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、cms が `__typename` と値から作る（上限などの値も core から受け取り、cms に書き写さない）
+- **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
+- **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
+- **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
 
 ## イベントストア
 
 DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api の形に、設計メモの 6 節の修正点を反映し、さらに次の点を変えた（#7）。
 
-- 種別のレジストリ（`typeregistry.Registry`）はパッケージの変数にせず、起動時に読み込んで `identifier`・`eventstore` に渡す
+- 種別のレジストリ（`domaindef.Registry`）はパッケージの変数にせず、起動時に読み込んで `identifier`・`eventstore` に渡す
 - 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。起動時に `Registry.Verify` で DB（マイグレーション）と照合し、食い違えば起動しない
 - イベントのスキーマの版は、イベントの型が宣言する（`SchemaVersion()`）。読み込み時は保存された版を `Unmarshal` に渡す
-- 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `typeregistry` のテストにその集約の `Types()` を足す
+- 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す
 
 中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_identifier_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
 

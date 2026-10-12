@@ -8,13 +8,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/typeregistry"
 )
 
 const (
@@ -62,19 +65,28 @@ func run(ctx context.Context) error {
 	}
 	defer db.Close()
 
-	registry, err := typeregistry.Load(rdb.WithDB(ctx, db))
+	registry, err := domaindef.Load(rdb.WithDB(ctx, db))
 	if err != nil {
 		return err
 	}
 	// 集約が宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する
-	if err := registry.Verify(operator.Types()); err != nil {
+	if err := registry.Verify(operator.Types(), creature.Types()); err != nil {
 		return fmt.Errorf("domain types do not match migrations: %w", err)
+	}
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes())...); err != nil {
+		return fmt.Errorf("unique key types do not match migrations: %w", err)
+	}
+
+	cms, err := newCMSAPI(ctx, registry, cfg.CMS)
+	if err != nil {
+		return err
+	}
+	if err := cms.registerInitialOperator(ctx, db, cfg.InitialOperatorEmail); err != nil {
+		return err
 	}
 
 	mux := newRouter()
-	if err := mountCMSAPI(ctx, mux, db, registry, cfg); err != nil {
-		return err
-	}
+	cms.mount(mux, db)
 
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {

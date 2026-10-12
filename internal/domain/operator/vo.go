@@ -2,15 +2,16 @@ package operator
 
 import (
 	"errors"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"net/mail"
 	"strings"
 )
 
 type ID int64
 
-const entityType = "operator"
+var entityType = domain.NewEntityType("operator")
 
-func (ID) EntityType() string { return entityType }
+func (ID) EntityType() domain.EntityType { return entityType }
 
 func (id ID) Int64() int64 { return int64(id) }
 

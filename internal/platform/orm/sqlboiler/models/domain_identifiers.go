@@ -75,17 +75,17 @@ var DomainIdentifierWhere = struct {
 
 // DomainIdentifierRels is where relationship names are stored.
 var DomainIdentifierRels = struct {
-	EntityType string
-	IDOperator string
+	EntityType             string
+	EntityDomainUniqueKeys string
 }{
-	EntityType: "EntityType",
-	IDOperator: "IDOperator",
+	EntityType:             "EntityType",
+	EntityDomainUniqueKeys: "EntityDomainUniqueKeys",
 }
 
 // domainIdentifierR is where relationships are stored.
 type domainIdentifierR struct {
-	EntityType *DomainEntityType `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
-	IDOperator *Operator         `boil:"IDOperator" json:"IDOperator" toml:"IDOperator" yaml:"IDOperator"`
+	EntityType             *DomainEntityType    `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
+	EntityDomainUniqueKeys DomainUniqueKeySlice `boil:"EntityDomainUniqueKeys" json:"EntityDomainUniqueKeys" toml:"EntityDomainUniqueKeys" yaml:"EntityDomainUniqueKeys"`
 }
 
 // NewStruct creates a new relationship struct
@@ -109,20 +109,20 @@ func (r *domainIdentifierR) GetEntityType() *DomainEntityType {
 	return r.EntityType
 }
 
-func (o *DomainIdentifier) GetIDOperator() *Operator {
+func (o *DomainIdentifier) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	if o == nil {
 		return nil
 	}
 
-	return o.R.GetIDOperator()
+	return o.R.GetEntityDomainUniqueKeys()
 }
 
-func (r *domainIdentifierR) GetIDOperator() *Operator {
+func (r *domainIdentifierR) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	if r == nil {
 		return nil
 	}
 
-	return r.IDOperator
+	return r.EntityDomainUniqueKeys
 }
 
 // domainIdentifierL is where Load methods for each relationship are stored.
@@ -452,15 +452,18 @@ func (o *DomainIdentifier) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery
 	return DomainEntityTypes(queryMods...)
 }
 
-// IDOperator pointed to by the foreign key.
-func (o *DomainIdentifier) IDOperator(mods ...qm.QueryMod) operatorQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.ID),
+// EntityDomainUniqueKeys retrieves all the domain_unique_key's DomainUniqueKeys with an executor via entity_id column.
+func (o *DomainIdentifier) EntityDomainUniqueKeys(mods ...qm.QueryMod) domainUniqueKeyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
 	}
 
-	queryMods = append(queryMods, mods...)
+	queryMods = append(queryMods,
+		qm.Where("\"domain_unique_keys\".\"entity_id\"=?", o.ID),
+	)
 
-	return Operators(queryMods...)
+	return DomainUniqueKeys(queryMods...)
 }
 
 // LoadEntityType allows an eager lookup of values, cached into the
@@ -583,9 +586,9 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
-// LoadIDOperator allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-1 relationship.
-func (domainIdentifierL) LoadIDOperator(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
+// LoadEntityDomainUniqueKeys allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainIdentifierL) LoadEntityDomainUniqueKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
 	var slice []*DomainIdentifier
 	var object *DomainIdentifier
 
@@ -622,7 +625,6 @@ func (domainIdentifierL) LoadIDOperator(ctx context.Context, e boil.ContextExecu
 			if obj.R == nil {
 				obj.R = &domainIdentifierR{}
 			}
-
 			args[obj.ID] = struct{}{}
 		}
 	}
@@ -639,8 +641,8 @@ func (domainIdentifierL) LoadIDOperator(ctx context.Context, e boil.ContextExecu
 	}
 
 	query := NewQuery(
-		qm.From(`operators`),
-		qm.WhereIn(`operators.id in ?`, argsSlice...),
+		qm.From(`domain_unique_keys`),
+		qm.WhereIn(`domain_unique_keys.entity_id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -648,50 +650,47 @@ func (domainIdentifierL) LoadIDOperator(ctx context.Context, e boil.ContextExecu
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load Operator")
+		return errors.Wrap(err, "failed to eager load domain_unique_keys")
 	}
 
-	var resultSlice []*Operator
+	var resultSlice []*DomainUniqueKey
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Operator")
+		return errors.Wrap(err, "failed to bind eager loaded slice domain_unique_keys")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for operators")
+		return errors.Wrap(err, "failed to close results in eager load on domain_unique_keys")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for operators")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_unique_keys")
 	}
 
-	if len(operatorAfterSelectHooks) != 0 {
+	if len(domainUniqueKeyAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
 			}
 		}
 	}
-
-	if len(resultSlice) == 0 {
+	if singular {
+		object.R.EntityDomainUniqueKeys = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &domainUniqueKeyR{}
+			}
+			foreign.R.Entity = object
+		}
 		return nil
 	}
 
-	if singular {
-		foreign := resultSlice[0]
-		object.R.IDOperator = foreign
-		if foreign.R == nil {
-			foreign.R = &operatorR{}
-		}
-		foreign.R.IDDomainIdentifier = object
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.ID == foreign.ID {
-				local.R.IDOperator = foreign
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.EntityID {
+				local.R.EntityDomainUniqueKeys = append(local.R.EntityDomainUniqueKeys, foreign)
 				if foreign.R == nil {
-					foreign.R = &operatorR{}
+					foreign.R = &domainUniqueKeyR{}
 				}
-				foreign.R.IDDomainIdentifier = local
+				foreign.R.Entity = local
 				break
 			}
 		}
@@ -747,52 +746,55 @@ func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
-// SetIDOperator of the domainIdentifier to the related item.
-// Sets o.R.IDOperator to related.
-// Adds o to related.R.IDDomainIdentifier.
-func (o *DomainIdentifier) SetIDOperator(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Operator) error {
+// AddEntityDomainUniqueKeys adds the given related objects to the existing relationships
+// of the domain_identifier, optionally inserting them as new records.
+// Appends related to o.R.EntityDomainUniqueKeys.
+// Sets related.R.Entity appropriately.
+func (o *DomainIdentifier) AddEntityDomainUniqueKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainUniqueKey) error {
 	var err error
+	for _, rel := range related {
+		if insert {
+			rel.EntityID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"domain_unique_keys\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_id"}),
+				strmangle.WhereClause("\"", "\"", 2, domainUniqueKeyPrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.UniqueKeyTypeID, rel.EntityID}
 
-	if insert {
-		related.ID = o.ID
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
 
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
+			rel.EntityID = o.ID
 		}
-	} else {
-		updateQuery := fmt.Sprintf(
-			"UPDATE \"operators\" SET %s WHERE %s",
-			strmangle.SetParamNames("\"", "\"", 1, []string{"id"}),
-			strmangle.WhereClause("\"", "\"", 2, operatorPrimaryKeyColumns),
-		)
-		values := []any{o.ID, related.ID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, updateQuery)
-			fmt.Fprintln(writer, values)
-		}
-		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-			return errors.Wrap(err, "failed to update foreign table")
-		}
-
-		related.ID = o.ID
 	}
 
 	if o.R == nil {
 		o.R = &domainIdentifierR{
-			IDOperator: related,
+			EntityDomainUniqueKeys: related,
 		}
 	} else {
-		o.R.IDOperator = related
+		o.R.EntityDomainUniqueKeys = append(o.R.EntityDomainUniqueKeys, related...)
 	}
 
-	if related.R == nil {
-		related.R = &operatorR{
-			IDDomainIdentifier: o,
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &domainUniqueKeyR{
+				Entity: o,
+			}
+		} else {
+			rel.R.Entity = o
 		}
-	} else {
-		related.R.IDDomainIdentifier = o
 	}
 	return nil
 }

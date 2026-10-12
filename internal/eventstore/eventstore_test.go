@@ -11,26 +11,26 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/typeregistry"
 )
 
-func setup(t *testing.T) (context.Context, *typeregistry.Registry) {
+func setup(t *testing.T) (context.Context, *domaindef.Registry) {
 	t.Helper()
 	ctx := rdbtest.Tx(t)
-	registry, err := typeregistry.Load(ctx)
+	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return ctx, registry
 }
 
-func operatorStore(registry *typeregistry.Registry) domain.EventStore[operator.ID, operator.Event, operator.State] {
+func operatorStore(registry *domaindef.Registry) domain.EventStore[operator.ID, operator.Event, operator.State] {
 	return eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve)
 }
 
-func register(t *testing.T, ctx context.Context, registry *typeregistry.Registry, email string, now time.Time) (operator.ID, uuid.UUID, []operator.Event) {
+func register(t *testing.T, ctx context.Context, registry *domaindef.Registry, email string, now time.Time) (operator.ID, uuid.UUID, []operator.Event) {
 	t.Helper()
 	id, publicID, err := identifier.New(registry, operator.NewID).Issue(ctx)
 	require.NoError(t, err)
@@ -68,6 +68,9 @@ func TestSave_RejectsSameVersionTwice(t *testing.T) {
 	err := store.Save(ctx, events)
 
 	require.ErrorIs(t, err, domain.ErrVersionConflict)
+	// 衝突してもトランザクションは中断されず、続けて使える（DB にエラーのログも出ない）
+	_, err = store.Load(ctx, events[0].GetMeta().EntityID)
+	require.NoError(t, err)
 }
 
 func TestSave_StoresEventTypeVersion(t *testing.T) {

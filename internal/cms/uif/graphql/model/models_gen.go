@@ -2,5 +2,105 @@
 
 package model
 
+import (
+	"github.com/google/uuid"
+)
+
+// 入力の項目ごとの誤り。理由は __typename で見分ける
+type FieldError interface {
+	IsFieldError()
+	// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+	GetField() string
+}
+
+// クリーチャーの登録の結果
+type RegisterCreatureResult interface {
+	IsRegisterCreatureResult()
+}
+
+// カード名が、ほかのカード（Creature・Item・Spell のどれか）ですでに使われている。前後の空白を除き、全角・半角の英数字などを同じ文字とみなして比べる
+type CardNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (CardNameAlreadyInUseError) IsRegisterCreatureResult() {}
+
+// クリーチャー（カードの種類の 1 つ）
+type Creature struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// カード名（登録したときの表記。前後の空白は除く）
+	Name string `json:"name"`
+}
+
+// 入力の形が正しくない（メールアドレスとして読めない等）
+type FieldInvalidFormat struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldInvalidFormat) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が空（前後の空白だけの場合を含む）
+type FieldRequired struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldRequired) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+func (this FieldRequired) GetField() string { return this.Field }
+
+// 入力が長すぎる
+type FieldTooLong struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 上限の文字数
+	Max int `json:"max"`
+}
+
+func (FieldTooLong) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+func (this FieldTooLong) GetField() string { return this.Field }
+
+// 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
+type ForbiddenError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (ForbiddenError) IsRegisterCreatureResult() {}
+
+type Mutation struct {
+}
+
 type Query struct {
 }
+
+// クリーチャーを登録する入力
+type RegisterCreatureInput struct {
+	// カード名（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// クリーチャーを登録した
+type RegisterCreatureSuccess struct {
+	// 登録したクリーチャー
+	Creature *Creature `json:"creature"`
+}
+
+func (RegisterCreatureSuccess) IsRegisterCreatureResult() {}
+
+// 入力の誤り（操作は行われていない）
+type ValidationErrors struct {
+	// 項目ごとの誤り（1 件以上）
+	Errors []FieldError `json:"errors"`
+}
+
+func (ValidationErrors) IsRegisterCreatureResult() {}
