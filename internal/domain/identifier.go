@@ -18,9 +18,13 @@ type ID interface {
 // ほかの名前（イベントの種別名・一意な key の種別）と同じ string にしないのは、取り違えてもコンパイルが通ってしまうため
 type EntityType string
 
-func NewEntityType(name string) EntityType { return EntityType(name) }
+func NewEntityType(name string) EntityType {
+	return EntityType(name)
+}
 
-func (t EntityType) String() string { return string(t) }
+func (t EntityType) String() string {
+	return string(t)
+}
 
 type NewIDFunc[I ID] func(int64) (I, error)
 

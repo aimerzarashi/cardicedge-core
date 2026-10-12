@@ -11,9 +11,13 @@ type ID int64
 
 var entityType = domain.NewEntityType("operator")
 
-func (ID) EntityType() domain.EntityType { return entityType }
+func (ID) EntityType() domain.EntityType {
+	return entityType
+}
 
-func (id ID) Int64() int64 { return int64(id) }
+func (id ID) Int64() int64 {
+	return int64(id)
+}
 
 func NewID(value int64) (ID, error) {
 	if value <= 0 {
@@ -31,7 +35,9 @@ func NewIssuer(value string) (Issuer, error) {
 	return Issuer(value), nil
 }
 
-func (i Issuer) String() string { return string(i) }
+func (i Issuer) String() string {
+	return string(i)
+}
 
 // 中身を解釈しない（better-auth の内部 ID は外部の識別子としてだけ扱う方針）
 type Subject string
@@ -43,7 +49,9 @@ func NewSubject(value string) (Subject, error) {
 	return Subject(value), nil
 }
 
-func (s Subject) String() string { return string(s) }
+func (s Subject) String() string {
+	return string(s)
+}
 
 // better-auth と同じく小文字にそろえる（JWT のメールアドレスと照合するため）
 type Email string
@@ -58,4 +66,6 @@ func NewEmail(value string) (Email, error) {
 	return Email(normalized), nil
 }
 
-func (e Email) String() string { return string(e) }
+func (e Email) String() string {
+	return string(e)
+}

@@ -26,12 +26,18 @@ type (
 	EventTypeID  int16
 )
 
-func (id EntityTypeID) Int16() int16 { return int16(id) }
+func (id EntityTypeID) Int16() int16 {
+	return int16(id)
+}
 
-func (id EventTypeID) Int16() int16 { return int16(id) }
+func (id EventTypeID) Int16() int16 {
+	return int16(id)
+}
 
 // domain_events から読んだ値を型にする（読み込むときだけ使う）
-func NewEventTypeID(value int16) EventTypeID { return EventTypeID(value) }
+func NewEventTypeID(value int16) EventTypeID {
+	return EventTypeID(value)
+}
 
 func Load(ctx context.Context) (*Registry, error) {
 	exec, err := rdb.GetExecutor(ctx)

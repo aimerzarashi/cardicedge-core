@@ -27,24 +27,36 @@ type InputError interface {
 
 type RequiredInput struct{ Field string }
 
-func (e *RequiredInput) Error() string { return fmt.Sprintf("%s is required", e.Field) }
+func (e *RequiredInput) Error() string {
+	return fmt.Sprintf("%s is required", e.Field)
+}
 
-func (e *RequiredInput) InputField() string { return e.Field }
+func (e *RequiredInput) InputField() string {
+	return e.Field
+}
 
 type TooLongInput struct {
 	Field string
 	Max   int
 }
 
-func (e *TooLongInput) Error() string { return fmt.Sprintf("%s is longer than %d", e.Field, e.Max) }
+func (e *TooLongInput) Error() string {
+	return fmt.Sprintf("%s is longer than %d", e.Field, e.Max)
+}
 
-func (e *TooLongInput) InputField() string { return e.Field }
+func (e *TooLongInput) InputField() string {
+	return e.Field
+}
 
 type InvalidFormatInput struct{ Field string }
 
-func (e *InvalidFormatInput) Error() string { return fmt.Sprintf("%s has an invalid format", e.Field) }
+func (e *InvalidFormatInput) Error() string {
+	return fmt.Sprintf("%s has an invalid format", e.Field)
+}
 
-func (e *InvalidFormatInput) InputField() string { return e.Field }
+func (e *InvalidFormatInput) InputField() string {
+	return e.Field
+}
 
 // 入力の誤りの一覧。項目が増えても、最初の 1 つで止めずにまとめて返すため
 type InputErrors []InputError

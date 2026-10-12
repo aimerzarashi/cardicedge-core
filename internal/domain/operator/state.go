@@ -28,7 +28,9 @@ type Operator struct {
 
 func (Operator) isOperatorState() {}
 
-func (o Operator) Linked() bool { return o.Subject != "" }
+func (o Operator) Linked() bool {
+	return o.Subject != ""
+}
 
 func InitialState() State {
 	return UnregisteredOperator{}
