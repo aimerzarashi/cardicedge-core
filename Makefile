@@ -24,6 +24,21 @@ migrate-hash:
 
 # 開発ツール
 
+# GraphQL のスキーマ（internal/cms/uif/graphql/*.graphqls）から gqlgen のコードを生成する。生成したコードもコミットする
+.PHONY: gen-api
+gen-api:
+	docker compose exec core sh -c 'cd internal/cms/uif/graphql && go tool gqlgen generate'
+	docker compose exec core go mod tidy
+
+# マイグレーション済みの core-db から sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を生成する。
+# migrations を足したら make migrate の後に実行し、生成したコードもコミットする。
+# 生成の道具は go.mod の tool で版を固定する（go install @latest にしない）。ドライバーは sqlboiler が PATH から探すため、ビルドしてパスで渡す
+.PHONY: gen-orm
+gen-orm:
+	docker compose exec core sh -c 'go build -o /tmp/sqlboiler-psql github.com/aarondl/sqlboiler/v4/drivers/sqlboiler-psql && cd internal/platform/orm/sqlboiler && go tool sqlboiler --config sqlboiler.toml /tmp/sqlboiler-psql'
+	docker compose exec core go mod tidy
+
+
 # フォーマットを自動修正する（lint はファイルを書き換えないため、修正はこちらで行う）
 .PHONY: fmt
 fmt:
@@ -39,7 +54,6 @@ lint:
 	scripts/check-migrations.sh $$(git merge-base origin/main HEAD)
 
 # テスト
-
 .PHONY: test
 test:
 	docker compose exec core go test ./... -race

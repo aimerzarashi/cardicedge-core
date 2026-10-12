@@ -10,6 +10,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/typeregistry"
 )
 
 const (
@@ -47,12 +52,36 @@ func main() {
 // run はアプリケーションのメイン処理を実行する。os.Exit()は呼ばずエラーを返すことで、
 // defer チェーンによるリソース解放を確実にする
 func run(ctx context.Context) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	db, err := rdb.Open(ctx, cfg.DBDSN)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	registry, err := typeregistry.Load(rdb.WithDB(ctx, db))
+	if err != nil {
+		return err
+	}
+	// 集約が宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する
+	if err := registry.Verify(operator.Types()); err != nil {
+		return fmt.Errorf("domain types do not match migrations: %w", err)
+	}
+
+	mux := newRouter()
+	if err := mountCMSAPI(ctx, mux, db, registry, cfg); err != nil {
+		return err
+	}
+
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", listenAddr, err)
 	}
 
-	server := &http.Server{Handler: newRouter()}
+	server := &http.Server{Handler: mux}
 	slog.Info("HTTP server started", "addr", ln.Addr().String(), "version", version)
 
 	return serve(ctx, server, ln, shutdownTimeout)

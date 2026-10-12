@@ -17,6 +17,8 @@ Go・PostgreSQL はコンテナ内で動くため、ホストへのインスト�
 make up      # PostgreSQL を起動し、migrations を適用してから app（air でホットリロード）を起動
 make migrate # 未適用の migrations だけを Atlas で適用（DB を作り直さない）
 make migrate-hash # migrations を足したら atlas.sum を作り直す
+make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
+make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # コンテナ内で go test ./... -race を実行
@@ -27,6 +29,7 @@ make down    # 停止して DB のデータも破棄
 |---|---|
 | http://localhost:3333/version | バージョン情報 |
 | http://localhost:3333/health | ヘルスチェック |
+| http://localhost:3333/cms/graphql | cms 用の GraphQL（POST。cms の JWT が必須） |
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: core）で接続できる。
 
@@ -36,6 +39,46 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 `make up` すると共有ネットワーク `diecardomain` に参加する（無ければ作成する）。
 game / cms は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
+
+## cms 用の GraphQL（/cms/graphql）
+
+スキーマは `internal/cms/uif/graphql/*.graphqls`（cms はこのファイルを参照する）。
+
+- **認証**: すべての呼び出しに、cms（better-auth の jwt プラグイン）の JWT を `Authorization: Bearer <JWT>` で付ける。無い・不正なら 401（`extensions.code: UNAUTHENTICATED`。理由は返さない）。ネットワークの位置（内部からの呼び出しか）は信じない（game からも core に直接届くため）
+- **検証**: 署名（EdDSA に固定。none・HMAC への差し替えを受け付けない）・`iss`・`aud`・期限。JWKS は cms-envoy を通して取る
+- **JWKS の取り直し**: 1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）。起動時に cms が動いていなくても core は起動する（最初の JWT が来たときに取り直す。そのときも cms が動いていなければ、次は 5 分後）
+- **cms の secret が漏れたとき**: cms の手順で jwks を作り直したら、core を再起動して古い鍵をすぐに捨てる（再起動しなくても 1 時間以内の取り直しで消える）
+- POST だけを受け付ける（ミューテーションを GET で実行させる CSRF を防ぐため）
+- **オペレーターの特定と紐づけ**: JWT の (iss, sub) に紐づいたオペレーターを、認可で使えるように context に載せる。まだ紐づいていなければ、JWT の確認済みのメールアドレス（`email`・`email_verified`。cms が JWT に入れる）で、登録済み・未紐づけのオペレーターを探して紐づける（初めてのログイン）。紐づけた後は (iss, sub) だけで識別し、メールアドレスは使わない。確認していないメールアドレスでは紐づけない（他人のメールアドレスでサインアップしても、オペレーターになれないように）
+- JWT が正しければ、オペレーターに紐づかなくても入口では拒否しない。オペレーターかどうか・権限は、操作ごとに認可で判定し、各操作の結果の型（`ForbiddenError`）で返す（最初にオペレーターを要する操作を足すときに作る）
+
+| 環境変数 | 内容 |
+|---|---|
+| `DB_DSN` | core-db の接続先 |
+| `CMS_JWKS_URL` | cms の JWKS（開発・テストは `http://cms-envoy:10000/api/auth/jwks`） |
+| `CMS_JWT_ISSUER` / `CMS_JWT_AUDIENCE` | cms の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-cms` / `diecardomain-core`） |
+| `CMS_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで cms にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
+
+どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。
+
+| 操作 | 内容 |
+|---|---|
+| `version` | core の版（GraphQL の仕様で Query が 1 つ以上要るため置く） |
+
+スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union で返し、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
+
+## イベントストア
+
+DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api の形に、設計メモの 6 節の修正点を反映し、さらに次の点を変えた（#7）。
+
+- 種別のレジストリ（`typeregistry.Registry`）はパッケージの変数にせず、起動時に読み込んで `identifier`・`eventstore` に渡す
+- 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。起動時に `Registry.Verify` で DB（マイグレーション）と照合し、食い違えば起動しない
+- イベントのスキーマの版は、イベントの型が宣言する（`SchemaVersion()`）。読み込み時は保存された版を `Unmarshal` に渡す
+- 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `typeregistry` のテストにその集約の `Types()` を足す
+
+中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_identifier_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
+
+テストで DB を使うときは `rdbtest.Tx`（テストの終わりに rollback し、開発用の DB を汚さない）。commit そのものを確かめるテスト（同時実行等）は `rdbtest.Open` を使い、作った行を消す。
 
 ## テスト用環境（compose.test.yaml）
 
