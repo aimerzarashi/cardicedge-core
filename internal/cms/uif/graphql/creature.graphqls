@@ -1,0 +1,30 @@
+"クリーチャー（カードの種類の 1 つ）"
+type Creature {
+  "公開用の ID"
+  id: UUID!
+  "カード名（登録したときの表記。前後の空白は除く）"
+  name: String!
+}
+
+"クリーチャーを登録する入力"
+input RegisterCreatureInput {
+  "カード名（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"クリーチャーを登録した"
+type RegisterCreatureSuccess {
+  "登録したクリーチャー"
+  creature: Creature!
+}
+
+"クリーチャーの登録の結果"
+union RegisterCreatureResult = RegisterCreatureSuccess | ValidationErrors | CardNameAlreadyInUseError | ForbiddenError
+
+extend type Mutation {
+  "クリーチャーを登録する（紐づいたオペレーターだけ）"
+  registerCreature(
+    "登録するクリーチャー"
+    input: RegisterCreatureInput!
+  ): RegisterCreatureResult!
+}

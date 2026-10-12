@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 )
@@ -165,7 +166,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			event := tt.event
 			require.Equal(t, 1, event.SchemaVersion())
-			golden, err := os.ReadFile(filepath.Join("testdata", "events", event.EventType()+".v1.json"))
+			golden, err := os.ReadFile(filepath.Join("testdata", "events", event.EventType().String()+".v1.json"))
 			require.NoError(t, err)
 
 			payload, err := json.Marshal(event)
@@ -180,7 +181,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 }
 
 func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
-	_, err := operator.NewEventType("UnknownEvent").Unmarshal(operator.EventMeta{}, 1, []byte(`{}`))
+	_, err := operator.NewEventType(domain.NewEventName("UnknownEvent")).Unmarshal(operator.EventMeta{}, 1, []byte(`{}`))
 	require.Error(t, err)
 }
 
@@ -207,4 +208,13 @@ func TestNewEmail_RejectsInvalidValue(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+}
+
+// 区切り文字でつなぐと ("ab", "c") と ("a", "bc") が同じ key になり、別の組を同じ (iss, sub) として扱ってしまう
+func TestSubjectKey_DistinguishesHowIssuerAndSubjectAreSplit(t *testing.T) {
+	left := operator.SubjectKey(operatortest.Issuer(t, "ab"), operatortest.Subject(t, "c"))
+	right := operator.SubjectKey(operatortest.Issuer(t, "a"), operatortest.Subject(t, "bc"))
+
+	require.NotEqual(t, left, right)
+	require.Equal(t, operator.SubjectKeyType, left.Type())
 }

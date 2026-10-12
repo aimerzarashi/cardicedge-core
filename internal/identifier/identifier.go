@@ -7,17 +7,17 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/typeregistry"
 )
 
 type identifier[I domain.ID] struct {
-	registry *typeregistry.Registry
+	registry *domaindef.Registry
 	newID    domain.NewIDFunc[I]
 }
 
-func New[I domain.ID](registry *typeregistry.Registry, newID domain.NewIDFunc[I]) domain.Identifier[I] {
+func New[I domain.ID](registry *domaindef.Registry, newID domain.NewIDFunc[I]) domain.Identifier[I] {
 	return &identifier[I]{registry: registry, newID: newID}
 }
 
@@ -32,7 +32,7 @@ func (i *identifier[I]) Issue(ctx context.Context) (I, uuid.UUID, error) {
 		return zero, uuid.UUID{}, err
 	}
 
-	row := &models.DomainIdentifier{EntityTypeID: entityTypeID}
+	row := &models.DomainIdentifier{EntityTypeID: entityTypeID.Int16()}
 	if err := row.Insert(ctx, exec, boil.Whitelist(models.DomainIdentifierColumns.EntityTypeID)); err != nil {
 		return zero, uuid.UUID{}, err
 	}
@@ -58,7 +58,7 @@ func (i *identifier[I]) Resolve(ctx context.Context, publicID uuid.UUID) (I, err
 		return zero, err
 	}
 	row, err := models.DomainIdentifiers(
-		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID),
+		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID.Int16()),
 		models.DomainIdentifierWhere.PublicID.EQ(publicID.String()),
 	).One(ctx, exec)
 	if err != nil {

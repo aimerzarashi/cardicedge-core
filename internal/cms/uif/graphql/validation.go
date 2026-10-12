@@ -1,0 +1,32 @@
+package graphql
+
+import (
+	"fmt"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/uif/graphql/model"
+)
+
+// 入力の誤りは GraphQL の errors ではなく、操作の結果の型（ValidationErrors）で返す（呼び出し側が項目ごとに表示できるように）。
+// 文言は作らない（cms が __typename と値から作る）。err が入力の誤りでなければ nil
+func validationErrors(err error) *model.ValidationErrors {
+	invalid, ok := command.AsInputErrors(err)
+	if !ok {
+		return nil
+	}
+	fieldErrors := make([]model.FieldError, len(invalid))
+	for i, e := range invalid {
+		switch e := e.(type) {
+		case *command.RequiredInput:
+			fieldErrors[i] = &model.FieldRequired{Field: e.Field}
+		case *command.TooLongInput:
+			fieldErrors[i] = &model.FieldTooLong{Field: e.Field, Max: e.Max}
+		case *command.InvalidFormatInput:
+			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
+		default:
+			// 理由を app 層に足したのに、ここに写し方を足し忘れた（GraphQL の型を足すのを忘れずに気づけるよう、黙って別の型にしない）
+			panic(fmt.Sprintf("unknown input error: %T", e))
+		}
+	}
+	return &model.ValidationErrors{Errors: fieldErrors}
+}

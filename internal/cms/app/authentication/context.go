@@ -8,13 +8,19 @@ import (
 
 type operatorKey struct{}
 
-// 認証ミドルウェアが、JWT の (iss, sub) に紐づいたオペレーターを載せる。入力ではなく JWT だけから決めるのは、他人として操作させないため
+// JWT の (iss, sub) に紐づいたオペレーターを載せる。入力ではなく JWT だけから決めるのは、他人として操作させないため
 func WithOperator(ctx context.Context, id operator.ID) context.Context {
 	return context.WithValue(ctx, operatorKey{}, id)
 }
 
-// JWT は正しいがオペレーターに紐づかないときは false（認可で ForbiddenError にする）
+// app 層のコマンドが、操作した人として使う
 func Operator(ctx context.Context) (operator.ID, bool) {
 	id, ok := ctx.Value(operatorKey{}).(operator.ID)
 	return id, ok
+}
+
+// uif の認可が使う。uif にドメインの型（operator.ID）を見せないため、オペレーターかどうかだけを返す
+func HasOperator(ctx context.Context) bool {
+	_, ok := Operator(ctx)
+	return ok
 }

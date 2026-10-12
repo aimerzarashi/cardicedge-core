@@ -14,8 +14,10 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/google/uuid"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/uif/graphql/model"
 )
 
 // region    ***************************** api!.gotpl *****************************
@@ -28,6 +30,7 @@ func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
 type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
+	Mutation() MutationResolver
 	Query() QueryResolver
 }
 
@@ -35,8 +38,46 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	CardNameAlreadyInUseError struct {
+		Message func(childComplexity int) int
+	}
+
+	Creature struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
+	FieldInvalidFormat struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldRequired struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldTooLong struct {
+		Field func(childComplexity int) int
+		Max   func(childComplexity int) int
+	}
+
+	ForbiddenError struct {
+		Message func(childComplexity int) int
+	}
+
+	Mutation struct {
+		RegisterCreature func(childComplexity int, input model.RegisterCreatureInput) int
+	}
+
 	Query struct {
 		Version func(childComplexity int) int
+	}
+
+	RegisterCreatureSuccess struct {
+		Creature func(childComplexity int) int
+	}
+
+	ValidationErrors struct {
+		Errors func(childComplexity int) int
 	}
 }
 
@@ -44,6 +85,9 @@ type ComplexityRoot struct {
 
 // region    ************************** generated!.gotpl **************************
 
+type MutationResolver interface {
+	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
+}
 type QueryResolver interface {
 	Version(ctx context.Context) (string, error)
 }
@@ -66,12 +110,92 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "CardNameAlreadyInUseError.message":
+		if e.ComplexityRoot.CardNameAlreadyInUseError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CardNameAlreadyInUseError.Message(childComplexity), true
+
+	case "Creature.id":
+		if e.ComplexityRoot.Creature.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.ID(childComplexity), true
+	case "Creature.name":
+		if e.ComplexityRoot.Creature.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.Name(childComplexity), true
+
+	case "FieldInvalidFormat.field":
+		if e.ComplexityRoot.FieldInvalidFormat.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldInvalidFormat.Field(childComplexity), true
+
+	case "FieldRequired.field":
+		if e.ComplexityRoot.FieldRequired.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldRequired.Field(childComplexity), true
+
+	case "FieldTooLong.field":
+		if e.ComplexityRoot.FieldTooLong.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooLong.Field(childComplexity), true
+	case "FieldTooLong.max":
+		if e.ComplexityRoot.FieldTooLong.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
+
+	case "ForbiddenError.message":
+		if e.ComplexityRoot.ForbiddenError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
+
+	case "Mutation.registerCreature":
+		if e.ComplexityRoot.Mutation.RegisterCreature == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerCreature_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterCreature(childComplexity, args["input"].(model.RegisterCreatureInput)), true
+
 	case "Query.version":
 		if e.ComplexityRoot.Query.Version == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Query.Version(childComplexity), true
+
+	case "RegisterCreatureSuccess.creature":
+		if e.ComplexityRoot.RegisterCreatureSuccess.Creature == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterCreatureSuccess.Creature(childComplexity), true
+
+	case "ValidationErrors.errors":
+		if e.ComplexityRoot.ValidationErrors.Errors == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ValidationErrors.Errors(childComplexity), true
 
 	}
 	return 0, false
@@ -80,7 +204,9 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputRegisterCreatureInput,
+	)
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -114,6 +240,21 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 
 			return &response
 		}
+	case ast.Mutation:
+		return func(ctx context.Context) *graphql.Response {
+			if !first {
+				return nil
+			}
+			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
+			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
+			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
 
 	default:
 		return graphql.OneShot(graphql.ErrorResponse(ctx, "unsupported GraphQL operation"))
@@ -139,7 +280,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "common.graphqls"
+//go:embed "card.graphqls" "common.graphqls" "creature.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -151,13 +292,25 @@ func sourceData(filename string) string {
 }
 
 var sources = []*ast.Source{
+	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
+	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // childFields_* functions provide shared child field context lookups.
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
+
+func (ec *executionContext) childFields_Creature(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Creature_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Creature_name(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Creature", field.Name)
+}
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
@@ -275,6 +428,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_registerCreature_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RegisterCreatureInput, error) {
+			return ec.unmarshalNRegisterCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐRegisterCreatureInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -348,6 +515,234 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ***************************** args.gotpl *****************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _CardNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.CardNameAlreadyInUseError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CardNameAlreadyInUseError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CardNameAlreadyInUseError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CardNameAlreadyInUseError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Creature_id(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _Creature_name(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldInvalidFormat) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldInvalidFormat_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldInvalidFormat_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldInvalidFormat", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldRequired_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldRequired) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldRequired_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldRequired_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldRequired", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooLong_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooLong) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooLong_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooLong_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooLong) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooLong_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field graphql.CollectedField, obj *model.ForbiddenError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ForbiddenError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Mutation_registerCreature(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerCreature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterCreature(ctx, fc.Args["input"].(model.RegisterCreatureInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RegisterCreatureResult) graphql.Marshaler {
+			return ec.marshalNRegisterCreatureResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐRegisterCreatureResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerCreature(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RegisterCreatureResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerCreature_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _Query_version(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -443,6 +838,70 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields___Schema(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RegisterCreatureSuccess_creature(ctx context.Context, field graphql.CollectedField, obj *model.RegisterCreatureSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterCreatureSuccess_creature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Creature, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Creature) graphql.Marshaler {
+			return ec.marshalNCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐCreature(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterCreatureSuccess_creature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RegisterCreatureSuccess",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Creature(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ValidationErrors_errors(ctx context.Context, field graphql.CollectedField, obj *model.ValidationErrors) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ValidationErrors_errors(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Errors, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.FieldError) graphql.Marshaler {
+			return ec.marshalNFieldError2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐFieldErrorᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ValidationErrors_errors(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ValidationErrors",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -1507,13 +1966,404 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputRegisterCreatureInput(ctx context.Context, obj any) (model.RegisterCreatureInput, error) {
+	var it model.RegisterCreatureInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
 
+func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSet, obj model.FieldError) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.FieldTooLong:
+		return ec._FieldTooLong(ctx, sel, &obj)
+	case *model.FieldTooLong:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTooLong(ctx, sel, obj)
+	case model.FieldRequired:
+		return ec._FieldRequired(ctx, sel, &obj)
+	case *model.FieldRequired:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldRequired(ctx, sel, obj)
+	case model.FieldInvalidFormat:
+		return ec._FieldInvalidFormat(ctx, sel, &obj)
+	case *model.FieldInvalidFormat:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldInvalidFormat(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of FieldError must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RegisterCreatureResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterCreatureResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RegisterCreatureSuccess:
+		return ec._RegisterCreatureSuccess(ctx, sel, &obj)
+	case *model.RegisterCreatureSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RegisterCreatureSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CardNameAlreadyInUseError:
+		return ec._CardNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.CardNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNameAlreadyInUseError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterCreatureResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var cardNameAlreadyInUseErrorImplementors = []string{"CardNameAlreadyInUseError", "RegisterCreatureResult"}
+
+func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNameAlreadyInUseError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cardNameAlreadyInUseErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CardNameAlreadyInUseError")
+		case "message":
+			out.Values[i] = ec._CardNameAlreadyInUseError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var creatureImplementors = []string{"Creature"}
+
+func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet, obj *model.Creature) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Creature")
+		case "id":
+			out.Values[i] = ec._Creature_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Creature_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldInvalidFormatImplementors = []string{"FieldInvalidFormat", "FieldError"}
+
+func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.SelectionSet, obj *model.FieldInvalidFormat) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldInvalidFormatImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldInvalidFormat")
+		case "field":
+			out.Values[i] = ec._FieldInvalidFormat_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldRequiredImplementors = []string{"FieldRequired", "FieldError"}
+
+func (ec *executionContext) _FieldRequired(ctx context.Context, sel ast.SelectionSet, obj *model.FieldRequired) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldRequiredImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldRequired")
+		case "field":
+			out.Values[i] = ec._FieldRequired_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldTooLongImplementors = []string{"FieldTooLong", "FieldError"}
+
+func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTooLong) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTooLongImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTooLong")
+		case "field":
+			out.Values[i] = ec._FieldTooLong_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._FieldTooLong_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var forbiddenErrorImplementors = []string{"ForbiddenError", "RegisterCreatureResult"}
+
+func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ForbiddenError")
+		case "message":
+			out.Values[i] = ec._ForbiddenError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var mutationImplementors = []string{"Mutation"}
+
+func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, mutationImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Mutation",
+	})
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		innerCtx := graphql.WithRootFieldContext(ctx, &graphql.RootFieldContext{
+			Object: field.Name,
+			Field:  field,
+		})
+
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Mutation")
+		case "registerCreature":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerCreature(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
 
 var queryImplementors = []string{"Query"}
 
@@ -1570,6 +2420,82 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			})
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var registerCreatureSuccessImplementors = []string{"RegisterCreatureSuccess", "RegisterCreatureResult"}
+
+func (ec *executionContext) _RegisterCreatureSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterCreatureSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, registerCreatureSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RegisterCreatureSuccess")
+		case "creature":
+			out.Values[i] = ec._RegisterCreatureSuccess_creature(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterCreatureResult"}
+
+func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ValidationErrors")
+		case "errors":
+			out.Values[i] = ec._ValidationErrors_errors(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -2000,6 +2926,73 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalNCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐCreature(ctx context.Context, sel ast.SelectionSet, v *model.Creature) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Creature(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FieldError(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFieldError2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐFieldErrorᚄ(ctx context.Context, sel ast.SelectionSet, v []model.FieldError) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐFieldError(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNRegisterCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐRegisterCreatureInput(ctx context.Context, v any) (model.RegisterCreatureInput, error) {
+	res, err := ec.unmarshalInputRegisterCreatureInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRegisterCreatureResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋcmsᚋuifᚋgraphqlᚋmodelᚐRegisterCreatureResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterCreatureResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RegisterCreatureResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -2008,6 +3001,22 @@ func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) 
 func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (uuid.UUID, error) {
+	res, err := graphql.UnmarshalUUID(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, sel ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalUUID(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")

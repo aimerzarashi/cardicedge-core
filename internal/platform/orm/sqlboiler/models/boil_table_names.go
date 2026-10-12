@@ -4,17 +4,17 @@
 package models
 
 var TableNames = struct {
-	DomainEntityTypes string
-	DomainEventTypes  string
-	DomainEvents      string
-	DomainIdentifiers string
-	OperatorSubjects  string
-	Operators         string
+	DomainEntityTypes    string
+	DomainEventTypes     string
+	DomainEvents         string
+	DomainIdentifiers    string
+	DomainUniqueKeyTypes string
+	DomainUniqueKeys     string
 }{
-	DomainEntityTypes: "domain_entity_types",
-	DomainEventTypes:  "domain_event_types",
-	DomainEvents:      "domain_events",
-	DomainIdentifiers: "domain_identifiers",
-	OperatorSubjects:  "operator_subjects",
-	Operators:         "operators",
+	DomainEntityTypes:    "domain_entity_types",
+	DomainEventTypes:     "domain_event_types",
+	DomainEvents:         "domain_events",
+	DomainIdentifiers:    "domain_identifiers",
+	DomainUniqueKeyTypes: "domain_unique_key_types",
+	DomainUniqueKeys:     "domain_unique_keys",
 }

@@ -7,8 +7,10 @@ var ViewNames = struct {
 	DomainEventTypeView  string
 	DomainEventView      string
 	DomainIdentifierView string
+	DomainUniqueKeyView  string
 }{
 	DomainEventTypeView:  "domain_event_type_view",
 	DomainEventView:      "domain_event_view",
 	DomainIdentifierView: "domain_identifier_view",
+	DomainUniqueKeyView:  "domain_unique_key_view",
 }

@@ -19,8 +19,8 @@ func (m EventMeta[I]) GetMeta() EventMeta[I] {
 type Event[I ID] interface {
 	GetMeta() EventMeta[I]
 	// 種別名を型名からリフレクションで取り出さず宣言させるのは、型の名前を変えただけで
-	// domain_event_types と食い違うのを防ぐため（起動時に typeregistry.Verify で照合する）
-	EventType() string
+	// domain_event_types と食い違うのを防ぐため（起動時に domaindef.Verify で照合する）
+	EventType() EventName
 	// 版をイベントの型に持たせるのは、Decide が保存の都合（版）を気にせずに済むようにするため
 	SchemaVersion() int
 }
@@ -31,7 +31,14 @@ type EventType[I ID, E Event[I]] interface {
 	Unmarshal(meta EventMeta[I], schemaVersion int, payload []byte) (E, error)
 }
 
-type NewEventTypeFunc[I ID, E Event[I]] func(string) EventType[I, E]
+type NewEventTypeFunc[I ID, E Event[I]] func(EventName) EventType[I, E]
+
+// イベントの種別名（domain_event_types の名前）。各集約だけが生成関数で宣言する（EntityType と同じ理由で string にしない）
+type EventName string
+
+func NewEventName(name string) EventName { return EventName(name) }
+
+func (n EventName) String() string { return string(n) }
 
 type InitialStateFunc[S any] func() S
 
@@ -45,6 +52,6 @@ type EventStore[I ID, E Event[I], S any] interface {
 // AggregateTypes は集約が宣言する種別名とイベント種別名。起動時に domain_entity_types・domain_event_types と照合し、
 // マイグレーションの足し忘れや名前の食い違いを、使うときではなく起動時に検出する（設計メモ 4 節の fail-fast）
 type AggregateTypes struct {
-	EntityType string
-	EventTypes []string
+	EntityType EntityType
+	EventTypes []EventName
 }
