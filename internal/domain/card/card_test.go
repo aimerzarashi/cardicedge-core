@@ -42,18 +42,28 @@ func TestNewName_RejectsInvalidValue(t *testing.T) {
 	}
 }
 
-func TestName_NormalizedUnifiesFullWidthAndHalfWidth(t *testing.T) {
-	full := cardtest.Name(t, "ＡＢＣ１２３")
-	half := cardtest.Name(t, "ABC123")
-
-	require.Equal(t, half.Normalized(), full.Normalized())
-	require.Equal(t, "ＡＢＣ１２３", full.String())
+func TestNormalizeName_UnifiesWidthAndCase(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "full_width", value: "ＡＢＣ１２３", want: "abc123"},
+		{name: "upper_case", value: "Apple", want: "apple"},
+		{name: "upper_case_made_by_nfkc", value: "Ⅻ", want: "xii"},
+		{name: "half_width_katakana", value: "ﾄﾞﾗｺﾞﾝ", want: "ドラゴン"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, card.NormalizeName(tt.value))
+		})
+	}
 }
 
 func TestNameKey_UsesNormalizedName(t *testing.T) {
 	full := card.NameKey(cardtest.Name(t, "ＡＢＣ"))
-	half := card.NameKey(cardtest.Name(t, " ABC "))
+	half := card.NameKey(cardtest.Name(t, " abc "))
 
 	require.Equal(t, half, full)
-	require.Equal(t, "ABC", full.Value())
+	require.Equal(t, "abc", full.Value())
 }

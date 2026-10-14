@@ -53,6 +53,11 @@ func TestUpdateCreatureName_RejectsNameUsedByOtherCard(t *testing.T) {
 			again: func(t *testing.T) string { return cardName(t, "ＡＢＣ") },
 		},
 		{
+			name:  "upper_case_and_lower_case",
+			used:  func(t *testing.T) string { return cardName(t, "Apple") },
+			again: func(t *testing.T) string { return cardName(t, "apple") },
+		},
+		{
 			name:  "surrounding_whitespace",
 			used:  func(t *testing.T) string { return cardName(t, "ドラゴン") },
 			again: func(t *testing.T) string { return "  " + cardName(t, "ドラゴン") + " " },
