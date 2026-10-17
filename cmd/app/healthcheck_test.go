@@ -9,7 +9,9 @@ import (
 )
 
 func TestCheckHealth_OK(t *testing.T) {
-	srv := httptest.NewServer(newRouter())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 	defer srv.Close()
 
 	require.NoError(t, checkHealth(t.Context(), srv.URL+"/health"))

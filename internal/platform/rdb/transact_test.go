@@ -12,17 +12,12 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
-// commit そのものを確かめるため、最後に rollback する rdbtest.Tx は使わず、テスト用のテーブルを作って消す
+// commit そのものを確かめるため、最後に rollback する rdbtest.Tx は使わず、複製した DB にテスト用の表を作る
 func openTestDB(t *testing.T) (context.Context, *sql.DB) {
 	t.Helper()
-	db := rdbtest.Open(t)
-
-	table := "rdb_transact_test"
-	_, err := db.ExecContext(t.Context(), `CREATE TABLE IF NOT EXISTS `+table+` (name TEXT PRIMARY KEY)`)
+	db, _ := rdbtest.NewDatabase(t)
+	_, err := db.ExecContext(t.Context(), `CREATE TABLE rdb_transact_test (name TEXT PRIMARY KEY)`)
 	require.NoError(t, err)
-	_, err = db.ExecContext(t.Context(), `TRUNCATE `+table)
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Exec(`DROP TABLE IF EXISTS ` + table) })
 	return rdb.WithDB(t.Context(), db), db
 }
 

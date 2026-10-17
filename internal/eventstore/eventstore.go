@@ -14,10 +14,15 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
-type eventStore[I domain.ID, E domain.Event[I], S any] struct {
+// Load と EventLoader で、domain_events の読み方と復元を 1 か所にするため分ける
+type reader[I domain.ID, E domain.Event[I]] struct {
 	registry     *domaindef.Registry
 	newID        domain.NewIDFunc[I]
 	newEventType domain.NewEventTypeFunc[I, E]
+}
+
+type eventStore[I domain.ID, E domain.Event[I], S any] struct {
+	reader[I, E]
 	initialState domain.InitialStateFunc[S]
 	evolve       domain.EvolveFunc[S, E]
 }
@@ -29,7 +34,11 @@ func New[I domain.ID, E domain.Event[I], S any](
 	initialState domain.InitialStateFunc[S],
 	evolve domain.EvolveFunc[S, E],
 ) domain.EventStore[I, E, S] {
-	return &eventStore[I, E, S]{registry: registry, newID: newID, newEventType: newEventType, initialState: initialState, evolve: evolve}
+	return &eventStore[I, E, S]{
+		reader:       reader[I, E]{registry: registry, newID: newID, newEventType: newEventType},
+		initialState: initialState,
+		evolve:       evolve,
+	}
 }
 
 // 同じ集約・同じ版のイベントの衝突（同時の更新）を、一意制約違反のエラーではなく、行が返らないことで知る。
@@ -80,13 +89,27 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 
 func (s *eventStore[I, E, S]) Load(ctx context.Context, entityID I) (S, error) {
 	var zero S
-	exec, err := rdb.GetExecutor(ctx)
+	events, err := s.loadEvents(ctx, entityID)
 	if err != nil {
 		return zero, err
 	}
-	entityTypeID, err := s.registry.EntityTypeID(entityID.EntityType())
+	state := s.initialState()
+	for _, event := range events {
+		if state, err = s.evolve(state, event); err != nil {
+			return zero, err
+		}
+	}
+	return state, nil
+}
+
+func (r *reader[I, E]) loadEvents(ctx context.Context, entityID I) ([]E, error) {
+	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
-		return zero, err
+		return nil, err
+	}
+	entityTypeID, err := r.registry.EntityTypeID(entityID.EntityType())
+	if err != nil {
+		return nil, err
 	}
 	// entity_id は種別をまたいで重なりうる（集約ごとに別の ID 型）ため、entity_type_id でも絞る（設計メモ 6 節の 3）
 	rows, err := models.DomainEvents(
@@ -95,32 +118,29 @@ func (s *eventStore[I, E, S]) Load(ctx context.Context, entityID I) (S, error) {
 		qm.OrderBy(models.DomainEventColumns.AggregateVersion+" ASC"),
 	).All(ctx, exec)
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
-
-	state := s.initialState()
+	events := make([]E, 0, len(rows))
 	for _, row := range rows {
-		event, err := s.decode(row)
+		event, err := r.decode(row)
 		if err != nil {
-			return zero, err
+			return nil, err
 		}
-		if state, err = s.evolve(state, event); err != nil {
-			return zero, err
-		}
+		events = append(events, event)
 	}
-	return state, nil
+	return events, nil
 }
 
-func (s *eventStore[I, E, S]) decode(row *models.DomainEvent) (E, error) {
+func (r *reader[I, E]) decode(row *models.DomainEvent) (E, error) {
 	var zero E
-	id, err := s.newID(row.EntityID)
+	id, err := r.newID(row.EntityID)
 	if err != nil {
 		return zero, err
 	}
-	name, err := s.registry.EventTypeName(domaindef.NewEventTypeID(row.EventTypeID))
+	name, err := r.registry.EventTypeName(domaindef.NewEventTypeID(row.EventTypeID))
 	if err != nil {
 		return zero, err
 	}
 	meta := domain.EventMeta[I]{EntityID: id, AggregateVersion: row.AggregateVersion, OccurredAt: row.CreatedAt}
-	return s.newEventType(name).Unmarshal(meta, row.EventTypeVersion, row.Payload)
+	return r.newEventType(name).Unmarshal(meta, row.EventTypeVersion, row.Payload)
 }

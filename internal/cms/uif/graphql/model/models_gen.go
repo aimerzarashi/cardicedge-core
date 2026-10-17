@@ -3,8 +3,32 @@
 package model
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+
 	"github.com/google/uuid"
 )
+
+// カード（Creature・Item・Spell）。種類は __typename で見分け、種類ごとの項目は断片（... on Creature 等）で取る
+type Card interface {
+	IsCard()
+	// 公開用の ID
+	GetID() uuid.UUID
+	// カード名
+	GetName() string
+	// 登録した日時
+	GetRegisteredAt() time.Time
+	// 最後に変更した日時（変更していなければ登録した日時）
+	GetUpdatedAt() time.Time
+}
+
+// カードの一覧の結果
+type CardsResult interface {
+	IsCardsResult()
+}
 
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
@@ -16,6 +40,32 @@ type FieldError interface {
 // クリーチャーの登録の結果
 type RegisterCreatureResult interface {
 	IsRegisterCreatureResult()
+}
+
+// カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
+type CardConnection struct {
+	// このページのカード
+	Edges []*CardEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (CardConnection) IsCardsResult() {}
+
+// カードの一覧の 1 件と、その位置
+type CardEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// カード
+	Node Card `json:"node"`
+}
+
+// カードの一覧の絞り込み
+type CardFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角の英数字などの違いは無視する）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 種類（指定が無ければすべて）
+	Types []CardType `json:"types,omitempty"`
 }
 
 // カード名が、ほかのカード（Creature・Item・Spell のどれか）ですでに使われている。前後の空白を除き、全角・半角の英数字などを同じ文字とみなして比べる
@@ -32,9 +82,27 @@ type Creature struct {
 	ID uuid.UUID `json:"id"`
 	// カード名（登録したときの表記。前後の空白は除く）
 	Name string `json:"name"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// 入力の形が正しくない（メールアドレスとして読めない等）
+func (Creature) IsCard() {}
+
+// 公開用の ID
+func (this Creature) GetID() uuid.UUID { return this.ID }
+
+// カード名
+func (this Creature) GetName() string { return this.Name }
+
+// 登録した日時
+func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
+
+// 最後に変更した日時（変更していなければ登録した日時）
+func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// 入力の形が正しくない（メールアドレスとして読めない、ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
 	Field string `json:"field"`
@@ -44,6 +112,21 @@ func (FieldInvalidFormat) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が範囲の外
+type FieldOutOfRange struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 範囲の下限（この値を含む）
+	Min int `json:"min"`
+	// 範囲の上限（この値を含む）
+	Max int `json:"max"`
+}
+
+func (FieldOutOfRange) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+func (this FieldOutOfRange) GetField() string { return this.Field }
 
 // 入力が空（前後の空白だけの場合を含む）
 type FieldRequired struct {
@@ -75,9 +158,23 @@ type ForbiddenError struct {
 	Message string `json:"message"`
 }
 
+func (ForbiddenError) IsCardsResult() {}
+
 func (ForbiddenError) IsRegisterCreatureResult() {}
 
 type Mutation struct {
+}
+
+// ページの情報
+type PageInfo struct {
+	// 次のページがあるか
+	HasNextPage bool `json:"hasNextPage"`
+	// 前のページがあるか（after を指定したら true）
+	HasPreviousPage bool `json:"hasPreviousPage"`
+	// このページの最初の 1 件の位置
+	StartCursor *string `json:"startCursor,omitempty"`
+	// このページの最後の 1 件の位置（次のページは after にこれを渡す）
+	EndCursor *string `json:"endCursor,omitempty"`
 }
 
 type Query struct {
@@ -103,4 +200,64 @@ type ValidationErrors struct {
 	Errors []FieldError `json:"errors"`
 }
 
+func (ValidationErrors) IsCardsResult() {}
+
 func (ValidationErrors) IsRegisterCreatureResult() {}
+
+// カードの種類（一覧の絞り込みに使う）
+type CardType string
+
+const (
+	CardTypeCreature CardType = "CREATURE"
+	CardTypeItem     CardType = "ITEM"
+	CardTypeSpell    CardType = "SPELL"
+)
+
+var AllCardType = []CardType{
+	CardTypeCreature,
+	CardTypeItem,
+	CardTypeSpell,
+}
+
+func (e CardType) IsValid() bool {
+	switch e {
+	case CardTypeCreature, CardTypeItem, CardTypeSpell:
+		return true
+	}
+	return false
+}
+
+func (e CardType) String() string {
+	return string(e)
+}
+
+func (e *CardType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardType", str)
+	}
+	return nil
+}
+
+func (e CardType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}

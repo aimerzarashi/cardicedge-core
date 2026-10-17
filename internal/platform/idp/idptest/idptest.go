@@ -29,9 +29,18 @@ type Key struct {
 
 func NewKey(t testing.TB, kid string) Key {
 	t.Helper()
-	_, private, err := ed25519.GenerateKey(rand.Reader)
+	key, err := GenerateKey(kid)
 	require.NoError(t, err)
-	return Key{kid: kid, private: private}
+	return key
+}
+
+// NewKey と同じ。testing.T が無いところ（結合テストの TestMain）で使う
+func GenerateKey(kid string) (Key, error) {
+	_, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return Key{}, err
+	}
+	return Key{kid: kid, private: private}, nil
 }
 
 func (k Key) Kid() string {
@@ -87,11 +96,17 @@ type JWKSServer struct {
 
 func NewJWKSServer(t testing.TB, keys ...Key) *JWKSServer {
 	t.Helper()
+	s, closeServer := StartJWKSServer(keys...)
+	t.Cleanup(closeServer)
+	return s
+}
+
+// NewJWKSServer と同じ。testing.T が無いところ（結合テストの TestMain）で使うため、止める関数を返す
+func StartJWKSServer(keys ...Key) (*JWKSServer, func()) {
 	s := &JWKSServer{keys: keys}
 	server := httptest.NewServer(s)
-	t.Cleanup(server.Close)
 	s.URL = server.URL
-	return s
+	return s, server.Close
 }
 
 func (s *JWKSServer) SetKeys(keys ...Key) {

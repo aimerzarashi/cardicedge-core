@@ -2,7 +2,6 @@ package command_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -13,6 +12,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
@@ -25,7 +25,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
 func newCreatureCommands(t *testing.T, ctx context.Context) *command.CreatureCommands {
@@ -38,15 +37,6 @@ func newCreatureCommands(t *testing.T, ctx context.Context) *command.CreatureCom
 		constraint.UpdateCreatureName,
 		func() time.Time { return time.Now().UTC() },
 	)
-}
-
-var cardNameSuffixes sync.Map
-
-// 開発用の DB に残っているカードの名前とぶつからないよう、テストごとに別の名前にする（同じテストの中では同じ値）
-func cardName(t *testing.T, base string) string {
-	t.Helper()
-	suffix, _ := cardNameSuffixes.LoadOrStore(t.Name(), uuid.NewString())
-	return fmt.Sprintf("%s-%s", base, suffix)
 }
 
 // 認証ミドルウェアが載せるのと同じく、操作した人を context に載せる。
@@ -78,23 +68,27 @@ func creatureIDByName(t *testing.T, ctx context.Context, name string) creature.I
 }
 
 func TestRegisterCreature_ReturnsRegisteredCreature(t *testing.T) {
-	ctx := signedIn(t, rdbtest.Tx(t), registrant(t))
-	name := cardName(t, "ドラゴン")
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	name := "ドラゴン"
+	before := time.Now().UTC()
 
 	registered, err := newCreatureCommands(t, ctx).Register(ctx, "  "+name+" ")
 
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, registered.ID)
 	require.Equal(t, name, registered.Name)
+	require.WithinRange(t, registered.RegisteredAt, before, time.Now().UTC())
+	// 登録した直後は変更が無い
+	require.Equal(t, registered.RegisteredAt, registered.UpdatedAt)
 }
 
 func TestRegisterCreature_RejectsNameAlreadyInUse(t *testing.T) {
-	ctx := signedIn(t, rdbtest.Tx(t), registrant(t))
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureCommands(t, ctx)
-	_, err := commands.Register(ctx, "ＡＢＣ"+cardName(t, ""))
+	_, err := commands.Register(ctx, "ＡＢＣ")
 	require.NoError(t, err)
 
-	_, err = commands.Register(ctx, " ABC"+cardName(t, ""))
+	_, err = commands.Register(ctx, " ABC")
 
 	require.ErrorIs(t, err, command.ErrCardNameAlreadyInUse)
 }
@@ -103,36 +97,36 @@ func TestRegisterCreature_RejectsInvalidName(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
-		want  command.InputError
+		want  input.Error
 	}{
-		{name: "blank", value: " ", want: &command.RequiredInput{Field: "name"}},
-		{name: "too_long", value: strings.Repeat("あ", card.MaxNameLength+1), want: &command.TooLongInput{Field: "name", Max: card.MaxNameLength}},
+		{name: "blank", value: " ", want: &input.Required{Field: "name"}},
+		{name: "too_long", value: strings.Repeat("あ", card.MaxNameLength+1), want: &input.TooLong{Field: "name", Max: card.MaxNameLength}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := signedIn(t, rdbtest.Tx(t), registrant(t))
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 
 			_, err := newCreatureCommands(t, ctx).Register(ctx, tt.value)
 
-			invalid, ok := command.AsInputErrors(err)
+			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
-			require.Equal(t, command.InputErrors{tt.want}, invalid)
+			require.Equal(t, input.Errors{tt.want}, invalid)
 		})
 	}
 }
 
 func TestRegisterCreature_RejectsWithoutOperator(t *testing.T) {
-	ctx := rdbtest.Tx(t)
+	ctx := isolatedDatabase(t)
 
-	_, err := newCreatureCommands(t, ctx).Register(ctx, cardName(t, "ドラゴン"))
+	_, err := newCreatureCommands(t, ctx).Register(ctx, "ドラゴン")
 
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
 
 func TestRegisterCreature_RecordsOperatorInEvent(t *testing.T) {
 	by := operatortest.ID(t, 42)
-	ctx := signedIn(t, rdbtest.Tx(t), by)
-	name := cardName(t, "ドラゴン")
+	ctx := signedIn(t, isolatedDatabase(t), by)
+	name := "ドラゴン"
 	_, err := newCreatureCommands(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
@@ -147,10 +141,8 @@ func TestRegisterCreature_RecordsOperatorInEvent(t *testing.T) {
 
 // 同時に同じ名前で登録しても、1 つだけ登録される
 func TestRegisterCreature_RegistersOnceWhenCalledConcurrently(t *testing.T) {
-	db := rdbtest.Open(t)
-	name := cardName(t, "同時")
-	constrainttest.Cleanup(t, db, card.NameKey(cardtest.Name(t, name)))
-	ctx := signedIn(t, rdb.WithDB(t.Context(), db), registrant(t))
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	name := "ドラゴン"
 	commands := newCreatureCommands(t, ctx)
 
 	const callers = 20

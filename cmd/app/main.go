@@ -8,22 +8,26 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"slices"
 	"syscall"
 	"time"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/cms"
 )
 
 const (
 	listenAddr = ":3333"
 	// docker compose の stop_grace_period・air の kill_delay より短くする
 	shutdownTimeout = 10 * time.Second
+	// ①の規模（カードは数百件、操作するのはオペレーターだけ）で足りる本数。測ってから変える。
+	// DB の接続の上限を設けるときは、上限がこの本数を上回るかを確かめる（rdb.Open）
+	projectionWorkerCount = 4
+	// 起動時と再接続時は間隔によらずすぐ読むため、間隔で拾うのは失敗した集約の試し直しと、手で入れたやることの行（参照の api と同じ値）
+	pollInterval = 30 * time.Second
 )
 
 var (
@@ -64,36 +68,33 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer db.Close()
-
-	registry, err := domaindef.Load(rdb.WithDB(ctx, db))
+	verifier, err := idp.NewVerifier(ctx, cfg.CMS.JWKSURL, cfg.CMS.Issuer, cfg.CMS.Audience)
 	if err != nil {
 		return err
 	}
-	// 集約が宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する
-	if err := registry.Verify(operator.Types(), creature.Types()); err != nil {
-		return fmt.Errorf("domain types do not match migrations: %w", err)
-	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes())...); err != nil {
-		return fmt.Errorf("unique key types do not match migrations: %w", err)
-	}
 
-	cms, err := newCMSAPI(ctx, registry, cfg.CMS)
+	cmsConfig := cms.Config{Verifier: verifier, Issuer: cfg.CMS.Issuer}
+	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
+	app, err := wiring.Start(ctx, wiring.Config{
+		DB:                   db,
+		DSN:                  cfg.DBDSN,
+		Version:              version,
+		CMS:                  cmsConfig,
+		InitialOperatorEmail: cfg.InitialOperatorEmail,
+		EventDriven:          eventDriven,
+	})
 	if err != nil {
 		return err
 	}
-	if err := cms.registerInitialOperator(ctx, db, cfg.InitialOperatorEmail); err != nil {
-		return err
-	}
-
-	mux := newRouter()
-	cms.mount(mux, db)
+	// serve が HTTP を止めて返った後に止まる（defer は後に登録したものから先に動くため、db.Close より先）
+	defer app.Stop()
 
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", listenAddr, err)
 	}
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{Handler: app.Handler}
 	slog.Info("HTTP server started", "addr", ln.Addr().String(), "version", version)
 
 	return serve(ctx, server, ln, shutdownTimeout)

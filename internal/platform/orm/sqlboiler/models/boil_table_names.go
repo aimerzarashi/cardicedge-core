@@ -4,17 +4,27 @@
 package models
 
 var TableNames = struct {
-	DomainEntityTypes    string
-	DomainEventTypes     string
-	DomainEvents         string
-	DomainIdentifiers    string
-	DomainUniqueKeyTypes string
-	DomainUniqueKeys     string
+	CardLists                  string
+	DomainEntityTypes          string
+	DomainEventTypes           string
+	DomainEvents               string
+	DomainIdentifiers          string
+	DomainUniqueKeyTypes       string
+	DomainUniqueKeys           string
+	EventSubscriberCheckpoints string
+	EventSubscriberPending     string
+	EventSubscribers           string
+	EventSubscriptions         string
 }{
-	DomainEntityTypes:    "domain_entity_types",
-	DomainEventTypes:     "domain_event_types",
-	DomainEvents:         "domain_events",
-	DomainIdentifiers:    "domain_identifiers",
-	DomainUniqueKeyTypes: "domain_unique_key_types",
-	DomainUniqueKeys:     "domain_unique_keys",
+	CardLists:                  "card_lists",
+	DomainEntityTypes:          "domain_entity_types",
+	DomainEventTypes:           "domain_event_types",
+	DomainEvents:               "domain_events",
+	DomainIdentifiers:          "domain_identifiers",
+	DomainUniqueKeyTypes:       "domain_unique_key_types",
+	DomainUniqueKeys:           "domain_unique_keys",
+	EventSubscriberCheckpoints: "event_subscriber_checkpoints",
+	EventSubscriberPending:     "event_subscriber_pending",
+	EventSubscribers:           "event_subscribers",
+	EventSubscriptions:         "event_subscriptions",
 }

@@ -17,6 +17,13 @@ down:
 migrate:
 	docker compose run --rm core-migrate
 
+# ユニットテストが複製するテンプレート（core_template）を、無ければ作り、マイグレーションを流す（make test の前に必ず実行する）。
+# テンプレートは core と分けるのは、アプリやテストが書き込む DB を複製すると、書き込みの途中を写しうるため
+.PHONY: migrate-template
+migrate-template:
+	docker compose exec core go run ./tools/createdb -name core_template
+	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable" core-migrate
+
 # migrations/ のファイルを足したら実行し、atlas.sum を作り直す（SQL と一緒にコミットする）
 .PHONY: migrate-hash
 migrate-hash:
@@ -55,5 +62,5 @@ lint:
 
 # テスト
 .PHONY: test
-test:
+test: migrate-template
 	docker compose exec core go test ./... -race
