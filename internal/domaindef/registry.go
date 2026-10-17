@@ -34,7 +34,12 @@ func (id EventTypeID) Int16() int16 {
 	return int16(id)
 }
 
-// domain_events から読んだ値を型にする（読み込むときだけ使う）
+// domain_events や通知から読んだ値を型にする（読み込むときだけ使う）
+func NewEntityTypeID(value int16) EntityTypeID {
+	return EntityTypeID(value)
+}
+
+// domain_events や通知から読んだ値を型にする（読み込むときだけ使う）
 func NewEventTypeID(value int16) EventTypeID {
 	return EventTypeID(value)
 }

@@ -5,3 +5,62 @@ type CardNameAlreadyInUseError {
   "開発者向けの説明（画面にそのまま出す文言ではない）"
   message: String!
 }
+
+"カード（Creature・Item・Spell）。種類は __typename で見分け、種類ごとの項目は断片（... on Creature 等）で取る"
+interface Card {
+  "公開用の ID"
+  id: UUID!
+  "カード名"
+  name: String!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+"カードの種類（一覧の絞り込みに使う）"
+enum CardType {
+  CREATURE
+  ITEM
+  SPELL
+}
+
+"カードの一覧の絞り込み"
+input CardFilter {
+  "名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）"
+  nameContains: String
+  "種類（指定が無ければすべて。空のリストは入力の誤り）"
+  types: [CardType!]
+}
+
+"カードの一覧の 1 件と、その位置"
+type CardEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "カード"
+  node: Card!
+}
+
+"カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）"
+type CardConnection {
+  "このページのカード"
+  edges: [CardEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"カードの一覧の結果"
+union CardsResult = CardConnection | ValidationErrors | ForbiddenError
+
+extend type Query {
+  "カードの一覧（紐づいたオペレーターだけ）"
+  cards(
+    "絞り込み"
+    filter: CardFilter
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): CardsResult!
+}
+

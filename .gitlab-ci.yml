@@ -53,7 +53,7 @@ lint:
       if [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
       scripts/check-migrations.sh $base
 
-# make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する
+# make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する（core と、ユニットテストが複製するテンプレートの core_template）
 test:
   stage: test
   extends: .on-mr-and-main
@@ -70,6 +70,9 @@ test:
     - curl -sSfL -o /usr/local/bin/atlas "https://release.ariga.io/atlas/atlas-community-linux-amd64-v${ATLAS_VERSION}"
     - chmod +x /usr/local/bin/atlas
     - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
+    # ユニットテストが複製するテンプレート（make test の migrate-template と同じ）
+    - go run ./tools/createdb -name core_template
+    - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable"
     - go test ./... -race
 
 # MR の確認用イメージ（手動）。アプリとマイグレーション用イメージを GitLab Container Registry に mr-<MR番号> で push する

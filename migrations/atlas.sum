@@ -1,4 +1,4 @@
-h1:QfYUSZ0e4G+Afb2y3LffwGcq/YOL7mAl8IeydszY+rA=
+h1:dA3vQ7FETZpACF2gcAFoDO+WmIYkKnqdUax4NnqjufI=
 0001_create_domain_entity_types.sql h1:jacKh6jcfiZQyZlQT1bfZBv4cF+8JiK04i9fyFPy5Dc=
 0002_create_domain_event_types.sql h1:Fl6Rcbg+vxKagVZkMT6NLNQHhRcdY6O5Kq0QoB46e8U=
 0003_create_domain_identifiers.sql h1:pna7BYPLMcr8/zCL43KfrjaZ6D6YG5Hgmz2HgfKPRmU=
@@ -7,3 +7,6 @@ h1:QfYUSZ0e4G+Afb2y3LffwGcq/YOL7mAl8IeydszY+rA=
 0006_create_operators.sql h1:Y5sosN2OFkk7Ppz/X0eyPpqo8LJj1xJCiBCmkq9gI7U=
 0007_create_domain_debug_views.sql h1:YalAaS4wwcAHyOLEamkRwzwVWHf6c2/n+Hk+eodO8gc=
 0008_create_creature_and_domain_unique_keys.sql h1:wyfJqgUXCzDRMJ6UBB0Nro1O0D1onxv3sFUVA2KScms=
+0009_create_event_subscribers.sql h1:MgcT+n5fmSV+SW0i9tspcUqCqLg6PjSxmUBOugrQBWw=
+0010_create_card_lists.sql h1:W3lqnLSnyCEFYdI+PDWSS1SpbD8QySVPqo7uGs8voDk=
+0011_create_event_subscriber_pending.sql h1:Yk5prjBFChYrY6IpSK6NN/gD7Nzqt4f0VgtZKaThFY0=

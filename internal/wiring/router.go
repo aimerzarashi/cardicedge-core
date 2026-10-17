@@ -1,4 +1,4 @@
-package main
+package wiring
 
 import (
 	"encoding/json"
@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// newRouter は /version・/health を提供するルーターを作る。
-func newRouter() chi.Router {
+// /version・/health を提供するルーター。機能ごとの入口はこれに付ける
+func NewRouter(version string) chi.Router {
 	mux := chi.NewRouter()
 	mux.Use(middleware.RequestID)
 	mux.Use(middleware.Logger)

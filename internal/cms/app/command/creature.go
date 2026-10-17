@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
@@ -32,11 +33,13 @@ func NewCreatureCommands(
 
 // uif にドメインの型（creature.Creature・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredCreature struct {
-	ID   uuid.UUID
-	Name string
+	ID           uuid.UUID
+	Name         string
+	RegisteredAt time.Time
+	UpdatedAt    time.Time
 }
 
-// 操作した人は context のオペレーター（認証ミドルウェアが載せる）。入力の誤りは InputErrors、
+// 操作した人は context のオペレーター（認証ミドルウェアが載せる）。入力の誤りは input.Errors、
 // 使われている名前なら ErrCardNameAlreadyInUse
 func (c *CreatureCommands) Register(ctx context.Context, name string) (RegisteredCreature, error) {
 	registeredBy, ok := authentication.Operator(ctx)
@@ -45,7 +48,7 @@ func (c *CreatureCommands) Register(ctx context.Context, name string) (Registere
 	}
 	cardName, invalid := newCardName("name", name)
 	if invalid != nil {
-		return RegisteredCreature{}, InputErrors{invalid}
+		return RegisteredCreature{}, input.Errors{invalid}
 	}
 	registered, err := rdb.Transact(ctx, func(ctx context.Context) (creature.Creature, error) {
 		id, publicID, err := c.identifier.Issue(ctx)
@@ -77,5 +80,9 @@ func (c *CreatureCommands) Register(ctx context.Context, name string) (Registere
 	if err != nil {
 		return RegisteredCreature{}, err
 	}
-	return RegisteredCreature{ID: registered.PublicID, Name: registered.Name.String()}, nil
+	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
+	return RegisteredCreature{
+		ID: registered.PublicID, Name: registered.Name.String(),
+		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.RegisteredAt,
+	}, nil
 }

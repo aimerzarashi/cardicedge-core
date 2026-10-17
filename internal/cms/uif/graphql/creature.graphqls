@@ -1,9 +1,13 @@
 "クリーチャー（カードの種類の 1 つ）"
-type Creature {
+type Creature implements Card {
   "公開用の ID"
   id: UUID!
   "カード名（登録したときの表記。前後の空白は除く）"
   name: String!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
 }
 
 "クリーチャーを登録する入力"

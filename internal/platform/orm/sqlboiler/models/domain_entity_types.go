@@ -50,60 +50,6 @@ var DomainEntityTypeTableColumns = struct {
 
 // Generated where
 
-type whereHelperint16 struct{ field string }
-
-func (w whereHelperint16) EQ(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint16) NEQ(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint16) LT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint16) LTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint16) GT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint16) GTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperint16) IN(slice []int16) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
-type whereHelperstring struct{ field string }
-
-func (w whereHelperstring) EQ(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperstring) NEQ(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperstring) LT(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperstring) LTE(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperstring) GT(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperstring) GTE(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperstring) LIKE(x string) qm.QueryMod    { return qm.Where(w.field+" LIKE ?", x) }
-func (w whereHelperstring) NLIKE(x string) qm.QueryMod   { return qm.Where(w.field+" NOT LIKE ?", x) }
-func (w whereHelperstring) ILIKE(x string) qm.QueryMod   { return qm.Where(w.field+" ILIKE ?", x) }
-func (w whereHelperstring) NILIKE(x string) qm.QueryMod  { return qm.Where(w.field+" NOT ILIKE ?", x) }
-func (w whereHelperstring) SIMILAR(x string) qm.QueryMod { return qm.Where(w.field+" SIMILAR TO ?", x) }
-func (w whereHelperstring) NSIMILAR(x string) qm.QueryMod {
-	return qm.Where(w.field+" NOT SIMILAR TO ?", x)
-}
-func (w whereHelperstring) IN(slice []string) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
 var DomainEntityTypeWhere = struct {
 	ID   whereHelperint16
 	Name whereHelperstring
@@ -114,20 +60,29 @@ var DomainEntityTypeWhere = struct {
 
 // DomainEntityTypeRels is where relationship names are stored.
 var DomainEntityTypeRels = struct {
-	EntityTypeDomainEventTypes  string
-	EntityTypeDomainEvents      string
-	EntityTypeDomainIdentifiers string
+	EntityTypeDomainEventTypes           string
+	EntityTypeDomainEvents               string
+	EntityTypeDomainIdentifiers          string
+	EntityTypeEventSubscriberCheckpoints string
+	EntityTypeEventSubscriberPendings    string
+	SubscriberEventSubscribers           string
 }{
-	EntityTypeDomainEventTypes:  "EntityTypeDomainEventTypes",
-	EntityTypeDomainEvents:      "EntityTypeDomainEvents",
-	EntityTypeDomainIdentifiers: "EntityTypeDomainIdentifiers",
+	EntityTypeDomainEventTypes:           "EntityTypeDomainEventTypes",
+	EntityTypeDomainEvents:               "EntityTypeDomainEvents",
+	EntityTypeDomainIdentifiers:          "EntityTypeDomainIdentifiers",
+	EntityTypeEventSubscriberCheckpoints: "EntityTypeEventSubscriberCheckpoints",
+	EntityTypeEventSubscriberPendings:    "EntityTypeEventSubscriberPendings",
+	SubscriberEventSubscribers:           "SubscriberEventSubscribers",
 }
 
 // domainEntityTypeR is where relationships are stored.
 type domainEntityTypeR struct {
-	EntityTypeDomainEventTypes  DomainEventTypeSlice  `boil:"EntityTypeDomainEventTypes" json:"EntityTypeDomainEventTypes" toml:"EntityTypeDomainEventTypes" yaml:"EntityTypeDomainEventTypes"`
-	EntityTypeDomainEvents      DomainEventSlice      `boil:"EntityTypeDomainEvents" json:"EntityTypeDomainEvents" toml:"EntityTypeDomainEvents" yaml:"EntityTypeDomainEvents"`
-	EntityTypeDomainIdentifiers DomainIdentifierSlice `boil:"EntityTypeDomainIdentifiers" json:"EntityTypeDomainIdentifiers" toml:"EntityTypeDomainIdentifiers" yaml:"EntityTypeDomainIdentifiers"`
+	EntityTypeDomainEventTypes           DomainEventTypeSlice           `boil:"EntityTypeDomainEventTypes" json:"EntityTypeDomainEventTypes" toml:"EntityTypeDomainEventTypes" yaml:"EntityTypeDomainEventTypes"`
+	EntityTypeDomainEvents               DomainEventSlice               `boil:"EntityTypeDomainEvents" json:"EntityTypeDomainEvents" toml:"EntityTypeDomainEvents" yaml:"EntityTypeDomainEvents"`
+	EntityTypeDomainIdentifiers          DomainIdentifierSlice          `boil:"EntityTypeDomainIdentifiers" json:"EntityTypeDomainIdentifiers" toml:"EntityTypeDomainIdentifiers" yaml:"EntityTypeDomainIdentifiers"`
+	EntityTypeEventSubscriberCheckpoints EventSubscriberCheckpointSlice `boil:"EntityTypeEventSubscriberCheckpoints" json:"EntityTypeEventSubscriberCheckpoints" toml:"EntityTypeEventSubscriberCheckpoints" yaml:"EntityTypeEventSubscriberCheckpoints"`
+	EntityTypeEventSubscriberPendings    EventSubscriberPendingSlice    `boil:"EntityTypeEventSubscriberPendings" json:"EntityTypeEventSubscriberPendings" toml:"EntityTypeEventSubscriberPendings" yaml:"EntityTypeEventSubscriberPendings"`
+	SubscriberEventSubscribers           EventSubscriberSlice           `boil:"SubscriberEventSubscribers" json:"SubscriberEventSubscribers" toml:"SubscriberEventSubscribers" yaml:"SubscriberEventSubscribers"`
 }
 
 // NewStruct creates a new relationship struct
@@ -181,6 +136,54 @@ func (r *domainEntityTypeR) GetEntityTypeDomainIdentifiers() DomainIdentifierSli
 	}
 
 	return r.EntityTypeDomainIdentifiers
+}
+
+func (o *DomainEntityType) GetEntityTypeEventSubscriberCheckpoints() EventSubscriberCheckpointSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetEntityTypeEventSubscriberCheckpoints()
+}
+
+func (r *domainEntityTypeR) GetEntityTypeEventSubscriberCheckpoints() EventSubscriberCheckpointSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.EntityTypeEventSubscriberCheckpoints
+}
+
+func (o *DomainEntityType) GetEntityTypeEventSubscriberPendings() EventSubscriberPendingSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetEntityTypeEventSubscriberPendings()
+}
+
+func (r *domainEntityTypeR) GetEntityTypeEventSubscriberPendings() EventSubscriberPendingSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.EntityTypeEventSubscriberPendings
+}
+
+func (o *DomainEntityType) GetSubscriberEventSubscribers() EventSubscriberSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetSubscriberEventSubscribers()
+}
+
+func (r *domainEntityTypeR) GetSubscriberEventSubscribers() EventSubscriberSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.SubscriberEventSubscribers
 }
 
 // domainEntityTypeL is where Load methods for each relationship are stored.
@@ -541,6 +544,49 @@ func (o *DomainEntityType) EntityTypeDomainIdentifiers(mods ...qm.QueryMod) doma
 	return DomainIdentifiers(queryMods...)
 }
 
+// EntityTypeEventSubscriberCheckpoints retrieves all the event_subscriber_checkpoint's EventSubscriberCheckpoints with an executor via entity_type_id column.
+func (o *DomainEntityType) EntityTypeEventSubscriberCheckpoints(mods ...qm.QueryMod) eventSubscriberCheckpointQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"event_subscriber_checkpoints\".\"entity_type_id\"=?", o.ID),
+	)
+
+	return EventSubscriberCheckpoints(queryMods...)
+}
+
+// EntityTypeEventSubscriberPendings retrieves all the event_subscriber_pending's EventSubscriberPendings with an executor via entity_type_id column.
+func (o *DomainEntityType) EntityTypeEventSubscriberPendings(mods ...qm.QueryMod) eventSubscriberPendingQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"event_subscriber_pending\".\"entity_type_id\"=?", o.ID),
+	)
+
+	return EventSubscriberPendings(queryMods...)
+}
+
+// SubscriberEventSubscribers retrieves all the event_subscriber's EventSubscribers with an executor via id column.
+func (o *DomainEntityType) SubscriberEventSubscribers(mods ...qm.QueryMod) eventSubscriberQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.InnerJoin("\"event_subscriptions\" on \"event_subscribers\".\"id\" = \"event_subscriptions\".\"subscriber_id\""),
+		qm.Where("\"event_subscriptions\".\"entity_type_id\"=?", o.ID),
+	)
+
+	return EventSubscribers(queryMods...)
+}
+
 // LoadEntityTypeDomainEventTypes allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (domainEntityTypeL) LoadEntityTypeDomainEventTypes(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
@@ -880,6 +926,362 @@ func (domainEntityTypeL) LoadEntityTypeDomainIdentifiers(ctx context.Context, e 
 	return nil
 }
 
+// LoadEntityTypeEventSubscriberCheckpoints allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityTypeL) LoadEntityTypeEventSubscriberCheckpoints(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
+	var slice []*DomainEntityType
+	var object *DomainEntityType
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntityType.(*DomainEntityType)
+		if !ok {
+			object = new(DomainEntityType)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityTypeR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityTypeR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`event_subscriber_checkpoints`),
+		qm.WhereIn(`event_subscriber_checkpoints.entity_type_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load event_subscriber_checkpoints")
+	}
+
+	var resultSlice []*EventSubscriberCheckpoint
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice event_subscriber_checkpoints")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on event_subscriber_checkpoints")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for event_subscriber_checkpoints")
+	}
+
+	if len(eventSubscriberCheckpointAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.EntityTypeEventSubscriberCheckpoints = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &eventSubscriberCheckpointR{}
+			}
+			foreign.R.EntityType = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.EntityTypeID {
+				local.R.EntityTypeEventSubscriberCheckpoints = append(local.R.EntityTypeEventSubscriberCheckpoints, foreign)
+				if foreign.R == nil {
+					foreign.R = &eventSubscriberCheckpointR{}
+				}
+				foreign.R.EntityType = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadEntityTypeEventSubscriberPendings allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityTypeL) LoadEntityTypeEventSubscriberPendings(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
+	var slice []*DomainEntityType
+	var object *DomainEntityType
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntityType.(*DomainEntityType)
+		if !ok {
+			object = new(DomainEntityType)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityTypeR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityTypeR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`event_subscriber_pending`),
+		qm.WhereIn(`event_subscriber_pending.entity_type_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load event_subscriber_pending")
+	}
+
+	var resultSlice []*EventSubscriberPending
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice event_subscriber_pending")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on event_subscriber_pending")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for event_subscriber_pending")
+	}
+
+	if len(eventSubscriberPendingAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.EntityTypeEventSubscriberPendings = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &eventSubscriberPendingR{}
+			}
+			foreign.R.EntityType = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.EntityTypeID {
+				local.R.EntityTypeEventSubscriberPendings = append(local.R.EntityTypeEventSubscriberPendings, foreign)
+				if foreign.R == nil {
+					foreign.R = &eventSubscriberPendingR{}
+				}
+				foreign.R.EntityType = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadSubscriberEventSubscribers allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityTypeL) LoadSubscriberEventSubscribers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
+	var slice []*DomainEntityType
+	var object *DomainEntityType
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntityType.(*DomainEntityType)
+		if !ok {
+			object = new(DomainEntityType)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityTypeR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityTypeR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.Select("\"event_subscribers\".\"id\", \"event_subscribers\".\"kind\", \"event_subscribers\".\"name\", \"a\".\"entity_type_id\""),
+		qm.From("\"event_subscribers\""),
+		qm.InnerJoin("\"event_subscriptions\" as \"a\" on \"event_subscribers\".\"id\" = \"a\".\"subscriber_id\""),
+		qm.WhereIn("\"a\".\"entity_type_id\" in ?", argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load event_subscribers")
+	}
+
+	var resultSlice []*EventSubscriber
+
+	var localJoinCols []int16
+	for results.Next() {
+		one := new(EventSubscriber)
+		var localJoinCol int16
+
+		err = results.Scan(&one.ID, &one.Kind, &one.Name, &localJoinCol)
+		if err != nil {
+			return errors.Wrap(err, "failed to scan eager loaded results for event_subscribers")
+		}
+		if err = results.Err(); err != nil {
+			return errors.Wrap(err, "failed to plebian-bind eager loaded slice event_subscribers")
+		}
+
+		resultSlice = append(resultSlice, one)
+		localJoinCols = append(localJoinCols, localJoinCol)
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on event_subscribers")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for event_subscribers")
+	}
+
+	if len(eventSubscriberAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.SubscriberEventSubscribers = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &eventSubscriberR{}
+			}
+			foreign.R.EntityTypeDomainEntityTypes = append(foreign.R.EntityTypeDomainEntityTypes, object)
+		}
+		return nil
+	}
+
+	for i, foreign := range resultSlice {
+		localJoinCol := localJoinCols[i]
+		for _, local := range slice {
+			if local.ID == localJoinCol {
+				local.R.SubscriberEventSubscribers = append(local.R.SubscriberEventSubscribers, foreign)
+				if foreign.R == nil {
+					foreign.R = &eventSubscriberR{}
+				}
+				foreign.R.EntityTypeDomainEntityTypes = append(foreign.R.EntityTypeDomainEntityTypes, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // AddEntityTypeDomainEventTypes adds the given related objects to the existing relationships
 // of the domain_entity_type, optionally inserting them as new records.
 // Appends related to o.R.EntityTypeDomainEventTypes.
@@ -1037,6 +1439,257 @@ func (o *DomainEntityType) AddEntityTypeDomainIdentifiers(ctx context.Context, e
 		}
 	}
 	return nil
+}
+
+// AddEntityTypeEventSubscriberCheckpoints adds the given related objects to the existing relationships
+// of the domain_entity_type, optionally inserting them as new records.
+// Appends related to o.R.EntityTypeEventSubscriberCheckpoints.
+// Sets related.R.EntityType appropriately.
+func (o *DomainEntityType) AddEntityTypeEventSubscriberCheckpoints(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriberCheckpoint) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.EntityTypeID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"event_subscriber_checkpoints\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
+				strmangle.WhereClause("\"", "\"", 2, eventSubscriberCheckpointPrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.SubscriberID, rel.EntityTypeID, rel.EntityID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.EntityTypeID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainEntityTypeR{
+			EntityTypeEventSubscriberCheckpoints: related,
+		}
+	} else {
+		o.R.EntityTypeEventSubscriberCheckpoints = append(o.R.EntityTypeEventSubscriberCheckpoints, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &eventSubscriberCheckpointR{
+				EntityType: o,
+			}
+		} else {
+			rel.R.EntityType = o
+		}
+	}
+	return nil
+}
+
+// AddEntityTypeEventSubscriberPendings adds the given related objects to the existing relationships
+// of the domain_entity_type, optionally inserting them as new records.
+// Appends related to o.R.EntityTypeEventSubscriberPendings.
+// Sets related.R.EntityType appropriately.
+func (o *DomainEntityType) AddEntityTypeEventSubscriberPendings(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriberPending) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.EntityTypeID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"event_subscriber_pending\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
+				strmangle.WhereClause("\"", "\"", 2, eventSubscriberPendingPrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.SubscriberID, rel.EntityTypeID, rel.EntityID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.EntityTypeID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainEntityTypeR{
+			EntityTypeEventSubscriberPendings: related,
+		}
+	} else {
+		o.R.EntityTypeEventSubscriberPendings = append(o.R.EntityTypeEventSubscriberPendings, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &eventSubscriberPendingR{
+				EntityType: o,
+			}
+		} else {
+			rel.R.EntityType = o
+		}
+	}
+	return nil
+}
+
+// AddSubscriberEventSubscribers adds the given related objects to the existing relationships
+// of the domain_entity_type, optionally inserting them as new records.
+// Appends related to o.R.SubscriberEventSubscribers.
+// Sets related.R.EntityTypeDomainEntityTypes appropriately.
+func (o *DomainEntityType) AddSubscriberEventSubscribers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriber) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		}
+	}
+
+	for _, rel := range related {
+		query := "insert into \"event_subscriptions\" (\"entity_type_id\", \"subscriber_id\") values ($1, $2)"
+		values := []any{o.ID, rel.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, query)
+			fmt.Fprintln(writer, values)
+		}
+		_, err = exec.ExecContext(ctx, query, values...)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert into join table")
+		}
+	}
+	if o.R == nil {
+		o.R = &domainEntityTypeR{
+			SubscriberEventSubscribers: related,
+		}
+	} else {
+		o.R.SubscriberEventSubscribers = append(o.R.SubscriberEventSubscribers, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &eventSubscriberR{
+				EntityTypeDomainEntityTypes: DomainEntityTypeSlice{o},
+			}
+		} else {
+			rel.R.EntityTypeDomainEntityTypes = append(rel.R.EntityTypeDomainEntityTypes, o)
+		}
+	}
+	return nil
+}
+
+// SetSubscriberEventSubscribers removes all previously related items of the
+// domain_entity_type replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.EntityTypeDomainEntityTypes's SubscriberEventSubscribers accordingly.
+// Replaces o.R.SubscriberEventSubscribers with related.
+// Sets related.R.EntityTypeDomainEntityTypes's SubscriberEventSubscribers accordingly.
+func (o *DomainEntityType) SetSubscriberEventSubscribers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriber) error {
+	query := "delete from \"event_subscriptions\" where \"entity_type_id\" = $1"
+	values := []any{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	removeSubscriberEventSubscribersFromEntityTypeDomainEntityTypesSlice(o, related)
+	if o.R != nil {
+		o.R.SubscriberEventSubscribers = nil
+	}
+
+	return o.AddSubscriberEventSubscribers(ctx, exec, insert, related...)
+}
+
+// RemoveSubscriberEventSubscribers relationships from objects passed in.
+// Removes related items from R.SubscriberEventSubscribers (uses pointer comparison, removal does not keep order)
+// Sets related.R.EntityTypeDomainEntityTypes.
+func (o *DomainEntityType) RemoveSubscriberEventSubscribers(ctx context.Context, exec boil.ContextExecutor, related ...*EventSubscriber) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	query := fmt.Sprintf(
+		"delete from \"event_subscriptions\" where \"entity_type_id\" = $1 and \"subscriber_id\" in (%s)",
+		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
+	)
+	values := []any{o.ID}
+	for _, rel := range related {
+		values = append(values, rel.ID)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err = exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+	removeSubscriberEventSubscribersFromEntityTypeDomainEntityTypesSlice(o, related)
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.SubscriberEventSubscribers {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.SubscriberEventSubscribers)
+			if ln > 1 && i < ln-1 {
+				o.R.SubscriberEventSubscribers[i] = o.R.SubscriberEventSubscribers[ln-1]
+			}
+			o.R.SubscriberEventSubscribers = o.R.SubscriberEventSubscribers[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
+func removeSubscriberEventSubscribersFromEntityTypeDomainEntityTypesSlice(o *DomainEntityType, related []*EventSubscriber) {
+	for _, rel := range related {
+		if rel.R == nil {
+			continue
+		}
+		for i, ri := range rel.R.EntityTypeDomainEntityTypes {
+			if o.ID != ri.ID {
+				continue
+			}
+
+			ln := len(rel.R.EntityTypeDomainEntityTypes)
+			if ln > 1 && i < ln-1 {
+				rel.R.EntityTypeDomainEntityTypes[i] = rel.R.EntityTypeDomainEntityTypes[ln-1]
+			}
+			rel.R.EntityTypeDomainEntityTypes = rel.R.EntityTypeDomainEntityTypes[:ln-1]
+			break
+		}
+	}
 }
 
 // DomainEntityTypes retrieves all the records using an executor.

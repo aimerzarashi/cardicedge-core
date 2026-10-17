@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -40,7 +41,7 @@ func NewOperatorCommands(
 	}
 }
 
-// 入力の誤りは InputErrors、登録済みのメールアドレスなら ErrOperatorEmailAlreadyRegistered
+// 入力の誤りは input.Errors、登録済みのメールアドレスなら ErrOperatorEmailAlreadyRegistered
 func (c *OperatorCommands) Register(ctx context.Context, email string) error {
 	address, err := newEmail(email)
 	if err != nil {
@@ -157,7 +158,7 @@ func (c *OperatorCommands) identify(ctx context.Context, issuer operator.Issuer,
 func newEmail(value string) (operator.Email, error) {
 	address, err := operator.NewEmail(value)
 	if err != nil {
-		return "", InputErrors{&InvalidFormatInput{Field: "email"}}
+		return "", input.Errors{&input.InvalidFormat{Field: "email"}}
 	}
 	return address, nil
 }
