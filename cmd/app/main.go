@@ -46,6 +46,20 @@ func main() {
 		return
 	}
 
+	// `app schema <入口>`: GraphQL のスキーマを SDL で標準出力に書いて終了する（cms・game が型を生成するため。core#22）。
+	// 設定・DB を使わずに動くよう、それらを読む前に分岐する。標準出力はスキーマだけにするため、誤りは標準エラーに書く
+	if len(os.Args) > 1 && os.Args[1] == "schema" {
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "usage: app schema <name>")
+			os.Exit(2)
+		}
+		if err := writeSchema(os.Args[2], os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
