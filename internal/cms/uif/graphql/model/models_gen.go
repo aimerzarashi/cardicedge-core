@@ -33,7 +33,7 @@ type CardsResult interface {
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
-	// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
 	GetField() string
 }
 
@@ -62,9 +62,9 @@ type CardEdge struct {
 
 // カードの一覧の絞り込み
 type CardFilter struct {
-	// 名前に含まれる文字（前後の空白を除き、全角・半角の英数字などの違いは無視する）
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
 	NameContains *string `json:"nameContains,omitempty"`
-	// 種類（指定が無ければすべて）
+	// 種類（指定が無ければすべて。空のリストは入力の誤り）
 	Types []CardType `json:"types,omitempty"`
 }
 
@@ -110,7 +110,7 @@ type FieldInvalidFormat struct {
 
 func (FieldInvalidFormat) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
 
 // 入力が範囲の外
@@ -125,7 +125,7 @@ type FieldOutOfRange struct {
 
 func (FieldOutOfRange) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
 func (this FieldOutOfRange) GetField() string { return this.Field }
 
 // 入力が空（前後の空白だけの場合を含む）
@@ -136,7 +136,7 @@ type FieldRequired struct {
 
 func (FieldRequired) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
 func (this FieldRequired) GetField() string { return this.Field }
 
 // 入力が長すぎる
@@ -149,7 +149,7 @@ type FieldTooLong struct {
 
 func (FieldTooLong) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の入力の項目名と同じ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
 // 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
