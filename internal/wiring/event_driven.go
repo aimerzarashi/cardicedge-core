@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -23,6 +24,7 @@ func startEventDriven(ctx context.Context, db *sql.DB, dsn string, registry *dom
 	hub, err := eventdriven.NewHub(subscribers, registry,
 		options,
 		eventstore.NewEventLoader(registry, creature.NewID, creature.NewEventType),
+		eventstore.NewEventLoader(registry, item.NewID, item.NewEventType),
 	)
 	if err != nil {
 		return nil, err

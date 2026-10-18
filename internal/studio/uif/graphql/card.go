@@ -60,12 +60,14 @@ func toCardConnection(connection pagination.Connection[query.Card]) (*model.Card
 	return &model.CardConnection{Edges: edges, PageInfo: pageInfo}, nil
 }
 
-// Item・Spell は GraphQL の型をまだ作っていない（read model にも入らない）。来たら黙って飛ばさずエラーにする
+// Spell は GraphQL の型をまだ作っていない（read model にも入らない）。来たら黙って飛ばさずエラーにする
 // （飛ばすと、一覧から消えたことに気づけない）
 func toCard(card query.Card) (model.Card, error) {
 	switch card.Type {
 	case readmodel.CardTypeCreature:
 		return &model.Creature{ID: card.ID, Name: card.Name, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
+	case readmodel.CardTypeItem:
+		return &model.Item{ID: card.ID, Name: card.Name, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
 	default:
 		return nil, fmt.Errorf("graphql: card type %d has no GraphQL type", card.Type)
 	}

@@ -76,6 +76,24 @@ func TestCards_ListsRegisteredCreature(t *testing.T) {
 	}, connection["pageInfo"])
 }
 
+func TestCards_ListsRegisteredItem(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	registered := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)
+
+	connection := waitCards(t, token, id, 1)
+
+	edge := connection["edges"].([]any)[0].(map[string]any)
+	require.Equal(t, map[string]any{
+		"__typename":   "Item",
+		"id":           registered["id"],
+		"name":         registered["name"],
+		"registeredAt": registered["registeredAt"],
+		"updatedAt":    registered["updatedAt"],
+	}, edge["node"])
+}
+
 func TestCards_PagesForwardFromAfterCursor(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)

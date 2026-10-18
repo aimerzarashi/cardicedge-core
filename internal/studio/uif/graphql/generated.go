@@ -83,8 +83,16 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	Item struct {
+		ID           func(childComplexity int) int
+		Name         func(childComplexity int) int
+		RegisteredAt func(childComplexity int) int
+		UpdatedAt    func(childComplexity int) int
+	}
+
 	Mutation struct {
 		RegisterCreature func(childComplexity int, input model.RegisterCreatureInput) int
+		RegisterItem     func(childComplexity int, input model.RegisterItemInput) int
 	}
 
 	PageInfo struct {
@@ -103,6 +111,10 @@ type ComplexityRoot struct {
 		Creature func(childComplexity int) int
 	}
 
+	RegisterItemSuccess struct {
+		Item func(childComplexity int) int
+	}
+
 	ValidationErrors struct {
 		Errors func(childComplexity int) int
 	}
@@ -114,6 +126,7 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
+	RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error)
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (string, error)
@@ -249,6 +262,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
 
+	case "Item.id":
+		if e.ComplexityRoot.Item.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.ID(childComplexity), true
+	case "Item.name":
+		if e.ComplexityRoot.Item.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.Name(childComplexity), true
+	case "Item.registeredAt":
+		if e.ComplexityRoot.Item.RegisteredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.RegisteredAt(childComplexity), true
+	case "Item.updatedAt":
+		if e.ComplexityRoot.Item.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.UpdatedAt(childComplexity), true
+
 	case "Mutation.registerCreature":
 		if e.ComplexityRoot.Mutation.RegisterCreature == nil {
 			break
@@ -260,6 +298,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RegisterCreature(childComplexity, args["input"].(model.RegisterCreatureInput)), true
+	case "Mutation.registerItem":
+		if e.ComplexityRoot.Mutation.RegisterItem == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerItem_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterItem(childComplexity, args["input"].(model.RegisterItemInput)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -312,6 +361,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RegisterCreatureSuccess.Creature(childComplexity), true
 
+	case "RegisterItemSuccess.item":
+		if e.ComplexityRoot.RegisterItemSuccess.Item == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterItemSuccess.Item(childComplexity), true
+
 	case "ValidationErrors.errors":
 		if e.ComplexityRoot.ValidationErrors.Errors == nil {
 			break
@@ -329,6 +385,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCardFilter,
 		ec.unmarshalInputRegisterCreatureInput,
+		ec.unmarshalInputRegisterItemInput,
 	)
 	first := true
 
@@ -403,7 +460,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "card.graphqls" "common.graphqls" "creature.graphqls"
+//go:embed "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -418,6 +475,7 @@ var sources = []*ast.Source{
 	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
+	{Name: "item.graphqls", Input: sourceData("item.graphqls"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -447,6 +505,20 @@ func (ec *executionContext) childFields_Creature(ctx context.Context, field grap
 		return ec.fieldContext_Creature_updatedAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Creature", field.Name)
+}
+
+func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Item_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Item_name(ctx, field)
+	case "registeredAt":
+		return ec.fieldContext_Item_registeredAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Item_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -585,6 +657,20 @@ func (ec *executionContext) field_Mutation_registerCreature_args(ctx context.Con
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.RegisterCreatureInput, error) {
 			return ec.unmarshalNRegisterCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterCreatureInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_registerItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RegisterItemInput, error) {
+			return ec.unmarshalNRegisterItemInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterItemInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1115,6 +1201,98 @@ func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Contex
 	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Item_id(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _Item_name(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Item_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_registeredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RegisteredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_registeredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
 func (ec *executionContext) _Mutation_registerCreature(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1153,6 +1331,50 @@ func (ec *executionContext) fieldContext_Mutation_registerCreature(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_registerCreature_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_registerItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerItem(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterItem(ctx, fc.Args["input"].(model.RegisterItemInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RegisterItemResult) graphql.Marshaler {
+			return ec.marshalNRegisterItemResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterItemResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerItem(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RegisterItemResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerItem_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1421,6 +1643,38 @@ func (ec *executionContext) fieldContext_RegisterCreatureSuccess_creature(_ cont
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Creature(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RegisterItemSuccess_item(ctx context.Context, field graphql.CollectedField, obj *model.RegisterItemSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterItemSuccess_item(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Item, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Item) graphql.Marshaler {
+			return ec.marshalNItem2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐItem(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterItemSuccess_item(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RegisterItemSuccess",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Item(ctx, field)
 		},
 	}
 	return fc, nil
@@ -2584,6 +2838,36 @@ func (ec *executionContext) unmarshalInputRegisterCreatureInput(ctx context.Cont
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputRegisterItemInput(ctx context.Context, obj any) (model.RegisterItemInput, error) {
+	var it model.RegisterItemInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -2592,6 +2876,13 @@ func (ec *executionContext) _Card(ctx context.Context, sel ast.SelectionSet, obj
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.Item:
+		return ec._Item(ctx, sel, &obj)
+	case *model.Item:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Item(ctx, sel, obj)
 	case model.Creature:
 		return ec._Creature(ctx, sel, &obj)
 	case *model.Creature:
@@ -2724,6 +3015,47 @@ func (ec *executionContext) _RegisterCreatureResult(ctx context.Context, sel ast
 	}
 }
 
+func (ec *executionContext) _RegisterItemResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterItemResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RegisterItemSuccess:
+		return ec._RegisterItemSuccess(ctx, sel, &obj)
+	case *model.RegisterItemSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RegisterItemSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CardNameAlreadyInUseError:
+		return ec._CardNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.CardNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNameAlreadyInUseError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterItemResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
@@ -2814,7 +3146,7 @@ func (ec *executionContext) _CardEdge(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
-var cardNameAlreadyInUseErrorImplementors = []string{"CardNameAlreadyInUseError", "RegisterCreatureResult"}
+var cardNameAlreadyInUseErrorImplementors = []string{"CardNameAlreadyInUseError", "RegisterCreatureResult", "RegisterItemResult"}
 
 func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNameAlreadyInUseError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNameAlreadyInUseErrorImplementors)
@@ -3072,7 +3404,7 @@ func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.Selection
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "RegisterCreatureResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "RegisterCreatureResult", "RegisterItemResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -3086,6 +3418,59 @@ func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("ForbiddenError")
 		case "message":
 			out.Values[i] = ec._ForbiddenError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var itemImplementors = []string{"Item", "Card"}
+
+func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj *model.Item) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, itemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Item")
+		case "id":
+			out.Values[i] = ec._Item_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Item_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "registeredAt":
+			out.Values[i] = ec._Item_registeredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Item_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3133,6 +3518,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "registerCreature":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerCreature(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "registerItem":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerItem(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -3348,7 +3740,45 @@ func (ec *executionContext) _RegisterCreatureSuccess(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "CardsResult", "RegisterCreatureResult"}
+var registerItemSuccessImplementors = []string{"RegisterItemSuccess", "RegisterItemResult"}
+
+func (ec *executionContext) _RegisterItemSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterItemSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, registerItemSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RegisterItemSuccess")
+		case "item":
+			out.Values[i] = ec._RegisterItemSuccess_item(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var validationErrorsImplementors = []string{"ValidationErrors", "CardsResult", "RegisterCreatureResult", "RegisterItemResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -3918,6 +4348,16 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
+func (ec *executionContext) marshalNItem2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐItem(ctx context.Context, sel ast.SelectionSet, v *model.Item) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Item(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -3941,6 +4381,21 @@ func (ec *executionContext) marshalNRegisterCreatureResult2gitlabᚗcomᚋaimerz
 		return graphql.Null
 	}
 	return ec._RegisterCreatureResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRegisterItemInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterItemInput(ctx context.Context, v any) (model.RegisterItemInput, error) {
+	res, err := ec.unmarshalInputRegisterItemInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRegisterItemResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterItemResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterItemResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RegisterItemResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
