@@ -31,8 +31,10 @@ type fixture struct {
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	return fixture{
-		id:      operatortest.ID(t, 10),
-		email:   operatortest.Email(t, "operator@example.com"),
+		id:    operatortest.ID(t, 10),
+		email: operatortest.Email(t, "operator@example.com"),
+		// 古い発行元の名前（cms。core#21 で studio に変えた）のままなのは、golden（testdata/events）と同じ値で比べるため。
+		// golden は保存済みのイベントの形の記録で、値を変えても意味は変わらない
 		issuer:  operatortest.Issuer(t, "diecardomain-cms"),
 		subject: operatortest.Subject(t, "user-1"),
 	}

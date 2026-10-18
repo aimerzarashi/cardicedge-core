@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/app/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/command"
 )
 
 // テストの前提として、オペレーターを用意する。オペレーターを登録する GraphQL の操作がまだ無いため、
@@ -65,7 +65,7 @@ func (o *Operators) Token(t *testing.T) string {
 	return o.key.Sign(t, idptest.VerifiedClaims("operator-"+id, email))
 }
 
-// subject（cms の JWT の発行元）に紐づいたオペレーター
+// subject（studio の JWT の発行元）に紐づいたオペレーター
 func (o *Operators) Linked(t *testing.T, subject string) (operator.ID, bool) {
 	t.Helper()
 	id, found, err := constraint.FindOperatorBySubject(rdb.WithDB(t.Context(), o.db), operatortest.Issuer(t, idptest.Issuer), operatortest.Subject(t, subject))

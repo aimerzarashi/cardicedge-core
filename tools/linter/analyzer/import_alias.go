@@ -21,7 +21,7 @@ var ImportAliasForbidder = &analysis.Analyzer{
 
 func newImportAliasFlags() flag.FlagSet {
 	fs := flag.FlagSet{}
-	importAliasFilters.registerFlags(&fs, "comma-separated list of package path patterns to forbid aliasing for (e.g. internal/domain,internal/cms). Empty means all packages.")
+	importAliasFilters.registerFlags(&fs, "comma-separated list of package path patterns to forbid aliasing for (e.g. internal/domain,internal/studio). Empty means all packages.")
 	return fs
 }
 

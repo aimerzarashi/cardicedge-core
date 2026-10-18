@@ -29,7 +29,7 @@ make down    # 停止して DB のデータも破棄
 |---|---|
 | http://localhost:3333/version | バージョン情報 |
 | http://localhost:3333/health | ヘルスチェック |
-| http://localhost:3333/cms/graphql | cms 用の GraphQL（POST。cms の JWT が必須） |
+| http://localhost:3333/studio/graphql | studio 用の GraphQL（POST。studio の JWT が必須） |
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: core）で接続できる。
 
@@ -38,26 +38,26 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 ## 他プロジェクトとの統合
 
 `make up` すると共有ネットワーク `diecardomain` に参加する（無ければ作成する）。
-game / cms は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
+game / studio は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
 
-## cms 用の GraphQL（/cms/graphql）
+## studio 用の GraphQL（/studio/graphql）
 
-スキーマは `internal/cms/uif/graphql/*.graphqls`（cms はこのファイルを参照する）。
+スキーマは `internal/studio/uif/graphql/*.graphqls`（studio はこのファイルを参照する）。
 
-- **認証**: すべての呼び出しに、cms（better-auth の jwt プラグイン）の JWT を `Authorization: Bearer <JWT>` で付ける。無い・不正なら 401（`extensions.code: UNAUTHENTICATED`。理由は返さない）。ネットワークの位置（内部からの呼び出しか）は信じない（game からも core に直接届くため）
-- **検証**: 署名（EdDSA に固定。none・HMAC への差し替えを受け付けない）・`iss`・`aud`・期限。JWKS は cms-envoy を通して取る
-- **JWKS の取り直し**: 1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）。起動時に cms が動いていなくても core は起動する（最初の JWT が来たときに取り直す。そのときも cms が動いていなければ、次は 5 分後）
-- **cms の secret が漏れたとき**: cms の手順で jwks を作り直したら、core を再起動して古い鍵をすぐに捨てる（再起動しなくても 1 時間以内の取り直しで消える）
+- **認証**: すべての呼び出しに、studio（better-auth の jwt プラグイン）の JWT を `Authorization: Bearer <JWT>` で付ける。無い・不正なら 401（`extensions.code: UNAUTHENTICATED`。理由は返さない）。ネットワークの位置（内部からの呼び出しか）は信じない（game からも core に直接届くため）
+- **検証**: 署名（EdDSA に固定。none・HMAC への差し替えを受け付けない）・`iss`・`aud`・期限。JWKS は studio-envoy を通して取る
+- **JWKS の取り直し**: 1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）。起動時に studio が動いていなくても core は起動する（最初の JWT が来たときに取り直す。そのときも studio が動いていなければ、次は 5 分後）
+- **studio の secret が漏れたとき**: studio の手順で jwks を作り直したら、core を再起動して古い鍵をすぐに捨てる（再起動しなくても 1 時間以内の取り直しで消える）
 - POST だけを受け付ける（ミューテーションを GET で実行させる CSRF を防ぐため）
-- **オペレーターの特定と紐づけ**: JWT の (iss, sub) に紐づいたオペレーターを、認可で使えるように context に載せる。まだ紐づいていなければ、JWT の確認済みのメールアドレス（`email`・`email_verified`。cms が JWT に入れる）で、登録済み・未紐づけのオペレーターを探して紐づける（初めてのログイン）。紐づけた後は (iss, sub) だけで識別し、メールアドレスは使わない。確認していないメールアドレスでは紐づけない（他人のメールアドレスでサインアップしても、オペレーターになれないように）
+- **オペレーターの特定と紐づけ**: JWT の (iss, sub) に紐づいたオペレーターを、認可で使えるように context に載せる。まだ紐づいていなければ、JWT の確認済みのメールアドレス（`email`・`email_verified`。studio が JWT に入れる）で、登録済み・未紐づけのオペレーターを探して紐づける（初めてのログイン）。紐づけた後は (iss, sub) だけで識別し、メールアドレスは使わない。確認していないメールアドレスでは紐づけない（他人のメールアドレスでサインアップしても、オペレーターになれないように）
 - JWT が正しければ、オペレーターに紐づかなくても入口では拒否しない。オペレーターかどうか・権限は、操作ごとに認可で判定し、各操作の結果の型（`ForbiddenError`）で返す
 
 | 環境変数 | 内容 |
 |---|---|
 | `DB_DSN` | core-db の接続先 |
-| `CMS_JWKS_URL` | cms の JWKS（開発・テストは `http://cms-envoy:10000/api/auth/jwks`） |
-| `CMS_JWT_ISSUER` / `CMS_JWT_AUDIENCE` | cms の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-cms` / `diecardomain-core`） |
-| `CMS_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで cms にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
+| `STUDIO_JWKS_URL` | studio の JWKS（開発・テストは `http://studio-envoy:10000/api/auth/jwks`） |
+| `STUDIO_JWT_ISSUER` / `STUDIO_JWT_AUDIENCE` | studio の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-studio` / `diecardomain-core`） |
+| `STUDIO_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで studio にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
 
 どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。
 
@@ -70,7 +70,7 @@ game / cms は同じネットワーク経由で `http://core:3333` に接続す�
 
 - **層の分担**: uif（GraphQL）は app 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。app 層が窓口になり、素の値を受け取ってドメインの型に変え、app 層の結果の型とエラーを返す（ドメインを変えても uif に及ばないように。参照の api は app 層が GraphQL の型を受け渡していたが、そうしない）
 - **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。app 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、app 層のコマンドが context から取り出す
-- **入力の誤り**: app 層が `input.Errors`（internal/cms/app/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、cms が `__typename` と値から作る（上限などの値も core から受け取り、cms に書き写さない）
+- **入力の誤り**: app 層が `input.Errors`（internal/studio/app/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
@@ -89,7 +89,7 @@ DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api 
 テストで DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、開発用の DB に触るかがわかるように）。
 
 - `rdbtest.Tx`: 開発用の DB で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
-- `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（cms/app/command・cms/inf/repository・eventdriven・platform/rdb）
+- `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（studio/app/command・studio/inf/repository・eventdriven・platform/rdb）
 
 開発用の DB に commit すると、開発用の core の Hub がそれを投影して read model に行が残るため、commit する道具（`Open`）は外に出さない。
 
@@ -97,7 +97,7 @@ DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api 
 
 ## テスト用環境（compose.test.yaml）
 
-game / cms のテスト用に、使い捨ての core と DB を起動する compose。利用側の compose から include して使う。
+game / studio のテスト用に、使い捨ての core と DB を起動する compose。利用側の compose から include して使う。
 
 - core は本番用イメージ（`.build/Dockerfile`、distroless）で動かす。air は使わない
 - ホストにポートを公開せず、共有ネットワークにも参加しない。開発用の core と同時に起動できる
@@ -143,7 +143,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 ## DB マイグレーション
 
 [Atlas Community Edition](https://atlasgo.io/community-edition)（`arigaio/atlas:1.3.3-community`）で、`migrations/NNNN_name.sql` のうち未適用のものだけを番号順に適用する。
-core・cms・game で同じ形式・同じ実行役にそろえている（方針は #5）。
+core・studio・game で同じ形式・同じ実行役にそろえている（方針は #5）。
 
 | ファイル | 内容 |
 |---|---|

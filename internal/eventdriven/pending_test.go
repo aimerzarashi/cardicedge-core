@@ -63,7 +63,7 @@ func TestPendingTrigger_RecordsLatestVersionForSubscribersOfEntityType(t *testin
 	state, err := store.Load(ctx, id)
 	require.NoError(t, err)
 	linked, err := operator.Decide(state, &operator.LinkCommand{
-		Issuer: operatortest.Issuer(t, "diecardomain-cms"), Subject: operatortest.Subject(t, uuid.NewString()),
+		Issuer: operatortest.Issuer(t, "diecardomain-studio"), Subject: operatortest.Subject(t, uuid.NewString()),
 	}, time.Now().UTC())
 	require.NoError(t, err)
 	require.NoError(t, store.Save(ctx, linked))

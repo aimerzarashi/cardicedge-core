@@ -100,7 +100,7 @@ func TestVerify_RejectsAlgorithmsOtherThanEdDSA(t *testing.T) {
 	require.ErrorIs(t, err, idp.ErrInvalidToken)
 }
 
-// cms が鍵を作り直した（secret の漏洩時の手順等）とき、新しい kid の JWT を取り直した JWKS で受け付ける
+// studio が鍵を作り直した（secret の漏洩時の手順等）とき、新しい kid の JWT を取り直した JWKS で受け付ける
 func TestVerify_RefetchesJWKSForUnknownKid(t *testing.T) {
 	oldKey, newKey := idptest.NewKey(t, "old"), idptest.NewKey(t, "new")
 	verifier, server := newVerifier(t, oldKey)

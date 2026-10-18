@@ -1,4 +1,4 @@
-// Relay のカーソルによるページ分け。前向き（first・after）だけを扱う（cms の一覧は前へ進むだけで、後ろ向きは使わないため）
+// Relay のカーソルによるページ分け。前向き（first・after）だけを扱う（studio の一覧は前へ進むだけで、後ろ向きは使わないため）
 package pagination
 
 import (

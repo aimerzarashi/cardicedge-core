@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// GraphQL の入口（/cms/graphql 等）に POST する
+// GraphQL の入口（/studio/graphql 等）に POST する
 type GraphQLClient struct {
 	URL string
 }

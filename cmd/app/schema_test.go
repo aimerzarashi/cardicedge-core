@@ -22,9 +22,9 @@ func formatSchema(t *testing.T, sources ...*ast.Source) string {
 	return b.String()
 }
 
-// 出力だけを読み直すと .graphqls と同じスキーマになる（書き出しで落ちるものが無い。cms は出力だけを codegen で読む）
+// 出力だけを読み直すと .graphqls と同じスキーマになる（書き出しで落ちるものが無い。studio は出力だけを codegen で読む）
 func TestWriteSchema_WritesSameSchemaAsGraphqlsFiles(t *testing.T) {
-	paths, err := filepath.Glob("../../internal/cms/uif/graphql/*.graphqls")
+	paths, err := filepath.Glob("../../internal/studio/uif/graphql/*.graphqls")
 	require.NoError(t, err)
 	require.NotEmpty(t, paths)
 	var sources []*ast.Source
@@ -35,7 +35,7 @@ func TestWriteSchema_WritesSameSchemaAsGraphqlsFiles(t *testing.T) {
 	}
 	var out bytes.Buffer
 
-	require.NoError(t, writeSchema("cms", &out))
+	require.NoError(t, writeSchema("studio", &out))
 
 	require.Equal(t, formatSchema(t, sources...), formatSchema(t, &ast.Source{Name: "out", Input: out.String()}))
 }

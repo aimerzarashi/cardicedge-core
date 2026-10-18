@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// better-auth の jwt プラグイン（cms）と同じ形の JWT・JWKS を、テストで作るための道具
+// better-auth の jwt プラグイン（studio）と同じ形の JWT・JWKS を、テストで作るための道具
 
 const (
-	Issuer   = "diecardomain-cms"
+	Issuer   = "diecardomain-studio"
 	Audience = "diecardomain-core"
 )
 
@@ -51,7 +51,7 @@ func (k Key) PublicKey() ed25519.PublicKey {
 	return k.private.Public().(ed25519.PublicKey)
 }
 
-// cms の JWT の中身（登録済みのクレームと、definePayload で入れる email・email_verified）
+// studio の JWT の中身（登録済みのクレームと、definePayload で入れる email・email_verified）
 type Claims struct {
 	jwt.RegisteredClaims
 	Email         string `json:"email,omitempty"`
@@ -67,7 +67,7 @@ func (k Key) Sign(t testing.TB, claims Claims) string {
 	return signed
 }
 
-// ValidClaims は cms の JWT と同じ中身（sub・iss・aud・iat・exp。有効期限 15 分）。メールアドレスは入れない
+// ValidClaims は studio の JWT と同じ中身（sub・iss・aud・iat・exp。有効期限 15 分）。メールアドレスは入れない
 func ValidClaims(subject string) Claims {
 	return Claims{RegisteredClaims: jwt.RegisteredClaims{
 		Issuer:    Issuer,
@@ -86,7 +86,7 @@ func VerifiedClaims(subject, email string) Claims {
 	return claims
 }
 
-// JWKSServer は cms の /api/auth/jwks と同じ形（OKP・Ed25519）の JWKS を返す。返す鍵はテストの途中で差し替えられる
+// JWKSServer は studio の /api/auth/jwks と同じ形（OKP・Ed25519）の JWKS を返す。返す鍵はテストの途中で差し替えられる
 type JWKSServer struct {
 	URL      string
 	mu       sync.Mutex

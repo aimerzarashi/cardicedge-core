@@ -14,7 +14,7 @@ type Edge[T any] struct {
 type PageInfo struct {
 	HasNextPage bool
 	// 前向きだけなので、前のページがあるかを DB に問わず、after を渡されたかで決める（Relay の仕様は、効率よく
-	// 分からなければ false でよいとする。cms が「最初のページへ戻る」を出す手がかりにするため、false 固定にはしない）
+	// 分からなければ false でよいとする。studio が「最初のページへ戻る」を出す手がかりにするため、false 固定にはしない）
 	HasPreviousPage bool
 	StartCursor     *string
 	EndCursor       *string

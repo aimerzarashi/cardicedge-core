@@ -1,5 +1,5 @@
 # 本番用イメージ。air を使わず、ビルド済みのバイナリだけを distroless で動かす。
-# game / cms のテスト用環境（compose.test.yaml）でも使う
+# game / studio のテスト用環境（compose.test.yaml）でも使う
 FROM golang:1.27.1-bookworm AS build
 
 WORKDIR /src

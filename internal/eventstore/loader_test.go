@@ -31,7 +31,7 @@ func TestEventLoader_LoadsAllEventsInVersionOrder(t *testing.T) {
 	state, err := store.Load(ctx, id)
 	require.NoError(t, err)
 	linked, err := operator.Decide(state, &operator.LinkCommand{
-		Issuer: operatortest.Issuer(t, "diecardomain-cms"), Subject: operatortest.Subject(t, "user-1"),
+		Issuer: operatortest.Issuer(t, "diecardomain-studio"), Subject: operatortest.Subject(t, "user-1"),
 	}, time.Now().UTC())
 	require.NoError(t, err)
 	require.NoError(t, store.Save(ctx, linked))

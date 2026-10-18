@@ -11,13 +11,13 @@
 |---|---|
 | cmd/app | エントリポイント。プロセスとしての起動だけ（設定・DB を開く・JWT の検証の準備・シグナル・HTTP の Listen・Serve とグレースフルシャットダウン・healthcheck・schema）。組み立ては internal/wiring |
 | internal/wiring | 部品を組み立てて動かす（照合・初期オペレーター・Hub の起動・HTTP の入口）。cmd/app と結合テストの両方が使い、本番と同じ組み立てをテストで通す |
-| internal/wiring/cms | cms 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、cms の read model の投影の登録 |
-| internal/cms/uif/graphql | cms 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/cms/graphql。JWT の認証））。generated.go・model は生成コード。テストは tests/integration |
-| internal/cms/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/cms/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature の登録） |
-| internal/cms/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
-| internal/cms/app/query/readmodel | read model の状態の型と、イベントから状態を作る `Evolve`・`IsTerminal`（カードの一覧 `CardList` 等） |
-| internal/cms/inf/repository | read model の DB の読み書き（投影が書く `Upsert...`・`Delete...`） |
+| internal/wiring/studio | studio 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、studio の read model の投影の登録 |
+| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証））。generated.go・model は生成コード。テストは tests/integration |
+| internal/studio/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
+| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature の登録） |
+| internal/studio/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
+| internal/studio/app/query/readmodel | read model の状態の型と、イベントから状態を作る `Evolve`・`IsTerminal`（カードの一覧 `CardList` 等） |
+| internal/studio/inf/repository | read model の DB の読み書き（投影が書く `Upsert...`・`Delete...`） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元、ID の発行、一意性の制約（domain_unique_keys）。`constrainttest` はテストで key から集約を引く道具 |
 | internal/domaindef | domain_entity_types・domain_event_types の対応。起動時に読み込み、集約の宣言と照合する |
@@ -44,13 +44,13 @@
 
 - シャットダウン時間は `shutdownTimeout`（cmd/app） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
 - core は共有ネットワーク `diecardomain` に参加する（compose.yaml）。core-db は参加させない
-- compose.test.yaml は game / cms が include する前提。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
+- compose.test.yaml は game が include する前提（studio は前提にする版のリリース済みのイメージを使う。studio#14）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
-- `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。cms・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema cms` で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら `schemaWriters` にも足す
+- `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio` で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら `schemaWriters` にも足す
 - マイグレーションは追加のみ。適用済みのファイルは書き換えない・消さない・改名しない。down は作らない（atlas.sum を作り直すと Atlas は検出しないため、check-migrations.sh で検査する）
 - ファイル名は `NNNN_name.sql`（番号は数字のみ）。`-- atlas:txmode none` 等の指示行の直後には空行を入れる
 - 新しいマイグレーションは、その時点の最大の番号 + 1 で作り、`make migrate-hash` で atlas.sum を作り直して SQL と一緒にコミットする（番号の抜け・atlas.sum の食い違いは Atlas がエラーにする）
-- Atlas のバージョンは local/migrate/Dockerfile の FROM と .gitlab-ci.yml の ATLAS_VERSION を揃える（cms / game とも揃える）
+- Atlas のバージョンは local/migrate/Dockerfile の FROM と .gitlab-ci.yml の ATLAS_VERSION を揃える（studio / game とも揃える）
 
 # テストとカスタムリンター
 
@@ -68,14 +68,14 @@
 - 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の `registry.Verify`（internal/wiring）と domaindef のテストにその集約の `Types()` を足す
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
-- /cms/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
+- /studio/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
 - 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は uif のミドルウェア、認可は ui 層（resolver）、登録・紐づけは app 層のコマンド。初期オペレーターは internal/wiring が app 層のコマンドを直接呼んで登録する
 - GraphQL のスキーマを変えたら `make gen-api`（し忘れは `make lint`・CI の lint が検出する）。生成コード（generated.go・model）は手で直さない。操作を足すと `*.resolvers.go` に雛形（`panic("not implemented")`）ができ、消すとファイルの末尾に「!!! WARNING !!!」つきで古い実装が移されるので、片付ける
 - スキーマの型・フィールド・引数・入力の項目には、必ず GraphQL の説明（`"..."`）を付ける（playground・型の生成で使う人に意味を伝えるため）。設計の理由は `#` のコメントに書き、説明と分ける
-- 画面の文言は core で作らない。エラー型は `__typename` と値で理由を表し、`message` は開発者向けの短い英語の説明にする（言い回しは cms が作る）
+- 画面の文言は core で作らない。エラー型は `__typename` と値で理由を表し、`message` は開発者向けの短い英語の説明にする（言い回しは studio が作る）
 - スキーマは common.graphqls（Query・Mutation・共通の型）と機能ごとのファイル（`extend type`）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union にする（未認証は union に含めず 401）
 - uif は app 層の型だけを使い、ドメインの型（internal/domain）を import しない。app 層のコマンドは素の値を受け取り、app 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（uif/graphql/model）にも依存させない
-- 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。app 層の `input.Errors`（internal/cms/app/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、app 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は uif に書き写さない
+- 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。app 層の `input.Errors`（internal/studio/app/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、app 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は uif に書き写さない
 - 一意性の制約は、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするかはドメインが宣言する: key の種別の名前（`UniqueKeyTypes()`。domain_unique_key_types と起動時に照合する）と、key の作り方（`EmailKey`・`SubjectKey`・`card.NameKey` 等。正規化・複数の値のつなぎ方はここだけで決める）。制約を足すときは、key の種別のマイグレーション（domain_unique_key_types への INSERT）と、ドメインの宣言、domaindef のテストへの追加だけでよい
 - 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/constraint.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きでは使ってよい
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go 等）をかぶせ、ID の型は種類ごとの関数で守る
