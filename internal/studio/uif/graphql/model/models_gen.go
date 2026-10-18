@@ -47,6 +47,11 @@ type RegisterItemResult interface {
 	IsRegisterItemResult()
 }
 
+// スペルの登録の結果
+type RegisterSpellResult interface {
+	IsRegisterSpellResult()
+}
+
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
 type CardConnection struct {
 	// このページのカード
@@ -82,6 +87,8 @@ type CardNameAlreadyInUseError struct {
 func (CardNameAlreadyInUseError) IsRegisterCreatureResult() {}
 
 func (CardNameAlreadyInUseError) IsRegisterItemResult() {}
+
+func (CardNameAlreadyInUseError) IsRegisterSpellResult() {}
 
 // クリーチャー（カードの種類の 1 つ）
 type Creature struct {
@@ -171,6 +178,8 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 
 func (ForbiddenError) IsRegisterItemResult() {}
 
+func (ForbiddenError) IsRegisterSpellResult() {}
+
 // アイテム（カードの種類の 1 つ）
 type Item struct {
 	// 公開用の ID
@@ -243,6 +252,46 @@ type RegisterItemSuccess struct {
 
 func (RegisterItemSuccess) IsRegisterItemResult() {}
 
+// スペルを登録する入力
+type RegisterSpellInput struct {
+	// カード名（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// スペルを登録した
+type RegisterSpellSuccess struct {
+	// 登録したスペル
+	Spell *Spell `json:"spell"`
+}
+
+func (RegisterSpellSuccess) IsRegisterSpellResult() {}
+
+// スペル（カードの種類の 1 つ）
+type Spell struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// カード名（登録したときの表記。前後の空白は除く）
+	Name string `json:"name"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (Spell) IsCard() {}
+
+// 公開用の ID
+func (this Spell) GetID() uuid.UUID { return this.ID }
+
+// カード名
+func (this Spell) GetName() string { return this.Name }
+
+// 登録した日時
+func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
+
+// 最後に変更した日時（変更していなければ登録した日時）
+func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -254,6 +303,8 @@ func (ValidationErrors) IsCardsResult() {}
 func (ValidationErrors) IsRegisterCreatureResult() {}
 
 func (ValidationErrors) IsRegisterItemResult() {}
+
+func (ValidationErrors) IsRegisterSpellResult() {}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string

@@ -18,6 +18,11 @@ type ItemRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredItem, error)
 }
 
+// 実装は command.SpellCommands
+type SpellRegistrar interface {
+	Register(ctx context.Context, name string) (command.RegisteredSpell, error)
+}
+
 // 実装は query.CardList
 type CardLister interface {
 	List(ctx context.Context, filter query.CardFilter, first *int, after *string) (pagination.Connection[query.Card], error)
@@ -27,9 +32,10 @@ type Resolver struct {
 	version   string
 	creatures CreatureRegistrar
 	items     ItemRegistrar
+	spells    SpellRegistrar
 	cards     CardLister
 }
 
-func NewResolver(version string, creatures CreatureRegistrar, items ItemRegistrar, cards CardLister) *Resolver {
-	return &Resolver{version: version, creatures: creatures, items: items, cards: cards}
+func NewResolver(version string, creatures CreatureRegistrar, items ItemRegistrar, spells SpellRegistrar, cards CardLister) *Resolver {
+	return &Resolver{version: version, creatures: creatures, items: items, spells: spells, cards: cards}
 }

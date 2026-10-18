@@ -94,6 +94,24 @@ func TestCards_ListsRegisteredItem(t *testing.T) {
 	}, edge["node"])
 }
 
+func TestCards_ListsRegisteredSpell(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	registered := registerSpell(t, token, "ファイアボール-"+id)["spell"].(map[string]any)
+
+	connection := waitCards(t, token, id, 1)
+
+	edge := connection["edges"].([]any)[0].(map[string]any)
+	require.Equal(t, map[string]any{
+		"__typename":   "Spell",
+		"id":           registered["id"],
+		"name":         registered["name"],
+		"registeredAt": registered["registeredAt"],
+		"updatedAt":    registered["updatedAt"],
+	}, edge["node"])
+}
+
 func TestCards_PagesForwardFromAfterCursor(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)

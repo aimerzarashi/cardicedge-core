@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -42,7 +43,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 		return nil, err
 	}
 	// 集約が宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する
-	if err := registry.Verify(operator.Types(), creature.Types(), item.Types()); err != nil {
+	if err := registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types()); err != nil {
 		return nil, fmt.Errorf("domain types do not match migrations: %w", err)
 	}
 	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes())...); err != nil {

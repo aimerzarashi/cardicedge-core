@@ -60,14 +60,16 @@ func toCardConnection(connection pagination.Connection[query.Card]) (*model.Card
 	return &model.CardConnection{Edges: edges, PageInfo: pageInfo}, nil
 }
 
-// Spell は GraphQL の型をまだ作っていない（read model にも入らない）。来たら黙って飛ばさずエラーにする
-// （飛ばすと、一覧から消えたことに気づけない）
+// 3 種類すべてに GraphQL の型があるが、CardType は整数で、switch の漏れをコンパイラが見つけない。
+// default を黙って nil にすると、種類を足したときの足し忘れが一覧から消えるだけで気づけないため、エラーにする
 func toCard(card query.Card) (model.Card, error) {
 	switch card.Type {
 	case readmodel.CardTypeCreature:
 		return &model.Creature{ID: card.ID, Name: card.Name, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
 	case readmodel.CardTypeItem:
 		return &model.Item{ID: card.ID, Name: card.Name, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
+	case readmodel.CardTypeSpell:
+		return &model.Spell{ID: card.ID, Name: card.Name, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
 	default:
 		return nil, fmt.Errorf("graphql: card type %d has no GraphQL type", card.Type)
 	}

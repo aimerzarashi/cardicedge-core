@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 // card_lists.card_type の値。並び順を表す（集約の種別の id の大小に並び順の決まりを隠さないため。migrations/0010）。
@@ -63,6 +64,12 @@ func (state CardList) Evolve(event any) CardList {
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
 		state.CardType = CardTypeItem
+		state.SortName = card.NormalizeName(e.Name.String())
+		state.Metadata = CardListMetadata{ID: e.PublicID, Name: e.Name.String(), RegisteredAt: occurredAt, UpdatedAt: occurredAt}
+	case *spell.RegisteredEvent:
+		occurredAt := e.GetMeta().OccurredAt
+		state.CardID = e.PublicID
+		state.CardType = CardTypeSpell
 		state.SortName = card.NormalizeName(e.Name.String())
 		state.Metadata = CardListMetadata{ID: e.PublicID, Name: e.Name.String(), RegisteredAt: occurredAt, UpdatedAt: occurredAt}
 	}

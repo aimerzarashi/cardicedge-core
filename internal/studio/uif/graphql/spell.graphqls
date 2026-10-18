@@ -1,0 +1,34 @@
+"スペル（カードの種類の 1 つ）"
+type Spell implements Card {
+  "公開用の ID"
+  id: UUID!
+  "カード名（登録したときの表記。前後の空白は除く）"
+  name: String!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+"スペルを登録する入力"
+input RegisterSpellInput {
+  "カード名（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"スペルを登録した"
+type RegisterSpellSuccess {
+  "登録したスペル"
+  spell: Spell!
+}
+
+"スペルの登録の結果"
+union RegisterSpellResult = RegisterSpellSuccess | ValidationErrors | CardNameAlreadyInUseError | ForbiddenError
+
+extend type Mutation {
+  "スペルを登録する（紐づいたオペレーターだけ）"
+  registerSpell(
+    "登録するスペル"
+    input: RegisterSpellInput!
+  ): RegisterSpellResult!
+}

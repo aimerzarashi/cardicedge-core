@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -38,6 +39,7 @@ type Studio struct {
 	operators *command.OperatorCommands
 	creatures *command.CreatureCommands
 	items     *command.ItemCommands
+	spells    *command.SpellCommands
 	cards     *query.CardList
 }
 
@@ -71,6 +73,12 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdateItemName,
 			now,
 		),
+		spells: command.NewSpellCommands(
+			eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
+			identifier.New(registry, spell.NewID),
+			constraint.UpdateSpellName,
+			now,
+		),
 		cards: query.NewCardList(repository.ListCards),
 	}
 }
@@ -91,12 +99,12 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.CardList]{
 		Name:          "card_list",
-		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType},
+		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType, spell.Types().EntityType},
 		Upsert:        repository.UpsertCardList,
 		Delete:        repository.DeleteCardList,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.cards), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.cards), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
