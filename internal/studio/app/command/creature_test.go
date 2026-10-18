@@ -16,13 +16,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
@@ -37,18 +35,6 @@ func newCreatureCommands(t *testing.T, ctx context.Context) *command.CreatureCom
 		constraint.UpdateCreatureName,
 		func() time.Time { return time.Now().UTC() },
 	)
-}
-
-// 認証ミドルウェアが載せるのと同じく、操作した人を context に載せる。
-// イベントに内部 ID を残すだけなので、オペレーターは実在しなくてよい
-func signedIn(t *testing.T, ctx context.Context, by operator.ID) context.Context {
-	t.Helper()
-	return authentication.WithOperator(ctx, by)
-}
-
-func registrant(t *testing.T) operator.ID {
-	t.Helper()
-	return operatortest.ID(t, 10)
 }
 
 func countCreatureEvents(t *testing.T, ctx context.Context, id creature.ID) int {

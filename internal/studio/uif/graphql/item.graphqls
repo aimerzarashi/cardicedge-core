@@ -1,0 +1,34 @@
+"アイテム（カードの種類の 1 つ）"
+type Item implements Card {
+  "公開用の ID"
+  id: UUID!
+  "カード名（登録したときの表記。前後の空白は除く）"
+  name: String!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+"アイテムを登録する入力"
+input RegisterItemInput {
+  "カード名（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"アイテムを登録した"
+type RegisterItemSuccess {
+  "登録したアイテム"
+  item: Item!
+}
+
+"アイテムの登録の結果"
+union RegisterItemResult = RegisterItemSuccess | ValidationErrors | CardNameAlreadyInUseError | ForbiddenError
+
+extend type Mutation {
+  "アイテムを登録する（紐づいたオペレーターだけ）"
+  registerItem(
+    "登録するアイテム"
+    input: RegisterItemInput!
+  ): RegisterItemResult!
+}

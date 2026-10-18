@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
@@ -36,6 +37,7 @@ type Studio struct {
 	config    Config
 	operators *command.OperatorCommands
 	creatures *command.CreatureCommands
+	items     *command.ItemCommands
 	cards     *query.CardList
 }
 
@@ -63,6 +65,12 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdateCreatureName,
 			now,
 		),
+		items: command.NewItemCommands(
+			eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
+			identifier.New(registry, item.NewID),
+			constraint.UpdateItemName,
+			now,
+		),
 		cards: query.NewCardList(repository.ListCards),
 	}
 }
@@ -83,12 +91,12 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.CardList]{
 		Name:          "card_list",
-		Subscriptions: []domain.EntityType{creature.Types().EntityType},
+		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType},
 		Upsert:        repository.UpsertCardList,
 		Delete:        repository.DeleteCardList,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.cards), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.cards), db, c.config.Verifier, c.config.Issuer, c.operators)
 }

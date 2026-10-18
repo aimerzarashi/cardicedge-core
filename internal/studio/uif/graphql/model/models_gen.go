@@ -42,6 +42,11 @@ type RegisterCreatureResult interface {
 	IsRegisterCreatureResult()
 }
 
+// アイテムの登録の結果
+type RegisterItemResult interface {
+	IsRegisterItemResult()
+}
+
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
 type CardConnection struct {
 	// このページのカード
@@ -75,6 +80,8 @@ type CardNameAlreadyInUseError struct {
 }
 
 func (CardNameAlreadyInUseError) IsRegisterCreatureResult() {}
+
+func (CardNameAlreadyInUseError) IsRegisterItemResult() {}
 
 // クリーチャー（カードの種類の 1 つ）
 type Creature struct {
@@ -162,6 +169,34 @@ func (ForbiddenError) IsCardsResult() {}
 
 func (ForbiddenError) IsRegisterCreatureResult() {}
 
+func (ForbiddenError) IsRegisterItemResult() {}
+
+// アイテム（カードの種類の 1 つ）
+type Item struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// カード名（登録したときの表記。前後の空白は除く）
+	Name string `json:"name"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (Item) IsCard() {}
+
+// 公開用の ID
+func (this Item) GetID() uuid.UUID { return this.ID }
+
+// カード名
+func (this Item) GetName() string { return this.Name }
+
+// 登録した日時
+func (this Item) GetRegisteredAt() time.Time { return this.RegisteredAt }
+
+// 最後に変更した日時（変更していなければ登録した日時）
+func (this Item) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
 type Mutation struct {
 }
 
@@ -194,6 +229,20 @@ type RegisterCreatureSuccess struct {
 
 func (RegisterCreatureSuccess) IsRegisterCreatureResult() {}
 
+// アイテムを登録する入力
+type RegisterItemInput struct {
+	// カード名（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// アイテムを登録した
+type RegisterItemSuccess struct {
+	// 登録したアイテム
+	Item *Item `json:"item"`
+}
+
+func (RegisterItemSuccess) IsRegisterItemResult() {}
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -203,6 +252,8 @@ type ValidationErrors struct {
 func (ValidationErrors) IsCardsResult() {}
 
 func (ValidationErrors) IsRegisterCreatureResult() {}
+
+func (ValidationErrors) IsRegisterItemResult() {}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string
