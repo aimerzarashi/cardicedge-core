@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -20,7 +21,7 @@ func TestVerify_AllAggregatesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types()))
+	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types()))
 }
 
 func TestVerify_ReportsUnknownEntityAndEventTypes(t *testing.T) {

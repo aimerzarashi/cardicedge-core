@@ -14,6 +14,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item/itemtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query/readmodel"
 )
 
@@ -71,6 +73,35 @@ func TestCardList_EvolvesFromItemRegistered(t *testing.T) {
 		CardID:   publicID,
 		CardType: readmodel.CardTypeItem,
 		SortName: "potion",
+		Metadata: metadata,
+	}, state)
+	require.False(t, state.IsTerminal())
+}
+
+func registeredSpell(t *testing.T, publicID uuid.UUID, name string, at time.Time) []spell.Event {
+	t.Helper()
+	events, err := spell.Decide(spell.InitialState(), &spell.RegisterCommand{
+		ID: spelltest.ID(t, 1), PublicID: publicID, Name: cardtest.Name(t, name), RegisteredBy: operatortest.ID(t, 10),
+	}, at)
+	require.NoError(t, err)
+	return events
+}
+
+func TestCardList_EvolvesFromSpellRegistered(t *testing.T) {
+	publicID := uuid.New()
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	events := registeredSpell(t, publicID, "Ｆireball", at)
+
+	var state readmodel.CardList
+	for _, event := range events {
+		state = state.Evolve(event)
+	}
+
+	metadata := readmodel.CardListMetadata{ID: publicID, Name: "Ｆireball", RegisteredAt: at, UpdatedAt: at}
+	require.Equal(t, readmodel.CardList{
+		CardID:   publicID,
+		CardType: readmodel.CardTypeSpell,
+		SortName: "fireball",
 		Metadata: metadata,
 	}, state)
 	require.False(t, state.IsTerminal())
