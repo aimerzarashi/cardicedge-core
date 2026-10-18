@@ -31,10 +31,10 @@ migrate-hash:
 
 # 開発ツール
 
-# GraphQL のスキーマ（internal/cms/uif/graphql/*.graphqls）から gqlgen のコードを生成する。生成したコードもコミットする
+# GraphQL のスキーマ（internal/studio/uif/graphql/*.graphqls）から gqlgen のコードを生成する。生成したコードもコミットする
 .PHONY: gen-api
 gen-api:
-	docker compose exec core sh -c 'cd internal/cms/uif/graphql && go tool gqlgen generate'
+	docker compose exec core sh -c 'cd internal/studio/uif/graphql && go tool gqlgen generate'
 	docker compose exec core go mod tidy
 
 # マイグレーション済みの core-db から sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を生成する。

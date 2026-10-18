@@ -82,16 +82,16 @@ func TestUpdateOperatorEmail_ChangesOwnEmail(t *testing.T) {
 
 func TestUpdateOperatorSubject_RejectsSubjectLinkedToOtherOperator(t *testing.T) {
 	f := setup(t)
-	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "other")), "diecardomain-cms", "user-1"))
+	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "other")), "diecardomain-studio", "user-1"))
 
-	err := f.updateSubject(t, f.register(t, email(t, "operator")), "diecardomain-cms", "user-1")
+	err := f.updateSubject(t, f.register(t, email(t, "operator")), "diecardomain-studio", "user-1")
 
 	require.ErrorIs(t, err, operator.ErrAlreadyLinked)
 }
 
 func TestUpdateOperatorSubject_AllowsSameSubjectFromOtherIssuer(t *testing.T) {
 	f := setup(t)
-	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "other")), "diecardomain-cms", "user-1"))
+	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "other")), "diecardomain-studio", "user-1"))
 
 	err := f.updateSubject(t, f.register(t, email(t, "operator")), "other-issuer", "user-1")
 
@@ -101,14 +101,14 @@ func TestUpdateOperatorSubject_AllowsSameSubjectFromOtherIssuer(t *testing.T) {
 func TestFindBySubject_ReturnsLinkedOperator(t *testing.T) {
 	f := setup(t)
 	id := f.register(t, email(t, "operator"))
-	require.NoError(t, f.updateSubject(t, id, "diecardomain-cms", "user-1"))
+	require.NoError(t, f.updateSubject(t, id, "diecardomain-studio", "user-1"))
 
-	got, found, err := constraint.FindOperatorBySubject(f.ctx, operatortest.Issuer(t, "diecardomain-cms"), operatortest.Subject(t, "user-1"))
+	got, found, err := constraint.FindOperatorBySubject(f.ctx, operatortest.Issuer(t, "diecardomain-studio"), operatortest.Subject(t, "user-1"))
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, id, got)
 
-	_, found, err = constraint.FindOperatorBySubject(f.ctx, operatortest.Issuer(t, "diecardomain-cms"), operatortest.Subject(t, "user-2"))
+	_, found, err = constraint.FindOperatorBySubject(f.ctx, operatortest.Issuer(t, "diecardomain-studio"), operatortest.Subject(t, "user-2"))
 	require.NoError(t, err)
 	require.False(t, found)
 }
@@ -116,7 +116,7 @@ func TestFindBySubject_ReturnsLinkedOperator(t *testing.T) {
 func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 	f := setup(t)
 	unlinked := f.register(t, email(t, "operator"))
-	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "linked")), "diecardomain-cms", "user-1"))
+	require.NoError(t, f.updateSubject(t, f.register(t, email(t, "linked")), "diecardomain-studio", "user-1"))
 
 	got, found, err := constraint.FindUnlinkedOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "operator")))
 	require.NoError(t, err)

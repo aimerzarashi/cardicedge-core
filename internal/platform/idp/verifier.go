@@ -18,7 +18,7 @@ type Verifier struct {
 }
 
 // JWKS は keyfunc の既定どおり、1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）に取り直す。
-// 最初の取得に失敗しても作成は失敗しない（core は cms より先に起動するため）
+// 最初の取得に失敗しても作成は失敗しない（core は studio より先に起動するため）
 func NewVerifier(ctx context.Context, jwksURL, issuer, audience string) (*Verifier, error) {
 	kf, err := keyfunc.NewDefaultCtx(ctx, []string{jwksURL})
 	if err != nil {
@@ -37,7 +37,7 @@ func NewVerifier(ctx context.Context, jwksURL, issuer, audience string) (*Verifi
 	}, nil
 }
 
-// Email・EmailVerified は、cms が JWT に入れた email・email_verified（OIDC の標準のクレーム名）。
+// Email・EmailVerified は、studio が JWT に入れた email・email_verified（OIDC の標準のクレーム名）。
 // core が初めてのログインでオペレーターに紐づけるときにだけ使う
 type Claims struct {
 	Subject       string

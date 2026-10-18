@@ -6,12 +6,12 @@ import (
 	"maps"
 	"slices"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/cms/uif/graphql"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/uif/graphql"
 )
 
-// 入口ごとの GraphQL のスキーマ。cms・game は、前提にする版のイメージからこれを取り出して型を生成する（core#22）
+// 入口ごとの GraphQL のスキーマ。studio・game は、前提にする版のイメージからこれを取り出して型を生成する（core#22）
 var schemaWriters = map[string]func(io.Writer){
-	"cms": graphql.WriteSchema,
+	"studio": graphql.WriteSchema,
 }
 
 func writeSchema(name string, w io.Writer) error {

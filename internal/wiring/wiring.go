@@ -15,7 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/cms"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/studio"
 )
 
 type Config struct {
@@ -23,7 +23,7 @@ type Config struct {
 	// Listener が自分で接続するため、DB とは別に渡す
 	DSN                  string
 	Version              string
-	CMS                  cms.Config
+	Studio               studio.Config
 	InitialOperatorEmail string
 	EventDriven          eventdriven.Options
 }
@@ -48,19 +48,19 @@ func Start(ctx context.Context, config Config) (*App, error) {
 		return nil, fmt.Errorf("unique key types do not match migrations: %w", err)
 	}
 
-	cmsParts := cms.New(registry, config.CMS)
-	if err := cmsParts.RegisterInitialOperator(ctx, config.DB, config.InitialOperatorEmail); err != nil {
+	studioParts := studio.New(registry, config.Studio)
+	if err := studioParts.RegisterInitialOperator(ctx, config.DB, config.InitialOperatorEmail); err != nil {
 		return nil, err
 	}
 	// 取り消されない ctx を渡す（シグナルで取り消される ctx だと、HTTP より先に止まり、止める途中のリクエストが
 	// commit したイベントの知らせを受け取れない）
-	hub, err := startEventDriven(context.WithoutCancel(ctx), config.DB, config.DSN, registry, config.EventDriven, cmsParts.RegisterProjections)
+	hub, err := startEventDriven(context.WithoutCancel(ctx), config.DB, config.DSN, registry, config.EventDriven, studioParts.RegisterProjections)
 	if err != nil {
 		return nil, err
 	}
 
 	mux := NewRouter(config.Version)
-	cmsParts.Mount(mux, config.DB, config.Version)
+	studioParts.Mount(mux, config.DB, config.Version)
 	return &App{Handler: mux, hub: hub}, nil
 }
 

@@ -199,7 +199,7 @@ func (f hubFixture) link(t *testing.T, id operator.ID) {
 			return struct{}{}, err
 		}
 		events, err := operator.Decide(state, &operator.LinkCommand{
-			Issuer: operatortest.Issuer(t, "diecardomain-cms"), Subject: operatortest.Subject(t, uuid.NewString()),
+			Issuer: operatortest.Issuer(t, "diecardomain-studio"), Subject: operatortest.Subject(t, uuid.NewString()),
 		}, time.Now().UTC())
 		if err != nil {
 			return struct{}{}, err

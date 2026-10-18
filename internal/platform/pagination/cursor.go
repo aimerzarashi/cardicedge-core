@@ -15,7 +15,7 @@ type Cursor interface {
 	Validate() error
 }
 
-// base64 は URL でそのまま使える形にする（cms が URL のクエリにカーソルを載せても、エスケープが要らないように）
+// base64 は URL でそのまま使える形にする（studio が URL のクエリにカーソルを載せても、エスケープが要らないように）
 func EncodeCursor[C Cursor](cursor C) (string, error) {
 	encoded, err := json.Marshal(cursor)
 	if err != nil {

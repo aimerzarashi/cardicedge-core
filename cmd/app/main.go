@@ -16,7 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/cms"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/studio"
 )
 
 const (
@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	// `app schema <入口>`: GraphQL のスキーマを SDL で標準出力に書いて終了する（cms・game が型を生成するため。core#22）。
+	// `app schema <入口>`: GraphQL のスキーマを SDL で標準出力に書いて終了する（studio・game が型を生成するため。core#22）。
 	// 設定・DB を使わずに動くよう、それらを読む前に分岐する。標準出力はスキーマだけにするため、誤りは標準エラーに書く
 	if len(os.Args) > 1 && os.Args[1] == "schema" {
 		if len(os.Args) != 3 {
@@ -82,18 +82,18 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer db.Close()
-	verifier, err := idp.NewVerifier(ctx, cfg.CMS.JWKSURL, cfg.CMS.Issuer, cfg.CMS.Audience)
+	verifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
 	if err != nil {
 		return err
 	}
 
-	cmsConfig := cms.Config{Verifier: verifier, Issuer: cfg.CMS.Issuer}
+	studioConfig := studio.Config{Verifier: verifier, Issuer: cfg.Studio.Issuer}
 	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
 	app, err := wiring.Start(ctx, wiring.Config{
 		DB:                   db,
 		DSN:                  cfg.DBDSN,
 		Version:              version,
-		CMS:                  cmsConfig,
+		Studio:               studioConfig,
 		InitialOperatorEmail: cfg.InitialOperatorEmail,
 		EventDriven:          eventDriven,
 	})

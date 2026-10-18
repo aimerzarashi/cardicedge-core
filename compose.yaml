@@ -32,16 +32,16 @@ services:
       retries: 3
     environment:
       DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
-      # cms（better-auth）の JWT の検証。JWKS は cms-envoy を通して取る（cms#11: cms には envoy を通してしか届かない）。
-      # iss・aud は cms の JWT_ISSUER・JWT_AUDIENCE と一致させる。cms が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
-      CMS_JWKS_URL: http://cms-envoy:10000/api/auth/jwks
-      CMS_JWT_ISSUER: diecardomain-cms
-      CMS_JWT_AUDIENCE: diecardomain-core
-      CMS_INITIAL_OPERATOR_EMAIL: operator@example.com
+      # studio（better-auth）の JWT の検証。JWKS は studio-envoy を通して取る（studio#11: studio には envoy を通してしか届かない）。
+      # iss・aud は studio の JWT_ISSUER・JWT_AUDIENCE と一致させる。studio が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
+      STUDIO_JWKS_URL: http://studio-envoy:10000/api/auth/jwks
+      STUDIO_JWT_ISSUER: diecardomain-studio
+      STUDIO_JWT_AUDIENCE: diecardomain-core
+      STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
     depends_on:
       core-migrate:
         condition: service_completed_successfully
-    # game / cms から core:3333 で接続できるよう、共有ネットワークにも参加する（core-db は参加しない）
+    # game / studio から core:3333 で接続できるよう、共有ネットワークにも参加する（core-db は参加しない）
     networks:
       - default
       - diecardomain
@@ -79,7 +79,7 @@ volumes:
   go-mod:
   go-build:
 
-# game / cms と共有するネットワーク。make up で無ければ作成する
+# game / studio と共有するネットワーク。make up で無ければ作成する
 networks:
   diecardomain:
     external: true

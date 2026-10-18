@@ -1,4 +1,4 @@
-# game / cms のテスト用に、使い捨ての core と DB を起動する。
+# game / studio のテスト用に、使い捨ての core と DB を起動する。
 # 利用側の compose から include し、利用側のプロジェクト名で起動する（開発用の core とは別のコンテナ・ネットワーク・DB になる）。
 # ホストにポートを公開せず、共有ネットワーク diecardomain にも参加しない
 services:
@@ -8,12 +8,12 @@ services:
       dockerfile: .build/Dockerfile
     environment:
       DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
-      # cms（better-auth）の JWT の検証。JWKS は cms-envoy を通して取る（cms#11: cms には envoy を通してしか届かない）。
-      # iss・aud は cms の JWT_ISSUER・JWT_AUDIENCE と一致させる。cms が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
-      CMS_JWKS_URL: http://cms-envoy:10000/api/auth/jwks
-      CMS_JWT_ISSUER: diecardomain-cms
-      CMS_JWT_AUDIENCE: diecardomain-core
-      CMS_INITIAL_OPERATOR_EMAIL: operator@example.com
+      # studio（better-auth）の JWT の検証。JWKS は studio-envoy を通して取る（studio#11: studio には envoy を通してしか届かない）。
+      # iss・aud は studio の JWT_ISSUER・JWT_AUDIENCE と一致させる。studio が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
+      STUDIO_JWKS_URL: http://studio-envoy:10000/api/auth/jwks
+      STUDIO_JWT_ISSUER: diecardomain-studio
+      STUDIO_JWT_AUDIENCE: diecardomain-core
+      STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
     healthcheck:
       test: ["CMD", "/app", "healthcheck"]
       start_period: 30s
