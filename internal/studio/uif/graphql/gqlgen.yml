@@ -26,3 +26,10 @@ models:
   DateTime:
     model:
       - github.com/99designs/gqlgen/graphql.Time
+  # cards は resolver で返す（カード名をデータローダーで引いてから並べるため。core#24）
+  StarterDeck:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/studio/uif/graphql/model.StarterDeck
+    fields:
+      cards:
+        resolver: true

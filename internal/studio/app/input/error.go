@@ -60,6 +60,43 @@ func (e *InvalidFormat) InputField() string {
 	return e.Field
 }
 
+// 入力の ID が指すもの（スターターデッキに入れるカード等）が無い
+type NotFound struct{ Field string }
+
+func (e *NotFound) Error() string {
+	return fmt.Sprintf("%s refers to nothing", e.Field)
+}
+
+func (e *NotFound) InputField() string {
+	return e.Field
+}
+
+// 一覧の中で、同じもの（同じカード等）がすでに出てきた
+type Duplicated struct{ Field string }
+
+func (e *Duplicated) Error() string {
+	return fmt.Sprintf("%s is duplicated", e.Field)
+}
+
+func (e *Duplicated) InputField() string {
+	return e.Field
+}
+
+// 入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える。入力の値そのものではなく、
+// 今の状態と合わせた結果の誤りなので、OutOfRange と分ける（画面が言い分けられるように）
+type TotalTooLarge struct {
+	Field string
+	Max   int
+}
+
+func (e *TotalTooLarge) Error() string {
+	return fmt.Sprintf("total of %s is larger than %d", e.Field, e.Max)
+}
+
+func (e *TotalTooLarge) InputField() string {
+	return e.Field
+}
+
 // 項目が増えても、最初の 1 つで止めずにまとめて返すため
 type Errors []Error
 

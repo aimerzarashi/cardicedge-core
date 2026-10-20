@@ -75,17 +75,23 @@ var DomainIdentifierWhere = struct {
 
 // DomainIdentifierRels is where relationship names are stored.
 var DomainIdentifierRels = struct {
-	EntityType             string
-	EntityDomainUniqueKeys string
+	EntityType                  string
+	ReferencedDomainReferences  string
+	ReferencingDomainReferences string
+	EntityDomainUniqueKeys      string
 }{
-	EntityType:             "EntityType",
-	EntityDomainUniqueKeys: "EntityDomainUniqueKeys",
+	EntityType:                  "EntityType",
+	ReferencedDomainReferences:  "ReferencedDomainReferences",
+	ReferencingDomainReferences: "ReferencingDomainReferences",
+	EntityDomainUniqueKeys:      "EntityDomainUniqueKeys",
 }
 
 // domainIdentifierR is where relationships are stored.
 type domainIdentifierR struct {
-	EntityType             *DomainEntityType    `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
-	EntityDomainUniqueKeys DomainUniqueKeySlice `boil:"EntityDomainUniqueKeys" json:"EntityDomainUniqueKeys" toml:"EntityDomainUniqueKeys" yaml:"EntityDomainUniqueKeys"`
+	EntityType                  *DomainEntityType    `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
+	ReferencedDomainReferences  DomainReferenceSlice `boil:"ReferencedDomainReferences" json:"ReferencedDomainReferences" toml:"ReferencedDomainReferences" yaml:"ReferencedDomainReferences"`
+	ReferencingDomainReferences DomainReferenceSlice `boil:"ReferencingDomainReferences" json:"ReferencingDomainReferences" toml:"ReferencingDomainReferences" yaml:"ReferencingDomainReferences"`
+	EntityDomainUniqueKeys      DomainUniqueKeySlice `boil:"EntityDomainUniqueKeys" json:"EntityDomainUniqueKeys" toml:"EntityDomainUniqueKeys" yaml:"EntityDomainUniqueKeys"`
 }
 
 // NewStruct creates a new relationship struct
@@ -107,6 +113,38 @@ func (r *domainIdentifierR) GetEntityType() *DomainEntityType {
 	}
 
 	return r.EntityType
+}
+
+func (o *DomainIdentifier) GetReferencedDomainReferences() DomainReferenceSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetReferencedDomainReferences()
+}
+
+func (r *domainIdentifierR) GetReferencedDomainReferences() DomainReferenceSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.ReferencedDomainReferences
+}
+
+func (o *DomainIdentifier) GetReferencingDomainReferences() DomainReferenceSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetReferencingDomainReferences()
+}
+
+func (r *domainIdentifierR) GetReferencingDomainReferences() DomainReferenceSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.ReferencingDomainReferences
 }
 
 func (o *DomainIdentifier) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
@@ -452,6 +490,34 @@ func (o *DomainIdentifier) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery
 	return DomainEntityTypes(queryMods...)
 }
 
+// ReferencedDomainReferences retrieves all the domain_reference's DomainReferences with an executor via referenced_id column.
+func (o *DomainIdentifier) ReferencedDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"domain_references\".\"referenced_id\"=?", o.ID),
+	)
+
+	return DomainReferences(queryMods...)
+}
+
+// ReferencingDomainReferences retrieves all the domain_reference's DomainReferences with an executor via referencing_id column.
+func (o *DomainIdentifier) ReferencingDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"domain_references\".\"referencing_id\"=?", o.ID),
+	)
+
+	return DomainReferences(queryMods...)
+}
+
 // EntityDomainUniqueKeys retrieves all the domain_unique_key's DomainUniqueKeys with an executor via entity_id column.
 func (o *DomainIdentifier) EntityDomainUniqueKeys(mods ...qm.QueryMod) domainUniqueKeyQuery {
 	var queryMods []qm.QueryMod
@@ -578,6 +644,232 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 					foreign.R = &domainEntityTypeR{}
 				}
 				foreign.R.EntityTypeDomainIdentifiers = append(foreign.R.EntityTypeDomainIdentifiers, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadReferencedDomainReferences allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainIdentifierL) LoadReferencedDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
+	var slice []*DomainIdentifier
+	var object *DomainIdentifier
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		if !ok {
+			object = new(DomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+			}
+		}
+	} else {
+		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainIdentifierR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainIdentifierR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`domain_references`),
+		qm.WhereIn(`domain_references.referenced_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load domain_references")
+	}
+
+	var resultSlice []*DomainReference
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice domain_references")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on domain_references")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_references")
+	}
+
+	if len(domainReferenceAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.ReferencedDomainReferences = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &domainReferenceR{}
+			}
+			foreign.R.Referenced = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.ReferencedID {
+				local.R.ReferencedDomainReferences = append(local.R.ReferencedDomainReferences, foreign)
+				if foreign.R == nil {
+					foreign.R = &domainReferenceR{}
+				}
+				foreign.R.Referenced = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadReferencingDomainReferences allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainIdentifierL) LoadReferencingDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
+	var slice []*DomainIdentifier
+	var object *DomainIdentifier
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		if !ok {
+			object = new(DomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+			}
+		}
+	} else {
+		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainIdentifierR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainIdentifierR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`domain_references`),
+		qm.WhereIn(`domain_references.referencing_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load domain_references")
+	}
+
+	var resultSlice []*DomainReference
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice domain_references")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on domain_references")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_references")
+	}
+
+	if len(domainReferenceAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.ReferencingDomainReferences = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &domainReferenceR{}
+			}
+			foreign.R.Referencing = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.ReferencingID {
+				local.R.ReferencingDomainReferences = append(local.R.ReferencingDomainReferences, foreign)
+				if foreign.R == nil {
+					foreign.R = &domainReferenceR{}
+				}
+				foreign.R.Referencing = local
 				break
 			}
 		}
@@ -743,6 +1035,112 @@ func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextE
 		related.R.EntityTypeDomainIdentifiers = append(related.R.EntityTypeDomainIdentifiers, o)
 	}
 
+	return nil
+}
+
+// AddReferencedDomainReferences adds the given related objects to the existing relationships
+// of the domain_identifier, optionally inserting them as new records.
+// Appends related to o.R.ReferencedDomainReferences.
+// Sets related.R.Referenced appropriately.
+func (o *DomainIdentifier) AddReferencedDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.ReferencedID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"domain_references\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"referenced_id"}),
+				strmangle.WhereClause("\"", "\"", 2, domainReferencePrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.ReferenceTypeID, rel.ReferencingID, rel.ReferencedID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.ReferencedID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainIdentifierR{
+			ReferencedDomainReferences: related,
+		}
+	} else {
+		o.R.ReferencedDomainReferences = append(o.R.ReferencedDomainReferences, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &domainReferenceR{
+				Referenced: o,
+			}
+		} else {
+			rel.R.Referenced = o
+		}
+	}
+	return nil
+}
+
+// AddReferencingDomainReferences adds the given related objects to the existing relationships
+// of the domain_identifier, optionally inserting them as new records.
+// Appends related to o.R.ReferencingDomainReferences.
+// Sets related.R.Referencing appropriately.
+func (o *DomainIdentifier) AddReferencingDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.ReferencingID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"domain_references\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"referencing_id"}),
+				strmangle.WhereClause("\"", "\"", 2, domainReferencePrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.ReferenceTypeID, rel.ReferencingID, rel.ReferencedID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.ReferencingID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainIdentifierR{
+			ReferencingDomainReferences: related,
+		}
+	} else {
+		o.R.ReferencingDomainReferences = append(o.R.ReferencingDomainReferences, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &domainReferenceR{
+				Referencing: o,
+			}
+		} else {
+			rel.R.Referencing = o
+		}
+	}
 	return nil
 }
 

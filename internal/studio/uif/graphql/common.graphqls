@@ -27,7 +27,7 @@ type ForbiddenError {
 # 文言は返さない（言い回し・項目の呼び方は画面の都合なので、studio が __typename と値から作る）
 "入力の項目ごとの誤り。理由は __typename で見分ける"
 interface FieldError {
-  "誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）"
+  "誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）"
   field: String!
 }
 
@@ -61,6 +61,26 @@ type FieldInvalidFormat implements FieldError {
   field: String!
 }
 
+"入力の ID が指すもの（スターターデッキに入れるカード等）が無い"
+type FieldNotFound implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+}
+
+"一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）"
+type FieldDuplicated implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）"
+  field: String!
+}
+
+"入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
+type FieldTotalTooLarge implements FieldError {
+  "誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）"
+  field: String!
+  "合計の上限"
+  max: Int!
+}
+
 "入力の誤り（操作は行われていない）"
 type ValidationErrors {
   "項目ごとの誤り（1 件以上）"
@@ -78,4 +98,12 @@ type PageInfo {
   startCursor: String
   "このページの最後の 1 件の位置（次のページは after にこれを渡す）"
   endCursor: String
+}
+
+# 画面で見た内容をもとに、既にあるものを変える・消す操作は、入力に revision（画面が見ていた版）を含め、
+# 今の版と違えばこの型を返す（core#24。流れは internal/eventstore/README.md）。今の revision は持たせない（読み直さずに送り直せてしまうため）
+"先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す"
+type RevisionConflictError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
 }

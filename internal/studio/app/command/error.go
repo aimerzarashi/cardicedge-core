@@ -12,4 +12,10 @@ var (
 	ErrOperatorEmailAlreadyRegistered = errors.New("command: operator email already registered")
 	// Creature・Item・Spell のどれかが同じ名前を使っている
 	ErrCardNameAlreadyInUse = errors.New("command: card name already in use")
+	// ほかのスターターデッキが同じ名前を使っている
+	ErrStarterDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
+	// 公開 ID に当たるスターターデッキが無い（削除したものを含む）
+	ErrStarterDeckNotFound = errors.New("command: starter deck not found")
+	// 画面で見た revision が今の版と違う（画面を開いた後に、ほかの操作で変わった）
+	ErrRevisionConflict = errors.New("command: revision conflict")
 )

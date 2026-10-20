@@ -9,22 +9,28 @@ var TableNames = struct {
 	DomainEventTypes           string
 	DomainEvents               string
 	DomainIdentifiers          string
+	DomainReferenceTypes       string
+	DomainReferences           string
 	DomainUniqueKeyTypes       string
 	DomainUniqueKeys           string
 	EventSubscriberCheckpoints string
 	EventSubscriberPending     string
 	EventSubscribers           string
 	EventSubscriptions         string
+	StarterDeckLists           string
 }{
 	CardLists:                  "card_lists",
 	DomainEntityTypes:          "domain_entity_types",
 	DomainEventTypes:           "domain_event_types",
 	DomainEvents:               "domain_events",
 	DomainIdentifiers:          "domain_identifiers",
+	DomainReferenceTypes:       "domain_reference_types",
+	DomainReferences:           "domain_references",
 	DomainUniqueKeyTypes:       "domain_unique_key_types",
 	DomainUniqueKeys:           "domain_unique_keys",
 	EventSubscriberCheckpoints: "event_subscriber_checkpoints",
 	EventSubscriberPending:     "event_subscriber_pending",
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
+	StarterDeckLists:           "starter_deck_lists",
 }

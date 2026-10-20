@@ -36,6 +36,7 @@ func NewHandler(mux chi.Router, resolver *Resolver, db *sql.DB, verifier TokenVe
 	mux.Route("/studio/graphql", func(r chi.Router) {
 		r.Use(rdb.Middleware(db))
 		r.Use(authenticate(verifier, issuer, operators))
+		r.Use(withLoaders(resolver.cards))
 		r.Handle("/", srv)
 	})
 }

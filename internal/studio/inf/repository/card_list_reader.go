@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query/readmodel"
@@ -18,6 +19,8 @@ import (
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // 並び順は索引（card_type, sort_name, card_id）と同じにし、続きは行の比べ方（(a, b, c) > (x, y, z)）で取る。
+// sqlboiler を使わないのは、行の比べ方と LIKE の ESCAPE が sqlboiler の条件の部品に無く、qm.Where に SQL の断片を書くだけになるため
+// （SQL を 1 つに書くほうが、索引と並び順の対応を読み取りやすい）。
 // sort_name は列に COLLATE "C" を付けているため、並べ替えと比べ方が OS の照合順序に左右されず一致する
 func ListCards(ctx context.Context, condition query.ListCardsCondition) ([]query.CardListRow, error) {
 	exec, err := rdb.GetExecutor(ctx)
@@ -74,9 +77,50 @@ func ListCards(ctx context.Context, condition query.ListCardsCondition) ([]query
 		if err != nil {
 			return nil, err
 		}
-		card := query.Card{ID: metadata.ID, Type: typ, Name: metadata.Name, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt}
+		card := toCard(typ, metadata)
 		cursor := query.CardListCursor{CardType: typ, SortName: sortName, CardID: cardID}
 		result = append(result, query.CardListRow{Card: card, Cursor: cursor})
 	}
 	return result, rows.Err()
+}
+
+func GetCards(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]query.Card, error) {
+	cards := make(map[uuid.UUID]query.Card, len(ids))
+	if len(ids) == 0 {
+		return cards, nil
+	}
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(ids))
+	for _, id := range ids {
+		keys = append(keys, id.String())
+	}
+	rows, err := models.CardLists(models.CardListWhere.CardID.IN(keys)).All(ctx, exec)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		var metadata readmodel.CardListMetadata
+		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+			return nil, fmt.Errorf("card_lists.metadata of %s: %w", row.CardID, err)
+		}
+		typ, err := readmodel.NewCardType(row.CardType)
+		if err != nil {
+			return nil, err
+		}
+		cards[metadata.ID] = toCard(typ, metadata)
+	}
+	return cards, nil
+}
+
+func toCard(cardType readmodel.CardType, metadata readmodel.CardListMetadata) query.Card {
+	return query.Card{
+		ID:           metadata.ID,
+		Type:         cardType,
+		Name:         metadata.Name,
+		RegisteredAt: metadata.RegisteredAt,
+		UpdatedAt:    metadata.UpdatedAt,
+	}
 }

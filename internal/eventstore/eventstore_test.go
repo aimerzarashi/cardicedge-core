@@ -7,9 +7,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
@@ -44,6 +48,57 @@ func TestSave_RejectsSameVersionTwice(t *testing.T) {
 	// 衝突してもトランザクションは中断されず、続けて使える（DB にエラーのログも出ない）
 	_, err = store.Load(ctx, events[0].GetMeta().EntityID)
 	require.NoError(t, err)
+}
+
+// 版を変えた同じ内容のイベントを作る（保存の版の決まりだけを確かめるため、中身は問わない）
+func withVersion(t *testing.T, event operator.Event, version int64) operator.Event {
+	t.Helper()
+	registered := *event.(*operator.RegisteredEvent)
+	registered.AggregateVersion = version
+	return &registered
+}
+
+func TestSave_RejectsNonConsecutiveVersion(t *testing.T) {
+	tests := []struct {
+		name         string
+		saveVersion1 bool
+		version      int64
+	}{
+		{name: "skips_versions", saveVersion1: true, version: 3},
+		{name: "first_event_is_not_version_1", saveVersion1: false, version: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, registry := setup(t)
+			_, _, events := register(t, ctx, registry, "non-consecutive-"+uuid.NewString()+"@example.com", time.Now().UTC())
+			store := operatorStore(registry)
+			if tt.saveVersion1 {
+				require.NoError(t, store.Save(ctx, events))
+			}
+
+			err := store.Save(ctx, []operator.Event{withVersion(t, events[0], tt.version)})
+
+			require.ErrorIs(t, err, domain.ErrVersionNotConsecutive)
+			require.NotErrorIs(t, err, domain.ErrVersionConflict)
+		})
+	}
+}
+
+// 1 回の保存で渡した、続いた版のイベントは保存できる（前のイベントが同じ保存の中で入る）
+func TestSave_AcceptsConsecutiveVersionsInOneSave(t *testing.T) {
+	ctx, registry := setup(t)
+	id, _, events := register(t, ctx, registry, "consecutive-"+uuid.NewString()+"@example.com", time.Now().UTC())
+	store := operatorStore(registry)
+
+	err := store.Save(ctx, []operator.Event{events[0], withVersion(t, events[0], 2), withVersion(t, events[0], 3)})
+
+	require.NoError(t, err)
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	var count int
+	require.NoError(t, exec.QueryRowContext(ctx,
+		`SELECT count(*) FROM domain_events WHERE entity_type_id = (SELECT id FROM domain_entity_types WHERE name = 'operator') AND entity_id = $1`, id.Int64()).Scan(&count))
+	require.Equal(t, 3, count)
 }
 
 func TestSave_StoresEventTypeVersion(t *testing.T) {
@@ -113,7 +168,92 @@ func TestIdentifier_ResolveFailsForUnknownPublicID(t *testing.T) {
 
 	_, err := identifier.New(registry, operator.NewID).Resolve(ctx, uuid.New())
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func TestIdentifier_ResolveFailsForPublicIDOfOtherEntityType(t *testing.T) {
+	ctx, registry := setup(t)
+	_, publicID, err := identifier.New(registry, creature.NewID).Issue(ctx)
+	require.NoError(t, err)
+
+	_, err = identifier.New(registry, operator.NewID).Resolve(ctx, publicID)
+
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func TestIdentifier_DeleteReleasesUniqueKeysAndKeepsEvents(t *testing.T) {
+	ctx, registry := setup(t)
+	// 開発用の DB の初期オペレーターとぶつからない値にする
+	email := "delete-" + uuid.NewString() + "@example.com"
+	id, publicID, events := register(t, ctx, registry, email, time.Now().UTC())
+	require.NoError(t, operatorStore(registry).Save(ctx, events))
+	require.NoError(t, constraint.UpdateOperatorEmail(ctx, id, operatortest.Email(t, email)))
+	issuer := identifier.New(registry, operator.NewID)
+
+	require.NoError(t, issuer.Delete(ctx, id))
+
+	_, err := issuer.Resolve(ctx, publicID)
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+	other, _, err := issuer.Issue(ctx)
+	require.NoError(t, err)
+	require.NoError(t, constraint.UpdateOperatorEmail(ctx, other, operatortest.Email(t, email)))
+	state, err := operatorStore(registry).Load(ctx, id)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), state.(operator.Operator).Version)
+}
+
+func TestEntityRefResolver_ResolvesEntityTypeAndID(t *testing.T) {
+	ctx, registry := setup(t)
+	id, publicID, err := identifier.New(registry, creature.NewID).Issue(ctx)
+	require.NoError(t, err)
+
+	ref, err := identifier.NewEntityRefResolver(registry).Resolve(ctx, publicID)
+
+	require.NoError(t, err)
+	require.Equal(t, domain.NewEntityRef(creature.Types().EntityType, id.Int64()), ref)
+}
+
+func TestEntityRefResolver_ResolveFailsForUnknownPublicID(t *testing.T) {
+	ctx, registry := setup(t)
+
+	_, err := identifier.NewEntityRefResolver(registry).Resolve(ctx, uuid.New())
+
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+// 無い公開 ID は結果に含めない
+func TestEntityRefResolver_ResolvesAllKnownPublicIDs(t *testing.T) {
+	ctx, registry := setup(t)
+	creatureID, creaturePublicID, err := identifier.New(registry, creature.NewID).Issue(ctx)
+	require.NoError(t, err)
+	itemID, itemPublicID, err := identifier.New(registry, item.NewID).Issue(ctx)
+	require.NoError(t, err)
+
+	refs, err := identifier.NewEntityRefResolver(registry).ResolveAll(ctx, []uuid.UUID{creaturePublicID, itemPublicID, uuid.New()})
+
+	require.NoError(t, err)
+	require.Equal(t, map[uuid.UUID]domain.EntityRef{
+		creaturePublicID: domain.NewEntityRef(creature.Types().EntityType, creatureID.Int64()),
+		itemPublicID:     domain.NewEntityRef(item.Types().EntityType, itemID.Int64()),
+	}, refs)
+}
+
+func TestEntityRefResolver_ReturnsPublicIDsOfKnownRefs(t *testing.T) {
+	ctx, registry := setup(t)
+	creatureID, creaturePublicID, err := identifier.New(registry, creature.NewID).Issue(ctx)
+	require.NoError(t, err)
+	itemID, itemPublicID, err := identifier.New(registry, item.NewID).Issue(ctx)
+	require.NoError(t, err)
+	creatureRef := domain.NewEntityRef(creature.Types().EntityType, creatureID.Int64())
+	itemRef := domain.NewEntityRef(item.Types().EntityType, itemID.Int64())
+	// 内部 ID は合っていても種類が違えば、別の集約の公開 ID を返さない
+	wrongTypeRef := domain.NewEntityRef(spell.Types().EntityType, creatureID.Int64())
+	unknownRef := domain.NewEntityRef(creature.Types().EntityType, itemID.Int64()+1000)
+
+	publicIDs, err := identifier.NewEntityRefResolver(registry).PublicIDs(ctx, []domain.EntityRef{creatureRef, itemRef, wrongTypeRef, unknownRef})
+
+	require.NoError(t, err)
+	require.Equal(t, map[domain.EntityRef]uuid.UUID{creatureRef: creaturePublicID, itemRef: itemPublicID}, publicIDs)
 }
 
 // DB から読んだ時刻は Location が UTC と異なりうるため、比較のために UTC にそろえる

@@ -1,0 +1,205 @@
+# スターターデッキ（studio で登録するマスタのデッキ。スターターはここから選ぶ。core#24）
+
+"スターターデッキ"
+type StarterDeck {
+  "公開用の ID"
+  id: UUID!
+  "名前（登録・変更したときの表記。前後の空白は除く）"
+  name: String!
+  # 名前・種類は read model に書き写さず、データローダーで引いてから並べる（core#24）
+  "入れたカードと枚数（カードの一覧と同じ並び: 種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）"
+  cards: [StarterDeckCard!]!
+  "カードの枚数の合計"
+  totalCount: Int!
+  "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+"スターターデッキに入れたカードと枚数"
+type StarterDeckCard {
+  "カード"
+  card: Card!
+  "枚数（1〜4）"
+  count: Int!
+}
+
+"名前が、ほかのスターターデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）"
+type StarterDeckNameAlreadyInUseError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"スターターデッキが無い（削除したものを含む）"
+type StarterDeckNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"スターターデッキの一覧の絞り込み"
+input StarterDeckFilter {
+  "名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）"
+  nameContains: String
+}
+
+"スターターデッキの一覧の 1 件と、その位置"
+type StarterDeckEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "スターターデッキ"
+  node: StarterDeck!
+}
+
+"スターターデッキの一覧の 1 ページ（名前の順）"
+type StarterDeckConnection {
+  "このページのスターターデッキ"
+  edges: [StarterDeckEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"スターターデッキの一覧の結果"
+union StarterDecksResult = StarterDeckConnection | ValidationErrors | ForbiddenError
+
+"スターターデッキの詳細の結果"
+union StarterDeckResult = StarterDeck | StarterDeckNotFoundError | ForbiddenError
+
+extend type Query {
+  "スターターデッキの一覧（紐づいたオペレーターだけ）"
+  starterDecks(
+    "絞り込み"
+    filter: StarterDeckFilter
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): StarterDecksResult!
+  "スターターデッキの詳細（紐づいたオペレーターだけ）"
+  starterDeck(
+    "スターターデッキの公開用の ID"
+    id: UUID!
+  ): StarterDeckResult!
+}
+
+"スターターデッキを登録する入力"
+input RegisterStarterDeckInput {
+  "名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+# 変える操作の結果は、公開 ID と新しい revision だけにする（core#24）。内容を返さないのは、画面が表示する内容と revision を
+# 同じ時点のもの（詳細の読み直し）にそろえるため
+"スターターデッキを登録した"
+type RegisterStarterDeckSuccess {
+  "登録したのスターターデッキの公開用の ID"
+  id: UUID!
+  "登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"スターターデッキの登録の結果"
+union RegisterStarterDeckResult = RegisterStarterDeckSuccess | ValidationErrors | StarterDeckNameAlreadyInUseError | ForbiddenError
+
+"スターターデッキの名前を変える入力"
+input RenameStarterDeckInput {
+  "スターターデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたスターターデッキの revision"
+  revision: Int!
+  "新しい名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"スターターデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）"
+type RenameStarterDeckSuccess {
+  "変えたのスターターデッキの公開用の ID"
+  id: UUID!
+  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"スターターデッキの名前の変更の結果"
+union RenameStarterDeckResult =
+    RenameStarterDeckSuccess
+  | ValidationErrors
+  | StarterDeckNotFoundError
+  | StarterDeckNameAlreadyInUseError
+  | RevisionConflictError
+  | ForbiddenError
+
+"変えるカードと、その枚数"
+input StarterDeckCardCountInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  cardId: UUID!
+  "その枚数にする（0〜4。0 にするとデッキから外す）"
+  count: Int!
+}
+
+"スターターデッキのカードの枚数を変える入力"
+input SetStarterDeckCardCountsInput {
+  "スターターデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたスターターデッキの revision"
+  revision: Int!
+  "変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り）"
+  cards: [StarterDeckCardCountInput!]!
+}
+
+"スターターデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）"
+type SetStarterDeckCardCountsSuccess {
+  "変えたのスターターデッキの公開用の ID"
+  id: UUID!
+  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"スターターデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）"
+union SetStarterDeckCardCountsResult =
+    SetStarterDeckCardCountsSuccess
+  | ValidationErrors
+  | StarterDeckNotFoundError
+  | RevisionConflictError
+  | ForbiddenError
+
+"スターターデッキを削除する入力"
+input DeleteStarterDeckInput {
+  "スターターデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたスターターデッキの revision"
+  revision: Int!
+}
+
+"スターターデッキを削除した（名前はほかのスターターデッキが使えるようになる）"
+type DeleteStarterDeckSuccess {
+  "削除したスターターデッキの公開用の ID"
+  id: UUID!
+}
+
+"スターターデッキの削除の結果"
+union DeleteStarterDeckResult = DeleteStarterDeckSuccess | StarterDeckNotFoundError | RevisionConflictError | ForbiddenError
+
+extend type Mutation {
+  "スターターデッキを登録する（紐づいたオペレーターだけ）"
+  registerStarterDeck(
+    "登録するスターターデッキ"
+    input: RegisterStarterDeckInput!
+  ): RegisterStarterDeckResult!
+  "スターターデッキの名前を変える（紐づいたオペレーターだけ）"
+  renameStarterDeck(
+    "変える内容"
+    input: RenameStarterDeckInput!
+  ): RenameStarterDeckResult!
+  "スターターデッキのカードの枚数を変える（紐づいたオペレーターだけ）"
+  setStarterDeckCardCounts(
+    "変える内容"
+    input: SetStarterDeckCardCountsInput!
+  ): SetStarterDeckCardCountsResult!
+  "スターターデッキを削除する（紐づいたオペレーターだけ）"
+  deleteStarterDeck(
+    "削除するスターターデッキ"
+    input: DeleteStarterDeckInput!
+  ): DeleteStarterDeckResult!
+}

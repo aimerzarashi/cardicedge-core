@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
 
@@ -43,12 +44,22 @@ func New[I domain.ID, E domain.Event[I], S any](
 
 // 同じ集約・同じ版のイベントの衝突（同時の更新）を、一意制約違反のエラーではなく、行が返らないことで知る。
 // エラーにすると PostgreSQL が ERROR のログを出し（衝突は異常ではないのにログが埋まる）、トランザクションも中断されるため。
-// sqlboiler の Insert は違反をエラーで返し、Upsert（DO NOTHING）は行が返らないと nil を返して衝突に気づけないため、SQL を直接書く
+// sqlboiler の Insert は違反をエラーで返し、Upsert（DO NOTHING）は行が返らないと nil を返して衝突に気づけないため、SQL を直接書く。
+// 版が続いていること（版 1 か、直前の版が既にある）も条件にし、どこから呼ばれても版が飛ばないことをここで守る
+// （各集約の Decide が「今の版 + 1」で作るのに任せず、保存する場所で保証する。core#24）
 const saveEventQuery = `
 	INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	SELECT $1::smallint, $2::bigint, $3::bigint, $4::smallint, $5::int, $6::jsonb, $7::timestamptz
+	WHERE $3::bigint = 1 OR EXISTS (
+	  SELECT 1 FROM domain_events WHERE entity_type_id = $1::smallint AND entity_id = $2::bigint AND aggregate_version = $3::bigint - 1
+	)
 	ON CONFLICT (entity_type_id, entity_id, aggregate_version) DO NOTHING
 	RETURNING id
+`
+
+// 行が返らなかったときに、衝突か版の飛びかを見分ける
+const versionExistsQuery = `
+	SELECT EXISTS (SELECT 1 FROM domain_events WHERE entity_type_id = $1 AND entity_id = $2 AND aggregate_version = $3)
 `
 
 func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
@@ -78,6 +89,13 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 			meta.OccurredAt,
 		).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
+			var exists bool
+			if err := exec.QueryRowContext(ctx, versionExistsQuery, entityTypeID.Int16(), meta.EntityID.Int64(), meta.AggregateVersion).Scan(&exists); err != nil {
+				return err
+			}
+			if !exists {
+				return fmt.Errorf("%w: version %d", domain.ErrVersionNotConsecutive, meta.AggregateVersion)
+			}
 			return domain.ErrVersionConflict
 		}
 		if err != nil {

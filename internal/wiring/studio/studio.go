@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -40,7 +41,11 @@ type Studio struct {
 	creatures *command.CreatureCommands
 	items     *command.ItemCommands
 	spells    *command.SpellCommands
-	cards     *query.CardList
+	// 投影もカードの公開 ID を引くため、コマンドと共有する
+	entityRefs      domain.EntityRefResolver
+	starterDecks    *command.StarterDeckCommands
+	cards           *query.CardList
+	starterDeckList *query.StarterDeckList
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -49,8 +54,10 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	now := func() time.Time {
 		return time.Now().UTC().Truncate(time.Microsecond)
 	}
+	entityRefs := identifier.NewEntityRefResolver(registry)
 	return &Studio{
-		config: config,
+		config:     config,
+		entityRefs: entityRefs,
 		operators: command.NewOperatorCommands(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
 			identifier.New(registry, operator.NewID),
@@ -79,7 +86,16 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdateSpellName,
 			now,
 		),
-		cards: query.NewCardList(repository.ListCards),
+		starterDecks: command.NewStarterDeckCommands(
+			eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve),
+			identifier.New(registry, starterdeck.NewID),
+			entityRefs,
+			constraint.UpdateStarterDeckName,
+			constraint.UpdateStarterDeckCardReferences,
+			now,
+		),
+		cards:           query.NewCardList(repository.ListCards, repository.GetCards),
+		starterDeckList: query.NewStarterDeckList(repository.ListStarterDecks, repository.GetStarterDeck),
 	}
 }
 
@@ -97,14 +113,23 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 
 // 名前と購読は migrations の event_subscribers・event_subscriptions と照合される
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.CardList]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.CardList]{
 		Name:          "card_list",
 		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType, spell.Types().EntityType},
 		Upsert:        repository.UpsertCardList,
 		Delete:        repository.DeleteCardList,
+	}); err != nil {
+		return err
+	}
+	starterDecks := repository.NewStarterDeckListWriter(c.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckList]{
+		Name:          "starter_deck_list",
+		Subscriptions: []domain.EntityType{starterdeck.Types().EntityType},
+		Upsert:        starterDecks.Upsert,
+		Delete:        starterDecks.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.cards), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.starterDecks, c.cards, c.starterDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
