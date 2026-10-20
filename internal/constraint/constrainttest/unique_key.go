@@ -1,3 +1,5 @@
+// テストで、制約の表（一意性 domain_unique_keys・参照 domain_references）を読む道具。テストが表の作りを知らずに済むようにする。
+// ファイルは本体の internal/constraint と同じく、制約ごとに分ける
 package constrainttest
 
 import (
@@ -9,8 +11,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
-
-// テストで、一意性の key からその持ち主（集約）を引く道具。テストが一意性のテーブルの作りを知らずに済むようにする
 
 const ownerQuery = `
 	SELECT u.entity_id FROM domain_unique_keys u JOIN domain_unique_key_types t ON t.id = u.unique_key_type_id

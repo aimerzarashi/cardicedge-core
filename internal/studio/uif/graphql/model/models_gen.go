@@ -30,10 +30,15 @@ type CardsResult interface {
 	IsCardsResult()
 }
 
+// スターターデッキの削除の結果
+type DeleteStarterDeckResult interface {
+	IsDeleteStarterDeckResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
-	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
+	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 	GetField() string
 }
 
@@ -50,6 +55,31 @@ type RegisterItemResult interface {
 // スペルの登録の結果
 type RegisterSpellResult interface {
 	IsRegisterSpellResult()
+}
+
+// スターターデッキの登録の結果
+type RegisterStarterDeckResult interface {
+	IsRegisterStarterDeckResult()
+}
+
+// スターターデッキの名前の変更の結果
+type RenameStarterDeckResult interface {
+	IsRenameStarterDeckResult()
+}
+
+// スターターデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
+type SetStarterDeckCardCountsResult interface {
+	IsSetStarterDeckCardCountsResult()
+}
+
+// スターターデッキの詳細の結果
+type StarterDeckResult interface {
+	IsStarterDeckResult()
+}
+
+// スターターデッキの一覧の結果
+type StarterDecksResult interface {
+	IsStarterDecksResult()
 }
 
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
@@ -116,6 +146,33 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
+// スターターデッキを削除する入力
+type DeleteStarterDeckInput struct {
+	// スターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターデッキの revision
+	Revision int `json:"revision"`
+}
+
+// スターターデッキを削除した（名前はほかのスターターデッキが使えるようになる）
+type DeleteStarterDeckSuccess struct {
+	// 削除したスターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteStarterDeckSuccess) IsDeleteStarterDeckResult() {}
+
+// 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
+type FieldDuplicated struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）
+	Field string `json:"field"`
+}
+
+func (FieldDuplicated) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldDuplicated) GetField() string { return this.Field }
+
 // 入力の形が正しくない（メールアドレスとして読めない、ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -124,8 +181,19 @@ type FieldInvalidFormat struct {
 
 func (FieldInvalidFormat) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力の ID が指すもの（スターターデッキに入れるカード等）が無い
+type FieldNotFound struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldNotFound) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotFound) GetField() string { return this.Field }
 
 // 入力が範囲の外
 type FieldOutOfRange struct {
@@ -139,7 +207,7 @@ type FieldOutOfRange struct {
 
 func (FieldOutOfRange) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldOutOfRange) GetField() string { return this.Field }
 
 // 入力が空（前後の空白だけの場合を含む）
@@ -150,7 +218,7 @@ type FieldRequired struct {
 
 func (FieldRequired) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldRequired) GetField() string { return this.Field }
 
 // 入力が長すぎる
@@ -163,8 +231,21 @@ type FieldTooLong struct {
 
 func (FieldTooLong) IsFieldError() {}
 
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains のように . でつなぐ）
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）
+type FieldTotalTooLarge struct {
+	// 誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）
+	Field string `json:"field"`
+	// 合計の上限
+	Max int `json:"max"`
+}
+
+func (FieldTotalTooLarge) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTotalTooLarge) GetField() string { return this.Field }
 
 // 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
 type ForbiddenError struct {
@@ -179,6 +260,18 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 func (ForbiddenError) IsRegisterItemResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
+
+func (ForbiddenError) IsStarterDecksResult() {}
+
+func (ForbiddenError) IsStarterDeckResult() {}
+
+func (ForbiddenError) IsRegisterStarterDeckResult() {}
+
+func (ForbiddenError) IsRenameStarterDeckResult() {}
+
+func (ForbiddenError) IsSetStarterDeckCardCountsResult() {}
+
+func (ForbiddenError) IsDeleteStarterDeckResult() {}
 
 // アイテム（カードの種類の 1 つ）
 type Item struct {
@@ -266,6 +359,74 @@ type RegisterSpellSuccess struct {
 
 func (RegisterSpellSuccess) IsRegisterSpellResult() {}
 
+// スターターデッキを登録する入力
+type RegisterStarterDeckInput struct {
+	// 名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// スターターデッキを登録した
+type RegisterStarterDeckSuccess struct {
+	// 登録したのスターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterStarterDeckSuccess) IsRegisterStarterDeckResult() {}
+
+// スターターデッキの名前を変える入力
+type RenameStarterDeckInput struct {
+	// スターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターデッキの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// スターターデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameStarterDeckSuccess struct {
+	// 変えたのスターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameStarterDeckSuccess) IsRenameStarterDeckResult() {}
+
+// 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
+type RevisionConflictError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RevisionConflictError) IsRenameStarterDeckResult() {}
+
+func (RevisionConflictError) IsSetStarterDeckCardCountsResult() {}
+
+func (RevisionConflictError) IsDeleteStarterDeckResult() {}
+
+// スターターデッキのカードの枚数を変える入力
+type SetStarterDeckCardCountsInput struct {
+	// スターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターデッキの revision
+	Revision int `json:"revision"`
+	// 変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り）
+	Cards []*StarterDeckCardCountInput `json:"cards"`
+}
+
+// スターターデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
+type SetStarterDeckCardCountsSuccess struct {
+	// 変えたのスターターデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetStarterDeckCardCountsSuccess) IsSetStarterDeckCardCountsResult() {}
+
 // スペル（カードの種類の 1 つ）
 type Spell struct {
 	// 公開用の ID
@@ -292,6 +453,70 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
+// スターターデッキに入れたカードと枚数
+type StarterDeckCard struct {
+	// カード
+	Card Card `json:"card"`
+	// 枚数（1〜4）
+	Count int `json:"count"`
+}
+
+// 変えるカードと、その枚数
+type StarterDeckCardCountInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	CardID uuid.UUID `json:"cardId"`
+	// その枚数にする（0〜4。0 にするとデッキから外す）
+	Count int `json:"count"`
+}
+
+// スターターデッキの一覧の 1 ページ（名前の順）
+type StarterDeckConnection struct {
+	// このページのスターターデッキ
+	Edges []*StarterDeckEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (StarterDeckConnection) IsStarterDecksResult() {}
+
+// スターターデッキの一覧の 1 件と、その位置
+type StarterDeckEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// スターターデッキ
+	Node *StarterDeck `json:"node"`
+}
+
+// スターターデッキの一覧の絞り込み
+type StarterDeckFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+}
+
+// 名前が、ほかのスターターデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type StarterDeckNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (StarterDeckNameAlreadyInUseError) IsRegisterStarterDeckResult() {}
+
+func (StarterDeckNameAlreadyInUseError) IsRenameStarterDeckResult() {}
+
+// スターターデッキが無い（削除したものを含む）
+type StarterDeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (StarterDeckNotFoundError) IsStarterDeckResult() {}
+
+func (StarterDeckNotFoundError) IsRenameStarterDeckResult() {}
+
+func (StarterDeckNotFoundError) IsSetStarterDeckCardCountsResult() {}
+
+func (StarterDeckNotFoundError) IsDeleteStarterDeckResult() {}
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -305,6 +530,14 @@ func (ValidationErrors) IsRegisterCreatureResult() {}
 func (ValidationErrors) IsRegisterItemResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
+
+func (ValidationErrors) IsStarterDecksResult() {}
+
+func (ValidationErrors) IsRegisterStarterDeckResult() {}
+
+func (ValidationErrors) IsRenameStarterDeckResult() {}
+
+func (ValidationErrors) IsSetStarterDeckCardCountsResult() {}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string

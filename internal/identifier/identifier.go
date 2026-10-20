@@ -2,6 +2,8 @@ package identifier
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
@@ -61,8 +63,27 @@ func (i *identifier[I]) Resolve(ctx context.Context, publicID uuid.UUID) (I, err
 		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID.Int16()),
 		models.DomainIdentifierWhere.PublicID.EQ(publicID.String()),
 	).One(ctx, exec)
+	if errors.Is(err, sql.ErrNoRows) {
+		return zero, domain.ErrEntityNotFound
+	}
 	if err != nil {
 		return zero, err
 	}
 	return i.newID(row.ID)
+}
+
+func (i *identifier[I]) Delete(ctx context.Context, id I) error {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	entityTypeID, err := i.registry.EntityTypeID(id.EntityType())
+	if err != nil {
+		return err
+	}
+	_, err = models.DomainIdentifiers(
+		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID.Int16()),
+		models.DomainIdentifierWhere.ID.EQ(id.Int64()),
+	).DeleteAll(ctx, exec)
+	return err
 }

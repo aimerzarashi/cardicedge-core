@@ -12,15 +12,15 @@
 | cmd/app | エントリポイント。プロセスとしての起動だけ（設定・DB を開く・JWT の検証の準備・シグナル・HTTP の Listen・Serve とグレースフルシャットダウン・healthcheck・schema）。組み立ては internal/wiring |
 | internal/wiring | 部品を組み立てて動かす（照合・初期オペレーター・Hub の起動・HTTP の入口）。cmd/app と結合テストの両方が使い、本番と同じ組み立てをテストで通す |
 | internal/wiring/studio | studio 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、studio の read model の投影の登録 |
-| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証））。generated.go・model は生成コード。テストは tests/integration |
+| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`StarterDeck`。resolver に渡す値を持たせるため）。テストは tests/integration |
 | internal/studio/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録） |
+| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・スターターデッキの登録・名前の変更・枚数の変更・削除） |
 | internal/studio/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
 | internal/studio/app/query/readmodel | read model の状態の型と、イベントから状態を作る `Evolve`・`IsTerminal`（カードの一覧 `CardList` 等） |
 | internal/studio/inf/repository | read model の DB の読み書き（投影が書く `Upsert...`・`Delete...`） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
-| internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元、ID の発行、一意性の制約（domain_unique_keys）。`constrainttest` はテストで key から集約を引く道具 |
-| internal/domaindef | domain_entity_types・domain_event_types の対応。起動時に読み込み、集約の宣言と照合する |
+| internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
+| internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の対応。起動時に読み込み、ドメインの宣言と照合する |
 | internal/eventdriven | イベントを受けて投影（Projection）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表）。構成は README |
 | internal/platform/pagination | 前向きのカーソルによるページ分け（first・after）の部品 |
 | internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）。`rdbtest` はテストの道具（`Tx` は開発用の DB で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。開発用の DB に commit する道具は出さない） |
@@ -60,7 +60,7 @@
 - GraphQL の操作（認証・認可・入力の誤りの写し方・結果の型）は tests/integration で確かめ、uif の単体テストは置かない（同じことを 2 か所で確かめないため）。下の層（readmodel・query・repository・command）は、それぞれのパッケージで確かめる
 - 結合テストは DB を共有して並列に流すため、作るもの（名前・メールアドレス等）に `testhelper.UniqueID` を付け、それで絞って確かめる。DB 全体の状態を前提にすること（オペレーターが 1 人もいない等）は、app 層のテストで複製した DB を使って確かめる
 - 同じパッケージのほかのテストファイルからも使うヘルパーは、`helper_test.go`（テスト関数を置かない）に置く（使う側から定義の場所がわかり、テストファイルを消してもほかが壊れないように）
-- 本体のある関数・メソッドは複数行で書く（書き方をそろえるため。core#15）。リンターでは検査しない（崩れてきたら検査を足すかを考え直す）。1 行でよいもの: 本体が空の関数（マーカーのメソッド）、無名関数（その場で小さな関数を渡す書き方）、gqlgen が生成するルートの入口（`Mutation()`・`Query()`。生成のたびに雛形の 1 行に戻るため）
+- 本体のある関数・メソッドは複数行で書く（書き方をそろえるため。core#15）。リンターでは検査しない（崩れてきたら検査を足すかを考え直す）。1 行でよいもの: 本体が空の関数（マーカーのメソッド）、無名関数（その場で小さな関数を渡す書き方）、gqlgen が生成するルートの入口（`Mutation()`・`Query()`、resolver を持たせた型の入口（`StarterDeck()` 等）。生成のたびに雛形の 1 行に戻るため）
 - 生成コードは、先頭の `Code generated ... DO NOT EDIT.` でリンターが自動で除く（除外の設定は要らない）。手で書くファイルにこの印を付けない
 
 # イベントストアと GraphQL
@@ -77,8 +77,17 @@
 - uif は app 層の型だけを使い、ドメインの型（internal/domain）を import しない。app 層のコマンドは素の値を受け取り、app 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（uif/graphql/model）にも依存させない
 - 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。app 層の `input.Errors`（internal/studio/app/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、app 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は uif に書き写さない
 - 一意性の制約は、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするかはドメインが宣言する: key の種別の名前（`UniqueKeyTypes()`。domain_unique_key_types と起動時に照合する）と、key の作り方（`EmailKey`・`SubjectKey`・`card.NameKey` 等。正規化・複数の値のつなぎ方はここだけで決める）。制約を足すときは、key の種別のマイグレーション（domain_unique_key_types への INSERT）と、ドメインの宣言、domaindef のテストへの追加だけでよい
-- 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/constraint.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きでは使ってよい
+- 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/unique_key.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きと、主キー・`IN` で引くような単純な読み出しでは使う。キーセットのページ分け（行の比べ方）や `LIKE ... ESCAPE` の部分一致を使う一覧の読み出しは、sqlboiler の条件の部品に無く `qm.Where` に SQL の断片を書くだけになるため、SQL を直接書く（repository の `ListCards`）
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go・item.go・spell.go 等）をかぶせ、ID の型は種類ごとの関数で守る
-- テストで一意性の key から集約を引くときは constrainttest を使う（テストに一意性の表の作りを書かない）
-- イベントストアの版の衝突も、一意制約違反のエラーではなく `ON CONFLICT DO NOTHING RETURNING` で行が返らないことで知る
-- 既存の集約を変えるコマンドを足すときは、版の衝突（`domain.ErrVersionConflict`）をどう扱うかを決める（自動で試し直すと後の変更が黙って勝つため、利用者に「先に変えられた」と返すか、読み直して試し直すかを操作ごとに選ぶ）。今は新しい集約を作るコマンドばかりで衝突が起きず、参照の api も試し直していない
+- テストで一意性の key から集約を引くとき・参照を読むときは constrainttest を使う（テストに制約の表の作りを書かない）
+- 集約どうしの参照（参照されている間は消せない）は、1 つの表 domain_references で持つ（一意性と同じく、参照ごとに表を作らない。core#24）。参照する側を消せば参照も消え（ON DELETE CASCADE）、参照されている側の識別子は消せない（ON DELETE RESTRICT）。何が何を参照するか（参照の種別）は参照する側の集約が宣言する（`ReferenceTypes()`。domain_reference_types と起動時に照合する）
+  - 参照を足し引きする関数の型（`UpdateXxxReferencesFunc`）は参照する側のドメインに置き、変えた後の一覧を受け取ってそろえる。実装は internal/constraint（共通の updateReferences を呼ぶだけ）。参照する側のコマンドと同じトランザクションで呼ぶ
+  - 参照を足すときは、種別のマイグレーション（domain_reference_types への INSERT）、ドメインの宣言、wiring の `VerifyReferenceTypes` と domaindef のテストへの追加
+  - 参照される集約を消すコマンドを作るときは、消す前に参照を確かめて「使われている」を結果の型で返す（確かめ忘れても DB が止めるが、利用者には内部のエラーとしか見えないため）
+- イベントストアの版の衝突も、一意制約違反のエラーではなく `ON CONFLICT DO NOTHING RETURNING` で行が返らないことで知る。版が続いていない（版 1 でも直前の版の次でもない）イベントも保存せず、`domain.ErrVersionNotConsecutive` を返す（コードの誤りでだけ起きるので、呼ぶ側は分岐しない。core#24）
+- 画面で見た内容をもとに、既にあるものを変える・消す操作（スターターデッキの名前・枚数の変更・削除等）は、同じ形にそろえる（core#24。流れの図は internal/eventstore/README.md）:
+  - 入力に `revision`（画面が見ていた集約の版）を含め、型にも `revision` を持たせる。マスタの公開の版と取り違えないよう「版」と呼ばない（日本語では「更新の番号」）
+  - app 層のコマンドが、Load の直後に今の版と比べ、違えば「先に変えられた」（`command.ErrRevisionConflict` → `RevisionConflictError`）を返す。試し直さない（後の変更が黙って勝つため）。保存のときの版の衝突（`domain.ErrVersionConflict`）も同じエラーにする。変わらない操作（同じ名前等）でも、revision が古ければ返す
+  - 結果は公開 ID と新しい revision だけにし、内容を返さない。画面は詳細を読み直し、詳細の revision を持つ（表示している内容と revision を同じ時点のものにそろえるため。投影が遅れているあいだは次の操作が「先に変えられた」になるが、ふだんの遅れは数ミリ秒）
+  - 新しく作る操作（登録）と、画面を通らない操作（ログイン時の紐づけ・方針）には要らない
+- 一覧の各要素からほかの read model の値を引くとき（スターターデッキのカード名等）は、値を書き写さず、データローダー（uif/graphql の dataloader.go）で引く（N+1 にしないため）。束ねて読む関数は、その read model の問い合わせ（query）と repository に置く。並べ方の決まりが要るなら query に置き（`query.CompareCards`）、uif・studio に書き写さない

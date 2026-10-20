@@ -171,3 +171,20 @@ func TestCardList_FiltersByNameContainsLiterally(t *testing.T) {
 		})
 	}
 }
+
+// 無いカードは結果に含めない
+func TestCardList_GetsCardsByPublicID(t *testing.T) {
+	ctx := emptyCardLists(t)
+	dragon := put(t, ctx, readmodel.CardTypeCreature, "dragon", "Dragon")
+	potion := put(t, ctx, readmodel.CardTypeItem, "potion", "Potion")
+	put(t, ctx, readmodel.CardTypeSpell, "fire", "Fire")
+
+	cards, err := repository.GetCards(ctx, []uuid.UUID{dragon.CardID, potion.CardID, uuid.New()})
+
+	require.NoError(t, err)
+	require.Len(t, cards, 2)
+	require.Equal(t, "Dragon", cards[dragon.CardID].Name)
+	require.Equal(t, readmodel.CardTypeCreature, cards[dragon.CardID].Type)
+	require.Equal(t, "Potion", cards[potion.CardID].Name)
+	require.Equal(t, readmodel.CardTypeItem, cards[potion.CardID].Type)
+}

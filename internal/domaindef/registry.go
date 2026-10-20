@@ -14,10 +14,12 @@ import (
 // パッケージの変数にせず、Load の結果を identifier・eventstore に渡すのは、読み込み忘れをコンパイル時にわかるようにし、
 // 依存を引数に表すため（参照の api はパッケージの変数だった）。起動後は読み取り専用のため錠を持たない
 type Registry struct {
-	entityTypeIDs  map[domain.EntityType]EntityTypeID
-	eventTypeIDs   map[EntityTypeID]map[domain.EventName]EventTypeID // イベント種別名は集約の中でだけ一意なため、集約ごとに分ける
-	eventTypeNames map[EventTypeID]domain.EventName
-	uniqueKeyTypes map[string]bool
+	entityTypeIDs   map[domain.EntityType]EntityTypeID
+	entityTypeNames map[EntityTypeID]domain.EntityType
+	eventTypeIDs    map[EntityTypeID]map[domain.EventName]EventTypeID // イベント種別名は集約の中でだけ一意なため、集約ごとに分ける
+	eventTypeNames  map[EventTypeID]domain.EventName
+	uniqueKeyTypes  map[string]bool
+	referenceTypes  map[string]bool
 }
 
 // domain_entity_types・domain_event_types の id。どちらも DB では SMALLINT だが、型を分けて取り違えをコンパイルで止める
@@ -62,18 +64,28 @@ func Load(ctx context.Context) (*Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load domain_unique_key_types: %w", err)
 	}
+	referenceTypes, err := models.DomainReferenceTypes().All(ctx, exec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load domain_reference_types: %w", err)
+	}
 
 	r := &Registry{
-		entityTypeIDs:  map[domain.EntityType]EntityTypeID{},
-		eventTypeIDs:   map[EntityTypeID]map[domain.EventName]EventTypeID{},
-		eventTypeNames: map[EventTypeID]domain.EventName{},
-		uniqueKeyTypes: map[string]bool{},
+		entityTypeIDs:   map[domain.EntityType]EntityTypeID{},
+		entityTypeNames: map[EntityTypeID]domain.EntityType{},
+		eventTypeIDs:    map[EntityTypeID]map[domain.EventName]EventTypeID{},
+		eventTypeNames:  map[EventTypeID]domain.EventName{},
+		uniqueKeyTypes:  map[string]bool{},
+		referenceTypes:  map[string]bool{},
 	}
 	for _, row := range uniqueKeyTypes {
 		r.uniqueKeyTypes[row.Name] = true
 	}
+	for _, row := range referenceTypes {
+		r.referenceTypes[row.Name] = true
+	}
 	for _, row := range entityTypes {
 		r.entityTypeIDs[domain.NewEntityType(row.Name)] = EntityTypeID(row.ID)
+		r.entityTypeNames[EntityTypeID(row.ID)] = domain.NewEntityType(row.Name)
 	}
 	for _, row := range eventTypes {
 		entityTypeID := EntityTypeID(row.EntityTypeID)
@@ -93,6 +105,14 @@ func (r *Registry) EntityTypeID(name domain.EntityType) (EntityTypeID, error) {
 		return 0, fmt.Errorf("entity type not found: %s", name)
 	}
 	return id, nil
+}
+
+func (r *Registry) EntityTypeName(id EntityTypeID) (domain.EntityType, error) {
+	name, ok := r.entityTypeNames[id]
+	if !ok {
+		return "", fmt.Errorf("entity type id not found: %d", id)
+	}
+	return name, nil
 }
 
 func (r *Registry) EventTypeID(entityTypeID EntityTypeID, name domain.EventName) (EventTypeID, error) {
@@ -135,6 +155,17 @@ func (r *Registry) VerifyUniqueKeyTypes(keyTypes ...domain.UniqueKeyType) error 
 	for _, keyType := range keyTypes {
 		if !r.uniqueKeyTypes[keyType.String()] {
 			errs = append(errs, fmt.Errorf("unique key type not found: %s", keyType))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// アプリケーションの起動時に呼ぶ。種別が無いと参照を足せず、使うときに初めて失敗するため、起動時に検出する
+func (r *Registry) VerifyReferenceTypes(referenceTypes ...domain.ReferenceType) error {
+	var errs []error
+	for _, referenceType := range referenceTypes {
+		if !r.referenceTypes[referenceType.String()] {
+			errs = append(errs, fmt.Errorf("reference type not found: %s", referenceType))
 		}
 	}
 	return errors.Join(errs...)

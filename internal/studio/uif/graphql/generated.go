@@ -33,6 +33,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
+	StarterDeck() StarterDeckResolver
 }
 
 type DirectiveRoot struct {
@@ -60,7 +61,19 @@ type ComplexityRoot struct {
 		UpdatedAt    func(childComplexity int) int
 	}
 
+	DeleteStarterDeckSuccess struct {
+		ID func(childComplexity int) int
+	}
+
+	FieldDuplicated struct {
+		Field func(childComplexity int) int
+	}
+
 	FieldInvalidFormat struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldNotFound struct {
 		Field func(childComplexity int) int
 	}
 
@@ -79,6 +92,11 @@ type ComplexityRoot struct {
 		Max   func(childComplexity int) int
 	}
 
+	FieldTotalTooLarge struct {
+		Field func(childComplexity int) int
+		Max   func(childComplexity int) int
+	}
+
 	ForbiddenError struct {
 		Message func(childComplexity int) int
 	}
@@ -91,9 +109,13 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		RegisterCreature func(childComplexity int, input model.RegisterCreatureInput) int
-		RegisterItem     func(childComplexity int, input model.RegisterItemInput) int
-		RegisterSpell    func(childComplexity int, input model.RegisterSpellInput) int
+		DeleteStarterDeck        func(childComplexity int, input model.DeleteStarterDeckInput) int
+		RegisterCreature         func(childComplexity int, input model.RegisterCreatureInput) int
+		RegisterItem             func(childComplexity int, input model.RegisterItemInput) int
+		RegisterSpell            func(childComplexity int, input model.RegisterSpellInput) int
+		RegisterStarterDeck      func(childComplexity int, input model.RegisterStarterDeckInput) int
+		RenameStarterDeck        func(childComplexity int, input model.RenameStarterDeckInput) int
+		SetStarterDeckCardCounts func(childComplexity int, input model.SetStarterDeckCardCountsInput) int
 	}
 
 	PageInfo struct {
@@ -104,8 +126,10 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Cards   func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
-		Version func(childComplexity int) int
+		Cards        func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
+		StarterDeck  func(childComplexity int, id uuid.UUID) int
+		StarterDecks func(childComplexity int, filter *model.StarterDeckFilter, first *int, after *string) int
+		Version      func(childComplexity int) int
 	}
 
 	RegisterCreatureSuccess struct {
@@ -120,11 +144,63 @@ type ComplexityRoot struct {
 		Spell func(childComplexity int) int
 	}
 
+	RegisterStarterDeckSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	RenameStarterDeckSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	RevisionConflictError struct {
+		Message func(childComplexity int) int
+	}
+
+	SetStarterDeckCardCountsSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	Spell struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
+	}
+
+	StarterDeck struct {
+		Cards        func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Name         func(childComplexity int) int
+		RegisteredAt func(childComplexity int) int
+		Revision     func(childComplexity int) int
+		TotalCount   func(childComplexity int) int
+		UpdatedAt    func(childComplexity int) int
+	}
+
+	StarterDeckCard struct {
+		Card  func(childComplexity int) int
+		Count func(childComplexity int) int
+	}
+
+	StarterDeckConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	StarterDeckEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	StarterDeckNameAlreadyInUseError struct {
+		Message func(childComplexity int) int
+	}
+
+	StarterDeckNotFoundError struct {
+		Message func(childComplexity int) int
 	}
 
 	ValidationErrors struct {
@@ -140,10 +216,19 @@ type MutationResolver interface {
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
 	RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error)
 	RegisterSpell(ctx context.Context, input model.RegisterSpellInput) (model.RegisterSpellResult, error)
+	RegisterStarterDeck(ctx context.Context, input model.RegisterStarterDeckInput) (model.RegisterStarterDeckResult, error)
+	RenameStarterDeck(ctx context.Context, input model.RenameStarterDeckInput) (model.RenameStarterDeckResult, error)
+	SetStarterDeckCardCounts(ctx context.Context, input model.SetStarterDeckCardCountsInput) (model.SetStarterDeckCardCountsResult, error)
+	DeleteStarterDeck(ctx context.Context, input model.DeleteStarterDeckInput) (model.DeleteStarterDeckResult, error)
 }
 type QueryResolver interface {
 	Version(ctx context.Context) (string, error)
 	Cards(ctx context.Context, filter *model.CardFilter, first *int, after *string) (model.CardsResult, error)
+	StarterDecks(ctx context.Context, filter *model.StarterDeckFilter, first *int, after *string) (model.StarterDecksResult, error)
+	StarterDeck(ctx context.Context, id uuid.UUID) (model.StarterDeckResult, error)
+}
+type StarterDeckResolver interface {
+	Cards(ctx context.Context, obj *model.StarterDeck) ([]*model.StarterDeckCard, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -222,12 +307,33 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Creature.UpdatedAt(childComplexity), true
 
+	case "DeleteStarterDeckSuccess.id":
+		if e.ComplexityRoot.DeleteStarterDeckSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeleteStarterDeckSuccess.ID(childComplexity), true
+
+	case "FieldDuplicated.field":
+		if e.ComplexityRoot.FieldDuplicated.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldDuplicated.Field(childComplexity), true
+
 	case "FieldInvalidFormat.field":
 		if e.ComplexityRoot.FieldInvalidFormat.Field == nil {
 			break
 		}
 
 		return e.ComplexityRoot.FieldInvalidFormat.Field(childComplexity), true
+
+	case "FieldNotFound.field":
+		if e.ComplexityRoot.FieldNotFound.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldNotFound.Field(childComplexity), true
 
 	case "FieldOutOfRange.field":
 		if e.ComplexityRoot.FieldOutOfRange.Field == nil {
@@ -268,6 +374,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
 
+	case "FieldTotalTooLarge.field":
+		if e.ComplexityRoot.FieldTotalTooLarge.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTotalTooLarge.Field(childComplexity), true
+	case "FieldTotalTooLarge.max":
+		if e.ComplexityRoot.FieldTotalTooLarge.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTotalTooLarge.Max(childComplexity), true
+
 	case "ForbiddenError.message":
 		if e.ComplexityRoot.ForbiddenError.Message == nil {
 			break
@@ -300,6 +419,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Item.UpdatedAt(childComplexity), true
 
+	case "Mutation.deleteStarterDeck":
+		if e.ComplexityRoot.Mutation.DeleteStarterDeck == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteStarterDeck_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteStarterDeck(childComplexity, args["input"].(model.DeleteStarterDeckInput)), true
 	case "Mutation.registerCreature":
 		if e.ComplexityRoot.Mutation.RegisterCreature == nil {
 			break
@@ -333,6 +463,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RegisterSpell(childComplexity, args["input"].(model.RegisterSpellInput)), true
+	case "Mutation.registerStarterDeck":
+		if e.ComplexityRoot.Mutation.RegisterStarterDeck == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerStarterDeck_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterStarterDeck(childComplexity, args["input"].(model.RegisterStarterDeckInput)), true
+	case "Mutation.renameStarterDeck":
+		if e.ComplexityRoot.Mutation.RenameStarterDeck == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_renameStarterDeck_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RenameStarterDeck(childComplexity, args["input"].(model.RenameStarterDeckInput)), true
+	case "Mutation.setStarterDeckCardCounts":
+		if e.ComplexityRoot.Mutation.SetStarterDeckCardCounts == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setStarterDeckCardCounts_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetStarterDeckCardCounts(childComplexity, args["input"].(model.SetStarterDeckCardCountsInput)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -371,6 +534,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Cards(childComplexity, args["filter"].(*model.CardFilter), args["first"].(*int), args["after"].(*string)), true
 
+	case "Query.starterDeck":
+		if e.ComplexityRoot.Query.StarterDeck == nil {
+			break
+		}
+
+		args, err := ec.field_Query_starterDeck_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.StarterDeck(childComplexity, args["id"].(uuid.UUID)), true
+	case "Query.starterDecks":
+		if e.ComplexityRoot.Query.StarterDecks == nil {
+			break
+		}
+
+		args, err := ec.field_Query_starterDecks_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.StarterDecks(childComplexity, args["filter"].(*model.StarterDeckFilter), args["first"].(*int), args["after"].(*string)), true
 	case "Query.version":
 		if e.ComplexityRoot.Query.Version == nil {
 			break
@@ -399,6 +584,52 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RegisterSpellSuccess.Spell(childComplexity), true
 
+	case "RegisterStarterDeckSuccess.id":
+		if e.ComplexityRoot.RegisterStarterDeckSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterStarterDeckSuccess.ID(childComplexity), true
+	case "RegisterStarterDeckSuccess.revision":
+		if e.ComplexityRoot.RegisterStarterDeckSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterStarterDeckSuccess.Revision(childComplexity), true
+
+	case "RenameStarterDeckSuccess.id":
+		if e.ComplexityRoot.RenameStarterDeckSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RenameStarterDeckSuccess.ID(childComplexity), true
+	case "RenameStarterDeckSuccess.revision":
+		if e.ComplexityRoot.RenameStarterDeckSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RenameStarterDeckSuccess.Revision(childComplexity), true
+
+	case "RevisionConflictError.message":
+		if e.ComplexityRoot.RevisionConflictError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RevisionConflictError.Message(childComplexity), true
+
+	case "SetStarterDeckCardCountsSuccess.id":
+		if e.ComplexityRoot.SetStarterDeckCardCountsSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SetStarterDeckCardCountsSuccess.ID(childComplexity), true
+	case "SetStarterDeckCardCountsSuccess.revision":
+		if e.ComplexityRoot.SetStarterDeckCardCountsSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SetStarterDeckCardCountsSuccess.Revision(childComplexity), true
+
 	case "Spell.id":
 		if e.ComplexityRoot.Spell.ID == nil {
 			break
@@ -424,6 +655,102 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Spell.UpdatedAt(childComplexity), true
 
+	case "StarterDeck.cards":
+		if e.ComplexityRoot.StarterDeck.Cards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.Cards(childComplexity), true
+	case "StarterDeck.id":
+		if e.ComplexityRoot.StarterDeck.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.ID(childComplexity), true
+	case "StarterDeck.name":
+		if e.ComplexityRoot.StarterDeck.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.Name(childComplexity), true
+	case "StarterDeck.registeredAt":
+		if e.ComplexityRoot.StarterDeck.RegisteredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.RegisteredAt(childComplexity), true
+	case "StarterDeck.revision":
+		if e.ComplexityRoot.StarterDeck.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.Revision(childComplexity), true
+	case "StarterDeck.totalCount":
+		if e.ComplexityRoot.StarterDeck.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.TotalCount(childComplexity), true
+	case "StarterDeck.updatedAt":
+		if e.ComplexityRoot.StarterDeck.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeck.UpdatedAt(childComplexity), true
+
+	case "StarterDeckCard.card":
+		if e.ComplexityRoot.StarterDeckCard.Card == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckCard.Card(childComplexity), true
+	case "StarterDeckCard.count":
+		if e.ComplexityRoot.StarterDeckCard.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckCard.Count(childComplexity), true
+
+	case "StarterDeckConnection.edges":
+		if e.ComplexityRoot.StarterDeckConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckConnection.Edges(childComplexity), true
+	case "StarterDeckConnection.pageInfo":
+		if e.ComplexityRoot.StarterDeckConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckConnection.PageInfo(childComplexity), true
+
+	case "StarterDeckEdge.cursor":
+		if e.ComplexityRoot.StarterDeckEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckEdge.Cursor(childComplexity), true
+	case "StarterDeckEdge.node":
+		if e.ComplexityRoot.StarterDeckEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckEdge.Node(childComplexity), true
+
+	case "StarterDeckNameAlreadyInUseError.message":
+		if e.ComplexityRoot.StarterDeckNameAlreadyInUseError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckNameAlreadyInUseError.Message(childComplexity), true
+
+	case "StarterDeckNotFoundError.message":
+		if e.ComplexityRoot.StarterDeckNotFoundError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckNotFoundError.Message(childComplexity), true
+
 	case "ValidationErrors.errors":
 		if e.ComplexityRoot.ValidationErrors.Errors == nil {
 			break
@@ -440,9 +767,15 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCardFilter,
+		ec.unmarshalInputDeleteStarterDeckInput,
 		ec.unmarshalInputRegisterCreatureInput,
 		ec.unmarshalInputRegisterItemInput,
 		ec.unmarshalInputRegisterSpellInput,
+		ec.unmarshalInputRegisterStarterDeckInput,
+		ec.unmarshalInputRenameStarterDeckInput,
+		ec.unmarshalInputSetStarterDeckCardCountsInput,
+		ec.unmarshalInputStarterDeckCardCountInput,
+		ec.unmarshalInputStarterDeckFilter,
 	)
 	first := true
 
@@ -517,7 +850,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls" "spell.graphqls"
+//go:embed "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls" "spell.graphqls" "starter_deck.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -534,6 +867,7 @@ var sources = []*ast.Source{
 	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
 	{Name: "item.graphqls", Input: sourceData("item.graphqls"), BuiltIn: false},
 	{Name: "spell.graphqls", Input: sourceData("spell.graphqls"), BuiltIn: false},
+	{Name: "starter_deck.graphqls", Input: sourceData("starter_deck.graphqls"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -605,6 +939,46 @@ func (ec *executionContext) childFields_Spell(ctx context.Context, field graphql
 		return ec.fieldContext_Spell_updatedAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Spell", field.Name)
+}
+
+func (ec *executionContext) childFields_StarterDeck(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_StarterDeck_id(ctx, field)
+	case "name":
+		return ec.fieldContext_StarterDeck_name(ctx, field)
+	case "cards":
+		return ec.fieldContext_StarterDeck_cards(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_StarterDeck_totalCount(ctx, field)
+	case "revision":
+		return ec.fieldContext_StarterDeck_revision(ctx, field)
+	case "registeredAt":
+		return ec.fieldContext_StarterDeck_registeredAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_StarterDeck_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type StarterDeck", field.Name)
+}
+
+func (ec *executionContext) childFields_StarterDeckCard(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "card":
+		return ec.fieldContext_StarterDeckCard_card(ctx, field)
+	case "count":
+		return ec.fieldContext_StarterDeckCard_count(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type StarterDeckCard", field.Name)
+}
+
+func (ec *executionContext) childFields_StarterDeckEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_StarterDeckEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_StarterDeckEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type StarterDeckEdge", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -723,6 +1097,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_deleteStarterDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeleteStarterDeckInput, error) {
+			return ec.unmarshalNDeleteStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐDeleteStarterDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_registerCreature_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -765,6 +1153,48 @@ func (ec *executionContext) field_Mutation_registerSpell_args(ctx context.Contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_registerStarterDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RegisterStarterDeckInput, error) {
+			return ec.unmarshalNRegisterStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterStarterDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_renameStarterDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RenameStarterDeckInput, error) {
+			return ec.unmarshalNRenameStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRenameStarterDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setStarterDeckCardCounts_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.SetStarterDeckCardCountsInput, error) {
+			return ec.unmarshalNSetStarterDeckCardCountsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐSetStarterDeckCardCountsInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -785,6 +1215,50 @@ func (ec *executionContext) field_Query_cards_args(ctx context.Context, rawArgs 
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
 		func(ctx context.Context, v any) (*model.CardFilter, error) {
 			return ec.unmarshalOCardFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐCardFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_starterDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_starterDecks_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*model.StarterDeckFilter, error) {
+			return ec.unmarshalOStarterDeckFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckFilter(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1103,6 +1577,52 @@ func (ec *executionContext) fieldContext_Creature_updatedAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type DateTime does not have child fields"))
 }
 
+func (ec *executionContext) _DeleteStarterDeckSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.DeleteStarterDeckSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeleteStarterDeckSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeleteStarterDeckSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeleteStarterDeckSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _FieldDuplicated_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldDuplicated) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldDuplicated_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldDuplicated_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldDuplicated", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldInvalidFormat) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1124,6 +1644,29 @@ func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field
 }
 func (ec *executionContext) fieldContext_FieldInvalidFormat_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldInvalidFormat", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldNotFound_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotFound) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldNotFound_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldNotFound_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldNotFound", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _FieldOutOfRange_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldOutOfRange) (ret graphql.Marshaler) {
@@ -1262,6 +1805,52 @@ func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTotalTooLarge_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTotalTooLarge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTotalTooLarge_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTotalTooLarge_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTotalTooLarge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTotalTooLarge_max(ctx context.Context, field graphql.CollectedField, obj *model.FieldTotalTooLarge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTotalTooLarge_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTotalTooLarge_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTotalTooLarge", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field graphql.CollectedField, obj *model.ForbiddenError) (ret graphql.Marshaler) {
@@ -1511,6 +2100,182 @@ func (ec *executionContext) fieldContext_Mutation_registerSpell(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_registerStarterDeck(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerStarterDeck(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterStarterDeck(ctx, fc.Args["input"].(model.RegisterStarterDeckInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RegisterStarterDeckResult) graphql.Marshaler {
+			return ec.marshalNRegisterStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterStarterDeckResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerStarterDeck(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RegisterStarterDeckResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerStarterDeck_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_renameStarterDeck(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_renameStarterDeck(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RenameStarterDeck(ctx, fc.Args["input"].(model.RenameStarterDeckInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RenameStarterDeckResult) graphql.Marshaler {
+			return ec.marshalNRenameStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRenameStarterDeckResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_renameStarterDeck(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RenameStarterDeckResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_renameStarterDeck_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setStarterDeckCardCounts(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setStarterDeckCardCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetStarterDeckCardCounts(ctx, fc.Args["input"].(model.SetStarterDeckCardCountsInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.SetStarterDeckCardCountsResult) graphql.Marshaler {
+			return ec.marshalNSetStarterDeckCardCountsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐSetStarterDeckCardCountsResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setStarterDeckCardCounts(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type SetStarterDeckCardCountsResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setStarterDeckCardCounts_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteStarterDeck(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteStarterDeck(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteStarterDeck(ctx, fc.Args["input"].(model.DeleteStarterDeckInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.DeleteStarterDeckResult) graphql.Marshaler {
+			return ec.marshalNDeleteStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐDeleteStarterDeckResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteStarterDeck(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DeleteStarterDeckResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteStarterDeck_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1664,6 +2429,94 @@ func (ec *executionContext) fieldContext_Query_cards(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_cards_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_starterDecks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_starterDecks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().StarterDecks(ctx, fc.Args["filter"].(*model.StarterDeckFilter), fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.StarterDecksResult) graphql.Marshaler {
+			return ec.marshalNStarterDecksResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDecksResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_starterDecks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type StarterDecksResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_starterDecks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_starterDeck(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_starterDeck(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().StarterDeck(ctx, fc.Args["id"].(uuid.UUID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.StarterDeckResult) graphql.Marshaler {
+			return ec.marshalNStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_starterDeck(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type StarterDeckResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_starterDeck_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1842,6 +2695,167 @@ func (ec *executionContext) fieldContext_RegisterSpellSuccess_spell(_ context.Co
 	return fc, nil
 }
 
+func (ec *executionContext) _RegisterStarterDeckSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RegisterStarterDeckSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterStarterDeckSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterStarterDeckSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RegisterStarterDeckSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RegisterStarterDeckSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RegisterStarterDeckSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterStarterDeckSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterStarterDeckSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RegisterStarterDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _RenameStarterDeckSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RenameStarterDeckSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RenameStarterDeckSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RenameStarterDeckSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RenameStarterDeckSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RenameStarterDeckSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RenameStarterDeckSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RenameStarterDeckSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RenameStarterDeckSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RenameStarterDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _RevisionConflictError_message(ctx context.Context, field graphql.CollectedField, obj *model.RevisionConflictError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RevisionConflictError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RevisionConflictError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RevisionConflictError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SetStarterDeckCardCountsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.SetStarterDeckCardCountsSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SetStarterDeckCardCountsSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SetStarterDeckCardCountsSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SetStarterDeckCardCountsSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _SetStarterDeckCardCountsSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.SetStarterDeckCardCountsSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SetStarterDeckCardCountsSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SetStarterDeckCardCountsSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SetStarterDeckCardCountsSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Spell_id(ctx context.Context, field graphql.CollectedField, obj *model.Spell) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1932,6 +2946,396 @@ func (ec *executionContext) _Spell_updatedAt(ctx context.Context, field graphql.
 }
 func (ec *executionContext) fieldContext_Spell_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Spell", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_id(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_name(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_cards(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_cards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.StarterDeck().Cards(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.StarterDeckCard) graphql.Marshaler {
+			return ec.marshalNStarterDeckCard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_cards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StarterDeck",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_StarterDeckCard(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StarterDeck_totalCount(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_revision(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_registeredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RegisteredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_registeredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeck_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeck_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeck_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeck", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckCard_card(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckCard_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Card, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.Card) graphql.Marshaler {
+			return ec.marshalNCard2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐCard(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckCard_card(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StarterDeckCard",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StarterDeckCard_count(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckCard_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckCard", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.StarterDeckEdge) graphql.Marshaler {
+			return ec.marshalNStarterDeckEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StarterDeckConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_StarterDeckEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StarterDeckConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StarterDeckConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StarterDeckEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.StarterDeck) graphql.Marshaler {
+			return ec.marshalNStarterDeck2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeck(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StarterDeckEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_StarterDeck(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _StarterDeckNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckNameAlreadyInUseError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckNameAlreadyInUseError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckNameAlreadyInUseError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckNameAlreadyInUseError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckNotFoundError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckNotFoundError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _ValidationErrors_errors(ctx context.Context, field graphql.CollectedField, obj *model.ValidationErrors) (ret graphql.Marshaler) {
@@ -3062,6 +4466,43 @@ func (ec *executionContext) unmarshalInputCardFilter(ctx context.Context, obj an
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputDeleteStarterDeckInput(ctx context.Context, obj any) (model.DeleteStarterDeckInput, error) {
+	var it model.DeleteStarterDeckInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputRegisterCreatureInput(ctx context.Context, obj any) (model.RegisterCreatureInput, error) {
 	var it model.RegisterCreatureInput
 	if obj == nil {
@@ -3152,6 +4593,191 @@ func (ec *executionContext) unmarshalInputRegisterSpellInput(ctx context.Context
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputRegisterStarterDeckInput(ctx context.Context, obj any) (model.RegisterStarterDeckInput, error) {
+	var it model.RegisterStarterDeckInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRenameStarterDeckInput(ctx context.Context, obj any) (model.RenameStarterDeckInput, error) {
+	var it model.RenameStarterDeckInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSetStarterDeckCardCountsInput(ctx context.Context, obj any) (model.SetStarterDeckCardCountsInput, error) {
+	var it model.SetStarterDeckCardCountsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "cards"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "cards":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("cards"))
+			data, err := ec.unmarshalNStarterDeckCardCountInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardCountInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Cards = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputStarterDeckCardCountInput(ctx context.Context, obj any) (model.StarterDeckCardCountInput, error) {
+	var it model.StarterDeckCardCountInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"cardId", "count"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "cardId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("cardId"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CardID = data
+		case "count":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("count"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Count = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputStarterDeckFilter(ctx context.Context, obj any) (model.StarterDeckFilter, error) {
+	var it model.StarterDeckFilter
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"nameContains"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "nameContains":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nameContains"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.NameContains = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3224,10 +4850,58 @@ func (ec *executionContext) _CardsResult(ctx context.Context, sel ast.SelectionS
 	}
 }
 
+func (ec *executionContext) _DeleteStarterDeckResult(ctx context.Context, sel ast.SelectionSet, obj model.DeleteStarterDeckResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.StarterDeckNotFoundError:
+		return ec._StarterDeckNotFoundError(ctx, sel, &obj)
+	case *model.StarterDeckNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNotFoundError(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.DeleteStarterDeckSuccess:
+		return ec._DeleteStarterDeckSuccess(ctx, sel, &obj)
+	case *model.DeleteStarterDeckSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._DeleteStarterDeckSuccess(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of DeleteStarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSet, obj model.FieldError) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.FieldTotalTooLarge:
+		return ec._FieldTotalTooLarge(ctx, sel, &obj)
+	case *model.FieldTotalTooLarge:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTotalTooLarge(ctx, sel, obj)
 	case model.FieldTooLong:
 		return ec._FieldTooLong(ctx, sel, &obj)
 	case *model.FieldTooLong:
@@ -3249,6 +4923,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldOutOfRange(ctx, sel, obj)
+	case model.FieldNotFound:
+		return ec._FieldNotFound(ctx, sel, &obj)
+	case *model.FieldNotFound:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldNotFound(ctx, sel, obj)
 	case model.FieldInvalidFormat:
 		return ec._FieldInvalidFormat(ctx, sel, &obj)
 	case *model.FieldInvalidFormat:
@@ -3256,6 +4937,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldInvalidFormat(ctx, sel, obj)
+	case model.FieldDuplicated:
+		return ec._FieldDuplicated(ctx, sel, &obj)
+	case *model.FieldDuplicated:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldDuplicated(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -3384,6 +5072,218 @@ func (ec *executionContext) _RegisterSpellResult(ctx context.Context, sel ast.Se
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterSpellResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RegisterStarterDeckResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterStarterDeckResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.StarterDeckNameAlreadyInUseError:
+		return ec._StarterDeckNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.StarterDeckNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNameAlreadyInUseError(ctx, sel, obj)
+	case model.RegisterStarterDeckSuccess:
+		return ec._RegisterStarterDeckSuccess(ctx, sel, &obj)
+	case *model.RegisterStarterDeckSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RegisterStarterDeckSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterStarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RenameStarterDeckResult(ctx context.Context, sel ast.SelectionSet, obj model.RenameStarterDeckResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.StarterDeckNotFoundError:
+		return ec._StarterDeckNotFoundError(ctx, sel, &obj)
+	case *model.StarterDeckNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNotFoundError(ctx, sel, obj)
+	case model.StarterDeckNameAlreadyInUseError:
+		return ec._StarterDeckNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.StarterDeckNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNameAlreadyInUseError(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.RenameStarterDeckSuccess:
+		return ec._RenameStarterDeckSuccess(ctx, sel, &obj)
+	case *model.RenameStarterDeckSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RenameStarterDeckSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RenameStarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _SetStarterDeckCardCountsResult(ctx context.Context, sel ast.SelectionSet, obj model.SetStarterDeckCardCountsResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.StarterDeckNotFoundError:
+		return ec._StarterDeckNotFoundError(ctx, sel, &obj)
+	case *model.StarterDeckNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNotFoundError(ctx, sel, obj)
+	case model.SetStarterDeckCardCountsSuccess:
+		return ec._SetStarterDeckCardCountsSuccess(ctx, sel, &obj)
+	case *model.SetStarterDeckCardCountsSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SetStarterDeckCardCountsSuccess(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of SetStarterDeckCardCountsResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _StarterDeckResult(ctx context.Context, sel ast.SelectionSet, obj model.StarterDeckResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.StarterDeckNotFoundError:
+		return ec._StarterDeckNotFoundError(ctx, sel, &obj)
+	case *model.StarterDeckNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckNotFoundError(ctx, sel, obj)
+	case model.StarterDeck:
+		return ec._StarterDeck(ctx, sel, &obj)
+	case *model.StarterDeck:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeck(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of StarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _StarterDecksResult(ctx context.Context, sel ast.SelectionSet, obj model.StarterDecksResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.StarterDeckConnection:
+		return ec._StarterDeckConnection(ctx, sel, &obj)
+	case *model.StarterDeckConnection:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StarterDeckConnection(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of StarterDecksResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -3569,6 +5469,82 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
+var deleteStarterDeckSuccessImplementors = []string{"DeleteStarterDeckSuccess", "DeleteStarterDeckResult"}
+
+func (ec *executionContext) _DeleteStarterDeckSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.DeleteStarterDeckSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deleteStarterDeckSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeleteStarterDeckSuccess")
+		case "id":
+			out.Values[i] = ec._DeleteStarterDeckSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldDuplicatedImplementors = []string{"FieldDuplicated", "FieldError"}
+
+func (ec *executionContext) _FieldDuplicated(ctx context.Context, sel ast.SelectionSet, obj *model.FieldDuplicated) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldDuplicatedImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldDuplicated")
+		case "field":
+			out.Values[i] = ec._FieldDuplicated_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var fieldInvalidFormatImplementors = []string{"FieldInvalidFormat", "FieldError"}
 
 func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.SelectionSet, obj *model.FieldInvalidFormat) graphql.Marshaler {
@@ -3583,6 +5559,44 @@ func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.Sel
 			out.Values[i] = graphql.MarshalString("FieldInvalidFormat")
 		case "field":
 			out.Values[i] = ec._FieldInvalidFormat_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldNotFoundImplementors = []string{"FieldNotFound", "FieldError"}
+
+func (ec *executionContext) _FieldNotFound(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotFound) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldNotFoundImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldNotFound")
+		case "field":
+			out.Values[i] = ec._FieldNotFound_field(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3736,7 +5750,50 @@ func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.Selection
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "RegisterSpellResult"}
+var fieldTotalTooLargeImplementors = []string{"FieldTotalTooLarge", "FieldError"}
+
+func (ec *executionContext) _FieldTotalTooLarge(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTotalTooLarge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTotalTooLargeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTotalTooLarge")
+		case "field":
+			out.Values[i] = ec._FieldTotalTooLarge_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._FieldTotalTooLarge_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -3868,6 +5925,34 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "registerStarterDeck":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerStarterDeck(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "renameStarterDeck":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_renameStarterDeck(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setStarterDeckCardCounts":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setStarterDeckCardCounts(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteStarterDeck":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteStarterDeck(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3994,6 +6079,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_cards(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "starterDecks":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_starterDecks(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "starterDeck":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_starterDeck(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -4155,6 +6284,173 @@ func (ec *executionContext) _RegisterSpellSuccess(ctx context.Context, sel ast.S
 	return out
 }
 
+var registerStarterDeckSuccessImplementors = []string{"RegisterStarterDeckSuccess", "RegisterStarterDeckResult"}
+
+func (ec *executionContext) _RegisterStarterDeckSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterStarterDeckSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, registerStarterDeckSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RegisterStarterDeckSuccess")
+		case "id":
+			out.Values[i] = ec._RegisterStarterDeckSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RegisterStarterDeckSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var renameStarterDeckSuccessImplementors = []string{"RenameStarterDeckSuccess", "RenameStarterDeckResult"}
+
+func (ec *executionContext) _RenameStarterDeckSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RenameStarterDeckSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, renameStarterDeckSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RenameStarterDeckSuccess")
+		case "id":
+			out.Values[i] = ec._RenameStarterDeckSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RenameStarterDeckSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult"}
+
+func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RevisionConflictError")
+		case "message":
+			out.Values[i] = ec._RevisionConflictError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var setStarterDeckCardCountsSuccessImplementors = []string{"SetStarterDeckCardCountsSuccess", "SetStarterDeckCardCountsResult"}
+
+func (ec *executionContext) _SetStarterDeckCardCountsSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.SetStarterDeckCardCountsSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, setStarterDeckCardCountsSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SetStarterDeckCardCountsSuccess")
+		case "id":
+			out.Values[i] = ec._SetStarterDeckCardCountsSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._SetStarterDeckCardCountsSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var spellImplementors = []string{"Spell", "Card"}
 
 func (ec *executionContext) _Spell(ctx context.Context, sel ast.SelectionSet, obj *model.Spell) graphql.Marshaler {
@@ -4208,7 +6504,313 @@ func (ec *executionContext) _Spell(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "RegisterSpellResult"}
+var starterDeckImplementors = []string{"StarterDeck", "StarterDeckResult"}
+
+func (ec *executionContext) _StarterDeck(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeck) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeck")
+		case "id":
+			out.Values[i] = ec._StarterDeck_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._StarterDeck_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cards":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._StarterDeck_cards(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "totalCount":
+			out.Values[i] = ec._StarterDeck_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "revision":
+			out.Values[i] = ec._StarterDeck_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "registeredAt":
+			out.Values[i] = ec._StarterDeck_registeredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._StarterDeck_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var starterDeckCardImplementors = []string{"StarterDeckCard"}
+
+func (ec *executionContext) _StarterDeckCard(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeckCard) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckCardImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeckCard")
+		case "card":
+			out.Values[i] = ec._StarterDeckCard_card(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "count":
+			out.Values[i] = ec._StarterDeckCard_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var starterDeckConnectionImplementors = []string{"StarterDeckConnection", "StarterDecksResult"}
+
+func (ec *executionContext) _StarterDeckConnection(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeckConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeckConnection")
+		case "edges":
+			out.Values[i] = ec._StarterDeckConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._StarterDeckConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var starterDeckEdgeImplementors = []string{"StarterDeckEdge"}
+
+func (ec *executionContext) _StarterDeckEdge(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeckEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeckEdge")
+		case "cursor":
+			out.Values[i] = ec._StarterDeckEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._StarterDeckEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var starterDeckNameAlreadyInUseErrorImplementors = []string{"StarterDeckNameAlreadyInUseError", "RegisterStarterDeckResult", "RenameStarterDeckResult"}
+
+func (ec *executionContext) _StarterDeckNameAlreadyInUseError(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeckNameAlreadyInUseError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckNameAlreadyInUseErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeckNameAlreadyInUseError")
+		case "message":
+			out.Values[i] = ec._StarterDeckNameAlreadyInUseError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var starterDeckNotFoundErrorImplementors = []string{"StarterDeckNotFoundError", "StarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult"}
+
+func (ec *executionContext) _StarterDeckNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.StarterDeckNotFoundError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, starterDeckNotFoundErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StarterDeckNotFoundError")
+		case "message":
+			out.Values[i] = ec._StarterDeckNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var validationErrorsImplementors = []string{"ValidationErrors", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -4736,6 +7338,21 @@ func (ec *executionContext) marshalNDateTime2timeᚐTime(ctx context.Context, se
 	return res
 }
 
+func (ec *executionContext) unmarshalNDeleteStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐDeleteStarterDeckInput(ctx context.Context, v any) (model.DeleteStarterDeckInput, error) {
+	res, err := ec.unmarshalInputDeleteStarterDeckInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDeleteStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐDeleteStarterDeckResult(ctx context.Context, sel ast.SelectionSet, v model.DeleteStarterDeckResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeleteStarterDeckResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -4843,6 +7460,51 @@ func (ec *executionContext) marshalNRegisterSpellResult2gitlabᚗcomᚋaimerzara
 	return ec._RegisterSpellResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNRegisterStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterStarterDeckInput(ctx context.Context, v any) (model.RegisterStarterDeckInput, error) {
+	res, err := ec.unmarshalInputRegisterStarterDeckInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRegisterStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRegisterStarterDeckResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterStarterDeckResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RegisterStarterDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRenameStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRenameStarterDeckInput(ctx context.Context, v any) (model.RenameStarterDeckInput, error) {
+	res, err := ec.unmarshalInputRenameStarterDeckInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRenameStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐRenameStarterDeckResult(ctx context.Context, sel ast.SelectionSet, v model.RenameStarterDeckResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RenameStarterDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNSetStarterDeckCardCountsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐSetStarterDeckCardCountsInput(ctx context.Context, v any) (model.SetStarterDeckCardCountsInput, error) {
+	res, err := ec.unmarshalInputSetStarterDeckCardCountsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSetStarterDeckCardCountsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐSetStarterDeckCardCountsResult(ctx context.Context, sel ast.SelectionSet, v model.SetStarterDeckCardCountsResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SetStarterDeckCardCountsResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNSpell2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐSpell(ctx context.Context, sel ast.SelectionSet, v *model.Spell) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -4851,6 +7513,107 @@ func (ec *executionContext) marshalNSpell2ᚖgitlabᚗcomᚋaimerzarashiᚋdieca
 		return graphql.Null
 	}
 	return ec._Spell(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStarterDeck2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeck(ctx context.Context, sel ast.SelectionSet, v *model.StarterDeck) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StarterDeck(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStarterDeckCard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StarterDeckCard) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNStarterDeckCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCard(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNStarterDeckCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCard(ctx context.Context, sel ast.SelectionSet, v *model.StarterDeckCard) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StarterDeckCard(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNStarterDeckCardCountInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardCountInputᚄ(ctx context.Context, v any) ([]*model.StarterDeckCardCountInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.StarterDeckCardCountInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNStarterDeckCardCountInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardCountInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNStarterDeckCardCountInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckCardCountInput(ctx context.Context, v any) (*model.StarterDeckCardCountInput, error) {
+	res, err := ec.unmarshalInputStarterDeckCardCountInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNStarterDeckEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.StarterDeckEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNStarterDeckEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNStarterDeckEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckEdge(ctx context.Context, sel ast.SelectionSet, v *model.StarterDeckEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StarterDeckEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStarterDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckResult(ctx context.Context, sel ast.SelectionSet, v model.StarterDeckResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StarterDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStarterDecksResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDecksResult(ctx context.Context, sel ast.SelectionSet, v model.StarterDecksResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StarterDecksResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -5115,6 +7878,14 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOStarterDeckFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋstudioᚋuifᚋgraphqlᚋmodelᚐStarterDeckFilter(ctx context.Context, v any) (*model.StarterDeckFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputStarterDeckFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

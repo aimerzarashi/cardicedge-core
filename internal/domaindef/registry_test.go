@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -21,7 +22,7 @@ func TestVerify_AllAggregatesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types()))
+	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types(), starterdeck.Types()))
 }
 
 func TestVerify_ReportsUnknownEntityAndEventTypes(t *testing.T) {
@@ -42,7 +43,7 @@ func TestVerifyUniqueKeyTypes_AllKeyTypesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes())...))
+	require.NoError(t, registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), starterdeck.UniqueKeyTypes())...))
 }
 
 func TestVerifyUniqueKeyTypes_ReportsUnknownKeyType(t *testing.T) {
@@ -52,4 +53,21 @@ func TestVerifyUniqueKeyTypes_ReportsUnknownKeyType(t *testing.T) {
 	err = registry.VerifyUniqueKeyTypes(domain.NewUniqueKeyType("unknown.key_type"))
 
 	require.ErrorContains(t, err, "unique key type not found: unknown.key_type")
+}
+
+// 参照の種別を足したら、ここにその種別を宣言するドメインの ReferenceTypes を足す
+func TestVerifyReferenceTypes_AllReferenceTypesMatchMigrations(t *testing.T) {
+	registry, err := domaindef.Load(rdbtest.Tx(t))
+	require.NoError(t, err)
+
+	require.NoError(t, registry.VerifyReferenceTypes(starterdeck.ReferenceTypes()...))
+}
+
+func TestVerifyReferenceTypes_ReportsUnknownReferenceType(t *testing.T) {
+	registry, err := domaindef.Load(rdbtest.Tx(t))
+	require.NoError(t, err)
+
+	err = registry.VerifyReferenceTypes(domain.NewReferenceType("unknown.reference_type"))
+
+	require.ErrorContains(t, err, "reference type not found: unknown.reference_type")
 }
