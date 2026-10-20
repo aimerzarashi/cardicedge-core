@@ -12,9 +12,9 @@
 | cmd/app | エントリポイント。プロセスとしての起動だけ（設定・DB を開く・JWT の検証の準備・シグナル・HTTP の Listen・Serve とグレースフルシャットダウン・healthcheck・schema）。組み立ては internal/wiring |
 | internal/wiring | 部品を組み立てて動かす（照合・初期オペレーター・Hub の起動・HTTP の入口）。cmd/app と結合テストの両方が使い、本番と同じ組み立てをテストで通す |
 | internal/wiring/studio | studio 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、studio の read model の投影の登録 |
-| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`。resolver に渡す値を持たせるため）。テストは tests/integration |
+| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
 | internal/studio/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除） |
+| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
 | internal/studio/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
 | internal/studio/app/query/readmodel | read model の状態の型と、イベントから状態を作る `Evolve`・`IsTerminal`（カードの一覧 `CardList` 等） |
 | internal/studio/inf/repository | read model の DB の読み書き（投影が書く `Upsert...`・`Delete...`） |
@@ -84,10 +84,13 @@
   - 参照を足し引きする関数の型（`UpdateXxxReferencesFunc`）は参照する側のドメインに置き、変えた後の一覧を受け取ってそろえる。実装は internal/constraint（共通の updateReferences を呼ぶだけ）。参照する側のコマンドと同じトランザクションで呼ぶ
   - 参照を足すときは、種別のマイグレーション（domain_reference_types への INSERT）、ドメインの宣言、wiring の `VerifyReferenceTypes` と domaindef のテストへの追加
   - 参照される集約を消すコマンドを作るときは、消す前に参照を確かめて「使われている」を結果の型で返す（確かめ忘れても DB が止めるが、利用者には内部のエラーとしか見えないため）
+  - 問い合わせ（query・repository）からは domain_references を読まない（書く側が整合性を守るための表で、イベントから作り直せず、制約にしない関係は入っていないため）。参照されている関係を画面に出したいときは、参照する側の read model に持たせる（core#25）
+- ほかの集約は内部 ID で持つが、それは整合性のための参照（消せない制約がある）の話。消えうる集約から写したことの記録（スターターデッキの写しの元のプリセットデッキ等）は、公開 ID で持つ（消えた後も投影が読めるように。内部 ID だと識別子が消えて公開 ID を引けない。core#25）
+- ゲーム全体で 1 つの集約（スターターデッキセット等）は、最初の操作で識別子を発行し、「1 つだけ」を一意な key（値は決まった文字列。例: `starter_deck_set.singleton`）で守る。内部 ID も画面から受け取らず、この key の持ち主から引く。初めての操作が重なったら、後のほうは「先に変えられた」にする（未設定を見て操作したのに、もうあった状況のため。core#25）
 - イベントストアの版の衝突も、一意制約違反のエラーではなく `ON CONFLICT DO NOTHING RETURNING` で行が返らないことで知る。版が続いていない（版 1 でも直前の版の次でもない）イベントも保存せず、`domain.ErrVersionNotConsecutive` を返す（コードの誤りでだけ起きるので、呼ぶ側は分岐しない。core#24）
 - 画面で見た内容をもとに、既にあるものを変える・消す操作（プリセットデッキの名前・枚数の変更・削除等）は、同じ形にそろえる（core#24。流れの図は internal/eventstore/README.md）:
   - 入力に `revision`（画面が見ていた集約の版）を含め、型にも `revision` を持たせる。マスタの公開の版と取り違えないよう「版」と呼ばない（日本語では「更新の番号」）
   - app 層のコマンドが、Load の直後に今の版と比べ、違えば「先に変えられた」（`command.ErrRevisionConflict` → `RevisionConflictError`）を返す。試し直さない（後の変更が黙って勝つため）。保存のときの版の衝突（`domain.ErrVersionConflict`）も同じエラーにする。変わらない操作（同じ名前等）でも、revision が古ければ返す
-  - 結果は公開 ID と新しい revision だけにし、内容を返さない。画面は詳細を読み直し、詳細の revision を持つ（表示している内容と revision を同じ時点のものにそろえるため。投影が遅れているあいだは次の操作が「先に変えられた」になるが、ふだんの遅れは数ミリ秒）
+  - 結果は対象の公開 ID と新しい revision だけにし、内容を返さない。対象を id で指さない操作（ゲーム全体で 1 つの集約の設定等）は id も返さない（どの操作も受け付けない識別子を見せないため。core#25）。画面は詳細を読み直し、詳細の revision を持つ（表示している内容と revision を同じ時点のものにそろえるため。投影が遅れているあいだは次の操作が「先に変えられた」になるが、ふだんの遅れは数ミリ秒）
   - 新しく作る操作（登録）と、画面を通らない操作（ログイン時の紐づけ・方針）には要らない
 - 一覧の各要素からほかの read model の値を引くとき（プリセットデッキのカード名等）は、値を書き写さず、データローダー（uif/graphql の dataloader.go）で引く（N+1 にしないため）。束ねて読む関数は、その read model の問い合わせ（query）と repository に置く。並べ方の決まりが要るなら query に置き（`query.CompareCards`）、uif・studio に書き写さない

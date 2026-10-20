@@ -82,6 +82,16 @@ type SetPresetDeckCardCountsResult interface {
 	IsSetPresetDeckCardCountsResult()
 }
 
+// スターターデッキセットの設定の結果
+type SetStarterDeckSetResult interface {
+	IsSetStarterDeckSetResult()
+}
+
+// スターターデッキセットの結果
+type StarterDeckSetResult interface {
+	IsStarterDeckSetResult()
+}
+
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
 type CardConnection struct {
 	// このページのカード
@@ -145,6 +155,14 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// デッキに入れたカードと枚数
+type DeckCard struct {
+	// カード
+	Card Card `json:"card"`
+	// 枚数（1〜4）
+	Count int `json:"count"`
+}
 
 // プリセットデッキを削除する入力
 type DeletePresetDeckInput struct {
@@ -234,6 +252,19 @@ func (FieldTooLong) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
+// 合計がちょうど決まった値でない（スターターデッキセットに写すプリセットデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）
+type FieldTotalMismatch struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 合計の決まった値
+	Required int `json:"required"`
+}
+
+func (FieldTotalMismatch) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTotalMismatch) GetField() string { return this.Field }
+
 // 入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）
 type FieldTotalTooLarge struct {
 	// 誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）
@@ -272,6 +303,10 @@ func (ForbiddenError) IsSetPresetDeckCardCountsResult() {}
 func (ForbiddenError) IsDeletePresetDeckResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
+
+func (ForbiddenError) IsStarterDeckSetResult() {}
+
+func (ForbiddenError) IsSetStarterDeckSetResult() {}
 
 // アイテム（カードの種類の 1 つ）
 type Item struct {
@@ -312,14 +347,6 @@ type PageInfo struct {
 	StartCursor *string `json:"startCursor,omitempty"`
 	// このページの最後の 1 件の位置（次のページは after にこれを渡す）
 	EndCursor *string `json:"endCursor,omitempty"`
-}
-
-// プリセットデッキに入れたカードと枚数
-type PresetDeckCard struct {
-	// カード
-	Card Card `json:"card"`
-	// 枚数（1〜4）
-	Count int `json:"count"`
 }
 
 // 変えるカードと、その枚数
@@ -471,6 +498,8 @@ func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
 func (RevisionConflictError) IsDeletePresetDeckResult() {}
 
+func (RevisionConflictError) IsSetStarterDeckSetResult() {}
+
 // プリセットデッキのカードの枚数を変える入力
 type SetPresetDeckCardCountsInput struct {
 	// プリセットデッキの公開用の ID
@@ -490,6 +519,22 @@ type SetPresetDeckCardCountsSuccess struct {
 }
 
 func (SetPresetDeckCardCountsSuccess) IsSetPresetDeckCardCountsResult() {}
+
+// スターターデッキセットを設定する入力
+type SetStarterDeckSetInput struct {
+	// 画面が見ていたスターターデッキセットの revision（未設定なら 0）
+	Revision int `json:"revision"`
+	// 写すプリセットデッキの公開用の ID（ちょうど 2 つ。違うもの。どれも合計がちょうど 40 枚。順番は問わない）
+	PresetDeckIds []uuid.UUID `json:"presetDeckIds"`
+}
+
+// スターターデッキセットを設定した（写す中身が今と全部同じなら何も変えず、revision も進まない）
+type SetStarterDeckSetSuccess struct {
+	// 設定した後の revision（内容は返さない。画面は読み直し、読み直した revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetStarterDeckSetSuccess) IsSetStarterDeckSetResult() {}
 
 // スペル（カードの種類の 1 つ）
 type Spell struct {
@@ -517,6 +562,28 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
+// スターターデッキセット（まだ設定していなければ、decks は空・revision は 0・updatedAt は null）
+type StarterDeckSet struct {
+	// スターターデッキ（元のプリセットデッキの公開 ID の順）
+	Decks []*StarterDeck `json:"decks"`
+	// 更新の番号（画面が見ていた版。設定の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
+	// 最後に設定した日時
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+func (StarterDeckSet) IsStarterDeckSetResult() {}
+
+// 写した元
+type StarterDeckSource struct {
+	// 元のプリセットデッキの公開用の ID（消されていることもある）
+	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 写したときの、元のプリセットデッキの revision
+	Revision int `json:"revision"`
+	// 写した後に、元のプリセットデッキが変わっている（設定し直すと反映される）
+	ChangedSinceCopied bool `json:"changedSinceCopied"`
+}
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -538,6 +605,8 @@ func (ValidationErrors) IsRenamePresetDeckResult() {}
 func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
+
+func (ValidationErrors) IsSetStarterDeckSetResult() {}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string

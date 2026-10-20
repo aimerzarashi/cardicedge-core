@@ -15,12 +15,7 @@ type PresetDeck struct {
 	Revision     int
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
-	CardCounts   []PresetDeckCardCount
-}
-
-type PresetDeckCardCount struct {
-	CardID uuid.UUID
-	Count  int
+	CardCounts   []DeckCardCount
 }
 
 func (PresetDeck) IsPresetDeckResult() {}

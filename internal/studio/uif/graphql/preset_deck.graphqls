@@ -8,7 +8,7 @@ type PresetDeck {
   name: String!
   # 名前・種類は read model に書き写さず、データローダーで引いてから並べる（core#24）
   "入れたカードと枚数（カードの一覧と同じ並び: 種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）"
-  cards: [PresetDeckCard!]!
+  cards: [DeckCard!]!
   "カードの枚数の合計"
   totalCount: Int!
   "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
@@ -17,14 +17,6 @@ type PresetDeck {
   registeredAt: DateTime!
   "最後に変更した日時（変更していなければ登録した日時）"
   updatedAt: DateTime!
-}
-
-"プリセットデッキに入れたカードと枚数"
-type PresetDeckCard {
-  "カード"
-  card: Card!
-  "枚数（1〜4）"
-  count: Int!
 }
 
 "名前が、ほかのプリセットデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）"

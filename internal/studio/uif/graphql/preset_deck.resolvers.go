@@ -93,8 +93,8 @@ func (r *mutationResolver) DeletePresetDeck(ctx context.Context, input model.Del
 }
 
 // Cards is the resolver for the cards field.
-func (r *presetDeckResolver) Cards(ctx context.Context, obj *model.PresetDeck) ([]*model.PresetDeckCard, error) {
-	return loadPresetDeckCards(ctx, obj.CardCounts)
+func (r *presetDeckResolver) Cards(ctx context.Context, obj *model.PresetDeck) ([]*model.DeckCard, error) {
+	return loadDeckCards(ctx, obj.CardCounts)
 }
 
 // PresetDecks is the resolver for the presetDecks field.

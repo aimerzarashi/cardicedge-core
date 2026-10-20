@@ -9,6 +9,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -29,6 +30,7 @@ func startEventDriven(ctx context.Context, db *sql.DB, dsn string, registry *dom
 		eventstore.NewEventLoader(registry, item.NewID, item.NewEventType),
 		eventstore.NewEventLoader(registry, spell.NewID, spell.NewEventType),
 		eventstore.NewEventLoader(registry, presetdeck.NewID, presetdeck.NewEventType),
+		eventstore.NewEventLoader(registry, starterdeckset.NewID, starterdeckset.NewEventType),
 	)
 	if err != nil {
 		return nil, err

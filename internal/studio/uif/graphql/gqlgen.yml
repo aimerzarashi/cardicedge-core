@@ -33,3 +33,9 @@ models:
     fields:
       cards:
         resolver: true
+  StarterDeck:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/studio/uif/graphql/model.StarterDeck
+    fields:
+      cards:
+        resolver: true
