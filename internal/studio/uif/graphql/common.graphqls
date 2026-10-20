@@ -81,6 +81,14 @@ type FieldTotalTooLarge implements FieldError {
   max: Int!
 }
 
+"合計がちょうど決まった値でない（スターターデッキセットに写すプリセットデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）"
+type FieldTotalMismatch implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "合計の決まった値"
+  required: Int!
+}
+
 "入力の誤り（操作は行われていない）"
 type ValidationErrors {
   "項目ごとの誤り（1 件以上）"

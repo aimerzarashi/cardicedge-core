@@ -8,20 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/inf/repository"
 )
-
-// 投影が書いたものを、問い合わせが読む形で確かめる（表の作りをテストに書かない）。
-// 件数・順番を確かめるため、ほかの行の無い DB（テンプレートの複製）で動かす
-func emptyCardLists(t *testing.T) context.Context {
-	t.Helper()
-	db, _ := rdbtest.NewDatabase(t)
-	return rdb.WithDB(t.Context(), db)
-}
 
 func cardList(cardType readmodel.CardType, sortName, name string) readmodel.CardList {
 	id := uuid.New()

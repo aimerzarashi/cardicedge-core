@@ -13,9 +13,9 @@ import (
 )
 
 func fromQueryPresetDeck(deck query.PresetDeck) *model.PresetDeck {
-	counts := make([]model.PresetDeckCardCount, 0, len(deck.Cards))
+	counts := make([]model.DeckCardCount, 0, len(deck.Cards))
 	for _, card := range deck.Cards {
-		counts = append(counts, model.PresetDeckCardCount{CardID: card.CardID, Count: card.Count})
+		counts = append(counts, model.DeckCardCount{CardID: card.CardID, Count: card.Count})
 	}
 	return &model.PresetDeck{
 		ID: deck.ID, Name: deck.Name, TotalCount: deck.TotalCount, Revision: int(deck.Revision),
@@ -47,7 +47,7 @@ func toCardCountInputs(cards []*model.PresetDeckCardCountInput) []command.CardCo
 
 // カードはローダーでまとめて引いてから、カードの一覧と同じ並びにする（並べるにはカード名・種類が要り、
 // read model はそれを持たないため。core#24）。一覧の各プリセットデッキからの呼び出しは、ローダーが 1 回の読み出しに束ねる
-func loadPresetDeckCards(ctx context.Context, counts []model.PresetDeckCardCount) ([]*model.PresetDeckCard, error) {
+func loadDeckCards(ctx context.Context, counts []model.DeckCardCount) ([]*model.DeckCard, error) {
 	ids := make([]uuid.UUID, 0, len(counts))
 	for _, count := range counts {
 		ids = append(ids, count.CardID)
@@ -67,13 +67,13 @@ func loadPresetDeckCards(ctx context.Context, counts []model.PresetDeckCardCount
 	slices.SortFunc(loadedCards, func(a, b loaded) int {
 		return query.CompareCards(a.card, b.card)
 	})
-	result := make([]*model.PresetDeckCard, 0, len(loadedCards))
+	result := make([]*model.DeckCard, 0, len(loadedCards))
 	for _, l := range loadedCards {
 		card, err := toCard(l.card)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, &model.PresetDeckCard{Card: card, Count: l.count})
+		result = append(result, &model.DeckCard{Card: card, Count: l.count})
 	}
 	return result, nil
 }

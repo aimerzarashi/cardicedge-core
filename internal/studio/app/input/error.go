@@ -97,6 +97,21 @@ func (e *TotalTooLarge) InputField() string {
 	return e.Field
 }
 
+// 合計がちょうど決まった値でない（スターターデッキセットに写すプリセットデッキの枚数の合計等）。多すぎるのも足りないのも同じ理由なので、
+// TotalTooLarge と分ける
+type TotalMismatch struct {
+	Field    string
+	Required int
+}
+
+func (e *TotalMismatch) Error() string {
+	return fmt.Sprintf("total of %s is not %d", e.Field, e.Required)
+}
+
+func (e *TotalMismatch) InputField() string {
+	return e.Field
+}
+
 // 項目が増えても、最初の 1 つで止めずにまとめて返すため
 type Errors []Error
 

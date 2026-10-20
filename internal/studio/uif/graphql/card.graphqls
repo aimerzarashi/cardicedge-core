@@ -18,6 +18,15 @@ interface Card {
   updatedAt: DateTime!
 }
 
+# デッキ（プリセットデッキ・スターターデッキ等）の中身はどれも同じ形なので、型を 1 つにする（core#25）
+"デッキに入れたカードと枚数"
+type DeckCard {
+  "カード"
+  card: Card!
+  "枚数（1〜4）"
+  count: Int!
+}
+
 "カードの種類（一覧の絞り込みに使う）"
 enum CardType {
   CREATURE

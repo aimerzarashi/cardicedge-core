@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -42,10 +43,12 @@ type Studio struct {
 	items     *command.ItemCommands
 	spells    *command.SpellCommands
 	// 投影もカードの公開 ID を引くため、コマンドと共有する
-	entityRefs     domain.EntityRefResolver
-	presetDecks    *command.PresetDeckCommands
-	cards          *query.CardList
-	presetDeckList *query.PresetDeckList
+	entityRefs      domain.EntityRefResolver
+	presetDecks     *command.PresetDeckCommands
+	cards           *query.CardList
+	presetDeckList  *query.PresetDeckList
+	starterDeckSets *command.StarterDeckSetCommands
+	starterDeckSet  *query.StarterDeckSetQuery
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -96,6 +99,17 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		),
 		cards:          query.NewCardList(repository.ListCards, repository.GetCards),
 		presetDeckList: query.NewPresetDeckList(repository.ListPresetDecks, repository.GetPresetDeck),
+		starterDeckSets: command.NewStarterDeckSetCommands(
+			eventstore.New(registry, starterdeckset.NewID, starterdeckset.NewEventType, starterdeckset.InitialState, starterdeckset.Evolve),
+			identifier.New(registry, starterdeckset.NewID),
+			constraint.FindStarterDeckSet,
+			constraint.CreateStarterDeckSet,
+			constraint.UpdateStarterDeckSetCardReferences,
+			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
+			identifier.New(registry, presetdeck.NewID),
+			now,
+		),
+		starterDeckSet: query.NewStarterDeckSetQuery(repository.GetStarterDeckSet, repository.GetPresetDeckRevisions),
 	}
 }
 
@@ -122,14 +136,23 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	presetDecks := repository.NewPresetDeckListWriter(c.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeckList]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeckList]{
 		Name:          "preset_deck_list",
 		Subscriptions: []domain.EntityType{presetdeck.Types().EntityType},
 		Upsert:        presetDecks.Upsert,
 		Delete:        presetDecks.Delete,
+	}); err != nil {
+		return err
+	}
+	starterDeckSets := repository.NewStarterDeckSetWriter(c.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
+		Name:          "starter_deck_set",
+		Subscriptions: []domain.EntityType{starterdeckset.Types().EntityType},
+		Upsert:        starterDeckSets.Upsert,
+		Delete:        starterDeckSets.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
 }

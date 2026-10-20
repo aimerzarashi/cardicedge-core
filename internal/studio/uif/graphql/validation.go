@@ -31,6 +31,8 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldDuplicated{Field: e.Field}
 		case *input.TotalTooLarge:
 			fieldErrors[i] = &model.FieldTotalTooLarge{Field: e.Field, Max: e.Max}
+		case *input.TotalMismatch:
+			fieldErrors[i] = &model.FieldTotalMismatch{Field: e.Field, Required: e.Required}
 		default:
 			// 理由を app 層に足したのに、ここに写し方を足し忘れた（GraphQL の型を足すのを忘れずに気づけるよう、黙って別の型にしない）
 			panic(fmt.Sprintf("unknown input error: %T", e))

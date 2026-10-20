@@ -45,14 +45,26 @@ type PresetDeckLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.PresetDeck, error)
 }
 
+// 実装は command.StarterDeckSetCommands
+type StarterDeckSetCommands interface {
+	Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (command.ChangedStarterDeckSet, error)
+}
+
+// 実装は query.StarterDeckSetQuery
+type StarterDeckSetGetter interface {
+	Get(ctx context.Context) (query.StarterDeckSet, error)
+}
+
 type Resolver struct {
-	version        string
-	creatures      CreatureRegistrar
-	items          ItemRegistrar
-	spells         SpellRegistrar
-	presetDecks    PresetDeckCommands
-	cards          CardLister
-	presetDeckList PresetDeckLister
+	version         string
+	creatures       CreatureRegistrar
+	items           ItemRegistrar
+	spells          SpellRegistrar
+	presetDecks     PresetDeckCommands
+	cards           CardLister
+	presetDeckList  PresetDeckLister
+	starterDeckSets StarterDeckSetCommands
+	starterDeckSet  StarterDeckSetGetter
 }
 
 func NewResolver(
@@ -63,9 +75,11 @@ func NewResolver(
 	presetDecks PresetDeckCommands,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
+	starterDeckSets StarterDeckSetCommands,
+	starterDeckSet StarterDeckSetGetter,
 ) *Resolver {
 	return &Resolver{
 		version: version, creatures: creatures, items: items, spells: spells, presetDecks: presetDecks,
-		cards: cards, presetDeckList: presetDeckList,
+		cards: cards, presetDeckList: presetDeckList, starterDeckSets: starterDeckSets, starterDeckSet: starterDeckSet,
 	}
 }

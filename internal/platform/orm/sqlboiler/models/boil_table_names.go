@@ -18,6 +18,7 @@ var TableNames = struct {
 	EventSubscribers           string
 	EventSubscriptions         string
 	PresetDeckLists            string
+	StarterDeckSets            string
 }{
 	CardLists:                  "card_lists",
 	DomainEntityTypes:          "domain_entity_types",
@@ -33,4 +34,5 @@ var TableNames = struct {
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
 	PresetDeckLists:            "preset_deck_lists",
+	StarterDeckSets:            "starter_deck_sets",
 }
