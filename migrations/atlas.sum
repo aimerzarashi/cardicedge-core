@@ -1,4 +1,4 @@
-h1:YMjID1j1fnfrgePyTB3E1+Bivk4rtY9O3jFoqIIsNt8=
+h1:KCrAvdkJeX23yCElqMIsJ7yCPqFrtakhNRwXnTjySDw=
 0001_create_domain_entity_types.sql h1:jacKh6jcfiZQyZlQT1bfZBv4cF+8JiK04i9fyFPy5Dc=
 0002_create_domain_event_types.sql h1:Fl6Rcbg+vxKagVZkMT6NLNQHhRcdY6O5Kq0QoB46e8U=
 0003_create_domain_identifiers.sql h1:pna7BYPLMcr8/zCL43KfrjaZ6D6YG5Hgmz2HgfKPRmU=
@@ -14,3 +14,4 @@ h1:YMjID1j1fnfrgePyTB3E1+Bivk4rtY9O3jFoqIIsNt8=
 0013_create_spell.sql h1:kghT4MONrQ/GMRpyt6zAcVCNMRBgOo6/2826B10U1oU=
 0014_create_domain_references.sql h1:VskVtZldAxfVDGmjAwsOVbkU2WdwcGrfQZTyU3VlMT8=
 0015_create_starter_deck.sql h1:u0DesfJU4g9MkmNoPUVpLaCLZKdbeApmHBwxBvQxRy8=
+0016_rename_starter_deck_to_preset_deck.sql h1:RVzvmGSlagJVDTXj3zD2i90oRmsgO+LVQbYCDeB7iUg=

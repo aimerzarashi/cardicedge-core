@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import "maps"
 
@@ -7,10 +7,10 @@ func Evolve(state State, event Event) (State, error) {
 	meta := event.GetMeta()
 	switch e := event.(type) {
 	case *RegisteredEvent:
-		if _, ok := state.(UnregisteredStarterDeck); !ok {
+		if _, ok := state.(UnregisteredPresetDeck); !ok {
 			return state, ErrInvalidState
 		}
-		return StarterDeck{
+		return PresetDeck{
 			ID:           meta.EntityID,
 			Version:      meta.AggregateVersion,
 			PublicID:     e.PublicID,
@@ -21,14 +21,14 @@ func Evolve(state State, event Event) (State, error) {
 			UpdatedAt:    meta.OccurredAt,
 		}, nil
 	case *RenamedEvent:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return state, ErrInvalidState
 		}
 		deck.Name = e.Name
 		return touched(deck, meta), nil
 	case *CardCountsChangedEvent:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return state, ErrInvalidState
 		}
@@ -47,17 +47,17 @@ func Evolve(state State, event Event) (State, error) {
 		deck.Cards = cards
 		return touched(deck, meta), nil
 	case *DeletedEvent:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return state, ErrInvalidState
 		}
-		return DeletedStarterDeck{ID: deck.ID, Version: meta.AggregateVersion}, nil
+		return DeletedPresetDeck{ID: deck.ID, Version: meta.AggregateVersion}, nil
 	default:
 		return state, ErrInvalidState
 	}
 }
 
-func touched(deck StarterDeck, meta EventMeta) StarterDeck {
+func touched(deck PresetDeck, meta EventMeta) PresetDeck {
 	deck.Version = meta.AggregateVersion
 	deck.UpdatedAt = meta.OccurredAt
 	return deck

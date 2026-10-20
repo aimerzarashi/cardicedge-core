@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
-// domain_unique_key_types の名前。スターターデッキどうしで名前を一意にする（カード名とは別の決まり）
-var nameKeyType = domain.NewUniqueKeyType("starter_deck.name")
+// domain_unique_key_types の名前。プリセットデッキどうしで名前を一意にする（カード名とは別の決まり）
+var nameKeyType = domain.NewUniqueKeyType("preset_deck.name")
 
 func UniqueKeyTypes() []domain.UniqueKeyType {
 	return []domain.UniqueKeyType{nameKeyType}
@@ -19,5 +19,5 @@ func NameKey(name Name) domain.UniqueKey {
 	return domain.NewUniqueKey(nameKeyType, card.NormalizeName(name.String()))
 }
 
-// 登録にも名前の変更にも使う。ほかのスターターデッキが同じ名前（正規化後）を使っていれば ErrNameAlreadyInUse
+// 登録にも名前の変更にも使う。ほかのプリセットデッキが同じ名前（正規化後）を使っていれば ErrNameAlreadyInUse
 type UpdateNameFunc func(ctx context.Context, id ID, name Name) error

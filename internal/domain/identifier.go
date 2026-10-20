@@ -37,7 +37,7 @@ type Identifier[I ID] interface {
 	Delete(context.Context, I) error
 }
 
-// 種類をまたいでほかの集約を指すときの、種類と内部 ID の組（例: スターターデッキに入れるカード）。
+// 種類をまたいでほかの集約を指すときの、種類と内部 ID の組（例: プリセットデッキに入れるカード）。
 // 種類は DB の entity_type_id ではなく種別名で持つ（ドメインは種別を名前で扱うため）
 type EntityRef struct {
 	entityType EntityType
@@ -57,7 +57,7 @@ func (r EntityRef) ID() int64 {
 }
 
 // 種類を決めずに、公開 ID と種類・内部 ID の組を行き来する（Identifier は種類を 1 つ決めて引くため、どの種類か
-// わからない公開 ID を引けない）。何の種類なら受け付けるかは、呼ぶ側（例: starterdeck.NewCardRef）が決める
+// わからない公開 ID を引けない）。何の種類なら受け付けるかは、呼ぶ側（例: presetdeck.NewCardRef）が決める
 type EntityRefResolver interface {
 	// 無ければ ErrEntityNotFound
 	Resolve(context.Context, uuid.UUID) (EntityRef, error)

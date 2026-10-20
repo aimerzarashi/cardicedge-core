@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"github.com/google/uuid"
@@ -7,7 +7,7 @@ import (
 )
 
 type Command interface {
-	isStarterDeckCommand()
+	isPresetDeckCommand()
 }
 
 type RegisterCommand struct {
@@ -32,7 +32,7 @@ type DeleteCommand struct {
 	DeletedBy operator.ID
 }
 
-func (*RegisterCommand) isStarterDeckCommand()      {}
-func (*RenameCommand) isStarterDeckCommand()        {}
-func (*SetCardCountsCommand) isStarterDeckCommand() {}
-func (*DeleteCommand) isStarterDeckCommand()        {}
+func (*RegisterCommand) isPresetDeckCommand()      {}
+func (*RenameCommand) isPresetDeckCommand()        {}
+func (*SetCardCountsCommand) isPresetDeckCommand() {}
+func (*DeleteCommand) isPresetDeckCommand()        {}

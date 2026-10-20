@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"encoding/json"
@@ -10,12 +10,12 @@ import (
 )
 
 type sealedEvent interface {
-	isStarterDeckEvent()
+	isPresetDeckEvent()
 }
 
 type eventMarker struct{}
 
-func (eventMarker) isStarterDeckEvent() {}
+func (eventMarker) isPresetDeckEvent() {}
 
 type Event interface {
 	sealedEvent

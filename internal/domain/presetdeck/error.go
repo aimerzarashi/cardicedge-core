@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import "errors"
 

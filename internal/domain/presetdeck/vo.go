@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 
 type ID int64
 
-var entityType = domain.NewEntityType("starter_deck")
+var entityType = domain.NewEntityType("preset_deck")
 
 func (ID) EntityType() domain.EntityType {
 	return entityType
@@ -75,7 +75,7 @@ func (c CardCount) Int() int {
 	return int(c)
 }
 
-// スターターデッキに入れるカード。ほかの集約は内部 ID で指す決まりのため、種類（集約の種別）と内部 ID の組で持つ
+// プリセットデッキに入れるカード。ほかの集約は内部 ID で指す決まりのため、種類（集約の種別）と内部 ID の組で持つ
 // （内部 ID だけでは、どの種類のカードかを、引かないとわからないため）
 type CardRef struct {
 	entityType domain.EntityType

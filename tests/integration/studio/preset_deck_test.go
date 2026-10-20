@@ -13,66 +13,66 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const starterDeckFields = `id name totalCount revision registeredAt updatedAt cards { count card { __typename id name } }`
+const presetDeckFields = `id name totalCount revision registeredAt updatedAt cards { count card { __typename id name } }`
 
-const registerStarterDeckMutation = `mutation ($input: RegisterStarterDeckInput!) {
-	registerStarterDeck(input: $input) {
+const registerPresetDeckMutation = `mutation ($input: RegisterPresetDeckInput!) {
+	registerPresetDeck(input: $input) {
 		__typename
-		... on RegisterStarterDeckSuccess { id revision }
+		... on RegisterPresetDeckSuccess { id revision }
 	}
 }`
 
-const renameStarterDeckMutation = `mutation ($input: RenameStarterDeckInput!) {
-	renameStarterDeck(input: $input) {
+const renamePresetDeckMutation = `mutation ($input: RenamePresetDeckInput!) {
+	renamePresetDeck(input: $input) {
 		__typename
-		... on RenameStarterDeckSuccess { id revision }
+		... on RenamePresetDeckSuccess { id revision }
 	}
 }`
 
-const setStarterDeckCardCountsMutation = `mutation ($input: SetStarterDeckCardCountsInput!) {
-	setStarterDeckCardCounts(input: $input) {
+const setPresetDeckCardCountsMutation = `mutation ($input: SetPresetDeckCardCountsInput!) {
+	setPresetDeckCardCounts(input: $input) {
 		__typename
-		... on SetStarterDeckCardCountsSuccess { id revision }
+		... on SetPresetDeckCardCountsSuccess { id revision }
 		... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTotalTooLarge { max } } }
 	}
 }`
 
-const deleteStarterDeckMutation = `mutation ($input: DeleteStarterDeckInput!) {
-	deleteStarterDeck(input: $input) {
+const deletePresetDeckMutation = `mutation ($input: DeletePresetDeckInput!) {
+	deletePresetDeck(input: $input) {
 		__typename
-		... on DeleteStarterDeckSuccess { id }
+		... on DeletePresetDeckSuccess { id }
 	}
 }`
 
-const starterDeckQuery = `query ($id: UUID!) {
-	starterDeck(id: $id) {
+const presetDeckQuery = `query ($id: UUID!) {
+	presetDeck(id: $id) {
 		__typename
-		... on StarterDeck { ` + starterDeckFields + ` }
+		... on PresetDeck { ` + presetDeckFields + ` }
 	}
 }`
 
-const starterDecksQuery = `query ($filter: StarterDeckFilter, $first: Int, $after: String) {
-	starterDecks(filter: $filter, first: $first, after: $after) {
+const presetDecksQuery = `query ($filter: PresetDeckFilter, $first: Int, $after: String) {
+	presetDecks(filter: $filter, first: $first, after: $after) {
 		__typename
-		... on StarterDeckConnection {
-			edges { cursor node { ` + starterDeckFields + ` } }
+		... on PresetDeckConnection {
+			edges { cursor node { ` + presetDeckFields + ` } }
 			pageInfo { hasNextPage }
 		}
 	}
 }`
 
-func registerStarterDeck(t *testing.T, token, name string) map[string]any {
+func registerPresetDeck(t *testing.T, token, name string) map[string]any {
 	t.Helper()
-	result := client.Data(t, token, registerStarterDeckMutation, map[string]any{"input": map[string]any{"name": name}}, "registerStarterDeck")
-	require.Equal(t, "RegisterStarterDeckSuccess", result["__typename"])
+	result := client.Data(t, token, registerPresetDeckMutation, map[string]any{"input": map[string]any{"name": name}}, "registerPresetDeck")
+	require.Equal(t, "RegisterPresetDeckSuccess", result["__typename"])
 	return result
 }
 
-func setStarterDeckCardCounts(t *testing.T, token string, deck map[string]any, cards ...map[string]any) map[string]any {
+func setPresetDeckCardCounts(t *testing.T, token string, deck map[string]any, cards ...map[string]any) map[string]any {
 	t.Helper()
-	return client.Data(t, token, setStarterDeckCardCountsMutation, map[string]any{"input": map[string]any{
+	return client.Data(t, token, setPresetDeckCardCountsMutation, map[string]any{"input": map[string]any{
 		"id": deck["id"], "revision": deck["revision"], "cards": cards,
-	}}, "setStarterDeckCardCounts")
+	}}, "setPresetDeckCardCounts")
 }
 
 func cardCount(cardID any, count int) map[string]any {
@@ -80,32 +80,32 @@ func cardCount(cardID any, count int) map[string]any {
 }
 
 // 投影されるまで待ち、revision が want になった詳細を返す
-func waitStarterDeck(t *testing.T, token string, id any, revision int) map[string]any {
+func waitPresetDeck(t *testing.T, token string, id any, revision int) map[string]any {
 	t.Helper()
 	var deck map[string]any
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		var err error
-		deck, err = client.TryData(t.Context(), token, starterDeckQuery, map[string]any{"id": id}, "starterDeck")
+		deck, err = client.TryData(t.Context(), token, presetDeckQuery, map[string]any{"id": id}, "presetDeck")
 		if assert.NoError(c, err) {
-			assert.Equal(c, "StarterDeck", deck["__typename"])
+			assert.Equal(c, "PresetDeck", deck["__typename"])
 			assert.EqualValues(c, revision, deck["revision"])
 		}
 	})
 	return deck
 }
 
-func TestRegisterStarterDeck_ListsRegisteredStarterDeck(t *testing.T) {
+func TestRegisterPresetDeck_ListsRegisteredPresetDeck(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
 
-	registered := registerStarterDeck(t, token, " 初心者-"+id+" ")
+	registered := registerPresetDeck(t, token, " 初心者-"+id+" ")
 
 	require.EqualValues(t, 1, registered["revision"])
 	var connection map[string]any
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		var err error
-		connection, err = client.TryData(t.Context(), token, starterDecksQuery, map[string]any{"filter": map[string]any{"nameContains": id}}, "starterDecks")
+		connection, err = client.TryData(t.Context(), token, presetDecksQuery, map[string]any{"filter": map[string]any{"nameContains": id}}, "presetDecks")
 		if assert.NoError(c, err) {
 			assert.Len(c, connection["edges"], 1)
 		}
@@ -117,13 +117,13 @@ func TestRegisterStarterDeck_ListsRegisteredStarterDeck(t *testing.T) {
 	require.EqualValues(t, 0, node["totalCount"])
 	require.Empty(t, node["cards"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
-	detail := waitStarterDeck(t, token, registered["id"], 1)
+	detail := waitPresetDeck(t, token, registered["id"], 1)
 	delete(detail, "__typename")
 	require.Equal(t, node, detail)
 }
 
 // カード名・種類はカードから引き、カードの一覧と同じ並び（種類の順、同じ種類の中は名前の順）で返す
-func TestSetStarterDeckCardCounts_ShowsCardsInCardListOrder(t *testing.T) {
+func TestSetPresetDeckCardCounts_ShowsCardsInCardListOrder(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
@@ -131,13 +131,13 @@ func TestSetStarterDeckCardCounts_ShowsCardsInCardListOrder(t *testing.T) {
 	itemID := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)["id"]
 	dragonID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
 	goblinID := registerCreature(t, token, "ゴブリン-"+id)["creature"].(map[string]any)["id"]
-	deck := registerStarterDeck(t, token, "初心者-"+id)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
 
-	result := setStarterDeckCardCounts(t, token, deck,
+	result := setPresetDeckCardCounts(t, token, deck,
 		cardCount(spellID, 1), cardCount(itemID, 2), cardCount(dragonID, 3), cardCount(goblinID, 4))
 
-	require.Equal(t, map[string]any{"__typename": "SetStarterDeckCardCountsSuccess", "id": deck["id"], "revision": float64(2)}, result)
-	detail := waitStarterDeck(t, token, deck["id"], 2)
+	require.Equal(t, map[string]any{"__typename": "SetPresetDeckCardCountsSuccess", "id": deck["id"], "revision": float64(2)}, result)
+	detail := waitPresetDeck(t, token, deck["id"], 2)
 	want := []any{
 		map[string]any{"count": float64(4), "card": map[string]any{"__typename": "Creature", "id": goblinID, "name": "ゴブリン-" + id}},
 		map[string]any{"count": float64(3), "card": map[string]any{"__typename": "Creature", "id": dragonID, "name": "ドラゴン-" + id}},
@@ -149,15 +149,15 @@ func TestSetStarterDeckCardCounts_ShowsCardsInCardListOrder(t *testing.T) {
 }
 
 // 画面が見ていた revision が古ければ、何も変えずに RevisionConflictError を返す
-func TestStarterDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.T) {
+func TestPresetDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	stale := registerStarterDeck(t, token, "初心者-"+id)
-	renamed := client.Data(t, token, renameStarterDeckMutation, map[string]any{"input": map[string]any{
+	stale := registerPresetDeck(t, token, "初心者-"+id)
+	renamed := client.Data(t, token, renamePresetDeckMutation, map[string]any{"input": map[string]any{
 		"id": stale["id"], "revision": stale["revision"], "name": "中級者-" + id,
-	}}, "renameStarterDeck")
-	require.Equal(t, "RenameStarterDeckSuccess", renamed["__typename"])
+	}}, "renamePresetDeck")
+	require.Equal(t, "RenamePresetDeckSuccess", renamed["__typename"])
 	cardID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
 	tests := []struct {
 		name      string
@@ -165,13 +165,13 @@ func TestStarterDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.
 		field     string
 		variables map[string]any
 	}{
-		{name: "rename", mutation: renameStarterDeckMutation, field: "renameStarterDeck", variables: map[string]any{
+		{name: "rename", mutation: renamePresetDeckMutation, field: "renamePresetDeck", variables: map[string]any{
 			"id": stale["id"], "revision": stale["revision"], "name": "上級者-" + id,
 		}},
-		{name: "set_card_counts", mutation: setStarterDeckCardCountsMutation, field: "setStarterDeckCardCounts", variables: map[string]any{
+		{name: "set_card_counts", mutation: setPresetDeckCardCountsMutation, field: "setPresetDeckCardCounts", variables: map[string]any{
 			"id": stale["id"], "revision": stale["revision"], "cards": []any{cardCount(cardID, 1)},
 		}},
-		{name: "delete", mutation: deleteStarterDeckMutation, field: "deleteStarterDeck", variables: map[string]any{
+		{name: "delete", mutation: deletePresetDeckMutation, field: "deletePresetDeck", variables: map[string]any{
 			"id": stale["id"], "revision": stale["revision"],
 		}},
 	}
@@ -182,18 +182,18 @@ func TestStarterDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.
 			require.Equal(t, "RevisionConflictError", result["__typename"])
 		})
 	}
-	require.Equal(t, "中級者-"+id, waitStarterDeck(t, token, stale["id"], 2)["name"])
+	require.Equal(t, "中級者-"+id, waitPresetDeck(t, token, stale["id"], 2)["name"])
 }
 
 // 文言は返さず、理由ごとの型と、一覧の中の位置を含む項目名を返す。どれか 1 つでも誤りがあれば何も変えない
-func TestSetStarterDeckCardCounts_ReturnsFieldErrorPerCard(t *testing.T) {
+func TestSetPresetDeckCardCounts_ReturnsFieldErrorPerCard(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
 	cardID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
-	deck := registerStarterDeck(t, token, "初心者-"+id)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
 
-	result := setStarterDeckCardCounts(t, token, deck,
+	result := setPresetDeckCardCounts(t, token, deck,
 		cardCount(cardID, 2), cardCount(uuid.NewString(), 1), cardCount(cardID, 5))
 
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
@@ -204,17 +204,17 @@ func TestSetStarterDeckCardCounts_ReturnsFieldErrorPerCard(t *testing.T) {
 }
 
 // 一覧が長すぎる・変えた後の合計が多すぎるときは、一覧全体（cards）の誤りとして返す
-func TestSetStarterDeckCardCounts_ReturnsFieldErrorForWholeCards(t *testing.T) {
+func TestSetPresetDeckCardCounts_ReturnsFieldErrorForWholeCards(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	deck := registerStarterDeck(t, token, "初心者-"+id)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
 	full := []map[string]any{}
 	for i := range 10 {
 		cardID := registerCreature(t, token, fmt.Sprintf("c%d-%s", i, id))["creature"].(map[string]any)["id"]
 		full = append(full, cardCount(cardID, 4))
 	}
-	filled := setStarterDeckCardCounts(t, token, deck, full...)
+	filled := setPresetDeckCardCounts(t, token, deck, full...)
 	tooMany := []map[string]any{}
 	for range 41 {
 		tooMany = append(tooMany, cardCount(uuid.NewString(), 1))
@@ -230,36 +230,36 @@ func TestSetStarterDeckCardCounts_ReturnsFieldErrorForWholeCards(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := setStarterDeckCardCounts(t, token, filled, tt.cards...)
+			result := setPresetDeckCardCounts(t, token, filled, tt.cards...)
 
 			require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{tt.want}}, result)
 		})
 	}
 }
 
-// 削除すると詳細は見つからなくなり、名前はほかのスターターデッキが使える
-func TestDeleteStarterDeck_RemovesStarterDeckAndReleasesName(t *testing.T) {
+// 削除すると詳細は見つからなくなり、名前はほかのプリセットデッキが使える
+func TestDeletePresetDeck_RemovesPresetDeckAndReleasesName(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	deck := registerStarterDeck(t, token, "初心者-"+id)
-	waitStarterDeck(t, token, deck["id"], 1)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
+	waitPresetDeck(t, token, deck["id"], 1)
 
-	result := client.Data(t, token, deleteStarterDeckMutation, map[string]any{"input": map[string]any{
+	result := client.Data(t, token, deletePresetDeckMutation, map[string]any{"input": map[string]any{
 		"id": deck["id"], "revision": deck["revision"],
-	}}, "deleteStarterDeck")
+	}}, "deletePresetDeck")
 
-	require.Equal(t, map[string]any{"__typename": "DeleteStarterDeckSuccess", "id": deck["id"]}, result)
+	require.Equal(t, map[string]any{"__typename": "DeletePresetDeckSuccess", "id": deck["id"]}, result)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
-		found, err := client.TryData(t.Context(), token, starterDeckQuery, map[string]any{"id": deck["id"]}, "starterDeck")
+		found, err := client.TryData(t.Context(), token, presetDeckQuery, map[string]any{"id": deck["id"]}, "presetDeck")
 		if assert.NoError(c, err) {
-			assert.Equal(c, "StarterDeckNotFoundError", found["__typename"])
+			assert.Equal(c, "PresetDeckNotFoundError", found["__typename"])
 		}
 	})
-	registerStarterDeck(t, token, "初心者-"+id)
+	registerPresetDeck(t, token, "初心者-"+id)
 }
 
-func TestStarterDeckOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T) {
+func TestPresetDeckOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T) {
 	t.Parallel()
 	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
 	unknown := map[string]any{"id": uuid.NewString(), "revision": 1}
@@ -271,17 +271,17 @@ func TestStarterDeckOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *test
 		variables map[string]any
 		want      string
 	}{
-		{name: "detail_of_unknown", token: operators.Token(t), operation: starterDeckQuery, field: "starterDeck",
-			variables: map[string]any{"id": uuid.NewString()}, want: "StarterDeckNotFoundError"},
-		{name: "rename_unknown", token: operators.Token(t), operation: renameStarterDeckMutation, field: "renameStarterDeck",
-			variables: map[string]any{"input": map[string]any{"id": unknown["id"], "revision": 1, "name": "初心者"}}, want: "StarterDeckNotFoundError"},
-		{name: "delete_unknown", token: operators.Token(t), operation: deleteStarterDeckMutation, field: "deleteStarterDeck",
-			variables: map[string]any{"input": unknown}, want: "StarterDeckNotFoundError"},
-		{name: "list_by_not_operator", token: notOperator, operation: starterDecksQuery, field: "starterDecks",
+		{name: "detail_of_unknown", token: operators.Token(t), operation: presetDeckQuery, field: "presetDeck",
+			variables: map[string]any{"id": uuid.NewString()}, want: "PresetDeckNotFoundError"},
+		{name: "rename_unknown", token: operators.Token(t), operation: renamePresetDeckMutation, field: "renamePresetDeck",
+			variables: map[string]any{"input": map[string]any{"id": unknown["id"], "revision": 1, "name": "初心者"}}, want: "PresetDeckNotFoundError"},
+		{name: "delete_unknown", token: operators.Token(t), operation: deletePresetDeckMutation, field: "deletePresetDeck",
+			variables: map[string]any{"input": unknown}, want: "PresetDeckNotFoundError"},
+		{name: "list_by_not_operator", token: notOperator, operation: presetDecksQuery, field: "presetDecks",
 			variables: map[string]any{}, want: "ForbiddenError"},
-		{name: "register_by_not_operator", token: notOperator, operation: registerStarterDeckMutation, field: "registerStarterDeck",
+		{name: "register_by_not_operator", token: notOperator, operation: registerPresetDeckMutation, field: "registerPresetDeck",
 			variables: map[string]any{"input": map[string]any{"name": "初心者-" + testhelper.UniqueID(t)}}, want: "ForbiddenError"},
-		{name: "delete_by_not_operator", token: notOperator, operation: deleteStarterDeckMutation, field: "deleteStarterDeck",
+		{name: "delete_by_not_operator", token: notOperator, operation: deletePresetDeckMutation, field: "deletePresetDeck",
 			variables: map[string]any{"input": unknown}, want: "ForbiddenError"},
 	}
 	for _, tt := range tests {

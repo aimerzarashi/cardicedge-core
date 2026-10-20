@@ -64,7 +64,7 @@ type CardListRow struct {
 
 type ListCardsFunc func(ctx context.Context, condition ListCardsCondition) ([]CardListRow, error)
 
-// 公開 ID で引く（スターターデッキのカード名を引くデータローダーが、まとめて 1 回で呼ぶ）。無いカードは結果に含めない
+// 公開 ID で引く（プリセットデッキのカード名を引くデータローダーが、まとめて 1 回で呼ぶ）。無いカードは結果に含めない
 type GetCardsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Card, error)
 
 type CardList struct {
@@ -82,7 +82,7 @@ func (q *CardList) Get(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Card
 }
 
 // カードの一覧と同じ並び（種類 → 正規化した名前 → 公開 ID）で比べる。read model を読まずに並べる場面
-// （スターターデッキのカード）でも、一覧と同じ順にするため（並べ方の決まりを uif・studio に書き写さない）
+// （プリセットデッキのカード）でも、一覧と同じ順にするため（並べ方の決まりを uif・studio に書き写さない）
 func CompareCards(a, b Card) int {
 	return cmp.Or(
 		cmp.Compare(a.Type, b.Type),

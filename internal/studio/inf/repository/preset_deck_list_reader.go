@@ -16,9 +16,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query/readmodel"
 )
 
-// 並び順は索引（sort_name, starter_deck_id）と同じにし、続きは行の比べ方で取る（理由は ListCards と同じ）。
+// 並び順は索引（sort_name, preset_deck_id）と同じにし、続きは行の比べ方で取る（理由は ListCards と同じ）。
 // sqlboiler を使わない理由も ListCards と同じ
-func ListStarterDecks(ctx context.Context, condition query.ListStarterDecksCondition) ([]query.StarterDeckListRow, error) {
+func ListPresetDecks(ctx context.Context, condition query.ListPresetDecksCondition) ([]query.PresetDeckListRow, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
@@ -30,23 +30,23 @@ func ListStarterDecks(ctx context.Context, condition query.ListStarterDecksCondi
 		return fmt.Sprintf("$%d", len(args))
 	}
 	if condition.After != nil {
-		where = append(where, fmt.Sprintf("(sort_name, starter_deck_id) > (%s, %s)", arg(condition.After.SortName), arg(condition.After.StarterDeckID)))
+		where = append(where, fmt.Sprintf("(sort_name, preset_deck_id) > (%s, %s)", arg(condition.After.SortName), arg(condition.After.PresetDeckID)))
 	}
 	if condition.NameContains != "" {
 		where = append(where, fmt.Sprintf(`sort_name LIKE '%%' || %s || '%%' ESCAPE '\'`, arg(likeEscaper.Replace(condition.NameContains))))
 	}
-	sql := "SELECT starter_deck_id, sort_name, total_count, metadata FROM starter_deck_lists"
+	sql := "SELECT preset_deck_id, sort_name, total_count, metadata FROM preset_deck_lists"
 	if len(where) > 0 {
 		sql += " WHERE " + strings.Join(where, " AND ")
 	}
-	sql += " ORDER BY sort_name, starter_deck_id LIMIT " + arg(condition.Limit)
+	sql += " ORDER BY sort_name, preset_deck_id LIMIT " + arg(condition.Limit)
 
 	rows, err := exec.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var result []query.StarterDeckListRow
+	var result []query.PresetDeckListRow
 	for rows.Next() {
 		var (
 			id         uuid.UUID
@@ -57,41 +57,41 @@ func ListStarterDecks(ctx context.Context, condition query.ListStarterDecksCondi
 		if err := rows.Scan(&id, &sortName, &totalCount, &raw); err != nil {
 			return nil, err
 		}
-		deck, err := toStarterDeck(id, totalCount, raw)
+		deck, err := toPresetDeck(id, totalCount, raw)
 		if err != nil {
 			return nil, err
 		}
-		cursor := query.StarterDeckListCursor{SortName: sortName, StarterDeckID: id}
-		result = append(result, query.StarterDeckListRow{StarterDeck: deck, Cursor: cursor})
+		cursor := query.PresetDeckListCursor{SortName: sortName, PresetDeckID: id}
+		result = append(result, query.PresetDeckListRow{PresetDeck: deck, Cursor: cursor})
 	}
 	return result, rows.Err()
 }
 
-func GetStarterDeck(ctx context.Context, id uuid.UUID) (query.StarterDeck, error) {
+func GetPresetDeck(ctx context.Context, id uuid.UUID) (query.PresetDeck, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
-		return query.StarterDeck{}, err
+		return query.PresetDeck{}, err
 	}
-	row, err := models.FindStarterDeckList(ctx, exec, id.String())
+	row, err := models.FindPresetDeckList(ctx, exec, id.String())
 	if errors.Is(err, sql.ErrNoRows) {
-		return query.StarterDeck{}, query.ErrStarterDeckNotFound
+		return query.PresetDeck{}, query.ErrPresetDeckNotFound
 	}
 	if err != nil {
-		return query.StarterDeck{}, err
+		return query.PresetDeck{}, err
 	}
-	return toStarterDeck(id, row.TotalCount, row.Metadata)
+	return toPresetDeck(id, row.TotalCount, row.Metadata)
 }
 
-func toStarterDeck(id uuid.UUID, totalCount int, raw []byte) (query.StarterDeck, error) {
-	var metadata readmodel.StarterDeckListMetadata
+func toPresetDeck(id uuid.UUID, totalCount int, raw []byte) (query.PresetDeck, error) {
+	var metadata readmodel.PresetDeckListMetadata
 	if err := json.Unmarshal(raw, &metadata); err != nil {
-		return query.StarterDeck{}, fmt.Errorf("starter_deck_lists.metadata of %s: %w", id, err)
+		return query.PresetDeck{}, fmt.Errorf("preset_deck_lists.metadata of %s: %w", id, err)
 	}
-	cards := make([]query.StarterDeckCard, 0, len(metadata.Cards))
+	cards := make([]query.PresetDeckCard, 0, len(metadata.Cards))
 	for _, card := range metadata.Cards {
-		cards = append(cards, query.StarterDeckCard{CardID: card.CardID, Count: card.Count})
+		cards = append(cards, query.PresetDeckCard{CardID: card.CardID, Count: card.Count})
 	}
-	return query.StarterDeck{
+	return query.PresetDeck{
 		ID: metadata.ID, Name: metadata.Name, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 	}, nil
