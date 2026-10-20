@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"cmp"
@@ -10,7 +10,7 @@ import (
 func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	switch c := cmd.(type) {
 	case *RegisterCommand:
-		if _, ok := state.(UnregisteredStarterDeck); !ok {
+		if _, ok := state.(UnregisteredPresetDeck); !ok {
 			return nil, ErrInvalidState
 		}
 		return []Event{&RegisteredEvent{
@@ -20,7 +20,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *RenameCommand:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return nil, ErrInvalidState
 		}
@@ -29,7 +29,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		}
 		return []Event{&RenamedEvent{EventMeta: nextMeta(deck, now), Name: c.Name, RenamedBy: c.RenamedBy}}, nil
 	case *SetCardCountsCommand:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return nil, ErrInvalidState
 		}
@@ -46,7 +46,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		}
 		return []Event{&CardCountsChangedEvent{EventMeta: nextMeta(deck, now), Changes: changes, ChangedBy: c.ChangedBy}}, nil
 	case *DeleteCommand:
-		deck, ok := state.(StarterDeck)
+		deck, ok := state.(PresetDeck)
 		if !ok {
 			return nil, ErrInvalidState
 		}
@@ -56,12 +56,12 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	}
 }
 
-func nextMeta(deck StarterDeck, now time.Time) EventMeta {
+func nextMeta(deck PresetDeck, now time.Time) EventMeta {
 	return EventMeta{EntityID: deck.ID, AggregateVersion: deck.Version + 1, OccurredAt: now}
 }
 
 // map の順は決まらないため、種類・内部 ID の順に並べる（同じ操作から同じイベントを作るため）
-func cardCountChanges(deck StarterDeck, counts map[CardRef]CardCount) []CardCountChange {
+func cardCountChanges(deck PresetDeck, counts map[CardRef]CardCount) []CardCountChange {
 	var changes []CardCountChange
 	for card, count := range counts {
 		if delta := count.Int() - deck.Cards[card].Int(); delta != 0 {

@@ -61,7 +61,7 @@ type FieldInvalidFormat implements FieldError {
   field: String!
 }
 
-"入力の ID が指すもの（スターターデッキに入れるカード等）が無い"
+"入力の ID が指すもの（プリセットデッキに入れるカード等）が無い"
 type FieldNotFound implements FieldError {
   "誤りのある入力の項目"
   field: String!
@@ -73,7 +73,7 @@ type FieldDuplicated implements FieldError {
   field: String!
 }
 
-"入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
+"入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
 type FieldTotalTooLarge implements FieldError {
   "誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）"
   field: String!

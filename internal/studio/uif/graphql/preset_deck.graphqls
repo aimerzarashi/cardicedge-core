@@ -1,0 +1,205 @@
+# プリセットデッキ（studio で登録するデッキのマスタ。用途（スターター・NPC デッキ）は、用途の側がプリセットデッキを参照して表す。core#24・core#26）
+
+"プリセットデッキ"
+type PresetDeck {
+  "公開用の ID"
+  id: UUID!
+  "名前（登録・変更したときの表記。前後の空白は除く）"
+  name: String!
+  # 名前・種類は read model に書き写さず、データローダーで引いてから並べる（core#24）
+  "入れたカードと枚数（カードの一覧と同じ並び: 種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）"
+  cards: [PresetDeckCard!]!
+  "カードの枚数の合計"
+  totalCount: Int!
+  "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+"プリセットデッキに入れたカードと枚数"
+type PresetDeckCard {
+  "カード"
+  card: Card!
+  "枚数（1〜4）"
+  count: Int!
+}
+
+"名前が、ほかのプリセットデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）"
+type PresetDeckNameAlreadyInUseError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"プリセットデッキが無い（削除したものを含む）"
+type PresetDeckNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"プリセットデッキの一覧の絞り込み"
+input PresetDeckFilter {
+  "名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）"
+  nameContains: String
+}
+
+"プリセットデッキの一覧の 1 件と、その位置"
+type PresetDeckEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "プリセットデッキ"
+  node: PresetDeck!
+}
+
+"プリセットデッキの一覧の 1 ページ（名前の順）"
+type PresetDeckConnection {
+  "このページのプリセットデッキ"
+  edges: [PresetDeckEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"プリセットデッキの一覧の結果"
+union PresetDecksResult = PresetDeckConnection | ValidationErrors | ForbiddenError
+
+"プリセットデッキの詳細の結果"
+union PresetDeckResult = PresetDeck | PresetDeckNotFoundError | ForbiddenError
+
+extend type Query {
+  "プリセットデッキの一覧（紐づいたオペレーターだけ）"
+  presetDecks(
+    "絞り込み"
+    filter: PresetDeckFilter
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): PresetDecksResult!
+  "プリセットデッキの詳細（紐づいたオペレーターだけ）"
+  presetDeck(
+    "プリセットデッキの公開用の ID"
+    id: UUID!
+  ): PresetDeckResult!
+}
+
+"プリセットデッキを登録する入力"
+input RegisterPresetDeckInput {
+  "名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+# 変える操作の結果は、公開 ID と新しい revision だけにする（core#24）。内容を返さないのは、画面が表示する内容と revision を
+# 同じ時点のもの（詳細の読み直し）にそろえるため
+"プリセットデッキを登録した"
+type RegisterPresetDeckSuccess {
+  "登録したのプリセットデッキの公開用の ID"
+  id: UUID!
+  "登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"プリセットデッキの登録の結果"
+union RegisterPresetDeckResult = RegisterPresetDeckSuccess | ValidationErrors | PresetDeckNameAlreadyInUseError | ForbiddenError
+
+"プリセットデッキの名前を変える入力"
+input RenamePresetDeckInput {
+  "プリセットデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたプリセットデッキの revision"
+  revision: Int!
+  "新しい名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"プリセットデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）"
+type RenamePresetDeckSuccess {
+  "変えたのプリセットデッキの公開用の ID"
+  id: UUID!
+  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"プリセットデッキの名前の変更の結果"
+union RenamePresetDeckResult =
+    RenamePresetDeckSuccess
+  | ValidationErrors
+  | PresetDeckNotFoundError
+  | PresetDeckNameAlreadyInUseError
+  | RevisionConflictError
+  | ForbiddenError
+
+"変えるカードと、その枚数"
+input PresetDeckCardCountInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  cardId: UUID!
+  "その枚数にする（0〜4。0 にするとデッキから外す）"
+  count: Int!
+}
+
+"プリセットデッキのカードの枚数を変える入力"
+input SetPresetDeckCardCountsInput {
+  "プリセットデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたプリセットデッキの revision"
+  revision: Int!
+  "変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り）"
+  cards: [PresetDeckCardCountInput!]!
+}
+
+"プリセットデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）"
+type SetPresetDeckCardCountsSuccess {
+  "変えたのプリセットデッキの公開用の ID"
+  id: UUID!
+  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）"
+union SetPresetDeckCardCountsResult =
+    SetPresetDeckCardCountsSuccess
+  | ValidationErrors
+  | PresetDeckNotFoundError
+  | RevisionConflictError
+  | ForbiddenError
+
+"プリセットデッキを削除する入力"
+input DeletePresetDeckInput {
+  "プリセットデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていたプリセットデッキの revision"
+  revision: Int!
+}
+
+"プリセットデッキを削除した（名前はほかのプリセットデッキが使えるようになる）"
+type DeletePresetDeckSuccess {
+  "削除したプリセットデッキの公開用の ID"
+  id: UUID!
+}
+
+"プリセットデッキの削除の結果"
+union DeletePresetDeckResult = DeletePresetDeckSuccess | PresetDeckNotFoundError | RevisionConflictError | ForbiddenError
+
+extend type Mutation {
+  "プリセットデッキを登録する（紐づいたオペレーターだけ）"
+  registerPresetDeck(
+    "登録するプリセットデッキ"
+    input: RegisterPresetDeckInput!
+  ): RegisterPresetDeckResult!
+  "プリセットデッキの名前を変える（紐づいたオペレーターだけ）"
+  renamePresetDeck(
+    "変える内容"
+    input: RenamePresetDeckInput!
+  ): RenamePresetDeckResult!
+  "プリセットデッキのカードの枚数を変える（紐づいたオペレーターだけ）"
+  setPresetDeckCardCounts(
+    "変える内容"
+    input: SetPresetDeckCardCountsInput!
+  ): SetPresetDeckCardCountsResult!
+  "プリセットデッキを削除する（紐づいたオペレーターだけ）"
+  deletePresetDeck(
+    "削除するプリセットデッキ"
+    input: DeletePresetDeckInput!
+  ): DeletePresetDeckResult!
+}

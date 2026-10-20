@@ -60,7 +60,7 @@ func (e *InvalidFormat) InputField() string {
 	return e.Field
 }
 
-// 入力の ID が指すもの（スターターデッキに入れるカード等）が無い
+// 入力の ID が指すもの（プリセットデッキに入れるカード等）が無い
 type NotFound struct{ Field string }
 
 func (e *NotFound) Error() string {
@@ -82,7 +82,7 @@ func (e *Duplicated) InputField() string {
 	return e.Field
 }
 
-// 入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える。入力の値そのものではなく、
+// 入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える。入力の値そのものではなく、
 // 今の状態と合わせた結果の誤りなので、OutOfRange と分ける（画面が言い分けられるように）
 type TotalTooLarge struct {
 	Field string

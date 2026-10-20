@@ -30,9 +30,9 @@ type CardsResult interface {
 	IsCardsResult()
 }
 
-// スターターデッキの削除の結果
-type DeleteStarterDeckResult interface {
-	IsDeleteStarterDeckResult()
+// プリセットデッキの削除の結果
+type DeletePresetDeckResult interface {
+	IsDeletePresetDeckResult()
 }
 
 // 入力の項目ごとの誤り。理由は __typename で見分ける
@@ -40,6 +40,16 @@ type FieldError interface {
 	IsFieldError()
 	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 	GetField() string
+}
+
+// プリセットデッキの詳細の結果
+type PresetDeckResult interface {
+	IsPresetDeckResult()
+}
+
+// プリセットデッキの一覧の結果
+type PresetDecksResult interface {
+	IsPresetDecksResult()
 }
 
 // クリーチャーの登録の結果
@@ -52,34 +62,24 @@ type RegisterItemResult interface {
 	IsRegisterItemResult()
 }
 
+// プリセットデッキの登録の結果
+type RegisterPresetDeckResult interface {
+	IsRegisterPresetDeckResult()
+}
+
 // スペルの登録の結果
 type RegisterSpellResult interface {
 	IsRegisterSpellResult()
 }
 
-// スターターデッキの登録の結果
-type RegisterStarterDeckResult interface {
-	IsRegisterStarterDeckResult()
+// プリセットデッキの名前の変更の結果
+type RenamePresetDeckResult interface {
+	IsRenamePresetDeckResult()
 }
 
-// スターターデッキの名前の変更の結果
-type RenameStarterDeckResult interface {
-	IsRenameStarterDeckResult()
-}
-
-// スターターデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
-type SetStarterDeckCardCountsResult interface {
-	IsSetStarterDeckCardCountsResult()
-}
-
-// スターターデッキの詳細の結果
-type StarterDeckResult interface {
-	IsStarterDeckResult()
-}
-
-// スターターデッキの一覧の結果
-type StarterDecksResult interface {
-	IsStarterDecksResult()
+// プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
+type SetPresetDeckCardCountsResult interface {
+	IsSetPresetDeckCardCountsResult()
 }
 
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
@@ -146,21 +146,21 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
-// スターターデッキを削除する入力
-type DeleteStarterDeckInput struct {
-	// スターターデッキの公開用の ID
+// プリセットデッキを削除する入力
+type DeletePresetDeckInput struct {
+	// プリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
+	// 画面が見ていたプリセットデッキの revision
 	Revision int `json:"revision"`
 }
 
-// スターターデッキを削除した（名前はほかのスターターデッキが使えるようになる）
-type DeleteStarterDeckSuccess struct {
-	// 削除したスターターデッキの公開用の ID
+// プリセットデッキを削除した（名前はほかのプリセットデッキが使えるようになる）
+type DeletePresetDeckSuccess struct {
+	// 削除したプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
 }
 
-func (DeleteStarterDeckSuccess) IsDeleteStarterDeckResult() {}
+func (DeletePresetDeckSuccess) IsDeletePresetDeckResult() {}
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
 type FieldDuplicated struct {
@@ -184,7 +184,7 @@ func (FieldInvalidFormat) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
 
-// 入力の ID が指すもの（スターターデッキに入れるカード等）が無い
+// 入力の ID が指すもの（プリセットデッキに入れるカード等）が無い
 type FieldNotFound struct {
 	// 誤りのある入力の項目
 	Field string `json:"field"`
@@ -234,7 +234,7 @@ func (FieldTooLong) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
-// 入力を当てた後の合計（スターターデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）
+// 入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）
 type FieldTotalTooLarge struct {
 	// 誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）
 	Field string `json:"field"`
@@ -259,19 +259,19 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 
 func (ForbiddenError) IsRegisterItemResult() {}
 
+func (ForbiddenError) IsPresetDecksResult() {}
+
+func (ForbiddenError) IsPresetDeckResult() {}
+
+func (ForbiddenError) IsRegisterPresetDeckResult() {}
+
+func (ForbiddenError) IsRenamePresetDeckResult() {}
+
+func (ForbiddenError) IsSetPresetDeckCardCountsResult() {}
+
+func (ForbiddenError) IsDeletePresetDeckResult() {}
+
 func (ForbiddenError) IsRegisterSpellResult() {}
-
-func (ForbiddenError) IsStarterDecksResult() {}
-
-func (ForbiddenError) IsStarterDeckResult() {}
-
-func (ForbiddenError) IsRegisterStarterDeckResult() {}
-
-func (ForbiddenError) IsRenameStarterDeckResult() {}
-
-func (ForbiddenError) IsSetStarterDeckCardCountsResult() {}
-
-func (ForbiddenError) IsDeleteStarterDeckResult() {}
 
 // アイテム（カードの種類の 1 つ）
 type Item struct {
@@ -314,6 +314,70 @@ type PageInfo struct {
 	EndCursor *string `json:"endCursor,omitempty"`
 }
 
+// プリセットデッキに入れたカードと枚数
+type PresetDeckCard struct {
+	// カード
+	Card Card `json:"card"`
+	// 枚数（1〜4）
+	Count int `json:"count"`
+}
+
+// 変えるカードと、その枚数
+type PresetDeckCardCountInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	CardID uuid.UUID `json:"cardId"`
+	// その枚数にする（0〜4。0 にするとデッキから外す）
+	Count int `json:"count"`
+}
+
+// プリセットデッキの一覧の 1 ページ（名前の順）
+type PresetDeckConnection struct {
+	// このページのプリセットデッキ
+	Edges []*PresetDeckEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (PresetDeckConnection) IsPresetDecksResult() {}
+
+// プリセットデッキの一覧の 1 件と、その位置
+type PresetDeckEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// プリセットデッキ
+	Node *PresetDeck `json:"node"`
+}
+
+// プリセットデッキの一覧の絞り込み
+type PresetDeckFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+}
+
+// 名前が、ほかのプリセットデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type PresetDeckNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (PresetDeckNameAlreadyInUseError) IsRegisterPresetDeckResult() {}
+
+func (PresetDeckNameAlreadyInUseError) IsRenamePresetDeckResult() {}
+
+// プリセットデッキが無い（削除したものを含む）
+type PresetDeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (PresetDeckNotFoundError) IsPresetDeckResult() {}
+
+func (PresetDeckNotFoundError) IsRenamePresetDeckResult() {}
+
+func (PresetDeckNotFoundError) IsSetPresetDeckCardCountsResult() {}
+
+func (PresetDeckNotFoundError) IsDeletePresetDeckResult() {}
+
 type Query struct {
 }
 
@@ -345,6 +409,22 @@ type RegisterItemSuccess struct {
 
 func (RegisterItemSuccess) IsRegisterItemResult() {}
 
+// プリセットデッキを登録する入力
+type RegisterPresetDeckInput struct {
+	// 名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// プリセットデッキを登録した
+type RegisterPresetDeckSuccess struct {
+	// 登録したのプリセットデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterPresetDeckSuccess) IsRegisterPresetDeckResult() {}
+
 // スペルを登録する入力
 type RegisterSpellInput struct {
 	// カード名（1〜50 文字。前後の空白は除いて保存する）
@@ -359,41 +439,25 @@ type RegisterSpellSuccess struct {
 
 func (RegisterSpellSuccess) IsRegisterSpellResult() {}
 
-// スターターデッキを登録する入力
-type RegisterStarterDeckInput struct {
-	// 名前（1〜50 文字。前後の空白は除いて保存する）
-	Name string `json:"name"`
-}
-
-// スターターデッキを登録した
-type RegisterStarterDeckSuccess struct {
-	// 登録したのスターターデッキの公開用の ID
+// プリセットデッキの名前を変える入力
+type RenamePresetDeckInput struct {
+	// プリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (RegisterStarterDeckSuccess) IsRegisterStarterDeckResult() {}
-
-// スターターデッキの名前を変える入力
-type RenameStarterDeckInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
+	// 画面が見ていたプリセットデッキの revision
 	Revision int `json:"revision"`
 	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
 	Name string `json:"name"`
 }
 
-// スターターデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
-type RenameStarterDeckSuccess struct {
-	// 変えたのスターターデッキの公開用の ID
+// プリセットデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenamePresetDeckSuccess struct {
+	// 変えたのプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
 	Revision int `json:"revision"`
 }
 
-func (RenameStarterDeckSuccess) IsRenameStarterDeckResult() {}
+func (RenamePresetDeckSuccess) IsRenamePresetDeckResult() {}
 
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
@@ -401,31 +465,31 @@ type RevisionConflictError struct {
 	Message string `json:"message"`
 }
 
-func (RevisionConflictError) IsRenameStarterDeckResult() {}
+func (RevisionConflictError) IsRenamePresetDeckResult() {}
 
-func (RevisionConflictError) IsSetStarterDeckCardCountsResult() {}
+func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
-func (RevisionConflictError) IsDeleteStarterDeckResult() {}
+func (RevisionConflictError) IsDeletePresetDeckResult() {}
 
-// スターターデッキのカードの枚数を変える入力
-type SetStarterDeckCardCountsInput struct {
-	// スターターデッキの公開用の ID
+// プリセットデッキのカードの枚数を変える入力
+type SetPresetDeckCardCountsInput struct {
+	// プリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
+	// 画面が見ていたプリセットデッキの revision
 	Revision int `json:"revision"`
 	// 変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り）
-	Cards []*StarterDeckCardCountInput `json:"cards"`
+	Cards []*PresetDeckCardCountInput `json:"cards"`
 }
 
-// スターターデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
-type SetStarterDeckCardCountsSuccess struct {
-	// 変えたのスターターデッキの公開用の ID
+// プリセットデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
+type SetPresetDeckCardCountsSuccess struct {
+	// 変えたのプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
 	Revision int `json:"revision"`
 }
 
-func (SetStarterDeckCardCountsSuccess) IsSetStarterDeckCardCountsResult() {}
+func (SetPresetDeckCardCountsSuccess) IsSetPresetDeckCardCountsResult() {}
 
 // スペル（カードの種類の 1 つ）
 type Spell struct {
@@ -453,70 +517,6 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
-// スターターデッキに入れたカードと枚数
-type StarterDeckCard struct {
-	// カード
-	Card Card `json:"card"`
-	// 枚数（1〜4）
-	Count int `json:"count"`
-}
-
-// 変えるカードと、その枚数
-type StarterDeckCardCountInput struct {
-	// カード（Creature・Item・Spell）の公開用の ID
-	CardID uuid.UUID `json:"cardId"`
-	// その枚数にする（0〜4。0 にするとデッキから外す）
-	Count int `json:"count"`
-}
-
-// スターターデッキの一覧の 1 ページ（名前の順）
-type StarterDeckConnection struct {
-	// このページのスターターデッキ
-	Edges []*StarterDeckEdge `json:"edges"`
-	// ページの情報
-	PageInfo *PageInfo `json:"pageInfo"`
-}
-
-func (StarterDeckConnection) IsStarterDecksResult() {}
-
-// スターターデッキの一覧の 1 件と、その位置
-type StarterDeckEdge struct {
-	// この 1 件の位置（次のページを取るときに after に渡す）
-	Cursor string `json:"cursor"`
-	// スターターデッキ
-	Node *StarterDeck `json:"node"`
-}
-
-// スターターデッキの一覧の絞り込み
-type StarterDeckFilter struct {
-	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
-	NameContains *string `json:"nameContains,omitempty"`
-}
-
-// 名前が、ほかのスターターデッキですでに使われている。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
-type StarterDeckNameAlreadyInUseError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (StarterDeckNameAlreadyInUseError) IsRegisterStarterDeckResult() {}
-
-func (StarterDeckNameAlreadyInUseError) IsRenameStarterDeckResult() {}
-
-// スターターデッキが無い（削除したものを含む）
-type StarterDeckNotFoundError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (StarterDeckNotFoundError) IsStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsRenameStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsSetStarterDeckCardCountsResult() {}
-
-func (StarterDeckNotFoundError) IsDeleteStarterDeckResult() {}
-
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -529,15 +529,15 @@ func (ValidationErrors) IsRegisterCreatureResult() {}
 
 func (ValidationErrors) IsRegisterItemResult() {}
 
+func (ValidationErrors) IsPresetDecksResult() {}
+
+func (ValidationErrors) IsRegisterPresetDeckResult() {}
+
+func (ValidationErrors) IsRenamePresetDeckResult() {}
+
+func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
+
 func (ValidationErrors) IsRegisterSpellResult() {}
-
-func (ValidationErrors) IsStarterDecksResult() {}
-
-func (ValidationErrors) IsRegisterStarterDeckResult() {}
-
-func (ValidationErrors) IsRenameStarterDeckResult() {}
-
-func (ValidationErrors) IsSetStarterDeckCardCountsResult() {}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string

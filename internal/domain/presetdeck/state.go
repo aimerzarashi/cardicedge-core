@@ -1,4 +1,4 @@
-package starterdeck
+package presetdeck
 
 import (
 	"time"
@@ -9,14 +9,14 @@ import (
 )
 
 type State interface {
-	isStarterDeckState()
+	isPresetDeckState()
 }
 
-type UnregisteredStarterDeck struct{}
+type UnregisteredPresetDeck struct{}
 
-func (UnregisteredStarterDeck) isStarterDeckState() {}
+func (UnregisteredPresetDeck) isPresetDeckState() {}
 
-type StarterDeck struct {
+type PresetDeck struct {
 	ID       ID
 	Version  int64
 	PublicID uuid.UUID
@@ -28,9 +28,9 @@ type StarterDeck struct {
 	UpdatedAt    time.Time
 }
 
-func (StarterDeck) isStarterDeckState() {}
+func (PresetDeck) isPresetDeckState() {}
 
-func (d StarterDeck) TotalCount() int {
+func (d PresetDeck) TotalCount() int {
 	total := 0
 	for _, count := range d.Cards {
 		total += count.Int()
@@ -39,13 +39,13 @@ func (d StarterDeck) TotalCount() int {
 }
 
 // 削除した後も、版を持つ（削除の後の操作を、版の衝突ではなく状態の誤りにするため）
-type DeletedStarterDeck struct {
+type DeletedPresetDeck struct {
 	ID      ID
 	Version int64
 }
 
-func (DeletedStarterDeck) isStarterDeckState() {}
+func (DeletedPresetDeck) isPresetDeckState() {}
 
 func InitialState() State {
-	return UnregisteredStarterDeck{}
+	return UnregisteredPresetDeck{}
 }

@@ -11,8 +11,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -22,7 +22,7 @@ func TestVerify_AllAggregatesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types(), starterdeck.Types()))
+	require.NoError(t, registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types()))
 }
 
 func TestVerify_ReportsUnknownEntityAndEventTypes(t *testing.T) {
@@ -43,7 +43,7 @@ func TestVerifyUniqueKeyTypes_AllKeyTypesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), starterdeck.UniqueKeyTypes())...))
+	require.NoError(t, registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes())...))
 }
 
 func TestVerifyUniqueKeyTypes_ReportsUnknownKeyType(t *testing.T) {
@@ -60,7 +60,7 @@ func TestVerifyReferenceTypes_AllReferenceTypesMatchMigrations(t *testing.T) {
 	registry, err := domaindef.Load(rdbtest.Tx(t))
 	require.NoError(t, err)
 
-	require.NoError(t, registry.VerifyReferenceTypes(starterdeck.ReferenceTypes()...))
+	require.NoError(t, registry.VerifyReferenceTypes(presetdeck.ReferenceTypes()...))
 }
 
 func TestVerifyReferenceTypes_ReportsUnknownReferenceType(t *testing.T) {
