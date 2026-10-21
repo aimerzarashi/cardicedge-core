@@ -22,8 +22,8 @@ import (
 	"github.com/friendsofgo/errors"
 )
 
-// CardList is an object representing the database table.
-type CardList struct {
+// Card is an object representing the database table.
+type Card struct {
 	// カードの公開 ID（creature・item・spell の domain_identifiers.public_id）
 	CardID string `boil:"card_id" json:"card_id" toml:"card_id" yaml:"card_id"`
 	// カードの種類。並び順の値（1: Creature、2: Item、3: Spell）
@@ -33,11 +33,11 @@ type CardList struct {
 	// 表示に使う値（イベントの値）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
-	R *cardListR `boil:"-" json:"-" toml:"-" yaml:"-"`
-	L cardListL  `boil:"-" json:"-" toml:"-" yaml:"-"`
+	R *cardR `boil:"-" json:"-" toml:"-" yaml:"-"`
+	L cardL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
-var CardListColumns = struct {
+var CardColumns = struct {
 	CardID   string
 	CardType string
 	SortName string
@@ -49,16 +49,16 @@ var CardListColumns = struct {
 	Metadata: "metadata",
 }
 
-var CardListTableColumns = struct {
+var CardTableColumns = struct {
 	CardID   string
 	CardType string
 	SortName string
 	Metadata string
 }{
-	CardID:   "card_lists.card_id",
-	CardType: "card_lists.card_type",
-	SortName: "card_lists.sort_name",
-	Metadata: "card_lists.metadata",
+	CardID:   "cards.card_id",
+	CardType: "cards.card_type",
+	SortName: "cards.sort_name",
+	Metadata: "cards.metadata",
 }
 
 // Generated where
@@ -138,65 +138,65 @@ func (w whereHelpertypes_JSON) GTE(x types.JSON) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
-var CardListWhere = struct {
+var CardWhere = struct {
 	CardID   whereHelperstring
 	CardType whereHelperint16
 	SortName whereHelperstring
 	Metadata whereHelpertypes_JSON
 }{
-	CardID:   whereHelperstring{field: "\"card_lists\".\"card_id\""},
-	CardType: whereHelperint16{field: "\"card_lists\".\"card_type\""},
-	SortName: whereHelperstring{field: "\"card_lists\".\"sort_name\""},
-	Metadata: whereHelpertypes_JSON{field: "\"card_lists\".\"metadata\""},
+	CardID:   whereHelperstring{field: "\"cards\".\"card_id\""},
+	CardType: whereHelperint16{field: "\"cards\".\"card_type\""},
+	SortName: whereHelperstring{field: "\"cards\".\"sort_name\""},
+	Metadata: whereHelpertypes_JSON{field: "\"cards\".\"metadata\""},
 }
 
-// CardListRels is where relationship names are stored.
-var CardListRels = struct {
+// CardRels is where relationship names are stored.
+var CardRels = struct {
 }{}
 
-// cardListR is where relationships are stored.
-type cardListR struct {
+// cardR is where relationships are stored.
+type cardR struct {
 }
 
 // NewStruct creates a new relationship struct
-func (*cardListR) NewStruct() *cardListR {
-	return &cardListR{}
+func (*cardR) NewStruct() *cardR {
+	return &cardR{}
 }
 
-// cardListL is where Load methods for each relationship are stored.
-type cardListL struct{}
+// cardL is where Load methods for each relationship are stored.
+type cardL struct{}
 
 var (
-	cardListAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata"}
-	cardListColumnsWithoutDefault = []string{"card_id", "card_type", "sort_name"}
-	cardListColumnsWithDefault    = []string{"metadata"}
-	cardListPrimaryKeyColumns     = []string{"card_id"}
-	cardListGeneratedColumns      = []string{}
+	cardAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata"}
+	cardColumnsWithoutDefault = []string{"card_id", "card_type", "sort_name"}
+	cardColumnsWithDefault    = []string{"metadata"}
+	cardPrimaryKeyColumns     = []string{"card_id"}
+	cardGeneratedColumns      = []string{}
 )
 
 type (
-	// CardListSlice is an alias for a slice of pointers to CardList.
-	// This should almost always be used instead of []CardList.
-	CardListSlice []*CardList
-	// CardListHook is the signature for custom CardList hook methods
-	CardListHook func(context.Context, boil.ContextExecutor, *CardList) error
+	// CardSlice is an alias for a slice of pointers to Card.
+	// This should almost always be used instead of []Card.
+	CardSlice []*Card
+	// CardHook is the signature for custom Card hook methods
+	CardHook func(context.Context, boil.ContextExecutor, *Card) error
 
-	cardListQuery struct {
+	cardQuery struct {
 		*queries.Query
 	}
 )
 
 // Cache for insert, update and upsert
 var (
-	cardListType                 = reflect.TypeOf(&CardList{})
-	cardListMapping              = queries.MakeStructMapping(cardListType)
-	cardListPrimaryKeyMapping, _ = queries.BindMapping(cardListType, cardListMapping, cardListPrimaryKeyColumns)
-	cardListInsertCacheMut       sync.RWMutex
-	cardListInsertCache          = make(map[string]insertCache)
-	cardListUpdateCacheMut       sync.RWMutex
-	cardListUpdateCache          = make(map[string]updateCache)
-	cardListUpsertCacheMut       sync.RWMutex
-	cardListUpsertCache          = make(map[string]insertCache)
+	cardType                 = reflect.TypeOf(&Card{})
+	cardMapping              = queries.MakeStructMapping(cardType)
+	cardPrimaryKeyMapping, _ = queries.BindMapping(cardType, cardMapping, cardPrimaryKeyColumns)
+	cardInsertCacheMut       sync.RWMutex
+	cardInsertCache          = make(map[string]insertCache)
+	cardUpdateCacheMut       sync.RWMutex
+	cardUpdateCache          = make(map[string]updateCache)
+	cardUpsertCacheMut       sync.RWMutex
+	cardUpsertCache          = make(map[string]insertCache)
 )
 
 var (
@@ -207,36 +207,36 @@ var (
 	_ = qmhelper.Where
 )
 
-var cardListAfterSelectMu sync.Mutex
-var cardListAfterSelectHooks []CardListHook
+var cardAfterSelectMu sync.Mutex
+var cardAfterSelectHooks []CardHook
 
-var cardListBeforeInsertMu sync.Mutex
-var cardListBeforeInsertHooks []CardListHook
-var cardListAfterInsertMu sync.Mutex
-var cardListAfterInsertHooks []CardListHook
+var cardBeforeInsertMu sync.Mutex
+var cardBeforeInsertHooks []CardHook
+var cardAfterInsertMu sync.Mutex
+var cardAfterInsertHooks []CardHook
 
-var cardListBeforeUpdateMu sync.Mutex
-var cardListBeforeUpdateHooks []CardListHook
-var cardListAfterUpdateMu sync.Mutex
-var cardListAfterUpdateHooks []CardListHook
+var cardBeforeUpdateMu sync.Mutex
+var cardBeforeUpdateHooks []CardHook
+var cardAfterUpdateMu sync.Mutex
+var cardAfterUpdateHooks []CardHook
 
-var cardListBeforeDeleteMu sync.Mutex
-var cardListBeforeDeleteHooks []CardListHook
-var cardListAfterDeleteMu sync.Mutex
-var cardListAfterDeleteHooks []CardListHook
+var cardBeforeDeleteMu sync.Mutex
+var cardBeforeDeleteHooks []CardHook
+var cardAfterDeleteMu sync.Mutex
+var cardAfterDeleteHooks []CardHook
 
-var cardListBeforeUpsertMu sync.Mutex
-var cardListBeforeUpsertHooks []CardListHook
-var cardListAfterUpsertMu sync.Mutex
-var cardListAfterUpsertHooks []CardListHook
+var cardBeforeUpsertMu sync.Mutex
+var cardBeforeUpsertHooks []CardHook
+var cardAfterUpsertMu sync.Mutex
+var cardAfterUpsertHooks []CardHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
-func (o *CardList) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListAfterSelectHooks {
+	for _, hook := range cardAfterSelectHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -246,12 +246,12 @@ func (o *CardList) doAfterSelectHooks(ctx context.Context, exec boil.ContextExec
 }
 
 // doBeforeInsertHooks executes all "before insert" hooks.
-func (o *CardList) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListBeforeInsertHooks {
+	for _, hook := range cardBeforeInsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -261,12 +261,12 @@ func (o *CardList) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExe
 }
 
 // doAfterInsertHooks executes all "after Insert" hooks.
-func (o *CardList) doAfterInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doAfterInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListAfterInsertHooks {
+	for _, hook := range cardAfterInsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -276,12 +276,12 @@ func (o *CardList) doAfterInsertHooks(ctx context.Context, exec boil.ContextExec
 }
 
 // doBeforeUpdateHooks executes all "before Update" hooks.
-func (o *CardList) doBeforeUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doBeforeUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListBeforeUpdateHooks {
+	for _, hook := range cardBeforeUpdateHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -291,12 +291,12 @@ func (o *CardList) doBeforeUpdateHooks(ctx context.Context, exec boil.ContextExe
 }
 
 // doAfterUpdateHooks executes all "after Update" hooks.
-func (o *CardList) doAfterUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doAfterUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListAfterUpdateHooks {
+	for _, hook := range cardAfterUpdateHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -306,12 +306,12 @@ func (o *CardList) doAfterUpdateHooks(ctx context.Context, exec boil.ContextExec
 }
 
 // doBeforeDeleteHooks executes all "before Delete" hooks.
-func (o *CardList) doBeforeDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doBeforeDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListBeforeDeleteHooks {
+	for _, hook := range cardBeforeDeleteHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -321,12 +321,12 @@ func (o *CardList) doBeforeDeleteHooks(ctx context.Context, exec boil.ContextExe
 }
 
 // doAfterDeleteHooks executes all "after Delete" hooks.
-func (o *CardList) doAfterDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doAfterDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListAfterDeleteHooks {
+	for _, hook := range cardAfterDeleteHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -336,12 +336,12 @@ func (o *CardList) doAfterDeleteHooks(ctx context.Context, exec boil.ContextExec
 }
 
 // doBeforeUpsertHooks executes all "before Upsert" hooks.
-func (o *CardList) doBeforeUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doBeforeUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListBeforeUpsertHooks {
+	for _, hook := range cardBeforeUpsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -351,12 +351,12 @@ func (o *CardList) doBeforeUpsertHooks(ctx context.Context, exec boil.ContextExe
 }
 
 // doAfterUpsertHooks executes all "after Upsert" hooks.
-func (o *CardList) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *Card) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range cardListAfterUpsertHooks {
+	for _, hook := range cardAfterUpsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -365,51 +365,51 @@ func (o *CardList) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExec
 	return nil
 }
 
-// AddCardListHook registers your hook function for all future operations.
-func AddCardListHook(hookPoint boil.HookPoint, cardListHook CardListHook) {
+// AddCardHook registers your hook function for all future operations.
+func AddCardHook(hookPoint boil.HookPoint, cardHook CardHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		cardListAfterSelectMu.Lock()
-		cardListAfterSelectHooks = append(cardListAfterSelectHooks, cardListHook)
-		cardListAfterSelectMu.Unlock()
+		cardAfterSelectMu.Lock()
+		cardAfterSelectHooks = append(cardAfterSelectHooks, cardHook)
+		cardAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		cardListBeforeInsertMu.Lock()
-		cardListBeforeInsertHooks = append(cardListBeforeInsertHooks, cardListHook)
-		cardListBeforeInsertMu.Unlock()
+		cardBeforeInsertMu.Lock()
+		cardBeforeInsertHooks = append(cardBeforeInsertHooks, cardHook)
+		cardBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		cardListAfterInsertMu.Lock()
-		cardListAfterInsertHooks = append(cardListAfterInsertHooks, cardListHook)
-		cardListAfterInsertMu.Unlock()
+		cardAfterInsertMu.Lock()
+		cardAfterInsertHooks = append(cardAfterInsertHooks, cardHook)
+		cardAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		cardListBeforeUpdateMu.Lock()
-		cardListBeforeUpdateHooks = append(cardListBeforeUpdateHooks, cardListHook)
-		cardListBeforeUpdateMu.Unlock()
+		cardBeforeUpdateMu.Lock()
+		cardBeforeUpdateHooks = append(cardBeforeUpdateHooks, cardHook)
+		cardBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		cardListAfterUpdateMu.Lock()
-		cardListAfterUpdateHooks = append(cardListAfterUpdateHooks, cardListHook)
-		cardListAfterUpdateMu.Unlock()
+		cardAfterUpdateMu.Lock()
+		cardAfterUpdateHooks = append(cardAfterUpdateHooks, cardHook)
+		cardAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		cardListBeforeDeleteMu.Lock()
-		cardListBeforeDeleteHooks = append(cardListBeforeDeleteHooks, cardListHook)
-		cardListBeforeDeleteMu.Unlock()
+		cardBeforeDeleteMu.Lock()
+		cardBeforeDeleteHooks = append(cardBeforeDeleteHooks, cardHook)
+		cardBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		cardListAfterDeleteMu.Lock()
-		cardListAfterDeleteHooks = append(cardListAfterDeleteHooks, cardListHook)
-		cardListAfterDeleteMu.Unlock()
+		cardAfterDeleteMu.Lock()
+		cardAfterDeleteHooks = append(cardAfterDeleteHooks, cardHook)
+		cardAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		cardListBeforeUpsertMu.Lock()
-		cardListBeforeUpsertHooks = append(cardListBeforeUpsertHooks, cardListHook)
-		cardListBeforeUpsertMu.Unlock()
+		cardBeforeUpsertMu.Lock()
+		cardBeforeUpsertHooks = append(cardBeforeUpsertHooks, cardHook)
+		cardBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		cardListAfterUpsertMu.Lock()
-		cardListAfterUpsertHooks = append(cardListAfterUpsertHooks, cardListHook)
-		cardListAfterUpsertMu.Unlock()
+		cardAfterUpsertMu.Lock()
+		cardAfterUpsertHooks = append(cardAfterUpsertHooks, cardHook)
+		cardAfterUpsertMu.Unlock()
 	}
 }
 
-// One returns a single cardList record from the query.
-func (q cardListQuery) One(ctx context.Context, exec boil.ContextExecutor) (*CardList, error) {
-	o := &CardList{}
+// One returns a single card record from the query.
+func (q cardQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Card, error) {
+	o := &Card{}
 
 	queries.SetLimit(q.Query, 1)
 
@@ -418,7 +418,7 @@ func (q cardListQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Car
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for card_lists")
+		return nil, errors.Wrap(err, "models: failed to execute a one query for cards")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -428,16 +428,16 @@ func (q cardListQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Car
 	return o, nil
 }
 
-// All returns all CardList records from the query.
-func (q cardListQuery) All(ctx context.Context, exec boil.ContextExecutor) (CardListSlice, error) {
-	var o []*CardList
+// All returns all Card records from the query.
+func (q cardQuery) All(ctx context.Context, exec boil.ContextExecutor) (CardSlice, error) {
+	var o []*Card
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to CardList slice")
+		return nil, errors.Wrap(err, "models: failed to assign all query results to Card slice")
 	}
 
-	if len(cardListAfterSelectHooks) != 0 {
+	if len(cardAfterSelectHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doAfterSelectHooks(ctx, exec); err != nil {
 				return o, err
@@ -448,8 +448,8 @@ func (q cardListQuery) All(ctx context.Context, exec boil.ContextExecutor) (Card
 	return o, nil
 }
 
-// Count returns the count of all CardList records in the query.
-func (q cardListQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+// Count returns the count of all Card records in the query.
+func (q cardQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	var count int64
 
 	queries.SetSelect(q.Query, nil)
@@ -457,14 +457,14 @@ func (q cardListQuery) Count(ctx context.Context, exec boil.ContextExecutor) (in
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count card_lists rows")
+		return 0, errors.Wrap(err, "models: failed to count cards rows")
 	}
 
 	return count, nil
 }
 
 // Exists checks if the row exists in the table.
-func (q cardListQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
+func (q cardQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	var count int64
 
 	queries.SetSelect(q.Query, nil)
@@ -473,58 +473,58 @@ func (q cardListQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (b
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if card_lists exists")
+		return false, errors.Wrap(err, "models: failed to check if cards exists")
 	}
 
 	return count > 0, nil
 }
 
-// CardLists retrieves all the records using an executor.
-func CardLists(mods ...qm.QueryMod) cardListQuery {
-	mods = append(mods, qm.From("\"card_lists\""))
+// Cards retrieves all the records using an executor.
+func Cards(mods ...qm.QueryMod) cardQuery {
+	mods = append(mods, qm.From("\"cards\""))
 	q := NewQuery(mods...)
 	if len(queries.GetSelect(q)) == 0 {
-		queries.SetSelect(q, []string{"\"card_lists\".*"})
+		queries.SetSelect(q, []string{"\"cards\".*"})
 	}
 
-	return cardListQuery{q}
+	return cardQuery{q}
 }
 
-// FindCardList retrieves a single record by ID with an executor.
+// FindCard retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindCardList(ctx context.Context, exec boil.ContextExecutor, cardID string, selectCols ...string) (*CardList, error) {
-	cardListObj := &CardList{}
+func FindCard(ctx context.Context, exec boil.ContextExecutor, cardID string, selectCols ...string) (*Card, error) {
+	cardObj := &Card{}
 
 	sel := "*"
 	if len(selectCols) > 0 {
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"card_lists\" where \"card_id\"=$1", sel,
+		"select %s from \"cards\" where \"card_id\"=$1", sel,
 	)
 
 	q := queries.Raw(query, cardID)
 
-	err := q.Bind(ctx, exec, cardListObj)
+	err := q.Bind(ctx, exec, cardObj)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from card_lists")
+		return nil, errors.Wrap(err, "models: unable to select from cards")
 	}
 
-	if err = cardListObj.doAfterSelectHooks(ctx, exec); err != nil {
-		return cardListObj, err
+	if err = cardObj.doAfterSelectHooks(ctx, exec); err != nil {
+		return cardObj, err
 	}
 
-	return cardListObj, nil
+	return cardObj, nil
 }
 
 // Insert a single record using an executor.
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
-func (o *CardList) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
+func (o *Card) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no card_lists provided for insertion")
+		return errors.New("models: no cards provided for insertion")
 	}
 
 	var err error
@@ -533,33 +533,33 @@ func (o *CardList) Insert(ctx context.Context, exec boil.ContextExecutor, column
 		return err
 	}
 
-	nzDefaults := queries.NonZeroDefaultSet(cardListColumnsWithDefault, o)
+	nzDefaults := queries.NonZeroDefaultSet(cardColumnsWithDefault, o)
 
 	key := makeCacheKey(columns, nzDefaults)
-	cardListInsertCacheMut.RLock()
-	cache, cached := cardListInsertCache[key]
-	cardListInsertCacheMut.RUnlock()
+	cardInsertCacheMut.RLock()
+	cache, cached := cardInsertCache[key]
+	cardInsertCacheMut.RUnlock()
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			cardListAllColumns,
-			cardListColumnsWithDefault,
-			cardListColumnsWithoutDefault,
+			cardAllColumns,
+			cardColumnsWithDefault,
+			cardColumnsWithoutDefault,
 			nzDefaults,
 		)
 
-		cache.valueMapping, err = queries.BindMapping(cardListType, cardListMapping, wl)
+		cache.valueMapping, err = queries.BindMapping(cardType, cardMapping, wl)
 		if err != nil {
 			return err
 		}
-		cache.retMapping, err = queries.BindMapping(cardListType, cardListMapping, returnColumns)
+		cache.retMapping, err = queries.BindMapping(cardType, cardMapping, returnColumns)
 		if err != nil {
 			return err
 		}
 		if len(wl) != 0 {
-			cache.query = fmt.Sprintf("INSERT INTO \"card_lists\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
+			cache.query = fmt.Sprintf("INSERT INTO \"cards\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"card_lists\" %sDEFAULT VALUES%s"
+			cache.query = "INSERT INTO \"cards\" %sDEFAULT VALUES%s"
 		}
 
 		var queryOutput, queryReturning string
@@ -587,49 +587,49 @@ func (o *CardList) Insert(ctx context.Context, exec boil.ContextExecutor, column
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into card_lists")
+		return errors.Wrap(err, "models: unable to insert into cards")
 	}
 
 	if !cached {
-		cardListInsertCacheMut.Lock()
-		cardListInsertCache[key] = cache
-		cardListInsertCacheMut.Unlock()
+		cardInsertCacheMut.Lock()
+		cardInsertCache[key] = cache
+		cardInsertCacheMut.Unlock()
 	}
 
 	return o.doAfterInsertHooks(ctx, exec)
 }
 
-// Update uses an executor to update the CardList.
+// Update uses an executor to update the Card.
 // See boil.Columns.UpdateColumnSet documentation to understand column list inference for updates.
 // Update does not automatically update the record in case of default values. Use .Reload() to refresh the records.
-func (o *CardList) Update(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+func (o *Card) Update(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
 	var err error
 	if err = o.doBeforeUpdateHooks(ctx, exec); err != nil {
 		return 0, err
 	}
 	key := makeCacheKey(columns, nil)
-	cardListUpdateCacheMut.RLock()
-	cache, cached := cardListUpdateCache[key]
-	cardListUpdateCacheMut.RUnlock()
+	cardUpdateCacheMut.RLock()
+	cache, cached := cardUpdateCache[key]
+	cardUpdateCacheMut.RUnlock()
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			cardListAllColumns,
-			cardListPrimaryKeyColumns,
+			cardAllColumns,
+			cardPrimaryKeyColumns,
 		)
 
 		if !columns.IsWhitelist() {
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update card_lists, could not build whitelist")
+			return 0, errors.New("models: unable to update cards, could not build whitelist")
 		}
 
-		cache.query = fmt.Sprintf("UPDATE \"card_lists\" SET %s WHERE %s",
+		cache.query = fmt.Sprintf("UPDATE \"cards\" SET %s WHERE %s",
 			strmangle.SetParamNames("\"", "\"", 1, wl),
-			strmangle.WhereClause("\"", "\"", len(wl)+1, cardListPrimaryKeyColumns),
+			strmangle.WhereClause("\"", "\"", len(wl)+1, cardPrimaryKeyColumns),
 		)
-		cache.valueMapping, err = queries.BindMapping(cardListType, cardListMapping, append(wl, cardListPrimaryKeyColumns...))
+		cache.valueMapping, err = queries.BindMapping(cardType, cardMapping, append(wl, cardPrimaryKeyColumns...))
 		if err != nil {
 			return 0, err
 		}
@@ -645,42 +645,42 @@ func (o *CardList) Update(ctx context.Context, exec boil.ContextExecutor, column
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update card_lists row")
+		return 0, errors.Wrap(err, "models: unable to update cards row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for card_lists")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by update for cards")
 	}
 
 	if !cached {
-		cardListUpdateCacheMut.Lock()
-		cardListUpdateCache[key] = cache
-		cardListUpdateCacheMut.Unlock()
+		cardUpdateCacheMut.Lock()
+		cardUpdateCache[key] = cache
+		cardUpdateCacheMut.Unlock()
 	}
 
 	return rowsAff, o.doAfterUpdateHooks(ctx, exec)
 }
 
 // UpdateAll updates all rows with the specified column values.
-func (q cardListQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
+func (q cardQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
 	queries.SetUpdate(q.Query, cols)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for card_lists")
+		return 0, errors.Wrap(err, "models: unable to update all for cards")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for card_lists")
+		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for cards")
 	}
 
 	return rowsAff, nil
 }
 
 // UpdateAll updates all rows with the specified column values, using an executor.
-func (o CardListSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
+func (o CardSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
 	ln := int64(len(o))
 	if ln == 0 {
 		return 0, nil
@@ -702,13 +702,13 @@ func (o CardListSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 
 	// Append all of the primary key values for each column
 	for _, obj := range o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardListPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := fmt.Sprintf("UPDATE \"card_lists\" SET %s WHERE %s",
+	sql := fmt.Sprintf("UPDATE \"cards\" SET %s WHERE %s",
 		strmangle.SetParamNames("\"", "\"", 1, colNames),
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, cardListPrimaryKeyColumns, len(o)))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, cardPrimaryKeyColumns, len(o)))
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -717,28 +717,28 @@ func (o CardListSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in cardList slice")
+		return 0, errors.Wrap(err, "models: unable to update all in card slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all cardList")
+		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all card")
 	}
 	return rowsAff, nil
 }
 
 // Upsert attempts an insert using an executor, and does an update or ignore on conflict.
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
-func (o *CardList) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns, opts ...UpsertOptionFunc) error {
+func (o *Card) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns, opts ...UpsertOptionFunc) error {
 	if o == nil {
-		return errors.New("models: no card_lists provided for upsert")
+		return errors.New("models: no cards provided for upsert")
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
 		return err
 	}
 
-	nzDefaults := queries.NonZeroDefaultSet(cardListColumnsWithDefault, o)
+	nzDefaults := queries.NonZeroDefaultSet(cardColumnsWithDefault, o)
 
 	// Build cache key in-line uglily - mysql vs psql problems
 	buf := strmangle.GetBuffer()
@@ -768,48 +768,48 @@ func (o *CardList) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 	key := buf.String()
 	strmangle.PutBuffer(buf)
 
-	cardListUpsertCacheMut.RLock()
-	cache, cached := cardListUpsertCache[key]
-	cardListUpsertCacheMut.RUnlock()
+	cardUpsertCacheMut.RLock()
+	cache, cached := cardUpsertCache[key]
+	cardUpsertCacheMut.RUnlock()
 
 	var err error
 
 	if !cached {
 		insert, _ := insertColumns.InsertColumnSet(
-			cardListAllColumns,
-			cardListColumnsWithDefault,
-			cardListColumnsWithoutDefault,
+			cardAllColumns,
+			cardColumnsWithDefault,
+			cardColumnsWithoutDefault,
 			nzDefaults,
 		)
 
 		update := updateColumns.UpdateColumnSet(
-			cardListAllColumns,
-			cardListPrimaryKeyColumns,
+			cardAllColumns,
+			cardPrimaryKeyColumns,
 		)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert card_lists, could not build update column list")
+			return errors.New("models: unable to upsert cards, could not build update column list")
 		}
 
-		ret := strmangle.SetComplement(cardListAllColumns, strmangle.SetIntersect(insert, update))
+		ret := strmangle.SetComplement(cardAllColumns, strmangle.SetIntersect(insert, update))
 
 		conflict := conflictColumns
 		if len(conflict) == 0 && updateOnConflict && len(update) != 0 {
-			if len(cardListPrimaryKeyColumns) == 0 {
-				return errors.New("models: unable to upsert card_lists, could not build conflict column list")
+			if len(cardPrimaryKeyColumns) == 0 {
+				return errors.New("models: unable to upsert cards, could not build conflict column list")
 			}
 
-			conflict = make([]string, len(cardListPrimaryKeyColumns))
-			copy(conflict, cardListPrimaryKeyColumns)
+			conflict = make([]string, len(cardPrimaryKeyColumns))
+			copy(conflict, cardPrimaryKeyColumns)
 		}
-		cache.query = buildUpsertQueryPostgres(dialect, "\"card_lists\"", updateOnConflict, ret, update, conflict, insert, opts...)
+		cache.query = buildUpsertQueryPostgres(dialect, "\"cards\"", updateOnConflict, ret, update, conflict, insert, opts...)
 
-		cache.valueMapping, err = queries.BindMapping(cardListType, cardListMapping, insert)
+		cache.valueMapping, err = queries.BindMapping(cardType, cardMapping, insert)
 		if err != nil {
 			return err
 		}
 		if len(ret) != 0 {
-			cache.retMapping, err = queries.BindMapping(cardListType, cardListMapping, ret)
+			cache.retMapping, err = queries.BindMapping(cardType, cardMapping, ret)
 			if err != nil {
 				return err
 			}
@@ -837,31 +837,31 @@ func (o *CardList) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert card_lists")
+		return errors.Wrap(err, "models: unable to upsert cards")
 	}
 
 	if !cached {
-		cardListUpsertCacheMut.Lock()
-		cardListUpsertCache[key] = cache
-		cardListUpsertCacheMut.Unlock()
+		cardUpsertCacheMut.Lock()
+		cardUpsertCache[key] = cache
+		cardUpsertCacheMut.Unlock()
 	}
 
 	return o.doAfterUpsertHooks(ctx, exec)
 }
 
-// Delete deletes a single CardList record with an executor.
+// Delete deletes a single Card record with an executor.
 // Delete will match against the primary key column to find the record to delete.
-func (o *CardList) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (o *Card) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no CardList provided for delete")
+		return 0, errors.New("models: no Card provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
 		return 0, err
 	}
 
-	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), cardListPrimaryKeyMapping)
-	sql := "DELETE FROM \"card_lists\" WHERE \"card_id\"=$1"
+	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), cardPrimaryKeyMapping)
+	sql := "DELETE FROM \"cards\" WHERE \"card_id\"=$1"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -870,12 +870,12 @@ func (o *CardList) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from card_lists")
+		return 0, errors.Wrap(err, "models: unable to delete from cards")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for card_lists")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for cards")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -886,33 +886,33 @@ func (o *CardList) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 }
 
 // DeleteAll deletes all matching rows.
-func (q cardListQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (q cardQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no cardListQuery provided for delete all")
+		return 0, errors.New("models: no cardQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from card_lists")
+		return 0, errors.Wrap(err, "models: unable to delete all from cards")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for card_lists")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for cards")
 	}
 
 	return rowsAff, nil
 }
 
 // DeleteAll deletes all rows in the slice, using an executor.
-func (o CardListSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (o CardSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if len(o) == 0 {
 		return 0, nil
 	}
 
-	if len(cardListBeforeDeleteHooks) != 0 {
+	if len(cardBeforeDeleteHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doBeforeDeleteHooks(ctx, exec); err != nil {
 				return 0, err
@@ -922,12 +922,12 @@ func (o CardListSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 
 	var args []any
 	for _, obj := range o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardListPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "DELETE FROM \"card_lists\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, cardListPrimaryKeyColumns, len(o))
+	sql := "DELETE FROM \"cards\" WHERE " +
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, cardPrimaryKeyColumns, len(o))
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -936,15 +936,15 @@ func (o CardListSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from cardList slice")
+		return 0, errors.Wrap(err, "models: unable to delete all from card slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for card_lists")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for cards")
 	}
 
-	if len(cardListAfterDeleteHooks) != 0 {
+	if len(cardAfterDeleteHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doAfterDeleteHooks(ctx, exec); err != nil {
 				return 0, err
@@ -957,8 +957,8 @@ func (o CardListSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 
 // Reload refetches the object from the database
 // using the primary keys with an executor.
-func (o *CardList) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindCardList(ctx, exec, o.CardID)
+func (o *Card) Reload(ctx context.Context, exec boil.ContextExecutor) error {
+	ret, err := FindCard(ctx, exec, o.CardID)
 	if err != nil {
 		return err
 	}
@@ -969,26 +969,26 @@ func (o *CardList) Reload(ctx context.Context, exec boil.ContextExecutor) error 
 
 // ReloadAll refetches every row with matching primary key column values
 // and overwrites the original object slice with the newly updated slice.
-func (o *CardListSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) error {
+func (o *CardSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) error {
 	if o == nil || len(*o) == 0 {
 		return nil
 	}
 
-	slice := CardListSlice{}
+	slice := CardSlice{}
 	var args []any
 	for _, obj := range *o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardListPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), cardPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "SELECT \"card_lists\".* FROM \"card_lists\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, cardListPrimaryKeyColumns, len(*o))
+	sql := "SELECT \"cards\".* FROM \"cards\" WHERE " +
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, cardPrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in CardListSlice")
+		return errors.Wrap(err, "models: unable to reload all in CardSlice")
 	}
 
 	*o = slice
@@ -996,10 +996,10 @@ func (o *CardListSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 	return nil
 }
 
-// CardListExists checks if the CardList row exists.
-func CardListExists(ctx context.Context, exec boil.ContextExecutor, cardID string) (bool, error) {
+// CardExists checks if the Card row exists.
+func CardExists(ctx context.Context, exec boil.ContextExecutor, cardID string) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"card_lists\" where \"card_id\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"cards\" where \"card_id\"=$1 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1010,13 +1010,13 @@ func CardListExists(ctx context.Context, exec boil.ContextExecutor, cardID strin
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if card_lists exists")
+		return false, errors.Wrap(err, "models: unable to check if cards exists")
 	}
 
 	return exists, nil
 }
 
-// Exists checks if the CardList row exists.
-func (o *CardList) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
-	return CardListExists(ctx, exec, o.CardID)
+// Exists checks if the Card row exists.
+func (o *Card) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
+	return CardExists(ctx, exec, o.CardID)
 }

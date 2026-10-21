@@ -56,27 +56,27 @@ func (h *presetDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
 	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, ChangedBy: operatortest.ID(h.t, 10)}, deckChangedAt)
 }
 
-func (h *presetDeckHistory) project() readmodel.PresetDeckList {
-	var state readmodel.PresetDeckList
+func (h *presetDeckHistory) project() readmodel.PresetDeck {
+	var state readmodel.PresetDeck
 	for _, event := range h.events {
 		state = state.Evolve(event)
 	}
 	return state
 }
 
-func TestPresetDeckList_EvolvesFromRegistered(t *testing.T) {
+func TestPresetDeck_EvolvesFromRegistered(t *testing.T) {
 	publicID := uuid.New()
 
 	state := newPresetDeckHistory(t, publicID, "Ｆire デッキ").project()
 
-	metadata := readmodel.PresetDeckListMetadata{
+	metadata := readmodel.PresetDeckMetadata{
 		ID:           publicID,
 		Name:         "Ｆire デッキ",
 		Revision:     1,
 		RegisteredAt: deckRegisteredAt,
 		UpdatedAt:    deckRegisteredAt,
 	}
-	require.Equal(t, readmodel.PresetDeckList{
+	require.Equal(t, readmodel.PresetDeck{
 		PresetDeckID: publicID,
 		// 並べ替え・検索は正規化した名前、表示は入力どおりの名前
 		SortName: "fire デッキ",
@@ -86,7 +86,7 @@ func TestPresetDeckList_EvolvesFromRegistered(t *testing.T) {
 	require.False(t, state.IsTerminal())
 }
 
-func TestPresetDeckList_EvolvesFromRenamed(t *testing.T) {
+func TestPresetDeck_EvolvesFromRenamed(t *testing.T) {
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
 	history.apply(&presetdeck.RenameCommand{Name: presetdecktest.Name(t, "Water デッキ"), RenamedBy: operatortest.ID(t, 10)}, deckChangedAt)
 
@@ -100,7 +100,7 @@ func TestPresetDeckList_EvolvesFromRenamed(t *testing.T) {
 }
 
 // 差分を足して枚数を作り、0 になったカードは持たない
-func TestPresetDeckList_EvolvesFromCardCountsChanged(t *testing.T) {
+func TestPresetDeck_EvolvesFromCardCountsChanged(t *testing.T) {
 	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
 	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
@@ -115,7 +115,7 @@ func TestPresetDeckList_EvolvesFromCardCountsChanged(t *testing.T) {
 	require.Equal(t, deckChangedAt, state.Metadata.UpdatedAt)
 }
 
-func TestPresetDeckList_DoesNotChangeTheGivenState(t *testing.T) {
+func TestPresetDeck_DoesNotChangeTheGivenState(t *testing.T) {
 	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
 	history.setCounts(map[presetdeck.CardRef]int{dragon: 3})
@@ -127,7 +127,7 @@ func TestPresetDeckList_DoesNotChangeTheGivenState(t *testing.T) {
 	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3}, before.Cards)
 }
 
-func TestPresetDeckList_BecomesTerminalWhenDeleted(t *testing.T) {
+func TestPresetDeck_BecomesTerminalWhenDeleted(t *testing.T) {
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
 	history.apply(&presetdeck.DeleteCommand{DeletedBy: operatortest.ID(t, 10)}, deckChangedAt)
 
@@ -135,7 +135,7 @@ func TestPresetDeckList_BecomesTerminalWhenDeleted(t *testing.T) {
 }
 
 // カードの一覧の投影と同じく、購読していない集約のイベントは状態を変えない
-func TestPresetDeckList_IgnoresOtherAggregateEvents(t *testing.T) {
+func TestPresetDeck_IgnoresOtherAggregateEvents(t *testing.T) {
 	state := newPresetDeckHistory(t, uuid.New(), "炎のデッキ").project()
 
 	evolved := state

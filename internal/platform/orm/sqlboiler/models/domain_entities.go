@@ -21,21 +21,21 @@ import (
 	"github.com/friendsofgo/errors"
 )
 
-// DomainIdentifier is an object representing the database table.
-type DomainIdentifier struct {
+// DomainEntity is an object representing the database table.
+type DomainEntity struct {
 	// 内部の ID（ドメイン層の ID 型）
 	ID int64 `boil:"id" json:"id" toml:"id" yaml:"id"`
 	// 外部に公開する ID
 	PublicID string `boil:"public_id" json:"public_id" toml:"public_id" yaml:"public_id"`
-	// どの種別の ID か
+	// どの種別の entity か
 	EntityTypeID int16     `boil:"entity_type_id" json:"entity_type_id" toml:"entity_type_id" yaml:"entity_type_id"`
 	CreatedAt    time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
-	R *domainIdentifierR `boil:"-" json:"-" toml:"-" yaml:"-"`
-	L domainIdentifierL  `boil:"-" json:"-" toml:"-" yaml:"-"`
+	R *domainEntityR `boil:"-" json:"-" toml:"-" yaml:"-"`
+	L domainEntityL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
-var DomainIdentifierColumns = struct {
+var DomainEntityColumns = struct {
 	ID           string
 	PublicID     string
 	EntityTypeID string
@@ -47,34 +47,78 @@ var DomainIdentifierColumns = struct {
 	CreatedAt:    "created_at",
 }
 
-var DomainIdentifierTableColumns = struct {
+var DomainEntityTableColumns = struct {
 	ID           string
 	PublicID     string
 	EntityTypeID string
 	CreatedAt    string
 }{
-	ID:           "domain_identifiers.id",
-	PublicID:     "domain_identifiers.public_id",
-	EntityTypeID: "domain_identifiers.entity_type_id",
-	CreatedAt:    "domain_identifiers.created_at",
+	ID:           "domain_entities.id",
+	PublicID:     "domain_entities.public_id",
+	EntityTypeID: "domain_entities.entity_type_id",
+	CreatedAt:    "domain_entities.created_at",
 }
 
 // Generated where
 
-var DomainIdentifierWhere = struct {
+type whereHelperint64 struct{ field string }
+
+func (w whereHelperint64) EQ(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperint64) NEQ(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperint64) LT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperint64) LTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperint64) GT(x int64) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperint64) GTE(x int64) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperint64) IN(slice []int64) qm.QueryMod {
+	values := make([]any, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperint64) NIN(slice []int64) qm.QueryMod {
+	values := make([]any, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
+type whereHelpertime_Time struct{ field string }
+
+func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelpertime_Time) NEQ(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelpertime_Time) LT(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpertime_Time) LTE(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpertime_Time) GT(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
+var DomainEntityWhere = struct {
 	ID           whereHelperint64
 	PublicID     whereHelperstring
 	EntityTypeID whereHelperint16
 	CreatedAt    whereHelpertime_Time
 }{
-	ID:           whereHelperint64{field: "\"domain_identifiers\".\"id\""},
-	PublicID:     whereHelperstring{field: "\"domain_identifiers\".\"public_id\""},
-	EntityTypeID: whereHelperint16{field: "\"domain_identifiers\".\"entity_type_id\""},
-	CreatedAt:    whereHelpertime_Time{field: "\"domain_identifiers\".\"created_at\""},
+	ID:           whereHelperint64{field: "\"domain_entities\".\"id\""},
+	PublicID:     whereHelperstring{field: "\"domain_entities\".\"public_id\""},
+	EntityTypeID: whereHelperint16{field: "\"domain_entities\".\"entity_type_id\""},
+	CreatedAt:    whereHelpertime_Time{field: "\"domain_entities\".\"created_at\""},
 }
 
-// DomainIdentifierRels is where relationship names are stored.
-var DomainIdentifierRels = struct {
+// DomainEntityRels is where relationship names are stored.
+var DomainEntityRels = struct {
 	EntityType                  string
 	ReferencedDomainReferences  string
 	ReferencingDomainReferences string
@@ -86,8 +130,8 @@ var DomainIdentifierRels = struct {
 	EntityDomainUniqueKeys:      "EntityDomainUniqueKeys",
 }
 
-// domainIdentifierR is where relationships are stored.
-type domainIdentifierR struct {
+// domainEntityR is where relationships are stored.
+type domainEntityR struct {
 	EntityType                  *DomainEntityType    `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
 	ReferencedDomainReferences  DomainReferenceSlice `boil:"ReferencedDomainReferences" json:"ReferencedDomainReferences" toml:"ReferencedDomainReferences" yaml:"ReferencedDomainReferences"`
 	ReferencingDomainReferences DomainReferenceSlice `boil:"ReferencingDomainReferences" json:"ReferencingDomainReferences" toml:"ReferencingDomainReferences" yaml:"ReferencingDomainReferences"`
@@ -95,11 +139,11 @@ type domainIdentifierR struct {
 }
 
 // NewStruct creates a new relationship struct
-func (*domainIdentifierR) NewStruct() *domainIdentifierR {
-	return &domainIdentifierR{}
+func (*domainEntityR) NewStruct() *domainEntityR {
+	return &domainEntityR{}
 }
 
-func (o *DomainIdentifier) GetEntityType() *DomainEntityType {
+func (o *DomainEntity) GetEntityType() *DomainEntityType {
 	if o == nil {
 		return nil
 	}
@@ -107,7 +151,7 @@ func (o *DomainIdentifier) GetEntityType() *DomainEntityType {
 	return o.R.GetEntityType()
 }
 
-func (r *domainIdentifierR) GetEntityType() *DomainEntityType {
+func (r *domainEntityR) GetEntityType() *DomainEntityType {
 	if r == nil {
 		return nil
 	}
@@ -115,7 +159,7 @@ func (r *domainIdentifierR) GetEntityType() *DomainEntityType {
 	return r.EntityType
 }
 
-func (o *DomainIdentifier) GetReferencedDomainReferences() DomainReferenceSlice {
+func (o *DomainEntity) GetReferencedDomainReferences() DomainReferenceSlice {
 	if o == nil {
 		return nil
 	}
@@ -123,7 +167,7 @@ func (o *DomainIdentifier) GetReferencedDomainReferences() DomainReferenceSlice 
 	return o.R.GetReferencedDomainReferences()
 }
 
-func (r *domainIdentifierR) GetReferencedDomainReferences() DomainReferenceSlice {
+func (r *domainEntityR) GetReferencedDomainReferences() DomainReferenceSlice {
 	if r == nil {
 		return nil
 	}
@@ -131,7 +175,7 @@ func (r *domainIdentifierR) GetReferencedDomainReferences() DomainReferenceSlice
 	return r.ReferencedDomainReferences
 }
 
-func (o *DomainIdentifier) GetReferencingDomainReferences() DomainReferenceSlice {
+func (o *DomainEntity) GetReferencingDomainReferences() DomainReferenceSlice {
 	if o == nil {
 		return nil
 	}
@@ -139,7 +183,7 @@ func (o *DomainIdentifier) GetReferencingDomainReferences() DomainReferenceSlice
 	return o.R.GetReferencingDomainReferences()
 }
 
-func (r *domainIdentifierR) GetReferencingDomainReferences() DomainReferenceSlice {
+func (r *domainEntityR) GetReferencingDomainReferences() DomainReferenceSlice {
 	if r == nil {
 		return nil
 	}
@@ -147,7 +191,7 @@ func (r *domainIdentifierR) GetReferencingDomainReferences() DomainReferenceSlic
 	return r.ReferencingDomainReferences
 }
 
-func (o *DomainIdentifier) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
+func (o *DomainEntity) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	if o == nil {
 		return nil
 	}
@@ -155,7 +199,7 @@ func (o *DomainIdentifier) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	return o.R.GetEntityDomainUniqueKeys()
 }
 
-func (r *domainIdentifierR) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
+func (r *domainEntityR) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	if r == nil {
 		return nil
 	}
@@ -163,40 +207,40 @@ func (r *domainIdentifierR) GetEntityDomainUniqueKeys() DomainUniqueKeySlice {
 	return r.EntityDomainUniqueKeys
 }
 
-// domainIdentifierL is where Load methods for each relationship are stored.
-type domainIdentifierL struct{}
+// domainEntityL is where Load methods for each relationship are stored.
+type domainEntityL struct{}
 
 var (
-	domainIdentifierAllColumns            = []string{"id", "public_id", "entity_type_id", "created_at"}
-	domainIdentifierColumnsWithoutDefault = []string{"entity_type_id"}
-	domainIdentifierColumnsWithDefault    = []string{"id", "public_id", "created_at"}
-	domainIdentifierPrimaryKeyColumns     = []string{"id"}
-	domainIdentifierGeneratedColumns      = []string{}
+	domainEntityAllColumns            = []string{"id", "public_id", "entity_type_id", "created_at"}
+	domainEntityColumnsWithoutDefault = []string{"entity_type_id"}
+	domainEntityColumnsWithDefault    = []string{"id", "public_id", "created_at"}
+	domainEntityPrimaryKeyColumns     = []string{"id"}
+	domainEntityGeneratedColumns      = []string{}
 )
 
 type (
-	// DomainIdentifierSlice is an alias for a slice of pointers to DomainIdentifier.
-	// This should almost always be used instead of []DomainIdentifier.
-	DomainIdentifierSlice []*DomainIdentifier
-	// DomainIdentifierHook is the signature for custom DomainIdentifier hook methods
-	DomainIdentifierHook func(context.Context, boil.ContextExecutor, *DomainIdentifier) error
+	// DomainEntitySlice is an alias for a slice of pointers to DomainEntity.
+	// This should almost always be used instead of []DomainEntity.
+	DomainEntitySlice []*DomainEntity
+	// DomainEntityHook is the signature for custom DomainEntity hook methods
+	DomainEntityHook func(context.Context, boil.ContextExecutor, *DomainEntity) error
 
-	domainIdentifierQuery struct {
+	domainEntityQuery struct {
 		*queries.Query
 	}
 )
 
 // Cache for insert, update and upsert
 var (
-	domainIdentifierType                 = reflect.TypeOf(&DomainIdentifier{})
-	domainIdentifierMapping              = queries.MakeStructMapping(domainIdentifierType)
-	domainIdentifierPrimaryKeyMapping, _ = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, domainIdentifierPrimaryKeyColumns)
-	domainIdentifierInsertCacheMut       sync.RWMutex
-	domainIdentifierInsertCache          = make(map[string]insertCache)
-	domainIdentifierUpdateCacheMut       sync.RWMutex
-	domainIdentifierUpdateCache          = make(map[string]updateCache)
-	domainIdentifierUpsertCacheMut       sync.RWMutex
-	domainIdentifierUpsertCache          = make(map[string]insertCache)
+	domainEntityType                 = reflect.TypeOf(&DomainEntity{})
+	domainEntityMapping              = queries.MakeStructMapping(domainEntityType)
+	domainEntityPrimaryKeyMapping, _ = queries.BindMapping(domainEntityType, domainEntityMapping, domainEntityPrimaryKeyColumns)
+	domainEntityInsertCacheMut       sync.RWMutex
+	domainEntityInsertCache          = make(map[string]insertCache)
+	domainEntityUpdateCacheMut       sync.RWMutex
+	domainEntityUpdateCache          = make(map[string]updateCache)
+	domainEntityUpsertCacheMut       sync.RWMutex
+	domainEntityUpsertCache          = make(map[string]insertCache)
 )
 
 var (
@@ -207,36 +251,36 @@ var (
 	_ = qmhelper.Where
 )
 
-var domainIdentifierAfterSelectMu sync.Mutex
-var domainIdentifierAfterSelectHooks []DomainIdentifierHook
+var domainEntityAfterSelectMu sync.Mutex
+var domainEntityAfterSelectHooks []DomainEntityHook
 
-var domainIdentifierBeforeInsertMu sync.Mutex
-var domainIdentifierBeforeInsertHooks []DomainIdentifierHook
-var domainIdentifierAfterInsertMu sync.Mutex
-var domainIdentifierAfterInsertHooks []DomainIdentifierHook
+var domainEntityBeforeInsertMu sync.Mutex
+var domainEntityBeforeInsertHooks []DomainEntityHook
+var domainEntityAfterInsertMu sync.Mutex
+var domainEntityAfterInsertHooks []DomainEntityHook
 
-var domainIdentifierBeforeUpdateMu sync.Mutex
-var domainIdentifierBeforeUpdateHooks []DomainIdentifierHook
-var domainIdentifierAfterUpdateMu sync.Mutex
-var domainIdentifierAfterUpdateHooks []DomainIdentifierHook
+var domainEntityBeforeUpdateMu sync.Mutex
+var domainEntityBeforeUpdateHooks []DomainEntityHook
+var domainEntityAfterUpdateMu sync.Mutex
+var domainEntityAfterUpdateHooks []DomainEntityHook
 
-var domainIdentifierBeforeDeleteMu sync.Mutex
-var domainIdentifierBeforeDeleteHooks []DomainIdentifierHook
-var domainIdentifierAfterDeleteMu sync.Mutex
-var domainIdentifierAfterDeleteHooks []DomainIdentifierHook
+var domainEntityBeforeDeleteMu sync.Mutex
+var domainEntityBeforeDeleteHooks []DomainEntityHook
+var domainEntityAfterDeleteMu sync.Mutex
+var domainEntityAfterDeleteHooks []DomainEntityHook
 
-var domainIdentifierBeforeUpsertMu sync.Mutex
-var domainIdentifierBeforeUpsertHooks []DomainIdentifierHook
-var domainIdentifierAfterUpsertMu sync.Mutex
-var domainIdentifierAfterUpsertHooks []DomainIdentifierHook
+var domainEntityBeforeUpsertMu sync.Mutex
+var domainEntityBeforeUpsertHooks []DomainEntityHook
+var domainEntityAfterUpsertMu sync.Mutex
+var domainEntityAfterUpsertHooks []DomainEntityHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
-func (o *DomainIdentifier) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierAfterSelectHooks {
+	for _, hook := range domainEntityAfterSelectHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -246,12 +290,12 @@ func (o *DomainIdentifier) doAfterSelectHooks(ctx context.Context, exec boil.Con
 }
 
 // doBeforeInsertHooks executes all "before insert" hooks.
-func (o *DomainIdentifier) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierBeforeInsertHooks {
+	for _, hook := range domainEntityBeforeInsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -261,12 +305,12 @@ func (o *DomainIdentifier) doBeforeInsertHooks(ctx context.Context, exec boil.Co
 }
 
 // doAfterInsertHooks executes all "after Insert" hooks.
-func (o *DomainIdentifier) doAfterInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doAfterInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierAfterInsertHooks {
+	for _, hook := range domainEntityAfterInsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -276,12 +320,12 @@ func (o *DomainIdentifier) doAfterInsertHooks(ctx context.Context, exec boil.Con
 }
 
 // doBeforeUpdateHooks executes all "before Update" hooks.
-func (o *DomainIdentifier) doBeforeUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doBeforeUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierBeforeUpdateHooks {
+	for _, hook := range domainEntityBeforeUpdateHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -291,12 +335,12 @@ func (o *DomainIdentifier) doBeforeUpdateHooks(ctx context.Context, exec boil.Co
 }
 
 // doAfterUpdateHooks executes all "after Update" hooks.
-func (o *DomainIdentifier) doAfterUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doAfterUpdateHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierAfterUpdateHooks {
+	for _, hook := range domainEntityAfterUpdateHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -306,12 +350,12 @@ func (o *DomainIdentifier) doAfterUpdateHooks(ctx context.Context, exec boil.Con
 }
 
 // doBeforeDeleteHooks executes all "before Delete" hooks.
-func (o *DomainIdentifier) doBeforeDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doBeforeDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierBeforeDeleteHooks {
+	for _, hook := range domainEntityBeforeDeleteHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -321,12 +365,12 @@ func (o *DomainIdentifier) doBeforeDeleteHooks(ctx context.Context, exec boil.Co
 }
 
 // doAfterDeleteHooks executes all "after Delete" hooks.
-func (o *DomainIdentifier) doAfterDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doAfterDeleteHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierAfterDeleteHooks {
+	for _, hook := range domainEntityAfterDeleteHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -336,12 +380,12 @@ func (o *DomainIdentifier) doAfterDeleteHooks(ctx context.Context, exec boil.Con
 }
 
 // doBeforeUpsertHooks executes all "before Upsert" hooks.
-func (o *DomainIdentifier) doBeforeUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doBeforeUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierBeforeUpsertHooks {
+	for _, hook := range domainEntityBeforeUpsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -351,12 +395,12 @@ func (o *DomainIdentifier) doBeforeUpsertHooks(ctx context.Context, exec boil.Co
 }
 
 // doAfterUpsertHooks executes all "after Upsert" hooks.
-func (o *DomainIdentifier) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
+func (o *DomainEntity) doAfterUpsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
 	if boil.HooksAreSkipped(ctx) {
 		return nil
 	}
 
-	for _, hook := range domainIdentifierAfterUpsertHooks {
+	for _, hook := range domainEntityAfterUpsertHooks {
 		if err := hook(ctx, exec, o); err != nil {
 			return err
 		}
@@ -365,51 +409,51 @@ func (o *DomainIdentifier) doAfterUpsertHooks(ctx context.Context, exec boil.Con
 	return nil
 }
 
-// AddDomainIdentifierHook registers your hook function for all future operations.
-func AddDomainIdentifierHook(hookPoint boil.HookPoint, domainIdentifierHook DomainIdentifierHook) {
+// AddDomainEntityHook registers your hook function for all future operations.
+func AddDomainEntityHook(hookPoint boil.HookPoint, domainEntityHook DomainEntityHook) {
 	switch hookPoint {
 	case boil.AfterSelectHook:
-		domainIdentifierAfterSelectMu.Lock()
-		domainIdentifierAfterSelectHooks = append(domainIdentifierAfterSelectHooks, domainIdentifierHook)
-		domainIdentifierAfterSelectMu.Unlock()
+		domainEntityAfterSelectMu.Lock()
+		domainEntityAfterSelectHooks = append(domainEntityAfterSelectHooks, domainEntityHook)
+		domainEntityAfterSelectMu.Unlock()
 	case boil.BeforeInsertHook:
-		domainIdentifierBeforeInsertMu.Lock()
-		domainIdentifierBeforeInsertHooks = append(domainIdentifierBeforeInsertHooks, domainIdentifierHook)
-		domainIdentifierBeforeInsertMu.Unlock()
+		domainEntityBeforeInsertMu.Lock()
+		domainEntityBeforeInsertHooks = append(domainEntityBeforeInsertHooks, domainEntityHook)
+		domainEntityBeforeInsertMu.Unlock()
 	case boil.AfterInsertHook:
-		domainIdentifierAfterInsertMu.Lock()
-		domainIdentifierAfterInsertHooks = append(domainIdentifierAfterInsertHooks, domainIdentifierHook)
-		domainIdentifierAfterInsertMu.Unlock()
+		domainEntityAfterInsertMu.Lock()
+		domainEntityAfterInsertHooks = append(domainEntityAfterInsertHooks, domainEntityHook)
+		domainEntityAfterInsertMu.Unlock()
 	case boil.BeforeUpdateHook:
-		domainIdentifierBeforeUpdateMu.Lock()
-		domainIdentifierBeforeUpdateHooks = append(domainIdentifierBeforeUpdateHooks, domainIdentifierHook)
-		domainIdentifierBeforeUpdateMu.Unlock()
+		domainEntityBeforeUpdateMu.Lock()
+		domainEntityBeforeUpdateHooks = append(domainEntityBeforeUpdateHooks, domainEntityHook)
+		domainEntityBeforeUpdateMu.Unlock()
 	case boil.AfterUpdateHook:
-		domainIdentifierAfterUpdateMu.Lock()
-		domainIdentifierAfterUpdateHooks = append(domainIdentifierAfterUpdateHooks, domainIdentifierHook)
-		domainIdentifierAfterUpdateMu.Unlock()
+		domainEntityAfterUpdateMu.Lock()
+		domainEntityAfterUpdateHooks = append(domainEntityAfterUpdateHooks, domainEntityHook)
+		domainEntityAfterUpdateMu.Unlock()
 	case boil.BeforeDeleteHook:
-		domainIdentifierBeforeDeleteMu.Lock()
-		domainIdentifierBeforeDeleteHooks = append(domainIdentifierBeforeDeleteHooks, domainIdentifierHook)
-		domainIdentifierBeforeDeleteMu.Unlock()
+		domainEntityBeforeDeleteMu.Lock()
+		domainEntityBeforeDeleteHooks = append(domainEntityBeforeDeleteHooks, domainEntityHook)
+		domainEntityBeforeDeleteMu.Unlock()
 	case boil.AfterDeleteHook:
-		domainIdentifierAfterDeleteMu.Lock()
-		domainIdentifierAfterDeleteHooks = append(domainIdentifierAfterDeleteHooks, domainIdentifierHook)
-		domainIdentifierAfterDeleteMu.Unlock()
+		domainEntityAfterDeleteMu.Lock()
+		domainEntityAfterDeleteHooks = append(domainEntityAfterDeleteHooks, domainEntityHook)
+		domainEntityAfterDeleteMu.Unlock()
 	case boil.BeforeUpsertHook:
-		domainIdentifierBeforeUpsertMu.Lock()
-		domainIdentifierBeforeUpsertHooks = append(domainIdentifierBeforeUpsertHooks, domainIdentifierHook)
-		domainIdentifierBeforeUpsertMu.Unlock()
+		domainEntityBeforeUpsertMu.Lock()
+		domainEntityBeforeUpsertHooks = append(domainEntityBeforeUpsertHooks, domainEntityHook)
+		domainEntityBeforeUpsertMu.Unlock()
 	case boil.AfterUpsertHook:
-		domainIdentifierAfterUpsertMu.Lock()
-		domainIdentifierAfterUpsertHooks = append(domainIdentifierAfterUpsertHooks, domainIdentifierHook)
-		domainIdentifierAfterUpsertMu.Unlock()
+		domainEntityAfterUpsertMu.Lock()
+		domainEntityAfterUpsertHooks = append(domainEntityAfterUpsertHooks, domainEntityHook)
+		domainEntityAfterUpsertMu.Unlock()
 	}
 }
 
-// One returns a single domainIdentifier record from the query.
-func (q domainIdentifierQuery) One(ctx context.Context, exec boil.ContextExecutor) (*DomainIdentifier, error) {
-	o := &DomainIdentifier{}
+// One returns a single domainEntity record from the query.
+func (q domainEntityQuery) One(ctx context.Context, exec boil.ContextExecutor) (*DomainEntity, error) {
+	o := &DomainEntity{}
 
 	queries.SetLimit(q.Query, 1)
 
@@ -418,7 +462,7 @@ func (q domainIdentifierQuery) One(ctx context.Context, exec boil.ContextExecuto
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for domain_identifiers")
+		return nil, errors.Wrap(err, "models: failed to execute a one query for domain_entities")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -428,16 +472,16 @@ func (q domainIdentifierQuery) One(ctx context.Context, exec boil.ContextExecuto
 	return o, nil
 }
 
-// All returns all DomainIdentifier records from the query.
-func (q domainIdentifierQuery) All(ctx context.Context, exec boil.ContextExecutor) (DomainIdentifierSlice, error) {
-	var o []*DomainIdentifier
+// All returns all DomainEntity records from the query.
+func (q domainEntityQuery) All(ctx context.Context, exec boil.ContextExecutor) (DomainEntitySlice, error) {
+	var o []*DomainEntity
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to DomainIdentifier slice")
+		return nil, errors.Wrap(err, "models: failed to assign all query results to DomainEntity slice")
 	}
 
-	if len(domainIdentifierAfterSelectHooks) != 0 {
+	if len(domainEntityAfterSelectHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doAfterSelectHooks(ctx, exec); err != nil {
 				return o, err
@@ -448,8 +492,8 @@ func (q domainIdentifierQuery) All(ctx context.Context, exec boil.ContextExecuto
 	return o, nil
 }
 
-// Count returns the count of all DomainIdentifier records in the query.
-func (q domainIdentifierQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+// Count returns the count of all DomainEntity records in the query.
+func (q domainEntityQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	var count int64
 
 	queries.SetSelect(q.Query, nil)
@@ -457,14 +501,14 @@ func (q domainIdentifierQuery) Count(ctx context.Context, exec boil.ContextExecu
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count domain_identifiers rows")
+		return 0, errors.Wrap(err, "models: failed to count domain_entities rows")
 	}
 
 	return count, nil
 }
 
 // Exists checks if the row exists in the table.
-func (q domainIdentifierQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
+func (q domainEntityQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
 	var count int64
 
 	queries.SetSelect(q.Query, nil)
@@ -473,14 +517,14 @@ func (q domainIdentifierQuery) Exists(ctx context.Context, exec boil.ContextExec
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if domain_identifiers exists")
+		return false, errors.Wrap(err, "models: failed to check if domain_entities exists")
 	}
 
 	return count > 0, nil
 }
 
 // EntityType pointed to by the foreign key.
-func (o *DomainIdentifier) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery {
+func (o *DomainEntity) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery {
 	queryMods := []qm.QueryMod{
 		qm.Where("\"id\" = ?", o.EntityTypeID),
 	}
@@ -491,7 +535,7 @@ func (o *DomainIdentifier) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery
 }
 
 // ReferencedDomainReferences retrieves all the domain_reference's DomainReferences with an executor via referenced_id column.
-func (o *DomainIdentifier) ReferencedDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
+func (o *DomainEntity) ReferencedDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
@@ -505,7 +549,7 @@ func (o *DomainIdentifier) ReferencedDomainReferences(mods ...qm.QueryMod) domai
 }
 
 // ReferencingDomainReferences retrieves all the domain_reference's DomainReferences with an executor via referencing_id column.
-func (o *DomainIdentifier) ReferencingDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
+func (o *DomainEntity) ReferencingDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
@@ -519,7 +563,7 @@ func (o *DomainIdentifier) ReferencingDomainReferences(mods ...qm.QueryMod) doma
 }
 
 // EntityDomainUniqueKeys retrieves all the domain_unique_key's DomainUniqueKeys with an executor via entity_id column.
-func (o *DomainIdentifier) EntityDomainUniqueKeys(mods ...qm.QueryMod) domainUniqueKeyQuery {
+func (o *DomainEntity) EntityDomainUniqueKeys(mods ...qm.QueryMod) domainUniqueKeyQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
@@ -534,28 +578,28 @@ func (o *DomainIdentifier) EntityDomainUniqueKeys(mods ...qm.QueryMod) domainUni
 
 // LoadEntityType allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
-func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
-	var slice []*DomainIdentifier
-	var object *DomainIdentifier
+func (domainEntityL) LoadEntityType(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntity any, mods queries.Applicator) error {
+	var slice []*DomainEntity
+	var object *DomainEntity
 
 	if singular {
 		var ok bool
-		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		object, ok = maybeDomainEntity.(*DomainEntity)
 		if !ok {
-			object = new(DomainIdentifier)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			object = new(DomainEntity)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntity))
 			}
 		}
 	} else {
-		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		s, ok := maybeDomainEntity.(*[]*DomainEntity)
 		if ok {
 			slice = *s
 		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntity))
 			}
 		}
 	}
@@ -563,14 +607,14 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 	args := make(map[any]struct{})
 	if singular {
 		if object.R == nil {
-			object.R = &domainIdentifierR{}
+			object.R = &domainEntityR{}
 		}
 		args[object.EntityTypeID] = struct{}{}
 
 	} else {
 		for _, obj := range slice {
 			if obj.R == nil {
-				obj.R = &domainIdentifierR{}
+				obj.R = &domainEntityR{}
 			}
 
 			args[obj.EntityTypeID] = struct{}{}
@@ -632,7 +676,7 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 		if foreign.R == nil {
 			foreign.R = &domainEntityTypeR{}
 		}
-		foreign.R.EntityTypeDomainIdentifiers = append(foreign.R.EntityTypeDomainIdentifiers, object)
+		foreign.R.EntityTypeDomainEntities = append(foreign.R.EntityTypeDomainEntities, object)
 		return nil
 	}
 
@@ -643,7 +687,7 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 				if foreign.R == nil {
 					foreign.R = &domainEntityTypeR{}
 				}
-				foreign.R.EntityTypeDomainIdentifiers = append(foreign.R.EntityTypeDomainIdentifiers, local)
+				foreign.R.EntityTypeDomainEntities = append(foreign.R.EntityTypeDomainEntities, local)
 				break
 			}
 		}
@@ -654,28 +698,28 @@ func (domainIdentifierL) LoadEntityType(ctx context.Context, e boil.ContextExecu
 
 // LoadReferencedDomainReferences allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (domainIdentifierL) LoadReferencedDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
-	var slice []*DomainIdentifier
-	var object *DomainIdentifier
+func (domainEntityL) LoadReferencedDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntity any, mods queries.Applicator) error {
+	var slice []*DomainEntity
+	var object *DomainEntity
 
 	if singular {
 		var ok bool
-		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		object, ok = maybeDomainEntity.(*DomainEntity)
 		if !ok {
-			object = new(DomainIdentifier)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			object = new(DomainEntity)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntity))
 			}
 		}
 	} else {
-		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		s, ok := maybeDomainEntity.(*[]*DomainEntity)
 		if ok {
 			slice = *s
 		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntity))
 			}
 		}
 	}
@@ -683,13 +727,13 @@ func (domainIdentifierL) LoadReferencedDomainReferences(ctx context.Context, e b
 	args := make(map[any]struct{})
 	if singular {
 		if object.R == nil {
-			object.R = &domainIdentifierR{}
+			object.R = &domainEntityR{}
 		}
 		args[object.ID] = struct{}{}
 	} else {
 		for _, obj := range slice {
 			if obj.R == nil {
-				obj.R = &domainIdentifierR{}
+				obj.R = &domainEntityR{}
 			}
 			args[obj.ID] = struct{}{}
 		}
@@ -767,28 +811,28 @@ func (domainIdentifierL) LoadReferencedDomainReferences(ctx context.Context, e b
 
 // LoadReferencingDomainReferences allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (domainIdentifierL) LoadReferencingDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
-	var slice []*DomainIdentifier
-	var object *DomainIdentifier
+func (domainEntityL) LoadReferencingDomainReferences(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntity any, mods queries.Applicator) error {
+	var slice []*DomainEntity
+	var object *DomainEntity
 
 	if singular {
 		var ok bool
-		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		object, ok = maybeDomainEntity.(*DomainEntity)
 		if !ok {
-			object = new(DomainIdentifier)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			object = new(DomainEntity)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntity))
 			}
 		}
 	} else {
-		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		s, ok := maybeDomainEntity.(*[]*DomainEntity)
 		if ok {
 			slice = *s
 		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntity))
 			}
 		}
 	}
@@ -796,13 +840,13 @@ func (domainIdentifierL) LoadReferencingDomainReferences(ctx context.Context, e 
 	args := make(map[any]struct{})
 	if singular {
 		if object.R == nil {
-			object.R = &domainIdentifierR{}
+			object.R = &domainEntityR{}
 		}
 		args[object.ID] = struct{}{}
 	} else {
 		for _, obj := range slice {
 			if obj.R == nil {
-				obj.R = &domainIdentifierR{}
+				obj.R = &domainEntityR{}
 			}
 			args[obj.ID] = struct{}{}
 		}
@@ -880,28 +924,28 @@ func (domainIdentifierL) LoadReferencingDomainReferences(ctx context.Context, e 
 
 // LoadEntityDomainUniqueKeys allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (domainIdentifierL) LoadEntityDomainUniqueKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainIdentifier any, mods queries.Applicator) error {
-	var slice []*DomainIdentifier
-	var object *DomainIdentifier
+func (domainEntityL) LoadEntityDomainUniqueKeys(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntity any, mods queries.Applicator) error {
+	var slice []*DomainEntity
+	var object *DomainEntity
 
 	if singular {
 		var ok bool
-		object, ok = maybeDomainIdentifier.(*DomainIdentifier)
+		object, ok = maybeDomainEntity.(*DomainEntity)
 		if !ok {
-			object = new(DomainIdentifier)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainIdentifier)
+			object = new(DomainEntity)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntity))
 			}
 		}
 	} else {
-		s, ok := maybeDomainIdentifier.(*[]*DomainIdentifier)
+		s, ok := maybeDomainEntity.(*[]*DomainEntity)
 		if ok {
 			slice = *s
 		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainIdentifier)
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntity)
 			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainIdentifier))
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntity))
 			}
 		}
 	}
@@ -909,13 +953,13 @@ func (domainIdentifierL) LoadEntityDomainUniqueKeys(ctx context.Context, e boil.
 	args := make(map[any]struct{})
 	if singular {
 		if object.R == nil {
-			object.R = &domainIdentifierR{}
+			object.R = &domainEntityR{}
 		}
 		args[object.ID] = struct{}{}
 	} else {
 		for _, obj := range slice {
 			if obj.R == nil {
-				obj.R = &domainIdentifierR{}
+				obj.R = &domainEntityR{}
 			}
 			args[obj.ID] = struct{}{}
 		}
@@ -991,10 +1035,10 @@ func (domainIdentifierL) LoadEntityDomainUniqueKeys(ctx context.Context, e boil.
 	return nil
 }
 
-// SetEntityType of the domainIdentifier to the related item.
+// SetEntityType of the domainEntity to the related item.
 // Sets o.R.EntityType to related.
-// Adds o to related.R.EntityTypeDomainIdentifiers.
-func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainEntityType) error {
+// Adds o to related.R.EntityTypeDomainEntities.
+func (o *DomainEntity) SetEntityType(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainEntityType) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -1003,9 +1047,9 @@ func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextE
 	}
 
 	updateQuery := fmt.Sprintf(
-		"UPDATE \"domain_identifiers\" SET %s WHERE %s",
+		"UPDATE \"domain_entities\" SET %s WHERE %s",
 		strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
-		strmangle.WhereClause("\"", "\"", 2, domainIdentifierPrimaryKeyColumns),
+		strmangle.WhereClause("\"", "\"", 2, domainEntityPrimaryKeyColumns),
 	)
 	values := []any{related.ID, o.ID}
 
@@ -1020,7 +1064,7 @@ func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextE
 
 	o.EntityTypeID = related.ID
 	if o.R == nil {
-		o.R = &domainIdentifierR{
+		o.R = &domainEntityR{
 			EntityType: related,
 		}
 	} else {
@@ -1029,20 +1073,20 @@ func (o *DomainIdentifier) SetEntityType(ctx context.Context, exec boil.ContextE
 
 	if related.R == nil {
 		related.R = &domainEntityTypeR{
-			EntityTypeDomainIdentifiers: DomainIdentifierSlice{o},
+			EntityTypeDomainEntities: DomainEntitySlice{o},
 		}
 	} else {
-		related.R.EntityTypeDomainIdentifiers = append(related.R.EntityTypeDomainIdentifiers, o)
+		related.R.EntityTypeDomainEntities = append(related.R.EntityTypeDomainEntities, o)
 	}
 
 	return nil
 }
 
 // AddReferencedDomainReferences adds the given related objects to the existing relationships
-// of the domain_identifier, optionally inserting them as new records.
+// of the domain_entity, optionally inserting them as new records.
 // Appends related to o.R.ReferencedDomainReferences.
 // Sets related.R.Referenced appropriately.
-func (o *DomainIdentifier) AddReferencedDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
+func (o *DomainEntity) AddReferencedDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
 	var err error
 	for _, rel := range related {
 		if insert {
@@ -1072,7 +1116,7 @@ func (o *DomainIdentifier) AddReferencedDomainReferences(ctx context.Context, ex
 	}
 
 	if o.R == nil {
-		o.R = &domainIdentifierR{
+		o.R = &domainEntityR{
 			ReferencedDomainReferences: related,
 		}
 	} else {
@@ -1092,10 +1136,10 @@ func (o *DomainIdentifier) AddReferencedDomainReferences(ctx context.Context, ex
 }
 
 // AddReferencingDomainReferences adds the given related objects to the existing relationships
-// of the domain_identifier, optionally inserting them as new records.
+// of the domain_entity, optionally inserting them as new records.
 // Appends related to o.R.ReferencingDomainReferences.
 // Sets related.R.Referencing appropriately.
-func (o *DomainIdentifier) AddReferencingDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
+func (o *DomainEntity) AddReferencingDomainReferences(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainReference) error {
 	var err error
 	for _, rel := range related {
 		if insert {
@@ -1125,7 +1169,7 @@ func (o *DomainIdentifier) AddReferencingDomainReferences(ctx context.Context, e
 	}
 
 	if o.R == nil {
-		o.R = &domainIdentifierR{
+		o.R = &domainEntityR{
 			ReferencingDomainReferences: related,
 		}
 	} else {
@@ -1145,10 +1189,10 @@ func (o *DomainIdentifier) AddReferencingDomainReferences(ctx context.Context, e
 }
 
 // AddEntityDomainUniqueKeys adds the given related objects to the existing relationships
-// of the domain_identifier, optionally inserting them as new records.
+// of the domain_entity, optionally inserting them as new records.
 // Appends related to o.R.EntityDomainUniqueKeys.
 // Sets related.R.Entity appropriately.
-func (o *DomainIdentifier) AddEntityDomainUniqueKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainUniqueKey) error {
+func (o *DomainEntity) AddEntityDomainUniqueKeys(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainUniqueKey) error {
 	var err error
 	for _, rel := range related {
 		if insert {
@@ -1178,7 +1222,7 @@ func (o *DomainIdentifier) AddEntityDomainUniqueKeys(ctx context.Context, exec b
 	}
 
 	if o.R == nil {
-		o.R = &domainIdentifierR{
+		o.R = &domainEntityR{
 			EntityDomainUniqueKeys: related,
 		}
 	} else {
@@ -1197,52 +1241,52 @@ func (o *DomainIdentifier) AddEntityDomainUniqueKeys(ctx context.Context, exec b
 	return nil
 }
 
-// DomainIdentifiers retrieves all the records using an executor.
-func DomainIdentifiers(mods ...qm.QueryMod) domainIdentifierQuery {
-	mods = append(mods, qm.From("\"domain_identifiers\""))
+// DomainEntities retrieves all the records using an executor.
+func DomainEntities(mods ...qm.QueryMod) domainEntityQuery {
+	mods = append(mods, qm.From("\"domain_entities\""))
 	q := NewQuery(mods...)
 	if len(queries.GetSelect(q)) == 0 {
-		queries.SetSelect(q, []string{"\"domain_identifiers\".*"})
+		queries.SetSelect(q, []string{"\"domain_entities\".*"})
 	}
 
-	return domainIdentifierQuery{q}
+	return domainEntityQuery{q}
 }
 
-// FindDomainIdentifier retrieves a single record by ID with an executor.
+// FindDomainEntity retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindDomainIdentifier(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*DomainIdentifier, error) {
-	domainIdentifierObj := &DomainIdentifier{}
+func FindDomainEntity(ctx context.Context, exec boil.ContextExecutor, iD int64, selectCols ...string) (*DomainEntity, error) {
+	domainEntityObj := &DomainEntity{}
 
 	sel := "*"
 	if len(selectCols) > 0 {
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"domain_identifiers\" where \"id\"=$1", sel,
+		"select %s from \"domain_entities\" where \"id\"=$1", sel,
 	)
 
 	q := queries.Raw(query, iD)
 
-	err := q.Bind(ctx, exec, domainIdentifierObj)
+	err := q.Bind(ctx, exec, domainEntityObj)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from domain_identifiers")
+		return nil, errors.Wrap(err, "models: unable to select from domain_entities")
 	}
 
-	if err = domainIdentifierObj.doAfterSelectHooks(ctx, exec); err != nil {
-		return domainIdentifierObj, err
+	if err = domainEntityObj.doAfterSelectHooks(ctx, exec); err != nil {
+		return domainEntityObj, err
 	}
 
-	return domainIdentifierObj, nil
+	return domainEntityObj, nil
 }
 
 // Insert a single record using an executor.
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
-func (o *DomainIdentifier) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
+func (o *DomainEntity) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no domain_identifiers provided for insertion")
+		return errors.New("models: no domain_entities provided for insertion")
 	}
 
 	var err error
@@ -1258,33 +1302,33 @@ func (o *DomainIdentifier) Insert(ctx context.Context, exec boil.ContextExecutor
 		return err
 	}
 
-	nzDefaults := queries.NonZeroDefaultSet(domainIdentifierColumnsWithDefault, o)
+	nzDefaults := queries.NonZeroDefaultSet(domainEntityColumnsWithDefault, o)
 
 	key := makeCacheKey(columns, nzDefaults)
-	domainIdentifierInsertCacheMut.RLock()
-	cache, cached := domainIdentifierInsertCache[key]
-	domainIdentifierInsertCacheMut.RUnlock()
+	domainEntityInsertCacheMut.RLock()
+	cache, cached := domainEntityInsertCache[key]
+	domainEntityInsertCacheMut.RUnlock()
 
 	if !cached {
 		wl, returnColumns := columns.InsertColumnSet(
-			domainIdentifierAllColumns,
-			domainIdentifierColumnsWithDefault,
-			domainIdentifierColumnsWithoutDefault,
+			domainEntityAllColumns,
+			domainEntityColumnsWithDefault,
+			domainEntityColumnsWithoutDefault,
 			nzDefaults,
 		)
 
-		cache.valueMapping, err = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, wl)
+		cache.valueMapping, err = queries.BindMapping(domainEntityType, domainEntityMapping, wl)
 		if err != nil {
 			return err
 		}
-		cache.retMapping, err = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, returnColumns)
+		cache.retMapping, err = queries.BindMapping(domainEntityType, domainEntityMapping, returnColumns)
 		if err != nil {
 			return err
 		}
 		if len(wl) != 0 {
-			cache.query = fmt.Sprintf("INSERT INTO \"domain_identifiers\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
+			cache.query = fmt.Sprintf("INSERT INTO \"domain_entities\" (\"%s\") %%sVALUES (%s)%%s", strings.Join(wl, "\",\""), strmangle.Placeholders(dialect.UseIndexPlaceholders, len(wl), 1, 1))
 		} else {
-			cache.query = "INSERT INTO \"domain_identifiers\" %sDEFAULT VALUES%s"
+			cache.query = "INSERT INTO \"domain_entities\" %sDEFAULT VALUES%s"
 		}
 
 		var queryOutput, queryReturning string
@@ -1312,49 +1356,49 @@ func (o *DomainIdentifier) Insert(ctx context.Context, exec boil.ContextExecutor
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into domain_identifiers")
+		return errors.Wrap(err, "models: unable to insert into domain_entities")
 	}
 
 	if !cached {
-		domainIdentifierInsertCacheMut.Lock()
-		domainIdentifierInsertCache[key] = cache
-		domainIdentifierInsertCacheMut.Unlock()
+		domainEntityInsertCacheMut.Lock()
+		domainEntityInsertCache[key] = cache
+		domainEntityInsertCacheMut.Unlock()
 	}
 
 	return o.doAfterInsertHooks(ctx, exec)
 }
 
-// Update uses an executor to update the DomainIdentifier.
+// Update uses an executor to update the DomainEntity.
 // See boil.Columns.UpdateColumnSet documentation to understand column list inference for updates.
 // Update does not automatically update the record in case of default values. Use .Reload() to refresh the records.
-func (o *DomainIdentifier) Update(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
+func (o *DomainEntity) Update(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) (int64, error) {
 	var err error
 	if err = o.doBeforeUpdateHooks(ctx, exec); err != nil {
 		return 0, err
 	}
 	key := makeCacheKey(columns, nil)
-	domainIdentifierUpdateCacheMut.RLock()
-	cache, cached := domainIdentifierUpdateCache[key]
-	domainIdentifierUpdateCacheMut.RUnlock()
+	domainEntityUpdateCacheMut.RLock()
+	cache, cached := domainEntityUpdateCache[key]
+	domainEntityUpdateCacheMut.RUnlock()
 
 	if !cached {
 		wl := columns.UpdateColumnSet(
-			domainIdentifierAllColumns,
-			domainIdentifierPrimaryKeyColumns,
+			domainEntityAllColumns,
+			domainEntityPrimaryKeyColumns,
 		)
 
 		if !columns.IsWhitelist() {
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update domain_identifiers, could not build whitelist")
+			return 0, errors.New("models: unable to update domain_entities, could not build whitelist")
 		}
 
-		cache.query = fmt.Sprintf("UPDATE \"domain_identifiers\" SET %s WHERE %s",
+		cache.query = fmt.Sprintf("UPDATE \"domain_entities\" SET %s WHERE %s",
 			strmangle.SetParamNames("\"", "\"", 1, wl),
-			strmangle.WhereClause("\"", "\"", len(wl)+1, domainIdentifierPrimaryKeyColumns),
+			strmangle.WhereClause("\"", "\"", len(wl)+1, domainEntityPrimaryKeyColumns),
 		)
-		cache.valueMapping, err = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, append(wl, domainIdentifierPrimaryKeyColumns...))
+		cache.valueMapping, err = queries.BindMapping(domainEntityType, domainEntityMapping, append(wl, domainEntityPrimaryKeyColumns...))
 		if err != nil {
 			return 0, err
 		}
@@ -1370,42 +1414,42 @@ func (o *DomainIdentifier) Update(ctx context.Context, exec boil.ContextExecutor
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update domain_identifiers row")
+		return 0, errors.Wrap(err, "models: unable to update domain_entities row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for domain_identifiers")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by update for domain_entities")
 	}
 
 	if !cached {
-		domainIdentifierUpdateCacheMut.Lock()
-		domainIdentifierUpdateCache[key] = cache
-		domainIdentifierUpdateCacheMut.Unlock()
+		domainEntityUpdateCacheMut.Lock()
+		domainEntityUpdateCache[key] = cache
+		domainEntityUpdateCacheMut.Unlock()
 	}
 
 	return rowsAff, o.doAfterUpdateHooks(ctx, exec)
 }
 
 // UpdateAll updates all rows with the specified column values.
-func (q domainIdentifierQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
+func (q domainEntityQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
 	queries.SetUpdate(q.Query, cols)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for domain_identifiers")
+		return 0, errors.Wrap(err, "models: unable to update all for domain_entities")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for domain_identifiers")
+		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for domain_entities")
 	}
 
 	return rowsAff, nil
 }
 
 // UpdateAll updates all rows with the specified column values, using an executor.
-func (o DomainIdentifierSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
+func (o DomainEntitySlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, cols M) (int64, error) {
 	ln := int64(len(o))
 	if ln == 0 {
 		return 0, nil
@@ -1427,13 +1471,13 @@ func (o DomainIdentifierSlice) UpdateAll(ctx context.Context, exec boil.ContextE
 
 	// Append all of the primary key values for each column
 	for _, obj := range o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainIdentifierPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainEntityPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := fmt.Sprintf("UPDATE \"domain_identifiers\" SET %s WHERE %s",
+	sql := fmt.Sprintf("UPDATE \"domain_entities\" SET %s WHERE %s",
 		strmangle.SetParamNames("\"", "\"", 1, colNames),
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, domainIdentifierPrimaryKeyColumns, len(o)))
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), len(colNames)+1, domainEntityPrimaryKeyColumns, len(o)))
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1442,21 +1486,21 @@ func (o DomainIdentifierSlice) UpdateAll(ctx context.Context, exec boil.ContextE
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in domainIdentifier slice")
+		return 0, errors.Wrap(err, "models: unable to update all in domainEntity slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all domainIdentifier")
+		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all domainEntity")
 	}
 	return rowsAff, nil
 }
 
 // Upsert attempts an insert using an executor, and does an update or ignore on conflict.
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
-func (o *DomainIdentifier) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns, opts ...UpsertOptionFunc) error {
+func (o *DomainEntity) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns, opts ...UpsertOptionFunc) error {
 	if o == nil {
-		return errors.New("models: no domain_identifiers provided for upsert")
+		return errors.New("models: no domain_entities provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -1470,7 +1514,7 @@ func (o *DomainIdentifier) Upsert(ctx context.Context, exec boil.ContextExecutor
 		return err
 	}
 
-	nzDefaults := queries.NonZeroDefaultSet(domainIdentifierColumnsWithDefault, o)
+	nzDefaults := queries.NonZeroDefaultSet(domainEntityColumnsWithDefault, o)
 
 	// Build cache key in-line uglily - mysql vs psql problems
 	buf := strmangle.GetBuffer()
@@ -1500,48 +1544,48 @@ func (o *DomainIdentifier) Upsert(ctx context.Context, exec boil.ContextExecutor
 	key := buf.String()
 	strmangle.PutBuffer(buf)
 
-	domainIdentifierUpsertCacheMut.RLock()
-	cache, cached := domainIdentifierUpsertCache[key]
-	domainIdentifierUpsertCacheMut.RUnlock()
+	domainEntityUpsertCacheMut.RLock()
+	cache, cached := domainEntityUpsertCache[key]
+	domainEntityUpsertCacheMut.RUnlock()
 
 	var err error
 
 	if !cached {
 		insert, _ := insertColumns.InsertColumnSet(
-			domainIdentifierAllColumns,
-			domainIdentifierColumnsWithDefault,
-			domainIdentifierColumnsWithoutDefault,
+			domainEntityAllColumns,
+			domainEntityColumnsWithDefault,
+			domainEntityColumnsWithoutDefault,
 			nzDefaults,
 		)
 
 		update := updateColumns.UpdateColumnSet(
-			domainIdentifierAllColumns,
-			domainIdentifierPrimaryKeyColumns,
+			domainEntityAllColumns,
+			domainEntityPrimaryKeyColumns,
 		)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert domain_identifiers, could not build update column list")
+			return errors.New("models: unable to upsert domain_entities, could not build update column list")
 		}
 
-		ret := strmangle.SetComplement(domainIdentifierAllColumns, strmangle.SetIntersect(insert, update))
+		ret := strmangle.SetComplement(domainEntityAllColumns, strmangle.SetIntersect(insert, update))
 
 		conflict := conflictColumns
 		if len(conflict) == 0 && updateOnConflict && len(update) != 0 {
-			if len(domainIdentifierPrimaryKeyColumns) == 0 {
-				return errors.New("models: unable to upsert domain_identifiers, could not build conflict column list")
+			if len(domainEntityPrimaryKeyColumns) == 0 {
+				return errors.New("models: unable to upsert domain_entities, could not build conflict column list")
 			}
 
-			conflict = make([]string, len(domainIdentifierPrimaryKeyColumns))
-			copy(conflict, domainIdentifierPrimaryKeyColumns)
+			conflict = make([]string, len(domainEntityPrimaryKeyColumns))
+			copy(conflict, domainEntityPrimaryKeyColumns)
 		}
-		cache.query = buildUpsertQueryPostgres(dialect, "\"domain_identifiers\"", updateOnConflict, ret, update, conflict, insert, opts...)
+		cache.query = buildUpsertQueryPostgres(dialect, "\"domain_entities\"", updateOnConflict, ret, update, conflict, insert, opts...)
 
-		cache.valueMapping, err = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, insert)
+		cache.valueMapping, err = queries.BindMapping(domainEntityType, domainEntityMapping, insert)
 		if err != nil {
 			return err
 		}
 		if len(ret) != 0 {
-			cache.retMapping, err = queries.BindMapping(domainIdentifierType, domainIdentifierMapping, ret)
+			cache.retMapping, err = queries.BindMapping(domainEntityType, domainEntityMapping, ret)
 			if err != nil {
 				return err
 			}
@@ -1569,31 +1613,31 @@ func (o *DomainIdentifier) Upsert(ctx context.Context, exec boil.ContextExecutor
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert domain_identifiers")
+		return errors.Wrap(err, "models: unable to upsert domain_entities")
 	}
 
 	if !cached {
-		domainIdentifierUpsertCacheMut.Lock()
-		domainIdentifierUpsertCache[key] = cache
-		domainIdentifierUpsertCacheMut.Unlock()
+		domainEntityUpsertCacheMut.Lock()
+		domainEntityUpsertCache[key] = cache
+		domainEntityUpsertCacheMut.Unlock()
 	}
 
 	return o.doAfterUpsertHooks(ctx, exec)
 }
 
-// Delete deletes a single DomainIdentifier record with an executor.
+// Delete deletes a single DomainEntity record with an executor.
 // Delete will match against the primary key column to find the record to delete.
-func (o *DomainIdentifier) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (o *DomainEntity) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no DomainIdentifier provided for delete")
+		return 0, errors.New("models: no DomainEntity provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
 		return 0, err
 	}
 
-	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), domainIdentifierPrimaryKeyMapping)
-	sql := "DELETE FROM \"domain_identifiers\" WHERE \"id\"=$1"
+	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), domainEntityPrimaryKeyMapping)
+	sql := "DELETE FROM \"domain_entities\" WHERE \"id\"=$1"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1602,12 +1646,12 @@ func (o *DomainIdentifier) Delete(ctx context.Context, exec boil.ContextExecutor
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from domain_identifiers")
+		return 0, errors.Wrap(err, "models: unable to delete from domain_entities")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for domain_identifiers")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for domain_entities")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1618,33 +1662,33 @@ func (o *DomainIdentifier) Delete(ctx context.Context, exec boil.ContextExecutor
 }
 
 // DeleteAll deletes all matching rows.
-func (q domainIdentifierQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (q domainEntityQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no domainIdentifierQuery provided for delete all")
+		return 0, errors.New("models: no domainEntityQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from domain_identifiers")
+		return 0, errors.Wrap(err, "models: unable to delete all from domain_entities")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for domain_identifiers")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for domain_entities")
 	}
 
 	return rowsAff, nil
 }
 
 // DeleteAll deletes all rows in the slice, using an executor.
-func (o DomainIdentifierSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
+func (o DomainEntitySlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if len(o) == 0 {
 		return 0, nil
 	}
 
-	if len(domainIdentifierBeforeDeleteHooks) != 0 {
+	if len(domainEntityBeforeDeleteHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doBeforeDeleteHooks(ctx, exec); err != nil {
 				return 0, err
@@ -1654,12 +1698,12 @@ func (o DomainIdentifierSlice) DeleteAll(ctx context.Context, exec boil.ContextE
 
 	var args []any
 	for _, obj := range o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainIdentifierPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainEntityPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "DELETE FROM \"domain_identifiers\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, domainIdentifierPrimaryKeyColumns, len(o))
+	sql := "DELETE FROM \"domain_entities\" WHERE " +
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, domainEntityPrimaryKeyColumns, len(o))
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1668,15 +1712,15 @@ func (o DomainIdentifierSlice) DeleteAll(ctx context.Context, exec boil.ContextE
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from domainIdentifier slice")
+		return 0, errors.Wrap(err, "models: unable to delete all from domainEntity slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for domain_identifiers")
+		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for domain_entities")
 	}
 
-	if len(domainIdentifierAfterDeleteHooks) != 0 {
+	if len(domainEntityAfterDeleteHooks) != 0 {
 		for _, obj := range o {
 			if err := obj.doAfterDeleteHooks(ctx, exec); err != nil {
 				return 0, err
@@ -1689,8 +1733,8 @@ func (o DomainIdentifierSlice) DeleteAll(ctx context.Context, exec boil.ContextE
 
 // Reload refetches the object from the database
 // using the primary keys with an executor.
-func (o *DomainIdentifier) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindDomainIdentifier(ctx, exec, o.ID)
+func (o *DomainEntity) Reload(ctx context.Context, exec boil.ContextExecutor) error {
+	ret, err := FindDomainEntity(ctx, exec, o.ID)
 	if err != nil {
 		return err
 	}
@@ -1701,26 +1745,26 @@ func (o *DomainIdentifier) Reload(ctx context.Context, exec boil.ContextExecutor
 
 // ReloadAll refetches every row with matching primary key column values
 // and overwrites the original object slice with the newly updated slice.
-func (o *DomainIdentifierSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) error {
+func (o *DomainEntitySlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) error {
 	if o == nil || len(*o) == 0 {
 		return nil
 	}
 
-	slice := DomainIdentifierSlice{}
+	slice := DomainEntitySlice{}
 	var args []any
 	for _, obj := range *o {
-		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainIdentifierPrimaryKeyMapping)
+		pkeyArgs := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(obj)), domainEntityPrimaryKeyMapping)
 		args = append(args, pkeyArgs...)
 	}
 
-	sql := "SELECT \"domain_identifiers\".* FROM \"domain_identifiers\" WHERE " +
-		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, domainIdentifierPrimaryKeyColumns, len(*o))
+	sql := "SELECT \"domain_entities\".* FROM \"domain_entities\" WHERE " +
+		strmangle.WhereClauseRepeated(string(dialect.LQ), string(dialect.RQ), 1, domainEntityPrimaryKeyColumns, len(*o))
 
 	q := queries.Raw(sql, args...)
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in DomainIdentifierSlice")
+		return errors.Wrap(err, "models: unable to reload all in DomainEntitySlice")
 	}
 
 	*o = slice
@@ -1728,10 +1772,10 @@ func (o *DomainIdentifierSlice) ReloadAll(ctx context.Context, exec boil.Context
 	return nil
 }
 
-// DomainIdentifierExists checks if the DomainIdentifier row exists.
-func DomainIdentifierExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
+// DomainEntityExists checks if the DomainEntity row exists.
+func DomainEntityExists(ctx context.Context, exec boil.ContextExecutor, iD int64) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"domain_identifiers\" where \"id\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"domain_entities\" where \"id\"=$1 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1742,13 +1786,13 @@ func DomainIdentifierExists(ctx context.Context, exec boil.ContextExecutor, iD i
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if domain_identifiers exists")
+		return false, errors.Wrap(err, "models: unable to check if domain_entities exists")
 	}
 
 	return exists, nil
 }
 
-// Exists checks if the DomainIdentifier row exists.
-func (o *DomainIdentifier) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
-	return DomainIdentifierExists(ctx, exec, o.ID)
+// Exists checks if the DomainEntity row exists.
+func (o *DomainEntity) Exists(ctx context.Context, exec boil.ContextExecutor) (bool, error) {
+	return DomainEntityExists(ctx, exec, o.ID)
 }

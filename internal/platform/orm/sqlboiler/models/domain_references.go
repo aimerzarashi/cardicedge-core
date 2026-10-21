@@ -80,8 +80,8 @@ var DomainReferenceRels = struct {
 // domainReferenceR is where relationships are stored.
 type domainReferenceR struct {
 	ReferenceType *DomainReferenceType `boil:"ReferenceType" json:"ReferenceType" toml:"ReferenceType" yaml:"ReferenceType"`
-	Referenced    *DomainIdentifier    `boil:"Referenced" json:"Referenced" toml:"Referenced" yaml:"Referenced"`
-	Referencing   *DomainIdentifier    `boil:"Referencing" json:"Referencing" toml:"Referencing" yaml:"Referencing"`
+	Referenced    *DomainEntity        `boil:"Referenced" json:"Referenced" toml:"Referenced" yaml:"Referenced"`
+	Referencing   *DomainEntity        `boil:"Referencing" json:"Referencing" toml:"Referencing" yaml:"Referencing"`
 }
 
 // NewStruct creates a new relationship struct
@@ -105,7 +105,7 @@ func (r *domainReferenceR) GetReferenceType() *DomainReferenceType {
 	return r.ReferenceType
 }
 
-func (o *DomainReference) GetReferenced() *DomainIdentifier {
+func (o *DomainReference) GetReferenced() *DomainEntity {
 	if o == nil {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (o *DomainReference) GetReferenced() *DomainIdentifier {
 	return o.R.GetReferenced()
 }
 
-func (r *domainReferenceR) GetReferenced() *DomainIdentifier {
+func (r *domainReferenceR) GetReferenced() *DomainEntity {
 	if r == nil {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (r *domainReferenceR) GetReferenced() *DomainIdentifier {
 	return r.Referenced
 }
 
-func (o *DomainReference) GetReferencing() *DomainIdentifier {
+func (o *DomainReference) GetReferencing() *DomainEntity {
 	if o == nil {
 		return nil
 	}
@@ -129,7 +129,7 @@ func (o *DomainReference) GetReferencing() *DomainIdentifier {
 	return o.R.GetReferencing()
 }
 
-func (r *domainReferenceR) GetReferencing() *DomainIdentifier {
+func (r *domainReferenceR) GetReferencing() *DomainEntity {
 	if r == nil {
 		return nil
 	}
@@ -465,25 +465,25 @@ func (o *DomainReference) ReferenceType(mods ...qm.QueryMod) domainReferenceType
 }
 
 // Referenced pointed to by the foreign key.
-func (o *DomainReference) Referenced(mods ...qm.QueryMod) domainIdentifierQuery {
+func (o *DomainReference) Referenced(mods ...qm.QueryMod) domainEntityQuery {
 	queryMods := []qm.QueryMod{
 		qm.Where("\"id\" = ?", o.ReferencedID),
 	}
 
 	queryMods = append(queryMods, mods...)
 
-	return DomainIdentifiers(queryMods...)
+	return DomainEntities(queryMods...)
 }
 
 // Referencing pointed to by the foreign key.
-func (o *DomainReference) Referencing(mods ...qm.QueryMod) domainIdentifierQuery {
+func (o *DomainReference) Referencing(mods ...qm.QueryMod) domainEntityQuery {
 	queryMods := []qm.QueryMod{
 		qm.Where("\"id\" = ?", o.ReferencingID),
 	}
 
 	queryMods = append(queryMods, mods...)
 
-	return DomainIdentifiers(queryMods...)
+	return DomainEntities(queryMods...)
 }
 
 // LoadReferenceType allows an eager lookup of values, cached into the
@@ -664,8 +664,8 @@ func (domainReferenceL) LoadReferenced(ctx context.Context, e boil.ContextExecut
 	}
 
 	query := NewQuery(
-		qm.From(`domain_identifiers`),
-		qm.WhereIn(`domain_identifiers.id in ?`, argsSlice...),
+		qm.From(`domain_entities`),
+		qm.WhereIn(`domain_entities.id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -673,22 +673,22 @@ func (domainReferenceL) LoadReferenced(ctx context.Context, e boil.ContextExecut
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load DomainIdentifier")
+		return errors.Wrap(err, "failed to eager load DomainEntity")
 	}
 
-	var resultSlice []*DomainIdentifier
+	var resultSlice []*DomainEntity
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice DomainIdentifier")
+		return errors.Wrap(err, "failed to bind eager loaded slice DomainEntity")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for domain_identifiers")
+		return errors.Wrap(err, "failed to close results of eager load for domain_entities")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_identifiers")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_entities")
 	}
 
-	if len(domainIdentifierAfterSelectHooks) != 0 {
+	if len(domainEntityAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -704,7 +704,7 @@ func (domainReferenceL) LoadReferenced(ctx context.Context, e boil.ContextExecut
 		foreign := resultSlice[0]
 		object.R.Referenced = foreign
 		if foreign.R == nil {
-			foreign.R = &domainIdentifierR{}
+			foreign.R = &domainEntityR{}
 		}
 		foreign.R.ReferencedDomainReferences = append(foreign.R.ReferencedDomainReferences, object)
 		return nil
@@ -715,7 +715,7 @@ func (domainReferenceL) LoadReferenced(ctx context.Context, e boil.ContextExecut
 			if local.ReferencedID == foreign.ID {
 				local.R.Referenced = foreign
 				if foreign.R == nil {
-					foreign.R = &domainIdentifierR{}
+					foreign.R = &domainEntityR{}
 				}
 				foreign.R.ReferencedDomainReferences = append(foreign.R.ReferencedDomainReferences, local)
 				break
@@ -784,8 +784,8 @@ func (domainReferenceL) LoadReferencing(ctx context.Context, e boil.ContextExecu
 	}
 
 	query := NewQuery(
-		qm.From(`domain_identifiers`),
-		qm.WhereIn(`domain_identifiers.id in ?`, argsSlice...),
+		qm.From(`domain_entities`),
+		qm.WhereIn(`domain_entities.id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -793,22 +793,22 @@ func (domainReferenceL) LoadReferencing(ctx context.Context, e boil.ContextExecu
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load DomainIdentifier")
+		return errors.Wrap(err, "failed to eager load DomainEntity")
 	}
 
-	var resultSlice []*DomainIdentifier
+	var resultSlice []*DomainEntity
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice DomainIdentifier")
+		return errors.Wrap(err, "failed to bind eager loaded slice DomainEntity")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for domain_identifiers")
+		return errors.Wrap(err, "failed to close results of eager load for domain_entities")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_identifiers")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_entities")
 	}
 
-	if len(domainIdentifierAfterSelectHooks) != 0 {
+	if len(domainEntityAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -824,7 +824,7 @@ func (domainReferenceL) LoadReferencing(ctx context.Context, e boil.ContextExecu
 		foreign := resultSlice[0]
 		object.R.Referencing = foreign
 		if foreign.R == nil {
-			foreign.R = &domainIdentifierR{}
+			foreign.R = &domainEntityR{}
 		}
 		foreign.R.ReferencingDomainReferences = append(foreign.R.ReferencingDomainReferences, object)
 		return nil
@@ -835,7 +835,7 @@ func (domainReferenceL) LoadReferencing(ctx context.Context, e boil.ContextExecu
 			if local.ReferencingID == foreign.ID {
 				local.R.Referencing = foreign
 				if foreign.R == nil {
-					foreign.R = &domainIdentifierR{}
+					foreign.R = &domainEntityR{}
 				}
 				foreign.R.ReferencingDomainReferences = append(foreign.R.ReferencingDomainReferences, local)
 				break
@@ -896,7 +896,7 @@ func (o *DomainReference) SetReferenceType(ctx context.Context, exec boil.Contex
 // SetReferenced of the domainReference to the related item.
 // Sets o.R.Referenced to related.
 // Adds o to related.R.ReferencedDomainReferences.
-func (o *DomainReference) SetReferenced(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainIdentifier) error {
+func (o *DomainReference) SetReferenced(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainEntity) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -930,7 +930,7 @@ func (o *DomainReference) SetReferenced(ctx context.Context, exec boil.ContextEx
 	}
 
 	if related.R == nil {
-		related.R = &domainIdentifierR{
+		related.R = &domainEntityR{
 			ReferencedDomainReferences: DomainReferenceSlice{o},
 		}
 	} else {
@@ -943,7 +943,7 @@ func (o *DomainReference) SetReferenced(ctx context.Context, exec boil.ContextEx
 // SetReferencing of the domainReference to the related item.
 // Sets o.R.Referencing to related.
 // Adds o to related.R.ReferencingDomainReferences.
-func (o *DomainReference) SetReferencing(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainIdentifier) error {
+func (o *DomainReference) SetReferencing(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainEntity) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -977,7 +977,7 @@ func (o *DomainReference) SetReferencing(ctx context.Context, exec boil.ContextE
 	}
 
 	if related.R == nil {
-		related.R = &domainIdentifierR{
+		related.R = &domainEntityR{
 			ReferencingDomainReferences: DomainReferenceSlice{o},
 		}
 	} else {

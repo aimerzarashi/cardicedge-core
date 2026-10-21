@@ -4,11 +4,11 @@
 package models
 
 var TableNames = struct {
-	CardLists                  string
+	Cards                      string
+	DomainEntities             string
 	DomainEntityTypes          string
 	DomainEventTypes           string
 	DomainEvents               string
-	DomainIdentifiers          string
 	DomainReferenceTypes       string
 	DomainReferences           string
 	DomainUniqueKeyTypes       string
@@ -17,14 +17,14 @@ var TableNames = struct {
 	EventSubscriberPending     string
 	EventSubscribers           string
 	EventSubscriptions         string
-	PresetDeckLists            string
+	PresetDecks                string
 	StarterDeckSets            string
 }{
-	CardLists:                  "card_lists",
+	Cards:                      "cards",
+	DomainEntities:             "domain_entities",
 	DomainEntityTypes:          "domain_entity_types",
 	DomainEventTypes:           "domain_event_types",
 	DomainEvents:               "domain_events",
-	DomainIdentifiers:          "domain_identifiers",
 	DomainReferenceTypes:       "domain_reference_types",
 	DomainReferences:           "domain_references",
 	DomainUniqueKeyTypes:       "domain_unique_key_types",
@@ -33,6 +33,6 @@ var TableNames = struct {
 	EventSubscriberPending:     "event_subscriber_pending",
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
-	PresetDeckLists:            "preset_deck_lists",
+	PresetDecks:                "preset_decks",
 	StarterDeckSets:            "starter_deck_sets",
 }

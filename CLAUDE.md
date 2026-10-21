@@ -14,10 +14,11 @@
 | internal/wiring/studio | studio 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、studio の read model の投影の登録 |
 | internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
 | internal/studio/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/studio/app/command | コマンド（オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
+| internal/studio/app/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
 | internal/studio/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
-| internal/studio/app/query/readmodel | read model の状態の型と、イベントから状態を作る `Evolve`・`IsTerminal`（カードの一覧 `CardList` 等） |
-| internal/studio/inf/repository | read model の DB の読み書き（投影が書く `Upsert...`・`Delete...`） |
+| internal/studio/app/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
+| internal/studio/app/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
+| internal/studio/inf/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の対応。起動時に読み込み、ドメインの宣言と照合する |
@@ -65,6 +66,8 @@
 
 # イベントストアと GraphQL
 
+- 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
+- read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
 - 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の `registry.Verify`（internal/wiring）と domaindef のテストにその集約の `Types()` を足す
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
@@ -77,7 +80,7 @@
 - uif は app 層の型だけを使い、ドメインの型（internal/domain）を import しない。app 層のコマンドは素の値を受け取り、app 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（uif/graphql/model）にも依存させない
 - 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。app 層の `input.Errors`（internal/studio/app/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、app 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は uif に書き写さない
 - 一意性の制約は、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするかはドメインが宣言する: key の種別の名前（`UniqueKeyTypes()`。domain_unique_key_types と起動時に照合する）と、key の作り方（`EmailKey`・`SubjectKey`・`card.NameKey` 等。正規化・複数の値のつなぎ方はここだけで決める）。制約を足すときは、key の種別のマイグレーション（domain_unique_key_types への INSERT）と、ドメインの宣言、domaindef のテストへの追加だけでよい
-- 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/unique_key.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きと、主キー・`IN` で引くような単純な読み出しでは使う。キーセットのページ分け（行の比べ方）や `LIKE ... ESCAPE` の部分一致を使う一覧の読み出しは、sqlboiler の条件の部品に無く `qm.Where` に SQL の断片を書くだけになるため、SQL を直接書く（repository の `ListCards`）
+- 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/unique_key.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きと、主キー・`IN` で引くような単純な読み出しでは使う。キーセットのページ分け（行の比べ方）や `LIKE ... ESCAPE` の部分一致を使う一覧の読み出しは、sqlboiler の条件の部品に無く `qm.Where` に SQL の断片を書くだけになるため、SQL を直接書く（repository の `CardReader.List`）
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go・item.go・spell.go 等）をかぶせ、ID の型は種類ごとの関数で守る
 - テストで一意性の key から集約を引くとき・参照を読むときは constrainttest を使う（テストに制約の表の作りを書かない）
 - 集約どうしの参照（参照されている間は消せない）は、1 つの表 domain_references で持つ（一意性と同じく、参照ごとに表を作らない。core#24）。参照する側を消せば参照も消え（ON DELETE CASCADE）、参照されている側の識別子は消せない（ON DELETE RESTRICT）。何が何を参照するか（参照の種別）は参照する側の集約が宣言する（`ReferenceTypes()`。domain_reference_types と起動時に照合する）

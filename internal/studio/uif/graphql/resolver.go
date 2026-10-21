@@ -10,47 +10,47 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query"
 )
 
-// 実装は command.CreatureCommands
+// 実装は command.CreatureHandler
 type CreatureRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredCreature, error)
 }
 
-// 実装は command.ItemCommands
+// 実装は command.ItemHandler
 type ItemRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredItem, error)
 }
 
-// 実装は command.SpellCommands
+// 実装は command.SpellHandler
 type SpellRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredSpell, error)
 }
 
-// 実装は command.PresetDeckCommands
-type PresetDeckCommands interface {
+// 実装は command.PresetDeckHandler
+type PresetDeckHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedPresetDeck, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedPresetDeck, error)
 	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedPresetDeck, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
 }
 
-// 実装は query.CardList
+// 実装は query.CardHandler
 type CardLister interface {
 	CardGetter
 	List(ctx context.Context, filter query.CardFilter, first *int, after *string) (pagination.Connection[query.Card], error)
 }
 
-// 実装は query.PresetDeckList
+// 実装は query.PresetDeckHandler
 type PresetDeckLister interface {
 	List(ctx context.Context, filter query.PresetDeckFilter, first *int, after *string) (pagination.Connection[query.PresetDeck], error)
 	Get(ctx context.Context, id uuid.UUID) (query.PresetDeck, error)
 }
 
-// 実装は command.StarterDeckSetCommands
-type StarterDeckSetCommands interface {
+// 実装は command.StarterDeckSetHandler
+type StarterDeckSetHandler interface {
 	Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (command.ChangedStarterDeckSet, error)
 }
 
-// 実装は query.StarterDeckSetQuery
+// 実装は query.StarterDeckSetHandler
 type StarterDeckSetGetter interface {
 	Get(ctx context.Context) (query.StarterDeckSet, error)
 }
@@ -60,10 +60,10 @@ type Resolver struct {
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
 	spells          SpellRegistrar
-	presetDecks     PresetDeckCommands
+	presetDecks     PresetDeckHandler
 	cards           CardLister
 	presetDeckList  PresetDeckLister
-	starterDeckSets StarterDeckSetCommands
+	starterDeckSets StarterDeckSetHandler
 	starterDeckSet  StarterDeckSetGetter
 }
 
@@ -72,10 +72,10 @@ func NewResolver(
 	creatures CreatureRegistrar,
 	items ItemRegistrar,
 	spells SpellRegistrar,
-	presetDecks PresetDeckCommands,
+	presetDecks PresetDeckHandler,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
-	starterDeckSets StarterDeckSetCommands,
+	starterDeckSets StarterDeckSetHandler,
 	starterDeckSet StarterDeckSetGetter,
 ) *Resolver {
 	return &Resolver{

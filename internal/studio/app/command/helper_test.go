@@ -43,11 +43,11 @@ func registrant(t *testing.T) operator.ID {
 	return operatortest.ID(t, 10)
 }
 
-func newPresetDeckCommands(t *testing.T, ctx context.Context) *command.PresetDeckCommands {
+func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeckHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewPresetDeckCommands(
+	return command.NewPresetDeckHandler(
 		presetDeckStore(registry),
 		identifier.New(registry, presetdeck.NewID),
 		identifier.NewEntityRefResolver(registry),
@@ -84,7 +84,7 @@ func internalID(t *testing.T, ctx context.Context, publicID uuid.UUID) int64 {
 
 func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.ChangedPresetDeck {
 	t.Helper()
-	registered, err := newPresetDeckCommands(t, ctx).Register(ctx, name)
+	registered, err := newPresetDeckHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 	return registered
 }

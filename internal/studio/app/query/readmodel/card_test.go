@@ -28,18 +28,18 @@ func registeredCreature(t *testing.T, publicID uuid.UUID, name string, at time.T
 	return events
 }
 
-func TestCardList_EvolvesFromCreatureRegistered(t *testing.T) {
+func TestCard_EvolvesFromCreatureRegistered(t *testing.T) {
 	publicID := uuid.New()
 	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
 	events := registeredCreature(t, publicID, "Ｄragon", at)
 
-	var state readmodel.CardList
+	var state readmodel.Card
 	for _, event := range events {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardListMetadata{ID: publicID, Name: "Ｄragon", RegisteredAt: at, UpdatedAt: at}
-	require.Equal(t, readmodel.CardList{
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", RegisteredAt: at, UpdatedAt: at}
+	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeCreature,
 		// 並べ替え・検索は正規化した名前、表示は入力どおりの名前
@@ -58,18 +58,18 @@ func registeredItem(t *testing.T, publicID uuid.UUID, name string, at time.Time)
 	return events
 }
 
-func TestCardList_EvolvesFromItemRegistered(t *testing.T) {
+func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 	publicID := uuid.New()
 	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
 	events := registeredItem(t, publicID, "Ｐotion", at)
 
-	var state readmodel.CardList
+	var state readmodel.Card
 	for _, event := range events {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardListMetadata{ID: publicID, Name: "Ｐotion", RegisteredAt: at, UpdatedAt: at}
-	require.Equal(t, readmodel.CardList{
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", RegisteredAt: at, UpdatedAt: at}
+	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeItem,
 		SortName: "potion",
@@ -87,18 +87,18 @@ func registeredSpell(t *testing.T, publicID uuid.UUID, name string, at time.Time
 	return events
 }
 
-func TestCardList_EvolvesFromSpellRegistered(t *testing.T) {
+func TestCard_EvolvesFromSpellRegistered(t *testing.T) {
 	publicID := uuid.New()
 	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
 	events := registeredSpell(t, publicID, "Ｆireball", at)
 
-	var state readmodel.CardList
+	var state readmodel.Card
 	for _, event := range events {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardListMetadata{ID: publicID, Name: "Ｆireball", RegisteredAt: at, UpdatedAt: at}
-	require.Equal(t, readmodel.CardList{
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｆireball", RegisteredAt: at, UpdatedAt: at}
+	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeSpell,
 		SortName: "fireball",
@@ -107,8 +107,8 @@ func TestCardList_EvolvesFromSpellRegistered(t *testing.T) {
 	require.False(t, state.IsTerminal())
 }
 
-func TestCardList_IgnoresEventsOfOtherAggregates(t *testing.T) {
-	state := readmodel.CardList{CardID: uuid.New(), CardType: readmodel.CardTypeCreature}
+func TestCard_IgnoresEventsOfOtherAggregates(t *testing.T) {
+	state := readmodel.Card{CardID: uuid.New(), CardType: readmodel.CardTypeCreature}
 
 	evolved := state.Evolve(&operator.RegisteredEvent{})
 

@@ -17,7 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-type PresetDeckCommands struct {
+type PresetDeckHandler struct {
 	eventStore domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State]
 	identifier domain.Identifier[presetdeck.ID]
 	entityRefs domain.EntityRefResolver
@@ -27,15 +27,15 @@ type PresetDeckCommands struct {
 	now                  func() time.Time
 }
 
-func NewPresetDeckCommands(
+func NewPresetDeckHandler(
 	eventStore domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State],
 	identifier domain.Identifier[presetdeck.ID],
 	entityRefs domain.EntityRefResolver,
 	updateName presetdeck.UpdateNameFunc,
 	updateCardReferences presetdeck.UpdateCardReferencesFunc,
 	now func() time.Time,
-) *PresetDeckCommands {
-	return &PresetDeckCommands{
+) *PresetDeckHandler {
+	return &PresetDeckHandler{
 		eventStore:           eventStore,
 		identifier:           identifier,
 		entityRefs:           entityRefs,
@@ -54,7 +54,7 @@ type ChangedPresetDeck struct {
 }
 
 // 操作した人は context のオペレーター。入力の誤りは input.Errors、使われている名前なら ErrPresetDeckNameAlreadyInUse
-func (c *PresetDeckCommands) Register(ctx context.Context, name string) (ChangedPresetDeck, error) {
+func (c *PresetDeckHandler) Register(ctx context.Context, name string) (ChangedPresetDeck, error) {
 	registeredBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedPresetDeck{}, ErrNotOperator
@@ -86,7 +86,7 @@ func (c *PresetDeckCommands) Register(ctx context.Context, name string) (Changed
 
 // revision は画面で見たプリセットデッキの版。無い・削除したなら ErrPresetDeckNotFound、
 // 画面を開いた後にほかの操作で変わっていれば ErrRevisionConflict、使われている名前なら ErrPresetDeckNameAlreadyInUse
-func (c *PresetDeckCommands) Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (ChangedPresetDeck, error) {
+func (c *PresetDeckHandler) Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (ChangedPresetDeck, error) {
 	renamedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedPresetDeck{}, ErrNotOperator
@@ -125,7 +125,7 @@ type CardCountInput struct {
 // （MaxTotalCount 件を超える）・カードが無い（Creature・Item・Spell のどれでもない）・枚数が範囲の外・同じカードが 2 回出てきた
 // （2 回目に付ける）・変えた後の合計が MaxTotalCount を超える。空の一覧は誤りにしない（変わらない操作として扱う）。
 // ほかのエラーは Rename と同じ
-func (c *PresetDeckCommands) SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []CardCountInput) (ChangedPresetDeck, error) {
+func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []CardCountInput) (ChangedPresetDeck, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedPresetDeck{}, ErrNotOperator
@@ -158,7 +158,7 @@ func (c *PresetDeckCommands) SetCardCounts(ctx context.Context, id uuid.UUID, re
 
 // 誤りは最初の 1 つで止めず、まとめて input.Errors で返す。項目名は cards.<番号>.cardId のように一覧の位置を含める。
 // 一覧が長すぎるときは、1 件ずつの確かめをせずに返す（存在しない ID を大量に送られても、その数だけ処理しないため）
-func (c *PresetDeckCommands) cardCounts(ctx context.Context, cards []CardCountInput) (map[presetdeck.CardRef]presetdeck.CardCount, error) {
+func (c *PresetDeckHandler) cardCounts(ctx context.Context, cards []CardCountInput) (map[presetdeck.CardRef]presetdeck.CardCount, error) {
 	if len(cards) > presetdeck.MaxTotalCount {
 		return nil, input.Errors{&input.OutOfRange{Field: "cards", Min: 0, Max: presetdeck.MaxTotalCount}}
 	}
@@ -202,7 +202,7 @@ func (c *PresetDeckCommands) cardCounts(ctx context.Context, cards []CardCountIn
 }
 
 // 削除のイベントと一緒に識別子を消し、名前をほかのプリセットデッキが使えるようにする（core#24）。エラーは Rename と同じ
-func (c *PresetDeckCommands) Delete(ctx context.Context, id uuid.UUID, revision int64) error {
+func (c *PresetDeckHandler) Delete(ctx context.Context, id uuid.UUID, revision int64) error {
 	deletedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ErrNotOperator
@@ -227,7 +227,7 @@ func (c *PresetDeckCommands) Delete(ctx context.Context, id uuid.UUID, revision 
 // revision は Load の直後に比べる。保存のときの版の衝突（eventstore）が守るのは、この Load から保存までの間だけで、
 // 画面を開いてから操作するまでに変わったことは見つけられないため。変わらない操作（同じ名前など）でも、
 // 古い画面を見て操作したことを知らせるため、比べてから進める
-func (c *PresetDeckCommands) load(ctx context.Context, publicID uuid.UUID, revision int64) (presetdeck.PresetDeck, error) {
+func (c *PresetDeckHandler) load(ctx context.Context, publicID uuid.UUID, revision int64) (presetdeck.PresetDeck, error) {
 	id, err := c.identifier.Resolve(ctx, publicID)
 	if errors.Is(err, domain.ErrEntityNotFound) {
 		return presetdeck.PresetDeck{}, ErrPresetDeckNotFound
@@ -249,7 +249,7 @@ func (c *PresetDeckCommands) load(ctx context.Context, publicID uuid.UUID, revis
 	return deck, nil
 }
 
-func (c *PresetDeckCommands) decideAndSave(ctx context.Context, state presetdeck.State, cmd presetdeck.Command) (presetdeck.PresetDeck, error) {
+func (c *PresetDeckHandler) decideAndSave(ctx context.Context, state presetdeck.State, cmd presetdeck.Command) (presetdeck.PresetDeck, error) {
 	events, err := presetdeck.Decide(state, cmd, c.now())
 	if err != nil {
 		return presetdeck.PresetDeck{}, err

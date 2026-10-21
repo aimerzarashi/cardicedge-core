@@ -10,11 +10,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
-// preset_deck_lists の 1 行。個別の列（SortName・TotalCount）は並べ替え・絞り込み用、Metadata は表示用
-type PresetDeckList struct {
+// preset_decks の 1 行。個別の列（SortName・TotalCount）は並べ替え・絞り込み用、Metadata は表示用
+type PresetDeck struct {
 	PresetDeckID uuid.UUID
 	SortName     string
-	Metadata     PresetDeckListMetadata
+	Metadata     PresetDeckMetadata
 	// 入れたカードと枚数（0 のカードは持たない）。イベントはカードを内部 ID で持ち、Evolve は DB を読めないため、
 	// 書くときに repository が公開 ID に引き直して Metadata.Cards にする
 	Cards map[presetdeck.CardRef]int
@@ -23,22 +23,22 @@ type PresetDeckList struct {
 }
 
 // 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）。Cards は repository が書くときに埋める
-type PresetDeckListMetadata struct {
+type PresetDeckMetadata struct {
 	ID       uuid.UUID `json:"id"`
 	Name     string    `json:"name"`
 	Revision int64     `json:"revision"`
-	// カード名・種類は書き写さない（カードの名前の変更のたびに直す必要が出ないよう、読むときに card_lists から引く。core#24）
-	Cards        []PresetDeckListCard `json:"cards"`
-	RegisteredAt time.Time            `json:"registered_at"`
-	UpdatedAt    time.Time            `json:"updated_at"`
+	// カード名・種類は書き写さない（カードの名前の変更のたびに直す必要が出ないよう、読むときに cards から引く。core#24）
+	Cards        []DeckCard `json:"cards"`
+	RegisteredAt time.Time  `json:"registered_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
-type PresetDeckListCard struct {
+type DeckCard struct {
 	CardID uuid.UUID `json:"card_id"`
 	Count  int       `json:"count"`
 }
 
-func (state PresetDeckList) TotalCount() int {
+func (state PresetDeck) TotalCount() int {
 	total := 0
 	for _, count := range state.Cards {
 		total += count
@@ -47,13 +47,13 @@ func (state PresetDeckList) TotalCount() int {
 }
 
 // プリセットデッキのイベントだけを扱い、ほかは状態をそのまま返す。状態を書き換えないよう、カードの一覧は写してから変える
-func (state PresetDeckList) Evolve(event any) PresetDeckList {
+func (state PresetDeck) Evolve(event any) PresetDeck {
 	switch e := event.(type) {
 	case *presetdeck.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.PresetDeckID = e.PublicID
 		state.SortName = card.NormalizeName(e.Name.String())
-		state.Metadata = PresetDeckListMetadata{
+		state.Metadata = PresetDeckMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
@@ -79,12 +79,12 @@ func (state PresetDeckList) Evolve(event any) PresetDeckList {
 	return state
 }
 
-func (state PresetDeckList) touched(revision int64, at time.Time) PresetDeckList {
+func (state PresetDeck) touched(revision int64, at time.Time) PresetDeck {
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = at
 	return state
 }
 
-func (state PresetDeckList) IsTerminal() bool {
+func (state PresetDeck) IsTerminal() bool {
 	return state.IsDeleted
 }

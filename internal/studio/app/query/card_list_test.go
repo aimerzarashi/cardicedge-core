@@ -48,11 +48,11 @@ func encode(t *testing.T, cursor query.CardListCursor) string {
 	return encoded
 }
 
-func TestCardList_PassesNormalizedConditionToReader(t *testing.T) {
+func TestCardHandler_PassesNormalizedConditionToReader(t *testing.T) {
 	reader := &fakeReader{}
 	filter := query.CardFilter{NameContains: ptr("  Ｄra "), Types: []readmodel.CardType{readmodel.CardTypeCreature}}
 
-	_, err := query.NewCardList(reader.list, nil).List(t.Context(), filter, ptr(10), nil)
+	_, err := query.NewCardHandler(reader.list, nil).List(t.Context(), filter, ptr(10), nil)
 
 	require.NoError(t, err)
 	require.Equal(t, query.ListCardsCondition{
@@ -63,18 +63,18 @@ func TestCardList_PassesNormalizedConditionToReader(t *testing.T) {
 	}, reader.condition)
 }
 
-func TestCardList_PassesDecodedAfterCursorToReader(t *testing.T) {
+func TestCardHandler_PassesDecodedAfterCursorToReader(t *testing.T) {
 	reader := &fakeReader{}
 	after := query.CardListCursor{CardType: readmodel.CardTypeItem, SortName: "dragon", CardID: uuid.New()}
 
-	_, err := query.NewCardList(reader.list, nil).List(t.Context(), query.CardFilter{}, nil, ptr(encode(t, after)))
+	_, err := query.NewCardHandler(reader.list, nil).List(t.Context(), query.CardFilter{}, nil, ptr(encode(t, after)))
 
 	require.NoError(t, err)
 	require.Equal(t, &after, reader.condition.After)
 	require.Equal(t, pagination.DefaultFirst+1, reader.condition.Limit)
 }
 
-func TestCardList_RejectsInvalidInput(t *testing.T) {
+func TestCardHandler_RejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name   string
 		filter func() query.CardFilter
@@ -114,7 +114,7 @@ func TestCardList_RejectsInvalidInput(t *testing.T) {
 				filter = tt.filter()
 			}
 
-			_, err := query.NewCardList(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
+			_, err := query.NewCardHandler(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -124,31 +124,31 @@ func TestCardList_RejectsInvalidInput(t *testing.T) {
 	}
 }
 
-func TestCardList_RejectsCursorWithUnknownCardType(t *testing.T) {
+func TestCardHandler_RejectsCursorWithUnknownCardType(t *testing.T) {
 	reader := &fakeReader{}
 	// 種類の型は 1〜3 しか作れないため、JSON から作る
 	after := base64.RawURLEncoding.EncodeToString([]byte(`{"t":9,"n":"dragon","i":"` + uuid.NewString() + `"}`))
 
-	_, err := query.NewCardList(reader.list, nil).List(t.Context(), query.CardFilter{}, nil, &after)
+	_, err := query.NewCardHandler(reader.list, nil).List(t.Context(), query.CardFilter{}, nil, &after)
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "after"}}, invalid)
 }
 
-func TestCardList_ReportsAllInvalidInputs(t *testing.T) {
-	_, err := query.NewCardList((&fakeReader{}).list, nil).List(t.Context(), query.CardFilter{NameContains: ptr("")}, ptr(0), nil)
+func TestCardHandler_ReportsAllInvalidInputs(t *testing.T) {
+	_, err := query.NewCardHandler((&fakeReader{}).list, nil).List(t.Context(), query.CardFilter{NameContains: ptr("")}, ptr(0), nil)
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
 	require.Len(t, invalid, 2)
 }
 
-func TestCardList_ReturnsCardsWithCursorsAndNextPage(t *testing.T) {
+func TestCardHandler_ReturnsCardsWithCursorsAndNextPage(t *testing.T) {
 	rows := []query.CardListRow{row("Apple"), row("Banana"), row("Cherry")}
 	reader := &fakeReader{rows: rows}
 
-	connection, err := query.NewCardList(reader.list, nil).List(t.Context(), query.CardFilter{}, ptr(2), nil)
+	connection, err := query.NewCardHandler(reader.list, nil).List(t.Context(), query.CardFilter{}, ptr(2), nil)
 
 	require.NoError(t, err)
 	require.Len(t, connection.Edges, 2)

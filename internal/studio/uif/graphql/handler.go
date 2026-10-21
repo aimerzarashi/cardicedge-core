@@ -22,7 +22,7 @@ type TokenVerifier interface {
 	Verify(token string) (idp.Claims, error)
 }
 
-// 実装は command.OperatorCommands
+// 実装は command.OperatorHandler
 type OperatorAuthenticator interface {
 	Authenticate(ctx context.Context, issuer, subject, email string, emailVerified bool) (context.Context, error)
 }

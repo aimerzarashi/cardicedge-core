@@ -31,7 +31,7 @@ func emptyCardLists(t *testing.T) context.Context {
 type presetDeckFixture struct {
 	ctx      context.Context
 	registry *domaindef.Registry
-	writer   *repository.PresetDeckListWriter
+	writer   *repository.PresetDeckWriter
 }
 
 // 件数・順番を確かめるため、ほかの行の無い DB（テンプレートの複製）で動かす
@@ -43,7 +43,7 @@ func newPresetDeckFixture(t *testing.T) presetDeckFixture {
 	return presetDeckFixture{
 		ctx:      ctx,
 		registry: registry,
-		writer:   repository.NewPresetDeckListWriter(identifier.NewEntityRefResolver(registry)),
+		writer:   repository.NewPresetDeckWriter(identifier.NewEntityRefResolver(registry)),
 	}
 }
 
@@ -62,14 +62,14 @@ func (f presetDeckFixture) issueItem(t *testing.T) (presetdeck.CardRef, uuid.UUI
 	return presetdecktest.CardRef(t, item.Types().EntityType, id.Int64()), publicID
 }
 
-func presetDeckList(sortName, name string, cards map[presetdeck.CardRef]int) readmodel.PresetDeckList {
+func presetDeckList(sortName, name string, cards map[presetdeck.CardRef]int) readmodel.PresetDeck {
 	id := uuid.New()
 	at := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
-	metadata := readmodel.PresetDeckListMetadata{ID: id, Name: name, Revision: 3, RegisteredAt: at, UpdatedAt: at}
-	return readmodel.PresetDeckList{PresetDeckID: id, SortName: sortName, Metadata: metadata, Cards: cards}
+	metadata := readmodel.PresetDeckMetadata{ID: id, Name: name, Revision: 3, RegisteredAt: at, UpdatedAt: at}
+	return readmodel.PresetDeck{PresetDeckID: id, SortName: sortName, Metadata: metadata, Cards: cards}
 }
 
-func (f presetDeckFixture) put(t *testing.T, sortName, name string) readmodel.PresetDeckList {
+func (f presetDeckFixture) put(t *testing.T, sortName, name string) readmodel.PresetDeck {
 	t.Helper()
 	list := presetDeckList(sortName, name, map[presetdeck.CardRef]int{})
 	require.NoError(t, f.writer.Upsert(f.ctx, list))

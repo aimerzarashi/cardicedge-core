@@ -25,11 +25,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-func newSpellCommands(t *testing.T, ctx context.Context) *command.SpellCommands {
+func newSpellHandler(t *testing.T, ctx context.Context) *command.SpellHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewSpellCommands(
+	return command.NewSpellHandler(
 		eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
 		identifier.New(registry, spell.NewID),
 		constraint.UpdateSpellName,
@@ -58,7 +58,7 @@ func TestRegisterSpell_ReturnsRegisteredSpell(t *testing.T) {
 	name := "ファイアボール"
 	before := time.Now().UTC()
 
-	registered, err := newSpellCommands(t, ctx).Register(ctx, "  "+name+" ")
+	registered, err := newSpellHandler(t, ctx).Register(ctx, "  "+name+" ")
 
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, registered.ID)
@@ -70,7 +70,7 @@ func TestRegisterSpell_ReturnsRegisteredSpell(t *testing.T) {
 
 func TestRegisterSpell_RejectsNameAlreadyInUse(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newSpellCommands(t, ctx)
+	commands := newSpellHandler(t, ctx)
 	_, err := commands.Register(ctx, "ＡＢＣ")
 	require.NoError(t, err)
 
@@ -88,14 +88,14 @@ func TestRegisterSpell_RejectsNameUsedByOtherCardType(t *testing.T) {
 		{
 			name: "creature",
 			register: func(t *testing.T, ctx context.Context, name string) error {
-				_, err := newCreatureCommands(t, ctx).Register(ctx, name)
+				_, err := newCreatureHandler(t, ctx).Register(ctx, name)
 				return err
 			},
 		},
 		{
 			name: "item",
 			register: func(t *testing.T, ctx context.Context, name string) error {
-				_, err := newItemCommands(t, ctx).Register(ctx, name)
+				_, err := newItemHandler(t, ctx).Register(ctx, name)
 				return err
 			},
 		},
@@ -105,7 +105,7 @@ func TestRegisterSpell_RejectsNameUsedByOtherCardType(t *testing.T) {
 			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 			require.NoError(t, tt.register(t, ctx, "ドラゴン"))
 
-			_, err := newSpellCommands(t, ctx).Register(ctx, " ドラゴン")
+			_, err := newSpellHandler(t, ctx).Register(ctx, " ドラゴン")
 
 			require.ErrorIs(t, err, command.ErrCardNameAlreadyInUse)
 		})
@@ -125,7 +125,7 @@ func TestRegisterSpell_RejectsInvalidName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 
-			_, err := newSpellCommands(t, ctx).Register(ctx, tt.value)
+			_, err := newSpellHandler(t, ctx).Register(ctx, tt.value)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -137,7 +137,7 @@ func TestRegisterSpell_RejectsInvalidName(t *testing.T) {
 func TestRegisterSpell_RejectsWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	_, err := newSpellCommands(t, ctx).Register(ctx, "ファイアボール")
+	_, err := newSpellHandler(t, ctx).Register(ctx, "ファイアボール")
 
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
@@ -146,7 +146,7 @@ func TestRegisterSpell_RecordsOperatorInEvent(t *testing.T) {
 	by := operatortest.ID(t, 42)
 	ctx := signedIn(t, isolatedDatabase(t), by)
 	name := "ファイアボール"
-	_, err := newSpellCommands(t, ctx).Register(ctx, name)
+	_, err := newSpellHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
 	registry, err := domaindef.Load(ctx)
@@ -162,7 +162,7 @@ func TestRegisterSpell_RecordsOperatorInEvent(t *testing.T) {
 func TestRegisterSpell_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	name := "ファイアボール"
-	commands := newSpellCommands(t, ctx)
+	commands := newSpellHandler(t, ctx)
 
 	const callers = 20
 	errs := make([]error, callers)

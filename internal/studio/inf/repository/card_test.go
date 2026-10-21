@@ -13,23 +13,23 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/inf/repository"
 )
 
-func cardList(cardType readmodel.CardType, sortName, name string) readmodel.CardList {
+func cardList(cardType readmodel.CardType, sortName, name string) readmodel.Card {
 	id := uuid.New()
 	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
-	metadata := readmodel.CardListMetadata{ID: id, Name: name, RegisteredAt: at, UpdatedAt: at}
-	return readmodel.CardList{CardID: id, CardType: cardType, SortName: sortName, Metadata: metadata}
+	metadata := readmodel.CardMetadata{ID: id, Name: name, RegisteredAt: at, UpdatedAt: at}
+	return readmodel.Card{CardID: id, CardType: cardType, SortName: sortName, Metadata: metadata}
 }
 
-func put(t *testing.T, ctx context.Context, cardType readmodel.CardType, sortName, name string) readmodel.CardList {
+func put(t *testing.T, ctx context.Context, cardType readmodel.CardType, sortName, name string) readmodel.Card {
 	t.Helper()
 	list := cardList(cardType, sortName, name)
-	require.NoError(t, repository.UpsertCardList(ctx, list))
+	require.NoError(t, repository.NewCardWriter().Upsert(ctx, list))
 	return list
 }
 
 func listAll(t *testing.T, ctx context.Context) []query.CardListRow {
 	t.Helper()
-	rows, err := repository.ListCards(ctx, query.ListCardsCondition{Limit: 100})
+	rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{Limit: 100})
 	require.NoError(t, err)
 	return rows
 }
@@ -42,7 +42,7 @@ func names(rows []query.CardListRow) []string {
 	return result
 }
 
-func TestCardList_ListsUpsertedCardWithDisplayValuesAndCursor(t *testing.T) {
+func TestCard_ListsUpsertedCardWithDisplayValuesAndCursor(t *testing.T) {
 	ctx := emptyCardLists(t)
 	list := put(t, ctx, readmodel.CardTypeCreature, "dragon", "Ｄragon")
 
@@ -58,37 +58,37 @@ func TestCardList_ListsUpsertedCardWithDisplayValuesAndCursor(t *testing.T) {
 	require.Equal(t, query.CardListCursor{CardType: readmodel.CardTypeCreature, SortName: "dragon", CardID: list.CardID}, rows[0].Cursor)
 }
 
-func TestCardList_UpsertOverwritesSameCard(t *testing.T) {
+func TestCard_UpsertOverwritesSameCard(t *testing.T) {
 	ctx := emptyCardLists(t)
 	list := put(t, ctx, readmodel.CardTypeCreature, "dragon", "Dragon")
 	list.SortName = "goblin"
 	list.Metadata.Name = "Goblin"
 
-	require.NoError(t, repository.UpsertCardList(ctx, list))
+	require.NoError(t, repository.NewCardWriter().Upsert(ctx, list))
 
 	require.Equal(t, []string{"Goblin"}, names(listAll(t, ctx)))
 }
 
-func TestCardList_DeleteRemovesCardFromList(t *testing.T) {
+func TestCard_DeleteRemovesCardFromList(t *testing.T) {
 	ctx := emptyCardLists(t)
 	deleted := put(t, ctx, readmodel.CardTypeCreature, "dragon", "Dragon")
 	put(t, ctx, readmodel.CardTypeCreature, "goblin", "Goblin")
 
-	require.NoError(t, repository.DeleteCardList(ctx, deleted))
+	require.NoError(t, repository.NewCardWriter().Delete(ctx, deleted))
 
 	require.Equal(t, []string{"Goblin"}, names(listAll(t, ctx)))
 }
 
 // 同じ集約を作り直すときに、何度呼ばれてもよいように
-func TestCardList_DeleteAcceptsMissingCard(t *testing.T) {
+func TestCard_DeleteAcceptsMissingCard(t *testing.T) {
 	ctx := emptyCardLists(t)
 
-	err := repository.DeleteCardList(ctx, cardList(readmodel.CardTypeCreature, "dragon", "Dragon"))
+	err := repository.NewCardWriter().Delete(ctx, cardList(readmodel.CardTypeCreature, "dragon", "Dragon"))
 
 	require.NoError(t, err)
 }
 
-func TestCardList_OrdersByCardTypeThenSortName(t *testing.T) {
+func TestCard_OrdersByCardTypeThenSortName(t *testing.T) {
 	ctx := emptyCardLists(t)
 	put(t, ctx, readmodel.CardTypeSpell, "a", "Spell A")
 	put(t, ctx, readmodel.CardTypeItem, "a", "Item A")
@@ -98,37 +98,37 @@ func TestCardList_OrdersByCardTypeThenSortName(t *testing.T) {
 	require.Equal(t, []string{"Creature A", "Creature B", "Item A", "Spell A"}, names(listAll(t, ctx)))
 }
 
-func TestCardList_ContinuesAfterCursor(t *testing.T) {
+func TestCard_ContinuesAfterCursor(t *testing.T) {
 	ctx := emptyCardLists(t)
 	put(t, ctx, readmodel.CardTypeCreature, "a", "Creature A")
 	second := put(t, ctx, readmodel.CardTypeCreature, "b", "Creature B")
 	put(t, ctx, readmodel.CardTypeItem, "a", "Item A")
 	after := query.CardListCursor{CardType: second.CardType, SortName: second.SortName, CardID: second.CardID}
 
-	rows, err := repository.ListCards(ctx, query.ListCardsCondition{After: &after, Limit: 10})
+	rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{After: &after, Limit: 10})
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"Item A"}, names(rows))
 }
 
-func TestCardList_LimitsRows(t *testing.T) {
+func TestCard_LimitsRows(t *testing.T) {
 	ctx := emptyCardLists(t)
 	put(t, ctx, readmodel.CardTypeCreature, "a", "Creature A")
 	put(t, ctx, readmodel.CardTypeCreature, "b", "Creature B")
 
-	rows, err := repository.ListCards(ctx, query.ListCardsCondition{Limit: 1})
+	rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{Limit: 1})
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"Creature A"}, names(rows))
 }
 
-func TestCardList_FiltersByCardTypes(t *testing.T) {
+func TestCard_FiltersByCardTypes(t *testing.T) {
 	ctx := emptyCardLists(t)
 	put(t, ctx, readmodel.CardTypeCreature, "a", "Creature A")
 	put(t, ctx, readmodel.CardTypeItem, "a", "Item A")
 	put(t, ctx, readmodel.CardTypeSpell, "a", "Spell A")
 
-	rows, err := repository.ListCards(ctx, query.ListCardsCondition{
+	rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{
 		Types: []readmodel.CardType{readmodel.CardTypeCreature, readmodel.CardTypeSpell}, Limit: 10,
 	})
 
@@ -137,7 +137,7 @@ func TestCardList_FiltersByCardTypes(t *testing.T) {
 }
 
 // LIKE の記号（% _）は文字どおりに比べる
-func TestCardList_FiltersByNameContainsLiterally(t *testing.T) {
+func TestCard_FiltersByNameContainsLiterally(t *testing.T) {
 	tests := []struct {
 		name         string
 		nameContains string
@@ -154,7 +154,7 @@ func TestCardList_FiltersByNameContainsLiterally(t *testing.T) {
 				put(t, ctx, readmodel.CardTypeCreature, name, name)
 			}
 
-			rows, err := repository.ListCards(ctx, query.ListCardsCondition{NameContains: tt.nameContains, Limit: 10})
+			rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{NameContains: tt.nameContains, Limit: 10})
 
 			require.NoError(t, err)
 			require.Equal(t, tt.want, names(rows))
@@ -163,13 +163,13 @@ func TestCardList_FiltersByNameContainsLiterally(t *testing.T) {
 }
 
 // 無いカードは結果に含めない
-func TestCardList_GetsCardsByPublicID(t *testing.T) {
+func TestCard_GetsCardsByPublicID(t *testing.T) {
 	ctx := emptyCardLists(t)
 	dragon := put(t, ctx, readmodel.CardTypeCreature, "dragon", "Dragon")
 	potion := put(t, ctx, readmodel.CardTypeItem, "potion", "Potion")
 	put(t, ctx, readmodel.CardTypeSpell, "fire", "Fire")
 
-	cards, err := repository.GetCards(ctx, []uuid.UUID{dragon.CardID, potion.CardID, uuid.New()})
+	cards, err := repository.NewCardReader().Get(ctx, []uuid.UUID{dragon.CardID, potion.CardID, uuid.New()})
 
 	require.NoError(t, err)
 	require.Len(t, cards, 2)

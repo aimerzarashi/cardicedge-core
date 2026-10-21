@@ -60,16 +60,16 @@ var DomainEntityTypeWhere = struct {
 
 // DomainEntityTypeRels is where relationship names are stored.
 var DomainEntityTypeRels = struct {
+	EntityTypeDomainEntities             string
 	EntityTypeDomainEventTypes           string
 	EntityTypeDomainEvents               string
-	EntityTypeDomainIdentifiers          string
 	EntityTypeEventSubscriberCheckpoints string
 	EntityTypeEventSubscriberPendings    string
 	SubscriberEventSubscribers           string
 }{
+	EntityTypeDomainEntities:             "EntityTypeDomainEntities",
 	EntityTypeDomainEventTypes:           "EntityTypeDomainEventTypes",
 	EntityTypeDomainEvents:               "EntityTypeDomainEvents",
-	EntityTypeDomainIdentifiers:          "EntityTypeDomainIdentifiers",
 	EntityTypeEventSubscriberCheckpoints: "EntityTypeEventSubscriberCheckpoints",
 	EntityTypeEventSubscriberPendings:    "EntityTypeEventSubscriberPendings",
 	SubscriberEventSubscribers:           "SubscriberEventSubscribers",
@@ -77,9 +77,9 @@ var DomainEntityTypeRels = struct {
 
 // domainEntityTypeR is where relationships are stored.
 type domainEntityTypeR struct {
+	EntityTypeDomainEntities             DomainEntitySlice              `boil:"EntityTypeDomainEntities" json:"EntityTypeDomainEntities" toml:"EntityTypeDomainEntities" yaml:"EntityTypeDomainEntities"`
 	EntityTypeDomainEventTypes           DomainEventTypeSlice           `boil:"EntityTypeDomainEventTypes" json:"EntityTypeDomainEventTypes" toml:"EntityTypeDomainEventTypes" yaml:"EntityTypeDomainEventTypes"`
 	EntityTypeDomainEvents               DomainEventSlice               `boil:"EntityTypeDomainEvents" json:"EntityTypeDomainEvents" toml:"EntityTypeDomainEvents" yaml:"EntityTypeDomainEvents"`
-	EntityTypeDomainIdentifiers          DomainIdentifierSlice          `boil:"EntityTypeDomainIdentifiers" json:"EntityTypeDomainIdentifiers" toml:"EntityTypeDomainIdentifiers" yaml:"EntityTypeDomainIdentifiers"`
 	EntityTypeEventSubscriberCheckpoints EventSubscriberCheckpointSlice `boil:"EntityTypeEventSubscriberCheckpoints" json:"EntityTypeEventSubscriberCheckpoints" toml:"EntityTypeEventSubscriberCheckpoints" yaml:"EntityTypeEventSubscriberCheckpoints"`
 	EntityTypeEventSubscriberPendings    EventSubscriberPendingSlice    `boil:"EntityTypeEventSubscriberPendings" json:"EntityTypeEventSubscriberPendings" toml:"EntityTypeEventSubscriberPendings" yaml:"EntityTypeEventSubscriberPendings"`
 	SubscriberEventSubscribers           EventSubscriberSlice           `boil:"SubscriberEventSubscribers" json:"SubscriberEventSubscribers" toml:"SubscriberEventSubscribers" yaml:"SubscriberEventSubscribers"`
@@ -88,6 +88,22 @@ type domainEntityTypeR struct {
 // NewStruct creates a new relationship struct
 func (*domainEntityTypeR) NewStruct() *domainEntityTypeR {
 	return &domainEntityTypeR{}
+}
+
+func (o *DomainEntityType) GetEntityTypeDomainEntities() DomainEntitySlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetEntityTypeDomainEntities()
+}
+
+func (r *domainEntityTypeR) GetEntityTypeDomainEntities() DomainEntitySlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.EntityTypeDomainEntities
 }
 
 func (o *DomainEntityType) GetEntityTypeDomainEventTypes() DomainEventTypeSlice {
@@ -120,22 +136,6 @@ func (r *domainEntityTypeR) GetEntityTypeDomainEvents() DomainEventSlice {
 	}
 
 	return r.EntityTypeDomainEvents
-}
-
-func (o *DomainEntityType) GetEntityTypeDomainIdentifiers() DomainIdentifierSlice {
-	if o == nil {
-		return nil
-	}
-
-	return o.R.GetEntityTypeDomainIdentifiers()
-}
-
-func (r *domainEntityTypeR) GetEntityTypeDomainIdentifiers() DomainIdentifierSlice {
-	if r == nil {
-		return nil
-	}
-
-	return r.EntityTypeDomainIdentifiers
 }
 
 func (o *DomainEntityType) GetEntityTypeEventSubscriberCheckpoints() EventSubscriberCheckpointSlice {
@@ -502,6 +502,20 @@ func (q domainEntityTypeQuery) Exists(ctx context.Context, exec boil.ContextExec
 	return count > 0, nil
 }
 
+// EntityTypeDomainEntities retrieves all the domain_entity's DomainEntities with an executor via entity_type_id column.
+func (o *DomainEntityType) EntityTypeDomainEntities(mods ...qm.QueryMod) domainEntityQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"domain_entities\".\"entity_type_id\"=?", o.ID),
+	)
+
+	return DomainEntities(queryMods...)
+}
+
 // EntityTypeDomainEventTypes retrieves all the domain_event_type's DomainEventTypes with an executor via entity_type_id column.
 func (o *DomainEntityType) EntityTypeDomainEventTypes(mods ...qm.QueryMod) domainEventTypeQuery {
 	var queryMods []qm.QueryMod
@@ -528,20 +542,6 @@ func (o *DomainEntityType) EntityTypeDomainEvents(mods ...qm.QueryMod) domainEve
 	)
 
 	return DomainEvents(queryMods...)
-}
-
-// EntityTypeDomainIdentifiers retrieves all the domain_identifier's DomainIdentifiers with an executor via entity_type_id column.
-func (o *DomainEntityType) EntityTypeDomainIdentifiers(mods ...qm.QueryMod) domainIdentifierQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"domain_identifiers\".\"entity_type_id\"=?", o.ID),
-	)
-
-	return DomainIdentifiers(queryMods...)
 }
 
 // EntityTypeEventSubscriberCheckpoints retrieves all the event_subscriber_checkpoint's EventSubscriberCheckpoints with an executor via entity_type_id column.
@@ -585,6 +585,119 @@ func (o *DomainEntityType) SubscriberEventSubscribers(mods ...qm.QueryMod) event
 	)
 
 	return EventSubscribers(queryMods...)
+}
+
+// LoadEntityTypeDomainEntities allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityTypeL) LoadEntityTypeDomainEntities(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
+	var slice []*DomainEntityType
+	var object *DomainEntityType
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntityType.(*DomainEntityType)
+		if !ok {
+			object = new(DomainEntityType)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityTypeR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityTypeR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`domain_entities`),
+		qm.WhereIn(`domain_entities.entity_type_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load domain_entities")
+	}
+
+	var resultSlice []*DomainEntity
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice domain_entities")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on domain_entities")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_entities")
+	}
+
+	if len(domainEntityAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.EntityTypeDomainEntities = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &domainEntityR{}
+			}
+			foreign.R.EntityType = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.EntityTypeID {
+				local.R.EntityTypeDomainEntities = append(local.R.EntityTypeDomainEntities, foreign)
+				if foreign.R == nil {
+					foreign.R = &domainEntityR{}
+				}
+				foreign.R.EntityType = local
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // LoadEntityTypeDomainEventTypes allows an eager lookup of values, cached into the
@@ -803,119 +916,6 @@ func (domainEntityTypeL) LoadEntityTypeDomainEvents(ctx context.Context, e boil.
 				local.R.EntityTypeDomainEvents = append(local.R.EntityTypeDomainEvents, foreign)
 				if foreign.R == nil {
 					foreign.R = &domainEventR{}
-				}
-				foreign.R.EntityType = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadEntityTypeDomainIdentifiers allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (domainEntityTypeL) LoadEntityTypeDomainIdentifiers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
-	var slice []*DomainEntityType
-	var object *DomainEntityType
-
-	if singular {
-		var ok bool
-		object, ok = maybeDomainEntityType.(*DomainEntityType)
-		if !ok {
-			object = new(DomainEntityType)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
-			}
-		}
-	} else {
-		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
-			}
-		}
-	}
-
-	args := make(map[any]struct{})
-	if singular {
-		if object.R == nil {
-			object.R = &domainEntityTypeR{}
-		}
-		args[object.ID] = struct{}{}
-	} else {
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &domainEntityTypeR{}
-			}
-			args[obj.ID] = struct{}{}
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	argsSlice := make([]any, len(args))
-	i := 0
-	for arg := range args {
-		argsSlice[i] = arg
-		i++
-	}
-
-	query := NewQuery(
-		qm.From(`domain_identifiers`),
-		qm.WhereIn(`domain_identifiers.entity_type_id in ?`, argsSlice...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load domain_identifiers")
-	}
-
-	var resultSlice []*DomainIdentifier
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice domain_identifiers")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on domain_identifiers")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_identifiers")
-	}
-
-	if len(domainIdentifierAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.EntityTypeDomainIdentifiers = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &domainIdentifierR{}
-			}
-			foreign.R.EntityType = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if local.ID == foreign.EntityTypeID {
-				local.R.EntityTypeDomainIdentifiers = append(local.R.EntityTypeDomainIdentifiers, foreign)
-				if foreign.R == nil {
-					foreign.R = &domainIdentifierR{}
 				}
 				foreign.R.EntityType = local
 				break
@@ -1282,6 +1282,59 @@ func (domainEntityTypeL) LoadSubscriberEventSubscribers(ctx context.Context, e b
 	return nil
 }
 
+// AddEntityTypeDomainEntities adds the given related objects to the existing relationships
+// of the domain_entity_type, optionally inserting them as new records.
+// Appends related to o.R.EntityTypeDomainEntities.
+// Sets related.R.EntityType appropriately.
+func (o *DomainEntityType) AddEntityTypeDomainEntities(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainEntity) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.EntityTypeID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"domain_entities\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
+				strmangle.WhereClause("\"", "\"", 2, domainEntityPrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.EntityTypeID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainEntityTypeR{
+			EntityTypeDomainEntities: related,
+		}
+	} else {
+		o.R.EntityTypeDomainEntities = append(o.R.EntityTypeDomainEntities, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &domainEntityR{
+				EntityType: o,
+			}
+		} else {
+			rel.R.EntityType = o
+		}
+	}
+	return nil
+}
+
 // AddEntityTypeDomainEventTypes adds the given related objects to the existing relationships
 // of the domain_entity_type, optionally inserting them as new records.
 // Appends related to o.R.EntityTypeDomainEventTypes.
@@ -1379,59 +1432,6 @@ func (o *DomainEntityType) AddEntityTypeDomainEvents(ctx context.Context, exec b
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &domainEventR{
-				EntityType: o,
-			}
-		} else {
-			rel.R.EntityType = o
-		}
-	}
-	return nil
-}
-
-// AddEntityTypeDomainIdentifiers adds the given related objects to the existing relationships
-// of the domain_entity_type, optionally inserting them as new records.
-// Appends related to o.R.EntityTypeDomainIdentifiers.
-// Sets related.R.EntityType appropriately.
-func (o *DomainEntityType) AddEntityTypeDomainIdentifiers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainIdentifier) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			rel.EntityTypeID = o.ID
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"domain_identifiers\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
-				strmangle.WhereClause("\"", "\"", 2, domainIdentifierPrimaryKeyColumns),
-			)
-			values := []any{o.ID, rel.ID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			rel.EntityTypeID = o.ID
-		}
-	}
-
-	if o.R == nil {
-		o.R = &domainEntityTypeR{
-			EntityTypeDomainIdentifiers: related,
-		}
-	} else {
-		o.R.EntityTypeDomainIdentifiers = append(o.R.EntityTypeDomainIdentifiers, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &domainIdentifierR{
 				EntityType: o,
 			}
 		} else {

@@ -15,20 +15,20 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-type CreatureCommands struct {
+type CreatureHandler struct {
 	eventStore domain.EventStore[creature.ID, creature.Event, creature.State]
 	identifier domain.Identifier[creature.ID]
 	updateName creature.UpdateNameFunc
 	now        func() time.Time
 }
 
-func NewCreatureCommands(
+func NewCreatureHandler(
 	eventStore domain.EventStore[creature.ID, creature.Event, creature.State],
 	identifier domain.Identifier[creature.ID],
 	updateName creature.UpdateNameFunc,
 	now func() time.Time,
-) *CreatureCommands {
-	return &CreatureCommands{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
+) *CreatureHandler {
+	return &CreatureHandler{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
 }
 
 // uif にドメインの型（creature.Creature・card.Name）を見せないため、表示に要る値だけを返す
@@ -41,7 +41,7 @@ type RegisteredCreature struct {
 
 // 操作した人は context のオペレーター（認証ミドルウェアが載せる）。入力の誤りは input.Errors、
 // 使われている名前なら ErrCardNameAlreadyInUse
-func (c *CreatureCommands) Register(ctx context.Context, name string) (RegisteredCreature, error) {
+func (c *CreatureHandler) Register(ctx context.Context, name string) (RegisteredCreature, error) {
 	registeredBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return RegisteredCreature{}, ErrNotOperator

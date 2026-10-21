@@ -1,4 +1,4 @@
-h1:7yrPxW7FUw2OcEz7GG2jjsv0a6hlu0l+AwoUidl02co=
+h1:q9IWgmSPGlv73/NkDTwjd9OOisXPWAdjDr4FFduwdZc=
 0001_create_domain_entity_types.sql h1:jacKh6jcfiZQyZlQT1bfZBv4cF+8JiK04i9fyFPy5Dc=
 0002_create_domain_event_types.sql h1:Fl6Rcbg+vxKagVZkMT6NLNQHhRcdY6O5Kq0QoB46e8U=
 0003_create_domain_identifiers.sql h1:pna7BYPLMcr8/zCL43KfrjaZ6D6YG5Hgmz2HgfKPRmU=
@@ -16,3 +16,4 @@ h1:7yrPxW7FUw2OcEz7GG2jjsv0a6hlu0l+AwoUidl02co=
 0015_create_starter_deck.sql h1:u0DesfJU4g9MkmNoPUVpLaCLZKdbeApmHBwxBvQxRy8=
 0016_rename_starter_deck_to_preset_deck.sql h1:RVzvmGSlagJVDTXj3zD2i90oRmsgO+LVQbYCDeB7iUg=
 0017_create_starter_deck_set.sql h1:bh40EjfiEnV68iymXUsLMBC3ltMhN0THxKWF4P+CAfg=
+0018_rename_tables_to_entities_and_read_model_names.sql h1:aADFjS2v/ZRndwaRDMo/nid3gKnNiPpYIwLEvKrKHgs=

@@ -4,16 +4,16 @@
 package models
 
 var ViewNames = struct {
+	DomainEntityView              string
 	DomainEventTypeView           string
 	DomainEventView               string
-	DomainIdentifierView          string
 	DomainReferenceView           string
 	DomainUniqueKeyView           string
 	EventSubscriberCheckpointView string
 }{
+	DomainEntityView:              "domain_entity_view",
 	DomainEventTypeView:           "domain_event_type_view",
 	DomainEventView:               "domain_event_view",
-	DomainIdentifierView:          "domain_identifier_view",
 	DomainReferenceView:           "domain_reference_view",
 	DomainUniqueKeyView:           "domain_unique_key_view",
 	EventSubscriberCheckpointView: "event_subscriber_checkpoint_view",

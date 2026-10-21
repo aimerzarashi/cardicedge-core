@@ -34,8 +34,8 @@ func (i *identifier[I]) Issue(ctx context.Context) (I, uuid.UUID, error) {
 		return zero, uuid.UUID{}, err
 	}
 
-	row := &models.DomainIdentifier{EntityTypeID: entityTypeID.Int16()}
-	if err := row.Insert(ctx, exec, boil.Whitelist(models.DomainIdentifierColumns.EntityTypeID)); err != nil {
+	row := &models.DomainEntity{EntityTypeID: entityTypeID.Int16()}
+	if err := row.Insert(ctx, exec, boil.Whitelist(models.DomainEntityColumns.EntityTypeID)); err != nil {
 		return zero, uuid.UUID{}, err
 	}
 	id, err := i.newID(row.ID)
@@ -59,9 +59,9 @@ func (i *identifier[I]) Resolve(ctx context.Context, publicID uuid.UUID) (I, err
 	if err != nil {
 		return zero, err
 	}
-	row, err := models.DomainIdentifiers(
-		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID.Int16()),
-		models.DomainIdentifierWhere.PublicID.EQ(publicID.String()),
+	row, err := models.DomainEntities(
+		models.DomainEntityWhere.EntityTypeID.EQ(entityTypeID.Int16()),
+		models.DomainEntityWhere.PublicID.EQ(publicID.String()),
 	).One(ctx, exec)
 	if errors.Is(err, sql.ErrNoRows) {
 		return zero, domain.ErrEntityNotFound
@@ -81,9 +81,9 @@ func (i *identifier[I]) Delete(ctx context.Context, id I) error {
 	if err != nil {
 		return err
 	}
-	_, err = models.DomainIdentifiers(
-		models.DomainIdentifierWhere.EntityTypeID.EQ(entityTypeID.Int16()),
-		models.DomainIdentifierWhere.ID.EQ(id.Int64()),
+	_, err = models.DomainEntities(
+		models.DomainEntityWhere.EntityTypeID.EQ(entityTypeID.Int16()),
+		models.DomainEntityWhere.ID.EQ(id.Int64()),
 	).DeleteAll(ctx, exec)
 	return err
 }

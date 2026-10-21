@@ -86,7 +86,7 @@ DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api 
 - イベントのスキーマの版は、イベントの型が宣言する（`SchemaVersion()`）。読み込み時は保存された版を `Unmarshal` に渡す
 - 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す
 
-中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_identifier_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
+中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_entity_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
 
 テストで DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、開発用の DB に触るかがわかるように）。
 

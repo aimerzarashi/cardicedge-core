@@ -10,7 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query"
 )
 
-// 実装は query.CardList
+// 実装は query.CardHandler
 type CardGetter interface {
 	Get(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]query.Card, error)
 }

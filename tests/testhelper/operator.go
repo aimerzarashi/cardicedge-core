@@ -24,7 +24,7 @@ import (
 type Operators struct {
 	db       *sql.DB
 	key      idptest.Key
-	commands *command.OperatorCommands
+	commands *command.OperatorHandler
 }
 
 func NewOperators(ctx context.Context, db *sql.DB, key idptest.Key) (*Operators, error) {
@@ -32,7 +32,7 @@ func NewOperators(ctx context.Context, db *sql.DB, key idptest.Key) (*Operators,
 	if err != nil {
 		return nil, err
 	}
-	commands := command.NewOperatorCommands(
+	commands := command.NewOperatorHandler(
 		eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
 		identifier.New(registry, operator.NewID),
 		constraint.UpdateOperatorEmail,

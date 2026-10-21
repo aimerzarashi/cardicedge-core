@@ -27,7 +27,7 @@ func (r *entityRefResolver) Resolve(ctx context.Context, publicID uuid.UUID) (do
 	if err != nil {
 		return domain.EntityRef{}, err
 	}
-	row, err := models.DomainIdentifiers(models.DomainIdentifierWhere.PublicID.EQ(publicID.String())).One(ctx, exec)
+	row, err := models.DomainEntities(models.DomainEntityWhere.PublicID.EQ(publicID.String())).One(ctx, exec)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.EntityRef{}, domain.ErrEntityNotFound
 	}
@@ -54,7 +54,7 @@ func (r *entityRefResolver) ResolveAll(ctx context.Context, publicIDs []uuid.UUI
 	for _, publicID := range publicIDs {
 		keys = append(keys, publicID.String())
 	}
-	rows, err := models.DomainIdentifiers(models.DomainIdentifierWhere.PublicID.IN(keys)).All(ctx, exec)
+	rows, err := models.DomainEntities(models.DomainEntityWhere.PublicID.IN(keys)).All(ctx, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (r *entityRefResolver) ResolveAll(ctx context.Context, publicIDs []uuid.UUI
 	return refs, nil
 }
 
-// 内部 ID は種類をまたいで一意（domain_identifiers の主キー）なので ID で引き、種類が違えば無いものとする
+// 内部 ID は種類をまたいで一意（domain_entities の主キー）なので ID で引き、種類が違えば無いものとする
 // （呼ぶ側の持つ種類が誤っていれば、別の集約の公開 ID を返さないため）
 func (r *entityRefResolver) PublicIDs(ctx context.Context, refs []domain.EntityRef) (map[domain.EntityRef]uuid.UUID, error) {
 	publicIDs := make(map[domain.EntityRef]uuid.UUID, len(refs))
@@ -87,7 +87,7 @@ func (r *entityRefResolver) PublicIDs(ctx context.Context, refs []domain.EntityR
 	for _, ref := range refs {
 		ids = append(ids, ref.ID())
 	}
-	rows, err := models.DomainIdentifiers(models.DomainIdentifierWhere.ID.IN(ids)).All(ctx, exec)
+	rows, err := models.DomainEntities(models.DomainEntityWhere.ID.IN(ids)).All(ctx, exec)
 	if err != nil {
 		return nil, err
 	}

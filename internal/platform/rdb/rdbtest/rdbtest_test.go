@@ -19,10 +19,10 @@ func TestNewDatabase_CopiesMigratedTemplate(t *testing.T) {
 func TestNewDatabase_IsolatesDataFromOtherDatabases(t *testing.T) {
 	first, _ := rdbtest.NewDatabase(t)
 	second, _ := rdbtest.NewDatabase(t)
-	_, err := first.ExecContext(t.Context(), `INSERT INTO domain_identifiers (entity_type_id) VALUES (1000)`)
+	_, err := first.ExecContext(t.Context(), `INSERT INTO domain_entities (entity_type_id) VALUES (1000)`)
 	require.NoError(t, err)
 
 	var count int
-	require.NoError(t, second.QueryRowContext(t.Context(), `SELECT count(*) FROM domain_identifiers`).Scan(&count))
+	require.NoError(t, second.QueryRowContext(t.Context(), `SELECT count(*) FROM domain_entities`).Scan(&count))
 	require.Zero(t, count)
 }

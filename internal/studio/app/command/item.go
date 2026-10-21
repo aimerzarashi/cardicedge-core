@@ -15,20 +15,20 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-type ItemCommands struct {
+type ItemHandler struct {
 	eventStore domain.EventStore[item.ID, item.Event, item.State]
 	identifier domain.Identifier[item.ID]
 	updateName item.UpdateNameFunc
 	now        func() time.Time
 }
 
-func NewItemCommands(
+func NewItemHandler(
 	eventStore domain.EventStore[item.ID, item.Event, item.State],
 	identifier domain.Identifier[item.ID],
 	updateName item.UpdateNameFunc,
 	now func() time.Time,
-) *ItemCommands {
-	return &ItemCommands{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
+) *ItemHandler {
+	return &ItemHandler{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
 }
 
 // uif にドメインの型（item.Item・card.Name）を見せないため、表示に要る値だけを返す
@@ -41,7 +41,7 @@ type RegisteredItem struct {
 
 // 操作した人は context のオペレーター（認証ミドルウェアが載せる）。入力の誤りは input.Errors、
 // 使われている名前なら ErrCardNameAlreadyInUse
-func (c *ItemCommands) Register(ctx context.Context, name string) (RegisteredItem, error) {
+func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem, error) {
 	registeredBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return RegisteredItem{}, ErrNotOperator

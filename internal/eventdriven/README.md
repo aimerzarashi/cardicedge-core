@@ -14,7 +14,7 @@ flowchart LR
     pending[(event_subscriber_pending<br/>やることの表)]
     subs[(event_subscribers)]
     cps[(event_subscriber_checkpoints)]
-    rm[(read model<br/>card_lists など)]
+    rm[(read model<br/>cards など)]
   end
 
   subgraph eventdriven
@@ -131,7 +131,7 @@ erDiagram
 | event_subscriber_pending | 購読者 × 集約ごとの、まだ作り直していない最新の版。遅れている間だけ行がある | トリガーが入れ、ワーカーが消す |
 
 - `domain_events` への INSERT で、トリガー `notify_domain_event` が `domain_events_channel` に知らせ（migrations/0009）、トリガー `enqueue_event_subscriber_pending` がやることの表に行を入れる（migrations/0011）
-- read model の表（`card_lists` など）は、ほかの表と外部キーでつながない。集約の削除は、削除のイベントを受けた投影が行を消す
+- read model の表（`cards` など）は、ほかの表と外部キーでつながない。集約の削除は、削除のイベントを受けた投影が行を消す
 
 ## 部品
 

@@ -12,35 +12,42 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query/readmodel"
 )
 
+// cards を書く（投影が使う）
+type CardWriter struct{}
+
+func NewCardWriter() *CardWriter {
+	return &CardWriter{}
+}
+
 // すべての列をイベントから作った値で書く
-func UpsertCardList(ctx context.Context, list readmodel.CardList) error {
+func (w *CardWriter) Upsert(ctx context.Context, card readmodel.Card) error {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return err
 	}
-	metadata, err := json.Marshal(list.Metadata)
+	metadata, err := json.Marshal(card.Metadata)
 	if err != nil {
 		return err
 	}
-	row := &models.CardList{
-		CardID:   list.CardID.String(),
-		CardType: int16(list.CardType),
-		SortName: list.SortName,
+	row := &models.Card{
+		CardID:   card.CardID.String(),
+		CardType: int16(card.CardType),
+		SortName: card.SortName,
 		Metadata: metadata,
 	}
 	return row.Upsert(ctx, exec, true,
-		[]string{models.CardListColumns.CardID},
-		boil.Whitelist(models.CardListColumns.CardType, models.CardListColumns.SortName, models.CardListColumns.Metadata),
+		[]string{models.CardColumns.CardID},
+		boil.Whitelist(models.CardColumns.CardType, models.CardColumns.SortName, models.CardColumns.Metadata),
 		boil.Infer(),
 	)
 }
 
 // 行が無くてもエラーにしない（同じ集約を作り直すときに、何度呼ばれてもよいように）
-func DeleteCardList(ctx context.Context, list readmodel.CardList) error {
+func (w *CardWriter) Delete(ctx context.Context, card readmodel.Card) error {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return err
 	}
-	_, err = models.CardLists(models.CardListWhere.CardID.EQ(list.CardID.String())).DeleteAll(ctx, exec)
+	_, err = models.Cards(models.CardWhere.CardID.EQ(card.CardID.String())).DeleteAll(ctx, exec)
 	return err
 }
