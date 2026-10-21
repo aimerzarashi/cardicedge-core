@@ -444,9 +444,9 @@ type RegisterPresetDeckInput struct {
 
 // プリセットデッキを登録した
 type RegisterPresetDeckSuccess struct {
-	// 登録したのプリセットデッキの公開用の ID
+	// 登録したプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	// 登録したプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
 	Revision int `json:"revision"`
 }
 
@@ -478,9 +478,9 @@ type RenamePresetDeckInput struct {
 
 // プリセットデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
 type RenamePresetDeckSuccess struct {
-	// 変えたのプリセットデッキの公開用の ID
+	// 変えたプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	// 変えたプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
 	Revision int `json:"revision"`
 }
 
@@ -512,9 +512,9 @@ type SetPresetDeckCardCountsInput struct {
 
 // プリセットデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
 type SetPresetDeckCardCountsSuccess struct {
-	// 変えたのプリセットデッキの公開用の ID
+	// 変えたプリセットデッキの公開用の ID
 	ID uuid.UUID `json:"id"`
-	// 変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	// 変えたプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
 	Revision int `json:"revision"`
 }
 
