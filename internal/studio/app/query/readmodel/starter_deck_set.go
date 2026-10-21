@@ -26,10 +26,10 @@ type StarterDeckSetMetadata struct {
 	Decks     []StarterDeckSetDeck `json:"decks"`
 }
 
-// カード名・種類は書き写さない（読むときに card_lists から引く。プリセットデッキと同じ）
+// カード名・種類は書き写さない（読むときに cards から引く。プリセットデッキと同じ）
 type StarterDeckSetDeck struct {
 	Name   string               `json:"name"`
-	Cards  []PresetDeckListCard `json:"cards"`
+	Cards  []DeckCard           `json:"cards"`
 	Source StarterDeckSetSource `json:"source"`
 }
 

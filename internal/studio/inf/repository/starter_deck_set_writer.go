@@ -40,13 +40,13 @@ func (w *StarterDeckSetWriter) Upsert(ctx context.Context, set readmodel.Starter
 	}
 	decks := make([]readmodel.StarterDeckSetDeck, 0, len(set.Decks))
 	for _, deck := range set.Decks {
-		cards := make([]readmodel.PresetDeckListCard, 0, len(deck.Cards()))
+		cards := make([]readmodel.DeckCard, 0, len(deck.Cards()))
 		for _, card := range deck.Cards() {
 			publicID, ok := publicIDs[domain.NewEntityRef(card.Card().EntityType(), card.Card().ID())]
 			if !ok {
 				return errors.New("repository: card in starter deck has no public id")
 			}
-			cards = append(cards, readmodel.PresetDeckListCard{CardID: publicID, Count: card.Count().Int()})
+			cards = append(cards, readmodel.DeckCard{CardID: publicID, Count: card.Count().Int()})
 		}
 		source := readmodel.StarterDeckSetSource{PresetDeckID: deck.Source().PresetDeckID(), Revision: deck.Source().Revision()}
 		decks = append(decks, readmodel.StarterDeckSetDeck{Name: deck.Name().String(), Cards: cards, Source: source})

@@ -25,11 +25,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-func newCreatureCommands(t *testing.T, ctx context.Context) *command.CreatureCommands {
+func newCreatureHandler(t *testing.T, ctx context.Context) *command.CreatureHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewCreatureCommands(
+	return command.NewCreatureHandler(
 		eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
 		identifier.New(registry, creature.NewID),
 		constraint.UpdateCreatureName,
@@ -58,7 +58,7 @@ func TestRegisterCreature_ReturnsRegisteredCreature(t *testing.T) {
 	name := "ドラゴン"
 	before := time.Now().UTC()
 
-	registered, err := newCreatureCommands(t, ctx).Register(ctx, "  "+name+" ")
+	registered, err := newCreatureHandler(t, ctx).Register(ctx, "  "+name+" ")
 
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, registered.ID)
@@ -70,7 +70,7 @@ func TestRegisterCreature_ReturnsRegisteredCreature(t *testing.T) {
 
 func TestRegisterCreature_RejectsNameAlreadyInUse(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newCreatureCommands(t, ctx)
+	commands := newCreatureHandler(t, ctx)
 	_, err := commands.Register(ctx, "ＡＢＣ")
 	require.NoError(t, err)
 
@@ -92,7 +92,7 @@ func TestRegisterCreature_RejectsInvalidName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 
-			_, err := newCreatureCommands(t, ctx).Register(ctx, tt.value)
+			_, err := newCreatureHandler(t, ctx).Register(ctx, tt.value)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -104,7 +104,7 @@ func TestRegisterCreature_RejectsInvalidName(t *testing.T) {
 func TestRegisterCreature_RejectsWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	_, err := newCreatureCommands(t, ctx).Register(ctx, "ドラゴン")
+	_, err := newCreatureHandler(t, ctx).Register(ctx, "ドラゴン")
 
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
@@ -113,7 +113,7 @@ func TestRegisterCreature_RecordsOperatorInEvent(t *testing.T) {
 	by := operatortest.ID(t, 42)
 	ctx := signedIn(t, isolatedDatabase(t), by)
 	name := "ドラゴン"
-	_, err := newCreatureCommands(t, ctx).Register(ctx, name)
+	_, err := newCreatureHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
 	registry, err := domaindef.Load(ctx)
@@ -129,7 +129,7 @@ func TestRegisterCreature_RecordsOperatorInEvent(t *testing.T) {
 func TestRegisterCreature_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	name := "ドラゴン"
-	commands := newCreatureCommands(t, ctx)
+	commands := newCreatureHandler(t, ctx)
 
 	const callers = 20
 	errs := make([]error, callers)

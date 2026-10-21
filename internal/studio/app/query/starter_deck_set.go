@@ -14,7 +14,7 @@ type StarterDeckSet struct {
 	UpdatedAt *time.Time
 }
 
-// カード名・種類は持たない（uif が CardList.Get で引く）
+// カード名・種類は持たない（uif が CardHandler.Get で引く）
 type StarterDeck struct {
 	Name   string
 	Cards  []PresetDeckCard
@@ -35,18 +35,18 @@ type GetStarterDeckSetFunc func(ctx context.Context) (set StarterDeckSet, found 
 // 公開 ID で引く今の revision。無い（削除した）プリセットデッキは結果に含めない
 type GetPresetDeckRevisionsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error)
 
-type StarterDeckSetQuery struct {
+type StarterDeckSetHandler struct {
 	getStarterDeckSet      GetStarterDeckSetFunc
 	getPresetDeckRevisions GetPresetDeckRevisionsFunc
 }
 
-func NewStarterDeckSetQuery(getStarterDeckSet GetStarterDeckSetFunc, getPresetDeckRevisions GetPresetDeckRevisionsFunc) *StarterDeckSetQuery {
-	return &StarterDeckSetQuery{getStarterDeckSet: getStarterDeckSet, getPresetDeckRevisions: getPresetDeckRevisions}
+func NewStarterDeckSetHandler(getStarterDeckSet GetStarterDeckSetFunc, getPresetDeckRevisions GetPresetDeckRevisionsFunc) *StarterDeckSetHandler {
+	return &StarterDeckSetHandler{getStarterDeckSet: getStarterDeckSet, getPresetDeckRevisions: getPresetDeckRevisions}
 }
 
 // 「写した後に変わったか」は保存せず、ここで 2 つの read model を突き合わせて出す（どちらか 1 つの集約からは投影できないため。
 // 投影の遅れ方が違うので、一瞬だけ古い組み合わせが見えることがあるが、表示のための値なので受け入れる）
-func (q *StarterDeckSetQuery) Get(ctx context.Context) (StarterDeckSet, error) {
+func (q *StarterDeckSetHandler) Get(ctx context.Context) (StarterDeckSet, error) {
 	set, found, err := q.getStarterDeckSet(ctx)
 	if err != nil || !found {
 		return StarterDeckSet{Decks: []StarterDeck{}}, err

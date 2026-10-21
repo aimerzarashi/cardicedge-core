@@ -22,11 +22,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-func newStarterDeckSetCommands(t *testing.T, ctx context.Context) *command.StarterDeckSetCommands {
+func newStarterDeckSetHandler(t *testing.T, ctx context.Context) *command.StarterDeckSetHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewStarterDeckSetCommands(
+	return command.NewStarterDeckSetHandler(
 		eventstore.New(registry, starterdeckset.NewID, starterdeckset.NewEventType, starterdeckset.InitialState, starterdeckset.Evolve),
 		identifier.New(registry, starterdeckset.NewID),
 		constraint.FindStarterDeckSet,
@@ -47,7 +47,7 @@ func fullPresetDeck(t *testing.T, ctx context.Context, name string) command.Chan
 	for range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
 		cards = append(cards, command.CardCountInput{CardID: issueCard(t, ctx, creature.NewID), Count: presetdeck.MaxCardCount})
 	}
-	filled, err := newPresetDeckCommands(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, cards)
+	filled, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, cards)
 	require.NoError(t, err)
 	return filled
 }
@@ -79,7 +79,7 @@ func TestSetStarterDeckSet_FirstSetCopiesPresetDecks(t *testing.T) {
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 	waterWind := fullPresetDeck(t, ctx, "水・風属性")
 
-	changed, err := newStarterDeckSetCommands(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
+	changed, err := newStarterDeckSetHandler(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 
 	require.NoError(t, err)
 	require.Equal(t, command.ChangedStarterDeckSet{Revision: 1}, changed)
@@ -99,10 +99,10 @@ func TestSetStarterDeckSet_KeepsCopiesWhenPresetDeckChanges(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 	waterWind := fullPresetDeck(t, ctx, "水・風属性")
-	_, err := newStarterDeckSetCommands(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
+	_, err := newStarterDeckSetHandler(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 	require.NoError(t, err)
 
-	_, err = newPresetDeckCommands(t, ctx).Rename(ctx, fireEarth.ID, fireEarth.Revision, "炎・大地属性")
+	_, err = newPresetDeckHandler(t, ctx).Rename(ctx, fireEarth.ID, fireEarth.Revision, "炎・大地属性")
 
 	require.NoError(t, err)
 	for _, deck := range restoredStarterDeckSet(t, ctx).Decks {
@@ -115,7 +115,7 @@ func TestSetStarterDeckSet_ResetReplacesDecks(t *testing.T) {
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 	waterWind := fullPresetDeck(t, ctx, "水・風属性")
 	lightDark := fullPresetDeck(t, ctx, "光・闇属性")
-	commands := newStarterDeckSetCommands(t, ctx)
+	commands := newStarterDeckSetHandler(t, ctx)
 	first, err := commands.Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 	require.NoError(t, err)
 
@@ -131,13 +131,13 @@ func TestSetStarterDeckSet_RecopiesOnlyChangedPresetDecks(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 	waterWind := fullPresetDeck(t, ctx, "水・風属性")
-	commands := newStarterDeckSetCommands(t, ctx)
+	commands := newStarterDeckSetHandler(t, ctx)
 	first, err := commands.Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 	require.NoError(t, err)
 	unchanged, err := commands.Set(ctx, first.Revision, []uuid.UUID{waterWind.ID, fireEarth.ID})
 	require.NoError(t, err)
 	require.Equal(t, first, unchanged)
-	renamed, err := newPresetDeckCommands(t, ctx).Rename(ctx, fireEarth.ID, fireEarth.Revision, "炎・大地属性")
+	renamed, err := newPresetDeckHandler(t, ctx).Rename(ctx, fireEarth.ID, fireEarth.Revision, "炎・大地属性")
 	require.NoError(t, err)
 
 	recopied, err := commands.Set(ctx, first.Revision, []uuid.UUID{fireEarth.ID, waterWind.ID})
@@ -162,7 +162,7 @@ func TestSetStarterDeckSet_RejectsStaleRevision(t *testing.T) {
 			fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 			waterWind := fullPresetDeck(t, ctx, "水・風属性")
 			lightDark := fullPresetDeck(t, ctx, "光・闇属性")
-			commands := newStarterDeckSetCommands(t, ctx)
+			commands := newStarterDeckSetHandler(t, ctx)
 			first, err := commands.Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 			require.NoError(t, err)
 			_, err = commands.Set(ctx, first.Revision, []uuid.UUID{fireEarth.ID, lightDark.ID})
@@ -214,7 +214,7 @@ func TestSetStarterDeckSet_RejectsInvalidInput(t *testing.T) {
 			name: "deleted_preset_deck",
 			ids: func(t *testing.T, ctx context.Context) []uuid.UUID {
 				deleted := fullPresetDeck(t, ctx, "消したデッキ")
-				require.NoError(t, newPresetDeckCommands(t, ctx).Delete(ctx, deleted.ID, deleted.Revision))
+				require.NoError(t, newPresetDeckHandler(t, ctx).Delete(ctx, deleted.ID, deleted.Revision))
 				return []uuid.UUID{deleted.ID, fullPresetDeck(t, ctx, "火・地属性").ID}
 			},
 			want: []input.Error{&input.NotFound{Field: "presetDeckIds.0"}},
@@ -232,7 +232,7 @@ func TestSetStarterDeckSet_RejectsInvalidInput(t *testing.T) {
 			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 			ids := tt.ids(t, ctx)
 
-			_, err := newStarterDeckSetCommands(t, ctx).Set(ctx, 0, ids)
+			_, err := newStarterDeckSetHandler(t, ctx).Set(ctx, 0, ids)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -244,7 +244,7 @@ func TestSetStarterDeckSet_RejectsInvalidInput(t *testing.T) {
 func TestSetStarterDeckSet_RejectsWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	_, err := newStarterDeckSetCommands(t, ctx).Set(ctx, 0, []uuid.UUID{uuid.New(), uuid.New()})
+	_, err := newStarterDeckSetHandler(t, ctx).Set(ctx, 0, []uuid.UUID{uuid.New(), uuid.New()})
 
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
@@ -255,7 +255,7 @@ func TestSetStarterDeckSet_ReferencesCopiedCards(t *testing.T) {
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
 	waterWind := fullPresetDeck(t, ctx, "水・風属性")
 
-	_, err := newStarterDeckSetCommands(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
+	_, err := newStarterDeckSetHandler(t, ctx).Set(ctx, 0, []uuid.UUID{fireEarth.ID, waterWind.ID})
 
 	require.NoError(t, err)
 	set := restoredStarterDeckSet(t, ctx)
@@ -274,7 +274,7 @@ func TestSetStarterDeckSet_CreatesOnlyOneWhenFirstSetsAreConcurrent(t *testing.T
 	for i := range 4 {
 		decks = append(decks, fullPresetDeck(t, ctx, fmt.Sprintf("デッキ%d", i)).ID)
 	}
-	commands := newStarterDeckSetCommands(t, ctx)
+	commands := newStarterDeckSetHandler(t, ctx)
 
 	const callers = 20
 	errs := make([]error, callers)

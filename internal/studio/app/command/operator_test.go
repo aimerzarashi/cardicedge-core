@@ -20,11 +20,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-func newCommands(t *testing.T, ctx context.Context) *command.OperatorCommands {
+func newOperatorHandler(t *testing.T, ctx context.Context) *command.OperatorHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewOperatorCommands(
+	return command.NewOperatorHandler(
 		eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
 		identifier.New(registry, operator.NewID),
 		constraint.UpdateOperatorEmail,
@@ -37,7 +37,7 @@ func newCommands(t *testing.T, ctx context.Context) *command.OperatorCommands {
 }
 
 // 登録して、そのオペレーターの ID を返す（紐づける前なので、メールアドレスで引ける）
-func register(t *testing.T, ctx context.Context, commands *command.OperatorCommands, email string) operator.ID {
+func register(t *testing.T, ctx context.Context, commands *command.OperatorHandler, email string) operator.ID {
 	t.Helper()
 	require.NoError(t, commands.Register(ctx, email))
 	id, found, err := constraint.FindUnlinkedOperatorByEmail(ctx, operatortest.Email(t, email))
@@ -47,7 +47,7 @@ func register(t *testing.T, ctx context.Context, commands *command.OperatorComma
 }
 
 // studio の JWT（iss は diecardomain-studio）で認証し、context に載ったオペレーターを返す
-func authenticate(t *testing.T, ctx context.Context, commands *command.OperatorCommands, subject, email string, emailVerified bool) (operator.ID, bool) {
+func authenticate(t *testing.T, ctx context.Context, commands *command.OperatorHandler, subject, email string, emailVerified bool) (operator.ID, bool) {
 	t.Helper()
 	authenticated, err := commands.Authenticate(ctx, "diecardomain-studio", subject, email, emailVerified)
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func countEvents(t *testing.T, ctx context.Context, id operator.ID) int {
 
 func TestRegister_RegistersOperatorWithEmail(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	commands := newCommands(t, ctx)
+	commands := newOperatorHandler(t, ctx)
 
 	id := register(t, ctx, commands, "operator@example.com")
 
@@ -75,7 +75,7 @@ func TestRegister_RegistersOperatorWithEmail(t *testing.T) {
 
 func TestRegister_RejectsEmailAlreadyRegistered(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	commands := newCommands(t, ctx)
+	commands := newOperatorHandler(t, ctx)
 	register(t, ctx, commands, "operator@example.com")
 
 	err := commands.Register(ctx, "operator@example.com")
@@ -86,7 +86,7 @@ func TestRegister_RejectsEmailAlreadyRegistered(t *testing.T) {
 func TestRegister_RejectsInvalidEmail(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	err := newCommands(t, ctx).Register(ctx, "not-an-email")
+	err := newOperatorHandler(t, ctx).Register(ctx, "not-an-email")
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
@@ -105,7 +105,7 @@ func TestRegisterInitial_RegistersOnlyWhenNoOperatorExists(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := isolatedDatabase(t)
-			commands := newCommands(t, ctx)
+			commands := newOperatorHandler(t, ctx)
 			if tt.existing != "" {
 				register(t, ctx, commands, tt.existing)
 			}
@@ -123,7 +123,7 @@ func TestRegisterInitial_RegistersOnlyWhenNoOperatorExists(t *testing.T) {
 
 func TestAuthenticate_LinksOperatorByVerifiedEmailOnFirstCall(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	commands := newCommands(t, ctx)
+	commands := newOperatorHandler(t, ctx)
 	registered := register(t, ctx, commands, "operator@example.com")
 
 	first, found := authenticate(t, ctx, commands, "user-1", "operator@example.com", true)
@@ -142,18 +142,18 @@ func TestAuthenticate_DoesNotSetOperatorWhenNotOperator(t *testing.T) {
 		name          string
 		email         string // 空ならメールアドレス無し
 		emailVerified bool
-		setup         func(t *testing.T, ctx context.Context, commands *command.OperatorCommands)
+		setup         func(t *testing.T, ctx context.Context, commands *command.OperatorHandler)
 	}{
-		{name: "without_email", setup: func(t *testing.T, ctx context.Context, commands *command.OperatorCommands) {
+		{name: "without_email", setup: func(t *testing.T, ctx context.Context, commands *command.OperatorHandler) {
 			register(t, ctx, commands, "operator@example.com")
 		}},
-		{name: "unverified_email", email: "operator@example.com", emailVerified: false, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorCommands) {
+		{name: "unverified_email", email: "operator@example.com", emailVerified: false, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorHandler) {
 			register(t, ctx, commands, "operator@example.com")
 		}},
-		{name: "unregistered_email", email: "other@example.com", emailVerified: true, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorCommands) {
+		{name: "unregistered_email", email: "other@example.com", emailVerified: true, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorHandler) {
 			register(t, ctx, commands, "operator@example.com")
 		}},
-		{name: "operator_linked_to_other_subject", email: "operator@example.com", emailVerified: true, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorCommands) {
+		{name: "operator_linked_to_other_subject", email: "operator@example.com", emailVerified: true, setup: func(t *testing.T, ctx context.Context, commands *command.OperatorHandler) {
 			register(t, ctx, commands, "operator@example.com")
 			_, found := authenticate(t, ctx, commands, "user-2", "operator@example.com", true)
 			require.True(t, found)
@@ -162,7 +162,7 @@ func TestAuthenticate_DoesNotSetOperatorWhenNotOperator(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := isolatedDatabase(t)
-			commands := newCommands(t, ctx)
+			commands := newOperatorHandler(t, ctx)
 			tt.setup(t, ctx, commands)
 			_, found := authenticate(t, ctx, commands, "user-1", tt.email, tt.emailVerified)
 
@@ -174,7 +174,7 @@ func TestAuthenticate_DoesNotSetOperatorWhenNotOperator(t *testing.T) {
 func TestAuthenticate_RejectsInvalidCredentials(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	_, err := newCommands(t, ctx).Authenticate(ctx, "diecardomain-studio", " ", "", false)
+	_, err := newOperatorHandler(t, ctx).Authenticate(ctx, "diecardomain-studio", " ", "", false)
 
 	require.ErrorIs(t, err, command.ErrInvalidCredentials)
 }
@@ -183,7 +183,7 @@ func TestAuthenticate_RejectsInvalidCredentials(t *testing.T) {
 func TestAuthenticate_LinksOnceWhenCalledConcurrently(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	email := "operator@example.com"
-	commands := newCommands(t, ctx)
+	commands := newOperatorHandler(t, ctx)
 	registered := register(t, ctx, commands, email)
 
 	const callers = 20

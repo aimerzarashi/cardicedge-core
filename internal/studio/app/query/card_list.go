@@ -67,17 +67,17 @@ type ListCardsFunc func(ctx context.Context, condition ListCardsCondition) ([]Ca
 // 公開 ID で引く（プリセットデッキのカード名を引くデータローダーが、まとめて 1 回で呼ぶ）。無いカードは結果に含めない
 type GetCardsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Card, error)
 
-type CardList struct {
+type CardHandler struct {
 	listCards ListCardsFunc
 	getCards  GetCardsFunc
 }
 
-func NewCardList(listCards ListCardsFunc, getCards GetCardsFunc) *CardList {
-	return &CardList{listCards: listCards, getCards: getCards}
+func NewCardHandler(listCards ListCardsFunc, getCards GetCardsFunc) *CardHandler {
+	return &CardHandler{listCards: listCards, getCards: getCards}
 }
 
 // 無いカードは結果に含めない
-func (q *CardList) Get(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Card, error) {
+func (q *CardHandler) Get(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Card, error) {
 	return q.getCards(ctx, ids)
 }
 
@@ -92,7 +92,7 @@ func CompareCards(a, b Card) int {
 }
 
 // 入力の誤りは input.Errors。項目名は GraphQL の引数・入力の項目名（入れ子は filter.nameContains のように . でつなぐ）
-func (q *CardList) List(ctx context.Context, filter CardFilter, first *int, after *string) (pagination.Connection[Card], error) {
+func (q *CardHandler) List(ctx context.Context, filter CardFilter, first *int, after *string) (pagination.Connection[Card], error) {
 	condition, err := q.condition(filter, first, after)
 	if err != nil {
 		return pagination.Connection[Card]{}, err
@@ -120,7 +120,7 @@ type cardListCondition struct {
 }
 
 // 誤りは最初の 1 つで止めず、まとめて返す
-func (q *CardList) condition(filter CardFilter, first *int, after *string) (cardListCondition, error) {
+func (q *CardHandler) condition(filter CardFilter, first *int, after *string) (cardListCondition, error) {
 	invalid := input.Errors{}
 	page, err := pagination.NewCondition[CardListCursor](first, after)
 	if errors.Is(err, pagination.ErrFirstOutOfRange) {

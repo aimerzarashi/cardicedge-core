@@ -38,17 +38,17 @@ type Config struct {
 
 type Studio struct {
 	config    Config
-	operators *command.OperatorCommands
-	creatures *command.CreatureCommands
-	items     *command.ItemCommands
-	spells    *command.SpellCommands
+	operators *command.OperatorHandler
+	creatures *command.CreatureHandler
+	items     *command.ItemHandler
+	spells    *command.SpellHandler
 	// 投影もカードの公開 ID を引くため、コマンドと共有する
 	entityRefs      domain.EntityRefResolver
-	presetDecks     *command.PresetDeckCommands
-	cards           *query.CardList
-	presetDeckList  *query.PresetDeckList
-	starterDeckSets *command.StarterDeckSetCommands
-	starterDeckSet  *query.StarterDeckSetQuery
+	presetDecks     *command.PresetDeckHandler
+	cards           *query.CardHandler
+	presetDeckList  *query.PresetDeckHandler
+	starterDeckSets *command.StarterDeckSetHandler
+	starterDeckSet  *query.StarterDeckSetHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -58,10 +58,12 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		return time.Now().UTC().Truncate(time.Microsecond)
 	}
 	entityRefs := identifier.NewEntityRefResolver(registry)
+	cardReader := repository.NewCardReader()
+	presetDeckReader := repository.NewPresetDeckReader()
 	return &Studio{
 		config:     config,
 		entityRefs: entityRefs,
-		operators: command.NewOperatorCommands(
+		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
 			identifier.New(registry, operator.NewID),
 			constraint.UpdateOperatorEmail,
@@ -71,25 +73,25 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.OperatorExists,
 			now,
 		),
-		creatures: command.NewCreatureCommands(
+		creatures: command.NewCreatureHandler(
 			eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
 			identifier.New(registry, creature.NewID),
 			constraint.UpdateCreatureName,
 			now,
 		),
-		items: command.NewItemCommands(
+		items: command.NewItemHandler(
 			eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
 			identifier.New(registry, item.NewID),
 			constraint.UpdateItemName,
 			now,
 		),
-		spells: command.NewSpellCommands(
+		spells: command.NewSpellHandler(
 			eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
 			identifier.New(registry, spell.NewID),
 			constraint.UpdateSpellName,
 			now,
 		),
-		presetDecks: command.NewPresetDeckCommands(
+		presetDecks: command.NewPresetDeckHandler(
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
 			entityRefs,
@@ -97,9 +99,9 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdatePresetDeckCardReferences,
 			now,
 		),
-		cards:          query.NewCardList(repository.ListCards, repository.GetCards),
-		presetDeckList: query.NewPresetDeckList(repository.ListPresetDecks, repository.GetPresetDeck),
-		starterDeckSets: command.NewStarterDeckSetCommands(
+		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
+		presetDeckList: query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
+		starterDeckSets: command.NewStarterDeckSetHandler(
 			eventstore.New(registry, starterdeckset.NewID, starterdeckset.NewEventType, starterdeckset.InitialState, starterdeckset.Evolve),
 			identifier.New(registry, starterdeckset.NewID),
 			constraint.FindStarterDeckSet,
@@ -109,7 +111,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			identifier.New(registry, presetdeck.NewID),
 			now,
 		),
-		starterDeckSet: query.NewStarterDeckSetQuery(repository.GetStarterDeckSet, repository.GetPresetDeckRevisions),
+		starterDeckSet: query.NewStarterDeckSetHandler(repository.NewStarterDeckSetReader().Get, presetDeckReader.Revisions),
 	}
 }
 
@@ -127,17 +129,18 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 
 // 名前と購読は migrations の event_subscribers・event_subscriptions と照合される
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
-	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.CardList]{
-		Name:          "card_list",
+	cards := repository.NewCardWriter()
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Card]{
+		Name:          "cards",
 		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType, spell.Types().EntityType},
-		Upsert:        repository.UpsertCardList,
-		Delete:        repository.DeleteCardList,
+		Upsert:        cards.Upsert,
+		Delete:        cards.Delete,
 	}); err != nil {
 		return err
 	}
-	presetDecks := repository.NewPresetDeckListWriter(c.entityRefs)
-	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeckList]{
-		Name:          "preset_deck_list",
+	presetDecks := repository.NewPresetDeckWriter(c.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeck]{
+		Name:          "preset_decks",
 		Subscriptions: []domain.EntityType{presetdeck.Types().EntityType},
 		Upsert:        presetDecks.Upsert,
 		Delete:        presetDecks.Delete,
@@ -146,7 +149,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	}
 	starterDeckSets := repository.NewStarterDeckSetWriter(c.entityRefs)
 	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
-		Name:          "starter_deck_set",
+		Name:          "starter_deck_sets",
 		Subscriptions: []domain.EntityType{starterdeckset.Types().EntityType},
 		Upsert:        starterDeckSets.Upsert,
 		Delete:        starterDeckSets.Delete,

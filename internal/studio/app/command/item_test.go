@@ -25,11 +25,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-func newItemCommands(t *testing.T, ctx context.Context) *command.ItemCommands {
+func newItemHandler(t *testing.T, ctx context.Context) *command.ItemHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewItemCommands(
+	return command.NewItemHandler(
 		eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
 		identifier.New(registry, item.NewID),
 		constraint.UpdateItemName,
@@ -58,7 +58,7 @@ func TestRegisterItem_ReturnsRegisteredItem(t *testing.T) {
 	name := "ポーション"
 	before := time.Now().UTC()
 
-	registered, err := newItemCommands(t, ctx).Register(ctx, "  "+name+" ")
+	registered, err := newItemHandler(t, ctx).Register(ctx, "  "+name+" ")
 
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, registered.ID)
@@ -70,7 +70,7 @@ func TestRegisterItem_ReturnsRegisteredItem(t *testing.T) {
 
 func TestRegisterItem_RejectsNameAlreadyInUse(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newItemCommands(t, ctx)
+	commands := newItemHandler(t, ctx)
 	_, err := commands.Register(ctx, "ＡＢＣ")
 	require.NoError(t, err)
 
@@ -82,10 +82,10 @@ func TestRegisterItem_RejectsNameAlreadyInUse(t *testing.T) {
 // カード名は Creature と共有しているため、種類をまたいでも重複になる
 func TestRegisterItem_RejectsNameUsedByCreature(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	_, err := newCreatureCommands(t, ctx).Register(ctx, "ドラゴン")
+	_, err := newCreatureHandler(t, ctx).Register(ctx, "ドラゴン")
 	require.NoError(t, err)
 
-	_, err = newItemCommands(t, ctx).Register(ctx, " ドラゴン")
+	_, err = newItemHandler(t, ctx).Register(ctx, " ドラゴン")
 
 	require.ErrorIs(t, err, command.ErrCardNameAlreadyInUse)
 }
@@ -103,7 +103,7 @@ func TestRegisterItem_RejectsInvalidName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 
-			_, err := newItemCommands(t, ctx).Register(ctx, tt.value)
+			_, err := newItemHandler(t, ctx).Register(ctx, tt.value)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -115,7 +115,7 @@ func TestRegisterItem_RejectsInvalidName(t *testing.T) {
 func TestRegisterItem_RejectsWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
 
-	_, err := newItemCommands(t, ctx).Register(ctx, "ポーション")
+	_, err := newItemHandler(t, ctx).Register(ctx, "ポーション")
 
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
@@ -124,7 +124,7 @@ func TestRegisterItem_RecordsOperatorInEvent(t *testing.T) {
 	by := operatortest.ID(t, 42)
 	ctx := signedIn(t, isolatedDatabase(t), by)
 	name := "ポーション"
-	_, err := newItemCommands(t, ctx).Register(ctx, name)
+	_, err := newItemHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
 	registry, err := domaindef.Load(ctx)
@@ -140,7 +140,7 @@ func TestRegisterItem_RecordsOperatorInEvent(t *testing.T) {
 func TestRegisterItem_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	name := "ポーション"
-	commands := newItemCommands(t, ctx)
+	commands := newItemHandler(t, ctx)
 
 	const callers = 20
 	errs := make([]error, callers)

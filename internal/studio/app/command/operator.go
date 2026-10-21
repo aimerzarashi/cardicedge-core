@@ -12,7 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-type OperatorCommands struct {
+type OperatorHandler struct {
 	eventStore          domain.EventStore[operator.ID, operator.Event, operator.State]
 	identifier          domain.Identifier[operator.ID]
 	updateEmail         operator.UpdateEmailFunc
@@ -23,7 +23,7 @@ type OperatorCommands struct {
 	now                 func() time.Time
 }
 
-func NewOperatorCommands(
+func NewOperatorHandler(
 	eventStore domain.EventStore[operator.ID, operator.Event, operator.State],
 	identifier domain.Identifier[operator.ID],
 	updateEmail operator.UpdateEmailFunc,
@@ -32,8 +32,8 @@ func NewOperatorCommands(
 	findUnlinkedByEmail operator.FindUnlinkedByEmailFunc,
 	exists operator.ExistsFunc,
 	now func() time.Time,
-) *OperatorCommands {
-	return &OperatorCommands{
+) *OperatorHandler {
+	return &OperatorHandler{
 		eventStore: eventStore, identifier: identifier,
 		updateEmail: updateEmail, updateSubject: updateSubject,
 		findBySubject: findBySubject, findUnlinkedByEmail: findUnlinkedByEmail, exists: exists,
@@ -42,7 +42,7 @@ func NewOperatorCommands(
 }
 
 // 入力の誤りは input.Errors、登録済みのメールアドレスなら ErrOperatorEmailAlreadyRegistered
-func (c *OperatorCommands) Register(ctx context.Context, email string) error {
+func (c *OperatorHandler) Register(ctx context.Context, email string) error {
 	address, err := newEmail(email)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (c *OperatorCommands) Register(ctx context.Context, email string) error {
 }
 
 // 起動時に呼ぶ。オペレーターが 1 人もいないときだけ登録し、登録したかを返す（2 回目以降の起動で、環境変数を変えても増やさない）
-func (c *OperatorCommands) RegisterInitial(ctx context.Context, email string) (bool, error) {
+func (c *OperatorHandler) RegisterInitial(ctx context.Context, email string) (bool, error) {
 	address, err := newEmail(email)
 	if err != nil {
 		return false, err
@@ -72,7 +72,7 @@ func (c *OperatorCommands) RegisterInitial(ctx context.Context, email string) (b
 	return err == nil, err
 }
 
-func (c *OperatorCommands) register(ctx context.Context, email operator.Email) (operator.ID, error) {
+func (c *OperatorHandler) register(ctx context.Context, email operator.Email) (operator.ID, error) {
 	return rdb.Transact(ctx, func(ctx context.Context) (operator.ID, error) {
 		id, publicID, err := c.identifier.Issue(ctx)
 		if err != nil {
@@ -93,7 +93,7 @@ func (c *OperatorCommands) register(ctx context.Context, email operator.Email) (
 // まだ紐づいていなければ、確認済みのメールアドレス（emailVerified が true のときの email）で、登録済み・未紐づけの
 // オペレーターを探して紐づける。どちらでもなければ、オペレーターを載せずに返す（入口では拒否せず、操作ごとの認可で断る）。
 // iss・sub の形が正しくなければ ErrInvalidCredentials
-func (c *OperatorCommands) Authenticate(ctx context.Context, issuer, subject, email string, emailVerified bool) (context.Context, error) {
+func (c *OperatorHandler) Authenticate(ctx context.Context, issuer, subject, email string, emailVerified bool) (context.Context, error) {
 	iss, err := operator.NewIssuer(issuer)
 	if err != nil {
 		return ctx, ErrInvalidCredentials
@@ -116,7 +116,7 @@ func (c *OperatorCommands) Authenticate(ctx context.Context, issuer, subject, em
 	return authentication.WithOperator(ctx, id), nil
 }
 
-func (c *OperatorCommands) identify(ctx context.Context, issuer operator.Issuer, subject operator.Subject, verifiedEmail *operator.Email) (operator.ID, bool, error) {
+func (c *OperatorHandler) identify(ctx context.Context, issuer operator.Issuer, subject operator.Subject, verifiedEmail *operator.Email) (operator.ID, bool, error) {
 	// ほとんどの呼び出しは紐づけ済みのため、先に引く
 	if id, found, err := c.findBySubject(ctx, issuer, subject); err != nil || found || verifiedEmail == nil {
 		return id, found, err

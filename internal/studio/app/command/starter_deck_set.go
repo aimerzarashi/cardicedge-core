@@ -16,7 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/input"
 )
 
-type StarterDeckSetCommands struct {
+type StarterDeckSetHandler struct {
 	eventStore domain.EventStore[starterdeckset.ID, starterdeckset.Event, starterdeckset.State]
 	identifier domain.Identifier[starterdeckset.ID]
 	find       starterdeckset.FindFunc
@@ -29,7 +29,7 @@ type StarterDeckSetCommands struct {
 	now                  func() time.Time
 }
 
-func NewStarterDeckSetCommands(
+func NewStarterDeckSetHandler(
 	eventStore domain.EventStore[starterdeckset.ID, starterdeckset.Event, starterdeckset.State],
 	identifier domain.Identifier[starterdeckset.ID],
 	find starterdeckset.FindFunc,
@@ -38,8 +38,8 @@ func NewStarterDeckSetCommands(
 	presetDecks domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State],
 	presetDeckIdentifier domain.Identifier[presetdeck.ID],
 	now func() time.Time,
-) *StarterDeckSetCommands {
-	return &StarterDeckSetCommands{
+) *StarterDeckSetHandler {
+	return &StarterDeckSetHandler{
 		eventStore:           eventStore,
 		identifier:           identifier,
 		find:                 find,
@@ -61,7 +61,7 @@ type ChangedStarterDeckSet struct {
 // 同じプリセットデッキが 2 回出てきた（2 回目に付ける）・プリセットデッキが無い（削除したものを含む）・合計がちょうど
 // presetdeck.MaxTotalCount でない。画面を開いた後にほかの操作で変わっていれば（初めての設定がほかの人と重なったときも）
 // ErrRevisionConflict
-func (c *StarterDeckSetCommands) Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (ChangedStarterDeckSet, error) {
+func (c *StarterDeckSetHandler) Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (ChangedStarterDeckSet, error) {
 	setBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedStarterDeckSet{}, ErrNotOperator
@@ -108,7 +108,7 @@ func (c *StarterDeckSetCommands) Set(ctx context.Context, revision int64, preset
 
 // 1 つしかない集約を、一意な key から引く。まだ無ければ識別子を発行して key を確保する（同じトランザクションで設定を保存するため、
 // 設定の無い集約は残らない）
-func (c *StarterDeckSetCommands) load(ctx context.Context) (starterdeckset.ID, uuid.UUID, starterdeckset.State, error) {
+func (c *StarterDeckSetHandler) load(ctx context.Context) (starterdeckset.ID, uuid.UUID, starterdeckset.State, error) {
 	id, found, err := c.find(ctx)
 	if err != nil {
 		return 0, uuid.Nil, nil, err
@@ -139,7 +139,7 @@ func version(state starterdeckset.State) int64 {
 }
 
 // 誤りは最初の 1 つで止めず、まとめて input.Errors で返す。項目名は presetDeckIds.<番号> のように一覧の位置を含める
-func (c *StarterDeckSetCommands) copyPresetDecks(ctx context.Context, presetDeckIDs []uuid.UUID) ([]starterdeckset.Deck, error) {
+func (c *StarterDeckSetHandler) copyPresetDecks(ctx context.Context, presetDeckIDs []uuid.UUID) ([]starterdeckset.Deck, error) {
 	if len(presetDeckIDs) != starterdeckset.RequiredDeckCount {
 		return nil, input.Errors{&input.OutOfRange{Field: "presetDeckIds", Min: starterdeckset.RequiredDeckCount, Max: starterdeckset.RequiredDeckCount}}
 	}
@@ -178,7 +178,7 @@ func (c *StarterDeckSetCommands) copyPresetDecks(ctx context.Context, presetDeck
 }
 
 // 無い・削除したなら ErrPresetDeckNotFound
-func (c *StarterDeckSetCommands) loadPresetDeck(ctx context.Context, publicID uuid.UUID) (presetdeck.PresetDeck, error) {
+func (c *StarterDeckSetHandler) loadPresetDeck(ctx context.Context, publicID uuid.UUID) (presetdeck.PresetDeck, error) {
 	id, err := c.presetDeckIdentifier.Resolve(ctx, publicID)
 	if errors.Is(err, domain.ErrEntityNotFound) {
 		return presetdeck.PresetDeck{}, ErrPresetDeckNotFound

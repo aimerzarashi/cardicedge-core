@@ -45,7 +45,7 @@ func TestStarterDeckSet_GetsUpsertedStarterDeckSetWithCardPublicIDs(t *testing.T
 	set := readmodel.StarterDeckSet{StarterDeckSetID: uuid.New(), Revision: 2, UpdatedAt: at, Decks: []starterdeckset.Deck{fireEarth, waterWind}}
 
 	require.NoError(t, f.starterDeckSetWriter().Upsert(f.ctx, set))
-	got, found, err := repository.GetStarterDeckSet(f.ctx)
+	got, found, err := repository.NewStarterDeckSetReader().Get(f.ctx)
 
 	require.NoError(t, err)
 	require.True(t, found)
@@ -60,7 +60,7 @@ func TestStarterDeckSet_GetsUpsertedStarterDeckSetWithCardPublicIDs(t *testing.T
 func TestStarterDeckSet_GetReturnsNotFoundBeforeSet(t *testing.T) {
 	f := newPresetDeckFixture(t)
 
-	_, found, err := repository.GetStarterDeckSet(f.ctx)
+	_, found, err := repository.NewStarterDeckSetReader().Get(f.ctx)
 
 	require.NoError(t, err)
 	require.False(t, found)
@@ -71,7 +71,7 @@ func TestGetPresetDeckRevisions_ReturnsRevisionsOfExistingPresetDecks(t *testing
 	f := newPresetDeckFixture(t)
 	fire := f.put(t, "fire", "Fire")
 
-	revisions, err := repository.GetPresetDeckRevisions(f.ctx, []uuid.UUID{fire.PresetDeckID, uuid.New()})
+	revisions, err := repository.NewPresetDeckReader().Revisions(f.ctx, []uuid.UUID{fire.PresetDeckID, uuid.New()})
 
 	require.NoError(t, err)
 	require.Equal(t, map[uuid.UUID]int64{fire.PresetDeckID: fire.Metadata.Revision}, revisions)

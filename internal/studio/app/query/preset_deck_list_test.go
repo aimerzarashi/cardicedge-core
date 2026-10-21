@@ -33,16 +33,16 @@ func presetDeckRow(name string) query.PresetDeckListRow {
 }
 
 // 名前はカード名と同じ正規化をしてから渡す
-func TestPresetDeckList_PassesNormalizedConditionToReader(t *testing.T) {
+func TestPresetDeckHandler_PassesNormalizedConditionToReader(t *testing.T) {
 	reader := &fakePresetDeckReader{}
 
-	_, err := query.NewPresetDeckList(reader.list, nil).List(t.Context(), query.PresetDeckFilter{NameContains: ptr(" ＦIRE ")}, ptr(10), nil)
+	_, err := query.NewPresetDeckHandler(reader.list, nil).List(t.Context(), query.PresetDeckFilter{NameContains: ptr(" ＦIRE ")}, ptr(10), nil)
 
 	require.NoError(t, err)
 	require.Equal(t, query.ListPresetDecksCondition{NameContains: "fire", Limit: 11}, reader.condition)
 }
 
-func TestPresetDeckList_RejectsInvalidInput(t *testing.T) {
+func TestPresetDeckHandler_RejectsInvalidInput(t *testing.T) {
 	tests := []struct {
 		name         string
 		nameContains *string
@@ -73,7 +73,7 @@ func TestPresetDeckList_RejectsInvalidInput(t *testing.T) {
 
 			filter := query.PresetDeckFilter{NameContains: tt.nameContains}
 
-			_, err := query.NewPresetDeckList(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
+			_, err := query.NewPresetDeckHandler(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -83,11 +83,11 @@ func TestPresetDeckList_RejectsInvalidInput(t *testing.T) {
 	}
 }
 
-func TestPresetDeckList_ReturnsPresetDecksWithCursorsAndNextPage(t *testing.T) {
+func TestPresetDeckHandler_ReturnsPresetDecksWithCursorsAndNextPage(t *testing.T) {
 	rows := []query.PresetDeckListRow{presetDeckRow("A"), presetDeckRow("B"), presetDeckRow("C")}
 	reader := &fakePresetDeckReader{rows: rows}
 
-	connection, err := query.NewPresetDeckList(reader.list, nil).List(t.Context(), query.PresetDeckFilter{}, ptr(2), nil)
+	connection, err := query.NewPresetDeckHandler(reader.list, nil).List(t.Context(), query.PresetDeckFilter{}, ptr(2), nil)
 
 	require.NoError(t, err)
 	require.Len(t, connection.Edges, 2)

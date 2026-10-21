@@ -18,7 +18,14 @@ import (
 
 // 並び順は索引（sort_name, preset_deck_id）と同じにし、続きは行の比べ方で取る（理由は ListCards と同じ）。
 // sqlboiler を使わない理由も ListCards と同じ
-func ListPresetDecks(ctx context.Context, condition query.ListPresetDecksCondition) ([]query.PresetDeckListRow, error) {
+// preset_decks を読む（一覧・詳細と、スターターデッキセットが比べる今の revision）
+type PresetDeckReader struct{}
+
+func NewPresetDeckReader() *PresetDeckReader {
+	return &PresetDeckReader{}
+}
+
+func (r *PresetDeckReader) List(ctx context.Context, condition query.ListPresetDecksCondition) ([]query.PresetDeckListRow, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
@@ -35,7 +42,7 @@ func ListPresetDecks(ctx context.Context, condition query.ListPresetDecksConditi
 	if condition.NameContains != "" {
 		where = append(where, fmt.Sprintf(`sort_name LIKE '%%' || %s || '%%' ESCAPE '\'`, arg(likeEscaper.Replace(condition.NameContains))))
 	}
-	sql := "SELECT preset_deck_id, sort_name, total_count, metadata FROM preset_deck_lists"
+	sql := "SELECT preset_deck_id, sort_name, total_count, metadata FROM preset_decks"
 	if len(where) > 0 {
 		sql += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -67,12 +74,12 @@ func ListPresetDecks(ctx context.Context, condition query.ListPresetDecksConditi
 	return result, rows.Err()
 }
 
-func GetPresetDeck(ctx context.Context, id uuid.UUID) (query.PresetDeck, error) {
+func (r *PresetDeckReader) Get(ctx context.Context, id uuid.UUID) (query.PresetDeck, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return query.PresetDeck{}, err
 	}
-	row, err := models.FindPresetDeckList(ctx, exec, id.String())
+	row, err := models.FindPresetDeck(ctx, exec, id.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return query.PresetDeck{}, query.ErrPresetDeckNotFound
 	}
@@ -83,9 +90,9 @@ func GetPresetDeck(ctx context.Context, id uuid.UUID) (query.PresetDeck, error) 
 }
 
 func toPresetDeck(id uuid.UUID, totalCount int, raw []byte) (query.PresetDeck, error) {
-	var metadata readmodel.PresetDeckListMetadata
+	var metadata readmodel.PresetDeckMetadata
 	if err := json.Unmarshal(raw, &metadata); err != nil {
-		return query.PresetDeck{}, fmt.Errorf("preset_deck_lists.metadata of %s: %w", id, err)
+		return query.PresetDeck{}, fmt.Errorf("preset_decks.metadata of %s: %w", id, err)
 	}
 	cards := make([]query.PresetDeckCard, 0, len(metadata.Cards))
 	for _, card := range metadata.Cards {
@@ -95,4 +102,32 @@ func toPresetDeck(id uuid.UUID, totalCount int, raw []byte) (query.PresetDeck, e
 		ID: metadata.ID, Name: metadata.Name, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 	}, nil
+}
+
+// 公開 ID で引く。無い（削除した）プリセットデッキは結果に含めない
+func (r *PresetDeckReader) Revisions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error) {
+	revisions := make(map[uuid.UUID]int64, len(ids))
+	if len(ids) == 0 {
+		return revisions, nil
+	}
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(ids))
+	for _, id := range ids {
+		keys = append(keys, id.String())
+	}
+	rows, err := models.PresetDecks(models.PresetDeckWhere.PresetDeckID.IN(keys)).All(ctx, exec)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		var metadata readmodel.PresetDeckMetadata
+		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+			return nil, fmt.Errorf("preset_decks.metadata of %s: %w", row.PresetDeckID, err)
+		}
+		revisions[metadata.ID] = metadata.Revision
+	}
+	return revisions, nil
 }

@@ -13,7 +13,7 @@ import (
 
 func (f presetDeckFixture) listAll(t *testing.T) []query.PresetDeckListRow {
 	t.Helper()
-	rows, err := repository.ListPresetDecks(f.ctx, query.ListPresetDecksCondition{Limit: 100})
+	rows, err := repository.NewPresetDeckReader().List(f.ctx, query.ListPresetDecksCondition{Limit: 100})
 	require.NoError(t, err)
 	return rows
 }
@@ -27,14 +27,14 @@ func presetDeckNames(rows []query.PresetDeckListRow) []string {
 }
 
 // カードは内部 ID から公開 ID に引き直して書き、読むときは公開 ID と枚数で返す
-func TestPresetDeckList_GetsUpsertedPresetDeckWithCardPublicIDs(t *testing.T) {
+func TestPresetDeck_GetsUpsertedPresetDeckWithCardPublicIDs(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	dragon, dragonID := f.issueCreature(t)
 	potion, potionID := f.issueItem(t)
 	list := presetDeckList("fire", "Ｆire", map[presetdeck.CardRef]int{dragon: 3, potion: 1})
 
 	require.NoError(t, f.writer.Upsert(f.ctx, list))
-	deck, err := repository.GetPresetDeck(f.ctx, list.PresetDeckID)
+	deck, err := repository.NewPresetDeckReader().Get(f.ctx, list.PresetDeckID)
 
 	require.NoError(t, err)
 	require.Equal(t, list.PresetDeckID, deck.ID)
@@ -46,15 +46,15 @@ func TestPresetDeckList_GetsUpsertedPresetDeckWithCardPublicIDs(t *testing.T) {
 	require.Equal(t, list.Metadata.UpdatedAt, deck.UpdatedAt.UTC())
 }
 
-func TestPresetDeckList_GetFailsForMissingPresetDeck(t *testing.T) {
+func TestPresetDeck_GetFailsForMissingPresetDeck(t *testing.T) {
 	f := newPresetDeckFixture(t)
 
-	_, err := repository.GetPresetDeck(f.ctx, uuid.New())
+	_, err := repository.NewPresetDeckReader().Get(f.ctx, uuid.New())
 
 	require.ErrorIs(t, err, query.ErrPresetDeckNotFound)
 }
 
-func TestPresetDeckList_UpsertOverwritesSamePresetDeck(t *testing.T) {
+func TestPresetDeck_UpsertOverwritesSamePresetDeck(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	dragon, dragonID := f.issueCreature(t)
 	list := f.put(t, "fire", "Fire")
@@ -69,7 +69,7 @@ func TestPresetDeckList_UpsertOverwritesSamePresetDeck(t *testing.T) {
 	require.Equal(t, []query.PresetDeckCard{{CardID: dragonID, Count: 2}}, rows[0].PresetDeck.Cards)
 }
 
-func TestPresetDeckList_DeleteRemovesPresetDeck(t *testing.T) {
+func TestPresetDeck_DeleteRemovesPresetDeck(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	deleted := f.put(t, "fire", "Fire")
 	f.put(t, "water", "Water")
@@ -80,7 +80,7 @@ func TestPresetDeckList_DeleteRemovesPresetDeck(t *testing.T) {
 }
 
 // 同じ集約を作り直すときに、何度呼ばれてもよいように
-func TestPresetDeckList_DeleteAcceptsMissingPresetDeck(t *testing.T) {
+func TestPresetDeck_DeleteAcceptsMissingPresetDeck(t *testing.T) {
 	f := newPresetDeckFixture(t)
 
 	err := f.writer.Delete(f.ctx, presetDeckList("fire", "Fire", map[presetdeck.CardRef]int{}))
@@ -88,14 +88,14 @@ func TestPresetDeckList_DeleteAcceptsMissingPresetDeck(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPresetDeckList_ListsBySortNameWithCursor(t *testing.T) {
+func TestPresetDeck_ListsBySortNameWithCursor(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	f.put(t, "b", "B")
 	first := f.put(t, "a", "A")
 	f.put(t, "c", "C")
 	after := query.PresetDeckListCursor{SortName: first.SortName, PresetDeckID: first.PresetDeckID}
 
-	rows, err := repository.ListPresetDecks(f.ctx, query.ListPresetDecksCondition{After: &after, Limit: 1})
+	rows, err := repository.NewPresetDeckReader().List(f.ctx, query.ListPresetDecksCondition{After: &after, Limit: 1})
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"A", "B", "C"}, presetDeckNames(f.listAll(t)))
@@ -104,13 +104,13 @@ func TestPresetDeckList_ListsBySortNameWithCursor(t *testing.T) {
 }
 
 // LIKE の記号（% _）は文字どおりに比べる（カードの一覧と同じ）
-func TestPresetDeckList_FiltersByNameContainsLiterally(t *testing.T) {
+func TestPresetDeck_FiltersByNameContainsLiterally(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	for _, name := range []string{"50%off", "50xoff"} {
 		f.put(t, name, name)
 	}
 
-	rows, err := repository.ListPresetDecks(f.ctx, query.ListPresetDecksCondition{NameContains: "50%", Limit: 10})
+	rows, err := repository.NewPresetDeckReader().List(f.ctx, query.ListPresetDecksCondition{NameContains: "50%", Limit: 10})
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"50%off"}, presetDeckNames(rows))

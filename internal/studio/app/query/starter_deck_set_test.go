@@ -11,19 +11,19 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/query"
 )
 
-func TestStarterDeckSetQuery_ReturnsEmptyBeforeSet(t *testing.T) {
+func TestStarterDeckSetHandler_ReturnsEmptyBeforeSet(t *testing.T) {
 	get := func(context.Context) (query.StarterDeckSet, bool, error) {
 		return query.StarterDeckSet{}, false, nil
 	}
 
-	set, err := query.NewStarterDeckSetQuery(get, nil).Get(t.Context())
+	set, err := query.NewStarterDeckSetHandler(get, nil).Get(t.Context())
 
 	require.NoError(t, err)
 	require.Equal(t, query.StarterDeckSet{Decks: []query.StarterDeck{}}, set)
 }
 
 // 写した後に元が変わっていれば true。同じ revision なら false。元が消されていれば比べる相手が無いので false
-func TestStarterDeckSetQuery_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
+func TestStarterDeckSetHandler_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
 	unchanged, changed, deleted := uuid.New(), uuid.New(), uuid.New()
 	at := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
 	deck := func(name string, presetDeckID uuid.UUID) query.StarterDeck {
@@ -40,7 +40,7 @@ func TestStarterDeckSetQuery_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
 		return map[uuid.UUID]int64{unchanged: 5, changed: 6}, nil
 	}
 
-	set, err := query.NewStarterDeckSetQuery(get, revisions).Get(t.Context())
+	set, err := query.NewStarterDeckSetHandler(get, revisions).Get(t.Context())
 
 	require.NoError(t, err)
 	changedSinceCopied := map[string]bool{}

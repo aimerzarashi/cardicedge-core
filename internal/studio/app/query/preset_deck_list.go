@@ -26,7 +26,7 @@ type PresetDeck struct {
 	UpdatedAt    time.Time
 }
 
-// カード名・種類は持たない（uif が CardList.Get で引く）
+// カード名・種類は持たない（uif が CardHandler.Get で引く）
 type PresetDeckCard struct {
 	CardID uuid.UUID
 	Count  int
@@ -66,17 +66,17 @@ type ListPresetDecksFunc func(ctx context.Context, condition ListPresetDecksCond
 // 無ければ ErrPresetDeckNotFound
 type GetPresetDeckFunc func(ctx context.Context, id uuid.UUID) (PresetDeck, error)
 
-type PresetDeckList struct {
+type PresetDeckHandler struct {
 	listPresetDecks ListPresetDecksFunc
 	getPresetDeck   GetPresetDeckFunc
 }
 
-func NewPresetDeckList(listPresetDecks ListPresetDecksFunc, getPresetDeck GetPresetDeckFunc) *PresetDeckList {
-	return &PresetDeckList{listPresetDecks: listPresetDecks, getPresetDeck: getPresetDeck}
+func NewPresetDeckHandler(listPresetDecks ListPresetDecksFunc, getPresetDeck GetPresetDeckFunc) *PresetDeckHandler {
+	return &PresetDeckHandler{listPresetDecks: listPresetDecks, getPresetDeck: getPresetDeck}
 }
 
 // 入力の誤りは input.Errors（まとめて返す）。項目名は GraphQL の引数・入力の項目名
-func (q *PresetDeckList) List(ctx context.Context, filter PresetDeckFilter, first *int, after *string) (pagination.Connection[PresetDeck], error) {
+func (q *PresetDeckHandler) List(ctx context.Context, filter PresetDeckFilter, first *int, after *string) (pagination.Connection[PresetDeck], error) {
 	invalid := input.Errors{}
 	page, err := pagination.NewCondition[PresetDeckListCursor](first, after)
 	if errors.Is(err, pagination.ErrFirstOutOfRange) {
@@ -125,6 +125,6 @@ func (q *PresetDeckList) List(ctx context.Context, filter PresetDeckFilter, firs
 }
 
 // 無ければ ErrPresetDeckNotFound
-func (q *PresetDeckList) Get(ctx context.Context, id uuid.UUID) (PresetDeck, error) {
+func (q *PresetDeckHandler) Get(ctx context.Context, id uuid.UUID) (PresetDeck, error) {
 	return q.getPresetDeck(ctx, id)
 }

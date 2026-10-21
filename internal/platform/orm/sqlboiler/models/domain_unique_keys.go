@@ -77,7 +77,7 @@ var DomainUniqueKeyRels = struct {
 
 // domainUniqueKeyR is where relationships are stored.
 type domainUniqueKeyR struct {
-	Entity        *DomainIdentifier    `boil:"Entity" json:"Entity" toml:"Entity" yaml:"Entity"`
+	Entity        *DomainEntity        `boil:"Entity" json:"Entity" toml:"Entity" yaml:"Entity"`
 	UniqueKeyType *DomainUniqueKeyType `boil:"UniqueKeyType" json:"UniqueKeyType" toml:"UniqueKeyType" yaml:"UniqueKeyType"`
 }
 
@@ -86,7 +86,7 @@ func (*domainUniqueKeyR) NewStruct() *domainUniqueKeyR {
 	return &domainUniqueKeyR{}
 }
 
-func (o *DomainUniqueKey) GetEntity() *DomainIdentifier {
+func (o *DomainUniqueKey) GetEntity() *DomainEntity {
 	if o == nil {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (o *DomainUniqueKey) GetEntity() *DomainIdentifier {
 	return o.R.GetEntity()
 }
 
-func (r *domainUniqueKeyR) GetEntity() *DomainIdentifier {
+func (r *domainUniqueKeyR) GetEntity() *DomainEntity {
 	if r == nil {
 		return nil
 	}
@@ -435,14 +435,14 @@ func (q domainUniqueKeyQuery) Exists(ctx context.Context, exec boil.ContextExecu
 }
 
 // Entity pointed to by the foreign key.
-func (o *DomainUniqueKey) Entity(mods ...qm.QueryMod) domainIdentifierQuery {
+func (o *DomainUniqueKey) Entity(mods ...qm.QueryMod) domainEntityQuery {
 	queryMods := []qm.QueryMod{
 		qm.Where("\"id\" = ?", o.EntityID),
 	}
 
 	queryMods = append(queryMods, mods...)
 
-	return DomainIdentifiers(queryMods...)
+	return DomainEntities(queryMods...)
 }
 
 // UniqueKeyType pointed to by the foreign key.
@@ -514,8 +514,8 @@ func (domainUniqueKeyL) LoadEntity(ctx context.Context, e boil.ContextExecutor, 
 	}
 
 	query := NewQuery(
-		qm.From(`domain_identifiers`),
-		qm.WhereIn(`domain_identifiers.id in ?`, argsSlice...),
+		qm.From(`domain_entities`),
+		qm.WhereIn(`domain_entities.id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -523,22 +523,22 @@ func (domainUniqueKeyL) LoadEntity(ctx context.Context, e boil.ContextExecutor, 
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load DomainIdentifier")
+		return errors.Wrap(err, "failed to eager load DomainEntity")
 	}
 
-	var resultSlice []*DomainIdentifier
+	var resultSlice []*DomainEntity
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice DomainIdentifier")
+		return errors.Wrap(err, "failed to bind eager loaded slice DomainEntity")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for domain_identifiers")
+		return errors.Wrap(err, "failed to close results of eager load for domain_entities")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_identifiers")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_entities")
 	}
 
-	if len(domainIdentifierAfterSelectHooks) != 0 {
+	if len(domainEntityAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -554,7 +554,7 @@ func (domainUniqueKeyL) LoadEntity(ctx context.Context, e boil.ContextExecutor, 
 		foreign := resultSlice[0]
 		object.R.Entity = foreign
 		if foreign.R == nil {
-			foreign.R = &domainIdentifierR{}
+			foreign.R = &domainEntityR{}
 		}
 		foreign.R.EntityDomainUniqueKeys = append(foreign.R.EntityDomainUniqueKeys, object)
 		return nil
@@ -565,7 +565,7 @@ func (domainUniqueKeyL) LoadEntity(ctx context.Context, e boil.ContextExecutor, 
 			if local.EntityID == foreign.ID {
 				local.R.Entity = foreign
 				if foreign.R == nil {
-					foreign.R = &domainIdentifierR{}
+					foreign.R = &domainEntityR{}
 				}
 				foreign.R.EntityDomainUniqueKeys = append(foreign.R.EntityDomainUniqueKeys, local)
 				break
@@ -699,7 +699,7 @@ func (domainUniqueKeyL) LoadUniqueKeyType(ctx context.Context, e boil.ContextExe
 // SetEntity of the domainUniqueKey to the related item.
 // Sets o.R.Entity to related.
 // Adds o to related.R.EntityDomainUniqueKeys.
-func (o *DomainUniqueKey) SetEntity(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainIdentifier) error {
+func (o *DomainUniqueKey) SetEntity(ctx context.Context, exec boil.ContextExecutor, insert bool, related *DomainEntity) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -733,7 +733,7 @@ func (o *DomainUniqueKey) SetEntity(ctx context.Context, exec boil.ContextExecut
 	}
 
 	if related.R == nil {
-		related.R = &domainIdentifierR{
+		related.R = &domainEntityR{
 			EntityDomainUniqueKeys: DomainUniqueKeySlice{o},
 		}
 	} else {
