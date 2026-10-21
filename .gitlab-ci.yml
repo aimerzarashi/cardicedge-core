@@ -19,11 +19,11 @@ variables:
   # local/migrate/Dockerfile の FROM と揃える
   ATLAS_VERSION: "1.3.3"
 
-# lint / test は MR と main で実行する（タグのパイプラインでは実行しない）
-.on-mr-and-main:
+# lint / test は main に向かう MR（マイルストーンの MR）でだけ実行する。main への push では実行しない（直前の MR で同じ中身を
+# 確かめているため。マイルストーンのブランチは main に rebase してから MR にする。core#30）
+.on-mr:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
 
 # イメージのビルドに使う Docker in Docker
 .docker:
@@ -36,7 +36,7 @@ variables:
 # make lint と同じ（gofmt の違反検出、go vet、staticcheck、カスタムリンター、gqlgen の生成し忘れの検査、migrations の検査）
 lint:
   stage: test
-  extends: .on-mr-and-main
+  extends: .on-mr
   image: golang:1.27.1-bookworm
   variables:
     # 分岐点のコミットとの差分をとるため、全履歴を取得する（浅い clone だと分岐点が無いことがある）
@@ -47,17 +47,13 @@ lint:
     - go tool staticcheck ./...
     - go run ./tools/linter ./...
     - scripts/check-gen-api.sh
-    # 適用済みのマイグレーションの変更・削除・改名も検査する。比較元は MR では対象ブランチとの分岐点、
-    # main では push 前の先頭（Maintainer が MR を経ずに直接 push した場合も検出するため）
-    - |
-      base=${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}
-      if [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
-      scripts/check-migrations.sh $base
+    # 適用済みのマイグレーションの変更・削除・改名も検査する。比較元は対象ブランチ（main）との分岐点
+    - scripts/check-migrations.sh $CI_MERGE_REQUEST_DIFF_BASE_SHA
 
 # make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する（core と、ユニットテストが複製するテンプレートの core_template）
 test:
   stage: test
-  extends: .on-mr-and-main
+  extends: .on-mr
   image: golang:1.27.1-bookworm
   services:
     - name: postgres:18.6
@@ -76,12 +72,26 @@ test:
     - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable"
     - go test ./... -race
 
+# マイルストーンのブランチに向かう Issue の MR では、何もしないジョブだけを動かす。lint・test は手元の make lint・make test で
+# 確かめる（共有 Runner の時間を減らすため）。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、
+# その設定は main に向かう MR の歯止めとして残すため、作ったうえで最短で成功させる（image を省くと大きい既定のイメージになり、
+# リポジトリも読まないので取ってこない。core#30）
+issue-mr:
+  stage: test
+  image: busybox:1.38.0
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - ":"
+
 # MR の確認用イメージ（手動）。アプリとマイグレーション用イメージを GitLab Container Registry に mr-<MR番号> で push する
 build-mr:
   stage: build
   extends: .docker
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
   # lint・test（migrations の検査を含む）が通らないうちは、確認用イメージも作らせない

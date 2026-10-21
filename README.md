@@ -116,12 +116,15 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 | パイプライン | ジョブ | 内容 |
 |---|---|---|
-| MR | lint / test | `make lint` / `make test` 相当 |
-| MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
-| main | lint / test / release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
+| マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr | 何もしない（busybox で、リポジトリも取ってこない） |
+| main に向かう MR（マイルストーンの MR） | lint / test | `make lint` / `make test` 相当 |
+| main に向かう MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
+| main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
 | タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>`・`:latest` と `diecardomain/core-migrate:<タグ>`・`:latest` に push |
 
 バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
+
+マイルストーンのブランチに向かう Issue の MR では、何もしないジョブだけを動かす（lint・test は手元の `make lint`・`make test` で確かめる。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、その設定は main に向かう MR の歯止めとして残すため）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が MR の lint・test を通るようにしている。共有 Runner の時間を減らすため（core#30）。
 
 ## カスタムリンター（tools/linter）
 
@@ -184,7 +187,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 ### Atlas が検出しないこと（`scripts/check-migrations.sh` で補う）
 
 Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の lint ジョブで検査する。
-適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は MR なら対象ブランチとの分岐点、main なら push 前の先頭。MR を経ない直接 push も検出する）。lint が通らなければ build-mr・release も動かない。
+適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は main に向かう MR の対象ブランチとの分岐点）。main は直接 push できない設定のため、MR を経ない変更は無い。lint が通らなければ build-mr も動かない。
 
 | 検査 | Atlas に任せた場合 |
 |---|---|
