@@ -86,9 +86,9 @@ input RegisterPresetDeckInput {
 # 同じ時点のもの（詳細の読み直し）にそろえるため
 "プリセットデッキを登録した"
 type RegisterPresetDeckSuccess {
-  "登録したのプリセットデッキの公開用の ID"
+  "登録したプリセットデッキの公開用の ID"
   id: UUID!
-  "登録したの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  "登録したプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
   revision: Int!
 }
 
@@ -107,9 +107,9 @@ input RenamePresetDeckInput {
 
 "プリセットデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）"
 type RenamePresetDeckSuccess {
-  "変えたのプリセットデッキの公開用の ID"
+  "変えたプリセットデッキの公開用の ID"
   id: UUID!
-  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  "変えたプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
   revision: Int!
 }
 
@@ -142,9 +142,9 @@ input SetPresetDeckCardCountsInput {
 
 "プリセットデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）"
 type SetPresetDeckCardCountsSuccess {
-  "変えたのプリセットデッキの公開用の ID"
+  "変えたプリセットデッキの公開用の ID"
   id: UUID!
-  "変えたの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  "変えたプリセットデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
   revision: Int!
 }
 
