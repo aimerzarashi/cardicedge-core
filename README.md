@@ -116,7 +116,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 | パイプライン | ジョブ | 内容 |
 |---|---|---|
-| マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr | 何もしない（busybox で、リポジトリも取ってこない） |
+| マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr（手動。実行しない） | 何もしない。パイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる |
 | main に向かう MR（マイルストーンの MR） | lint / test | `make lint` / `make test` 相当 |
 | main に向かう MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
 | main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
@@ -124,7 +124,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
 
-マイルストーンのブランチに向かう Issue の MR では、何もしないジョブだけを動かす（lint・test は手元の `make lint`・`make test` で確かめる。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、その設定は main に向かう MR の歯止めとして残すため）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が MR の lint・test を通るようにしている。共有 Runner の時間を減らすため（core#30）。
+マイルストーンのブランチに向かう Issue の MR では、何もしない手動のジョブだけを置いて実行しない（lint・test は手元の `make lint`・`make test` で確かめる。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、その設定は main に向かう MR の歯止めとして残すため）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が MR の lint・test を通るようにしている。共有 Runner の時間を減らすため（core#30）。
 
 ## カスタムリンター（tools/linter）
 
