@@ -22,15 +22,18 @@ type StarterDeck {
   source: StarterDeckSource!
 }
 
-# 元は参照（消せない制約）にしないため、消されていることもある。そのときは changedSinceCopied は false（比べる相手が無い）
+# 元は参照（消せない制約）にしないため、消されていることもある。そのときは presetDeckDeleted が true になり、changedSinceCopied は
+# false（比べる相手が無い）
 "写した元"
 type StarterDeckSource {
   "元のプリセットデッキの公開用の ID（消されていることもある）"
   presetDeckId: UUID!
   "写したときの、元のプリセットデッキの revision"
   revision: Int!
-  "写した後に、元のプリセットデッキが変わっている（設定し直すと反映される）"
+  "写した後に、元のプリセットデッキが変わっている（設定し直すと反映される。元が削除されていれば false）"
   changedSinceCopied: Boolean!
+  "元のプリセットデッキが削除されている（設定し直すときは、ほかのプリセットデッキを選ぶ）"
+  presetDeckDeleted: Boolean!
 }
 
 "スターターデッキセットの結果"

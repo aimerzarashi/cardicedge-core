@@ -27,6 +27,8 @@ type StarterDeckSource struct {
 	Revision int64
 	// 写した後に、元のプリセットデッキが変わっている（反映し忘れに気づけるように）。元が消されていれば false（比べる相手が無い）
 	ChangedSinceCopied bool
+	// 元のプリセットデッキが消されている（消されたことを「変わっていない」と見分けられるように。core#32）
+	PresetDeckDeleted bool
 }
 
 // 未設定なら found は false
@@ -62,6 +64,7 @@ func (q *StarterDeckSetHandler) Get(ctx context.Context) (StarterDeckSet, error)
 	for i, deck := range set.Decks {
 		current, ok := revisions[deck.Source.PresetDeckID]
 		set.Decks[i].Source.ChangedSinceCopied = ok && current != deck.Source.Revision
+		set.Decks[i].Source.PresetDeckDeleted = !ok
 	}
 	return set, nil
 }

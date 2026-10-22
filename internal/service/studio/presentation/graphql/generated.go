@@ -229,6 +229,7 @@ type ComplexityRoot struct {
 
 	StarterDeckSource struct {
 		ChangedSinceCopied func(childComplexity int) int
+		PresetDeckDeleted  func(childComplexity int) int
 		PresetDeckID       func(childComplexity int) int
 		Revision           func(childComplexity int) int
 	}
@@ -867,6 +868,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StarterDeckSource.ChangedSinceCopied(childComplexity), true
+	case "StarterDeckSource.presetDeckDeleted":
+		if e.ComplexityRoot.StarterDeckSource.PresetDeckDeleted == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckSource.PresetDeckDeleted(childComplexity), true
 	case "StarterDeckSource.presetDeckId":
 		if e.ComplexityRoot.StarterDeckSource.PresetDeckID == nil {
 			break
@@ -1132,6 +1139,8 @@ func (ec *executionContext) childFields_StarterDeckSource(ctx context.Context, f
 		return ec.fieldContext_StarterDeckSource_revision(ctx, field)
 	case "changedSinceCopied":
 		return ec.fieldContext_StarterDeckSource_changedSinceCopied(ctx, field)
+	case "presetDeckDeleted":
+		return ec.fieldContext_StarterDeckSource_presetDeckDeleted(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type StarterDeckSource", field.Name)
 }
@@ -3874,6 +3883,29 @@ func (ec *executionContext) _StarterDeckSource_changedSinceCopied(ctx context.Co
 	)
 }
 func (ec *executionContext) fieldContext_StarterDeckSource_changedSinceCopied(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckSource", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckSource_presetDeckDeleted(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckSource_presetDeckDeleted(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PresetDeckDeleted, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckSource_presetDeckDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("StarterDeckSource", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
@@ -7724,6 +7756,11 @@ func (ec *executionContext) _StarterDeckSource(ctx context.Context, sel ast.Sele
 			}
 		case "changedSinceCopied":
 			out.Values[i] = ec._StarterDeckSource_changedSinceCopied(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "presetDeckDeleted":
+			out.Values[i] = ec._StarterDeckSource_presetDeckDeleted(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

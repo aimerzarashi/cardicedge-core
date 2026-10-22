@@ -16,6 +16,7 @@ func fromQueryStarterDeckSet(set query.StarterDeckSet) *model.StarterDeckSet {
 			PresetDeckID:       deck.Source.PresetDeckID,
 			Revision:           int(deck.Source.Revision),
 			ChangedSinceCopied: deck.Source.ChangedSinceCopied,
+			PresetDeckDeleted:  deck.Source.PresetDeckDeleted,
 		}
 		decks = append(decks, &model.StarterDeck{Name: deck.Name, Source: source, CardCounts: counts})
 	}

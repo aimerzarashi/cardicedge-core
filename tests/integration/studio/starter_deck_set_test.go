@@ -18,7 +18,7 @@ const starterDeckSetQuery = `query {
 		__typename
 		... on StarterDeckSet {
 			revision updatedAt
-			decks { name cards { count card { __typename id name } } source { presetDeckId revision changedSinceCopied } }
+			decks { name cards { count card { __typename id name } } source { presetDeckId revision changedSinceCopied presetDeckDeleted } }
 		}
 	}
 }`
@@ -75,7 +75,7 @@ func deckBySource(set map[string]any, presetDeckID any) map[string]any {
 	return nil
 }
 
-// スターターデッキセットはゲーム全体で 1 つなので、設定を変えるのはこのテストだけにし、並列にしない
+// スターターデッキセットはゲーム全体で 1 つなので、設定を変えるテストは並列にしない
 // （ほかのテストと取り合うと、revision が合わずに「先に変えられた」になるため）
 func TestSetStarterDeckSet_CopiesPresetDecksAndShowsChangesSinceCopied(t *testing.T) {
 	token := operators.Token(t)
@@ -96,7 +96,7 @@ func TestSetStarterDeckSet_CopiesPresetDecksAndShowsChangesSinceCopied(t *testin
 	require.NotNil(t, copied)
 	require.Equal(t, fireEarth["name"], copied["name"])
 	require.Equal(t, fireEarth["cards"], copied["cards"])
-	require.Equal(t, map[string]any{"presetDeckId": fireEarth["id"], "revision": fireEarth["revision"], "changedSinceCopied": false}, copied["source"])
+	require.Equal(t, map[string]any{"presetDeckId": fireEarth["id"], "revision": fireEarth["revision"], "changedSinceCopied": false, "presetDeckDeleted": false}, copied["source"])
 
 	// 写した後に元を直すと、写しはそのままで「変わっている」になる
 	client.Data(t, token, renamePresetDeckMutation, map[string]any{"input": map[string]any{
@@ -122,6 +122,41 @@ func TestSetStarterDeckSet_CopiesPresetDecksAndShowsChangesSinceCopied(t *testin
 	require.NotNil(t, reflected)
 	require.Equal(t, "炎・大地-"+id, reflected["name"])
 	require.Equal(t, false, reflected["source"].(map[string]any)["changedSinceCopied"])
+}
+
+// 写した後に元を削除すると、写しはそのままで「削除されている」になる（「変わっている」は比べる相手が無いので false）。
+// 設定を変えるため並列にしない
+func TestStarterDeckSet_ShowsDeletedSourcePresetDeck(t *testing.T) {
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	fireEarth := fullPresetDeck(t, token, "火・地-"+id)
+	waterWind := fullPresetDeck(t, token, "水・風-"+id)
+	before, err := client.TryData(t.Context(), token, starterDeckSetQuery, map[string]any{}, "starterDeckSet")
+	require.NoError(t, err)
+	revision := int(before["revision"].(float64))
+	require.Equal(t, "SetStarterDeckSetSuccess", setStarterDeckSet(t, token, revision, fireEarth["id"], waterWind["id"])["__typename"])
+	waitStarterDeckSet(t, token, revision+1)
+
+	deleted := client.Data(t, token, deletePresetDeckMutation, map[string]any{"input": map[string]any{
+		"id": fireEarth["id"], "revision": fireEarth["revision"],
+	}}, "deletePresetDeck")
+
+	require.Equal(t, "DeletePresetDeckSuccess", deleted["__typename"])
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		current, err := client.TryData(t.Context(), token, starterDeckSetQuery, map[string]any{}, "starterDeckSet")
+		if assert.NoError(c, err) {
+			deck := deckBySource(current, fireEarth["id"])
+			if assert.NotNil(c, deck) {
+				assert.Equal(c, fireEarth["name"], deck["name"])
+				assert.Equal(c, true, deck["source"].(map[string]any)["presetDeckDeleted"])
+				assert.Equal(c, false, deck["source"].(map[string]any)["changedSinceCopied"])
+			}
+			other := deckBySource(current, waterWind["id"])
+			if assert.NotNil(c, other) {
+				assert.Equal(c, false, other["source"].(map[string]any)["presetDeckDeleted"])
+			}
+		}
+	})
 }
 
 // 入力の誤りは設定を変えないため、並列に流してよい（revision を確かめる前に入力を確かめる）

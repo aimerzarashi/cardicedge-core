@@ -22,7 +22,8 @@ func TestStarterDeckSetHandler_ReturnsEmptyBeforeSet(t *testing.T) {
 	require.Equal(t, query.StarterDeckSet{Decks: []query.StarterDeck{}}, set)
 }
 
-// 写した後に元が変わっていれば true。同じ revision なら false。元が消されていれば比べる相手が無いので false
+// 写した後に元が変わっていれば changedSinceCopied が true。同じ revision なら false。元が消されていれば比べる相手が無いので
+// changedSinceCopied は false で、presetDeckDeleted が true
 func TestStarterDeckSetHandler_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
 	unchanged, changed, deleted := uuid.New(), uuid.New(), uuid.New()
 	at := time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)
@@ -44,8 +45,11 @@ func TestStarterDeckSetHandler_ComparesSourceWithCurrentPresetDeck(t *testing.T)
 
 	require.NoError(t, err)
 	changedSinceCopied := map[string]bool{}
+	presetDeckDeleted := map[string]bool{}
 	for _, deck := range set.Decks {
 		changedSinceCopied[deck.Name] = deck.Source.ChangedSinceCopied
+		presetDeckDeleted[deck.Name] = deck.Source.PresetDeckDeleted
 	}
 	require.Equal(t, map[string]bool{"unchanged": false, "changed": true, "deleted": false}, changedSinceCopied)
+	require.Equal(t, map[string]bool{"unchanged": false, "changed": false, "deleted": true}, presetDeckDeleted)
 }
