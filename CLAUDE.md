@@ -54,7 +54,7 @@
 
 - シャットダウン時間は `shutdownTimeout`（cmd/app） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
 - core は共有ネットワーク `diecardomain` に参加する（compose.yaml）。core-db は参加させない
-- compose.test.yaml は game が include する前提（studio は前提にする版のリリース済みのイメージを使う。studio#14）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
+- compose.test.yaml は game が include する前提（studio は前提にする版のイメージを使う。ふだんはリリース済みの版、マイルストーンの途中は手元の core から作った local の版。studio#14・studio#23）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
 - `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio` で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら `schemaWriters` にも足す
 - マイグレーションは追加のみ。適用済みのファイルは書き換えない・消さない・改名しない。down は作らない（atlas.sum を作り直すと Atlas は検出しないため、check-migrations.sh で検査する）
