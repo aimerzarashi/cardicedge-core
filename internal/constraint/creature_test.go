@@ -5,24 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 )
-
-func (f fixture) issueCreatureID(t *testing.T) creature.ID {
-	t.Helper()
-	id, _, err := identifier.New(f.registry, creature.NewID).Issue(f.ctx)
-	require.NoError(t, err)
-	return id
-}
-
-func (f fixture) updateCardName(t *testing.T, id creature.ID, name string) error {
-	t.Helper()
-	return constraint.UpdateCreatureName(f.ctx, id, cardtest.Name(t, name))
-}
 
 func TestUpdateCreatureName_RejectsNameUsedByOtherCard(t *testing.T) {
 	tests := []struct {

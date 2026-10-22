@@ -13,19 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const registerCreatureMutation = `mutation ($input: RegisterCreatureInput!) {
-	registerCreature(input: $input) {
-		__typename
-		... on RegisterCreatureSuccess { creature { id name registeredAt updatedAt } }
-		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
-	}
-}`
-
-func registerCreature(t *testing.T, token, name string) map[string]any {
-	t.Helper()
-	return client.Data(t, token, registerCreatureMutation, map[string]any{"input": map[string]any{"name": name}}, "registerCreature")
-}
-
 func TestRegisterCreature_RegistersCreatureForOperator(t *testing.T) {
 	t.Parallel()
 	name := "ドラゴン-" + testhelper.UniqueID(t)

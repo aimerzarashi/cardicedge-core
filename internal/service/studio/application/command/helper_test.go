@@ -10,17 +10,18 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
-
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
 // このパッケージのテストは、テンプレートから複製した自分専用の DB で動かす（同時に呼ぶテストは commit が要るため、
@@ -87,4 +88,28 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 	registered, err := newPresetDeckHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 	return registered
+}
+
+func newCreatureHandler(t *testing.T, ctx context.Context) *command.CreatureHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewCreatureHandler(
+		eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
+		identifier.New(registry, creature.NewID),
+		constraint.UpdateCreatureName,
+		func() time.Time { return time.Now().UTC() },
+	)
+}
+
+func newItemHandler(t *testing.T, ctx context.Context) *command.ItemHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewItemHandler(
+		eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
+		identifier.New(registry, item.NewID),
+		constraint.UpdateItemName,
+		func() time.Time { return time.Now().UTC() },
+	)
 }

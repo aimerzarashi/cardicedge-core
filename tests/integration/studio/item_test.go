@@ -13,19 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const registerItemMutation = `mutation ($input: RegisterItemInput!) {
-	registerItem(input: $input) {
-		__typename
-		... on RegisterItemSuccess { item { id name registeredAt updatedAt } }
-		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
-	}
-}`
-
-func registerItem(t *testing.T, token, name string) map[string]any {
-	t.Helper()
-	return client.Data(t, token, registerItemMutation, map[string]any{"input": map[string]any{"name": name}}, "registerItem")
-}
-
 func TestRegisterItem_RegistersItemForOperator(t *testing.T) {
 	t.Parallel()
 	name := "ポーション-" + testhelper.UniqueID(t)

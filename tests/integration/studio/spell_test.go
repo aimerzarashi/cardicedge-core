@@ -13,19 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const registerSpellMutation = `mutation ($input: RegisterSpellInput!) {
-	registerSpell(input: $input) {
-		__typename
-		... on RegisterSpellSuccess { spell { id name registeredAt updatedAt } }
-		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
-	}
-}`
-
-func registerSpell(t *testing.T, token, name string) map[string]any {
-	t.Helper()
-	return client.Data(t, token, registerSpellMutation, map[string]any{"input": map[string]any{"name": name}}, "registerSpell")
-}
-
 func TestRegisterSpell_RegistersSpellForOperator(t *testing.T) {
 	t.Parallel()
 	name := "ファイアボール-" + testhelper.UniqueID(t)
