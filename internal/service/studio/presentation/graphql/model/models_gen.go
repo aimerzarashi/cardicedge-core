@@ -580,8 +580,10 @@ type StarterDeckSource struct {
 	PresetDeckID uuid.UUID `json:"presetDeckId"`
 	// 写したときの、元のプリセットデッキの revision
 	Revision int `json:"revision"`
-	// 写した後に、元のプリセットデッキが変わっている（設定し直すと反映される）
+	// 写した後に、元のプリセットデッキが変わっている（設定し直すと反映される。元が削除されていれば false）
 	ChangedSinceCopied bool `json:"changedSinceCopied"`
+	// 元のプリセットデッキが削除されている（設定し直すときは、ほかのプリセットデッキを選ぶ）
+	PresetDeckDeleted bool `json:"presetDeckDeleted"`
 }
 
 // 入力の誤り（操作は行われていない）
