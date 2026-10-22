@@ -40,6 +40,9 @@ func startEventDriven(ctx context.Context, db *sql.DB, dsn string, registry *dom
 			return nil, err
 		}
 	}
+	if err := hub.VerifySubscribers(); err != nil {
+		return nil, fmt.Errorf("event subscribers do not match migrations: %w", err)
+	}
 	if err := hub.Start(ctx, eventdriven.NewListener(dsn)); err != nil {
 		return nil, fmt.Errorf("failed to start event-driven hub: %w", err)
 	}

@@ -129,6 +129,23 @@ func (h *Hub) register(kind, name string, subscriptions []domain.EntityType, p p
 	return nil
 }
 
+// アプリケーションの起動時に、投影をすべて登録した後に呼ぶ。event_subscribers の投影の行が、どれも登録されているかを確かめる
+// （登録されていない投影の行があると、トリガーがやることの行を入れ続け、誰も消さないため。core#20）。
+// Start の中で確かめないのは、このパッケージのテストが、テスト用の投影だけを登録して本物の購読者がある DB で動かすため
+func (h *Hub) VerifySubscribers() error {
+	var errs []error
+	for _, name := range h.subscribers.names(kindProjection) {
+		id, _ := h.subscribers.id(kindProjection, name)
+		if _, ok := h.projections[id]; !ok {
+			errs = append(errs, fmt.Errorf("event_subscribers has a projection not registered in code: %s", name))
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return fmt.Errorf("eventdriven: %w", err)
+	}
+	return nil
+}
+
 // ctx には rdb.WithDB で DB を載せる（ワーカーがトランザクションを始めるのに使う）。LISTEN を張り終えてから返す
 // （張る前に commit されたイベントの知らせは届かないため）。投影はすべて Start の前に登録する
 func (h *Hub) Start(ctx context.Context, listener *Listener) error {

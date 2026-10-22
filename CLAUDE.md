@@ -77,7 +77,7 @@
 
 - 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
 - read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
-- 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の `registry.Verify`（internal/wiring）と domaindef のテストにその集約の `Types()` を足す
+- 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の照合（internal/wiring の集約の一覧。`VerifyEntityTypes`・`VerifyEventTypes` に渡す）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す。起動時の照合（`Verify...`・`Hub.VerifySubscribers`）は、コードの宣言と DB（マイグレーション）が両方向で一致するかを確かめ、食い違えば起動を止める（マイグレーションだけ足してコードを忘れた・型を消した・名前を変えた、にも気づけるように。core#20）
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
 - /studio/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
@@ -44,9 +45,17 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 集約が宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する
-	if err := registry.Verify(operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types()); err != nil {
-		return nil, fmt.Errorf("domain types do not match migrations: %w", err)
+	// ドメインが宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types()}
+	entityTypes := make([]domain.EntityType, 0, len(aggregates))
+	for _, aggregate := range aggregates {
+		entityTypes = append(entityTypes, aggregate.EntityType)
+	}
+	if err := registry.VerifyEntityTypes(entityTypes...); err != nil {
+		return nil, fmt.Errorf("entity types do not match migrations: %w", err)
+	}
+	if err := registry.VerifyEventTypes(aggregates...); err != nil {
+		return nil, fmt.Errorf("event types do not match migrations: %w", err)
 	}
 	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match migrations: %w", err)
