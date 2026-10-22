@@ -19,7 +19,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/studio"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 )
 
 type Config struct {

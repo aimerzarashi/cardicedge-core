@@ -17,7 +17,7 @@
 
 | 確かめる場所 | 守る範囲 | 見つけること |
 |---|---|---|
-| app 層のコマンド（Load の直後に revision と今の版を比べる） | 画面を開いてから操作するまで（数分〜数時間） | 画面が古いまま操作した |
+| application 層のコマンド（Load の直後に revision と今の版を比べる） | 画面を開いてから操作するまで（数分〜数時間） | 画面が古いまま操作した |
 | イベントストアの `Save`（`ON CONFLICT DO NOTHING` で行が返らない → `domain.ErrVersionConflict`） | 1 回のリクエストの Load から保存まで | 比べた後に、ほかのリクエストに先を越された |
 
 どちらも利用者から見れば「先に変えられた」なので、コマンドは同じエラー（`RevisionConflictError`）で返す。revision が要るのは、画面で見た内容をもとに既にあるものを変える・消す操作だけ（登録、画面を通らない操作には要らない）。
@@ -29,7 +29,7 @@
 ```mermaid
 sequenceDiagram
   participant S as 画面（studio）
-  participant C as コマンド（app 層）
+  participant C as コマンド（application 層）
   participant E as イベントストア
   participant P as 投影
   participant R as read model
@@ -64,7 +64,7 @@ revision が無いと、画面 1 の「C」はそのまま版 3 として保存�
 sequenceDiagram
   participant S1 as 画面 1
   participant S2 as 画面 2
-  participant C as コマンド（app 層）
+  participant C as コマンド（application 層）
   participant E as イベントストア
   participant R as read model
 
@@ -96,7 +96,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant S1 as 画面 1
-  participant C as コマンド（app 層）
+  participant C as コマンド（application 層）
   participant E as イベントストア
   participant P as 投影
   participant R as read model

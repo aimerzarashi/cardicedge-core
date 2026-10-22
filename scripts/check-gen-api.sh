@@ -5,7 +5,7 @@
 # lint はファイルを書き換えないため、複製した木で生成して比べる
 set -eu
 
-dir=internal/studio/uif/graphql
+dir=internal/service/studio/presentation/graphql
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

@@ -24,7 +24,7 @@ func formatSchema(t *testing.T, sources ...*ast.Source) string {
 
 // 出力だけを読み直すと .graphqls と同じスキーマになる（書き出しで落ちるものが無い。studio は出力だけを codegen で読む）
 func TestWriteSchema_WritesSameSchemaAsGraphqlsFiles(t *testing.T) {
-	paths, err := filepath.Glob("../../internal/studio/uif/graphql/*.graphqls")
+	paths, err := filepath.Glob("../../internal/service/studio/presentation/graphql/*.graphqls")
 	require.NoError(t, err)
 	require.NotEmpty(t, paths)
 	var sources []*ast.Source

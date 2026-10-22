@@ -129,7 +129,7 @@ func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 }
 
 // 「1 人もいない」は、開発用の DB の初期オペレーターや、同時に動くほかのテストに左右されるため、ここでは確かめない
-// （オペレーターがいないときの起動時の登録は、app 層のテストで ExistsFunc を差し替えて確かめる）
+// （オペレーターがいないときの起動時の登録は、application 層のテストで ExistsFunc を差し替えて確かめる）
 func TestOperatorExists_ReturnsTrueAfterRegister(t *testing.T) {
 	f := setup(t)
 	f.register(t, email(t, "operator"))
