@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
@@ -19,23 +18,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
-
-func newItemHandler(t *testing.T, ctx context.Context) *command.ItemHandler {
-	t.Helper()
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
-	return command.NewItemHandler(
-		eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
-		identifier.New(registry, item.NewID),
-		constraint.UpdateItemName,
-		func() time.Time { return time.Now().UTC() },
-	)
-}
 
 func countItemEvents(t *testing.T, ctx context.Context, id item.ID) int {
 	t.Helper()

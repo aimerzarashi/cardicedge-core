@@ -1,7 +1,6 @@
 package constraint_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -12,9 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
 var emailSuffixes sync.Map
@@ -24,19 +21,6 @@ func email(t *testing.T, local string) string {
 	t.Helper()
 	suffix, _ := emailSuffixes.LoadOrStore(t.Name(), uuid.NewString())
 	return fmt.Sprintf("%s-%s@example.com", local, suffix)
-}
-
-type fixture struct {
-	ctx      context.Context
-	registry *domaindef.Registry
-}
-
-func setup(t *testing.T) fixture {
-	t.Helper()
-	ctx := rdbtest.Tx(t)
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
-	return fixture{ctx: ctx, registry: registry}
 }
 
 func (f fixture) register(t *testing.T, email string) operator.ID {

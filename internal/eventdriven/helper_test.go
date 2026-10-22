@@ -64,3 +64,6 @@ func (m countingReadModel) IsTerminal() bool {
 func testOptions(workerCount int) eventdriven.Options {
 	return eventdriven.Options{WorkerCount: workerCount, PollInterval: time.Hour}
 }
+
+// 通知は非同期に届くため、届くのを待つ上限。届かないことの確認には使わない（待つだけ遅くなるため）
+const receiveTimeout = 5 * time.Second

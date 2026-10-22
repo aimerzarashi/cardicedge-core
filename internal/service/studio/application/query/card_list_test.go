@@ -30,10 +30,6 @@ func (r *fakeReader) list(_ context.Context, condition query.ListCardsCondition)
 	return r.rows, nil
 }
 
-func ptr[T any](value T) *T {
-	return &value
-}
-
 func row(name string) query.CardListRow {
 	id := uuid.New()
 	card := query.Card{ID: id, Type: readmodel.CardTypeCreature, Name: name, RegisteredAt: time.Unix(0, 0).UTC(), UpdatedAt: time.Unix(0, 0).UTC()}

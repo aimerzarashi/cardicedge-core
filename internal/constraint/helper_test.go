@@ -1,16 +1,37 @@
 package constraint_test
 
 import (
+	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
+
+type fixture struct {
+	ctx      context.Context
+	registry *domaindef.Registry
+}
+
+func setup(t *testing.T) fixture {
+	t.Helper()
+	ctx := rdbtest.Tx(t)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return fixture{ctx: ctx, registry: registry}
+}
 
 var cardNameSuffixes sync.Map
 
@@ -29,4 +50,21 @@ func isolatedSetup(t *testing.T) fixture {
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return fixture{ctx: ctx, registry: registry}
+}
+
+func (f fixture) issueCreatureID(t *testing.T) creature.ID {
+	t.Helper()
+	id, _, err := identifier.New(f.registry, creature.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id
+}
+
+func (f fixture) updateCardName(t *testing.T, id creature.ID, name string) error {
+	t.Helper()
+	return constraint.UpdateCreatureName(f.ctx, id, cardtest.Name(t, name))
+}
+
+func (f fixture) cardRef(t *testing.T, id creature.ID) presetdeck.CardRef {
+	t.Helper()
+	return presetdecktest.CardRef(t, creature.Types().EntityType, id.Int64())
 }
