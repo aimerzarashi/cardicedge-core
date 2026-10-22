@@ -42,7 +42,7 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 ## studio 用の GraphQL（/studio/graphql）
 
-スキーマは `internal/studio/uif/graphql/*.graphqls`（studio はこのファイルを参照する）。
+スキーマは `internal/service/studio/presentation/graphql/*.graphqls`（studio はこのファイルを参照する）。
 
 - **認証**: すべての呼び出しに、studio（better-auth の jwt プラグイン）の JWT を `Authorization: Bearer <JWT>` で付ける。無い・不正なら 401（`extensions.code: UNAUTHENTICATED`。理由は返さない）。ネットワークの位置（内部からの呼び出しか）は信じない（game からも core に直接届くため）
 - **検証**: 署名（EdDSA に固定。none・HMAC への差し替えを受け付けない）・`iss`・`aud`・期限。JWKS は studio-envoy を通して取る
@@ -70,9 +70,9 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union で返し、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
-- **層の分担**: uif（GraphQL）は app 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。app 層が窓口になり、素の値を受け取ってドメインの型に変え、app 層の結果の型とエラーを返す（ドメインを変えても uif に及ばないように。参照の api は app 層が GraphQL の型を受け渡していたが、そうしない）
-- **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。app 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、app 層のコマンドが context から取り出す
-- **入力の誤り**: app 層が `input.Errors`（internal/studio/app/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
+- **層の分担**: presentation 層（GraphQL）は application 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。application 層が窓口になり、素の値を受け取ってドメインの型に変え、application 層の結果の型とエラーを返す（ドメインを変えても presentation 層に及ばないように。参照の api は application 層が GraphQL の型を受け渡していたが、そうしない）
+- **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。application 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、application 層のコマンドが context から取り出す
+- **入力の誤り**: application 層が `input.Errors`（internal/service/studio/application/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
@@ -91,7 +91,7 @@ DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api 
 テストで DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、開発用の DB に触るかがわかるように）。
 
 - `rdbtest.Tx`: 開発用の DB で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
-- `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（studio/app/command・studio/inf/repository・eventdriven・platform/rdb）
+- `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（studio/app/command・studio/infrastructure/repository・eventdriven・platform/rdb）
 
 開発用の DB に commit すると、開発用の core の Hub がそれを投影して read model に行が残るため、commit する道具（`Open`）は外に出さない。
 
@@ -116,12 +116,15 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 | パイプライン | ジョブ | 内容 |
 |---|---|---|
-| MR | lint / test | `make lint` / `make test` 相当 |
-| MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
-| main | lint / test / release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
+| マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr（手動。実行しない） | 何もしない。パイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる |
+| main に向かう MR（マイルストーンの MR） | lint / test | `make lint` / `make test` 相当 |
+| main に向かう MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
+| main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
 | タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>`・`:latest` と `diecardomain/core-migrate:<タグ>`・`:latest` に push |
 
 バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
+
+マイルストーンのブランチに向かう Issue の MR では、何もしない手動のジョブだけを置いて実行しない（lint・test は手元の `make lint`・`make test` で確かめる。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、その設定は main に向かう MR の歯止めとして残すため）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が MR の lint・test を通るようにしている。共有 Runner の時間を減らすため（core#30）。
 
 ## カスタムリンター（tools/linter）
 
@@ -184,7 +187,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 ### Atlas が検出しないこと（`scripts/check-migrations.sh` で補う）
 
 Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の lint ジョブで検査する。
-適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は MR なら対象ブランチとの分岐点、main なら push 前の先頭。MR を経ない直接 push も検出する）。lint が通らなければ build-mr・release も動かない。
+適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は main に向かう MR の対象ブランチとの分岐点）。main は直接 push できない設定のため、MR を経ない変更は無い。lint が通らなければ build-mr も動かない。
 
 | 検査 | Atlas に任せた場合 |
 |---|---|

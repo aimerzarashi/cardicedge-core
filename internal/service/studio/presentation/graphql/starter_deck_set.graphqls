@@ -1,0 +1,71 @@
+# スターターデッキセット（新しいプレイヤーに配るスターターデッキの組。ゲーム全体で 1 つ。core#25）。
+# プリセットデッキの中身を写して持つので、元のプリセットデッキを後で直しても変わらない（反映するには設定し直す）
+
+"スターターデッキセット（まだ設定していなければ、decks は空・revision は 0・updatedAt は null）"
+type StarterDeckSet {
+  "スターターデッキ（元のプリセットデッキの公開 ID の順）"
+  decks: [StarterDeck!]!
+  "更新の番号（画面が見ていた版。設定の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
+  "最後に設定した日時"
+  updatedAt: DateTime
+}
+
+"スターターデッキ（プリセットデッキから写した中身）"
+type StarterDeck {
+  "名前（写したときのプリセットデッキの名前）"
+  name: String!
+  # 名前・種類は read model に書き写さず、データローダーで引いてから並べる（プリセットデッキと同じ）
+  "写したカードと枚数（カードの一覧と同じ並び）"
+  cards: [DeckCard!]!
+  "どのプリセットデッキの、どの時点から写したか"
+  source: StarterDeckSource!
+}
+
+# 元は参照（消せない制約）にしないため、消されていることもある。そのときは presetDeckDeleted が true になり、changedSinceCopied は
+# false（比べる相手が無い）
+"写した元"
+type StarterDeckSource {
+  "元のプリセットデッキの公開用の ID（消されていることもある）"
+  presetDeckId: UUID!
+  "写したときの、元のプリセットデッキの revision"
+  revision: Int!
+  "写した後に、元のプリセットデッキが変わっている（設定し直すと反映される。元が削除されていれば false）"
+  changedSinceCopied: Boolean!
+  "元のプリセットデッキが削除されている（設定し直すときは、ほかのプリセットデッキを選ぶ）"
+  presetDeckDeleted: Boolean!
+}
+
+"スターターデッキセットの結果"
+union StarterDeckSetResult = StarterDeckSet | ForbiddenError
+
+extend type Query {
+  "スターターデッキセット（紐づいたオペレーターだけ。ゲーム全体で 1 つなので引数は無い）"
+  starterDeckSet: StarterDeckSetResult!
+}
+
+"スターターデッキセットを設定する入力"
+input SetStarterDeckSetInput {
+  "画面が見ていたスターターデッキセットの revision（未設定なら 0）"
+  revision: Int!
+  "写すプリセットデッキの公開用の ID（ちょうど 2 つ。違うもの。どれも合計がちょうど 40 枚。順番は問わない）"
+  presetDeckIds: [UUID!]!
+}
+
+# ゲーム全体で 1 つで、どの操作も id で指さないため、id は返さない（core#25）
+"スターターデッキセットを設定した（写す中身が今と全部同じなら何も変えず、revision も進まない）"
+type SetStarterDeckSetSuccess {
+  "設定した後の revision（内容は返さない。画面は読み直し、読み直した revision を持つ）"
+  revision: Int!
+}
+
+"スターターデッキセットの設定の結果"
+union SetStarterDeckSetResult = SetStarterDeckSetSuccess | ValidationErrors | RevisionConflictError | ForbiddenError
+
+extend type Mutation {
+  "選んだプリセットデッキの中身を写して、スターターデッキセットを設定する（初めての設定・選び直し・写し直しのどれも。紐づいたオペレーターだけ）"
+  setStarterDeckSet(
+    "設定する内容"
+    input: SetStarterDeckSetInput!
+  ): SetStarterDeckSetResult!
+}

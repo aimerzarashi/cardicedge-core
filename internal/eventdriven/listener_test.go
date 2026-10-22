@@ -12,9 +12,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
-// 通知は非同期に届くため、届くのを待つ上限。届かないことの確認には使わない（待つだけ遅くなるため）
-const receiveTimeout = 5 * time.Second
-
 type recordingHandler struct {
 	events     chan eventdriven.EventRef
 	reconnects chan struct{}

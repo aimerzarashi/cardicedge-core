@@ -207,3 +207,15 @@ func TestRegisterProjection_RejectsSubscriptionsDifferentFromTable(t *testing.T)
 		})
 	}
 }
+
+// DB には、マイグレーションで入れた本物の投影（cards 等）の行があり、このテストではテスト用の投影しか登録しないため、
+// 登録していない本物の投影を見つける。登録したテスト用の投影は出さない
+func TestHub_VerifySubscribersReportsProjectionNotRegistered(t *testing.T) {
+	_, hub := newHub(t)
+	require.NoError(t, eventdriven.RegisterProjection(hub, (&writes{}).spec()))
+
+	err := hub.VerifySubscribers()
+
+	require.ErrorContains(t, err, "event_subscribers has a projection not registered in code: cards")
+	require.NotContains(t, err.Error(), testProjectionName)
+}

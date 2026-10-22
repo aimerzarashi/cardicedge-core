@@ -11,14 +11,14 @@
 |---|---|
 | cmd/app | エントリポイント。プロセスとしての起動だけ（設定・DB を開く・JWT の検証の準備・シグナル・HTTP の Listen・Serve とグレースフルシャットダウン・healthcheck・schema）。組み立ては internal/wiring |
 | internal/wiring | 部品を組み立てて動かす（照合・初期オペレーター・Hub の起動・HTTP の入口）。cmd/app と結合テストの両方が使い、本番と同じ組み立てをテストで通す |
-| internal/wiring/studio | studio 用 GraphQL の部品（コマンド・問い合わせ・リゾルバー・入口）と、studio の read model の投影の登録 |
-| internal/studio/uif/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
-| internal/studio/app/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/studio/app/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
-| internal/studio/app/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、uif が GraphQL の `ValidationErrors` に写す |
-| internal/studio/app/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
-| internal/studio/app/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
-| internal/studio/inf/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
+| internal/service/studio | studio のサービスの組み立て（studio.go。下の層の部品（コマンド・問い合わせ・リゾルバー・入口）をつなぎ、studio の read model の投影を登録する） |
+| internal/service/studio/presentation/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
+| internal/service/studio/application/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
+| internal/service/studio/application/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
+| internal/service/studio/application/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、presentation 層が GraphQL の `ValidationErrors` に写す |
+| internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
+| internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
+| internal/service/studio/infrastructure/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の対応。起動時に読み込み、ドメインの宣言と照合する |
@@ -39,13 +39,22 @@
 | local/core | 開発用 Dockerfile（air によるホットリロード。uid 1000 の dev ユーザーで動く） |
 | .build | 本番用 Dockerfile（distroless。compose.test.yaml でも使う） |
 
+- internal/service/<利用者> は、利用者（studio、後で game）ごとに縦に切った塊（core#29）。直下のパッケージ（studio.go）が組み立て、その下に層を置く。層はレイヤードアーキテクチャ（Evans）の呼び方にする:
+
+| 層 | 役割 | 依存してよい先 |
+|---|---|---|
+| presentation | 外から呼ばれる側（GraphQL のスキーマ・リゾルバー・入口・認証のミドルウェア・認可） | application |
+| application | 使い方（コマンド・問い合わせ・入力の誤り・read model の型）。外に求めること（読み出し等）を関数の型（ポート）で持つ | domain |
+| infrastructure | 外を呼ぶ側（read model の DB の読み書き）。application のポートを実装する | application・domain |
+
+  依存は内向き（presentation・infrastructure → application → domain）。application は presentation・infrastructure を import しない。ドメインが外に求めること（イベントの保存・識別子・制約）も、domain が interface・関数の型で持ち、internal/eventstore・identifier・constraint が実装する。層を残すのは、import の行からどの層に依存しているかを読めるようにするため（フラットにする案は採らなかった）
 - tools の下は開発・CI の道具。本番のコード（cmd/app・internal）から import しない（本番のバイナリは cmd/app から import するものだけで作る）
 
 # 実装上の約束
 
 - シャットダウン時間は `shutdownTimeout`（cmd/app） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
 - core は共有ネットワーク `diecardomain` に参加する（compose.yaml）。core-db は参加させない
-- compose.test.yaml は game が include する前提（studio は前提にする版のリリース済みのイメージを使う。studio#14）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
+- compose.test.yaml は game が include する前提（studio は前提にする版のイメージを使う。ふだんはリリース済みの版、マイルストーンの途中は手元の core から作った local の版。studio#14・studio#23）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
 - `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio` で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら `schemaWriters` にも足す
 - マイグレーションは追加のみ。適用済みのファイルは書き換えない・消さない・改名しない。down は作らない（atlas.sum を作り直すと Atlas は検出しないため、check-migrations.sh で検査する）
@@ -58,8 +67,8 @@
 - `internal` の値の型は、ほかのパッケージではテストでも生成関数（`NewXxx`）で作る（factory_enforcer）。テストでエラーを毎回確かめるのが冗長なら、テスト用の小さな関数を用意する
 - testify にメッセージを付けない。テストでは `t.Context()` を使う
 - 1 つの振る舞いは 1 つのテスト関数（`Test<対象>_<振る舞い>`）に書く。サブテストはテーブル駆動のときだけ使い、名前は英小文字のスネークケースの識別子（例: `blank_subject`）にし、その行の条件を表す。「正常系/」「異常系/」のような分類や `case1` は使わない（理由は README）
-- GraphQL の操作（認証・認可・入力の誤りの写し方・結果の型）は tests/integration で確かめ、uif の単体テストは置かない（同じことを 2 か所で確かめないため）。下の層（readmodel・query・repository・command）は、それぞれのパッケージで確かめる
-- 結合テストは DB を共有して並列に流すため、作るもの（名前・メールアドレス等）に `testhelper.UniqueID` を付け、それで絞って確かめる。DB 全体の状態を前提にすること（オペレーターが 1 人もいない等）は、app 層のテストで複製した DB を使って確かめる
+- GraphQL の操作（認証・認可・入力の誤りの写し方・結果の型）は tests/integration で確かめ、presentation 層の単体テストは置かない（同じことを 2 か所で確かめないため）。下の層（readmodel・query・repository・command）は、それぞれのパッケージで確かめる
+- 結合テストは DB を共有して並列に流すため、作るもの（名前・メールアドレス等）に `testhelper.UniqueID` を付け、それで絞って確かめる。DB 全体の状態を前提にすること（オペレーターが 1 人もいない等）は、application 層のテストで複製した DB を使って確かめる
 - 同じパッケージのほかのテストファイルからも使うヘルパーは、`helper_test.go`（テスト関数を置かない）に置く（使う側から定義の場所がわかり、テストファイルを消してもほかが壊れないように）
 - 本体のある関数・メソッドは複数行で書く（書き方をそろえるため。core#15）。リンターでは検査しない（崩れてきたら検査を足すかを考え直す）。1 行でよいもの: 本体が空の関数（マーカーのメソッド）、無名関数（その場で小さな関数を渡す書き方）、gqlgen が生成するルートの入口（`Mutation()`・`Query()`、resolver を持たせた型の入口（`PresetDeck()` 等）。生成のたびに雛形の 1 行に戻るため）
 - 生成コードは、先頭の `Code generated ... DO NOT EDIT.` でリンターが自動で除く（除外の設定は要らない）。手で書くファイルにこの印を付けない
@@ -68,17 +77,17 @@
 
 - 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
 - read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
-- 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の `registry.Verify`（internal/wiring）と domaindef のテストにその集約の `Types()` を足す
+- 集約を足したら、種別とイベント種別のマイグレーションを足し、`make gen-orm` し、起動時の照合（internal/wiring の集約の一覧。`VerifyEntityTypes`・`VerifyEventTypes` に渡す）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す。起動時の照合（`Verify...`・`Hub.VerifySubscribers`）は、コードの宣言と DB（マイグレーション）が両方向で一致するかを確かめ、食い違えば起動を止める（マイグレーションだけ足してコードを忘れた・型を消した・名前を変えた、にも気づけるように。core#20）
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
 - /studio/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
-- 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は uif のミドルウェア、認可は ui 層（resolver）、登録・紐づけは app 層のコマンド。初期オペレーターは internal/wiring が app 層のコマンドを直接呼んで登録する
+- 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は presentation 層のミドルウェア、認可は presentation 層（resolver）、登録・紐づけは application 層のコマンド。初期オペレーターは internal/wiring が application 層のコマンドを直接呼んで登録する
 - GraphQL のスキーマを変えたら `make gen-api`（し忘れは `make lint`・CI の lint が検出する）。生成コード（generated.go・model）は手で直さない。操作を足すと `*.resolvers.go` に雛形（`panic("not implemented")`）ができ、消すとファイルの末尾に「!!! WARNING !!!」つきで古い実装が移されるので、片付ける
 - スキーマの型・フィールド・引数・入力の項目には、必ず GraphQL の説明（`"..."`）を付ける（playground・型の生成で使う人に意味を伝えるため）。設計の理由は `#` のコメントに書き、説明と分ける
 - 画面の文言は core で作らない。エラー型は `__typename` と値で理由を表し、`message` は開発者向けの短い英語の説明にする（言い回しは studio が作る）
 - スキーマは common.graphqls（Query・Mutation・共通の型）と機能ごとのファイル（`extend type`）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union にする（未認証は union に含めず 401）
-- uif は app 層の型だけを使い、ドメインの型（internal/domain）を import しない。app 層のコマンドは素の値を受け取り、app 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（uif/graphql/model）にも依存させない
-- 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。app 層の `input.Errors`（internal/studio/app/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、app 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は uif に書き写さない
+- presentation 層は application 層の型だけを使い、ドメインの型（internal/domain）を import しない。application 層のコマンドは素の値を受け取り、application 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（presentation/graphql/model）にも依存させない
+- 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。application 層の `input.Errors`（internal/service/studio/application/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、application 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は presentation 層に書き写さない
 - 一意性の制約は、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするかはドメインが宣言する: key の種別の名前（`UniqueKeyTypes()`。domain_unique_key_types と起動時に照合する）と、key の作り方（`EmailKey`・`SubjectKey`・`card.NameKey` 等。正規化・複数の値のつなぎ方はここだけで決める）。制約を足すときは、key の種別のマイグレーション（domain_unique_key_types への INSERT）と、ドメインの宣言、domaindef のテストへの追加だけでよい
 - 確保の関数の型（`UpdateXxxFunc`）はドメインに置き、実装は internal/constraint の `Update...` 関数（共通の updateUniqueKey を呼ぶだけ）。参照の api と同じく登録にも変更にも使え、ほかの集約が同じ key を使っていれば `WHERE NOT EXISTS` で INSERT 自体を起こさず、行が返らないことで重複を知る（ふだんの重複で DB に ERROR のログを出さない。まれな同時の競合による一意制約違反も重複として返す）。一意性の制約（とイベントストア）では sqlboiler の Insert・Upsert は使わない（理由は constraint/unique_key.go・eventstore/eventstore.go）。read model の書き込みのような単純な上書きと、主キー・`IN` で引くような単純な読み出しでは使う。キーセットのページ分け（行の比べ方）や `LIKE ... ESCAPE` の部分一致を使う一覧の読み出しは、sqlboiler の条件の部品に無く `qm.Where` に SQL の断片を書くだけになるため、SQL を直接書く（repository の `CardReader.List`）
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go・item.go・spell.go 等）をかぶせ、ID の型は種類ごとの関数で守る
@@ -93,7 +102,7 @@
 - イベントストアの版の衝突も、一意制約違反のエラーではなく `ON CONFLICT DO NOTHING RETURNING` で行が返らないことで知る。版が続いていない（版 1 でも直前の版の次でもない）イベントも保存せず、`domain.ErrVersionNotConsecutive` を返す（コードの誤りでだけ起きるので、呼ぶ側は分岐しない。core#24）
 - 画面で見た内容をもとに、既にあるものを変える・消す操作（プリセットデッキの名前・枚数の変更・削除等）は、同じ形にそろえる（core#24。流れの図は internal/eventstore/README.md）:
   - 入力に `revision`（画面が見ていた集約の版）を含め、型にも `revision` を持たせる。マスタの公開の版と取り違えないよう「版」と呼ばない（日本語では「更新の番号」）
-  - app 層のコマンドが、Load の直後に今の版と比べ、違えば「先に変えられた」（`command.ErrRevisionConflict` → `RevisionConflictError`）を返す。試し直さない（後の変更が黙って勝つため）。保存のときの版の衝突（`domain.ErrVersionConflict`）も同じエラーにする。変わらない操作（同じ名前等）でも、revision が古ければ返す
+  - application 層のコマンドが、Load の直後に今の版と比べ、違えば「先に変えられた」（`command.ErrRevisionConflict` → `RevisionConflictError`）を返す。試し直さない（後の変更が黙って勝つため）。保存のときの版の衝突（`domain.ErrVersionConflict`）も同じエラーにする。変わらない操作（同じ名前等）でも、revision が古ければ返す
   - 結果は対象の公開 ID と新しい revision だけにし、内容を返さない。対象を id で指さない操作（ゲーム全体で 1 つの集約の設定等）は id も返さない（どの操作も受け付けない識別子を見せないため。core#25）。画面は詳細を読み直し、詳細の revision を持つ（表示している内容と revision を同じ時点のものにそろえるため。投影が遅れているあいだは次の操作が「先に変えられた」になるが、ふだんの遅れは数ミリ秒）
   - 新しく作る操作（登録）と、画面を通らない操作（ログイン時の紐づけ・方針）には要らない
-- 一覧の各要素からほかの read model の値を引くとき（プリセットデッキのカード名等）は、値を書き写さず、データローダー（uif/graphql の dataloader.go）で引く（N+1 にしないため）。束ねて読む関数は、その read model の問い合わせ（query）と repository に置く。並べ方の決まりが要るなら query に置き（`query.CompareCards`）、uif・studio に書き写さない
+- 一覧の各要素からほかの read model の値を引くとき（プリセットデッキのカード名等）は、値を書き写さず、データローダー（presentation/graphql の dataloader.go）で引く（N+1 にしないため）。束ねて読む関数は、その read model の問い合わせ（query）と repository に置く。並べ方の決まりが要るなら query に置き（`query.CompareCards`）、presentation 層・studio に書き写さない

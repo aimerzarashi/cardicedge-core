@@ -56,7 +56,7 @@ type DeckCard struct {
 }
 
 // 選べるのは、合計がちょうど presetdeck.MaxTotalCount のプリセットデッキだけ。ほかの集約の状態なので Decide では見ず、
-// app 層がプリセットデッキを Load して写すときに確かめる（カードの存在の確かめと同じ分け方）
+// application 層がプリセットデッキを Load して写すときに確かめる（カードの存在の確かめと同じ分け方）
 func CheckSelectable(deck presetdeck.PresetDeck) error {
 	if deck.TotalCount() != presetdeck.MaxTotalCount {
 		return ErrDeckNotSelectable

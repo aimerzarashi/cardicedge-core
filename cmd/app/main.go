@@ -15,8 +15,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring/studio"
 )
 
 const (

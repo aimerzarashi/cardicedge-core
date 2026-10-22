@@ -13,44 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const presetDeckFields = `id name totalCount revision registeredAt updatedAt cards { count card { __typename id name } }`
-
-const registerPresetDeckMutation = `mutation ($input: RegisterPresetDeckInput!) {
-	registerPresetDeck(input: $input) {
-		__typename
-		... on RegisterPresetDeckSuccess { id revision }
-	}
-}`
-
-const renamePresetDeckMutation = `mutation ($input: RenamePresetDeckInput!) {
-	renamePresetDeck(input: $input) {
-		__typename
-		... on RenamePresetDeckSuccess { id revision }
-	}
-}`
-
-const setPresetDeckCardCountsMutation = `mutation ($input: SetPresetDeckCardCountsInput!) {
-	setPresetDeckCardCounts(input: $input) {
-		__typename
-		... on SetPresetDeckCardCountsSuccess { id revision }
-		... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTotalTooLarge { max } } }
-	}
-}`
-
-const deletePresetDeckMutation = `mutation ($input: DeletePresetDeckInput!) {
-	deletePresetDeck(input: $input) {
-		__typename
-		... on DeletePresetDeckSuccess { id }
-	}
-}`
-
-const presetDeckQuery = `query ($id: UUID!) {
-	presetDeck(id: $id) {
-		__typename
-		... on PresetDeck { ` + presetDeckFields + ` }
-	}
-}`
-
 const presetDecksQuery = `query ($filter: PresetDeckFilter, $first: Int, $after: String) {
 	presetDecks(filter: $filter, first: $first, after: $after) {
 		__typename
@@ -60,39 +22,6 @@ const presetDecksQuery = `query ($filter: PresetDeckFilter, $first: Int, $after:
 		}
 	}
 }`
-
-func registerPresetDeck(t *testing.T, token, name string) map[string]any {
-	t.Helper()
-	result := client.Data(t, token, registerPresetDeckMutation, map[string]any{"input": map[string]any{"name": name}}, "registerPresetDeck")
-	require.Equal(t, "RegisterPresetDeckSuccess", result["__typename"])
-	return result
-}
-
-func setPresetDeckCardCounts(t *testing.T, token string, deck map[string]any, cards ...map[string]any) map[string]any {
-	t.Helper()
-	return client.Data(t, token, setPresetDeckCardCountsMutation, map[string]any{"input": map[string]any{
-		"id": deck["id"], "revision": deck["revision"], "cards": cards,
-	}}, "setPresetDeckCardCounts")
-}
-
-func cardCount(cardID any, count int) map[string]any {
-	return map[string]any{"cardId": cardID, "count": count}
-}
-
-// 投影されるまで待ち、revision が want になった詳細を返す
-func waitPresetDeck(t *testing.T, token string, id any, revision int) map[string]any {
-	t.Helper()
-	var deck map[string]any
-	testhelper.Eventually(t, func(c *assert.CollectT) {
-		var err error
-		deck, err = client.TryData(t.Context(), token, presetDeckQuery, map[string]any{"id": id}, "presetDeck")
-		if assert.NoError(c, err) {
-			assert.Equal(c, "PresetDeck", deck["__typename"])
-			assert.EqualValues(c, revision, deck["revision"])
-		}
-	})
-	return deck
-}
 
 func TestRegisterPresetDeck_ListsRegisteredPresetDeck(t *testing.T) {
 	t.Parallel()

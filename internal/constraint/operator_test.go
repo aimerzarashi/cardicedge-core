@@ -1,7 +1,6 @@
 package constraint_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -12,9 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
 var emailSuffixes sync.Map
@@ -24,19 +21,6 @@ func email(t *testing.T, local string) string {
 	t.Helper()
 	suffix, _ := emailSuffixes.LoadOrStore(t.Name(), uuid.NewString())
 	return fmt.Sprintf("%s-%s@example.com", local, suffix)
-}
-
-type fixture struct {
-	ctx      context.Context
-	registry *domaindef.Registry
-}
-
-func setup(t *testing.T) fixture {
-	t.Helper()
-	ctx := rdbtest.Tx(t)
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
-	return fixture{ctx: ctx, registry: registry}
 }
 
 func (f fixture) register(t *testing.T, email string) operator.ID {
@@ -129,7 +113,7 @@ func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 }
 
 // 「1 人もいない」は、開発用の DB の初期オペレーターや、同時に動くほかのテストに左右されるため、ここでは確かめない
-// （オペレーターがいないときの起動時の登録は、app 層のテストで ExistsFunc を差し替えて確かめる）
+// （オペレーターがいないときの起動時の登録は、application 層のテストで ExistsFunc を差し替えて確かめる）
 func TestOperatorExists_ReturnsTrueAfterRegister(t *testing.T) {
 	f := setup(t)
 	f.register(t, email(t, "operator"))

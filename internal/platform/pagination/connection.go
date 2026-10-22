@@ -1,6 +1,6 @@
 package pagination
 
-// GraphQL の型（uif/graphql/model）に頼らないため、自分の型で返す。GraphQL の型には uif で変える
+// GraphQL の型（presentation/graphql/model）に頼らないため、自分の型で返す。GraphQL の型には presentation 層で変える
 type Connection[T any] struct {
 	Edges    []Edge[T]
 	PageInfo PageInfo

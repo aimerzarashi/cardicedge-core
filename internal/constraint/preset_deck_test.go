@@ -57,11 +57,6 @@ func TestUpdatePresetDeckName_ChangesOwnName(t *testing.T) {
 	require.NoError(t, f.updatePresetDeckName(t, f.issuePresetDeckID(t), cardName(t, "初心者")))
 }
 
-func (f fixture) cardRef(t *testing.T, id creature.ID) presetdeck.CardRef {
-	t.Helper()
-	return presetdecktest.CardRef(t, creature.Types().EntityType, id.Int64())
-}
-
 func (f fixture) referencedCards(t *testing.T, id presetdeck.ID) []int64 {
 	t.Helper()
 	return constrainttest.Referenced(t, f.ctx, presetdeck.CardReferenceType(), id.Int64())
