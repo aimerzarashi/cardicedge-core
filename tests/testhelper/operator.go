@@ -16,11 +16,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/app/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
 // テストの前提として、オペレーターを用意する。オペレーターを登録する GraphQL の操作がまだ無いため、
-// app 層のコマンドを直接呼ぶ（操作ができたら、それを呼ぶように変える）
+// application 層のコマンドを直接呼ぶ（操作ができたら、それを呼ぶように変える）
 type Operators struct {
 	db       *sql.DB
 	key      idptest.Key

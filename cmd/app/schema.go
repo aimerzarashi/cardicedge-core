@@ -6,7 +6,7 @@ import (
 	"maps"
 	"slices"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/studio/uif/graphql"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql"
 )
 
 // 入口ごとの GraphQL のスキーマ。studio・game は、前提にする版のイメージからこれを取り出して型を生成する（core#22）
