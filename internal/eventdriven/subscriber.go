@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -90,6 +91,18 @@ func (s *Subscribers) verifySubscriptions(subscriberID int16, declared []domaind
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// 誤りの並びを毎回同じにするため、名前の順に返す
+func (s *Subscribers) names(kind string) []string {
+	var names []string
+	for key := range s.ids {
+		if key.kind == kind {
+			names = append(names, key.name)
+		}
+	}
+	slices.Sort(names)
+	return names
 }
 
 func (s *Subscribers) id(kind, name string) (int16, error) {

@@ -157,7 +157,7 @@ erDiagram
 3. 状態を書く `Upsert` と、終端の状態の行を消す `Delete` を作る
 4. internal/wiring（studio の投影なら internal/service/studio の `RegisterProjections`）で `eventdriven.RegisterProjection` に `ProjectionSpec` を渡す。購読する集約の `EventLoader` を Hub に渡しておく（internal/wiring/event_driven.go）
 
-宣言と DB の食い違い（表に無い購読者、`event_subscriptions` とコードの購読の違い、読み方の無い集約など）は、起動時にエラーになる。
+宣言と DB の食い違い（表に無い購読者、`event_subscriptions` とコードの購読の違い、読み方の無い集約、登録していない投影の行（`Hub.VerifySubscribers`。core#20）など）は、起動時にエラーになる。
 
 購読する種別を後から足すときも、`event_subscriptions` の行と、その種別のすでにある集約の分の `event_subscriber_pending` の行をマイグレーションで入れる。
 

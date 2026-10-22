@@ -1,16 +1,19 @@
 package domaindef
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
-// Registry は domain_entity_types・domain_event_types・domain_unique_key_types の name と id の対応。
+// Registry は domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の name と id の対応。
 // パッケージの変数にせず、Load の結果を identifier・eventstore に渡すのは、読み込み忘れをコンパイル時にわかるようにし、
 // 依存を引数に表すため（参照の api はパッケージの変数だった）。起動後は読み取り専用のため錠を持たない
 type Registry struct {
@@ -131,18 +134,48 @@ func (r *Registry) EventTypeName(id EventTypeID) (domain.EventName, error) {
 	return name, nil
 }
 
-// アプリケーションの起動時に呼ぶ
-func (r *Registry) Verify(aggregates ...domain.AggregateTypes) error {
+// 起動時の照合（Verify...）は、コードの宣言と DB（マイグレーション）が両方向で一致するかを確かめる。コード → DB の食い違い
+// （マイグレーションの足し忘れ・名前の食い違い）は、使うときに初めて失敗するため。DB → コードの食い違い（コードの足し忘れ・
+// 型を消した・名前を変えた）は、過去のイベントを読むときや、種別を引くときに初めて失敗するため（core#20）。
+// 将来、複数台を順に入れ替えるデプロイにすると、新しいマイグレーションと古いコードが重なる間に止まるため、そのときに考え直す（core#19）
+
+// アプリケーションの起動時に呼ぶ。集約の根だけでなく、識別子を発行する子の entity の種別も渡す
+func (r *Registry) VerifyEntityTypes(entityTypes ...domain.EntityType) error {
+	declared := make(map[domain.EntityType]bool, len(entityTypes))
+	var errs []error
+	for _, entityType := range entityTypes {
+		declared[entityType] = true
+		if _, ok := r.entityTypeIDs[entityType]; !ok {
+			errs = append(errs, fmt.Errorf("entity type is not in domain_entity_types: %s", entityType))
+		}
+	}
+	for _, entityType := range sortedKeys(r.entityTypeIDs) {
+		if !declared[entityType] {
+			errs = append(errs, fmt.Errorf("domain_entity_types has an entity type not declared in code: %s", entityType))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// アプリケーションの起動時に呼ぶ。イベントの種別名は集約の中でだけ一意なため、集約ごとの宣言を渡す
+func (r *Registry) VerifyEventTypes(aggregates ...domain.AggregateTypes) error {
+	declared := make(map[domain.EntityType]map[domain.EventName]bool, len(aggregates))
 	var errs []error
 	for _, aggregate := range aggregates {
-		entityTypeID, err := r.EntityTypeID(aggregate.EntityType)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
+		declared[aggregate.EntityType] = make(map[domain.EventName]bool, len(aggregate.EventTypes))
+		entityTypeID, ok := r.entityTypeIDs[aggregate.EntityType]
 		for _, name := range aggregate.EventTypes {
-			if _, err := r.EventTypeID(entityTypeID, name); err != nil {
-				errs = append(errs, err)
+			declared[aggregate.EntityType][name] = true
+			if _, found := r.eventTypeIDs[entityTypeID][name]; !ok || !found {
+				errs = append(errs, fmt.Errorf("event type is not in domain_event_types: %s.%s", aggregate.EntityType, name))
+			}
+		}
+	}
+	for _, entityTypeID := range sortedKeys(r.eventTypeIDs) {
+		entityType := r.entityTypeNames[entityTypeID]
+		for _, name := range sortedKeys(r.eventTypeIDs[entityTypeID]) {
+			if !declared[entityType][name] {
+				errs = append(errs, fmt.Errorf("domain_event_types has an event type not declared in code: %s.%s", entityType, name))
 			}
 		}
 	}
@@ -151,22 +184,40 @@ func (r *Registry) Verify(aggregates ...domain.AggregateTypes) error {
 
 // アプリケーションの起動時に呼ぶ。種別が無いと、一意性の確保が「重複」と区別できずに失敗するため、使うときではなく起動時に検出する
 func (r *Registry) VerifyUniqueKeyTypes(keyTypes ...domain.UniqueKeyType) error {
-	var errs []error
+	names := make([]string, 0, len(keyTypes))
 	for _, keyType := range keyTypes {
-		if !r.uniqueKeyTypes[keyType.String()] {
-			errs = append(errs, fmt.Errorf("unique key type not found: %s", keyType))
+		names = append(names, keyType.String())
+	}
+	return verifyNames("domain_unique_key_types", "unique key type", names, r.uniqueKeyTypes)
+}
+
+// アプリケーションの起動時に呼ぶ。種別が無いと参照を足せず、使うときに初めて失敗するため、起動時に検出する
+func (r *Registry) VerifyReferenceTypes(referenceTypes ...domain.ReferenceType) error {
+	names := make([]string, 0, len(referenceTypes))
+	for _, referenceType := range referenceTypes {
+		names = append(names, referenceType.String())
+	}
+	return verifyNames("domain_reference_types", "reference type", names, r.referenceTypes)
+}
+
+func verifyNames(table, kind string, declared []string, inDB map[string]bool) error {
+	declaredSet := make(map[string]bool, len(declared))
+	var errs []error
+	for _, name := range declared {
+		declaredSet[name] = true
+		if !inDB[name] {
+			errs = append(errs, fmt.Errorf("%s is not in %s: %s", kind, table, name))
+		}
+	}
+	for _, name := range sortedKeys(inDB) {
+		if !declaredSet[name] {
+			errs = append(errs, fmt.Errorf("%s has a %s not declared in code: %s", table, kind, name))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-// アプリケーションの起動時に呼ぶ。種別が無いと参照を足せず、使うときに初めて失敗するため、起動時に検出する
-func (r *Registry) VerifyReferenceTypes(referenceTypes ...domain.ReferenceType) error {
-	var errs []error
-	for _, referenceType := range referenceTypes {
-		if !r.referenceTypes[referenceType.String()] {
-			errs = append(errs, fmt.Errorf("reference type not found: %s", referenceType))
-		}
-	}
-	return errors.Join(errs...)
+// 誤りの並びを毎回同じにする（map の順は決まらないため）
+func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
+	return slices.Sorted(maps.Keys(m))
 }
