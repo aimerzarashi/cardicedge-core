@@ -7,8 +7,10 @@ import (
 )
 
 type Config struct {
-	DBDSN  string
-	Studio Issuer
+	// studio 用・game 用の DB のつなぎ先。最小の構成では同じサーバーの別の DB、最大の構成では別のサーバーを指す（core#33）
+	StudioDBDSN string
+	GameDBDSN   string
+	Studio      Issuer
 	// オペレーターが 1 人もいないときに、起動時に登録するオペレーターのメールアドレス
 	InitialOperatorEmail string
 }
@@ -31,7 +33,8 @@ func Load() (Config, error) {
 		return value
 	}
 	cfg := Config{
-		DBDSN: get("DB_DSN"),
+		StudioDBDSN: get("STUDIO_DB_DSN"),
+		GameDBDSN:   get("GAME_DB_DSN"),
 		Studio: Issuer{
 			JWKSURL:  get("STUDIO_JWKS_URL"),
 			Issuer:   get("STUDIO_JWT_ISSUER"),

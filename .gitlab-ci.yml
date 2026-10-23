@@ -19,11 +19,19 @@ variables:
   # local/migrate/Dockerfile の FROM と揃える
   ATLAS_VERSION: "1.3.3"
 
-# lint / test は main に向かう MR（マイルストーンの MR）でだけ実行する。main への push では実行しない（直前の MR で同じ中身を
-# 確かめているため。マイルストーンのブランチは main に rebase してから MR にする。core#30）
+# lint / test は main に向かう MR（マイルストーンの MR）で実行する。main への push では実行しない（直前の MR で同じ中身を
+# 確かめているため。マイルストーンのブランチは main に rebase してから MR にする。core#30）。
+# マイルストーンのブランチに向かう Issue の MR では手動にし、ふだんは手元の make lint・make test で確かめる（共有 Runner の時間を
+# Issue ごとに使わないため）。CI の手順を変えたとき等、CI で確かめたいときだけ手で動かす。手動のジョブだけのパイプラインは skipped に
+# なり、「スキップされたパイプラインを成功とみなす」の設定でマージできる（「パイプラインが成功する必要がある」の設定は、main に
+# 向かう MR の歯止めとして残す）。rules の中の when: manual は allow_failure が既定で false になり、パイプラインが blocked で
+# 止まるため、true を明示する。前は何もしない手動のジョブ（issue-mr）を置いていたが、CI で確かめたいときに使えなかった（core#31・core#33）
 .on-mr:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
 
 # イメージのビルドに使う Docker in Docker
 .docker:
@@ -50,7 +58,7 @@ lint:
     # 適用済みのマイグレーションの変更・削除・改名も検査する。比較元は対象ブランチ（main）との分岐点
     - scripts/check-migrations.sh $CI_MERGE_REQUEST_DIFF_BASE_SHA
 
-# make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する（core と、ユニットテストが複製するテンプレートの core_template）
+# make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する（テストが使う core_test と、複製するテンプレートの core_template）
 test:
   stage: test
   extends: .on-mr
@@ -61,34 +69,19 @@ test:
   variables:
     POSTGRES_USER: core_user
     POSTGRES_PASSWORD: core_password
-    POSTGRES_DB: core
-    DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+    POSTGRES_DB: core_test
+    TEST_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_test sslmode=disable"
   script:
     - curl -sSfL -o /usr/local/bin/atlas "https://release.ariga.io/atlas/atlas-community-linux-amd64-v${ATLAS_VERSION}"
     - chmod +x /usr/local/bin/atlas
-    - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
+    - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core_test?sslmode=disable"
+    # 種別の行はマイグレーションで入れず、コードの一覧から入れる（core は起動時に入れるが、テストの DB は core を起動しないため。core#33）
+    - go run ./tools/synctypes -env TEST_DB_DSN
     # ユニットテストが複製するテンプレート（make test の migrate-template と同じ）
-    - go run ./tools/createdb -name core_template
+    - go run ./tools/createdb -env TEST_DB_DSN -name core_template
     - atlas migrate apply --dir file://migrations --url "postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable"
+    - go run ./tools/synctypes -env TEST_DB_DSN -dbname core_template
     - go test ./... -race
-
-# マイルストーンのブランチに向かう Issue の MR では、何もしない手動のジョブだけを置き、実行しない（lint・test は手元の
-# make lint・make test で確かめる）。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、
-# その設定は main に向かう MR の歯止めとして残すため、パイプラインは作る。手動のジョブだけのパイプラインは skipped になり、
-# 「スキップされたパイプラインを成功とみなす」の設定でマージできる（共有 Runner の時間は使わない）。rules の中の when: manual は
-# allow_failure が既定で false になり、パイプラインが blocked で止まるため、true を明示する。手で実行されたときのため、
-# image は小さいものを指定し、リポジトリも取ってこない（core#30・core#31）
-issue-mr:
-  stage: test
-  image: busybox:1.38.0
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH
-      when: manual
-      allow_failure: true
-  variables:
-    GIT_STRATEGY: none
-  script:
-    - ":"
 
 # MR の確認用イメージ（手動）。アプリとマイグレーション用イメージを GitLab Container Registry に mr-<MR番号> で push する
 build-mr:

@@ -73,10 +73,10 @@ func notify(t *testing.T, db *sql.DB, payload string) {
 func TestListener_DeliversCommittedDomainEvent(t *testing.T) {
 	db, handler, _ := startListener(t)
 	var entityID, eventID int64
-	require.NoError(t, db.QueryRowContext(t.Context(), `INSERT INTO domain_entities (entity_type_id) VALUES (2000) RETURNING id`).Scan(&entityID))
+	require.NoError(t, db.QueryRowContext(t.Context(), `INSERT INTO domain_entities (entity_type_id) VALUES (1100) RETURNING id`).Scan(&entityID))
 	require.NoError(t, db.QueryRowContext(t.Context(), `
 		INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
-		VALUES (2000, $1, 1, 2000, 1, '{}', now()) RETURNING id`, entityID).Scan(&eventID))
+		VALUES (1100, $1, 1, 1101, 1, '{}', now()) RETURNING id`, entityID).Scan(&eventID))
 
 	ref := handler.nextEvent(t)
 
@@ -89,7 +89,7 @@ func TestListener_SkipsInvalidNotification(t *testing.T) {
 	db, handler, _ := startListener(t)
 
 	notify(t, db, "invalid")
-	notify(t, db, "2000:2000:1:1:1")
+	notify(t, db, "1100:1101:1:1:1")
 
 	// 同じ接続の通知は送った順に届くため、次に届くのは読める方
 	require.Equal(t, int64(1), handler.nextEvent(t).EntityID)
@@ -109,7 +109,7 @@ func TestListener_ReportsReconnectAndKeepsListening(t *testing.T) {
 	case <-time.After(receiveTimeout):
 		t.Fatal("no reconnect reported")
 	}
-	notify(t, db, "2000:2000:2:1:2")
+	notify(t, db, "1100:1101:2:1:2")
 	require.Equal(t, int64(2), handler.nextEvent(t).EntityID)
 }
 

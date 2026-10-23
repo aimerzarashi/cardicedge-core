@@ -21,7 +21,7 @@ func (f fixture) issueStarterDeckSetID(t *testing.T) starterdeckset.ID {
 	return id
 }
 
-// 開発用の DB に、画面で設定したスターターデッキセットが残っていることがあるため、自分の DB（テンプレートの複製）で確かめる
+// 同時に動くほかのテストも、共有の core_test にスターターデッキセットを作るため、自分の DB（テンプレートの複製）で確かめる
 func TestCreateStarterDeckSet_AllowsOnlyOne(t *testing.T) {
 	f := isolatedSetup(t)
 	first := f.issueStarterDeckSetID(t)

@@ -59,12 +59,12 @@ func TestEventLoader_ReturnsNoEventsWhenAggregateHasNone(t *testing.T) {
 
 // 途中の 1 件でも復元できなければ、読めた分だけを返さない（欠けた状態で read model を書かないため）
 func TestEventLoader_FailsWhenAnyEventCannotBeDecoded(t *testing.T) {
-	ctx, registry := setup(t)
+	ctx, registry := isolatedSetup(t)
 	id, _, events := register(t, ctx, registry, "operator@example.com", time.Now().UTC())
 	require.NoError(t, operatorStore(registry).Save(ctx, events))
 	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	// operator が知らないイベント種別を、テストの中だけで足して入れる（rollback で消える）
+	// operator が知らないイベント種別を、テストの中だけで足して入れる
 	_, err = exec.ExecContext(ctx, `INSERT INTO domain_event_types (id, entity_type_id, name) VALUES (1999, 1000, 'eventstore_test_unknown')`)
 	require.NoError(t, err)
 	_, err = exec.ExecContext(ctx, `

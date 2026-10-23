@@ -12,22 +12,30 @@ down:
 	docker compose rm -sfv core-db
 	docker compose down
 
-# 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）
+# 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）。
+# 種別の行はマイグレーションで入れず、コードの一覧から入れる（core は起動時にも入れるが、テストが core を起動せずに使うため。core#33）
 .PHONY: migrate
 migrate:
-	docker compose run --rm core-migrate
+	docker compose run --rm core-migrate-studio
+	docker compose run --rm core-migrate-game
+	docker compose exec core go run ./tools/synctypes -env STUDIO_DB_DSN
+	docker compose exec core go run ./tools/synctypes -env GAME_DB_DSN
 
-# ユニットテストが複製するテンプレート（core_template）を、無ければ作り、マイグレーションを流す（make test の前に必ず実行する）。
-# テンプレートは core と分けるのは、アプリやテストが書き込む DB を複製すると、書き込みの途中を写しうるため
+# テストが使う DB（core_test）と、複製するテンプレート（core_template）を、無ければ作り、マイグレーションを流して種別の行を入れる
+# （make test の前に必ず実行する）。テンプレートを core_test と分けるのは、テストが書き込む DB を複製すると、書き込みの途中を写しうるため
 .PHONY: migrate-template
 migrate-template:
-	docker compose exec core go run ./tools/createdb -name core_template
-	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable" core-migrate
+	docker compose exec core go run ./tools/createdb -env TEST_DB_DSN -name core_test
+	docker compose exec core go run ./tools/createdb -env TEST_DB_DSN -name core_template
+	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_test?sslmode=disable" core-migrate-studio
+	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable" core-migrate-studio
+	docker compose exec core go run ./tools/synctypes -env TEST_DB_DSN
+	docker compose exec core go run ./tools/synctypes -env TEST_DB_DSN -dbname core_template
 
 # migrations/ のファイルを足したら実行し、atlas.sum を作り直す（SQL と一緒にコミットする）
 .PHONY: migrate-hash
 migrate-hash:
-	docker compose run --rm --no-deps --user $$(id -u):$$(id -g) core-migrate migrate hash --dir file:///migrations
+	docker compose run --rm --no-deps --user $$(id -u):$$(id -g) core-migrate-studio migrate hash --dir file:///migrations
 
 # 開発ツール
 

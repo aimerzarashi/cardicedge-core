@@ -149,17 +149,19 @@ erDiagram
 
 ## 投影を足す手順
 
-1. read model の表を作るマイグレーションを足し、同じマイグレーションで次を入れる
-   - `event_subscribers` に `('projection', <名前>)` の行（id は 1000 から。1〜999 はテストのために空けておく）
-   - `event_subscriptions` に、購読する集約の種別の行
-   - `event_subscriber_pending` に、すでにある集約の分の行（`domain_events` から集約ごとに最新の版。入れないと、次にイベントが来るまで作られない）
-2. read model の状態の型を作り、`Evolve(event any) S` と `IsTerminal() bool` を書く（ゼロ値が初期状態）
-3. 状態を書く `Upsert` と、終端の状態の行を消す `Delete` を作る
-4. internal/wiring（studio の投影なら internal/service/studio の `RegisterProjections`）で `eventdriven.RegisterProjection` に `ProjectionSpec` を渡す。購読する集約の `EventLoader` を Hub に渡しておく（internal/wiring/event_driven.go）
+1. read model の表を作るマイグレーションを足す（表の作りだけ。購読者・購読の行は入れない）
+2. 購読者の一覧（internal/wiring/subscribers.go）に、id・名前・どのサービスのものかを足す（`eventdriven.ProjectionSubscriber`。id は 1000 から順に、自動で振らない）
+3. read model の状態の型を作り、`Evolve(event any) S` と `IsTerminal() bool` を書く（ゼロ値が初期状態）
+4. 状態を書く `Upsert` と、終端の状態の行を消す `Delete` を作る
+5. internal/wiring（studio の投影なら internal/service/studio の `RegisterProjections`）で `eventdriven.RegisterProjection` に `ProjectionSpec` を渡す。購読する集約の `EventLoader` を Hub に渡しておく（internal/wiring/event_driven.go）
 
-宣言と DB の食い違い（表に無い購読者、`event_subscriptions` とコードの購読の違い、読み方の無い集約、登録していない投影の行（`Hub.VerifySubscribers`。core#20）など）は、起動時にエラーになる。
+起動時に `Hub.Sync` が、Hub に渡した購読者と登録した投影を正として DB を合わせる（core#33）。
 
-購読する種別を後から足すときも、`event_subscriptions` の行と、その種別のすでにある集約の分の `event_subscriber_pending` の行をマイグレーションで入れる。
+- `event_subscribers` に無い購読者は足す。同じ id で名前が違う・一覧に無い購読者の行がある・一覧にあるのに投影を登録していない、はエラーにして起動を止める（行は消さない）
+- `event_subscriptions` は `ProjectionSpec.Subscriptions` に合わせて足し・消す。足した組には、すでにある集約の分の `event_subscriber_pending` の行を入れ（入れないと、次にイベントが来るまで作られない）、消した組のやること・チェックポイントも消す
+- Hub には、そのサービスの購読者だけを渡す（studio 用・game 用の DB それぞれに、そのサービスの購読者だけができる）
+
+購読する種別を後から足す・やめるときも、`ProjectionSpec.Subscriptions` を変えるだけでよい。読み方の無い集約は、起動時にエラーになる。
 
 ## 作り直す手順
 

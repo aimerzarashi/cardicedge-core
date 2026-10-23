@@ -24,9 +24,11 @@ import (
 )
 
 type Config struct {
-	DB *sql.DB
+	// studio 用・game 用の DB（core#33）。テーブルは共有せず、どちらにも同じマイグレーションを流す
+	StudioDB *sql.DB
 	// Listener が自分で接続するため、DB とは別に渡す
-	DSN                  string
+	StudioDSN            string
+	GameDB               *sql.DB
 	Version              string
 	Studio               studio.Config
 	InitialOperatorEmail string
@@ -41,43 +43,108 @@ type App struct {
 // HTTP の入口を返す前に LISTEN を張る（コマンドが commit したイベントの知らせを受け取るため）。
 // 止めるのは呼び出し側が HTTP を止めた後に Stop を呼んで行う
 func Start(ctx context.Context, config Config) (*App, error) {
-	registry, err := domaindef.Load(rdb.WithDB(ctx, config.DB))
+	studioPrepared, err := rdb.Transact(rdb.WithDB(ctx, config.StudioDB), func(ctx context.Context) (prepared, error) {
+		return prepareStudio(ctx, config)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("studio: %w", err)
+	}
+	// game のサービス（コマンド・投影）は後で足す。今は、種別を合わせ、購読者の行が無いことを確かめるだけ
+	if _, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
+		return prepareGame(ctx, config)
+	}); err != nil {
+		return nil, fmt.Errorf("game: %w", err)
+	}
+	if err := studioPrepared.studio.RegisterInitialOperator(ctx, config.StudioDB, config.InitialOperatorEmail); err != nil {
+		return nil, err
+	}
+	// 取り消されない ctx を渡す（シグナルで取り消される ctx だと、HTTP より先に止まり、止める途中のリクエストが
+	// commit したイベントの知らせを受け取れない）
+	if err := studioPrepared.hub.Start(rdb.WithDB(context.WithoutCancel(ctx), config.StudioDB), eventdriven.NewListener(config.StudioDSN)); err != nil {
+		return nil, fmt.Errorf("failed to start event-driven hub: %w", err)
+	}
+
+	mux := NewRouter(config.Version)
+	studioPrepared.studio.Mount(mux, config.StudioDB, config.Version)
+	return &App{Handler: mux, hub: studioPrepared.hub}, nil
+}
+
+type prepared struct {
+	studio *studio.Studio
+	hub    *eventdriven.Hub
+}
+
+// DB の種別・購読者・購読の行を、コードの宣言に合わせてから組み立てる（行はマイグレーションでは入れない。core#33）。
+// DB ごとに 1 つのトランザクションで行い、同じサービスを複数台で起動しても、錠で順番に動くようにする（後の台は何も足さない）
+func prepareStudio(ctx context.Context, config Config) (prepared, error) {
+	registry, err := syncTypes(ctx)
+	if err != nil {
+		return prepared{}, err
+	}
+	studioParts := studio.New(registry, config.Studio)
+	hub, err := newHub(registry, config.EventDriven, subscribersOf(serviceStudio))
+	if err != nil {
+		return prepared{}, err
+	}
+	if err := studioParts.RegisterProjections(hub); err != nil {
+		return prepared{}, err
+	}
+	if err := hub.Sync(ctx); err != nil {
+		return prepared{}, fmt.Errorf("event subscribers do not match code: %w", err)
+	}
+	return prepared{studio: studioParts, hub: hub}, nil
+}
+
+func prepareGame(ctx context.Context, config Config) (prepared, error) {
+	registry, err := syncTypes(ctx)
+	if err != nil {
+		return prepared{}, err
+	}
+	hub, err := newHub(registry, config.EventDriven, subscribersOf(serviceGame))
+	if err != nil {
+		return prepared{}, err
+	}
+	if err := hub.Sync(ctx); err != nil {
+		return prepared{}, fmt.Errorf("event subscribers do not match code: %w", err)
+	}
+	return prepared{hub: hub}, nil
+}
+
+// 錠を取り、種別の行をコードの一覧に合わせ、読み込んで、ドメインの宣言と照合する。種別は全サービスで共通なので、どの DB でも同じ
+func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
+	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// ドメインが宣言した種別名と DB（マイグレーション）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
+	if _, err := exec.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext('core.sync'))`); err != nil {
+		return nil, fmt.Errorf("failed to lock for sync: %w", err)
+	}
+	if err := domaindef.Sync(ctx, domaindef.Types); err != nil {
+		return nil, fmt.Errorf("domain types do not match catalog: %w", err)
+	}
+	registry, err := domaindef.Load(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
 	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
 	}
 	if err := registry.VerifyEntityTypes(entityTypes...); err != nil {
-		return nil, fmt.Errorf("entity types do not match migrations: %w", err)
+		return nil, fmt.Errorf("entity types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
-		return nil, fmt.Errorf("event types do not match migrations: %w", err)
+		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes())...); err != nil {
-		return nil, fmt.Errorf("unique key types do not match migrations: %w", err)
+		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeckset.ReferenceTypes())...); err != nil {
-		return nil, fmt.Errorf("reference types do not match migrations: %w", err)
+		return nil, fmt.Errorf("reference types do not match catalog: %w", err)
 	}
-
-	studioParts := studio.New(registry, config.Studio)
-	if err := studioParts.RegisterInitialOperator(ctx, config.DB, config.InitialOperatorEmail); err != nil {
-		return nil, err
-	}
-	// 取り消されない ctx を渡す（シグナルで取り消される ctx だと、HTTP より先に止まり、止める途中のリクエストが
-	// commit したイベントの知らせを受け取れない）
-	hub, err := startEventDriven(context.WithoutCancel(ctx), config.DB, config.DSN, registry, config.EventDriven, studioParts.RegisterProjections)
-	if err != nil {
-		return nil, err
-	}
-
-	mux := NewRouter(config.Version)
-	studioParts.Mount(mux, config.DB, config.Version)
-	return &App{Handler: mux, hub: hub}, nil
+	return registry, nil
 }
 
 // HTTP を止めた後に呼ぶ

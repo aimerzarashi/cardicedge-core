@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -43,10 +44,9 @@ func pendingRows(t *testing.T, ctx context.Context, id operator.ID) []pendingRow
 // operator を購読するのはテストの購読者（id 1）だけなので、行はその購読者の分だけ入る。
 // 同じ集約のイベントが続いても行は増えず、版が上がる
 func TestPendingTrigger_RecordsLatestVersionForSubscribersOfEntityType(t *testing.T) {
-	ctx := isolatedDatabase(t)
-	exec, err := rdb.GetExecutor(ctx)
-	require.NoError(t, err)
-	addTestSubscriber(t, ctx, exec)
+	ctx, hub := newHub(t)
+	require.NoError(t, eventdriven.RegisterProjection(hub, (&writes{}).spec()))
+	require.NoError(t, hub.Sync(ctx))
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	store := eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve)

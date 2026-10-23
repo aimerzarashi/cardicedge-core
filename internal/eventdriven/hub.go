@@ -26,11 +26,13 @@ type Options struct {
 }
 
 type Hub struct {
-	subscribers *Subscribers
-	registry    *domaindef.Registry
-	options     Options
-	loaders     map[domaindef.EntityTypeID]eventstore.EventLoader
-	projections map[int16]*registeredProjection
+	// この Hub が動くサービスの購読者（コードの一覧から渡す）と、その (kind, name) から id を引く表
+	subscriberDefs []SubscriberDef
+	subscriberIDs  map[subscriberKey]int16
+	registry       *domaindef.Registry
+	options        Options
+	loaders        map[domaindef.EntityTypeID]eventstore.EventLoader
+	projections    map[int16]*registeredProjection
 	// 集約の種別 → その種別を購読する投影の id
 	routes    map[domaindef.EntityTypeID][]int16
 	scheduler *scheduler
@@ -47,8 +49,9 @@ type registeredProjection struct {
 	projection    projection
 }
 
+// subscribers は、この Hub が動くサービスの購読者（id はコードの一覧で決める。core#33）。
 // loaders は購読されうる集約ごとのイベントの読み方。購読する種別の読み方が無ければ、登録のときにエラーにする
-func NewHub(subscribers *Subscribers, registry *domaindef.Registry, options Options, loaders ...eventstore.EventLoader) (*Hub, error) {
+func NewHub(subscribers []SubscriberDef, registry *domaindef.Registry, options Options, loaders ...eventstore.EventLoader) (*Hub, error) {
 	if options.WorkerCount < 1 {
 		return nil, fmt.Errorf("eventdriven: WorkerCount must be at least 1: %d", options.WorkerCount)
 	}
@@ -56,16 +59,27 @@ func NewHub(subscribers *Subscribers, registry *domaindef.Registry, options Opti
 		return nil, fmt.Errorf("eventdriven: PollInterval must be positive: %s", options.PollInterval)
 	}
 	hub := &Hub{
-		subscribers: subscribers,
-		registry:    registry,
-		options:     options,
-		loaders:     make(map[domaindef.EntityTypeID]eventstore.EventLoader, len(loaders)),
-		projections: make(map[int16]*registeredProjection),
-		routes:      make(map[domaindef.EntityTypeID][]int16),
-		scheduler:   newScheduler(),
-		pollNow:     make(chan struct{}, 1),
+		subscriberDefs: subscribers,
+		subscriberIDs:  make(map[subscriberKey]int16, len(subscribers)),
+		registry:       registry,
+		options:        options,
+		loaders:        make(map[domaindef.EntityTypeID]eventstore.EventLoader, len(loaders)),
+		projections:    make(map[int16]*registeredProjection),
+		routes:         make(map[domaindef.EntityTypeID][]int16),
+		scheduler:      newScheduler(),
+		pollNow:        make(chan struct{}, 1),
 	}
 	var errs []error
+	ids := make(map[int16]bool, len(subscribers))
+	for _, def := range subscribers {
+		key := subscriberKey{kind: def.Kind, name: def.Name}
+		if _, ok := hub.subscriberIDs[key]; ok || ids[def.ID] {
+			errs = append(errs, fmt.Errorf("duplicate subscriber: id=%d, kind=%s, name=%s", def.ID, def.Kind, def.Name))
+			continue
+		}
+		hub.subscriberIDs[key] = def.ID
+		ids[def.ID] = true
+	}
 	for _, loader := range loaders {
 		entityTypeID, err := registry.EntityTypeID(loader.EntityType())
 		if err != nil {
@@ -89,9 +103,9 @@ func (h *Hub) register(kind, name string, subscriptions []domain.EntityType, p p
 	if h.started.Load() {
 		return fmt.Errorf("eventdriven: projection %q is registered after Start", name)
 	}
-	id, err := h.subscribers.id(kind, name)
-	if err != nil {
-		return err
+	id, ok := h.subscriberIDs[subscriberKey{kind: kind, name: name}]
+	if !ok {
+		return fmt.Errorf("%w: kind=%s, name=%s", ErrSubscriberNotFound, kind, name)
 	}
 	if _, ok := h.projections[id]; ok {
 		return fmt.Errorf("eventdriven: projection %q is already registered", name)
@@ -119,29 +133,9 @@ func (h *Hub) register(kind, name string, subscriptions []domain.EntityType, p p
 	if err := errors.Join(errs...); err != nil {
 		return fmt.Errorf("eventdriven: projection %q: %w", name, err)
 	}
-	if err := h.subscribers.verifySubscriptions(id, entityTypeIDs); err != nil {
-		return fmt.Errorf("eventdriven: projection %q: %w", name, err)
-	}
 	h.projections[id] = &registeredProjection{name: name, entityTypeIDs: entityTypeIDs, projection: p}
 	for _, entityTypeID := range entityTypeIDs {
 		h.routes[entityTypeID] = append(h.routes[entityTypeID], id)
-	}
-	return nil
-}
-
-// アプリケーションの起動時に、投影をすべて登録した後に呼ぶ。event_subscribers の投影の行が、どれも登録されているかを確かめる
-// （登録されていない投影の行があると、トリガーがやることの行を入れ続け、誰も消さないため。core#20）。
-// Start の中で確かめないのは、このパッケージのテストが、テスト用の投影だけを登録して本物の購読者がある DB で動かすため
-func (h *Hub) VerifySubscribers() error {
-	var errs []error
-	for _, name := range h.subscribers.names(kindProjection) {
-		id, _ := h.subscribers.id(kindProjection, name)
-		if _, ok := h.projections[id]; !ok {
-			errs = append(errs, fmt.Errorf("event_subscribers has a projection not registered in code: %s", name))
-		}
-	}
-	if err := errors.Join(errs...); err != nil {
-		return fmt.Errorf("eventdriven: %w", err)
 	}
 	return nil
 }

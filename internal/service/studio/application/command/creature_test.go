@@ -29,7 +29,7 @@ func countCreatureEvents(t *testing.T, ctx context.Context, id creature.ID) int 
 	require.NoError(t, err)
 	var count int
 	require.NoError(t, exec.QueryRowContext(ctx,
-		`SELECT count(*) FROM domain_events WHERE entity_type_id = 2000 AND entity_id = $1`, id.Int64()).Scan(&count))
+		`SELECT count(*) FROM domain_events WHERE entity_type_id = 1100 AND entity_id = $1`, id.Int64()).Scan(&count))
 	return count
 }
 

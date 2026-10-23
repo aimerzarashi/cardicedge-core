@@ -31,7 +31,7 @@ make down    # 停止して DB のデータも破棄
 | http://localhost:3333/health | ヘルスチェック |
 | http://localhost:3333/studio/graphql | studio 用の GraphQL（POST。studio の JWT が必須） |
 
-PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: core）で接続できる。
+PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
@@ -54,12 +54,12 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 | 環境変数 | 内容 |
 |---|---|
-| `DB_DSN` | core-db の接続先 |
+| `STUDIO_DB_DSN` / `GAME_DB_DSN` | studio 用・game 用の DB の接続先（開発・テストは同じ core-db の core_studio・core_game。別のサーバーにしてもよい） |
 | `STUDIO_JWKS_URL` | studio の JWKS（開発・テストは `http://studio-envoy:10000/api/auth/jwks`） |
 | `STUDIO_JWT_ISSUER` / `STUDIO_JWT_AUDIENCE` | studio の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-studio` / `diecardomain-core`） |
 | `STUDIO_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで studio にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
 
-どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。
+どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。開発用のコンテナには、テストが使う `TEST_DB_DSN`（core_test）も渡している（core は使わない。テストが開発の core の DB に触らないよう分ける）。
 
 | 操作 | 内容 |
 |---|---|
@@ -82,20 +82,20 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api の形に、設計メモの 6 節の修正点を反映し、さらに次の点を変えた（#7）。
 
 - 種別のレジストリ（`domaindef.Registry`）はパッケージの変数にせず、起動時に読み込んで `identifier`・`eventstore` に渡す
-- 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。起動時に `Registry.Verify` で DB（マイグレーション）と照合し、食い違えば起動しない
+- 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。種別の id と名前はコードの一覧（`domaindef.Types`）が決め、起動時に DB ごとに `domaindef.Sync` で足してから、`Registry.Verify...` で照合し、食い違えば起動しない（core#33）
 - イベントのスキーマの版は、イベントの型が宣言する（`SchemaVersion()`）。読み込み時は保存された版を `Unmarshal` に渡す
-- 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す
+- 集約を足したら: 種別の一覧（`domaindef.Types`）にその集約とイベントを足し、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す（表が要るときは、マイグレーションも足して `make migrate-hash`・`make migrate`・`make gen-orm`）
 
 中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_entity_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
 
-テストで DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、開発用の DB に触るかがわかるように）。
+テストは `TEST_DB_DSN` のサーバーだけを使い、開発の core の DB（core_studio・core_game）には触らない（core#33）。DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、共有の core_test に触るかがわかるように）。
 
-- `rdbtest.Tx`: 開発用の DB で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
+- `rdbtest.Tx`: 共有の core_test で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
 - `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（studio/app/command・studio/infrastructure/repository・eventdriven・platform/rdb）
 
-開発用の DB に commit すると、開発用の core の Hub がそれを投影して read model に行が残るため、commit する道具（`Open`）は外に出さない。
+共有の core_test に commit すると行が残り、ほかのテストの前提を崩すため、commit する道具（`Open`）は外に出さない。
 
-結合テスト（tests/integration）は、`TestMain` で `rdbtest.CloneDatabase` により DB を 1 つ複製し、`internal/wiring` で組み立てたアプリ（Hub を含む）と共有して並列に流す。テンプレートは `make test`（`migrate-template`）と CI が、`tools/createdb` で作ってマイグレーションを流しておく。テストの種類と DB の使い分けの議論は core#9。
+結合テスト（tests/integration）は、`TestMain` で `rdbtest.CloneDatabase` により studio 用・game 用の DB を複製し、`internal/wiring` で組み立てたアプリ（Hub を含む）と共有して並列に流す。core_test とテンプレートは `make test`（`migrate-template`）と CI が、`tools/createdb` で作ってマイグレーションと種別（`tools/synctypes`）を流しておく。テストの種類と DB の使い分けの議論は core#9。
 
 ## テスト用環境（compose.test.yaml）
 
@@ -154,6 +154,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 |---|---|
 | `migrations/NNNN_name.sql` | PostgreSQL の SQL（手で書く） |
 | `migrations/atlas.sum` | Atlas が作るハッシュの一覧。SQL と一緒にコミットする |
+| `migrations/BASELINE` | 並びをどの作り直しから始めたかの印（1 行目）。`scripts/check-migrations.sh` が読む |
 | `local/migrate/Dockerfile`・`atlas.hcl` | マイグレーション用イメージ（Atlas + migrations）。DB の接続先は実行時に `DATABASE_URL` で渡す |
 
 ### 追加の手順
@@ -166,7 +167,9 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 ### 決まり
 
 - ファイル名は `NNNN_name.sql`（番号は 4 桁の数字、名前は小文字・数字・`_`）。Atlas は最初の `_` までを番号として読む
+- 表の作り（DDL）だけを書き、studio 用・game 用の両方の DB に同じものを流す。種別・購読者の行は入れない（コードの一覧から、core が起動時に入れる。core#33）
 - 追加のみ。down は無い。誤りは新しいマイグレーションで直す。適用済みのファイルは変更・削除・改名しない
+- 例外として、リリース前（本番の DB ができる前）に限り、並びを作り直してよい。作り直したら `migrations/BASELINE` の 1 行目を書き換える（`check-migrations.sh` は比較元とこの行が違えば比べ合わせを飛ばす）
 - マージで `atlas.sum` が衝突したら、自分のファイルの番号を付け直して `make migrate-hash` し直す
 - トランザクション内で実行できない文（`CREATE INDEX CONCURRENTLY` 等）は、ファイルの先頭に `-- atlas:txmode none` を書き、**直後に空行を入れる**（空行が無いと指示が無視され、トランザクション内で実行されて失敗する）
 
@@ -199,7 +202,7 @@ Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも�
 
 | 環境 | 実行方法 |
 |---|---|
-| 開発（compose.yaml） | core-migrate サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate` |
-| テスト用（compose.test.yaml） | core-migrate サービス（マイグレーション用イメージ） |
+| 開発（compose.yaml） | core-migrate-studio・core-migrate-game サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate`（種別の行も入れる） |
+| テスト用（compose.test.yaml） | core-migrate-studio・core-migrate-game サービス（マイグレーション用イメージ） |
 | CI | test ジョブで Atlas（v1.3.3）を取得し、適用してから go test |
-| リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に `DATABASE_URL` を渡してジョブとして実行する |
+| リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に、studio 用・game 用の DB それぞれの `DATABASE_URL` を渡してジョブとして実行する |
