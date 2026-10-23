@@ -10,11 +10,11 @@ import (
 )
 
 func TestParseEventRef_ReadsNotificationPayload(t *testing.T) {
-	ref, err := eventdriven.ParseEventRef("2000:2000:147:3:78")
+	ref, err := eventdriven.ParseEventRef("1100:1101:147:3:78")
 
 	require.NoError(t, err)
-	require.Equal(t, domaindef.NewEntityTypeID(2000), ref.EntityTypeID)
-	require.Equal(t, domaindef.NewEventTypeID(2000), ref.EventTypeID)
+	require.Equal(t, domaindef.NewEntityTypeID(1100), ref.EntityTypeID)
+	require.Equal(t, domaindef.NewEventTypeID(1101), ref.EventTypeID)
 	require.Equal(t, int64(147), ref.EntityID)
 	require.Equal(t, int64(3), ref.AggregateVersion)
 	require.Equal(t, int64(78), ref.EventID)
@@ -26,10 +26,10 @@ func TestParseEventRef_RejectsInvalidPayload(t *testing.T) {
 		payload string
 	}{
 		{name: "empty", payload: ""},
-		{name: "too_few_parts", payload: "2000:2000:147:3"},
-		{name: "too_many_parts", payload: "2000:2000:147:3:78:1"},
-		{name: "not_a_number", payload: "2000:x:147:3:78"},
-		{name: "entity_type_out_of_range", payload: "40000:2000:147:3:78"},
+		{name: "too_few_parts", payload: "1100:1101:147:3"},
+		{name: "too_many_parts", payload: "1100:1101:147:3:78:1"},
+		{name: "not_a_number", payload: "1100:x:147:3:78"},
+		{name: "entity_type_out_of_range", payload: "40000:1101:147:3:78"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

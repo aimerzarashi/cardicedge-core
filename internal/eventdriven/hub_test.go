@@ -143,21 +143,19 @@ type hubFixture struct {
 }
 
 // ワーカーは自分でトランザクションを commit するため、テストのトランザクションではなく、テンプレートから複製した DB で動かす。
-// テストの中だけの購読者を足し、Hub を作って recorder の投影を登録する（Start はしない）
+// Hub を作ってテストの中だけの購読者に recorder の投影を登録し、DB の購読者・購読を合わせる（Start はしない）
 func newHubFixture(t *testing.T, options eventdriven.Options) hubFixture {
 	t.Helper()
 	db, dsn := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	addTestSubscriber(t, ctx, db)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	subscribers, err := eventdriven.LoadSubscribers(ctx)
-	require.NoError(t, err)
 	loader := newProbeLoader(eventstore.NewEventLoader(registry, operator.NewID, operator.NewEventType))
-	hub, err := eventdriven.NewHub(subscribers, registry, options, loader)
+	hub, err := eventdriven.NewHub(testSubscribers, registry, options, loader)
 	require.NoError(t, err)
 	rec := &recorder{upserted: make(chan countingReadModel, 10)}
 	require.NoError(t, eventdriven.RegisterProjection(hub, rec.spec()))
+	require.NoError(t, hub.Sync(ctx))
 	return hubFixture{ctx: ctx, db: db, dsn: dsn, registry: registry, hub: hub, recorder: rec, loader: loader}
 }
 

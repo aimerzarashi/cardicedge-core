@@ -127,12 +127,12 @@ func TestLoad_ReturnsInitialStateWhenNoEvents(t *testing.T) {
 
 // entity_id は集約の種別をまたいで重なりうるため、Load はほかの種別のイベントを読まない
 func TestLoad_IgnoresEventsOfOtherEntityTypes(t *testing.T) {
-	ctx, registry := setup(t)
+	ctx, registry := isolatedSetup(t)
 	id, _, events := register(t, ctx, registry, "operator@example.com", time.Now().UTC())
 	require.NoError(t, operatorStore(registry).Save(ctx, events))
 	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	// テストの中だけの種別に、同じ entity_id・次の版のイベントを入れる（rollback で消える）
+	// テストの中だけの種別に、同じ entity_id・次の版のイベントを入れる
 	_, err = exec.ExecContext(ctx, `INSERT INTO domain_entity_types (id, name) VALUES (1, 'eventstore_test')`)
 	require.NoError(t, err)
 	_, err = exec.ExecContext(ctx, `INSERT INTO domain_event_types (id, entity_type_id, name) VALUES (1, 1, 'RegisteredEvent')`)
@@ -183,7 +183,7 @@ func TestIdentifier_ResolveFailsForPublicIDOfOtherEntityType(t *testing.T) {
 
 func TestIdentifier_DeleteReleasesUniqueKeysAndKeepsEvents(t *testing.T) {
 	ctx, registry := setup(t)
-	// 開発用の DB の初期オペレーターとぶつからない値にする
+	// 同時に動くほかのテストのオペレーターとぶつからない値にする
 	email := "delete-" + uuid.NewString() + "@example.com"
 	id, publicID, events := register(t, ctx, registry, email, time.Now().UTC())
 	require.NoError(t, operatorStore(registry).Save(ctx, events))

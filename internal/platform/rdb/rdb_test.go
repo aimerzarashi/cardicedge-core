@@ -10,9 +10,9 @@ import (
 )
 
 func TestOpen(t *testing.T) {
-	dsn := os.Getenv("DB_DSN")
+	dsn := os.Getenv("TEST_DB_DSN")
 	if dsn == "" {
-		t.Skip("DB_DSN is not set. run via 'make test'")
+		t.Skip("TEST_DB_DSN is not set. run via 'make test'")
 	}
 
 	db, err := rdb.Open(t.Context(), dsn)

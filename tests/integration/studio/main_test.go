@@ -32,8 +32,8 @@ func TestMain(m *testing.M) {
 // 複製した DB と組み立てたアプリを 1 つずつ作り、並列のテストで共有する（テストごとに作ると、Hub・Listener が
 // テストの数だけ動くため）。ほかのテストの行が混ざるため、各テストは一意の値で作ったものだけを見る
 func run(m *testing.M) int {
-	if os.Getenv("DB_DSN") == "" {
-		fmt.Fprintln(os.Stderr, "DB_DSN is not set. run via 'make test'")
+	if os.Getenv("TEST_DB_DSN") == "" {
+		fmt.Fprintln(os.Stderr, "TEST_DB_DSN is not set. run via 'make test'")
 		return 0
 	}
 	errorLogs := testhelper.RecordErrorLogs()
@@ -45,6 +45,11 @@ func run(m *testing.M) int {
 		return fail(err)
 	}
 	defer drop()
+	gameDB, _, dropGame, err := rdbtest.CloneDatabase(ctx)
+	if err != nil {
+		return fail(err)
+	}
+	defer dropGame()
 	key, err = idptest.GenerateKey("k1")
 	if err != nil {
 		return fail(err)
@@ -58,8 +63,9 @@ func run(m *testing.M) int {
 	studioConfig := studio.Config{Verifier: verifier, Issuer: idptest.Issuer}
 	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second}
 	app, err := wiring.Start(ctx, wiring.Config{
-		DB:                   db,
-		DSN:                  dsn,
+		StudioDB:             db,
+		StudioDSN:            dsn,
+		GameDB:               gameDB,
 		Version:              "test",
 		Studio:               studioConfig,
 		InitialOperatorEmail: "initial@example.com",

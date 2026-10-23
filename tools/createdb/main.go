@@ -1,4 +1,4 @@
-// DB_DSN の PostgreSQL に、指定した名前の DB が無ければ作る。ユニットテストが複製するテンプレート（core_template）を、
+// -env で指定した環境変数のつなぎ先の PostgreSQL に、指定した名前の DB が無ければ作る。テストが使う core_test と、複製するテンプレート（core_template）を、
 // 開発（make test）と CI の両方で同じ方法で用意するために使う（CI のイメージには psql が無く、apt で入れると外のミラーに左右されるため）。
 // 開発・CI の道具で、本番のコード（cmd/app・internal）からは import しない
 package main
@@ -16,9 +16,10 @@ import (
 )
 
 func main() {
+	env := flag.String("env", "", "つなぎ先を持つ環境変数の名前（例: TEST_DB_DSN）")
 	name := flag.String("name", "", "作る DB の名前")
 	flag.Parse()
-	if err := run(context.Background(), os.Getenv("DB_DSN"), *name); err != nil {
+	if err := run(context.Background(), os.Getenv(*env), *name); err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
@@ -26,9 +27,11 @@ func main() {
 
 func run(ctx context.Context, dsn, name string) error {
 	if dsn == "" || name == "" {
-		return fmt.Errorf("DB_DSN と -name が要る")
+		return fmt.Errorf("-env の環境変数のつなぎ先と -name が要る")
 	}
-	db, err := rdb.Open(ctx, dsn)
+	// つなぎ先の DB（core_test 等）は、これから作るもののことがあるため、どのサーバーにもある postgres につなぐ
+	// （lib/pq の key=value 形式では、後に書いた値が使われる）
+	db, err := rdb.Open(ctx, dsn+" dbname=postgres")
 	if err != nil {
 		return err
 	}

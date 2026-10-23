@@ -77,11 +77,16 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	db, err := rdb.Open(ctx, cfg.DBDSN)
+	studioDB, err := rdb.Open(ctx, cfg.StudioDBDSN)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer studioDB.Close()
+	gameDB, err := rdb.Open(ctx, cfg.GameDBDSN)
+	if err != nil {
+		return err
+	}
+	defer gameDB.Close()
 	verifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
 	if err != nil {
 		return err
@@ -90,8 +95,9 @@ func run(ctx context.Context) error {
 	studioConfig := studio.Config{Verifier: verifier, Issuer: cfg.Studio.Issuer}
 	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
 	app, err := wiring.Start(ctx, wiring.Config{
-		DB:                   db,
-		DSN:                  cfg.DBDSN,
+		StudioDB:             studioDB,
+		StudioDSN:            cfg.StudioDBDSN,
+		GameDB:               gameDB,
 		Version:              version,
 		Studio:               studioConfig,
 		InitialOperatorEmail: cfg.InitialOperatorEmail,

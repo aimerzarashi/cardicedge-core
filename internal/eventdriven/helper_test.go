@@ -7,14 +7,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
-// テストの中だけの購読者の名前。id は本物の購読者（1000〜）と重ならない値にする（0010 のマイグレーション）
+// テストの中だけの購読者の名前
 const testProjectionName = "eventdriven_test"
+
+// テストの中だけの購読者。複製した DB（購読者の行は入っていない）で動かすため、id は本物の購読者と重なってもよい
+var testSubscribers = []eventdriven.SubscriberDef{eventdriven.ProjectionSubscriber(1, testProjectionName)}
 
 // このパッケージのテストは、テンプレートから複製した自分専用の DB で動かす（Hub・Listener は commit を見るため、
 // ほかのテストもそろえて、パッケージの中の DB の使い方を 1 つにする）
@@ -22,15 +28,6 @@ func isolatedDatabase(t *testing.T) context.Context {
 	t.Helper()
 	db, _ := rdbtest.NewDatabase(t)
 	return rdb.WithDB(t.Context(), db)
-}
-
-// テストの中だけの購読者と、その購読（operator）を足す
-func addTestSubscriber(t *testing.T, ctx context.Context, exec rdb.Executor) {
-	t.Helper()
-	_, err := exec.ExecContext(ctx, `INSERT INTO event_subscribers (id, kind, name) VALUES (1, 'projection', $1)`, testProjectionName)
-	require.NoError(t, err)
-	_, err = exec.ExecContext(ctx, `INSERT INTO event_subscriptions (subscriber_id, entity_type_id) VALUES (1, 1000)`)
-	require.NoError(t, err)
 }
 
 // テストの中だけのイベント。集約を削除するイベントがまだ無いため、終端の状態を作るのに使う
@@ -67,3 +64,35 @@ func testOptions(workerCount int) eventdriven.Options {
 
 // 通知は非同期に届くため、届くのを待つ上限。届かないことの確認には使わない（待つだけ遅くなるため）
 const receiveTimeout = 5 * time.Second
+
+// 投影が書いた状態を覚えるだけの、テストの中だけの投影（operator を購読する）
+type writes struct {
+	upserted []countingReadModel
+	deleted  []countingReadModel
+}
+
+func (w *writes) spec() eventdriven.ProjectionSpec[countingReadModel] {
+	return eventdriven.ProjectionSpec[countingReadModel]{
+		Name:          testProjectionName,
+		Subscriptions: []domain.EntityType{operator.Types().EntityType},
+		Upsert: func(_ context.Context, state countingReadModel) error {
+			w.upserted = append(w.upserted, state)
+			return nil
+		},
+		Delete: func(_ context.Context, state countingReadModel) error {
+			w.deleted = append(w.deleted, state)
+			return nil
+		},
+	}
+}
+
+// テストの中だけの購読者と、operator のイベントの読み方を渡した Hub を作る（投影は登録しない）
+func newHub(t *testing.T) (context.Context, *eventdriven.Hub) {
+	t.Helper()
+	ctx := isolatedDatabase(t)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	hub, err := eventdriven.NewHub(testSubscribers, registry, testOptions(1), eventstore.NewEventLoader(registry, operator.NewID, operator.NewEventType))
+	require.NoError(t, err)
+	return ctx, hub
+}

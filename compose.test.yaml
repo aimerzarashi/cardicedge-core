@@ -7,7 +7,9 @@ services:
       context: .
       dockerfile: .build/Dockerfile
     environment:
-      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+      # studio 用・game 用の DB（同じサーバーの別の DB。core#33）
+      STUDIO_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_studio sslmode=disable"
+      GAME_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_game sslmode=disable"
       # studio（better-auth）の JWT の検証。JWKS は studio-envoy を通して取る（studio#11: studio には envoy を通してしか届かない）。
       # iss・aud は studio の JWT_ISSUER・JWT_AUDIENCE と一致させる。studio が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
       STUDIO_JWKS_URL: http://studio-envoy:10000/api/auth/jwks
@@ -22,16 +24,28 @@ services:
       timeout: 5s
       retries: 3
     depends_on:
-      core-migrate:
+      core-migrate-studio:
+        condition: service_completed_successfully
+      core-migrate-game:
         condition: service_completed_successfully
 
-  # 未適用のマイグレーションを適用して終了する（リリースと同じマイグレーション用イメージ）
-  core-migrate:
+  # 未適用のマイグレーションを適用して終了する（リリースと同じマイグレーション用イメージ）。studio 用・game 用の DB に同じものを流す
+  core-migrate-studio:
     build:
       context: .
       dockerfile: local/migrate/Dockerfile
     environment:
-      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
+      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core_studio?sslmode=disable"
+    depends_on:
+      core-db:
+        condition: service_healthy
+
+  core-migrate-game:
+    build:
+      context: .
+      dockerfile: local/migrate/Dockerfile
+    environment:
+      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core_game?sslmode=disable"
     depends_on:
       core-db:
         condition: service_healthy
@@ -41,12 +55,14 @@ services:
     environment:
       POSTGRES_USER: core_user
       POSTGRES_PASSWORD: core_password
-      POSTGRES_DB: core
+      POSTGRES_DB: core_studio
+    volumes:
+      - ./local/core-db:/docker-entrypoint-initdb.d:ro
     # データはコンテナ内の一時領域に置き、終了とともに破棄する
     tmpfs:
       - /var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U core_user -d core"]
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core_studio"]
       interval: 2s
       timeout: 5s
       retries: 30

@@ -14,12 +14,24 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
 func setup(t *testing.T) (context.Context, *domaindef.Registry) {
 	t.Helper()
 	ctx := rdbtest.Tx(t)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return ctx, registry
+}
+
+// 偽の種別を足すテストは、テンプレートから複製した自分だけの DB で動かす（共有の core_test には一覧の種別の行があり、
+// 重なると失敗するため。core#33）
+func isolatedSetup(t *testing.T) (context.Context, *domaindef.Registry) {
+	t.Helper()
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return ctx, registry

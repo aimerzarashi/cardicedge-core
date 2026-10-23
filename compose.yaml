@@ -31,7 +31,12 @@ services:
       timeout: 5s
       retries: 3
     environment:
-      DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+      # studio 用・game 用の DB（同じサーバーの別の DB。core#33）
+      STUDIO_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_studio sslmode=disable"
+      GAME_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_game sslmode=disable"
+      # テスト（rdbtest）が使う DB。core は使わない。開発の core の DB に触らないよう分ける。複製するテンプレート（core_template）も
+      # このサーバーに作る（make test の migrate-template）
+      TEST_DB_DSN: "host=core-db port=5432 user=core_user password=core_password dbname=core_test sslmode=disable"
       # studio（better-auth）の JWT の検証。JWKS は studio-envoy を通して取る（studio#11: studio には envoy を通してしか届かない）。
       # iss・aud は studio の JWT_ISSUER・JWT_AUDIENCE と一致させる。studio が動いていなくても起動は止まらない（最初の JWT が来たときに取り直す）
       STUDIO_JWKS_URL: http://studio-envoy:10000/api/auth/jwks
@@ -39,15 +44,18 @@ services:
       STUDIO_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
     depends_on:
-      core-migrate:
+      core-migrate-studio:
+        condition: service_completed_successfully
+      core-migrate-game:
         condition: service_completed_successfully
     # game / studio から core:3333 で接続できるよう、共有ネットワークにも参加する（core-db は参加しない）
     networks:
       - default
       - diecardomain
 
-  # 未適用のマイグレーションを Atlas で適用して終了する（core の起動前に1回実行する。make migrate でも実行できる）
-  core-migrate:
+  # 未適用のマイグレーションを Atlas で適用して終了する（core の起動前に1回実行する。make migrate でも実行できる）。
+  # studio 用・game 用の DB に、同じマイグレーションを流す（core#33）
+  core-migrate-studio:
     build:
       context: .
       dockerfile: local/migrate/Dockerfile
@@ -55,7 +63,19 @@ services:
     volumes:
       - ./migrations:/migrations
     environment:
-      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core?sslmode=disable"
+      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core_studio?sslmode=disable"
+    depends_on:
+      core-db:
+        condition: service_healthy
+
+  core-migrate-game:
+    build:
+      context: .
+      dockerfile: local/migrate/Dockerfile
+    volumes:
+      - ./migrations:/migrations
+    environment:
+      DATABASE_URL: "postgres://core_user:core_password@core-db:5432/core_game?sslmode=disable"
     depends_on:
       core-db:
         condition: service_healthy
@@ -68,9 +88,11 @@ services:
     environment:
       POSTGRES_USER: core_user
       POSTGRES_PASSWORD: core_password
-      POSTGRES_DB: core
+      POSTGRES_DB: core_studio
+    volumes:
+      - ./local/core-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U core_user -d core"]
+      test: ["CMD-SHELL", "pg_isready -U core_user -d core_studio"]
       interval: 2s
       timeout: 5s
       retries: 30
