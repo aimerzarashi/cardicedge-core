@@ -19,7 +19,10 @@
 | internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
 | internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
 | internal/service/studio/infrastructure/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
-| internal/service/game | game のサービスの組み立て（game.go）。今は入口（presentation/graphql。/game/graphql。JWT の認証と `version`）だけ。層は studio と同じにする（core#34） |
+| internal/service/game | game のサービスの組み立て（game.go。下の層の部品（コマンド・リゾルバー・入口）をつなぐ）。層は studio と同じにする（core#34） |
+| internal/service/game/presentation/graphql | game 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/game/graphql。JWT の認証と、(iss, sub) のプレイヤーの特定））。generated.go・model/models_gen.go は生成コード。テストは tests/integration |
+| internal/service/game/application/authentication | JWT の (iss, sub) と、登録済みならそのプレイヤーを context に載せる（認証ミドルウェアが載せ、コマンドが読む） |
+| internal/service/game/application/command | コマンド（集約ごとの `XxxHandler`。プレイヤーの登録・自分のプレイヤーの取得・認証での (iss, sub) の特定） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
@@ -94,7 +97,7 @@
 - GraphQL のスキーマを変えたら `make gen-api`（し忘れは `make lint`・CI の lint が検出する）。生成コード（generated.go・model）は手で直さない。操作を足すと `*.resolvers.go` に雛形（`panic("not implemented")`）ができ、消すとファイルの末尾に「!!! WARNING !!!」つきで古い実装が移されるので、片付ける
 - スキーマの型・フィールド・引数・入力の項目には、必ず GraphQL の説明（`"..."`）を付ける（playground・型の生成で使う人に意味を伝えるため）。設計の理由は `#` のコメントに書き、説明と分ける
 - 画面の文言は core で作らない。エラー型は `__typename` と値で理由を表し、`message` は開発者向けの短い英語の説明にする（言い回しは studio が作る）
-- スキーマは common.graphqls（Query・Mutation・共通の型）と機能ごとのファイル（`extend type`）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union にする（未認証は union に含めず 401）
+- スキーマは common.graphqls（Query・Mutation・共通の型）と機能ごとのファイル（`extend type`）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union にする（未認証は union に含めず 401）。成功の型は、ミューテーションは `<操作>Success` で包む（返すのは操作の結果（revision・id 等）で、対象そのものとは限らないため。包めば、返す値を足し引きしても形が変わらない）。クエリは問い合わせたものを入れる（1 件なら対象の型（`PresetDeck`・`Player` 等）、一覧なら 1 ページの `XxxConnection`（Relay の決まり。core#12））。包む型は作らない（対象そのものを返すため、包むと 1 段深くなるだけ。core#35）
 - presentation 層は application 層の型だけを使い、ドメインの型（internal/domain）を import しない。application 層のコマンドは素の値を受け取り、application 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（presentation/graphql/model）にも依存させない
 - 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。application 層の `input.Errors`（internal/service/studio/application/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、application 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は presentation 層に書き写さない
 - 一意性の制約は、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするかはドメインが宣言する: key の種別の名前（`UniqueKeyTypes()`。domain_unique_key_types と起動時に照合する）と、key の作り方（`EmailKey`・`SubjectKey`・`card.NameKey` 等。正規化・複数の値のつなぎ方はここだけで決める）。制約を足すときは、種別の一覧（`Types` の `UniqueKeyTypes`）と、ドメインの宣言、起動時の照合（`VerifyUniqueKeyTypes`）と domaindef のテストへの追加だけでよい

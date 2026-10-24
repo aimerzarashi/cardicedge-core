@@ -56,7 +56,6 @@ type StarterDeckSetGetter interface {
 }
 
 type Resolver struct {
-	version         string
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
 	spells          SpellRegistrar
@@ -68,7 +67,6 @@ type Resolver struct {
 }
 
 func NewResolver(
-	version string,
 	creatures CreatureRegistrar,
 	items ItemRegistrar,
 	spells SpellRegistrar,
@@ -79,7 +77,7 @@ func NewResolver(
 	starterDeckSet StarterDeckSetGetter,
 ) *Resolver {
 	return &Resolver{
-		version: version, creatures: creatures, items: items, spells: spells, presetDecks: presetDecks,
+		creatures: creatures, items: items, spells: spells, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDeckSets: starterDeckSets, starterDeckSet: starterDeckSet,
 	}
 }

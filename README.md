@@ -66,12 +66,11 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 | 操作 | 内容 |
 |---|---|
-| `version` | core の版（GraphQL の仕様で Query が 1 つ以上要るため置く） |
 | `registerCreature` | Creature を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterCreatureSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerItem` | Item を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterItemSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerSpell` | Spell を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterSpellSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 
-スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union で返し、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
+スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union で返し（成功の型は、ミューテーションは `<操作>Success` で包み、クエリは問い合わせたもの。1 件なら対象の型、一覧なら 1 ページの `XxxConnection`）、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
 - **層の分担**: presentation 層（GraphQL）は application 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。application 層が窓口になり、素の値を受け取ってドメインの型に変え、application 層の結果の型とエラーを返す（ドメインを変えても presentation 層に及ばないように。参照の api は application 層が GraphQL の型を受け渡していたが、そうしない）
 - **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。application 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、application 層のコマンドが context から取り出す
@@ -82,12 +81,15 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 ## game 用の GraphQL（/game/graphql）
 
-スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は今は `version` だけ（プレイヤーの操作は、プレイヤーの集約を足すときに足す）。
+スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
+
+- **registerPlayer**（ミューテーション）: JWT の (iss, sub) のプレイヤーを登録し、公開 ID（`player { id }`）を返す。何度呼んでも、プレイヤーは (iss, sub) ごとに 1 人だけで、登録済みなら何も作らず同じ形（同じ id）で返す。同時に呼ばれても 1 人だけ
+- **me**（クエリ）: 自分のプレイヤーを返す。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す
 
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
 - **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
-- JWT からプレイヤーを特定するのは、プレイヤーの集約を足すときに足す（今は JWT を確かめるだけ）
+- **プレイヤーの特定**: JWT が正しければ、プレイヤーに登録されていなくても拒否しない（初めての `registerPlayer` が登録するため）。誰のプレイヤーかは入力ではなく JWT の (iss, sub) だけで決める
 
 ## イベントストア
 

@@ -62,7 +62,7 @@ func (a *App) start(ctx context.Context) error {
 		return err
 	}
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: idptest.Issuer}
-	gameConfig := game.Config{Verifier: gameVerifier}
+	gameConfig := game.Config{Verifier: gameVerifier, Issuer: idptest.GameIssuer}
 	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,

@@ -1,8 +1,11 @@
 # game 用の GraphQL（/game/graphql）。game の better-auth の JWT（Authorization: Bearer）が無いと、どの操作も受け付けない
-# 機能ごとのファイルは Query・Mutation を extend する（studio の common.graphqls と同じ形にする）
+# 機能ごとのファイルは Query・Mutation を extend する（studio の common.graphqls と同じ形にする）。
+# 結果は「<操作>Result = 成功の型 | エラー型」の union で返す（未認証は union に含めず HTTP 401）。成功の型は、ミューテーションは
+# <操作>Success で包み、クエリは問い合わせたもの（1 件なら対象の型、一覧なら 1 ページの XxxConnection）を入れる（core#35）
 
-type Query {
-  # GraphQL の仕様で Query が 1 つ以上要るため置く（プレイヤーの操作は、プレイヤーの集約を足すときに足す。core#34）
-  "core の版（リリースのタグ。開発中は none）"
-  version: String!
-}
+type Query
+
+type Mutation
+
+"公開用の ID（UUID の文字列）。core の内部の ID は返さない"
+scalar UUID

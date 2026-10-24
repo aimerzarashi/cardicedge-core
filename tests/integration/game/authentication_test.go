@@ -9,22 +9,14 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
 )
 
-const versionQuery = `{ version }`
-
-func gameClaims(subject string) idptest.Claims {
-	claims := idptest.ValidClaims(subject)
-	claims.Issuer = idptest.GameIssuer
-	return claims
-}
-
 func TestAuthentication_AcceptsTokenIssuedByGame(t *testing.T) {
 	t.Parallel()
 
-	status, body := client.Post(t, key.Sign(t, gameClaims("player-1")), versionQuery, nil)
+	status, body := client.Post(t, key.Sign(t, gameClaims("player-1")), meQuery, nil)
 
 	require.Equal(t, http.StatusOK, status)
 	require.Nil(t, body["errors"])
-	require.Equal(t, "test", body["data"].(map[string]any)["version"])
+	require.Equal(t, "PlayerNotRegisteredError", body["data"].(map[string]any)["me"].(map[string]any)["__typename"])
 }
 
 // studio の JWT は、同じ鍵・同じ aud でも、発行元（iss）が違うため通さない
@@ -44,7 +36,7 @@ func TestAuthentication_RejectsRequestWithoutValidToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, body := client.Post(t, tt.token, versionQuery, nil)
+			status, body := client.Post(t, tt.token, meQuery, nil)
 
 			require.Equal(t, http.StatusUnauthorized, status)
 			require.Equal(t, "UNAUTHENTICATED", body["errors"].([]any)[0].(map[string]any)["extensions"].(map[string]any)["code"])
@@ -54,7 +46,7 @@ func TestAuthentication_RejectsRequestWithoutValidToken(t *testing.T) {
 
 func TestAuthentication_RejectsGetRequest(t *testing.T) {
 	t.Parallel()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, endpoint+"?query=%7Bversion%7D", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, endpoint+"?query=%7Bme%7B__typename%7D%7D", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+key.Sign(t, gameClaims("player-1")))
 

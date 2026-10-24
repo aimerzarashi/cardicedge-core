@@ -157,8 +157,8 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	})
 }
 
-func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
+func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

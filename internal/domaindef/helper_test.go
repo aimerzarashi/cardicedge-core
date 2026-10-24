@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
@@ -21,7 +22,7 @@ import (
 
 // 集約を足したら、ここにその集約の Types を足す（マイグレーションの種別の足し忘れをテストで検出する）
 func aggregates() []domain.AggregateTypes {
-	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types()}
+	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types(), player.Types()}
 }
 
 func entityTypes() []domain.EntityType {
@@ -43,7 +44,7 @@ func insert(t *testing.T, ctx context.Context, query string) {
 
 // 一意な key の種別を足したら、ここにその種別を宣言するドメインの UniqueKeyTypes を足す
 func uniqueKeyTypes() []domain.UniqueKeyType {
-	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes())
+	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes(), player.UniqueKeyTypes())
 }
 
 // 参照の種別を足したら、ここにその種別を宣言するドメインの ReferenceTypes を足す

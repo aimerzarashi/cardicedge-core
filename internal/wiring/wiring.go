@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
@@ -52,9 +53,10 @@ func Start(ctx context.Context, config Config) (*App, error) {
 		return nil, fmt.Errorf("studio: %w", err)
 	}
 	// game の投影は後で足す。今は、種別を合わせ、購読者の行が無いことを確かめるだけ（入口は下で Mount する）
-	if _, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
+	gamePrepared, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
 		return prepareGame(ctx, config)
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, fmt.Errorf("game: %w", err)
 	}
 	if err := studioPrepared.studio.RegisterInitialOperator(ctx, config.StudioDB, config.InitialOperatorEmail); err != nil {
@@ -67,13 +69,14 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	}
 
 	mux := NewRouter(config.Version)
-	studioPrepared.studio.Mount(mux, config.StudioDB, config.Version)
-	game.New(config.Game).Mount(mux, config.GameDB, config.Version)
+	studioPrepared.studio.Mount(mux, config.StudioDB)
+	gamePrepared.game.Mount(mux, config.GameDB)
 	return &App{Handler: mux, hub: studioPrepared.hub}, nil
 }
 
 type prepared struct {
 	studio *studio.Studio
+	game   *game.Game
 	hub    *eventdriven.Hub
 }
 
@@ -110,7 +113,7 @@ func prepareGame(ctx context.Context, config Config) (prepared, error) {
 	if err := hub.Sync(ctx); err != nil {
 		return prepared{}, fmt.Errorf("event subscribers do not match code: %w", err)
 	}
-	return prepared{hub: hub}, nil
+	return prepared{game: game.New(registry, config.Game), hub: hub}, nil
 }
 
 // 錠を取り、種別の行をコードの一覧に合わせ、読み込んで、ドメインの宣言と照合する。種別は全サービスで共通なので、どの DB でも同じ
@@ -130,7 +133,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, err
 	}
 	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
-	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types()}
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types(), player.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
@@ -141,7 +144,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
 		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes())...); err != nil {
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes(), player.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeckset.ReferenceTypes())...); err != nil {
