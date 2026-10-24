@@ -6,8 +6,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 )
 
-// 1 つの read model の行（購読者 × 集約）
-type projectionKey struct {
+// 1 つの処理の単位（購読者 × 集約）。購読者の鍵 subscriberKey（kind, name）と紛れないよう work と呼ぶ
+type workKey struct {
 	subscriberID int16
 	entityTypeID domaindef.EntityTypeID
 	entityID     int64
@@ -19,27 +19,28 @@ type keyState struct {
 	dirty bool
 }
 
-// 作り直しを待つキーの列。投影は毎回すべてのイベントを読み直すため、同じキーの知らせはまとめ、
-// 待っている間に何回来ても作り直しは 1 回にする（参照の api はキーごとにタスクの FIFO を持ち、同じ結果を何度も書く）。
+// 処理を待つキーの列。同じキーの知らせはまとめ、待っている間に何回来ても処理は 1 回にする
+// （参照の api はキーごとにタスクの FIFO を持ち、同じ結果を何度も書く）。まとめてよいのは、投影もポリシーも、処理のたびに
+// 集約の全イベントを読み、投影は最後の状態を作り直し、ポリシーはチェックポイントより後のイベントを版の順に全部こなすため、
+// 知らせの数によらず取りこぼさないから。
 // 列に上限を設けず知らせを捨てないのは、キーごとにまとめるため列の長さが待っている集約の数を超えないから
-// （参照の api は満杯なら捨てて Poller に任せるが、Poller の周期まで遅れる）。
-// ポリシーはイベントを 1 件ずつ順に処理するため、この作りは使えない
+// （参照の api は満杯なら捨てて Poller に任せるが、Poller の周期まで遅れる）
 type scheduler struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
-	states map[projectionKey]*keyState
-	ready  []projectionKey
+	states map[workKey]*keyState
+	ready  []workKey
 	closed bool
 }
 
 func newScheduler() *scheduler {
-	s := &scheduler{states: make(map[projectionKey]*keyState)}
+	s := &scheduler{states: make(map[workKey]*keyState)}
 	s.cond = sync.NewCond(&s.mu)
 	return s
 }
 
 // 待たずに返す（知らせを受け取る Listener を止めないため）
-func (s *scheduler) enqueue(key projectionKey) {
+func (s *scheduler) enqueue(key workKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, ok := s.states[key]
@@ -54,14 +55,14 @@ func (s *scheduler) enqueue(key projectionKey) {
 }
 
 // 作り直すキーを待って返す。close の後は false を返す
-func (s *scheduler) next() (projectionKey, bool) {
+func (s *scheduler) next() (workKey, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for len(s.ready) == 0 && !s.closed {
 		s.cond.Wait()
 	}
 	if s.closed {
-		return projectionKey{}, false
+		return workKey{}, false
 	}
 	key := s.ready[0]
 	s.ready = s.ready[1:]
@@ -70,7 +71,7 @@ func (s *scheduler) next() (projectionKey, bool) {
 }
 
 // next で受け取ったキーの処理を終えたら、成否によらず必ず呼ぶ
-func (s *scheduler) done(key projectionKey) {
+func (s *scheduler) done(key workKey) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state := s.states[key]
@@ -91,7 +92,7 @@ func (s *scheduler) close() {
 }
 
 // mu を持って呼ぶ
-func (s *scheduler) push(key projectionKey) {
+func (s *scheduler) push(key workKey) {
 	s.ready = append(s.ready, key)
 	s.cond.Signal()
 }

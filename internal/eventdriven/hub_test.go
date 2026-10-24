@@ -398,7 +398,7 @@ func TestHub_PollsPendingOnReconnect(t *testing.T) {
 }
 
 func TestHub_RetriesFailedProjectionByPolling(t *testing.T) {
-	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 50 * time.Millisecond})
+	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 50 * time.Millisecond, RetryInterval: time.Minute, MaxFailures: 10})
 	f.recorder.panicAt = 1
 	f.recorder.panicOnce = true
 	// 起動時の読み込みを終えてから登録する（起動時の読み込みが、試し直しの代わりにならないように）

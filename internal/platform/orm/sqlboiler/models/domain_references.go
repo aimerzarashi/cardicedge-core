@@ -25,9 +25,9 @@ import (
 type DomainReference struct {
 	// domain_reference_types.id
 	ReferenceTypeID int16 `boil:"reference_type_id" json:"reference_type_id" toml:"reference_type_id" yaml:"reference_type_id"`
-	// 参照する側の集約の domain_identifiers.id
+	// 参照する側の集約の domain_entities.id
 	ReferencingID int64 `boil:"referencing_id" json:"referencing_id" toml:"referencing_id" yaml:"referencing_id"`
-	// 参照される側の集約の domain_identifiers.id
+	// 参照される側の集約の domain_entities.id
 	ReferencedID int64 `boil:"referenced_id" json:"referenced_id" toml:"referenced_id" yaml:"referenced_id"`
 
 	R *domainReferenceR `boil:"-" json:"-" toml:"-" yaml:"-"`

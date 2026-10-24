@@ -24,7 +24,7 @@ import (
 
 // Card is an object representing the database table.
 type Card struct {
-	// カードの公開 ID（creature・item・spell の domain_identifiers.public_id）
+	// カードの公開 ID（creature・item・spell の domain_entities.public_id）
 	CardID string `boil:"card_id" json:"card_id" toml:"card_id" yaml:"card_id"`
 	// カードの種類。並び順の値（1: Creature、2: Item、3: Spell）
 	CardType int16 `boil:"card_type" json:"card_type" toml:"card_type" yaml:"card_type"`

@@ -21,7 +21,7 @@ const advanceCheckpointQuery = `
 	RETURNING last_version
 `
 
-func advanceCheckpoint(ctx context.Context, key projectionKey, version int64) (bool, error) {
+func advanceCheckpoint(ctx context.Context, key workKey, version int64) (bool, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return false, err
@@ -41,7 +41,7 @@ const removePendingQuery = `
 	WHERE subscriber_id = $1 AND entity_type_id = $2 AND entity_id = $3 AND version <= $4
 `
 
-func removePending(ctx context.Context, key projectionKey, version int64) error {
+func removePending(ctx context.Context, key workKey, version int64) error {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return err

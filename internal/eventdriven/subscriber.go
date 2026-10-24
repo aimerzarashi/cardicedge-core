@@ -13,7 +13,10 @@ import (
 var ErrSubscriberNotFound = errors.New("eventdriven: subscriber not found")
 
 // event_subscribers.kind の値
-const KindProjection = "projection"
+const (
+	KindProjection = "projection"
+	KindPolicy     = "policy"
+)
 
 // SubscriberDef は購読者の id と名前。id は自動で振らず、コードの一覧（internal/wiring）で決める（DB ごと・起動の順番で
 // 変わりうるため。core#33）。Hub には、その Hub が動くサービスの購読者だけを渡す
@@ -28,16 +31,23 @@ func ProjectionSubscriber(id int16, name string) SubscriberDef {
 	return SubscriberDef{ID: id, Kind: KindProjection, Name: name}
 }
 
+// ポリシーの購読者
+func PolicySubscriber(id int16, name string) SubscriberDef {
+	return SubscriberDef{ID: id, Kind: KindPolicy, Name: name}
+}
+
 type subscriberKey struct {
 	kind string
 	name string
 }
 
-// Sync は、Hub に渡した購読者と登録した投影を正として、DB の購読者・購読をそれに合わせる（core#33）。
+// Sync は、Hub に渡した購読者と登録した投影・ポリシーを正として、DB の購読者・購読をそれに合わせる（core#33）。
 // 購読者は無ければ足し、DB の行が渡した購読者とちょうど一致しなければ（同じ id で名前が違う・渡していない購読者の行がある）
-// エラーを返す（消さない。チェックポイント・やることも消えるため）。購読は、登録した投影の宣言（ProjectionSpec.Subscriptions）に
-// 合わせて足し・消し、足した組には、すでにある集約の分のやることの行を入れる（入れないと、次にイベントが来るまで作られない）。
-// 消した組のやること・チェックポイントも消す。起動時に、投影をすべて登録した後・Start の前に、合わせるトランザクションの中で呼ぶ。
+// エラーを返す（消さない。チェックポイント・やることも消えるため）。購読は、登録した宣言（ProjectionSpec・PolicySpec の Subscriptions）に
+// 合わせて足し・消す。投影が足した組には、すでにある集約の分のやることの行を入れる（入れないと、次にイベントが来るまで作られない）。
+// ポリシーが足した組には、やることの行ではなく、すでにある集約のチェックポイントを最新の版で入れる（今から先のイベントだけを
+// 処理し、入れないと次のイベントで過去の分まで処理してしまう）。
+// 消した組のやること・チェックポイント・失敗の記録も消す。起動時に、投影・ポリシーをすべて登録した後・Start の前に、合わせるトランザクションの中で呼ぶ。
 // 購読を消すのは、新旧の core が同時に動くと書き換え合いうるが、今は順に入れ替えるデプロイをしていないため（core#19 で考え直す）
 func (h *Hub) Sync(ctx context.Context) error {
 	if h.started.Load() {
@@ -71,7 +81,7 @@ func (h *Hub) Sync(ctx context.Context) error {
 func (h *Hub) verifyRegistered() error {
 	var errs []error
 	for _, def := range h.subscriberDefs {
-		if _, ok := h.projections[def.ID]; !ok {
+		if _, ok := h.registered[def.ID]; !ok {
 			errs = append(errs, fmt.Errorf("subscriber is not registered: kind=%s, name=%s", def.Kind, def.Name))
 		}
 	}
@@ -117,7 +127,8 @@ func (h *Hub) verifySubscribers(ctx context.Context, exec rdb.Executor) error {
 }
 
 func (h *Hub) syncSubscriptions(ctx context.Context, exec rdb.Executor, subscriberID int16) error {
-	declared := h.projections[subscriberID].entityTypeIDs
+	sub := h.registered[subscriberID]
+	declared := sub.entityTypeIDs
 	inDB, err := subscriptionsInDB(ctx, exec, subscriberID)
 	if err != nil {
 		return err
@@ -130,8 +141,12 @@ func (h *Hub) syncSubscriptions(ctx context.Context, exec rdb.Executor, subscrib
 			subscriberID, entityTypeID.Int16()); err != nil {
 			return fmt.Errorf("eventdriven: failed to add event_subscriptions: %w", err)
 		}
-		if _, err := exec.ExecContext(ctx, enqueueExistingQuery, subscriberID, entityTypeID.Int16()); err != nil {
-			return fmt.Errorf("eventdriven: failed to enqueue existing aggregates: %w", err)
+		existingQuery := enqueueExistingQuery
+		if sub.kind == KindPolicy {
+			existingQuery = checkpointExistingQuery
+		}
+		if _, err := exec.ExecContext(ctx, existingQuery, subscriberID, entityTypeID.Int16()); err != nil {
+			return fmt.Errorf("eventdriven: failed to handle existing aggregates: %w", err)
 		}
 	}
 	for _, entityTypeID := range inDB {
@@ -158,8 +173,21 @@ const enqueueExistingQuery = `
 	SET version = GREATEST(event_subscriber_pending.version, EXCLUDED.version)
 `
 
-// やること・チェックポイントを残すと、購読をやめた種別の行を Poller が拾い、振り分け先の無い集約を作り直そうとするため、一緒に消す
+// ポリシーは今から先のイベントだけを処理するため、購読を足す前からある集約は、最新の版まで処理したことにする。
+// すでに行があれば（購読を消してから足し直す前に残っていた等）動かさない
+const checkpointExistingQuery = `
+	INSERT INTO event_subscriber_checkpoints (subscriber_id, entity_type_id, entity_id, last_version, updated_at)
+	SELECT $1, entity_type_id, entity_id, max(aggregate_version), now()
+	FROM domain_events
+	WHERE entity_type_id = $2
+	GROUP BY entity_type_id, entity_id
+	ON CONFLICT (subscriber_id, entity_type_id, entity_id) DO NOTHING
+`
+
+// やること・チェックポイントを残すと、購読をやめた種別の行を Poller が拾い、振り分け先の無い集約を作り直そうとするため、一緒に消す。
+// 失敗の記録はポリシーにしか無いが、投影の分は行が無いだけで同じ消し方でよい
 var removeSubscriptionQueries = []string{
+	`DELETE FROM event_subscriber_failures WHERE subscriber_id = $1 AND entity_type_id = $2`,
 	`DELETE FROM event_subscriber_pending WHERE subscriber_id = $1 AND entity_type_id = $2`,
 	`DELETE FROM event_subscriber_checkpoints WHERE subscriber_id = $1 AND entity_type_id = $2`,
 	`DELETE FROM event_subscriptions WHERE subscriber_id = $1 AND entity_type_id = $2`,

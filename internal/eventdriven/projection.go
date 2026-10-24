@@ -33,7 +33,7 @@ func RegisterProjection[S ReadModel[S]](hub *Hub, spec ProjectionSpec[S]) error 
 	if err := spec.validate(); err != nil {
 		return fmt.Errorf("eventdriven: projection %q: %w", spec.Name, err)
 	}
-	return hub.register(KindProjection, spec.Name, spec.Subscriptions, &specProjection[S]{spec: spec})
+	return hub.register(&registeredSubscriber{kind: KindProjection, name: spec.Name, projection: &specProjection[S]{spec: spec}}, spec.Subscriptions)
 }
 
 func (s ProjectionSpec[S]) validate() error {

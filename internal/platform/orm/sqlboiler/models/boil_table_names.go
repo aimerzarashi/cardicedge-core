@@ -14,6 +14,7 @@ var TableNames = struct {
 	DomainUniqueKeyTypes       string
 	DomainUniqueKeys           string
 	EventSubscriberCheckpoints string
+	EventSubscriberFailures    string
 	EventSubscriberPending     string
 	EventSubscribers           string
 	EventSubscriptions         string
@@ -30,6 +31,7 @@ var TableNames = struct {
 	DomainUniqueKeyTypes:       "domain_unique_key_types",
 	DomainUniqueKeys:           "domain_unique_keys",
 	EventSubscriberCheckpoints: "event_subscriber_checkpoints",
+	EventSubscriberFailures:    "event_subscriber_failures",
 	EventSubscriberPending:     "event_subscriber_pending",
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",

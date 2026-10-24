@@ -1,8 +1,8 @@
 # internal/eventdriven
 
-domain_events に保存されたイベントを受け取り、購読者（Projection）に渡して read model を作る仕組み。PostgreSQL の LISTEN/NOTIFY で知らせを受け、取りこぼしは Poller が拾う（参照の api の internal/eventdriven と同じ考え方）。
+domain_events に保存されたイベントを受け取り、購読者に渡す仕組み。購読者は 2 種類ある。投影（Projection）は read model を作る。ポリシー（Policy）はイベントを受けてコマンドを動かす。PostgreSQL の LISTEN/NOTIFY で知らせを受け、取りこぼしは Poller が拾う（参照の api の internal/eventdriven と同じ考え方）。
 
-Policy（イベントを受けて別のコマンドを実行する購読者）は、まだ扱わない。
+受け取る道（NOTIFY・Listener・Poller・やることの表・集約ごとの順番）は投影とポリシーで共有し、処理の単位・失敗の扱い・作り直しを分ける。ポリシーの流れは「ポリシーの流れ」に書く。
 
 ## 全体
 
@@ -14,6 +14,7 @@ flowchart LR
     pending[(event_subscriber_pending<br/>やることの表)]
     subs[(event_subscribers)]
     cps[(event_subscriber_checkpoints)]
+    failures[(event_subscriber_failures<br/>ポリシーの失敗の記録)]
     rm[(read model<br/>cards など)]
   end
 
@@ -23,6 +24,7 @@ flowchart LR
     Hub
     Workers
     Projection[ProjectionSpec]
+    Policy[PolicySpec]
   end
 
   Loader[EventLoader<br/>internal/eventstore]
@@ -42,6 +44,9 @@ flowchart LR
   Workers -- 状態を作って書く --> Projection
   Projection -- "Upsert / Delete" --> rm
   Workers -- 同じトランザクション --> cps
+  Workers -- "イベントを 1 つずつ（ポリシー）" --> Policy
+  Policy -- "コマンド（自分のトランザクション）" --> DB
+  Workers -- "ポリシーの失敗・成功（投影は使わない）" --> failures
   Workers -- "処理した版以下の行を消す（同じトランザクション）" --> pending
 ```
 
@@ -90,6 +95,8 @@ erDiagram
   event_subscribers ||--o{ event_subscriptions : ""
   event_subscribers ||--o{ event_subscriber_checkpoints : ""
   event_subscribers ||--o{ event_subscriber_pending : ""
+  event_subscribers ||--o{ event_subscriber_failures : ""
+  domain_entity_types ||--o{ event_subscriber_failures : ""
   domain_entity_types ||--o{ event_subscriber_checkpoints : ""
   domain_entity_types ||--o{ event_subscriber_pending : ""
 
@@ -121,6 +128,13 @@ erDiagram
     bigint entity_id PK
     bigint version "入った最新の版"
   }
+  event_subscriber_failures {
+    smallint subscriber_id PK
+    smallint entity_type_id PK
+    bigint entity_id PK
+    int failure_count "続けて失敗した回数"
+    timestamptz last_failed_at "最後に失敗した時刻"
+  }
 ```
 
 | 表 | 表すこと | 書く人 |
@@ -129,8 +143,9 @@ erDiagram
 | event_subscriptions | 購読者が購読する集約の種別（トリガーが購読者を引く） | マイグレーション |
 | event_subscriber_checkpoints | 購読者 × 集約ごとの、処理した版。一度処理した集約の行はずっと残る | ワーカー |
 | event_subscriber_pending | 購読者 × 集約ごとの、まだ作り直していない最新の版。遅れている間だけ行がある | トリガーが入れ、ワーカーが消す |
+| event_subscriber_failures | ポリシー × 集約ごとの、続けて失敗した回数と最後に失敗した時刻。失敗しているあいだだけ行がある（回数が上限に達した行がデッドレター）。確認用に VIEW `event_subscriber_failure_view` がある | ワーカー（外すのは人） |
 
-- `domain_events` への INSERT で、トリガー `notify_domain_event` が `domain_events_channel` に知らせ（migrations/0009）、トリガー `enqueue_event_subscriber_pending` がやることの表に行を入れる（migrations/0011）
+- `domain_events` への INSERT で、トリガー `notify_domain_event` が `domain_events_channel` に知らせ（migrations/0007）、トリガー `enqueue_event_subscriber_pending` がやることの表に行を入れる（migrations/0007）
 - read model の表（`cards` など）は、ほかの表と外部キーでつながない。集約の削除は、削除のイベントを受けた投影が行を消す
 
 ## 部品
@@ -141,7 +156,8 @@ erDiagram
 | Listener | listener.go | LISTEN で知らせを受け、Hub に渡す。再接続は pq.Listener に任せ、つながり直したことを Hub に知らせる |
 | Subscribers | subscriber.go | event_subscribers の (kind, name) と id の対応と、event_subscriptions。起動時に読み込み、コードの宣言と照合する |
 | ProjectionSpec | projection.go | 投影の宣言（名前、購読する集約、Upsert・Delete）。全イベントを当てて状態を作り、書くまでを型を消さずに行う |
-| Hub | hub.go | 投影の登録と照合（購読者・購読・集約の種別・イベントの読み方）。知らせを (購読者, 集約) ごとに振り分け、決まった本数のワーカーで処理する。起動・停止 |
+| PolicySpec | policy.go | ポリシーの宣言（名前、購読する集約、イベントを受け取る `Handle`）と、ポリシーの実行（イベントを 1 つずつ渡す・失敗の記録・間隔・上限） |
+| Hub | hub.go | 投影・ポリシーの登録と照合（購読者・購読・集約の種別・イベントの読み方）。知らせを (購読者, 集約) ごとに振り分け、決まった本数のワーカーで処理する。起動・停止 |
 | scheduler | scheduler.go | 作り直しを待つ (購読者, 集約) の列。同じキーの知らせをまとめ、同じキーを 2 本のワーカーが同時に処理しないようにする |
 | チェックポイント・やることの表 | checkpoint.go | 処理した版を今より大きい版のときだけ書く（複数台で古い作り直しが新しいものを上書きしないため）。処理した版以下のやることの行を消す |
 | Poller | poller.go | 起動時・再接続時・一定の間隔で、やることの表を読んで Hub に渡す（知らせの取りこぼしと失敗の安全網） |
@@ -163,7 +179,64 @@ erDiagram
 
 購読する種別を後から足す・やめるときも、`ProjectionSpec.Subscriptions` を変えるだけでよい。読み方の無い集約は、起動時にエラーになる。
 
+## ポリシーを足す手順
+
+1. 購読者の一覧（internal/wiring/subscribers.go）に、`eventdriven.PolicySubscriber` で id・名前・どのサービスのものかを足す
+2. `PolicySpec`（名前・購読する集約・`Handle`）を作り、`eventdriven.RegisterPolicy` で Hub に渡す。購読する集約の `EventLoader` を Hub に渡しておく（internal/wiring/event_driven.go）
+
+`Handle` の ctx には DB が載るが、トランザクションは無い。コマンドが自分で `rdb.Transact` する。
+
+## ポリシーの流れ
+
+投影は「集約の全イベントを読み直して最後の状態を書く」ため、途中のイベントを見ない。ポリシーは途中のイベントも飛ばさず、イベントごとにコマンドを動かす。
+
+```mermaid
+sequenceDiagram
+  participant W as Worker
+  participant DB as PostgreSQL
+  participant PL as PolicySpec.Handle
+
+  W->>DB: 失敗の記録を読む
+  alt 回数が上限以上（デッドレター）、または最後の失敗から間隔が過ぎていない
+    Note over W: 何もしない（やることの行は残り、Poller が後で拾う）
+  else
+    W->>DB: 集約の全イベントとチェックポイントを読む
+    loop チェックポイントより後のイベントを版の順に
+      W->>PL: イベント 1 つ
+      PL->>DB: コマンド（自分のトランザクション）
+      alt 成功
+        W->>DB: そのイベントの版までチェックポイントを進める
+      else 失敗（panic を含む）
+        W->>DB: 失敗の回数を 1 増やし、最後に失敗した時刻を今にする
+        Note over W: ここで止める（後のイベントは処理しない）
+      end
+    end
+    W->>DB: 全部成功したら、失敗の記録を消し、処理した版以下のやることの行を消す
+  end
+```
+
+投影との違い:
+
+- 処理の単位: 投影は集約の全イベントで 1 回。ポリシーはチェックポイントより後のイベントを 1 つずつ
+- チェックポイント: 投影は read model を書く前に、同じトランザクションで進める。ポリシーはコマンドが成功した後に、コマンドとは別に進める。そのため少なくとも 1 回の実行になり、2 回目が来ても害が無いことはコマンドの側（一意な key・状態）で守る
+- 失敗: 投影はログに出して、次の知らせか Poller で作り直す。ポリシーは失敗の記録（回数・最後に失敗した時刻）を残し、`Options.RetryInterval` が過ぎるまでやり直さず、回数が `Options.MaxFailures` に達したらデッドレターにして止める。上限に達する前の失敗は WARN、達したときに 1 度だけ ERROR のログを出す（待てば直る失敗がありうるため）
+- 作り直し: ポリシーには無い
+- 購読を足したとき: 今から先のイベントだけを処理する。`Hub.Sync` が、すでにある集約のチェックポイントを最新の版で入れる（やることの行は入れない）
+
+デッドレターは、原因を直してから、失敗の記録の行を消すと外れる。
+
+```sql
+-- 対象を確かめる（回数が上限に達した行）
+SELECT * FROM event_subscriber_failure_view;
+
+-- 外す。次に Poller が読んだとき（一定の間隔）に、チェックポイントの続きから進む
+DELETE FROM event_subscriber_failures
+WHERE subscriber_id = $1 AND entity_type_id = $2 AND entity_id = $3;
+```
+
 ## 作り直す手順
+
+投影の手順（ポリシーには作り直しが無い）。
 
 read model をすべて作り直すときは、その購読者のチェックポイントを消し、やることの行を入れる（チェックポイントが残っていると、版が進んでいないため作り直さずに行を消す）。
 

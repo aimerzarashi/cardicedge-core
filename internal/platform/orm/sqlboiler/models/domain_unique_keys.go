@@ -27,7 +27,7 @@ type DomainUniqueKey struct {
 	UniqueKeyTypeID int16 `boil:"unique_key_type_id" json:"unique_key_type_id" toml:"unique_key_type_id" yaml:"unique_key_type_id"`
 	// ドメインが作る一意にしたい値（正規化済み。複数の値は曖昧にならない形でつなぐ）
 	Key string `boil:"key" json:"key" toml:"key" yaml:"key"`
-	// key を確保している集約の domain_identifiers.id
+	// key を確保している集約の domain_entities.id
 	EntityID int64 `boil:"entity_id" json:"entity_id" toml:"entity_id" yaml:"entity_id"`
 
 	R *domainUniqueKeyR `boil:"-" json:"-" toml:"-" yaml:"-"`
