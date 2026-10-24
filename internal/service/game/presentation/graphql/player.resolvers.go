@@ -8,8 +8,10 @@ package graphql
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model"
 )
 
@@ -20,6 +22,22 @@ func (r *mutationResolver) RegisterPlayer(ctx context.Context) (model.RegisterPl
 		return nil, err
 	}
 	return &model.RegisterPlayerSuccess{Player: &model.Player{ID: registered.ID}}, nil
+}
+
+// StarterGrant is the resolver for the starterGrant field.
+func (r *playerResolver) StarterGrant(ctx context.Context, obj *model.Player) (model.StarterGrantStatus, error) {
+	status, err := r.playerQuery.StarterGrant(ctx, obj.ID)
+	if err != nil {
+		return "", err
+	}
+	switch status {
+	case query.StarterGrantCompleted:
+		return model.StarterGrantStatusCompleted, nil
+	case query.StarterGrantInProgress:
+		return model.StarterGrantStatusInProgress, nil
+	default:
+		return "", fmt.Errorf("unknown starter grant status %q", status)
+	}
 }
 
 // Me is the resolver for the me field.
@@ -33,3 +51,8 @@ func (r *queryResolver) Me(ctx context.Context) (model.MeResult, error) {
 	}
 	return &model.Player{ID: me.ID}, nil
 }
+
+// Player returns PlayerResolver implementation.
+func (r *Resolver) Player() PlayerResolver { return &playerResolver{r} }
+
+type playerResolver struct{ *Resolver }

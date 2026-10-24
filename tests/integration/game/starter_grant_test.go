@@ -135,3 +135,57 @@ func TestRegisterPlayer_GrantsStarterAfterMasterIsPublished(t *testing.T) {
 	waitStarterGrantCompleted(t, app.GameDB, owner)
 	requireDistributed(t, app.GameDB, published, owner)
 }
+
+const registerPlayerStarterGrantMutation = `mutation {
+	registerPlayer {
+		... on RegisterPlayerSuccess { player { starterGrant } }
+	}
+}`
+
+const meStarterGrantQuery = `{
+	me {
+		... on Player { starterGrant }
+	}
+}`
+
+func starterGrantOf(t *testing.T, c testhelper.GraphQLClient, token, query, field string) string {
+	t.Helper()
+	data := c.Data(t, token, query, nil, field)
+	if player, ok := data["player"].(map[string]any); ok {
+		data = player
+	}
+	return data["starterGrant"].(string)
+}
+
+func TestMe_ReturnsCompletedStarterGrantAfterGranted(t *testing.T) {
+	t.Parallel()
+	token := newPlayerToken(t)
+	owner := resolvePlayer(t, gameDB, registeredPlayerID(t, registerPlayer(t, token)))
+
+	waitStarterGrantCompleted(t, gameDB, owner)
+
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		assert.Equal(c, "COMPLETED", starterGrantOf(t, client, token, meStarterGrantQuery, "me"))
+	})
+}
+
+// マスタが無いと配布は始まらない。共有のアプリは公開済みなので、独立したアプリ（自分だけの DB）で確かめる
+func TestMe_ReturnsInProgressStarterGrantBeforeGranted(t *testing.T) {
+	t.Parallel()
+	app, err := testhelper.StartApp(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(app.Close)
+	isolated := testhelper.GraphQLClient{URL: app.URL + "/game/graphql"}
+	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
+	claims.Issuer = idptest.GameIssuer
+	token := app.Key.Sign(t, claims)
+
+	require.Equal(t, "IN_PROGRESS", starterGrantOf(t, isolated, token, registerPlayerStarterGrantMutation, "registerPlayer"))
+	require.Equal(t, "IN_PROGRESS", starterGrantOf(t, isolated, token, meStarterGrantQuery, "me"))
+
+	_, err = testhelper.PublishMaster(rdb.WithDB(t.Context(), app.GameDB), app.GameDB)
+	require.NoError(t, err)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		assert.Equal(c, "COMPLETED", starterGrantOf(t, isolated, token, meStarterGrantQuery, "me"))
+	})
+}

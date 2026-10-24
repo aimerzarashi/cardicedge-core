@@ -88,12 +88,12 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
 
 - **registerPlayer**（ミューテーション）: JWT の (iss, sub) のプレイヤーを登録し、公開 ID（`player { id }`）を返す。何度呼んでも、プレイヤーは (iss, sub) ごとに 1 人だけで、登録済みなら何も作らず同じ形（同じ id）で返す。同時に呼ばれても 1 人だけ
-- **me**（クエリ）: 自分のプレイヤーを返す。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す
+- **me**（クエリ）: 自分のプレイヤーを返す。`starterGrant` は read model `players` から読み、行がまだ無い（投影の遅れ）・配布が始まっていないときも `IN_PROGRESS`（画面にとっては「まだ届いていない」と同じ）。`registerPlayer` の結果の `player` からも取れる。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す
 
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
 - **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
-- **スターターの配布**: プレイヤーを登録すると、それをきっかけにポリシー（`starter_grant`）が、公開済みのマスタ（`make publish-master`）から所持カードとデッキ 2 つを配る。マスタが未公開のあいだは、間隔を空けてやり直し、公開されたら配られる。所持カードはカードごとに 2 つのデッキのうち多いほうの枚数。GraphQL にはまだ出さない
+- **スターターの配布**: プレイヤーを登録すると、それをきっかけにポリシー（`starter_grant`）が、公開済みのマスタ（`make publish-master`）から所持カードとデッキ 2 つを配る。マスタが未公開のあいだは、間隔を空けてやり直し、公開されたら配られる。所持カードはカードごとに 2 つのデッキのうち多いほうの枚数。配布の状態は `me` の `Player.starterGrant`（`IN_PROGRESS`・`COMPLETED`）で返す
 - **プレイヤーの特定**: JWT が正しければ、プレイヤーに登録されていなくても拒否しない（初めての `registerPlayer` が登録するため）。誰のプレイヤーかは入力ではなく JWT の (iss, sub) だけで決める
 
 ## イベントストア
