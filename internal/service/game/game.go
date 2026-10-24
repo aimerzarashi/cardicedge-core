@@ -21,6 +21,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/infrastructure/repository"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql"
 )
@@ -32,9 +34,11 @@ type Config struct {
 }
 
 type Game struct {
-	config  Config
-	players *command.PlayerHandler
-	grants  *command.StarterGrantHandler
+	config      Config
+	entityRefs  domain.EntityRefResolver
+	players     *command.PlayerHandler
+	grants      *command.StarterGrantHandler
+	playerQuery *query.PlayerHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Game {
@@ -43,7 +47,8 @@ func New(registry *domaindef.Registry, config Config) *Game {
 		return time.Now().UTC().Truncate(time.Microsecond)
 	}
 	return &Game{
-		config: config,
+		config:     config,
+		entityRefs: identifier.NewEntityRefResolver(registry),
 		players: command.NewPlayerHandler(
 			eventstore.New(registry, player.NewID, player.NewEventType, player.InitialState, player.Evolve),
 			identifier.New(registry, player.NewID),
@@ -70,6 +75,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			),
 			now,
 		),
+		playerQuery: query.NewPlayerHandler(repository.NewPlayerReader().GetStarterGrantStatus),
 	}
 }
 
@@ -89,9 +95,34 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 	})
 }
 
+// 投影を 2 つに分けるのは、players の行を 2 つの集約（player・starter_grant）から書くため。それぞれ自分の列だけを書き、
+// 行が無ければ作るので、別の集約の間でどちらが先に動いても同じ行になる。名前と購読は internal/wiring の購読者の一覧と照合される
+func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
+	players := repository.NewPlayerWriter()
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Player]{
+		Name: "players",
+		Subscriptions: []domain.EntityType{
+			player.Types().EntityType,
+		},
+		Upsert: players.Upsert,
+		Delete: players.Delete,
+	}); err != nil {
+		return err
+	}
+	playerStarterGrants := repository.NewPlayerStarterGrantWriter(g.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PlayerStarterGrant]{
+		Name: "player_starter_grants",
+		Subscriptions: []domain.EntityType{
+			startergrant.Types().EntityType,
+		},
+		Upsert: playerStarterGrants.Upsert,
+		Delete: playerStarterGrants.Delete,
+	})
+}
+
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

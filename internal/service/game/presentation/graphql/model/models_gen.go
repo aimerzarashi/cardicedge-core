@@ -3,6 +3,11 @@
 package model
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+
 	"github.com/google/uuid"
 )
 
@@ -23,6 +28,8 @@ type Mutation struct {
 type Player struct {
 	// プレイヤーの公開用の ID
 	ID uuid.UUID `json:"id"`
+	// スターターの配布の状態。行がまだ無い・配布が始まっていないときも IN_PROGRESS で、画面にとっては「まだ届いていない」と同じ
+	StarterGrant StarterGrantStatus `json:"starterGrant"`
 }
 
 func (Player) IsMeResult() {}
@@ -45,3 +52,61 @@ type RegisterPlayerSuccess struct {
 }
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
+
+// スターターの配布の状態
+type StarterGrantStatus string
+
+const (
+	// まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）
+	StarterGrantStatusInProgress StarterGrantStatus = "IN_PROGRESS"
+	// 所持カードとデッキがそろった
+	StarterGrantStatusCompleted StarterGrantStatus = "COMPLETED"
+)
+
+var AllStarterGrantStatus = []StarterGrantStatus{
+	StarterGrantStatusInProgress,
+	StarterGrantStatusCompleted,
+}
+
+func (e StarterGrantStatus) IsValid() bool {
+	switch e {
+	case StarterGrantStatusInProgress, StarterGrantStatusCompleted:
+		return true
+	}
+	return false
+}
+
+func (e StarterGrantStatus) String() string {
+	return string(e)
+}
+
+func (e *StarterGrantStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = StarterGrantStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid StarterGrantStatus", str)
+	}
+	return nil
+}
+
+func (e StarterGrantStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *StarterGrantStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e StarterGrantStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}

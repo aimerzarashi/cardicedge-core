@@ -18,6 +18,7 @@ var TableNames = struct {
 	EventSubscriberPending     string
 	EventSubscribers           string
 	EventSubscriptions         string
+	Players                    string
 	PresetDecks                string
 	StarterDeckSets            string
 }{
@@ -35,6 +36,7 @@ var TableNames = struct {
 	EventSubscriberPending:     "event_subscriber_pending",
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
+	Players:                    "players",
 	PresetDecks:                "preset_decks",
 	StarterDeckSets:            "starter_deck_sets",
 }

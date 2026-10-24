@@ -122,6 +122,9 @@ func prepareGame(ctx context.Context, config Config) (prepared, error) {
 	if err := gameParts.RegisterPolicies(hub); err != nil {
 		return prepared{}, err
 	}
+	if err := gameParts.RegisterProjections(hub); err != nil {
+		return prepared{}, err
+	}
 	if err := hub.Sync(ctx); err != nil {
 		return prepared{}, fmt.Errorf("event subscribers do not match code: %w", err)
 	}

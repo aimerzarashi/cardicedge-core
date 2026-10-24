@@ -19,12 +19,14 @@
 | internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
 | internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
 | internal/service/studio/infrastructure/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
-| internal/service/game | game のサービスの組み立て（game.go。下の層の部品（コマンド・リゾルバー・入口）をつなぐ）。層は studio と同じにする（core#34） |
+| internal/service/game | game のサービスの組み立て（game.go。下の層の部品（コマンド・問い合わせ・リゾルバー・入口）をつなぎ、ポリシーと read model の投影を登録する）。層は studio と同じにする（core#34） |
 | internal/service/game/presentation/graphql | game 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/game/graphql。JWT の認証と、(iss, sub) のプレイヤーの特定））。generated.go・model/models_gen.go は生成コード。テストは tests/integration |
 | internal/service/game/application/authentication | JWT の (iss, sub) と、登録済みならそのプレイヤーを context に載せる（認証ミドルウェアが載せ、コマンドが読む） |
 | internal/service/game/application/command | コマンド（集約ごとの `XxxHandler`。プレイヤーの登録・自分のプレイヤーの取得・認証での (iss, sub) の特定・スターターの配布（始める・配る・済んだことの記録）・所持カードとデッキの作成）。配布のハンドラーは、配布の流れ（プロセスマネージャー）のイベントを受け取る入口 `Handle` も持ち、game.go が eventdriven のポリシーとして登録する（ポリシーを presentation 層に置くとドメインのイベントの型を import し、application 層に別のパッケージで置くとユースケースがユースケースを呼ぶ形になるため） |
 | internal/service/game/application/master | マスタ（studio が決め、`make publish-master` で core_game に写したもの）を読む部品。スターターデッキセット（デッキの名前と、カードの公開 ID と枚数）の型と、読み出しの関数の型。studio の read model の型は使わず、配布に要る項目だけを持つ |
-| internal/service/game/infrastructure/repository | core_game の表を読む実装（`StarterDeckSetReader`。行が無ければ found が false） |
+| internal/service/game/application/query | 問い合わせ（read model ごとの `XxxHandler`。`PlayerHandler` は `players` から配布の状態 `StarterGrantStatus` を返す。行が無い・列が NULL なら `IN_PROGRESS`） |
+| internal/service/game/application/query/readmodel | read model の状態の型（`Player`・`PlayerStarterGrant`。どちらも `players` の 1 行の一部で、`Player` は player の投影が行を作り、`PlayerStarterGrant` は starter_grant の投影が配布の状態の列だけを書く）と、`Evolve`・`IsTerminal` |
+| internal/service/game/infrastructure/repository | core_game の表の読み書き（マスタを読む `StarterDeckSetReader`（行が無ければ found が false）、read model の `PlayerWriter`・`PlayerStarterGrantWriter`（投影が使う `Upsert`・`Delete`。それぞれ自分の列だけを書き、行が無ければ作る）と `PlayerReader`） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具。game のスターターの配布は 3 つの集約でできている: `startergrant`（プレイヤーに 1 つ。配る中身の写しと、どこまで済んだかを持つプロセスマネージャー）・`collection`（プレイヤーの所持カード）・`deck`（1 デッキ 1 集約。デッキの編集とカードの取得が互いにぶつからないため）。どのカードも公開 ID で持つ（game の DB にカードの集約が無いため） |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
@@ -90,6 +92,7 @@
 
 - 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
 - read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
+- read model の表は、鍵と、検索・絞り込み・並べ替えに使う値を個別の列にし、表示に使う値は `metadata`（JSONB）に持つ（同じ項目が両方に要れば両方に持つ。migrations/0008 の決まり）。1 つの表を複数の投影が書くとき（`players`）は、それぞれが `metadata` の自分の項目だけを重ねて書く（core#38）
 - 種別（集約・イベント・一意な key・参照）の id と名前は、コードの一覧（internal/domaindef/catalog.go の `Types`）で決める。id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた id と名前は変えない・消さない。振り方は catalog.go のコメント（集約は 1000 から 100 刻み、イベントは集約の id ＋ 1 から、key・参照は 1000 から順に）
 - 起動時に、DB ごとのトランザクション（advisory lock で core どうしを順にする）で、一覧のうち DB に無い種別を足し、DB の行が一覧とちょうど一致するかを確かめる（`domaindef.Sync`）。続けて、ドメインの宣言と DB を両方向に照合する（`Verify...`）。食い違えば起動を止める（行は消さない。core#20・core#33）
 - 集約を足したら、表のマイグレーションが要れば足して `make gen-orm` し、種別の一覧（`Types`）にその集約とイベントを足し、起動時の照合（internal/wiring の `syncTypes` の集約の一覧）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す

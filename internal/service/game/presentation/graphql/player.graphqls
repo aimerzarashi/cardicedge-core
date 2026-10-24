@@ -2,6 +2,16 @@
 type Player {
   "プレイヤーの公開用の ID"
   id: UUID!
+  "スターターの配布の状態。行がまだ無い・配布が始まっていないときも IN_PROGRESS で、画面にとっては「まだ届いていない」と同じ"
+  starterGrant: StarterGrantStatus!
+}
+
+"スターターの配布の状態"
+enum StarterGrantStatus {
+  "まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）"
+  IN_PROGRESS
+  "所持カードとデッキがそろった"
+  COMPLETED
 }
 
 "JWT の (iss, sub) のプレイヤーが、まだ登録されていない。game は registerPlayer を呼んでから、me を呼び直す"

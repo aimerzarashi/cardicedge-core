@@ -31,6 +31,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
 	Mutation() MutationResolver
+	Player() PlayerResolver
 	Query() QueryResolver
 }
 
@@ -43,7 +44,8 @@ type ComplexityRoot struct {
 	}
 
 	Player struct {
-		ID func(childComplexity int) int
+		ID           func(childComplexity int) int
+		StarterGrant func(childComplexity int) int
 	}
 
 	PlayerNotRegisteredError struct {
@@ -65,6 +67,9 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	RegisterPlayer(ctx context.Context) (model.RegisterPlayerResult, error)
+}
+type PlayerResolver interface {
+	StarterGrant(ctx context.Context, obj *model.Player) (model.StarterGrantStatus, error)
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (model.MeResult, error)
@@ -101,6 +106,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Player.ID(childComplexity), true
+	case "Player.starterGrant":
+		if e.ComplexityRoot.Player.StarterGrant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Player.StarterGrant(childComplexity), true
 
 	case "PlayerNotRegisteredError.message":
 		if e.ComplexityRoot.PlayerNotRegisteredError.Message == nil {
@@ -229,6 +240,8 @@ func (ec *executionContext) childFields_Player(ctx context.Context, field graphq
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Player_id(ctx, field)
+	case "starterGrant":
+		return ec.fieldContext_Player_starterGrant(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Player", field.Name)
 }
@@ -467,6 +480,29 @@ func (ec *executionContext) _Player_id(ctx context.Context, field graphql.Collec
 }
 func (ec *executionContext) fieldContext_Player_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Player", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _Player_starterGrant(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_starterGrant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Player().StarterGrant(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.StarterGrantStatus) graphql.Marshaler {
+			return ec.marshalNStarterGrantStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐStarterGrantStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_starterGrant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Player", field, true, true, errors.New("field of type StarterGrantStatus does not have child fields"))
 }
 
 func (ec *executionContext) _PlayerNotRegisteredError_message(ctx context.Context, field graphql.CollectedField, obj *model.PlayerNotRegisteredError) (ret graphql.Marshaler) {
@@ -1800,8 +1836,46 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 		case "id":
 			out.Values[i] = ec._Player_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "starterGrant":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Player_starterGrant(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2412,6 +2486,16 @@ func (ec *executionContext) marshalNRegisterPlayerResult2gitlabᚗcomᚋaimerzar
 		return graphql.Null
 	}
 	return ec._RegisterPlayerResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNStarterGrantStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐStarterGrantStatus(ctx context.Context, v any) (model.StarterGrantStatus, error) {
+	var res model.StarterGrantStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNStarterGrantStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐStarterGrantStatus(ctx context.Context, sel ast.SelectionSet, v model.StarterGrantStatus) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
