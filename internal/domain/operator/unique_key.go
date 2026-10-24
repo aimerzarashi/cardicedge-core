@@ -36,6 +36,8 @@ type UpdateSubjectFunc func(ctx context.Context, id ID, issuer Issuer, subject S
 // 一意性の key から、確保しているオペレーターを引く（確保する関数と同じく、実装は internal/constraint）
 type (
 	FindBySubjectFunc func(ctx context.Context, issuer Issuer, subject Subject) (ID, bool, error)
+	// 紐づけの有無を問わず、メールアドレスで引く
+	FindByEmailFunc func(ctx context.Context, email Email) (ID, bool, error)
 	// 紐づけていない（(iss, sub) の key を持たない）オペレーターだけを返す
 	FindUnlinkedByEmailFunc func(ctx context.Context, email Email) (ID, bool, error)
 	ExistsFunc              func(ctx context.Context) (bool, error)

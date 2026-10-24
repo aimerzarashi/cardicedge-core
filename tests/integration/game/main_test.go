@@ -3,6 +3,7 @@ package game_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"testing"
@@ -15,6 +16,9 @@ var (
 	endpoint string
 	client   testhelper.GraphQLClient
 	key      idptest.Key
+	// 共有のアプリの game の DB と、そこに公開した見本のマスタ
+	gameDB *sql.DB
+	master testhelper.Master
 )
 
 func TestMain(m *testing.M) {
@@ -37,6 +41,12 @@ func run(m *testing.M) int {
 	}
 	defer app.Close()
 	key = app.Key
+	gameDB = app.GameDB
+	// 共有のアプリでは、最初に公開しておく（登録した全員にスターターが配られる）。公開前の登録は、独立したアプリで確かめる
+	master, err = testhelper.PublishMaster(ctx, app.GameDB)
+	if err != nil {
+		return fail(err)
+	}
 	endpoint = app.URL + "/game/graphql"
 	client = testhelper.GraphQLClient{URL: endpoint}
 

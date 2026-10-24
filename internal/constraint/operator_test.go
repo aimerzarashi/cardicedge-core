@@ -97,6 +97,27 @@ func TestFindBySubject_ReturnsLinkedOperator(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestFindByEmail_ReturnsOperatorRegardlessOfLink(t *testing.T) {
+	f := setup(t)
+	unlinked := f.register(t, email(t, "unlinked"))
+	linked := f.register(t, email(t, "linked"))
+	require.NoError(t, f.updateSubject(t, linked, "diecardomain-studio", "user-1"))
+
+	got, found, err := constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "unlinked")))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, unlinked, got)
+
+	got, found, err = constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "linked")))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, linked, got)
+
+	_, found, err = constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "unknown")))
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
 func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 	f := setup(t)
 	unlinked := f.register(t, email(t, "operator"))

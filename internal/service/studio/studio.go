@@ -132,28 +132,36 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	cards := repository.NewCardWriter()
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Card]{
-		Name:          "cards",
-		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType, spell.Types().EntityType},
-		Upsert:        cards.Upsert,
-		Delete:        cards.Delete,
+		Name: "cards",
+		Subscriptions: []domain.EntityType{
+			creature.Types().EntityType,
+			item.Types().EntityType,
+			spell.Types().EntityType,
+		},
+		Upsert: cards.Upsert,
+		Delete: cards.Delete,
 	}); err != nil {
 		return err
 	}
 	presetDecks := repository.NewPresetDeckWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeck]{
-		Name:          "preset_decks",
-		Subscriptions: []domain.EntityType{presetdeck.Types().EntityType},
-		Upsert:        presetDecks.Upsert,
-		Delete:        presetDecks.Delete,
+		Name: "preset_decks",
+		Subscriptions: []domain.EntityType{
+			presetdeck.Types().EntityType,
+		},
+		Upsert: presetDecks.Upsert,
+		Delete: presetDecks.Delete,
 	}); err != nil {
 		return err
 	}
 	starterDeckSets := repository.NewStarterDeckSetWriter(c.entityRefs)
 	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
-		Name:          "starter_deck_sets",
-		Subscriptions: []domain.EntityType{starterdeckset.Types().EntityType},
-		Upsert:        starterDeckSets.Upsert,
-		Delete:        starterDeckSets.Delete,
+		Name: "starter_deck_sets",
+		Subscriptions: []domain.EntityType{
+			starterdeckset.Types().EntityType,
+		},
+		Upsert: starterDeckSets.Upsert,
+		Delete: starterDeckSets.Delete,
 	})
 }
 

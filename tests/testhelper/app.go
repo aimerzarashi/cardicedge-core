@@ -21,6 +21,7 @@ type App struct {
 	// httptest のサーバーの URL（入口のパスは付けない）
 	URL      string
 	StudioDB *sql.DB
+	GameDB   *sql.DB
 	// studio・game の JWKS が返す鍵。studio の JWT は idptest.ValidClaims、game の JWT は iss を idptest.GameIssuer に変えて作る
 	Key     idptest.Key
 	cleanup []func()
@@ -63,7 +64,9 @@ func (a *App) start(ctx context.Context) error {
 	}
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: idptest.Issuer}
 	gameConfig := game.Config{Verifier: gameVerifier, Issuer: idptest.GameIssuer}
-	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second, RetryInterval: time.Minute, MaxFailures: 10}
+	// ポリシーの待てば直る失敗（マスタの公開前に登録した場合等）を短い間隔で確かめるため、やり直しの間隔を短くし、
+	// その分デッドレターにならないよう回数を増やす（本番の設定とは別）
+	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second, RetryInterval: 100 * time.Millisecond, MaxFailures: 100}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,
 		StudioDSN:            studioDSN,
@@ -82,7 +85,7 @@ func (a *App) start(ctx context.Context) error {
 	server := httptest.NewServer(app.Handler)
 	// HTTP を止めてから Hub を止める（cmd/app と同じ順）
 	a.cleanup = append(a.cleanup, server.Close)
-	a.URL, a.StudioDB, a.Key = server.URL, studioDB, key
+	a.URL, a.StudioDB, a.GameDB, a.Key = server.URL, studioDB, gameDB, key
 	return nil
 }
 
