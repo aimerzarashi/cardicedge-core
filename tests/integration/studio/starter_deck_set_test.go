@@ -13,16 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const starterDeckSetQuery = `query {
-	starterDeckSet {
-		__typename
-		... on StarterDeckSet {
-			revision updatedAt
-			decks { name cards { count card { __typename id name } } source { presetDeckId revision changedSinceCopied presetDeckDeleted } }
-		}
-	}
-}`
-
 const setStarterDeckSetMutation = `mutation ($input: SetStarterDeckSetInput!) {
 	setStarterDeckSet(input: $input) {
 		__typename

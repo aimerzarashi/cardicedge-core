@@ -98,7 +98,7 @@ func run(ctx context.Context) error {
 	}
 
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: cfg.Studio.Issuer}
-	gameConfig := game.Config{Verifier: gameVerifier}
+	gameConfig := game.Config{Verifier: gameVerifier, Issuer: cfg.Game.Issuer}
 	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,

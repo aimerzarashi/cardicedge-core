@@ -2,5 +2,46 @@
 
 package model
 
+import (
+	"github.com/google/uuid"
+)
+
+// me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError
+type MeResult interface {
+	IsMeResult()
+}
+
+// registerPlayer の結果
+type RegisterPlayerResult interface {
+	IsRegisterPlayerResult()
+}
+
+type Mutation struct {
+}
+
+// プレイヤー。JWT の (iss, sub) に 1 人だけ紐づく
+type Player struct {
+	// プレイヤーの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (Player) IsMeResult() {}
+
+// JWT の (iss, sub) のプレイヤーが、まだ登録されていない。game は registerPlayer を呼んでから、me を呼び直す
+type PlayerNotRegisteredError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (PlayerNotRegisteredError) IsMeResult() {}
+
 type Query struct {
 }
+
+// プレイヤーを登録した（登録済みだったときも同じ形で、そのプレイヤーを返す）
+type RegisterPlayerSuccess struct {
+	// 登録したプレイヤー。すでに登録済みなら、そのプレイヤー（新しく作らない）
+	Player *Player `json:"player"`
+}
+
+func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
