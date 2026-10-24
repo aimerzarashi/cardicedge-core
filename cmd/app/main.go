@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
 )
@@ -87,12 +88,17 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer gameDB.Close()
-	verifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
+	studioVerifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
+	if err != nil {
+		return err
+	}
+	gameVerifier, err := idp.NewVerifier(ctx, cfg.Game.JWKSURL, cfg.Game.Issuer, cfg.Game.Audience)
 	if err != nil {
 		return err
 	}
 
-	studioConfig := studio.Config{Verifier: verifier, Issuer: cfg.Studio.Issuer}
+	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: cfg.Studio.Issuer}
+	gameConfig := game.Config{Verifier: gameVerifier}
 	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,
@@ -100,6 +106,7 @@ func run(ctx context.Context) error {
 		GameDB:               gameDB,
 		Version:              version,
 		Studio:               studioConfig,
+		Game:                 gameConfig,
 		InitialOperatorEmail: cfg.InitialOperatorEmail,
 		EventDriven:          eventDriven,
 	})

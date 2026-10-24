@@ -20,6 +20,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	GameDB               *sql.DB
 	Version              string
 	Studio               studio.Config
+	Game                 game.Config
 	InitialOperatorEmail string
 	EventDriven          eventdriven.Options
 }
@@ -49,7 +51,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("studio: %w", err)
 	}
-	// game のサービス（コマンド・投影）は後で足す。今は、種別を合わせ、購読者の行が無いことを確かめるだけ
+	// game の投影は後で足す。今は、種別を合わせ、購読者の行が無いことを確かめるだけ（入口は下で Mount する）
 	if _, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
 		return prepareGame(ctx, config)
 	}); err != nil {
@@ -66,6 +68,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 
 	mux := NewRouter(config.Version)
 	studioPrepared.studio.Mount(mux, config.StudioDB, config.Version)
+	game.New(config.Game).Mount(mux, config.GameDB, config.Version)
 	return &App{Handler: mux, hub: studioPrepared.hub}, nil
 }
 

@@ -15,6 +15,10 @@ services:
       STUDIO_JWKS_URL: http://studio-envoy:10000/api/auth/jwks
       STUDIO_JWT_ISSUER: diecardomain-studio
       STUDIO_JWT_AUDIENCE: diecardomain-core
+      # game の JWT（core#34）。JWKS は studio と同じく、game の envoy を通して取る
+      GAME_JWKS_URL: http://game-envoy:10000/api/auth/jwks
+      GAME_JWT_ISSUER: diecardomain-game
+      GAME_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
     healthcheck:
       test: ["CMD", "/app", "healthcheck"]
