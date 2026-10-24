@@ -46,6 +46,20 @@ gen-api:
 	docker compose exec core sh -c 'cd internal/service/game/presentation/graphql && go tool gqlgen generate'
 	docker compose exec core go mod tidy
 
+# 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキセット）を、初期オペレーターとして studio のコマンドで登録する。
+# 設定済みなら何もしない。終わりに core の投影が starter_deck_sets を書くまで待つので、続けて publish-master を流せる（core#37）
+.PHONY: seed-master
+seed-master:
+	docker compose exec core go run ./tools/seedmaster
+
+# マスタ（studio の read model の cards・starter_deck_sets）を game の DB に公開する。core-db の中で pg_dump の出力をそのまま psql に渡し、
+# 1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
+# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 2 つの表が公開用の ID だけで
+# 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
+.PHONY: publish-master
+publish-master:
+	docker compose exec core-db sh -c 'pg_dump -U core_user -d core_studio --data-only --table=cards --table=starter_deck_sets | psql -U core_user -d core_game -v ON_ERROR_STOP=1 --single-transaction -c "TRUNCATE cards, starter_deck_sets" -f -'
+
 # マイグレーション済みの core-db から sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を生成する。
 # migrations を足したら make migrate の後に実行し、生成したコードもコミットする。
 # 生成の道具は go.mod の tool で版を固定する（go install @latest にしない）。ドライバーは sqlboiler が PATH から探すため、ビルドしてパスで渡す

@@ -11,13 +11,16 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -53,7 +56,6 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("studio: %w", err)
 	}
-	// game の購読者（ポリシー）は後で足す。今は購読者が無いまま、種別を合わせ、Hub を動かす（入口は下で Mount する）
 	gamePrepared, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
 		return prepareGame(ctx, config)
 	})
@@ -116,10 +118,14 @@ func prepareGame(ctx context.Context, config Config) (prepared, error) {
 	if err != nil {
 		return prepared{}, err
 	}
+	gameParts := game.New(registry, config.Game)
+	if err := gameParts.RegisterPolicies(hub); err != nil {
+		return prepared{}, err
+	}
 	if err := hub.Sync(ctx); err != nil {
 		return prepared{}, fmt.Errorf("event subscribers do not match code: %w", err)
 	}
-	return prepared{game: game.New(registry, config.Game), hub: hub}, nil
+	return prepared{game: gameParts, hub: hub}, nil
 }
 
 // 錠を取り、種別の行をコードの一覧に合わせ、読み込んで、ドメインの宣言と照合する。種別は全サービスで共通なので、どの DB でも同じ
@@ -139,7 +145,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, err
 	}
 	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
-	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types(), player.Types()}
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeckset.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
@@ -150,7 +156,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
 		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes(), player.UniqueKeyTypes())...); err != nil {
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeckset.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeckset.ReferenceTypes())...); err != nil {

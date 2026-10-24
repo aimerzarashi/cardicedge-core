@@ -34,6 +34,18 @@ var Types = Catalog{
 		{ID: 1600, Name: "player", Events: []EventTypeDef{
 			{ID: 1601, Name: "RegisteredEvent"},
 		}},
+		{ID: 1700, Name: "starter_grant", Events: []EventTypeDef{
+			{ID: 1701, Name: "StartedEvent"},
+			{ID: 1702, Name: "CollectionRecordedEvent"},
+			{ID: 1703, Name: "DeckRecordedEvent"},
+			{ID: 1704, Name: "CompletedEvent"},
+		}},
+		{ID: 1800, Name: "collection", Events: []EventTypeDef{
+			{ID: 1801, Name: "CreatedEvent"},
+		}},
+		{ID: 1900, Name: "deck", Events: []EventTypeDef{
+			{ID: 1901, Name: "CreatedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
@@ -42,6 +54,9 @@ var Types = Catalog{
 		{ID: 1003, Name: "preset_deck.name"},
 		{ID: 1004, Name: "starter_deck_set.singleton"},
 		{ID: 1005, Name: "player.subject"},
+		{ID: 1006, Name: "starter_grant.player"},
+		{ID: 1007, Name: "collection.owner"},
+		{ID: 1008, Name: "deck.starter"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},

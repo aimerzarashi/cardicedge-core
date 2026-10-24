@@ -1,11 +1,15 @@
 package wiring
 
 import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -20,5 +24,9 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, spell.NewID, spell.NewEventType),
 		eventstore.NewEventLoader(registry, presetdeck.NewID, presetdeck.NewEventType),
 		eventstore.NewEventLoader(registry, starterdeckset.NewID, starterdeckset.NewEventType),
+		eventstore.NewEventLoader(registry, player.NewID, player.NewEventType),
+		eventstore.NewEventLoader(registry, startergrant.NewID, startergrant.NewEventType),
+		eventstore.NewEventLoader(registry, collection.NewID, collection.NewEventType),
+		eventstore.NewEventLoader(registry, deck.NewID, deck.NewEventType),
 	)
 }

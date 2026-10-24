@@ -2,6 +2,7 @@
 package game
 
 import (
+	"context"
 	"database/sql"
 	"io"
 	"time"
@@ -9,12 +10,18 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/infrastructure/repository"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql"
 )
 
@@ -27,6 +34,7 @@ type Config struct {
 type Game struct {
 	config  Config
 	players *command.PlayerHandler
+	grants  *command.StarterGrantHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Game {
@@ -43,7 +51,42 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			constraint.FindPlayerBySubject,
 			now,
 		),
+		grants: command.NewStarterGrantHandler(
+			eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
+			identifier.New(registry, startergrant.NewID),
+			constraint.UpdateStarterGrantPlayer,
+			repository.NewStarterDeckSetReader().Get,
+			command.NewCollectionHandler(
+				eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
+				identifier.New(registry, collection.NewID),
+				constraint.UpdateCollectionOwner,
+				now,
+			),
+			command.NewDeckHandler(
+				eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve),
+				identifier.New(registry, deck.NewID),
+				constraint.UpdateDeckStarter,
+				now,
+			),
+			now,
+		),
 	}
+}
+
+// 名前と購読は internal/wiring の購読者の一覧と照合される（studio の RegisterProjections と同じ形）
+func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
+	return eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
+		Name: "starter_grant",
+		Subscriptions: []domain.EntityType{
+			player.Types().EntityType,
+			startergrant.Types().EntityType,
+			collection.Types().EntityType,
+			deck.Types().EntityType,
+		},
+		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
+			return g.grants.Handle(ctx, event.Event)
+		},
+	})
 }
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）

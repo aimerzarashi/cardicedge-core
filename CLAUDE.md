@@ -1,6 +1,6 @@
 # コマンド
 
-- `make up` / `make down` / `make migrate` / `make migrate-hash` / `make gen-orm` / `make gen-api` / `make fmt` / `make lint` / `make test`
+- `make up` / `make down` / `make migrate` / `make migrate-hash` / `make gen-orm` / `make gen-api` / `make seed-master` / `make publish-master` / `make fmt` / `make lint` / `make test`
 - lint は `make lint`（gofmt の検出、go vet、staticcheck、カスタムリンター `go run ./tools/linter ./...`、scripts/check-gen-api.sh、scripts/check-migrations.sh）でファイルを書き換えない。フォーマットの修正は `make fmt`。staticcheck は go.mod の tool で管理する
 - テストは `make test`（テンプレートの DB を用意してから、コンテナ内で `-race` 付き）で実行する。ホストには cgo がなく `-race` が使えない
 - 単体で動かすときは `docker compose exec core go test ./<pkg> -race -run <Test>`
@@ -22,8 +22,10 @@
 | internal/service/game | game のサービスの組み立て（game.go。下の層の部品（コマンド・リゾルバー・入口）をつなぐ）。層は studio と同じにする（core#34） |
 | internal/service/game/presentation/graphql | game 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/game/graphql。JWT の認証と、(iss, sub) のプレイヤーの特定））。generated.go・model/models_gen.go は生成コード。テストは tests/integration |
 | internal/service/game/application/authentication | JWT の (iss, sub) と、登録済みならそのプレイヤーを context に載せる（認証ミドルウェアが載せ、コマンドが読む） |
-| internal/service/game/application/command | コマンド（集約ごとの `XxxHandler`。プレイヤーの登録・自分のプレイヤーの取得・認証での (iss, sub) の特定） |
-| internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
+| internal/service/game/application/command | コマンド（集約ごとの `XxxHandler`。プレイヤーの登録・自分のプレイヤーの取得・認証での (iss, sub) の特定・スターターの配布（始める・配る・済んだことの記録）・所持カードとデッキの作成）。配布のハンドラーは、配布の流れ（プロセスマネージャー）のイベントを受け取る入口 `Handle` も持ち、game.go が eventdriven のポリシーとして登録する（ポリシーを presentation 層に置くとドメインのイベントの型を import し、application 層に別のパッケージで置くとユースケースがユースケースを呼ぶ形になるため） |
+| internal/service/game/application/master | マスタ（studio が決め、`make publish-master` で core_game に写したもの）を読む部品。スターターデッキセット（デッキの名前と、カードの公開 ID と枚数）の型と、読み出しの関数の型。studio の read model の型は使わず、配布に要る項目だけを持つ |
+| internal/service/game/infrastructure/repository | core_game の表を読む実装（`StarterDeckSetReader`。行が無ければ found が false） |
+| internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具。game のスターターの配布は 3 つの集約でできている: `startergrant`（プレイヤーに 1 つ。配る中身の写しと、どこまで済んだかを持つプロセスマネージャー）・`collection`（プレイヤーの所持カード）・`deck`（1 デッキ 1 集約。デッキの編集とカードの取得が互いにぶつからないため）。どのカードも公開 ID で持つ（game の DB にカードの集約が無いため） |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
 | internal/eventdriven | イベントを受けて投影（Projection）とポリシー（Policy。イベントを 1 つずつ受けてコマンドを動かす。失敗の記録・間隔・上限・デッドレター）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表・失敗の記録）。構成は README |
@@ -39,6 +41,7 @@
 | tools/linter | カスタムリンター（検査の内容は README。対象の設定は main.go） |
 | tools/createdb | DB が無ければ作るコマンド（make test・CI が core_test とテンプレート core_template を作るのに使う） |
 | tools/synctypes | DB に種別の一覧（`domaindef.Types`）を合わせるコマンド（make migrate・make test・CI が、core を起動しないで使う DB に入れる。どの DB かは `-env` で環境変数の名前を渡す） |
+| tools/seedmaster | 開発で触る見本のマスタ（sample_master.json。カード・プリセットデッキ・スターターデッキセット）を、初期オペレーターとして studio のコマンドで登録するコマンド（`make seed-master`。設定済みなら何もしない）。core_game に公開するのは `make publish-master` |
 | local/core-db | 開発・テストの core-db の初期化（core_game を作る。core_studio は `POSTGRES_DB` で作る） |
 | tests/integration | 結合テスト（入口ごとに studio・game）。internal/wiring で組み立てたアプリをテストと同じプロセスで動かし、HTTP で呼ぶ（GraphQL の契約・認証・認可から、投影されて一覧に出るまで）。複製した DB を 1 つ共有して並列に流し、アプリが ERROR のログを出したら実行全体を失敗にする |
 | tests/testhelper | 結合テストの道具（アプリの起動 `StartApp`（studio・game の入口の両方を持つ本番と同じ組み立て）・GraphQL の呼び出し・投影を待つ `Eventually`・オペレーターの用意・ERROR のログの記録） |

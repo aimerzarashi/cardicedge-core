@@ -11,3 +11,7 @@ var (
 	// (iss, sub) に登録済みのプレイヤーがいない
 	ErrPlayerNotRegistered = errors.New("command: player not registered")
 )
+
+// スターターの配布を始めるときに、マスタが game に公開されていない。待てば直る失敗（公開すれば直る）なので、
+// ポリシーのやり直しに任せる
+var ErrMasterNotPublished = errors.New("command: master not published")

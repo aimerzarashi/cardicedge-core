@@ -10,6 +10,7 @@ var (
 	_ operator.UpdateEmailFunc         = UpdateOperatorEmail
 	_ operator.UpdateSubjectFunc       = UpdateOperatorSubject
 	_ operator.FindBySubjectFunc       = FindOperatorBySubject
+	_ operator.FindByEmailFunc         = FindOperatorByEmail
 	_ operator.FindUnlinkedByEmailFunc = FindUnlinkedOperatorByEmail
 	_ operator.ExistsFunc              = OperatorExists
 )
@@ -24,6 +25,10 @@ func UpdateOperatorSubject(ctx context.Context, id operator.ID, issuer operator.
 
 func FindOperatorBySubject(ctx context.Context, issuer operator.Issuer, subject operator.Subject) (operator.ID, bool, error) {
 	return operatorID(findUniqueKeyOwner(ctx, operator.SubjectKey(issuer, subject)))
+}
+
+func FindOperatorByEmail(ctx context.Context, email operator.Email) (operator.ID, bool, error) {
+	return operatorID(findUniqueKeyOwner(ctx, operator.EmailKey(email)))
 }
 
 // 紐づけ済み（(iss, sub) の key を持つ）オペレーターは返さない（同じメールアドレスの別のアカウントに紐づけ直させないため）

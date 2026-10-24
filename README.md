@@ -19,6 +19,8 @@ make migrate # 未適用の migrations だけを Atlas で適用（DB を作り�
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
+make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキセット）を studio のコマンドで登録（設定済みなら何もしない）
+make publish-master # studio の cards・starter_deck_sets を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -33,6 +35,8 @@ make down    # 停止して DB のデータも破棄
 | http://localhost:3333/game/graphql | game 用の GraphQL（POST。game の JWT が必須） |
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
+
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards・starter_deck_sets）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
@@ -89,6 +93,7 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
 - **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
+- **スターターの配布**: プレイヤーを登録すると、それをきっかけにポリシー（`starter_grant`）が、公開済みのマスタ（`make publish-master`）から所持カードとデッキ 2 つを配る。マスタが未公開のあいだは、間隔を空けてやり直し、公開されたら配られる。所持カードはカードごとに 2 つのデッキのうち多いほうの枚数。GraphQL にはまだ出さない
 - **プレイヤーの特定**: JWT が正しければ、プレイヤーに登録されていなくても拒否しない（初めての `registerPlayer` が登録するため）。誰のプレイヤーかは入力ではなく JWT の (iss, sub) だけで決める
 
 ## イベントストア
