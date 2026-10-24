@@ -30,6 +30,7 @@ make down    # 停止して DB のデータも破棄
 | http://localhost:3333/version | バージョン情報 |
 | http://localhost:3333/health | ヘルスチェック |
 | http://localhost:3333/studio/graphql | studio 用の GraphQL（POST。studio の JWT が必須） |
+| http://localhost:3333/game/graphql | game 用の GraphQL（POST。game の JWT が必須） |
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
@@ -57,6 +58,8 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 | `STUDIO_DB_DSN` / `GAME_DB_DSN` | studio 用・game 用の DB の接続先（開発・テストは同じ core-db の core_studio・core_game。別のサーバーにしてもよい） |
 | `STUDIO_JWKS_URL` | studio の JWKS（開発・テストは `http://studio-envoy:10000/api/auth/jwks`） |
 | `STUDIO_JWT_ISSUER` / `STUDIO_JWT_AUDIENCE` | studio の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-studio` / `diecardomain-core`） |
+| `GAME_JWKS_URL` | game の JWKS（開発・テストは `http://game-envoy:10000/api/auth/jwks`） |
+| `GAME_JWT_ISSUER` / `GAME_JWT_AUDIENCE` | game の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-game` / `diecardomain-core`） |
 | `STUDIO_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで studio にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
 
 どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。開発用のコンテナには、テストが使う `TEST_DB_DSN`（core_test）も渡している（core は使わない。テストが開発の core の DB に触らないよう分ける）。
@@ -76,6 +79,15 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
+
+## game 用の GraphQL（/game/graphql）
+
+スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は今は `version` だけ（プレイヤーの操作は、プレイヤーの集約を足すときに足す）。
+
+- **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
+- **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
+- **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
+- JWT からプレイヤーを特定するのは、プレイヤーの集約を足すときに足す（今は JWT を確かめるだけ）
 
 ## イベントストア
 

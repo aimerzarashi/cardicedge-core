@@ -58,7 +58,7 @@ func TestAuthentication_AcceptsValidTokenOfNonOperator(t *testing.T) {
 func TestAuthentication_RejectsRequestWithoutValidToken(t *testing.T) {
 	t.Parallel()
 	otherIssuer := idptest.ValidClaims("user-1")
-	otherIssuer.Issuer = "diecardomain-game"
+	otherIssuer.Issuer = idptest.GameIssuer
 	tests := []struct {
 		name  string
 		token string

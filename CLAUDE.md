@@ -19,6 +19,7 @@
 | internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
 | internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
 | internal/service/studio/infrastructure/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
+| internal/service/game | game のサービスの組み立て（game.go）。今は入口（presentation/graphql。/game/graphql。JWT の認証と `version`）だけ。層は studio と同じにする（core#34） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore 等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具 |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
@@ -36,12 +37,12 @@
 | tools/createdb | DB が無ければ作るコマンド（make test・CI が core_test とテンプレート core_template を作るのに使う） |
 | tools/synctypes | DB に種別の一覧（`domaindef.Types`）を合わせるコマンド（make migrate・make test・CI が、core を起動しないで使う DB に入れる。どの DB かは `-env` で環境変数の名前を渡す） |
 | local/core-db | 開発・テストの core-db の初期化（core_game を作る。core_studio は `POSTGRES_DB` で作る） |
-| tests/integration | 結合テスト。internal/wiring で組み立てたアプリをテストと同じプロセスで動かし、HTTP で呼ぶ（GraphQL の契約・認証・認可から、投影されて一覧に出るまで）。複製した DB を 1 つ共有して並列に流し、アプリが ERROR のログを出したら実行全体を失敗にする |
-| tests/testhelper | 結合テストの道具（GraphQL の呼び出し・投影を待つ `Eventually`・オペレーターの用意・ERROR のログの記録） |
+| tests/integration | 結合テスト（入口ごとに studio・game）。internal/wiring で組み立てたアプリをテストと同じプロセスで動かし、HTTP で呼ぶ（GraphQL の契約・認証・認可から、投影されて一覧に出るまで）。複製した DB を 1 つ共有して並列に流し、アプリが ERROR のログを出したら実行全体を失敗にする |
+| tests/testhelper | 結合テストの道具（アプリの起動 `StartApp`（studio・game の入口の両方を持つ本番と同じ組み立て）・GraphQL の呼び出し・投影を待つ `Eventually`・オペレーターの用意・ERROR のログの記録） |
 | local/core | 開発用 Dockerfile（air によるホットリロード。uid 1000 の dev ユーザーで動く） |
 | .build | 本番用 Dockerfile（distroless。compose.test.yaml でも使う） |
 
-- internal/service/<利用者> は、利用者（studio、後で game）ごとに縦に切った塊（core#29）。直下のパッケージ（studio.go）が組み立て、その下に層を置く。層はレイヤードアーキテクチャ（Evans）の呼び方にする:
+- internal/service/<利用者> は、利用者（studio・game）ごとに縦に切った塊（core#29）。直下のパッケージ（studio.go・game.go）が組み立て、その下に層を置く。サービスの間で似た部品（入口の認証等）があっても、共通の部品にしない（認証の後の扱いがサービスごとに違うため。core#34）。層はレイヤードアーキテクチャ（Evans）の呼び方にする:
 
 | 層 | 役割 | 依存してよい先 |
 |---|---|---|
@@ -58,7 +59,7 @@
 - core は共有ネットワーク `diecardomain` に参加する（compose.yaml）。core-db は参加させない
 - compose.test.yaml は game が include する前提（studio は前提にする版のイメージを使う。ふだんはリリース済みの版、マイルストーンの途中は手元の core から作った local の版。studio#14・studio#23）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
-- `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio` で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら `schemaWriters` にも足す
+- `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio`（game は `schema game`）で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら、そのサービスのパッケージの `WriteSchema` を `schemaWriters` に足す（presentation の graphql パッケージはサービスどうしで名前が重なり、別名の import は禁止のため）。`make gen-api`・scripts/check-gen-api.sh・cmd/app のスキーマのテストにも足す
 - core は studio 用・game 用の 2 つの DB（`STUDIO_DB_DSN`・`GAME_DB_DSN`）を使う。開発・テストは同じサーバーの別の DB（core_studio・core_game）だが、別のサーバーにしても設定だけで動くようにする。表は DB どうしで共有せず、ほかのサービスの値は使う側が read model で持つ（持ち方は後で決める。core#33）
 - マイグレーションは表の作り（DDL）だけを書き、両方の DB に同じものを流す（サービスごとに分けて二重に保たない）。種別・購読者の行は入れない（コードの一覧から起動時に入れる）
 - マイグレーションは追加のみ。適用済みのファイルは書き換えない・消さない・改名しない。down は作らない（atlas.sum を作り直すと Atlas は検出しないため、check-migrations.sh で検査する）
@@ -88,7 +89,7 @@
 - 集約を足したら、表のマイグレーションが要れば足して `make gen-orm` し、種別の一覧（`Types`）にその集約とイベントを足し、起動時の照合（internal/wiring の `syncTypes` の集約の一覧）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
-- /studio/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
+- /studio/graphql・/game/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない。aud はどちらも diecardomain-core で、iss で分ける）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
 - 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は presentation 層のミドルウェア、認可は presentation 層（resolver）、登録・紐づけは application 層のコマンド。初期オペレーターは internal/wiring が application 層のコマンドを直接呼んで登録する
 - GraphQL のスキーマを変えたら `make gen-api`（し忘れは `make lint`・CI の lint が検出する）。生成コード（generated.go・model）は手で直さない。操作を足すと `*.resolvers.go` に雛形（`panic("not implemented")`）ができ、消すとファイルの末尾に「!!! WARNING !!!」つきで古い実装が移されるので、片付ける
 - スキーマの型・フィールド・引数・入力の項目には、必ず GraphQL の説明（`"..."`）を付ける（playground・型の生成で使う人に意味を伝えるため）。設計の理由は `#` のコメントに書き、説明と分ける

@@ -11,11 +11,12 @@ type Config struct {
 	StudioDBDSN string
 	GameDBDSN   string
 	Studio      Issuer
+	Game        Issuer
 	// オペレーターが 1 人もいないときに、起動時に登録するオペレーターのメールアドレス
 	InitialOperatorEmail string
 }
 
-// JWT の発行元（better-auth）ごとの設定。iss・aud は発行元の設定（studio の JWT_ISSUER・JWT_AUDIENCE）と一致させる
+// JWT の発行元（better-auth）ごとの設定。iss・aud は発行元の設定（studio・game の JWT_ISSUER・JWT_AUDIENCE）と一致させる
 type Issuer struct {
 	JWKSURL  string
 	Issuer   string
@@ -39,6 +40,11 @@ func Load() (Config, error) {
 			JWKSURL:  get("STUDIO_JWKS_URL"),
 			Issuer:   get("STUDIO_JWT_ISSUER"),
 			Audience: get("STUDIO_JWT_AUDIENCE"),
+		},
+		Game: Issuer{
+			JWKSURL:  get("GAME_JWKS_URL"),
+			Issuer:   get("GAME_JWT_ISSUER"),
+			Audience: get("GAME_JWT_AUDIENCE"),
 		},
 		InitialOperatorEmail: get("STUDIO_INITIAL_OPERATOR_EMAIL"),
 	}

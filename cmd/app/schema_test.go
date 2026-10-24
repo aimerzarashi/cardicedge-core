@@ -22,22 +22,26 @@ func formatSchema(t *testing.T, sources ...*ast.Source) string {
 	return b.String()
 }
 
-// 出力だけを読み直すと .graphqls と同じスキーマになる（書き出しで落ちるものが無い。studio は出力だけを codegen で読む）
+// 出力だけを読み直すと .graphqls と同じスキーマになる（書き出しで落ちるものが無い。studio・game は出力だけを codegen で読む）
 func TestWriteSchema_WritesSameSchemaAsGraphqlsFiles(t *testing.T) {
-	paths, err := filepath.Glob("../../internal/service/studio/presentation/graphql/*.graphqls")
-	require.NoError(t, err)
-	require.NotEmpty(t, paths)
-	var sources []*ast.Source
-	for _, path := range paths {
-		input, err := os.ReadFile(path)
-		require.NoError(t, err)
-		sources = append(sources, &ast.Source{Name: path, Input: string(input)})
+	for _, name := range []string{"game", "studio"} {
+		t.Run(name, func(t *testing.T) {
+			paths, err := filepath.Glob("../../internal/service/" + name + "/presentation/graphql/*.graphqls")
+			require.NoError(t, err)
+			require.NotEmpty(t, paths)
+			var sources []*ast.Source
+			for _, path := range paths {
+				input, err := os.ReadFile(path)
+				require.NoError(t, err)
+				sources = append(sources, &ast.Source{Name: path, Input: string(input)})
+			}
+			var out bytes.Buffer
+
+			require.NoError(t, writeSchema(name, &out))
+
+			require.Equal(t, formatSchema(t, sources...), formatSchema(t, &ast.Source{Name: "out", Input: out.String()}))
+		})
 	}
-	var out bytes.Buffer
-
-	require.NoError(t, writeSchema("studio", &out))
-
-	require.Equal(t, formatSchema(t, sources...), formatSchema(t, &ast.Source{Name: "out", Input: out.String()}))
 }
 
 func TestWriteSchema_RejectsUnknownName(t *testing.T) {
