@@ -59,7 +59,7 @@ func (m countingReadModel) IsTerminal() bool {
 
 // 間隔で読むことを待たないテストでは、テストの間に間隔が来ないよう長くする
 func testOptions(workerCount int) eventdriven.Options {
-	return eventdriven.Options{WorkerCount: workerCount, PollInterval: time.Hour}
+	return eventdriven.Options{WorkerCount: workerCount, PollInterval: time.Hour, RetryInterval: time.Minute, MaxFailures: 10}
 }
 
 // 通知は非同期に届くため、届くのを待つ上限。届かないことの確認には使わない（待つだけ遅くなるため）

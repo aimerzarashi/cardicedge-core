@@ -24,7 +24,7 @@ import (
 
 // StarterDeckSet is an object representing the database table.
 type StarterDeckSet struct {
-	// スターターデッキセットの公開 ID（domain_identifiers.public_id）
+	// スターターデッキセットの公開 ID（domain_entities.public_id）
 	StarterDeckSetID string `boil:"starter_deck_set_id" json:"starter_deck_set_id" toml:"starter_deck_set_id" yaml:"starter_deck_set_id"`
 	// 表示に使う値（イベントの値。更新の番号（集約の版）・日時、スターターデッキ（名前・写したカードの公開 ID と枚数・写した元のプリセットデッキの公開 ID と revision）の一覧）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`

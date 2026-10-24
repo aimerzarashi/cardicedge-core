@@ -23,9 +23,9 @@ import (
 
 // DomainEventType is an object representing the database table.
 type DomainEventType struct {
-	// 手動採番。entity_type と同じく 1〜999 はテスト・参照用、1000 以降は実在の集約
+	// コードの一覧（domaindef.Types）で決める。所属する集約の id ＋ 1 から順に
 	ID int16 `boil:"id" json:"id" toml:"id" yaml:"id"`
-	// 所属する集約の種別。この列でどの集約のイベントかがわかるため、id に集約ごとの範囲は持たせない
+	// 所属する集約の種別
 	EntityTypeID int16 `boil:"entity_type_id" json:"entity_type_id" toml:"entity_type_id" yaml:"entity_type_id"`
 	// ドメイン層のイベント型名と一致させる（例: RegisteredEvent）
 	Name string `boil:"name" json:"name" toml:"name" yaml:"name"`

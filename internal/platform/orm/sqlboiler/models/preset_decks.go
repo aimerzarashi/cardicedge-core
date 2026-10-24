@@ -24,7 +24,7 @@ import (
 
 // PresetDeck is an object representing the database table.
 type PresetDeck struct {
-	// プリセットデッキの公開 ID（domain_identifiers.public_id）
+	// プリセットデッキの公開 ID（domain_entities.public_id）
 	PresetDeckID string `boil:"preset_deck_id" json:"preset_deck_id" toml:"preset_deck_id" yaml:"preset_deck_id"`
 	// 並べ替え・名前の部分一致に使う、正規化した名前
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`

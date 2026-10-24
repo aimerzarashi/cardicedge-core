@@ -68,10 +68,12 @@ var EventSubscriberWhere = struct {
 // EventSubscriberRels is where relationship names are stored.
 var EventSubscriberRels = struct {
 	SubscriberEventSubscriberCheckpoints string
+	SubscriberEventSubscriberFailures    string
 	SubscriberEventSubscriberPendings    string
 	EntityTypeDomainEntityTypes          string
 }{
 	SubscriberEventSubscriberCheckpoints: "SubscriberEventSubscriberCheckpoints",
+	SubscriberEventSubscriberFailures:    "SubscriberEventSubscriberFailures",
 	SubscriberEventSubscriberPendings:    "SubscriberEventSubscriberPendings",
 	EntityTypeDomainEntityTypes:          "EntityTypeDomainEntityTypes",
 }
@@ -79,6 +81,7 @@ var EventSubscriberRels = struct {
 // eventSubscriberR is where relationships are stored.
 type eventSubscriberR struct {
 	SubscriberEventSubscriberCheckpoints EventSubscriberCheckpointSlice `boil:"SubscriberEventSubscriberCheckpoints" json:"SubscriberEventSubscriberCheckpoints" toml:"SubscriberEventSubscriberCheckpoints" yaml:"SubscriberEventSubscriberCheckpoints"`
+	SubscriberEventSubscriberFailures    EventSubscriberFailureSlice    `boil:"SubscriberEventSubscriberFailures" json:"SubscriberEventSubscriberFailures" toml:"SubscriberEventSubscriberFailures" yaml:"SubscriberEventSubscriberFailures"`
 	SubscriberEventSubscriberPendings    EventSubscriberPendingSlice    `boil:"SubscriberEventSubscriberPendings" json:"SubscriberEventSubscriberPendings" toml:"SubscriberEventSubscriberPendings" yaml:"SubscriberEventSubscriberPendings"`
 	EntityTypeDomainEntityTypes          DomainEntityTypeSlice          `boil:"EntityTypeDomainEntityTypes" json:"EntityTypeDomainEntityTypes" toml:"EntityTypeDomainEntityTypes" yaml:"EntityTypeDomainEntityTypes"`
 }
@@ -102,6 +105,22 @@ func (r *eventSubscriberR) GetSubscriberEventSubscriberCheckpoints() EventSubscr
 	}
 
 	return r.SubscriberEventSubscriberCheckpoints
+}
+
+func (o *EventSubscriber) GetSubscriberEventSubscriberFailures() EventSubscriberFailureSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetSubscriberEventSubscriberFailures()
+}
+
+func (r *eventSubscriberR) GetSubscriberEventSubscriberFailures() EventSubscriberFailureSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.SubscriberEventSubscriberFailures
 }
 
 func (o *EventSubscriber) GetSubscriberEventSubscriberPendings() EventSubscriberPendingSlice {
@@ -466,6 +485,20 @@ func (o *EventSubscriber) SubscriberEventSubscriberCheckpoints(mods ...qm.QueryM
 	return EventSubscriberCheckpoints(queryMods...)
 }
 
+// SubscriberEventSubscriberFailures retrieves all the event_subscriber_failure's EventSubscriberFailures with an executor via subscriber_id column.
+func (o *EventSubscriber) SubscriberEventSubscriberFailures(mods ...qm.QueryMod) eventSubscriberFailureQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"event_subscriber_failures\".\"subscriber_id\"=?", o.ID),
+	)
+
+	return EventSubscriberFailures(queryMods...)
+}
+
 // SubscriberEventSubscriberPendings retrieves all the event_subscriber_pending's EventSubscriberPendings with an executor via subscriber_id column.
 func (o *EventSubscriber) SubscriberEventSubscriberPendings(mods ...qm.QueryMod) eventSubscriberPendingQuery {
 	var queryMods []qm.QueryMod
@@ -598,6 +631,119 @@ func (eventSubscriberL) LoadSubscriberEventSubscriberCheckpoints(ctx context.Con
 				local.R.SubscriberEventSubscriberCheckpoints = append(local.R.SubscriberEventSubscriberCheckpoints, foreign)
 				if foreign.R == nil {
 					foreign.R = &eventSubscriberCheckpointR{}
+				}
+				foreign.R.Subscriber = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadSubscriberEventSubscriberFailures allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (eventSubscriberL) LoadSubscriberEventSubscriberFailures(ctx context.Context, e boil.ContextExecutor, singular bool, maybeEventSubscriber any, mods queries.Applicator) error {
+	var slice []*EventSubscriber
+	var object *EventSubscriber
+
+	if singular {
+		var ok bool
+		object, ok = maybeEventSubscriber.(*EventSubscriber)
+		if !ok {
+			object = new(EventSubscriber)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeEventSubscriber)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeEventSubscriber))
+			}
+		}
+	} else {
+		s, ok := maybeEventSubscriber.(*[]*EventSubscriber)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeEventSubscriber)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeEventSubscriber))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &eventSubscriberR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &eventSubscriberR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`event_subscriber_failures`),
+		qm.WhereIn(`event_subscriber_failures.subscriber_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load event_subscriber_failures")
+	}
+
+	var resultSlice []*EventSubscriberFailure
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice event_subscriber_failures")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on event_subscriber_failures")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for event_subscriber_failures")
+	}
+
+	if len(eventSubscriberFailureAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.SubscriberEventSubscriberFailures = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &eventSubscriberFailureR{}
+			}
+			foreign.R.Subscriber = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.SubscriberID {
+				local.R.SubscriberEventSubscriberFailures = append(local.R.SubscriberEventSubscriberFailures, foreign)
+				if foreign.R == nil {
+					foreign.R = &eventSubscriberFailureR{}
 				}
 				foreign.R.Subscriber = local
 				break
@@ -895,6 +1041,59 @@ func (o *EventSubscriber) AddSubscriberEventSubscriberCheckpoints(ctx context.Co
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &eventSubscriberCheckpointR{
+				Subscriber: o,
+			}
+		} else {
+			rel.R.Subscriber = o
+		}
+	}
+	return nil
+}
+
+// AddSubscriberEventSubscriberFailures adds the given related objects to the existing relationships
+// of the event_subscriber, optionally inserting them as new records.
+// Appends related to o.R.SubscriberEventSubscriberFailures.
+// Sets related.R.Subscriber appropriately.
+func (o *EventSubscriber) AddSubscriberEventSubscriberFailures(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriberFailure) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.SubscriberID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"event_subscriber_failures\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"subscriber_id"}),
+				strmangle.WhereClause("\"", "\"", 2, eventSubscriberFailurePrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.SubscriberID, rel.EntityTypeID, rel.EntityID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.SubscriberID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &eventSubscriberR{
+			SubscriberEventSubscriberFailures: related,
+		}
+	} else {
+		o.R.SubscriberEventSubscriberFailures = append(o.R.SubscriberEventSubscriberFailures, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &eventSubscriberFailureR{
 				Subscriber: o,
 			}
 		} else {

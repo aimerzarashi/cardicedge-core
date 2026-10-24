@@ -42,7 +42,7 @@ func (a *App) start(ctx context.Context) error {
 		return err
 	}
 	a.cleanup = append(a.cleanup, dropStudio)
-	gameDB, _, dropGame, err := rdbtest.CloneDatabase(ctx)
+	gameDB, gameDSN, dropGame, err := rdbtest.CloneDatabase(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,11 +63,12 @@ func (a *App) start(ctx context.Context) error {
 	}
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: idptest.Issuer}
 	gameConfig := game.Config{Verifier: gameVerifier, Issuer: idptest.GameIssuer}
-	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second}
+	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second, RetryInterval: time.Minute, MaxFailures: 10}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,
 		StudioDSN:            studioDSN,
 		GameDB:               gameDB,
+		GameDSN:              gameDSN,
 		Version:              "test",
 		Studio:               studioConfig,
 		Game:                 gameConfig,

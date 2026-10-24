@@ -31,6 +31,7 @@ type Config struct {
 	// Listener が自分で接続するため、DB とは別に渡す
 	StudioDSN            string
 	GameDB               *sql.DB
+	GameDSN              string
 	Version              string
 	Studio               studio.Config
 	Game                 game.Config
@@ -40,7 +41,7 @@ type Config struct {
 
 type App struct {
 	Handler http.Handler
-	hub     *eventdriven.Hub
+	hubs    []*eventdriven.Hub
 }
 
 // HTTP の入口を返す前に LISTEN を張る（コマンドが commit したイベントの知らせを受け取るため）。
@@ -52,7 +53,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("studio: %w", err)
 	}
-	// game の投影は後で足す。今は、種別を合わせ、購読者の行が無いことを確かめるだけ（入口は下で Mount する）
+	// game の購読者（ポリシー）は後で足す。今は購読者が無いまま、種別を合わせ、Hub を動かす（入口は下で Mount する）
 	gamePrepared, err := rdb.Transact(rdb.WithDB(ctx, config.GameDB), func(ctx context.Context) (prepared, error) {
 		return prepareGame(ctx, config)
 	})
@@ -68,10 +69,15 @@ func Start(ctx context.Context, config Config) (*App, error) {
 		return nil, fmt.Errorf("failed to start event-driven hub: %w", err)
 	}
 
+	if err := gamePrepared.hub.Start(rdb.WithDB(context.WithoutCancel(ctx), config.GameDB), eventdriven.NewListener(config.GameDSN)); err != nil {
+		studioPrepared.hub.Stop()
+		return nil, fmt.Errorf("failed to start game event-driven hub: %w", err)
+	}
+
 	mux := NewRouter(config.Version)
 	studioPrepared.studio.Mount(mux, config.StudioDB)
 	gamePrepared.game.Mount(mux, config.GameDB)
-	return &App{Handler: mux, hub: studioPrepared.hub}, nil
+	return &App{Handler: mux, hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
 }
 
 type prepared struct {
@@ -155,5 +161,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 
 // HTTP を止めた後に呼ぶ
 func (a *App) Stop() {
-	a.hub.Stop()
+	for _, hub := range a.hubs {
+		hub.Stop()
+	}
 }

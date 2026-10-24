@@ -29,6 +29,9 @@ const (
 	projectionWorkerCount = 4
 	// 起動時と再接続時は間隔によらずすぐ読むため、間隔で拾うのは失敗した集約の試し直しと、手で入れたやることの行（参照の api と同じ値）
 	pollInterval = 30 * time.Second
+	// 待てば直る失敗（マスタの未読み込み等）を 10 分ほど待てる値
+	policyRetryInterval = time.Minute
+	policyMaxFailures   = 10
 )
 
 var (
@@ -99,11 +102,12 @@ func run(ctx context.Context) error {
 
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: cfg.Studio.Issuer}
 	gameConfig := game.Config{Verifier: gameVerifier, Issuer: cfg.Game.Issuer}
-	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
+	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval, RetryInterval: policyRetryInterval, MaxFailures: policyMaxFailures}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,
 		StudioDSN:            cfg.StudioDBDSN,
 		GameDB:               gameDB,
+		GameDSN:              cfg.GameDBDSN,
 		Version:              version,
 		Studio:               studioConfig,
 		Game:                 gameConfig,

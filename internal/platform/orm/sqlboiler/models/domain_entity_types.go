@@ -23,7 +23,7 @@ import (
 
 // DomainEntityType is an object representing the database table.
 type DomainEntityType struct {
-	// 手動採番。1〜999 はテスト・参照用、1000 以降は実在の集約
+	// コードの一覧（domaindef.Types）で決める。集約は 1000 から 100 刻み
 	ID int16 `boil:"id" json:"id" toml:"id" yaml:"id"`
 	// ドメイン層のパッケージ名と一致させる（例: operator）
 	Name string `boil:"name" json:"name" toml:"name" yaml:"name"`
@@ -64,6 +64,7 @@ var DomainEntityTypeRels = struct {
 	EntityTypeDomainEventTypes           string
 	EntityTypeDomainEvents               string
 	EntityTypeEventSubscriberCheckpoints string
+	EntityTypeEventSubscriberFailures    string
 	EntityTypeEventSubscriberPendings    string
 	SubscriberEventSubscribers           string
 }{
@@ -71,6 +72,7 @@ var DomainEntityTypeRels = struct {
 	EntityTypeDomainEventTypes:           "EntityTypeDomainEventTypes",
 	EntityTypeDomainEvents:               "EntityTypeDomainEvents",
 	EntityTypeEventSubscriberCheckpoints: "EntityTypeEventSubscriberCheckpoints",
+	EntityTypeEventSubscriberFailures:    "EntityTypeEventSubscriberFailures",
 	EntityTypeEventSubscriberPendings:    "EntityTypeEventSubscriberPendings",
 	SubscriberEventSubscribers:           "SubscriberEventSubscribers",
 }
@@ -81,6 +83,7 @@ type domainEntityTypeR struct {
 	EntityTypeDomainEventTypes           DomainEventTypeSlice           `boil:"EntityTypeDomainEventTypes" json:"EntityTypeDomainEventTypes" toml:"EntityTypeDomainEventTypes" yaml:"EntityTypeDomainEventTypes"`
 	EntityTypeDomainEvents               DomainEventSlice               `boil:"EntityTypeDomainEvents" json:"EntityTypeDomainEvents" toml:"EntityTypeDomainEvents" yaml:"EntityTypeDomainEvents"`
 	EntityTypeEventSubscriberCheckpoints EventSubscriberCheckpointSlice `boil:"EntityTypeEventSubscriberCheckpoints" json:"EntityTypeEventSubscriberCheckpoints" toml:"EntityTypeEventSubscriberCheckpoints" yaml:"EntityTypeEventSubscriberCheckpoints"`
+	EntityTypeEventSubscriberFailures    EventSubscriberFailureSlice    `boil:"EntityTypeEventSubscriberFailures" json:"EntityTypeEventSubscriberFailures" toml:"EntityTypeEventSubscriberFailures" yaml:"EntityTypeEventSubscriberFailures"`
 	EntityTypeEventSubscriberPendings    EventSubscriberPendingSlice    `boil:"EntityTypeEventSubscriberPendings" json:"EntityTypeEventSubscriberPendings" toml:"EntityTypeEventSubscriberPendings" yaml:"EntityTypeEventSubscriberPendings"`
 	SubscriberEventSubscribers           EventSubscriberSlice           `boil:"SubscriberEventSubscribers" json:"SubscriberEventSubscribers" toml:"SubscriberEventSubscribers" yaml:"SubscriberEventSubscribers"`
 }
@@ -152,6 +155,22 @@ func (r *domainEntityTypeR) GetEntityTypeEventSubscriberCheckpoints() EventSubsc
 	}
 
 	return r.EntityTypeEventSubscriberCheckpoints
+}
+
+func (o *DomainEntityType) GetEntityTypeEventSubscriberFailures() EventSubscriberFailureSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetEntityTypeEventSubscriberFailures()
+}
+
+func (r *domainEntityTypeR) GetEntityTypeEventSubscriberFailures() EventSubscriberFailureSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.EntityTypeEventSubscriberFailures
 }
 
 func (o *DomainEntityType) GetEntityTypeEventSubscriberPendings() EventSubscriberPendingSlice {
@@ -556,6 +575,20 @@ func (o *DomainEntityType) EntityTypeEventSubscriberCheckpoints(mods ...qm.Query
 	)
 
 	return EventSubscriberCheckpoints(queryMods...)
+}
+
+// EntityTypeEventSubscriberFailures retrieves all the event_subscriber_failure's EventSubscriberFailures with an executor via entity_type_id column.
+func (o *DomainEntityType) EntityTypeEventSubscriberFailures(mods ...qm.QueryMod) eventSubscriberFailureQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"event_subscriber_failures\".\"entity_type_id\"=?", o.ID),
+	)
+
+	return EventSubscriberFailures(queryMods...)
 }
 
 // EntityTypeEventSubscriberPendings retrieves all the event_subscriber_pending's EventSubscriberPendings with an executor via entity_type_id column.
@@ -1039,6 +1072,119 @@ func (domainEntityTypeL) LoadEntityTypeEventSubscriberCheckpoints(ctx context.Co
 	return nil
 }
 
+// LoadEntityTypeEventSubscriberFailures allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityTypeL) LoadEntityTypeEventSubscriberFailures(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
+	var slice []*DomainEntityType
+	var object *DomainEntityType
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntityType.(*DomainEntityType)
+		if !ok {
+			object = new(DomainEntityType)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntityType))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntityType.(*[]*DomainEntityType)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntityType)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntityType))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityTypeR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityTypeR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`event_subscriber_failures`),
+		qm.WhereIn(`event_subscriber_failures.entity_type_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load event_subscriber_failures")
+	}
+
+	var resultSlice []*EventSubscriberFailure
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice event_subscriber_failures")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on event_subscriber_failures")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for event_subscriber_failures")
+	}
+
+	if len(eventSubscriberFailureAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.EntityTypeEventSubscriberFailures = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &eventSubscriberFailureR{}
+			}
+			foreign.R.EntityType = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.EntityTypeID {
+				local.R.EntityTypeEventSubscriberFailures = append(local.R.EntityTypeEventSubscriberFailures, foreign)
+				if foreign.R == nil {
+					foreign.R = &eventSubscriberFailureR{}
+				}
+				foreign.R.EntityType = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadEntityTypeEventSubscriberPendings allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (domainEntityTypeL) LoadEntityTypeEventSubscriberPendings(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntityType any, mods queries.Applicator) error {
@@ -1485,6 +1631,59 @@ func (o *DomainEntityType) AddEntityTypeEventSubscriberCheckpoints(ctx context.C
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &eventSubscriberCheckpointR{
+				EntityType: o,
+			}
+		} else {
+			rel.R.EntityType = o
+		}
+	}
+	return nil
+}
+
+// AddEntityTypeEventSubscriberFailures adds the given related objects to the existing relationships
+// of the domain_entity_type, optionally inserting them as new records.
+// Appends related to o.R.EntityTypeEventSubscriberFailures.
+// Sets related.R.EntityType appropriately.
+func (o *DomainEntityType) AddEntityTypeEventSubscriberFailures(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*EventSubscriberFailure) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.EntityTypeID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"event_subscriber_failures\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"entity_type_id"}),
+				strmangle.WhereClause("\"", "\"", 2, eventSubscriberFailurePrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.SubscriberID, rel.EntityTypeID, rel.EntityID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.EntityTypeID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainEntityTypeR{
+			EntityTypeEventSubscriberFailures: related,
+		}
+	} else {
+		o.R.EntityTypeEventSubscriberFailures = append(o.R.EntityTypeEventSubscriberFailures, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &eventSubscriberFailureR{
 				EntityType: o,
 			}
 		} else {
