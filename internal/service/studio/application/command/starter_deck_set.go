@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -26,6 +27,7 @@ type StarterDeckSetHandler struct {
 	// 写す元のプリセットデッキを、公開 ID から引いて Load する
 	presetDecks          domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State]
 	presetDeckIdentifier domain.Identifier[presetdeck.ID]
+	getRules             GetGameRulesFunc
 	now                  func() time.Time
 }
 
@@ -37,6 +39,7 @@ func NewStarterDeckSetHandler(
 	updateCardReferences starterdeckset.UpdateCardReferencesFunc,
 	presetDecks domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State],
 	presetDeckIdentifier domain.Identifier[presetdeck.ID],
+	getRules GetGameRulesFunc,
 	now func() time.Time,
 ) *StarterDeckSetHandler {
 	return &StarterDeckSetHandler{
@@ -47,6 +50,7 @@ func NewStarterDeckSetHandler(
 		updateCardReferences: updateCardReferences,
 		presetDecks:          presetDecks,
 		presetDeckIdentifier: presetDeckIdentifier,
+		getRules:             getRules,
 		now:                  now,
 	}
 }
@@ -59,7 +63,7 @@ type ChangedStarterDeckSet struct {
 // 選んだプリセットデッキの中身を写して、今のスターターデッキと丸ごと入れ替える（初めての設定・選び直し・写し直しのどれも）。
 // revision は画面で見たスターターデッキセットの版（未設定なら 0）。入力の誤りは、数が RequiredDeckCount でない・
 // 同じプリセットデッキが 2 回出てきた（2 回目に付ける）・プリセットデッキが無い（削除したものを含む）・合計がちょうど
-// presetdeck.MaxTotalCount でない。画面を開いた後にほかの操作で変わっていれば（初めての設定がほかの人と重なったときも）
+// ルールの合計の枚数（gamerules.Deck.TotalCardCount）でない。画面を開いた後にほかの操作で変わっていれば（初めての設定がほかの人と重なったときも）
 // ErrRevisionConflict
 func (c *StarterDeckSetHandler) Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (ChangedStarterDeckSet, error) {
 	setBy, ok := authentication.Operator(ctx)
@@ -68,7 +72,11 @@ func (c *StarterDeckSetHandler) Set(ctx context.Context, revision int64, presetD
 	}
 	// 写す元を引いて写すのは DB を読むだけなので、入力の誤りをまとめて返せるよう、トランザクションの前に確かめる。
 	// 写した後に元が変えられても、写しは「変わる前の revision から写した」と記録されるため、ロックは要らない
-	decks, err := c.copyPresetDecks(ctx, presetDeckIDs)
+	rules, err := c.getRules(ctx)
+	if err != nil {
+		return ChangedStarterDeckSet{}, err
+	}
+	decks, err := c.copyPresetDecks(ctx, rules.Deck, presetDeckIDs)
 	if err != nil {
 		return ChangedStarterDeckSet{}, err
 	}
@@ -139,7 +147,7 @@ func version(state starterdeckset.State) int64 {
 }
 
 // 誤りは最初の 1 つで止めず、まとめて input.Errors で返す。項目名は presetDeckIds.<番号> のように一覧の位置を含める
-func (c *StarterDeckSetHandler) copyPresetDecks(ctx context.Context, presetDeckIDs []uuid.UUID) ([]starterdeckset.Deck, error) {
+func (c *StarterDeckSetHandler) copyPresetDecks(ctx context.Context, rules gamerules.Deck, presetDeckIDs []uuid.UUID) ([]starterdeckset.Deck, error) {
 	if len(presetDeckIDs) != starterdeckset.RequiredDeckCount {
 		return nil, input.Errors{&input.OutOfRange{Field: "presetDeckIds", Min: starterdeckset.RequiredDeckCount, Max: starterdeckset.RequiredDeckCount}}
 	}
@@ -161,9 +169,9 @@ func (c *StarterDeckSetHandler) copyPresetDecks(ctx context.Context, presetDeckI
 		if err != nil {
 			return nil, err
 		}
-		copied, err := starterdeckset.NewDeck(deck)
+		copied, err := starterdeckset.NewDeck(deck, rules)
 		if errors.Is(err, starterdeckset.ErrDeckNotSelectable) {
-			invalid = append(invalid, &input.TotalMismatch{Field: field, Required: presetdeck.MaxTotalCount})
+			invalid = append(invalid, &input.TotalMismatch{Field: field, Required: rules.TotalCardCount})
 			continue
 		}
 		if err != nil {

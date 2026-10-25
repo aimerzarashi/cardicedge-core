@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -24,6 +25,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
@@ -84,6 +86,7 @@ func run(ctx context.Context, env string) error {
 
 // studio.New は部品を外に出さないため、tests/testhelper と同じく、ここで組み立てる
 type seeder struct {
+	gameRules       *command.GameRulesHandler
 	creatures       *command.CreatureHandler
 	items           *command.ItemHandler
 	spells          *command.SpellHandler
@@ -110,7 +113,15 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	spells := command.NewSpellHandler(spellStore, identifier.New(registry, spell.NewID), constraint.UpdateSpellName, now)
 	presetDeckStore := eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve)
 	presetDeckIdentifier := identifier.New(registry, presetdeck.NewID)
+	gameRules := command.NewGameRulesHandler(
+		eventstore.New(registry, gamerules.NewID, gamerules.NewEventType, gamerules.InitialState, gamerules.Evolve),
+		identifier.New(registry, gamerules.NewID),
+		constraint.FindGameRules,
+		constraint.CreateGameRules,
+		now,
+	)
 	return &seeder{
+		gameRules:    gameRules,
 		creatures:    creatures,
 		items:        items,
 		spells:       spells,
@@ -122,6 +133,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			constraint.UpdatePresetDeckName,
 			constraint.UpdatePresetDeckCardReferences,
 			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
+			gameRules.Get,
 			now,
 		),
 		starterDeckSets: command.NewStarterDeckSetHandler(
@@ -132,6 +144,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			constraint.UpdateStarterDeckSetCardReferences,
 			presetDeckStore,
 			presetDeckIdentifier,
+			gameRules.Get,
 			now,
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
@@ -141,6 +154,9 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 }
 
 func (s *seeder) seed(ctx context.Context, m master) error {
+	if err := s.seedGameRules(ctx); err != nil {
+		return err
+	}
 	set, err := s.starterDeckSet.Get(ctx)
 	if err != nil {
 		return err
@@ -370,4 +386,19 @@ func waitFor(ctx context.Context, what string, done func() (bool, error)) error 
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
+}
+
+// core は起動時にゲーム全体のルールを作るので、ふだんは何もしない。core を起動する前に流しても、プリセットデッキの確かめ
+// （ルールを読む）が動くよう、起動時と同じ関数で作る。続けて make publish-master を流せるよう、read model を待つ
+func (s *seeder) seedGameRules(ctx context.Context) error {
+	if _, err := s.gameRules.CreateInitial(ctx); err != nil {
+		return fmt.Errorf("create game rules: %w", err)
+	}
+	return waitFor(ctx, "game_rules", func() (bool, error) {
+		exec, err := rdb.GetExecutor(ctx)
+		if err != nil {
+			return false, err
+		}
+		return models.GameRules().Exists(ctx, exec)
+	})
 }

@@ -20,7 +20,7 @@ make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
 make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキセット）を studio のコマンドで登録（設定済みなら何もしない）
-make publish-master # studio の cards（公開中・使用不可だけ）・starter_deck_sets を core_game に写す（game が配るマスタを読めるようにする）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_deck_sets・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -36,7 +36,7 @@ make down    # 停止して DB のデータも破棄
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
-開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_deck_sets）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_deck_sets・game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
@@ -86,7 +86,7 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
-- **数の上限の制約**: 一意性・参照と並ぶ 3 つ目の制約の表 domain_quotas（上限の種別 × 持ち主ごとに使っている数）と domain_quota_types（core#39）。デッキは 1 人 10 個まで（種別 `deck.per_player`）。確保は作るコマンドと同じトランザクションの 1 つの文（`INSERT ... ON CONFLICT DO UPDATE SET used = used + 1 WHERE used < 上限 RETURNING`）で、上限なら行が返らず `ErrLimitReached` とする（エラーにせず、トランザクションも中断しない）。同時に取り合っても DB が同じ行を順番に更新するので上限を超えず、流し直しは要らない。上限の値は表にも CHECK にも持たず文に渡す（下限の 0 以上だけ CHECK）。使っている数はイベントから作り直せない、書く側の整合性のための記録。上限の値は game の `application/rules` が返す（今は既定の値。調整は core#23）。デッキの名前は持ち主ごとに一意（`deck.name`）で、比べ方は `domain.NormalizeName`（カード名・プリセットデッキと同じ）。中身は確認用の VIEW `domain_quota_view` で読める
+- **数の上限の制約**: 一意性・参照と並ぶ 3 つ目の制約の表 domain_quotas（上限の種別 × 持ち主ごとに使っている数）と domain_quota_types（core#39）。デッキは 1 人にゲーム全体のルール（`game_rules`）の `player.max_decks`（既定は 10 個）まで（種別 `deck.per_player`）。確保は作るコマンドと同じトランザクションの 1 つの文（`INSERT ... ON CONFLICT DO UPDATE SET used = used + 1 WHERE used < 上限 RETURNING`）で、上限なら行が返らず `ErrLimitReached` とする（エラーにせず、トランザクションも中断しない）。同時に取り合っても DB が同じ行を順番に更新するので上限を超えず、流し直しは要らない。上限の値は表にも CHECK にも持たず文に渡す（下限の 0 以上だけ CHECK）。使っている数はイベントから作り直せない、書く側の整合性のための記録。上限の値は game の `application/rules` が、写した `game_rules` から読んで返す（まだ写されていなければ、既定の値には戻さずエラー。調整は core#23）。デッキの名前は持ち主ごとに一意（`deck.name`）で、比べ方は `domain.NormalizeName`（カード名・プリセットデッキと同じ）。中身は確認用の VIEW `domain_quota_view` で読める
 
 ## game 用の GraphQL（/game/graphql）
 
@@ -98,6 +98,7 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
 - **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
+- **ゲーム全体のルール**: デッキの合計の枚数・同じカードの枚数・持てる数の上限など、運営が決める全体の値は、1 つの集約 `game_rules`（studio のサービス。一意な key `game_rules.singleton` でゲーム全体に 1 つ）が持つ（core#43）。値は値オブジェクト `gamerules.Rules`（internal/domain/gamerules。何の決まりかで `player`・`deck`（デッキに共通）・`starter_deck` に分け、JSON はスネークケース）で、studio と game が同じ型を使う。studio が起動時に既定の値で作る（あれば何もしない。複数台で先を越されても成功）。値の変更の操作はまだ無い（core#23）。studio は集約をイベントストアで読んで確かめる（投影の遅れで古い値を見ないため）。game は read model `game_rules` を `make publish-master` で写したものを読み、写されていなければ既定の値に黙って戻さずエラー（配布のポリシーでは、写されれば直る失敗）。カード名・デッキ名の長さは値の形の決まりとして `game_rules` に入れない
 - **スターターの配布**: プレイヤーを登録すると、それをきっかけにポリシー（`starter_grant`）が、公開済みのマスタ（`make publish-master`）から所持カードとデッキ 2 つを配る。マスタが未公開のあいだは、間隔を空けてやり直し、公開されたら配られる。所持カードはカードごとに 2 つのデッキのうち多いほうの枚数。配布の状態は `me` の `Player.starterGrant`（`IN_PROGRESS`・`COMPLETED`）で返す
 - **プレイヤーの特定**: JWT が正しければ、プレイヤーに登録されていなくても拒否しない（初めての `registerPlayer` が登録するため）。誰のプレイヤーかは入力ではなく JWT の (iss, sub) だけで決める
 

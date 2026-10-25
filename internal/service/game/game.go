@@ -74,7 +74,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 				constraint.UpdateDeckStarter,
 				constraint.UpdateDeckName,
 				constraint.ReserveDeckQuota,
-				rules.Defaults(map[domain.QuotaType]domain.QuotaLimit{deck.PlayerQuotaType: deck.DefaultQuotaLimit}),
+				rules.FromPublished(repository.NewGameRulesReader().Get),
 				now,
 			),
 			now,

@@ -1,0 +1,8 @@
+{
+  "public_id": "00000000-0000-0000-0000-0000000000a1",
+  "rules": {
+    "player": {"max_decks": 10, "max_avatars": 5},
+    "deck": {"total_card_count": 40, "max_card_duplicates": 4},
+    "starter_deck": {"max_published": 2}
+  }
+}

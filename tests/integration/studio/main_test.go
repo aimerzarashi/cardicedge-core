@@ -3,6 +3,7 @@ package studio_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"testing"
@@ -16,6 +17,8 @@ var (
 	client    testhelper.GraphQLClient
 	key       idptest.Key
 	operators *testhelper.Operators
+	// 共有のアプリの studio の DB（起動時にできるゲーム全体のルールを確かめる）
+	studioDB *sql.DB
 )
 
 func TestMain(m *testing.M) {
@@ -39,6 +42,7 @@ func run(m *testing.M) int {
 	}
 	defer app.Close()
 	key = app.Key
+	studioDB = app.StudioDB
 	operators, err = testhelper.NewOperators(ctx, app.StudioDB, key)
 	if err != nil {
 		return fail(err)

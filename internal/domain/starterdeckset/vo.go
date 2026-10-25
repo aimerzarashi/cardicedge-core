@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -55,18 +56,19 @@ type DeckCard struct {
 	count presetdeck.CardCount
 }
 
-// 選べるのは、合計がちょうど presetdeck.MaxTotalCount のプリセットデッキだけ。ほかの集約の状態なので Decide では見ず、
-// application 層がプリセットデッキを Load して写すときに確かめる（カードの存在の確かめと同じ分け方）
-func CheckSelectable(deck presetdeck.PresetDeck) error {
-	if deck.TotalCount() != presetdeck.MaxTotalCount {
+// 選べるのは、合計がちょうど rules.TotalCardCount のプリセットデッキだけ。ほかの集約の状態なので Decide では見ず、
+// application 層がプリセットデッキを Load して写すときに確かめる（カードの存在の確かめと同じ分け方）。
+// ルールは、ドメインが既定の値を読まず、呼ぶ側が game_rules を読んで渡す
+func CheckSelectable(deck presetdeck.PresetDeck, rules gamerules.Deck) error {
+	if deck.TotalCount() != rules.TotalCardCount {
 		return ErrDeckNotSelectable
 	}
 	return nil
 }
 
 // 選べなければ ErrDeckNotSelectable
-func NewDeck(deck presetdeck.PresetDeck) (Deck, error) {
-	if err := CheckSelectable(deck); err != nil {
+func NewDeck(deck presetdeck.PresetDeck, rules gamerules.Deck) (Deck, error) {
+	if err := CheckSelectable(deck, rules); err != nil {
 		return Deck{}, err
 	}
 	cards := make([]DeckCard, 0, len(deck.Cards))

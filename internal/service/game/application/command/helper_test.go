@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -100,11 +101,22 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 
 func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 	t.Helper()
-	return newDeckHandlerWithLimit(t, ctx, deck.DefaultQuotaLimit)
+	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks)
+	require.NoError(t, err)
+	return newDeckHandlerWithLimit(t, ctx, limit)
 }
 
 // 上限を小さくして確かめるため、全体のルールの上限の値を渡せる
 func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.QuotaLimit) *command.DeckHandler {
+	t.Helper()
+	return newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
+		values := gamerules.Defaults()
+		values.Player.MaxDecks = limit.Int()
+		return values, true, nil
+	})
+}
+
+func newDeckHandlerWithRules(t *testing.T, ctx context.Context, getRules rules.GetRulesFunc) *command.DeckHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -114,7 +126,7 @@ func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.Quo
 		constraint.UpdateDeckStarter,
 		constraint.UpdateDeckName,
 		constraint.ReserveDeckQuota,
-		rules.Defaults(map[domain.QuotaType]domain.QuotaLimit{deck.PlayerQuotaType: limit}),
+		rules.FromPublished(getRules),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

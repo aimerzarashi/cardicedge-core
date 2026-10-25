@@ -136,6 +136,37 @@ func TestRegisterPlayer_GrantsStarterAfterMasterIsPublished(t *testing.T) {
 	requireDistributed(t, app.GameDB, published, owner)
 }
 
+// game_rules が写されていないと、マスタがあっても配布は終わらない（ドメインの既定の値で黙って動かない）。
+// 独立したアプリ（自分だけの DB）で、写す前は終わらず、写した後に終わることを確かめる
+func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
+	t.Parallel()
+	app, err := testhelper.StartApp(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(app.Close)
+	isolated := testhelper.GraphQLClient{URL: app.URL + "/game/graphql"}
+	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
+	claims.Issuer = idptest.GameIssuer
+	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
+	owner := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
+	ctx := rdb.WithDB(t.Context(), app.GameDB)
+	published, err := testhelper.PublishMasterWithoutGameRules(ctx, app.GameDB)
+	require.NoError(t, err)
+	// 配布は始まるが、デッキを作る段で上限を読めず、失敗の記録が残る（やり直しの間隔ごとに繰り返す）
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		var failures int
+		assert.NoError(c, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM event_subscriber_failures`).Scan(&failures))
+		assert.Positive(c, failures)
+	})
+	var decks int
+	require.NoError(t, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM domain_events WHERE entity_type_id = 1900`).Scan(&decks))
+	require.Zero(t, decks)
+
+	require.NoError(t, testhelper.PublishGameRules(ctx, app.GameDB))
+
+	waitStarterGrantCompleted(t, app.GameDB, owner)
+	requireDistributed(t, app.GameDB, published, owner)
+}
+
 const registerPlayerStarterGrantMutation = `mutation {
 	registerPlayer {
 		... on RegisterPlayerSuccess { player { starterGrant } }
