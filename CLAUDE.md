@@ -104,6 +104,7 @@
 - GraphQL のスキーマを変えたら `make gen-api`（し忘れは `make lint`・CI の lint が検出する）。生成コード（generated.go・model）は手で直さない。操作を足すと `*.resolvers.go` に雛形（`panic("not implemented")`）ができ、消すとファイルの末尾に「!!! WARNING !!!」つきで古い実装が移されるので、片付ける
 - スキーマの型・フィールド・引数・入力の項目には、必ず GraphQL の説明（`"..."`）を付ける（playground・型の生成で使う人に意味を伝えるため）。設計の理由は `#` のコメントに書き、説明と分ける
 - 画面の文言は core で作らない。エラー型は `__typename` と値で理由を表し、`message` は開発者向けの短い英語の説明にする（言い回しは studio が作る）
+  - 上限に達したエラー（`<対象>LimitReachedError`）は、そのときの上限の値を `max` で返す（studio は上限の値を書き写さず、core が返した値で「N 個まで」の文言を作るため。入力の誤りの `FieldOutOfRange` の `max` と同じ考え。core#44）。application 層では `command.LimitReachedError`（理由の `Err...LimitReached` を包み、`errors.Is` で理由を、`errors.As` で値を取る）で返す
 - スキーマは common.graphqls（Query・Mutation・共通の型）と機能ごとのファイル（`extend type`）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union にする（未認証は union に含めず 401）。成功の型は、ミューテーションは `<操作>Success` で包む（返すのは操作の結果（revision・id 等）で、対象そのものとは限らないため。包めば、返す値を足し引きしても形が変わらない）。クエリは問い合わせたものを入れる（1 件なら対象の型（`PresetDeck`・`Player` 等）、一覧なら 1 ページの `XxxConnection`（Relay の決まり。core#12））。包む型は作らない（対象そのものを返すため、包むと 1 段深くなるだけ。core#35）
 - presentation 層は application 層の型だけを使い、ドメインの型（internal/domain）を import しない。application 層のコマンドは素の値を受け取り、application 層の結果の型とエラー（`input.Errors`・`Err...`）を返す。GraphQL の型（presentation/graphql/model）にも依存させない
 - 操作を足すときは、resolver の最初に `requireOperator` で認可し、違えば `ForbiddenError` を返す。application 層の `input.Errors`（internal/service/studio/application/input。コマンドと問い合わせで共有する）は `ValidationErrors`（理由ごとの `FieldError` の型）に、application 層のエラーはそれぞれのエラー型に変え、それ以外だけを GraphQL の errors にする。上限などの値は presentation 層に書き写さない
