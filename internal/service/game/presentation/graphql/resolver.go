@@ -20,11 +20,23 @@ type PlayerQueries interface {
 	StarterGrant(ctx context.Context, playerID uuid.UUID) (query.StarterGrantStatus, error)
 }
 
+// 実装は command.AvatarHandler
+type Avatars interface {
+	Register(ctx context.Context, name string) (command.RegisteredAvatar, error)
+}
+
+// 実装は query.AvatarHandler
+type AvatarQueries interface {
+	ListByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.Avatar, error)
+}
+
 type Resolver struct {
 	players     Players
 	playerQuery PlayerQueries
+	avatars     Avatars
+	avatarQuery AvatarQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery}
 }

@@ -9,3 +9,31 @@ type Mutation
 
 "公開用の ID（UUID の文字列）。core の内部の ID は返さない"
 scalar UUID
+
+# 入力の誤り。理由ごとに型を分け、その理由に要る値だけを必須で持つ（理由によって null になる項目を作らないため）。
+# 文言は返さない（言い回し・項目の呼び方は画面の都合なので、game が __typename と値から作る）
+"入力の項目ごとの誤り。理由は __typename で見分ける"
+interface FieldError {
+  "誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）"
+  field: String!
+}
+
+"入力が空（前後の空白だけの場合を含む）"
+type FieldRequired implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+}
+
+"入力が長すぎる"
+type FieldTooLong implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "上限の文字数"
+  max: Int!
+}
+
+"入力の誤り（操作は行われていない）"
+type ValidationErrors {
+  "項目ごとの誤り（1 件以上）"
+  errors: [FieldError!]!
+}

@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
@@ -152,7 +153,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, err
 	}
 	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
-	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types()}
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
@@ -163,13 +164,13 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
 		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes())...); err != nil {
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes())...); err != nil {
 		return nil, fmt.Errorf("reference types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyQuotaTypes(slices.Concat(deck.QuotaTypes(), starterdeck.QuotaTypes())...); err != nil {
+	if err := registry.VerifyQuotaTypes(slices.Concat(deck.QuotaTypes(), starterdeck.QuotaTypes(), avatar.QuotaTypes())...); err != nil {
 		return nil, fmt.Errorf("quota types do not match catalog: %w", err)
 	}
 	return registry, nil

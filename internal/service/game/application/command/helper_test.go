@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
@@ -153,4 +154,37 @@ func loadStarterGrant(t *testing.T, ctx context.Context, playerID int64) starter
 	state, err := eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve).Load(ctx, id)
 	require.NoError(t, err)
 	return state
+}
+
+// 上限を小さくして確かめるため、全体のルールの上限の値を渡せる
+func newAvatarHandlerWithMax(t *testing.T, ctx context.Context, maxAvatars int) *command.AvatarHandler {
+	t.Helper()
+	return newAvatarHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
+		values := gamerules.Defaults()
+		values.Player.MaxAvatars = maxAvatars
+		return values, true, nil
+	})
+}
+
+func newAvatarHandlerWithRules(t *testing.T, ctx context.Context, getRules rules.GetRulesFunc) *command.AvatarHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewAvatarHandler(
+		eventstore.New(registry, avatar.NewID, avatar.NewEventType, avatar.InitialState, avatar.Evolve),
+		identifier.New(registry, avatar.NewID),
+		constraint.UpdateAvatarName,
+		constraint.ReserveAvatarQuota,
+		rules.FromPublished(getRules),
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+// プレイヤーを登録し、登録済みのプレイヤーを載せた context（登録した後の認証ミドルウェアが作る context）を返す
+func registeredPlayer(t *testing.T, ctx context.Context, subject string) context.Context {
+	t.Helper()
+	players := newPlayerHandler(t, ctx)
+	_, err := players.Register(authenticate(t, ctx, players, subject))
+	require.NoError(t, err)
+	return authenticate(t, ctx, players, subject)
 }

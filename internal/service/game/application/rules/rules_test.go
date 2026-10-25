@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
@@ -27,6 +28,16 @@ func TestFromPublished_ReturnsMaxDecksForDeckQuota(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 7, got.Int())
+}
+
+func TestFromPublished_ReturnsMaxAvatarsForAvatarQuota(t *testing.T) {
+	values := gamerules.Defaults()
+	values.Player.MaxAvatars = 3
+
+	got, err := rules.FromPublished(published(values))(t.Context(), avatar.PlayerQuotaType)
+
+	require.NoError(t, err)
+	require.Equal(t, 3, got.Int())
 }
 
 func TestFromPublished_RejectsQuotaTypeWithoutRule(t *testing.T) {

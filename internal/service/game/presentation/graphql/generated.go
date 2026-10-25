@@ -39,11 +39,36 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	Avatar struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
+	AvatarLimitReachedError struct {
+		Max     func(childComplexity int) int
+		Message func(childComplexity int) int
+	}
+
+	AvatarNameAlreadyInUseError struct {
+		Message func(childComplexity int) int
+	}
+
+	FieldRequired struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldTooLong struct {
+		Field func(childComplexity int) int
+		Max   func(childComplexity int) int
+	}
+
 	Mutation struct {
+		RegisterAvatar func(childComplexity int, input model.RegisterAvatarInput) int
 		RegisterPlayer func(childComplexity int) int
 	}
 
 	Player struct {
+		Avatars      func(childComplexity int) int
 		ID           func(childComplexity int) int
 		StarterGrant func(childComplexity int) int
 	}
@@ -56,8 +81,16 @@ type ComplexityRoot struct {
 		Me func(childComplexity int) int
 	}
 
+	RegisterAvatarSuccess struct {
+		Avatar func(childComplexity int) int
+	}
+
 	RegisterPlayerSuccess struct {
 		Player func(childComplexity int) int
+	}
+
+	ValidationErrors struct {
+		Errors func(childComplexity int) int
 	}
 }
 
@@ -66,10 +99,12 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type MutationResolver interface {
+	RegisterAvatar(ctx context.Context, input model.RegisterAvatarInput) (model.RegisterAvatarResult, error)
 	RegisterPlayer(ctx context.Context) (model.RegisterPlayerResult, error)
 }
 type PlayerResolver interface {
 	StarterGrant(ctx context.Context, obj *model.Player) (model.StarterGrantStatus, error)
+	Avatars(ctx context.Context, obj *model.Player) ([]*model.Avatar, error)
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (model.MeResult, error)
@@ -93,6 +128,70 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "Avatar.id":
+		if e.ComplexityRoot.Avatar.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Avatar.ID(childComplexity), true
+	case "Avatar.name":
+		if e.ComplexityRoot.Avatar.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Avatar.Name(childComplexity), true
+
+	case "AvatarLimitReachedError.max":
+		if e.ComplexityRoot.AvatarLimitReachedError.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AvatarLimitReachedError.Max(childComplexity), true
+	case "AvatarLimitReachedError.message":
+		if e.ComplexityRoot.AvatarLimitReachedError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AvatarLimitReachedError.Message(childComplexity), true
+
+	case "AvatarNameAlreadyInUseError.message":
+		if e.ComplexityRoot.AvatarNameAlreadyInUseError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AvatarNameAlreadyInUseError.Message(childComplexity), true
+
+	case "FieldRequired.field":
+		if e.ComplexityRoot.FieldRequired.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldRequired.Field(childComplexity), true
+
+	case "FieldTooLong.field":
+		if e.ComplexityRoot.FieldTooLong.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooLong.Field(childComplexity), true
+	case "FieldTooLong.max":
+		if e.ComplexityRoot.FieldTooLong.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
+
+	case "Mutation.registerAvatar":
+		if e.ComplexityRoot.Mutation.RegisterAvatar == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerAvatar_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterAvatar(childComplexity, args["input"].(model.RegisterAvatarInput)), true
 	case "Mutation.registerPlayer":
 		if e.ComplexityRoot.Mutation.RegisterPlayer == nil {
 			break
@@ -100,6 +199,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.RegisterPlayer(childComplexity), true
 
+	case "Player.avatars":
+		if e.ComplexityRoot.Player.Avatars == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Player.Avatars(childComplexity), true
 	case "Player.id":
 		if e.ComplexityRoot.Player.ID == nil {
 			break
@@ -127,12 +232,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Me(childComplexity), true
 
+	case "RegisterAvatarSuccess.avatar":
+		if e.ComplexityRoot.RegisterAvatarSuccess.Avatar == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterAvatarSuccess.Avatar(childComplexity), true
+
 	case "RegisterPlayerSuccess.player":
 		if e.ComplexityRoot.RegisterPlayerSuccess.Player == nil {
 			break
 		}
 
 		return e.ComplexityRoot.RegisterPlayerSuccess.Player(childComplexity), true
+
+	case "ValidationErrors.errors":
+		if e.ComplexityRoot.ValidationErrors.Errors == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ValidationErrors.Errors(childComplexity), true
 
 	}
 	return 0, false
@@ -141,7 +260,9 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputRegisterAvatarInput,
+	)
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -215,7 +336,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "common.graphqls" "player.graphqls"
+//go:embed "avatar.graphqls" "common.graphqls" "player.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -227,6 +348,7 @@ func sourceData(filename string) string {
 }
 
 var sources = []*ast.Source{
+	{Name: "avatar.graphqls", Input: sourceData("avatar.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "player.graphqls", Input: sourceData("player.graphqls"), BuiltIn: false},
 }
@@ -236,12 +358,24 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
 
+func (ec *executionContext) childFields_Avatar(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Avatar_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Avatar_name(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Avatar", field.Name)
+}
+
 func (ec *executionContext) childFields_Player(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Player_id(ctx, field)
 	case "starterGrant":
 		return ec.fieldContext_Player_starterGrant(ctx, field)
+	case "avatars":
+		return ec.fieldContext_Player_avatars(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Player", field.Name)
 }
@@ -362,6 +496,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_registerAvatar_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RegisterAvatarInput, error) {
+			return ec.unmarshalNRegisterAvatarInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRegisterAvatarInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -436,6 +584,234 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
+func (ec *executionContext) _Avatar_id(ctx context.Context, field graphql.CollectedField, obj *model.Avatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Avatar_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Avatar_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Avatar", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _Avatar_name(ctx context.Context, field graphql.CollectedField, obj *model.Avatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Avatar_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Avatar_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Avatar", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AvatarLimitReachedError_message(ctx context.Context, field graphql.CollectedField, obj *model.AvatarLimitReachedError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AvatarLimitReachedError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AvatarLimitReachedError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AvatarLimitReachedError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AvatarLimitReachedError_max(ctx context.Context, field graphql.CollectedField, obj *model.AvatarLimitReachedError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AvatarLimitReachedError_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AvatarLimitReachedError_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AvatarLimitReachedError", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _AvatarNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.AvatarNameAlreadyInUseError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AvatarNameAlreadyInUseError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AvatarNameAlreadyInUseError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AvatarNameAlreadyInUseError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldRequired_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldRequired) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldRequired_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldRequired_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldRequired", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooLong_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooLong) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooLong_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooLong_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooLong) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooLong_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Mutation_registerAvatar(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerAvatar(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterAvatar(ctx, fc.Args["input"].(model.RegisterAvatarInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RegisterAvatarResult) graphql.Marshaler {
+			return ec.marshalNRegisterAvatarResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRegisterAvatarResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerAvatar(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RegisterAvatarResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerAvatar_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_registerPlayer(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -503,6 +879,38 @@ func (ec *executionContext) _Player_starterGrant(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_Player_starterGrant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Player", field, true, true, errors.New("field of type StarterGrantStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Player_avatars(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_avatars(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Player().Avatars(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.Avatar) graphql.Marshaler {
+			return ec.marshalNAvatar2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐAvatarᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_avatars(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Player",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Avatar(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _PlayerNotRegisteredError_message(ctx context.Context, field graphql.CollectedField, obj *model.PlayerNotRegisteredError) (ret graphql.Marshaler) {
@@ -627,6 +1035,38 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _RegisterAvatarSuccess_avatar(ctx context.Context, field graphql.CollectedField, obj *model.RegisterAvatarSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterAvatarSuccess_avatar(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Avatar, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Avatar) graphql.Marshaler {
+			return ec.marshalNAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐAvatar(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterAvatarSuccess_avatar(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RegisterAvatarSuccess",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Avatar(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RegisterPlayerSuccess_player(ctx context.Context, field graphql.CollectedField, obj *model.RegisterPlayerSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -654,6 +1094,38 @@ func (ec *executionContext) fieldContext_RegisterPlayerSuccess_player(_ context.
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Player(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ValidationErrors_errors(ctx context.Context, field graphql.CollectedField, obj *model.ValidationErrors) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ValidationErrors_errors(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Errors, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.FieldError) graphql.Marshaler {
+			return ec.marshalNFieldError2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldErrorᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ValidationErrors_errors(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ValidationErrors",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -1718,9 +2190,66 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputRegisterAvatarInput(ctx context.Context, obj any) (model.RegisterAvatarInput, error) {
+	var it model.RegisterAvatarInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
+
+func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSet, obj model.FieldError) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.FieldTooLong:
+		return ec._FieldTooLong(ctx, sel, &obj)
+	case *model.FieldTooLong:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTooLong(ctx, sel, obj)
+	case model.FieldRequired:
+		return ec._FieldRequired(ctx, sel, &obj)
+	case *model.FieldRequired:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldRequired(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of FieldError must implement graphql.Marshaler", obj))
+		}
+	}
+}
 
 func (ec *executionContext) _MeResult(ctx context.Context, sel ast.SelectionSet, obj model.MeResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
@@ -1749,6 +2278,54 @@ func (ec *executionContext) _MeResult(ctx context.Context, sel ast.SelectionSet,
 	}
 }
 
+func (ec *executionContext) _RegisterAvatarResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterAvatarResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RegisterAvatarSuccess:
+		return ec._RegisterAvatarSuccess(ctx, sel, &obj)
+	case *model.RegisterAvatarSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RegisterAvatarSuccess(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.AvatarNameAlreadyInUseError:
+		return ec._AvatarNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.AvatarNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AvatarNameAlreadyInUseError(ctx, sel, obj)
+	case model.AvatarLimitReachedError:
+		return ec._AvatarLimitReachedError(ctx, sel, &obj)
+	case *model.AvatarLimitReachedError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AvatarLimitReachedError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterAvatarResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _RegisterPlayerResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterPlayerResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -1773,6 +2350,211 @@ func (ec *executionContext) _RegisterPlayerResult(ctx context.Context, sel ast.S
 
 // region    **************************** object.gotpl ****************************
 
+var avatarImplementors = []string{"Avatar"}
+
+func (ec *executionContext) _Avatar(ctx context.Context, sel ast.SelectionSet, obj *model.Avatar) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, avatarImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Avatar")
+		case "id":
+			out.Values[i] = ec._Avatar_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Avatar_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var avatarLimitReachedErrorImplementors = []string{"AvatarLimitReachedError", "RegisterAvatarResult"}
+
+func (ec *executionContext) _AvatarLimitReachedError(ctx context.Context, sel ast.SelectionSet, obj *model.AvatarLimitReachedError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, avatarLimitReachedErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AvatarLimitReachedError")
+		case "message":
+			out.Values[i] = ec._AvatarLimitReachedError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._AvatarLimitReachedError_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var avatarNameAlreadyInUseErrorImplementors = []string{"AvatarNameAlreadyInUseError", "RegisterAvatarResult"}
+
+func (ec *executionContext) _AvatarNameAlreadyInUseError(ctx context.Context, sel ast.SelectionSet, obj *model.AvatarNameAlreadyInUseError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, avatarNameAlreadyInUseErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AvatarNameAlreadyInUseError")
+		case "message":
+			out.Values[i] = ec._AvatarNameAlreadyInUseError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldRequiredImplementors = []string{"FieldRequired", "FieldError"}
+
+func (ec *executionContext) _FieldRequired(ctx context.Context, sel ast.SelectionSet, obj *model.FieldRequired) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldRequiredImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldRequired")
+		case "field":
+			out.Values[i] = ec._FieldRequired_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldTooLongImplementors = []string{"FieldTooLong", "FieldError"}
+
+func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTooLong) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTooLongImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTooLong")
+		case "field":
+			out.Values[i] = ec._FieldTooLong_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._FieldTooLong_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -1793,6 +2575,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "registerAvatar":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerAvatar(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "registerPlayer":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerPlayer(ctx, field)
@@ -1876,6 +2665,44 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "avatars":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Player_avatars(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -1897,7 +2724,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "MeResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "MeResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -2012,6 +2839,44 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
+var registerAvatarSuccessImplementors = []string{"RegisterAvatarSuccess", "RegisterAvatarResult"}
+
+func (ec *executionContext) _RegisterAvatarSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterAvatarSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, registerAvatarSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RegisterAvatarSuccess")
+		case "avatar":
+			out.Values[i] = ec._RegisterAvatarSuccess_avatar(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var registerPlayerSuccessImplementors = []string{"RegisterPlayerSuccess", "RegisterPlayerResult"}
 
 func (ec *executionContext) _RegisterPlayerSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterPlayerSuccess) graphql.Marshaler {
@@ -2026,6 +2891,44 @@ func (ec *executionContext) _RegisterPlayerSuccess(ctx context.Context, sel ast.
 			out.Values[i] = graphql.MarshalString("RegisterPlayerSuccess")
 		case "player":
 			out.Values[i] = ec._RegisterPlayerSuccess_player(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult"}
+
+func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ValidationErrors")
+		case "errors":
+			out.Values[i] = ec._ValidationErrors_errors(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2442,6 +3345,32 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNAvatar2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐAvatarᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Avatar) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐAvatar(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐAvatar(ctx context.Context, sel ast.SelectionSet, v *model.Avatar) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Avatar(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -2450,6 +3379,48 @@ func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (
 func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.SelectionSet, v bool) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalBoolean(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FieldError(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFieldError2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldErrorᚄ(ctx context.Context, sel ast.SelectionSet, v []model.FieldError) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldError(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -2476,6 +3447,21 @@ func (ec *executionContext) marshalNPlayer2ᚖgitlabᚗcomᚋaimerzarashiᚋdiec
 		return graphql.Null
 	}
 	return ec._Player(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRegisterAvatarInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRegisterAvatarInput(ctx context.Context, v any) (model.RegisterAvatarInput, error) {
+	res, err := ec.unmarshalInputRegisterAvatarInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRegisterAvatarResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRegisterAvatarResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterAvatarResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RegisterAvatarResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNRegisterPlayerResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRegisterPlayerResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterPlayerResult) graphql.Marshaler {

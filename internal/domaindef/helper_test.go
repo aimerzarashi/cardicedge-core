@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
@@ -26,7 +27,7 @@ import (
 
 // 集約を足したら、ここにその集約の Types を足す（マイグレーションの種別の足し忘れをテストで検出する）
 func aggregates() []domain.AggregateTypes {
-	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types()}
+	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types()}
 }
 
 func entityTypes() []domain.EntityType {
@@ -48,7 +49,7 @@ func insert(t *testing.T, ctx context.Context, query string) {
 
 // 一意な key の種別を足したら、ここにその種別を宣言するドメインの UniqueKeyTypes を足す
 func uniqueKeyTypes() []domain.UniqueKeyType {
-	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes())
+	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes())
 }
 
 // 参照の種別を足したら、ここにその種別を宣言するドメインの ReferenceTypes を足す
@@ -58,7 +59,7 @@ func referenceTypes() []domain.ReferenceType {
 
 // 上限の種別を足したら、ここにその種別を宣言するドメインの QuotaTypes を足す
 func quotaTypes() []domain.QuotaType {
-	return slices.Concat(deck.QuotaTypes(), starterdeck.QuotaTypes())
+	return slices.Concat(deck.QuotaTypes(), starterdeck.QuotaTypes(), avatar.QuotaTypes())
 }
 
 // テンプレートから複製した自分だけの DB（一覧の種別の行が入っている）で動かす（行を足したり、食い違う行を入れたりするため）

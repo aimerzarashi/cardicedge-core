@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -40,6 +41,8 @@ type Game struct {
 	players     *command.PlayerHandler
 	grants      *command.StarterGrantHandler
 	playerQuery *query.PlayerHandler
+	avatars     *command.AvatarHandler
+	avatarQuery *query.AvatarHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Game {
@@ -80,6 +83,15 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			now,
 		),
 		playerQuery: query.NewPlayerHandler(repository.NewPlayerReader().GetStarterGrantStatus),
+		avatars: command.NewAvatarHandler(
+			eventstore.New(registry, avatar.NewID, avatar.NewEventType, avatar.InitialState, avatar.Evolve),
+			identifier.New(registry, avatar.NewID),
+			constraint.UpdateAvatarName,
+			constraint.ReserveAvatarQuota,
+			rules.FromPublished(repository.NewGameRulesReader().Get),
+			now,
+		),
+		avatarQuery: query.NewAvatarHandler(repository.NewAvatarReader().ListByPlayer),
 	}
 }
 
@@ -99,7 +111,7 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 	})
 }
 
-// 投影を 2 つに分けるのは、players の行を 2 つの集約（player・starter_grant）から書くため。それぞれ自分の列だけを書き、
+// players の投影を 2 つに分けるのは、players の行を 2 つの集約（player・starter_grant）から書くため。それぞれ自分の列だけを書き、
 // 行が無ければ作るので、別の集約の間でどちらが先に動いても同じ行になる。名前と購読は internal/wiring の購読者の一覧と照合される
 func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 	players := repository.NewPlayerWriter()
@@ -114,19 +126,30 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	playerStarterGrants := repository.NewPlayerStarterGrantWriter(g.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PlayerStarterGrant]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PlayerStarterGrant]{
 		Name: "player_starter_grants",
 		Subscriptions: []domain.EntityType{
 			startergrant.Types().EntityType,
 		},
 		Upsert: playerStarterGrants.Upsert,
 		Delete: playerStarterGrants.Delete,
+	}); err != nil {
+		return err
+	}
+	avatars := repository.NewAvatarWriter(g.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Avatar]{
+		Name: "avatars",
+		Subscriptions: []domain.EntityType{
+			avatar.Types().EntityType,
+		},
+		Upsert: avatars.Upsert,
+		Delete: avatars.Delete,
 	})
 }
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

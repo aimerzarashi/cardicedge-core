@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 )
@@ -35,6 +36,8 @@ func FromPublished(get GetRulesFunc) GetQuotaLimitFunc {
 		switch quotaType {
 		case deck.PlayerQuotaType:
 			return domain.NewQuotaLimit(rules.Player.MaxDecks)
+		case avatar.PlayerQuotaType:
+			return domain.NewQuotaLimit(rules.Player.MaxAvatars)
 		default:
 			return 0, fmt.Errorf("quota limit is not defined: %s", quotaType)
 		}
