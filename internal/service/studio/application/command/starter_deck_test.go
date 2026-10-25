@@ -358,6 +358,9 @@ func TestPublishStarterDeck_StopsAtRuleLimitAndRetireMakesRoom(t *testing.T) {
 	_, republishAtLimit := commands.Publish(ctx, retired.ID, retired.Revision)
 
 	require.ErrorIs(t, atLimit, command.ErrStarterDeckLimitReached)
+	var limitReached *command.LimitReachedError
+	require.ErrorAs(t, atLimit, &limitReached)
+	require.Equal(t, smallRules().StarterDeck.MaxPublished, limitReached.Max)
 	require.NoError(t, afterRetire)
 	require.ErrorIs(t, republishAtLimit, command.ErrStarterDeckLimitReached)
 	require.Equal(t, starterdeck.StatusPublished, restoredStarterDeck(t, ctx, third.ID).Status)

@@ -1,6 +1,9 @@
 package command
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // presentation 層にドメインのエラーを見せないため、application 層のエラーに変えて返す
 var (
@@ -24,7 +27,7 @@ var (
 	ErrInvalidStarterDeckStatusTransition = errors.New("command: invalid starter deck status transition")
 	// 準備中でないスターターデッキの名前・枚数を変える、または削除しようとした
 	ErrStarterDeckNotDraft = errors.New("command: starter deck is not draft")
-	// 公開中のスターターデッキの数の上限に達している
+	// 公開中のスターターデッキの数の上限に達している。上限の値は LimitReachedError で受け取る
 	ErrStarterDeckLimitReached = errors.New("command: starter deck limit reached")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
@@ -35,3 +38,18 @@ var (
 	// 画面で見た revision が今の版と違う（画面を開いた後に、ほかの操作で変わった）
 	ErrRevisionConflict = errors.New("command: revision conflict")
 )
+
+// 上限に達した。画面が「N 個まで」と文言に出せるよう、そのときの上限の値を持つ（studio は上限の値を書き写さないため）。
+// errors.Is は理由ごとの Err...LimitReached と一致する（値の要らない呼び出し側は、今までどおり理由だけで見分けられる）
+type LimitReachedError struct {
+	reason error
+	Max    int
+}
+
+func (e *LimitReachedError) Error() string {
+	return fmt.Sprintf("%s (max %d)", e.reason, e.Max)
+}
+
+func (e *LimitReachedError) Unwrap() error {
+	return e.reason
+}

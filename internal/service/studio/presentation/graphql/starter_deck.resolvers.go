@@ -124,11 +124,12 @@ func (r *mutationResolver) PublishStarterDeck(ctx context.Context, input model.P
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
+	var limitReached *command.LimitReachedError
 	switch {
 	case errors.Is(err, command.ErrStarterDeckNotFound):
 		return &model.StarterDeckNotFoundError{Message: "starter deck not found"}, nil
-	case errors.Is(err, command.ErrStarterDeckLimitReached):
-		return &model.StarterDeckLimitReachedError{Message: "starter deck limit reached"}, nil
+	case errors.As(err, &limitReached) && errors.Is(err, command.ErrStarterDeckLimitReached):
+		return &model.StarterDeckLimitReachedError{Message: "starter deck limit reached", Max: limitReached.Max}, nil
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:

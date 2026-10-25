@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
@@ -79,6 +80,7 @@ const publishStarterDeckMutation = `mutation ($input: PublishStarterDeckInput!) 
 	publishStarterDeck(input: $input) {
 		__typename
 		... on PublishStarterDeckSuccess { id revision }
+		... on StarterDeckLimitReachedError { max }
 		` + errorFields + `
 	}
 }`
@@ -440,6 +442,7 @@ func TestPublishStarterDeck_StopsAtLimitAndReleasesOnRetire(t *testing.T) {
 	require.Equal(t, map[string]any{"__typename": "PublishStarterDeckSuccess", "id": first["id"], "revision": float64(3)}, firstPublished)
 	require.Equal(t, "PublishStarterDeckSuccess", secondPublished["__typename"])
 	require.Equal(t, "StarterDeckLimitReachedError", limitReached["__typename"])
+	require.EqualValues(t, gamerules.Defaults().StarterDeck.MaxPublished, limitReached["max"])
 	require.Equal(t, firstPublished, samePublished)
 	require.Equal(t, map[string]any{"__typename": "RetireStarterDeckSuccess", "id": first["id"], "revision": float64(4)}, retired)
 	require.Equal(t, retired, sameRetired)

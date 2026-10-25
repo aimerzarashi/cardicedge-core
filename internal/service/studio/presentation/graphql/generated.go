@@ -308,6 +308,7 @@ type ComplexityRoot struct {
 	}
 
 	StarterDeckLimitReachedError struct {
+		Max     func(childComplexity int) int
 		Message func(childComplexity int) int
 	}
 
@@ -1275,6 +1276,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StarterDeckEdge.Node(childComplexity), true
 
+	case "StarterDeckLimitReachedError.max":
+		if e.ComplexityRoot.StarterDeckLimitReachedError.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StarterDeckLimitReachedError.Max(childComplexity), true
 	case "StarterDeckLimitReachedError.message":
 		if e.ComplexityRoot.StarterDeckLimitReachedError.Message == nil {
 			break
@@ -5649,6 +5656,29 @@ func (ec *executionContext) _StarterDeckLimitReachedError_message(ctx context.Co
 }
 func (ec *executionContext) fieldContext_StarterDeckLimitReachedError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("StarterDeckLimitReachedError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _StarterDeckLimitReachedError_max(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckLimitReachedError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StarterDeckLimitReachedError_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StarterDeckLimitReachedError_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StarterDeckLimitReachedError", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _StarterDeckNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.StarterDeckNameAlreadyInUseError) (ret graphql.Marshaler) {
@@ -11092,6 +11122,11 @@ func (ec *executionContext) _StarterDeckLimitReachedError(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("StarterDeckLimitReachedError")
 		case "message":
 			out.Values[i] = ec._StarterDeckLimitReachedError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._StarterDeckLimitReachedError_max(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

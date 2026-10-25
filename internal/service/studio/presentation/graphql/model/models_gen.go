@@ -888,6 +888,8 @@ type StarterDeckFilter struct {
 type StarterDeckLimitReachedError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
+	// 公開中のスターターデッキの数の上限（そのときのゲーム全体のルールの値。画面が文言に出す）
+	Max int `json:"max"`
 }
 
 func (StarterDeckLimitReachedError) IsPublishStarterDeckResult() {}

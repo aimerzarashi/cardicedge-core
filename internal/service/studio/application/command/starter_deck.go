@@ -214,7 +214,7 @@ func (c *StarterDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, re
 
 // 公開中にする（使用不可からの公開に戻すのも同じ）。公開するとき確かめるのは、合計の枚数がちょうどルールの値
 // （input.TotalMismatch）・入っているカードがすべて公開中（input.Unavailable。項目名は cards）・公開中の数の上限
-// （ErrStarterDeckLimitReached）。名前は登録・変更のときに全体で一意にしてあるため、ここでは確かめない。
+// （ErrStarterDeckLimitReached。上限の値は LimitReachedError）。名前は登録・変更のときに全体で一意にしてあるため、ここでは確かめない。
 // すでに公開中なら、何も確かめず変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
 func (c *StarterDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedStarterDeck, error) {
 	publishedBy, ok := authentication.Operator(ctx)
@@ -250,7 +250,7 @@ func (c *StarterDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision
 		return changedStarterDeck(published), nil
 	})
 	if errors.Is(err, starterdeck.ErrLimitReached) {
-		return ChangedStarterDeck{}, ErrStarterDeckLimitReached
+		return ChangedStarterDeck{}, &LimitReachedError{reason: ErrStarterDeckLimitReached, Max: rules.StarterDeck.MaxPublished}
 	}
 	return published, mapStarterDeckError(err)
 }
