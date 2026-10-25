@@ -42,8 +42,8 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## 他プロジェクトとの統合
 
-`make up` すると共有ネットワーク `diecardomain` に参加する（無ければ作成する）。
-game / studio は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
+`make up` すると共有ネットワーク `diecardomain-game`（game 用）と `diecardomain-studio`（studio 用）の両方に参加する（無ければ作成する）。
+game / studio はそれぞれのネットワーク経由で `http://core:3333` に接続する。ネットワークを分けるのは、game が乗っ取られても studio に内部から届く経路そのものを無くすため（core#45）。core-db は参加しない。
 
 ## studio 用の GraphQL（/studio/graphql）
 

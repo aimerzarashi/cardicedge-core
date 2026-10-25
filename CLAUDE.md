@@ -66,7 +66,7 @@
 # 実装上の約束
 
 - シャットダウン時間は `shutdownTimeout`（cmd/app） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
-- core は共有ネットワーク `diecardomain` に参加する（compose.yaml）。core-db は参加させない
+- core は共有ネットワーク `diecardomain-game`（game 用）と `diecardomain-studio`（studio 用）の両方に参加する（compose.yaml。作るのは make up）。core-db は参加させない。分けるのは、game から studio に内部から届く経路そのものを無くすため（core#45）
 - compose.test.yaml は game が include する前提（studio は前提にする版のイメージを使う。ふだんはリリース済みの版、マイルストーンの途中は手元の core から作った local の版。studio#14・studio#23）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
 - `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio`（game は `schema game`）で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら、そのサービスのパッケージの `WriteSchema` を `schemaWriters` に足す（presentation の graphql パッケージはサービスどうしで名前が重なり、別名の import は禁止のため）。`make gen-api`・scripts/check-gen-api.sh・cmd/app のスキーマのテストにも足す
