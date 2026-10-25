@@ -1,6 +1,6 @@
 # game / studio のテスト用に、使い捨ての core と DB を起動する。
 # 利用側の compose から include し、利用側のプロジェクト名で起動する（開発用の core とは別のコンテナ・ネットワーク・DB になる）。
-# ホストにポートを公開せず、共有ネットワーク diecardomain にも参加しない
+# ホストにポートを公開せず、共有ネットワーク（diecardomain-game・diecardomain-studio）にも参加しない
 services:
   core:
     build:

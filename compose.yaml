@@ -52,10 +52,11 @@ services:
         condition: service_completed_successfully
       core-migrate-game:
         condition: service_completed_successfully
-    # game / studio から core:3333 で接続できるよう、共有ネットワークにも参加する（core-db は参加しない）
+    # game / studio から core:3333 で接続できるよう、両方の共有ネットワークに参加する（core-db は参加しない）
     networks:
       - default
-      - diecardomain
+      - diecardomain-game
+      - diecardomain-studio
 
   # 未適用のマイグレーションを Atlas で適用して終了する（core の起動前に1回実行する。make migrate でも実行できる）。
   # studio 用・game 用の DB に、同じマイグレーションを流す（core#33）
@@ -105,7 +106,10 @@ volumes:
   go-mod:
   go-build:
 
-# game / studio と共有するネットワーク。make up で無ければ作成する
+# game・studio と共有するネットワーク。make up で無ければ作成する。game 用と studio 用に分けるのは、game が乗っ取られても
+# studio に内部から届く経路そのものを無くすため（多重の防御。core だけが両方に参加する。core#45）
 networks:
-  diecardomain:
+  diecardomain-game:
+    external: true
+  diecardomain-studio:
     external: true

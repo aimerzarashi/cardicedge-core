@@ -1,9 +1,11 @@
 # 環境管理
 
-# 共有ネットワーク diecardomain が無ければ作成してから起動する
+# 共有ネットワーク（game 用の diecardomain-game・studio 用の diecardomain-studio）が無ければ作成してから起動する
 .PHONY: up
 up:
-	@docker network inspect diecardomain >/dev/null 2>&1 || docker network create diecardomain >/dev/null
+	@for network in diecardomain-game diecardomain-studio; do \
+	  docker network inspect $$network >/dev/null 2>&1 || docker network create $$network >/dev/null; \
+	done
 	docker compose up -d --build --wait
 
 # 停止して DB を破棄する（次回 up で migrations が最初から適用される）。Go のキャッシュ用ボリュームは残す
