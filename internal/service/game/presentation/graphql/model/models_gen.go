@@ -11,15 +11,77 @@ import (
 	"github.com/google/uuid"
 )
 
+// 入力の項目ごとの誤り。理由は __typename で見分ける
+type FieldError interface {
+	IsFieldError()
+	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+	GetField() string
+}
+
 // me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError
 type MeResult interface {
 	IsMeResult()
+}
+
+// registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type RegisterAvatarResult interface {
+	IsRegisterAvatarResult()
 }
 
 // registerPlayer の結果
 type RegisterPlayerResult interface {
 	IsRegisterPlayerResult()
 }
+
+// プレイヤーのアバター。ほかのプレイヤーにも見える名前を持つ
+type Avatar struct {
+	// アバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前（前後の空白を除いた値。同じプレイヤーの中では一意（全角・半角、大文字・小文字の違いを同じとみなして比べる）。ほかのプレイヤーとは同じ名前でよい）
+	Name string `json:"name"`
+}
+
+// プレイヤーが持てるアバターの数の上限に達している（操作は行われていない）
+type AvatarLimitReachedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 上限の数（画面が「N 体まで」と出せるよう、game は上限の値を書き写さずここから受け取る。値は game_rules の player.max_avatars）
+	Max int `json:"max"`
+}
+
+func (AvatarLimitReachedError) IsRegisterAvatarResult() {}
+
+// 同じプレイヤーの別のアバターが同じ名前を使っている（操作は行われていない）。ほかのプレイヤーとは同じ名前でよい
+type AvatarNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (AvatarNameAlreadyInUseError) IsRegisterAvatarResult() {}
+
+// 入力が空（前後の空白だけの場合を含む）
+type FieldRequired struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldRequired) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldRequired) GetField() string { return this.Field }
+
+// 入力が長すぎる
+type FieldTooLong struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 上限の文字数
+	Max int `json:"max"`
+}
+
+func (FieldTooLong) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooLong) GetField() string { return this.Field }
 
 type Mutation struct {
 }
@@ -30,6 +92,8 @@ type Player struct {
 	ID uuid.UUID `json:"id"`
 	// スターターの配布の状態。行がまだ無い・配布が始まっていないときも IN_PROGRESS で、画面にとっては「まだ届いていない」と同じ
 	StarterGrant StarterGrantStatus `json:"starterGrant"`
+	// このプレイヤーのアバター（作った順。上限があるので、ページ分けしないリスト）
+	Avatars []*Avatar `json:"avatars"`
 }
 
 func (Player) IsMeResult() {}
@@ -40,10 +104,26 @@ type PlayerNotRegisteredError struct {
 	Message string `json:"message"`
 }
 
+func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
+
 func (PlayerNotRegisteredError) IsMeResult() {}
 
 type Query struct {
 }
+
+// アバターを作る入力
+type RegisterAvatarInput struct {
+	// 名前（前後の空白を除いて 1 文字以上。長さの上限は ValidationErrors の FieldTooLong の max で返す）
+	Name string `json:"name"`
+}
+
+// アバターを作った
+type RegisterAvatarSuccess struct {
+	// 作ったアバター
+	Avatar *Avatar `json:"avatar"`
+}
+
+func (RegisterAvatarSuccess) IsRegisterAvatarResult() {}
 
 // プレイヤーを登録した（登録済みだったときも同じ形で、そのプレイヤーを返す）
 type RegisterPlayerSuccess struct {
@@ -52,6 +132,14 @@ type RegisterPlayerSuccess struct {
 }
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
+
+// 入力の誤り（操作は行われていない）
+type ValidationErrors struct {
+	// 項目ごとの誤り（1 件以上）
+	Errors []FieldError `json:"errors"`
+}
+
+func (ValidationErrors) IsRegisterAvatarResult() {}
 
 // スターターの配布の状態
 type StarterGrantStatus string

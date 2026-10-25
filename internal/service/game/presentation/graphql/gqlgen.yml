@@ -27,3 +27,6 @@ models:
     fields:
       starterGrant:
         resolver: true
+      # avatars は resolver で返す（read model avatars から、返すときに読むため）
+      avatars:
+        resolver: true

@@ -1,6 +1,7 @@
 package wiring
 
 import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
@@ -30,5 +31,6 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, collection.NewID, collection.NewEventType),
 		eventstore.NewEventLoader(registry, deck.NewID, deck.NewEventType),
 		eventstore.NewEventLoader(registry, gamerules.NewID, gamerules.NewEventType),
+		eventstore.NewEventLoader(registry, avatar.NewID, avatar.NewEventType),
 	)
 }
