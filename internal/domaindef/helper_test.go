@@ -55,6 +55,11 @@ func referenceTypes() []domain.ReferenceType {
 	return slices.Concat(presetdeck.ReferenceTypes(), starterdeckset.ReferenceTypes())
 }
 
+// 上限の種別を足したら、ここにその種別を宣言するドメインの QuotaTypes を足す
+func quotaTypes() []domain.QuotaType {
+	return slices.Concat(deck.QuotaTypes())
+}
+
 // テンプレートから複製した自分だけの DB（一覧の種別の行が入っている）で動かす（行を足したり、食い違う行を入れたりするため）
 func isolated(t *testing.T) context.Context {
 	t.Helper()

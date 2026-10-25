@@ -23,6 +23,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query/readmodel"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/infrastructure/repository"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql"
 )
@@ -71,6 +72,9 @@ func New(registry *domaindef.Registry, config Config) *Game {
 				eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve),
 				identifier.New(registry, deck.NewID),
 				constraint.UpdateDeckStarter,
+				constraint.UpdateDeckName,
+				constraint.ReserveDeckQuota,
+				rules.Defaults(map[domain.QuotaType]domain.QuotaLimit{deck.PlayerQuotaType: deck.DefaultQuotaLimit}),
 				now,
 			),
 			now,

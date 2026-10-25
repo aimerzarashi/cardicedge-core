@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -58,19 +58,19 @@ func (state Card) Evolve(event any) Card {
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
 		state.CardType = CardTypeCreature
-		state.SortName = card.NormalizeName(e.Name.String())
+		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata = CardMetadata{ID: e.PublicID, Name: e.Name.String(), RegisteredAt: occurredAt, UpdatedAt: occurredAt}
 	case *item.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
 		state.CardType = CardTypeItem
-		state.SortName = card.NormalizeName(e.Name.String())
+		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata = CardMetadata{ID: e.PublicID, Name: e.Name.String(), RegisteredAt: occurredAt, UpdatedAt: occurredAt}
 	case *spell.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
 		state.CardType = CardTypeSpell
-		state.SortName = card.NormalizeName(e.Name.String())
+		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata = CardMetadata{ID: e.PublicID, Name: e.Name.String(), RegisteredAt: occurredAt, UpdatedAt: occurredAt}
 	}
 	return state

@@ -5,7 +5,7 @@ package domaindef
 // 参照しているため）。名前は各集約の宣言（Types() 等）にも書くが、ドメインのコードには id を持たせない（保存の都合のため）。
 // この一覧と DB は Sync が合わせ、DB と各集約の宣言は Verify... が照合する（core#33）
 //
-// 振り方: 集約は 1000 から 100 刻み、イベントはその集約の id ＋ 1 から順に、一意性の key・参照は 1000 から順に。
+// 振り方: 集約は 1000 から 100 刻み、イベントはその集約の id ＋ 1 から順に、一意性の key・参照・上限は 1000 から順に。
 // テスト用の範囲は持たない（偽の種別を足すテストは複製した DB を使う）
 var Types = Catalog{
 	EntityTypes: []EntityTypeDef{
@@ -57,10 +57,14 @@ var Types = Catalog{
 		{ID: 1006, Name: "starter_grant.player"},
 		{ID: 1007, Name: "collection.owner"},
 		{ID: 1008, Name: "deck.starter"},
+		{ID: 1009, Name: "deck.name"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
 		{ID: 1001, Name: "starter_deck_set.card"},
+	},
+	QuotaTypes: []NamedTypeDef{
+		{ID: 1000, Name: "deck.per_player"},
 	},
 }
 
@@ -68,6 +72,7 @@ type Catalog struct {
 	EntityTypes    []EntityTypeDef
 	UniqueKeyTypes []NamedTypeDef
 	ReferenceTypes []NamedTypeDef
+	QuotaTypes     []NamedTypeDef
 }
 
 type EntityTypeDef struct {

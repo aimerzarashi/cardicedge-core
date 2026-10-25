@@ -82,6 +82,7 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
+- **数の上限の制約**: 一意性・参照と並ぶ 3 つ目の制約の表 domain_quotas（上限の種別 × 持ち主ごとに使っている数）と domain_quota_types（core#39）。デッキは 1 人 10 個まで（種別 `deck.per_player`）。確保は作るコマンドと同じトランザクションの 1 つの文（`INSERT ... ON CONFLICT DO UPDATE SET used = used + 1 WHERE used < 上限 RETURNING`）で、上限なら行が返らず `ErrLimitReached` とする（エラーにせず、トランザクションも中断しない）。同時に取り合っても DB が同じ行を順番に更新するので上限を超えず、流し直しは要らない。上限の値は表にも CHECK にも持たず文に渡す（下限の 0 以上だけ CHECK）。使っている数はイベントから作り直せない、書く側の整合性のための記録。上限の値は game の `application/rules` が返す（今は既定の値。調整は core#23）。デッキの名前は持ち主ごとに一意（`deck.name`）で、比べ方は `domain.NormalizeName`（カード名・プリセットデッキと同じ）。中身は確認用の VIEW `domain_quota_view` で読める
 
 ## game 用の GraphQL（/game/graphql）
 

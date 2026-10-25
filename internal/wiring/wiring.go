@@ -165,6 +165,9 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeckset.ReferenceTypes())...); err != nil {
 		return nil, fmt.Errorf("reference types do not match catalog: %w", err)
 	}
+	if err := registry.VerifyQuotaTypes(deck.QuotaTypes()...); err != nil {
+		return nil, fmt.Errorf("quota types do not match catalog: %w", err)
+	}
 	return registry, nil
 }
 

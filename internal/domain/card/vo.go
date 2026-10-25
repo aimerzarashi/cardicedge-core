@@ -3,8 +3,6 @@ package card
 import (
 	"strings"
 	"unicode/utf8"
-
-	"golang.org/x/text/unicode/norm"
 )
 
 const MaxNameLength = 50
@@ -27,11 +25,4 @@ func NewName(value string) (Name, error) {
 
 func (n Name) String() string {
 	return string(n)
-}
-
-// 重複の判定と、一覧の並び・検索にだけ使い、表示には使わない（全角「ＡＢＣ」と半角「ABC」、「Apple」と「apple」を
-// 同じ名前として扱うため）。検索の入力は空や上限超えもあり得るため、Name のメソッドにせず文字列を受け取る。
-// 小文字にするのを NFKC の後にするのは、NFKC が「Ⅻ」を「XII」にするように大文字を作ることがあるため
-func NormalizeName(value string) string {
-	return strings.ToLower(norm.NFKC.String(value))
 }

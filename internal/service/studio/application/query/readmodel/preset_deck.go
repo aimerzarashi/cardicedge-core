@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -52,14 +52,14 @@ func (state PresetDeck) Evolve(event any) PresetDeck {
 	case *presetdeck.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.PresetDeckID = e.PublicID
-		state.SortName = card.NormalizeName(e.Name.String())
+		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata = PresetDeckMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.Cards = map[presetdeck.CardRef]int{}
 	case *presetdeck.RenamedEvent:
-		state.SortName = card.NormalizeName(e.Name.String())
+		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata.Name = e.Name.String()
 		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
 	case *presetdeck.CardCountsChangedEvent:

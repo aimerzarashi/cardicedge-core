@@ -12,3 +12,7 @@ no-tests = true
   user = "core_user"
   pass = "core_password"
   sslmode = "disable"
+
+# 既定の変換では quotas の単数形が quotas のままで、型名（DomainQuotas）が行の型と一覧の型で重なるため
+[inflections.singular]
+  quotas = "quota"
