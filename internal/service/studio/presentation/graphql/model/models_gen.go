@@ -19,6 +19,10 @@ type Card interface {
 	GetID() uuid.UUID
 	// カード名
 	GetName() string
+	// 状態（準備中・公開中・使用不可）
+	GetStatus() CardStatus
+	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+	GetRevision() int
 	// 登録した日時
 	GetRegisteredAt() time.Time
 	// 最後に変更した日時（変更していなければ登録した日時）
@@ -52,6 +56,11 @@ type PresetDecksResult interface {
 	IsPresetDecksResult()
 }
 
+// カードを公開中にする操作の結果
+type PublishCardResult interface {
+	IsPublishCardResult()
+}
+
 // クリーチャーの登録の結果
 type RegisterCreatureResult interface {
 	IsRegisterCreatureResult()
@@ -75,6 +84,11 @@ type RegisterSpellResult interface {
 // プリセットデッキの名前の変更の結果
 type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
+}
+
+// カードを使用不可にする操作の結果
+type RetireCardResult interface {
+	IsRetireCardResult()
 }
 
 // プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
@@ -116,6 +130,8 @@ type CardFilter struct {
 	NameContains *string `json:"nameContains,omitempty"`
 	// 種類（指定が無ければすべて。空のリストは入力の誤り）
 	Types []CardType `json:"types,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []CardStatus `json:"statuses,omitempty"`
 }
 
 // カード名が、ほかのカード（Creature・Item・Spell のどれか）ですでに使われている。前後の空白を除き、全角・半角の英数字などを同じ文字とみなして比べる
@@ -130,12 +146,26 @@ func (CardNameAlreadyInUseError) IsRegisterItemResult() {}
 
 func (CardNameAlreadyInUseError) IsRegisterSpellResult() {}
 
+// カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）
+type CardNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (CardNotFoundError) IsPublishCardResult() {}
+
+func (CardNotFoundError) IsRetireCardResult() {}
+
 // クリーチャー（カードの種類の 1 つ）
 type Creature struct {
 	// 公開用の ID
 	ID uuid.UUID `json:"id"`
 	// カード名（登録したときの表記。前後の空白は除く）
 	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status CardStatus `json:"status"`
+	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
 	// 登録した日時
 	RegisteredAt time.Time `json:"registeredAt"`
 	// 最後に変更した日時（変更していなければ登録した日時）
@@ -149,6 +179,12 @@ func (this Creature) GetID() uuid.UUID { return this.ID }
 
 // カード名
 func (this Creature) GetName() string { return this.Name }
+
+// 状態（準備中・公開中・使用不可）
+func (this Creature) GetStatus() CardStatus { return this.Status }
+
+// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+func (this Creature) GetRevision() int { return this.Revision }
 
 // 登録した日時
 func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
@@ -278,6 +314,17 @@ func (FieldTotalTooLarge) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTotalTooLarge) GetField() string { return this.Field }
 
+// 入力の ID が指すものが、使えない状態（準備中・使用不可のカード等）。あるが、今の状態では使えない
+type FieldUnavailable struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）
+	Field string `json:"field"`
+}
+
+func (FieldUnavailable) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldUnavailable) GetField() string { return this.Field }
+
 // 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
 type ForbiddenError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -285,6 +332,10 @@ type ForbiddenError struct {
 }
 
 func (ForbiddenError) IsCardsResult() {}
+
+func (ForbiddenError) IsPublishCardResult() {}
+
+func (ForbiddenError) IsRetireCardResult() {}
 
 func (ForbiddenError) IsRegisterCreatureResult() {}
 
@@ -308,12 +359,26 @@ func (ForbiddenError) IsStarterDeckSetResult() {}
 
 func (ForbiddenError) IsSetStarterDeckSetResult() {}
 
+// 準備中のカードを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidCardStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidCardStatusTransitionError) IsPublishCardResult() {}
+
+func (InvalidCardStatusTransitionError) IsRetireCardResult() {}
+
 // アイテム（カードの種類の 1 つ）
 type Item struct {
 	// 公開用の ID
 	ID uuid.UUID `json:"id"`
 	// カード名（登録したときの表記。前後の空白は除く）
 	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status CardStatus `json:"status"`
+	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
 	// 登録した日時
 	RegisteredAt time.Time `json:"registeredAt"`
 	// 最後に変更した日時（変更していなければ登録した日時）
@@ -327,6 +392,12 @@ func (this Item) GetID() uuid.UUID { return this.ID }
 
 // カード名
 func (this Item) GetName() string { return this.Name }
+
+// 状態（準備中・公開中・使用不可）
+func (this Item) GetStatus() CardStatus { return this.Status }
+
+// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+func (this Item) GetRevision() int { return this.Revision }
 
 // 登録した日時
 func (this Item) GetRegisteredAt() time.Time { return this.RegisteredAt }
@@ -404,6 +475,24 @@ func (PresetDeckNotFoundError) IsRenamePresetDeckResult() {}
 func (PresetDeckNotFoundError) IsSetPresetDeckCardCountsResult() {}
 
 func (PresetDeckNotFoundError) IsDeletePresetDeckResult() {}
+
+// カードを公開中にする入力
+type PublishCardInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+}
+
+// カードを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishCardSuccess struct {
+	// 公開したカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開したカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishCardSuccess) IsPublishCardResult() {}
 
 type Query struct {
 }
@@ -486,11 +575,33 @@ type RenamePresetDeckSuccess struct {
 
 func (RenamePresetDeckSuccess) IsRenamePresetDeckResult() {}
 
+// カードを使用不可にする入力
+type RetireCardInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+}
+
+// カードを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireCardSuccess struct {
+	// 使用不可にしたカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にしたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireCardSuccess) IsRetireCardResult() {}
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
+
+func (RevisionConflictError) IsPublishCardResult() {}
+
+func (RevisionConflictError) IsRetireCardResult() {}
 
 func (RevisionConflictError) IsRenamePresetDeckResult() {}
 
@@ -542,6 +653,10 @@ type Spell struct {
 	ID uuid.UUID `json:"id"`
 	// カード名（登録したときの表記。前後の空白は除く）
 	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status CardStatus `json:"status"`
+	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
 	// 登録した日時
 	RegisteredAt time.Time `json:"registeredAt"`
 	// 最後に変更した日時（変更していなければ登録した日時）
@@ -555,6 +670,12 @@ func (this Spell) GetID() uuid.UUID { return this.ID }
 
 // カード名
 func (this Spell) GetName() string { return this.Name }
+
+// 状態（準備中・公開中・使用不可）
+func (this Spell) GetStatus() CardStatus { return this.Status }
+
+// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
+func (this Spell) GetRevision() int { return this.Revision }
 
 // 登録した日時
 func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
@@ -609,6 +730,68 @@ func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 func (ValidationErrors) IsRegisterSpellResult() {}
 
 func (ValidationErrors) IsSetStarterDeckSetResult() {}
+
+// カードの状態。準備中は自由に変えられ、デッキに入れられず、game に写さない。公開中はデッキに入れられ、game に写す。
+// 使用不可は新しくデッキに入れられないが、プレイヤーが持っているので game には写す
+type CardStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	CardStatusDraft CardStatus = "DRAFT"
+	// 公開中
+	CardStatusPublished CardStatus = "PUBLISHED"
+	// 使用不可
+	CardStatusRetired CardStatus = "RETIRED"
+)
+
+var AllCardStatus = []CardStatus{
+	CardStatusDraft,
+	CardStatusPublished,
+	CardStatusRetired,
+}
+
+func (e CardStatus) IsValid() bool {
+	switch e {
+	case CardStatusDraft, CardStatusPublished, CardStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e CardStatus) String() string {
+	return string(e)
+}
+
+func (e *CardStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardStatus", str)
+	}
+	return nil
+}
+
+func (e CardStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
 
 // カードの種類（一覧の絞り込みに使う）
 type CardType string

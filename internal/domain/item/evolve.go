@@ -1,5 +1,7 @@
 package item
 
+import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+
 func Evolve(state State, event Event) (State, error) {
 	switch e := event.(type) {
 	case *RegisteredEvent:
@@ -12,9 +14,34 @@ func Evolve(state State, event Event) (State, error) {
 			Version:      meta.AggregateVersion,
 			PublicID:     e.PublicID,
 			Name:         e.Name,
+			Status:       card.StatusDraft,
 			RegisteredBy: e.RegisteredBy,
 			RegisteredAt: meta.OccurredAt,
 		}, nil
+	case *PublishedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		status, _, err := item.Status.Publish()
+		if err != nil {
+			return state, err
+		}
+		item.Status = status
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *RetiredEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		status, _, err := item.Status.Retire()
+		if err != nil {
+			return state, err
+		}
+		item.Status = status
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
 	default:
 		return state, ErrInvalidState
 	}

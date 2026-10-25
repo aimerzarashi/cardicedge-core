@@ -7,9 +7,49 @@ package graphql
 
 import (
 	"context"
+	"errors"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
+
+// PublishCard is the resolver for the publishCard field.
+func (r *mutationResolver) PublishCard(ctx context.Context, input model.PublishCardInput) (model.PublishCardResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.cardStatuses.Publish(ctx, input.ID, int64(input.Revision))
+	switch {
+	case errors.Is(err, command.ErrCardNotFound):
+		return &model.CardNotFoundError{Message: "card not found"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case errors.Is(err, command.ErrInvalidCardStatusTransition):
+		return &model.InvalidCardStatusTransitionError{Message: "invalid card status transition"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.PublishCardSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// RetireCard is the resolver for the retireCard field.
+func (r *mutationResolver) RetireCard(ctx context.Context, input model.RetireCardInput) (model.RetireCardResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.cardStatuses.Retire(ctx, input.ID, int64(input.Revision))
+	switch {
+	case errors.Is(err, command.ErrCardNotFound):
+		return &model.CardNotFoundError{Message: "card not found"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case errors.Is(err, command.ErrInvalidCardStatusTransition):
+		return &model.InvalidCardStatusTransitionError{Message: "invalid card status transition"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.RetireCardSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
 
 // Cards is the resolver for the cards field.
 func (r *queryResolver) Cards(ctx context.Context, filter *model.CardFilter, first *int, after *string) (model.CardsResult, error) {

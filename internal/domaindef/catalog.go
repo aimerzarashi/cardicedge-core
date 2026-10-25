@@ -15,12 +15,18 @@ var Types = Catalog{
 		}},
 		{ID: 1100, Name: "creature", Events: []EventTypeDef{
 			{ID: 1101, Name: "RegisteredEvent"},
+			{ID: 1102, Name: "PublishedEvent"},
+			{ID: 1103, Name: "RetiredEvent"},
 		}},
 		{ID: 1200, Name: "item", Events: []EventTypeDef{
 			{ID: 1201, Name: "RegisteredEvent"},
+			{ID: 1202, Name: "PublishedEvent"},
+			{ID: 1203, Name: "RetiredEvent"},
 		}},
 		{ID: 1300, Name: "spell", Events: []EventTypeDef{
 			{ID: 1301, Name: "RegisteredEvent"},
+			{ID: 1302, Name: "PublishedEvent"},
+			{ID: 1303, Name: "RetiredEvent"},
 		}},
 		{ID: 1400, Name: "preset_deck", Events: []EventTypeDef{
 			{ID: 1401, Name: "RegisteredEvent"},

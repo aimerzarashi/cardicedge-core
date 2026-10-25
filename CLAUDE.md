@@ -14,7 +14,7 @@
 | internal/service/studio | studio のサービスの組み立て（studio.go。下の層の部品（コマンド・問い合わせ・リゾルバー・入口）をつなぎ、studio の read model の投影を登録する） |
 | internal/service/studio/presentation/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
 | internal/service/studio/application/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/service/studio/application/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
+| internal/service/studio/application/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・カードの公開と使用不可（`CardHandler`。公開 ID で種類を引いて各集約に振り分ける）・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定） |
 | internal/service/studio/application/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、presentation 層が GraphQL の `ValidationErrors` に写す |
 | internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
 | internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
@@ -44,7 +44,7 @@
 | tools/linter | カスタムリンター（検査の内容は README。対象の設定は main.go） |
 | tools/createdb | DB が無ければ作るコマンド（make test・CI が core_test とテンプレート core_template を作るのに使う） |
 | tools/synctypes | DB に種別の一覧（`domaindef.Types`）を合わせるコマンド（make migrate・make test・CI が、core を起動しないで使う DB に入れる。どの DB かは `-env` で環境変数の名前を渡す） |
-| tools/seedmaster | 開発で触る見本のマスタ（sample_master.json。カード・プリセットデッキ・スターターデッキセット）を、初期オペレーターとして studio のコマンドで登録するコマンド（`make seed-master`。設定済みなら何もしない）。core_game に公開するのは `make publish-master` |
+| tools/seedmaster | 開発で触る見本のマスタ（sample_master.json。カード・プリセットデッキ・スターターデッキセット）を、初期オペレーターとして studio のコマンドで登録するコマンド（`make seed-master`。設定済みなら何もしない）。core_game に公開するのは `make publish-master`。見本のカードは登録した後に公開中にする |
 | local/core-db | 開発・テストの core-db の初期化（core_game を作る。core_studio は `POSTGRES_DB` で作る） |
 | tests/integration | 結合テスト（入口ごとに studio・game）。internal/wiring で組み立てたアプリをテストと同じプロセスで動かし、HTTP で呼ぶ（GraphQL の契約・認証・認可から、投影されて一覧に出るまで）。複製した DB を 1 つ共有して並列に流し、アプリが ERROR のログを出したら実行全体を失敗にする |
 | tests/testhelper | 結合テストの道具（アプリの起動 `StartApp`（studio・game の入口の両方を持つ本番と同じ組み立て）・GraphQL の呼び出し・投影を待つ `Eventually`・オペレーターの用意・ERROR のログの記録） |
@@ -114,6 +114,9 @@
   - 確保は作るコマンドと同じトランザクションの 1 つの文で「上限未満なら 1 増やす」（constraint/quota.go の `reserveQuota`）。上限なら行が返らず、上限のエラーを返す（エラーにせず、トランザクションも中断しない）。同時に取り合っても DB が同じ行を順番に更新するので、流し直しは要らない。上限の値は DDL・CHECK に書かず文に渡す（下限の 0 以上だけ CHECK）。解放は `releaseQuota`（0 のときは減らさず、エラーにしない）。実装は constraint の `Reserve...Quota`・`Release...Quota`（共通の関数を呼ぶだけ）
   - 上限の値は、コマンドが game の application/rules の `GetQuotaLimitFunc`（全体のルールを読む部品）から受け取る。ドメインの既定の値を直接読まない（core#23 で表から読む実装に差し替えても、コマンドを変えないため。テストでは上限を小さくして確かめる）
   - 上限を足すときは、種別の一覧（`Types` の `QuotaTypes`。上限は 1000 から順に）、ドメインの宣言、wiring の `VerifyQuotaTypes`、domaindef のテスト（helper_test の `quotaTypes()`）への追加と、rules に渡す既定の値の対応（game.go）
+- カード（Creature・Item・Spell）の状態は、準備中（`draft`、既定）・公開中（`published`）・使用不可（`retired`）。値の型と移り方の決まりは `internal/domain/card`（`Status.Publish`・`Retire`）に 1 つだけ置き、3 つの集約が同じ形（`PublishedEvent`・`RetiredEvent`）で持つ。移れるのは 準備中 → 公開中・公開中 → 使用不可・使用不可 → 公開中。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは変わらない操作でイベントを作らず成功する（revision が古ければ `RevisionConflictError`）。準備中 → 使用不可は `InvalidCardStatusTransitionError`、公開中 → 準備中はできない。操作は `publishCard`・`retireCard`（公開 ID で指し、`EntityRefResolver` で種類を引く）
+  - プリセットデッキに新しく入れる・枚数を増やすカードは公開中だけ（`input.Unavailable` → `FieldUnavailable`）。すでに入っているカードは使用不可になっても残せる（減らす・外す・変えないは確かめない）。状態はコマンドがその集約をイベントストアで読んで確かめる（読むだけで書かない）。読んでから保存するまでの間に使用不可にされる競合は許す（プリセットデッキはカードの状態を守る集約ではなく、使用不可は新しく入れないための印のため）
+  - `make publish-master` が game に写す cards は公開中・使用不可のカードだけ（準備中は写さない。使用不可はプレイヤーが持っているので写す）。cards の `status` は絞り込みと写す選びに使うため個別の列、`metadata` にも status と revision を持つ
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go・item.go・spell.go 等）をかぶせ、ID の型は種類ごとの関数で守る
 - テストで一意性の key から集約を引くとき・参照を読むときは constrainttest を使う（テストに制約の表の作りを書かない）
 - 集約どうしの参照（参照されている間は消せない）は、1 つの表 domain_references で持つ（一意性と同じく、参照ごとに表を作らない。core#24）。参照する側を消せば参照も消え（ON DELETE CASCADE）、参照されている側の識別子は消せない（ON DELETE RESTRICT）。何が何を参照するか（参照の種別）は参照する側の集約が宣言する（`ReferenceTypes()`。domain_reference_types と起動時に照合する）

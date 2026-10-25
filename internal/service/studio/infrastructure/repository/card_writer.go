@@ -32,12 +32,13 @@ func (w *CardWriter) Upsert(ctx context.Context, card readmodel.Card) error {
 	row := &models.Card{
 		CardID:   card.CardID.String(),
 		CardType: int16(card.CardType),
+		Status:   string(card.Status),
 		SortName: card.SortName,
 		Metadata: metadata,
 	}
 	return row.Upsert(ctx, exec, true,
 		[]string{models.CardColumns.CardID},
-		boil.Whitelist(models.CardColumns.CardType, models.CardColumns.SortName, models.CardColumns.Metadata),
+		boil.Whitelist(models.CardColumns.CardType, models.CardColumns.Status, models.CardColumns.SortName, models.CardColumns.Metadata),
 		boil.Infer(),
 	)
 }

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
@@ -42,6 +43,9 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	cards, err := s.listCards(ctx)
 	require.NoError(t, err)
 	require.Len(t, cards, len(m.Cards))
+	for _, c := range cards {
+		require.Equal(t, readmodel.CardStatusPublished, c.Status)
+	}
 	decks, err := s.listPresetDecks(ctx)
 	require.NoError(t, err)
 	require.Len(t, decks, len(m.PresetDecks))
@@ -64,6 +68,19 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 		{name: "nothing_seeded", prepare: func(*testing.T, context.Context, *seeder) {}},
 		{name: "some_cards_registered", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			for _, c := range m.Cards[:5] {
+				_, err := s.registerCard(ctx, c)
+				require.NoError(t, err)
+			}
+		}},
+		// 公開してから止まったカードと、登録だけして止まったカードが混ざっていても、公開中にそろう
+		{name: "some_cards_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			for _, c := range m.Cards[:5] {
+				registered, err := s.registerCard(ctx, c)
+				require.NoError(t, err)
+				_, err = s.cardStatuses.Publish(ctx, registered.ID, registered.Revision)
+				require.NoError(t, err)
+			}
+			for _, c := range m.Cards[5:10] {
 				_, err := s.registerCard(ctx, c)
 				require.NoError(t, err)
 			}

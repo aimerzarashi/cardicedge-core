@@ -55,10 +55,16 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	CardNotFoundError struct {
+		Message func(childComplexity int) int
+	}
+
 	Creature struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
+		Revision     func(childComplexity int) int
+		Status       func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
 
@@ -108,7 +114,15 @@ type ComplexityRoot struct {
 		Max   func(childComplexity int) int
 	}
 
+	FieldUnavailable struct {
+		Field func(childComplexity int) int
+	}
+
 	ForbiddenError struct {
+		Message func(childComplexity int) int
+	}
+
+	InvalidCardStatusTransitionError struct {
 		Message func(childComplexity int) int
 	}
 
@@ -116,16 +130,20 @@ type ComplexityRoot struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
+		Revision     func(childComplexity int) int
+		Status       func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
 
 	Mutation struct {
 		DeletePresetDeck        func(childComplexity int, input model.DeletePresetDeckInput) int
+		PublishCard             func(childComplexity int, input model.PublishCardInput) int
 		RegisterCreature        func(childComplexity int, input model.RegisterCreatureInput) int
 		RegisterItem            func(childComplexity int, input model.RegisterItemInput) int
 		RegisterPresetDeck      func(childComplexity int, input model.RegisterPresetDeckInput) int
 		RegisterSpell           func(childComplexity int, input model.RegisterSpellInput) int
 		RenamePresetDeck        func(childComplexity int, input model.RenamePresetDeckInput) int
+		RetireCard              func(childComplexity int, input model.RetireCardInput) int
 		SetPresetDeckCardCounts func(childComplexity int, input model.SetPresetDeckCardCountsInput) int
 		SetStarterDeckSet       func(childComplexity int, input model.SetStarterDeckSetInput) int
 	}
@@ -165,6 +183,11 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	PublishCardSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	Query struct {
 		Cards          func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
 		PresetDeck     func(childComplexity int, id uuid.UUID) int
@@ -194,6 +217,11 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	RetireCardSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	RevisionConflictError struct {
 		Message func(childComplexity int) int
 	}
@@ -211,6 +239,8 @@ type ComplexityRoot struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
+		Revision     func(childComplexity int) int
+		Status       func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
 
@@ -243,6 +273,8 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type MutationResolver interface {
+	PublishCard(ctx context.Context, input model.PublishCardInput) (model.PublishCardResult, error)
+	RetireCard(ctx context.Context, input model.RetireCardInput) (model.RetireCardResult, error)
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
 	RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error)
 	RegisterPresetDeck(ctx context.Context, input model.RegisterPresetDeckInput) (model.RegisterPresetDeckResult, error)
@@ -316,6 +348,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CardNameAlreadyInUseError.Message(childComplexity), true
 
+	case "CardNotFoundError.message":
+		if e.ComplexityRoot.CardNotFoundError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CardNotFoundError.Message(childComplexity), true
+
 	case "Creature.id":
 		if e.ComplexityRoot.Creature.ID == nil {
 			break
@@ -334,6 +373,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.RegisteredAt(childComplexity), true
+	case "Creature.revision":
+		if e.ComplexityRoot.Creature.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.Revision(childComplexity), true
+	case "Creature.status":
+		if e.ComplexityRoot.Creature.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.Status(childComplexity), true
 	case "Creature.updatedAt":
 		if e.ComplexityRoot.Creature.UpdatedAt == nil {
 			break
@@ -447,12 +498,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FieldTotalTooLarge.Max(childComplexity), true
 
+	case "FieldUnavailable.field":
+		if e.ComplexityRoot.FieldUnavailable.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldUnavailable.Field(childComplexity), true
+
 	case "ForbiddenError.message":
 		if e.ComplexityRoot.ForbiddenError.Message == nil {
 			break
 		}
 
 		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
+
+	case "InvalidCardStatusTransitionError.message":
+		if e.ComplexityRoot.InvalidCardStatusTransitionError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.InvalidCardStatusTransitionError.Message(childComplexity), true
 
 	case "Item.id":
 		if e.ComplexityRoot.Item.ID == nil {
@@ -472,6 +537,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Item.RegisteredAt(childComplexity), true
+	case "Item.revision":
+		if e.ComplexityRoot.Item.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.Revision(childComplexity), true
+	case "Item.status":
+		if e.ComplexityRoot.Item.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.Status(childComplexity), true
 	case "Item.updatedAt":
 		if e.ComplexityRoot.Item.UpdatedAt == nil {
 			break
@@ -490,6 +567,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeletePresetDeck(childComplexity, args["input"].(model.DeletePresetDeckInput)), true
+	case "Mutation.publishCard":
+		if e.ComplexityRoot.Mutation.PublishCard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_publishCard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PublishCard(childComplexity, args["input"].(model.PublishCardInput)), true
 	case "Mutation.registerCreature":
 		if e.ComplexityRoot.Mutation.RegisterCreature == nil {
 			break
@@ -545,6 +633,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RenamePresetDeck(childComplexity, args["input"].(model.RenamePresetDeckInput)), true
+	case "Mutation.retireCard":
+		if e.ComplexityRoot.Mutation.RetireCard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_retireCard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RetireCard(childComplexity, args["input"].(model.RetireCardInput)), true
 	case "Mutation.setPresetDeckCardCounts":
 		if e.ComplexityRoot.Mutation.SetPresetDeckCardCounts == nil {
 			break
@@ -676,6 +775,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PresetDeckNotFoundError.Message(childComplexity), true
 
+	case "PublishCardSuccess.id":
+		if e.ComplexityRoot.PublishCardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PublishCardSuccess.ID(childComplexity), true
+	case "PublishCardSuccess.revision":
+		if e.ComplexityRoot.PublishCardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PublishCardSuccess.Revision(childComplexity), true
+
 	case "Query.cards":
 		if e.ComplexityRoot.Query.Cards == nil {
 			break
@@ -764,6 +876,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RenamePresetDeckSuccess.Revision(childComplexity), true
 
+	case "RetireCardSuccess.id":
+		if e.ComplexityRoot.RetireCardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RetireCardSuccess.ID(childComplexity), true
+	case "RetireCardSuccess.revision":
+		if e.ComplexityRoot.RetireCardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RetireCardSuccess.Revision(childComplexity), true
+
 	case "RevisionConflictError.message":
 		if e.ComplexityRoot.RevisionConflictError.Message == nil {
 			break
@@ -809,6 +934,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Spell.RegisteredAt(childComplexity), true
+	case "Spell.revision":
+		if e.ComplexityRoot.Spell.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Spell.Revision(childComplexity), true
+	case "Spell.status":
+		if e.ComplexityRoot.Spell.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Spell.Status(childComplexity), true
 	case "Spell.updatedAt":
 		if e.ComplexityRoot.Spell.UpdatedAt == nil {
 			break
@@ -898,11 +1035,13 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputDeletePresetDeckInput,
 		ec.unmarshalInputPresetDeckCardCountInput,
 		ec.unmarshalInputPresetDeckFilter,
+		ec.unmarshalInputPublishCardInput,
 		ec.unmarshalInputRegisterCreatureInput,
 		ec.unmarshalInputRegisterItemInput,
 		ec.unmarshalInputRegisterPresetDeckInput,
 		ec.unmarshalInputRegisterSpellInput,
 		ec.unmarshalInputRenamePresetDeckInput,
+		ec.unmarshalInputRetireCardInput,
 		ec.unmarshalInputSetPresetDeckCardCountsInput,
 		ec.unmarshalInputSetStarterDeckSetInput,
 	)
@@ -1021,6 +1160,10 @@ func (ec *executionContext) childFields_Creature(ctx context.Context, field grap
 		return ec.fieldContext_Creature_id(ctx, field)
 	case "name":
 		return ec.fieldContext_Creature_name(ctx, field)
+	case "status":
+		return ec.fieldContext_Creature_status(ctx, field)
+	case "revision":
+		return ec.fieldContext_Creature_revision(ctx, field)
 	case "registeredAt":
 		return ec.fieldContext_Creature_registeredAt(ctx, field)
 	case "updatedAt":
@@ -1045,6 +1188,10 @@ func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.
 		return ec.fieldContext_Item_id(ctx, field)
 	case "name":
 		return ec.fieldContext_Item_name(ctx, field)
+	case "status":
+		return ec.fieldContext_Item_status(ctx, field)
+	case "revision":
+		return ec.fieldContext_Item_revision(ctx, field)
 	case "registeredAt":
 		return ec.fieldContext_Item_registeredAt(ctx, field)
 	case "updatedAt":
@@ -1103,6 +1250,10 @@ func (ec *executionContext) childFields_Spell(ctx context.Context, field graphql
 		return ec.fieldContext_Spell_id(ctx, field)
 	case "name":
 		return ec.fieldContext_Spell_name(ctx, field)
+	case "status":
+		return ec.fieldContext_Spell_status(ctx, field)
+	case "revision":
+		return ec.fieldContext_Spell_revision(ctx, field)
 	case "registeredAt":
 		return ec.fieldContext_Spell_registeredAt(ctx, field)
 	case "updatedAt":
@@ -1267,6 +1418,20 @@ func (ec *executionContext) field_Mutation_deletePresetDeck_args(ctx context.Con
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_publishCard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.PublishCardInput, error) {
+			return ec.unmarshalNPublishCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishCardInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_registerCreature_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1329,6 +1494,20 @@ func (ec *executionContext) field_Mutation_renamePresetDeck_args(ctx context.Con
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.RenamePresetDeckInput, error) {
 			return ec.unmarshalNRenamePresetDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenamePresetDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_retireCard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RetireCardInput, error) {
+			return ec.unmarshalNRetireCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireCardInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1655,6 +1834,29 @@ func (ec *executionContext) fieldContext_CardNameAlreadyInUseError_message(_ con
 	return graphql.NewScalarFieldContext("CardNameAlreadyInUseError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _CardNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.CardNotFoundError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CardNotFoundError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CardNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CardNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Creature_id(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1699,6 +1901,52 @@ func (ec *executionContext) _Creature_name(ctx context.Context, field graphql.Co
 }
 func (ec *executionContext) fieldContext_Creature_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Creature_status(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardStatus) graphql.Marshaler {
+			return ec.marshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type CardStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Creature_revision(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Creature_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
@@ -2124,6 +2372,29 @@ func (ec *executionContext) fieldContext_FieldTotalTooLarge_max(_ context.Contex
 	return graphql.NewScalarFieldContext("FieldTotalTooLarge", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _FieldUnavailable_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldUnavailable) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldUnavailable_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldUnavailable_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldUnavailable", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field graphql.CollectedField, obj *model.ForbiddenError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2145,6 +2416,29 @@ func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _InvalidCardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidCardStatusTransitionError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_InvalidCardStatusTransitionError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_InvalidCardStatusTransitionError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("InvalidCardStatusTransitionError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Item_id(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
@@ -2193,6 +2487,52 @@ func (ec *executionContext) fieldContext_Item_name(_ context.Context, field grap
 	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Item_status(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardStatus) graphql.Marshaler {
+			return ec.marshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type CardStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Item_revision(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Item_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2237,6 +2577,94 @@ func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_Item_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Mutation_publishCard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_publishCard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PublishCard(ctx, fc.Args["input"].(model.PublishCardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.PublishCardResult) graphql.Marshaler {
+			return ec.marshalNPublishCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishCardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_publishCard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type PublishCardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_publishCard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_retireCard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_retireCard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RetireCard(ctx, fc.Args["input"].(model.RetireCardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RetireCardResult) graphql.Marshaler {
+			return ec.marshalNRetireCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireCardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_retireCard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RetireCardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_retireCard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_registerCreature(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -3018,6 +3446,52 @@ func (ec *executionContext) fieldContext_PresetDeckNotFoundError_message(_ conte
 	return graphql.NewScalarFieldContext("PresetDeckNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _PublishCardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.PublishCardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PublishCardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PublishCardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PublishCardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _PublishCardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.PublishCardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PublishCardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PublishCardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PublishCardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Query_cards(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3437,6 +3911,52 @@ func (ec *executionContext) fieldContext_RenamePresetDeckSuccess_revision(_ cont
 	return graphql.NewScalarFieldContext("RenamePresetDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _RetireCardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RetireCardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RetireCardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RetireCardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RetireCardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RetireCardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RetireCardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RetireCardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RetireCardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RetireCardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _RevisionConflictError_message(ctx context.Context, field graphql.CollectedField, obj *model.RevisionConflictError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3573,6 +4093,52 @@ func (ec *executionContext) _Spell_name(ctx context.Context, field graphql.Colle
 }
 func (ec *executionContext) fieldContext_Spell_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Spell", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Spell_status(ctx context.Context, field graphql.CollectedField, obj *model.Spell) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Spell_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardStatus) graphql.Marshaler {
+			return ec.marshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Spell_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Spell", field, false, false, errors.New("field of type CardStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Spell_revision(ctx context.Context, field graphql.CollectedField, obj *model.Spell) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Spell_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Spell_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Spell", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Spell_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.Spell) (ret graphql.Marshaler) {
@@ -4980,7 +5546,7 @@ func (ec *executionContext) unmarshalInputCardFilter(ctx context.Context, obj an
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"nameContains", "types"}
+	fieldsInOrder := [...]string{"nameContains", "types", "statuses"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5001,6 +5567,13 @@ func (ec *executionContext) unmarshalInputCardFilter(ctx context.Context, obj an
 				return it, err
 			}
 			it.Types = data
+		case "statuses":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statuses"))
+			data, err := ec.unmarshalOCardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatusᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Statuses = data
 		}
 	}
 	return it, nil
@@ -5105,6 +5678,43 @@ func (ec *executionContext) unmarshalInputPresetDeckFilter(ctx context.Context, 
 				return it, err
 			}
 			it.NameContains = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputPublishCardInput(ctx context.Context, obj any) (model.PublishCardInput, error) {
+	var it model.PublishCardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
 		}
 	}
 	return it, nil
@@ -5269,6 +5879,43 @@ func (ec *executionContext) unmarshalInputRenamePresetDeckInput(ctx context.Cont
 				return it, err
 			}
 			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRetireCardInput(ctx context.Context, obj any) (model.RetireCardInput, error) {
+	var it model.RetireCardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
 		}
 	}
 	return it, nil
@@ -5472,6 +6119,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.FieldUnavailable:
+		return ec._FieldUnavailable(ctx, sel, &obj)
+	case *model.FieldUnavailable:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldUnavailable(ctx, sel, obj)
 	case model.FieldTotalTooLarge:
 		return ec._FieldTotalTooLarge(ctx, sel, &obj)
 	case *model.FieldTotalTooLarge:
@@ -5601,6 +6255,54 @@ func (ec *executionContext) _PresetDecksResult(ctx context.Context, sel ast.Sele
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of PresetDecksResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _PublishCardResult(ctx context.Context, sel ast.SelectionSet, obj model.PublishCardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.PublishCardSuccess:
+		return ec._PublishCardSuccess(ctx, sel, &obj)
+	case *model.PublishCardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PublishCardSuccess(ctx, sel, obj)
+	case model.InvalidCardStatusTransitionError:
+		return ec._InvalidCardStatusTransitionError(ctx, sel, &obj)
+	case *model.InvalidCardStatusTransitionError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._InvalidCardStatusTransitionError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of PublishCardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -5820,6 +6522,54 @@ func (ec *executionContext) _RenamePresetDeckResult(ctx context.Context, sel ast
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of RenamePresetDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RetireCardResult(ctx context.Context, sel ast.SelectionSet, obj model.RetireCardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.RetireCardSuccess:
+		return ec._RetireCardSuccess(ctx, sel, &obj)
+	case *model.RetireCardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RetireCardSuccess(ctx, sel, obj)
+	case model.InvalidCardStatusTransitionError:
+		return ec._InvalidCardStatusTransitionError(ctx, sel, &obj)
+	case *model.InvalidCardStatusTransitionError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._InvalidCardStatusTransitionError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RetireCardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -6068,6 +6818,44 @@ func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel 
 	return out
 }
 
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "PublishCardResult", "RetireCardResult"}
+
+func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CardNotFoundError")
+		case "message":
+			out.Values[i] = ec._CardNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var creatureImplementors = []string{"Creature", "Card"}
 
 func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet, obj *model.Creature) graphql.Marshaler {
@@ -6087,6 +6875,16 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "name":
 			out.Values[i] = ec._Creature_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Creature_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._Creature_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6531,7 +7329,45 @@ func (ec *executionContext) _FieldTotalTooLarge(ctx context.Context, sel ast.Sel
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDeckSetResult", "SetStarterDeckSetResult"}
+var fieldUnavailableImplementors = []string{"FieldUnavailable", "FieldError"}
+
+func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.SelectionSet, obj *model.FieldUnavailable) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldUnavailableImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldUnavailable")
+		case "field":
+			out.Values[i] = ec._FieldUnavailable_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDeckSetResult", "SetStarterDeckSetResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -6545,6 +7381,44 @@ func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("ForbiddenError")
 		case "message":
 			out.Values[i] = ec._ForbiddenError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var invalidCardStatusTransitionErrorImplementors = []string{"InvalidCardStatusTransitionError", "PublishCardResult", "RetireCardResult"}
+
+func (ec *executionContext) _InvalidCardStatusTransitionError(ctx context.Context, sel ast.SelectionSet, obj *model.InvalidCardStatusTransitionError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, invalidCardStatusTransitionErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("InvalidCardStatusTransitionError")
+		case "message":
+			out.Values[i] = ec._InvalidCardStatusTransitionError_message(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6588,6 +7462,16 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "name":
 			out.Values[i] = ec._Item_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Item_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._Item_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6642,6 +7526,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "publishCard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_publishCard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retireCard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_retireCard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "registerCreature":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerCreature(ctx, field)
@@ -7035,6 +7933,49 @@ func (ec *executionContext) _PresetDeckNotFoundError(ctx context.Context, sel as
 	return out
 }
 
+var publishCardSuccessImplementors = []string{"PublishCardSuccess", "PublishCardResult"}
+
+func (ec *executionContext) _PublishCardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.PublishCardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, publishCardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PublishCardSuccess")
+		case "id":
+			out.Values[i] = ec._PublishCardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._PublishCardSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -7378,7 +8319,50 @@ func (ec *executionContext) _RenamePresetDeckSuccess(ctx context.Context, sel as
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "SetStarterDeckSetResult"}
+var retireCardSuccessImplementors = []string{"RetireCardSuccess", "RetireCardResult"}
+
+func (ec *executionContext) _RetireCardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RetireCardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, retireCardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RetireCardSuccess")
+		case "id":
+			out.Values[i] = ec._RetireCardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RetireCardSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "PublishCardResult", "RetireCardResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "SetStarterDeckSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -7516,6 +8500,16 @@ func (ec *executionContext) _Spell(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "name":
 			out.Values[i] = ec._Spell_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Spell_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._Spell_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8214,6 +9208,16 @@ func (ec *executionContext) marshalNCardEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdi
 	return ec._CardEdge(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx context.Context, v any) (model.CardStatus, error) {
+	var res model.CardStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx context.Context, sel ast.SelectionSet, v model.CardStatus) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx context.Context, v any) (model.CardType, error) {
 	var res model.CardType
 	err := res.UnmarshalGQL(v)
@@ -8438,6 +9442,21 @@ func (ec *executionContext) marshalNPresetDecksResult2gitlabᚗcomᚋaimerzarash
 	return ec._PresetDecksResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNPublishCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishCardInput(ctx context.Context, v any) (model.PublishCardInput, error) {
+	res, err := ec.unmarshalInputPublishCardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPublishCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishCardResult(ctx context.Context, sel ast.SelectionSet, v model.PublishCardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PublishCardResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNRegisterCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterCreatureInput(ctx context.Context, v any) (model.RegisterCreatureInput, error) {
 	res, err := ec.unmarshalInputRegisterCreatureInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -8511,6 +9530,21 @@ func (ec *executionContext) marshalNRenamePresetDeckResult2gitlabᚗcomᚋaimerz
 		return graphql.Null
 	}
 	return ec._RenamePresetDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRetireCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireCardInput(ctx context.Context, v any) (model.RetireCardInput, error) {
+	res, err := ec.unmarshalInputRetireCardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRetireCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireCardResult(ctx context.Context, sel ast.SelectionSet, v model.RetireCardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RetireCardResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNSetPresetDeckCardCountsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐSetPresetDeckCardCountsInput(ctx context.Context, v any) (model.SetPresetDeckCardCountsInput, error) {
@@ -8836,6 +9870,42 @@ func (ec *executionContext) unmarshalOCardFilter2ᚖgitlabᚗcomᚋaimerzarashi�
 	}
 	res, err := ec.unmarshalInputCardFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOCardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatusᚄ(ctx context.Context, v any) ([]model.CardStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.CardStatus, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOCardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CardStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardStatus(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOCardType2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardTypeᚄ(ctx context.Context, v any) ([]model.CardType, error) {

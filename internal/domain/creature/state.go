@@ -22,6 +22,7 @@ type Creature struct {
 	Version      int64
 	PublicID     uuid.UUID
 	Name         card.Name
+	Status       card.Status
 	RegisteredBy operator.ID
 	RegisteredAt time.Time
 }

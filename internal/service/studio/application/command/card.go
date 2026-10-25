@@ -1,9 +1,18 @@
 package command
 
 import (
+	"context"
 	"errors"
 
+	"github.com/google/uuid"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
 
@@ -19,4 +28,144 @@ func newCardName(field, value string) (card.Name, input.Error) {
 		return "", &input.InvalidFormat{Field: field}
 	}
 	return name, nil
+}
+
+// 状態を変える操作の結果は、公開 ID と新しい revision だけにする（内容は返さない。PresetDeckHandler の ChangedPresetDeck と同じ理由）
+type ChangedCard struct {
+	ID       uuid.UUID
+	Revision int64
+}
+
+// カードの種類ごとのハンドラーが持つ、状態を変える操作（CardHandler が種類で振り分ける先）
+type cardStatusChanger interface {
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error)
+}
+
+// 公開 ID からカードの種類を引き、Creature・Item・Spell のハンドラーに振り分ける。カードという集約は作らない
+// （名前の一意性だけを種類をまたいで共有する決まり）ため、状態の変更は種類ごとの集約が持ち、ここは振り分けだけをする
+type CardHandler struct {
+	entityRefs domain.EntityRefResolver
+	creatures  cardStatusChanger
+	items      cardStatusChanger
+	spells     cardStatusChanger
+}
+
+func NewCardHandler(entityRefs domain.EntityRefResolver, creatures *CreatureHandler, items *ItemHandler, spells *SpellHandler) *CardHandler {
+	return &CardHandler{entityRefs: entityRefs, creatures: creatures, items: items, spells: spells}
+}
+
+// 公開中にする。カードが無い・カードでない公開 ID は ErrCardNotFound。ほかのエラーは CreatureHandler.Publish と同じ
+func (c *CardHandler) Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error) {
+	changer, err := c.changer(ctx, id)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return changer.Publish(ctx, id, revision)
+}
+
+// 使用不可にする。エラーは Publish と CreatureHandler.Retire と同じ
+func (c *CardHandler) Retire(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error) {
+	changer, err := c.changer(ctx, id)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return changer.Retire(ctx, id, revision)
+}
+
+// 操作した人がいないときは、カードの有無を答える前に断る（種類ごとのハンドラーに届かないため、ここでも確かめる）
+func (c *CardHandler) changer(ctx context.Context, id uuid.UUID) (cardStatusChanger, error) {
+	if _, ok := authentication.Operator(ctx); !ok {
+		return nil, ErrNotOperator
+	}
+	ref, err := c.entityRefs.Resolve(ctx, id)
+	if errors.Is(err, domain.ErrEntityNotFound) {
+		return nil, ErrCardNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	switch ref.EntityType() {
+	case creature.Types().EntityType:
+		return c.creatures, nil
+	case item.Types().EntityType:
+		return c.items, nil
+	case spell.Types().EntityType:
+		return c.spells, nil
+	default:
+		return nil, ErrCardNotFound
+	}
+}
+
+// プリセットデッキのカード（種類と内部 ID の組）の状態を返す。無い（まだ登録していない）カードは結果に含めない
+type CardStatusesFunc func(ctx context.Context, refs []presetdeck.CardRef) (map[presetdeck.CardRef]card.Status, error)
+
+// カードの状態を、集約をイベントストアで読んで確かめる。read model（cards）を読まないのは、投影が遅れている間に
+// 古い状態で判断しないため。読むだけで書かない
+type CardStatusReader struct {
+	creatures domain.EventStore[creature.ID, creature.Event, creature.State]
+	items     domain.EventStore[item.ID, item.Event, item.State]
+	spells    domain.EventStore[spell.ID, spell.Event, spell.State]
+}
+
+func NewCardStatusReader(
+	creatures domain.EventStore[creature.ID, creature.Event, creature.State],
+	items domain.EventStore[item.ID, item.Event, item.State],
+	spells domain.EventStore[spell.ID, spell.Event, spell.State],
+) *CardStatusReader {
+	return &CardStatusReader{creatures: creatures, items: items, spells: spells}
+}
+
+func (r *CardStatusReader) Statuses(ctx context.Context, refs []presetdeck.CardRef) (map[presetdeck.CardRef]card.Status, error) {
+	statuses := make(map[presetdeck.CardRef]card.Status, len(refs))
+	for _, ref := range refs {
+		status, found, err := r.status(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			statuses[ref] = status
+		}
+	}
+	return statuses, nil
+}
+
+func (r *CardStatusReader) status(ctx context.Context, ref presetdeck.CardRef) (card.Status, bool, error) {
+	switch ref.EntityType() {
+	case creature.Types().EntityType:
+		id, err := creature.NewID(ref.ID())
+		if err != nil {
+			return "", false, err
+		}
+		state, err := r.creatures.Load(ctx, id)
+		if err != nil {
+			return "", false, err
+		}
+		loaded, ok := state.(creature.Creature)
+		return loaded.Status, ok, nil
+	case item.Types().EntityType:
+		id, err := item.NewID(ref.ID())
+		if err != nil {
+			return "", false, err
+		}
+		state, err := r.items.Load(ctx, id)
+		if err != nil {
+			return "", false, err
+		}
+		loaded, ok := state.(item.Item)
+		return loaded.Status, ok, nil
+	case spell.Types().EntityType:
+		id, err := spell.NewID(ref.ID())
+		if err != nil {
+			return "", false, err
+		}
+		state, err := r.spells.Load(ctx, id)
+		if err != nil {
+			return "", false, err
+		}
+		loaded, ok := state.(spell.Spell)
+		return loaded.Status, ok, nil
+	default:
+		return "", false, presetdeck.ErrNotCard
+	}
 }

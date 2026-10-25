@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -54,9 +55,49 @@ func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeck
 		identifier.NewEntityRefResolver(registry),
 		constraint.UpdatePresetDeckName,
 		constraint.UpdatePresetDeckCardReferences,
+		newCardStatusReader(registry).Statuses,
 		// wiring と同じく、DB に残る精度（マイクロ秒）にそろえる（保存の後に読み直した日時と、結果の日時を同じにするため）
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
+}
+
+func newCardStatusReader(registry *domaindef.Registry) *command.CardStatusReader {
+	return command.NewCardStatusReader(
+		eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
+		eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
+		eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
+	)
+}
+
+func newCardHandler(t *testing.T, ctx context.Context) *command.CardHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewCardHandler(
+		identifier.NewEntityRefResolver(registry),
+		newCreatureHandler(t, ctx),
+		newItemHandler(t, ctx),
+		newSpellHandler(t, ctx),
+	)
+}
+
+// プリセットデッキに入れられるカード（公開中）を、登録して公開して作る。名前は重ならないよう毎回変える
+func publishedCreature(t *testing.T, ctx context.Context) uuid.UUID {
+	t.Helper()
+	registered, err := newCreatureHandler(t, ctx).Register(ctx, "クリーチャー-"+uuid.NewString())
+	require.NoError(t, err)
+	_, err = newCardHandler(t, ctx).Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+	return registered.ID
+}
+
+func publishedItem(t *testing.T, ctx context.Context) uuid.UUID {
+	t.Helper()
+	registered, err := newItemHandler(t, ctx).Register(ctx, "アイテム-"+uuid.NewString())
+	require.NoError(t, err)
+	_, err = newCardHandler(t, ctx).Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+	return registered.ID
 }
 
 func presetDeckStore(registry *domaindef.Registry) domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State] {

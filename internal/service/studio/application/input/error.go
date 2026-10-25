@@ -71,6 +71,17 @@ func (e *NotFound) InputField() string {
 	return e.Field
 }
 
+// 入力の ID が指すものが、使えない状態（準備中・使用不可のカード等）。無い（NotFound）のとは違い、あるが今は使えない
+type Unavailable struct{ Field string }
+
+func (e *Unavailable) Error() string {
+	return fmt.Sprintf("%s refers to something unavailable", e.Field)
+}
+
+func (e *Unavailable) InputField() string {
+	return e.Field
+}
+
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた
 type Duplicated struct{ Field string }
 

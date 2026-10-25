@@ -25,6 +25,12 @@ type SpellRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredSpell, error)
 }
 
+// 実装は command.CardHandler
+type CardStatusHandler interface {
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedCard, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedCard, error)
+}
+
 // 実装は command.PresetDeckHandler
 type PresetDeckHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedPresetDeck, error)
@@ -59,6 +65,7 @@ type Resolver struct {
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
 	spells          SpellRegistrar
+	cardStatuses    CardStatusHandler
 	presetDecks     PresetDeckHandler
 	cards           CardLister
 	presetDeckList  PresetDeckLister
@@ -70,6 +77,7 @@ func NewResolver(
 	creatures CreatureRegistrar,
 	items ItemRegistrar,
 	spells SpellRegistrar,
+	cardStatuses CardStatusHandler,
 	presetDecks PresetDeckHandler,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
@@ -77,7 +85,7 @@ func NewResolver(
 	starterDeckSet StarterDeckSetGetter,
 ) *Resolver {
 	return &Resolver{
-		creatures: creatures, items: items, spells: spells, presetDecks: presetDecks,
+		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDeckSets: starterDeckSets, starterDeckSet: starterDeckSet,
 	}
 }

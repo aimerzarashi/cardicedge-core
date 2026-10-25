@@ -12,7 +12,6 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -45,7 +44,7 @@ func fullPresetDeck(t *testing.T, ctx context.Context, name string) command.Chan
 	deck := registerPresetDeck(t, ctx, name)
 	cards := make([]command.CardCountInput, 0, presetdeck.MaxTotalCount/presetdeck.MaxCardCount)
 	for range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
-		cards = append(cards, command.CardCountInput{CardID: issueCard(t, ctx, creature.NewID), Count: presetdeck.MaxCardCount})
+		cards = append(cards, command.CardCountInput{CardID: publishedCreature(t, ctx), Count: presetdeck.MaxCardCount})
 	}
 	filled, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, cards)
 	require.NoError(t, err)

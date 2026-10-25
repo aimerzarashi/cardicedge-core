@@ -52,13 +52,22 @@ gen-api:
 seed-master:
 	docker compose exec core go run ./tools/seedmaster
 
-# マスタ（studio の read model の cards・starter_deck_sets）を game の DB に公開する。core-db の中で pg_dump の出力をそのまま psql に渡し、
-# 1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
+# マスタ（studio の read model の cards・starter_deck_sets）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
+# そのまま core_game の \copy に渡し、1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
+# cards は公開中・使用不可のカードだけを写す（準備中は studio の中の作りかけで、game に出さない。使用不可はプレイヤーが持っているので写す）。
+# pg_dump は行で絞れないため使わない。流し込む前に全体を一時ファイルに作るのは、読む側が途中で失敗しても、書く側が途中までの入力で
+# 空にして確定してしまわないため
 # イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 2 つの表が公開用の ID だけで
 # 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
 .PHONY: publish-master
 publish-master:
-	docker compose exec core-db sh -c 'pg_dump -U core_user -d core_studio --data-only --table=cards --table=starter_deck_sets | psql -U core_user -d core_game -v ON_ERROR_STOP=1 --single-transaction -c "TRUNCATE cards, starter_deck_sets" -f -'
+	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
+	  printf "%s\n" "TRUNCATE cards, starter_deck_sets;" "\\copy cards FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
+	  printf "%s\n" "\\." "\\copy starter_deck_sets FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_deck_sets TO STDOUT"; \
+	  printf "%s\n" "\\."; \
+	} > $$f; psql -U core_user -d core_game -v ON_ERROR_STOP=1 --single-transaction -f $$f'
 
 # マイグレーション済みの core-db から sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を生成する。
 # migrations を足したら make migrate の後に実行し、生成したコードもコミットする。

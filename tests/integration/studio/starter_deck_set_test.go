@@ -27,7 +27,7 @@ func fullPresetDeck(t *testing.T, token, name string) map[string]any {
 	deck := registerPresetDeck(t, token, name)
 	cards := []map[string]any{}
 	for i := range 10 {
-		cardID := registerCreature(t, token, fmt.Sprintf("c%d-%s", i, name))["creature"].(map[string]any)["id"]
+		cardID := registerPublishedCreature(t, token, fmt.Sprintf("c%d-%s", i, name))
 		cards = append(cards, cardCount(cardID, 4))
 	}
 	filled := setPresetDeckCardCounts(t, token, deck, cards...)

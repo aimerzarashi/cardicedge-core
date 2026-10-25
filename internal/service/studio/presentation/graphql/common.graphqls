@@ -66,6 +66,12 @@ type FieldNotFound implements FieldError {
   field: String!
 }
 
+"入力の ID が指すものが、使えない状態（準備中・使用不可のカード等）。あるが、今の状態では使えない"
+type FieldUnavailable implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）"
+  field: String!
+}
+
 "一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）"
 type FieldDuplicated implements FieldError {
   "誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）"

@@ -29,6 +29,7 @@ func (r *mutationResolver) RegisterSpell(ctx context.Context, input model.Regist
 		return nil, err
 	}
 	return &model.RegisterSpellSuccess{Spell: &model.Spell{
-		ID: registered.ID, Name: registered.Name, RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
+		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Revision: int(registered.Revision),
+		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
 }

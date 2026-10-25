@@ -1,5 +1,7 @@
 package spell
 
+import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+
 func Evolve(state State, event Event) (State, error) {
 	switch e := event.(type) {
 	case *RegisteredEvent:
@@ -12,9 +14,34 @@ func Evolve(state State, event Event) (State, error) {
 			Version:      meta.AggregateVersion,
 			PublicID:     e.PublicID,
 			Name:         e.Name,
+			Status:       card.StatusDraft,
 			RegisteredBy: e.RegisteredBy,
 			RegisteredAt: meta.OccurredAt,
 		}, nil
+	case *PublishedEvent:
+		spell, ok := state.(Spell)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		status, _, err := spell.Status.Publish()
+		if err != nil {
+			return state, err
+		}
+		spell.Status = status
+		spell.Version = e.GetMeta().AggregateVersion
+		return spell, nil
+	case *RetiredEvent:
+		spell, ok := state.(Spell)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		status, _, err := spell.Status.Retire()
+		if err != nil {
+			return state, err
+		}
+		spell.Status = status
+		spell.Version = e.GetMeta().AggregateVersion
+		return spell, nil
 	default:
 		return state, ErrInvalidState
 	}

@@ -59,6 +59,16 @@ func TestCardHandler_PassesNormalizedConditionToReader(t *testing.T) {
 	}, reader.condition)
 }
 
+func TestCardHandler_PassesStatusesToReader(t *testing.T) {
+	reader := &fakeReader{}
+	statuses := []readmodel.CardStatus{readmodel.CardStatusPublished}
+
+	_, err := query.NewCardHandler(reader.list, nil).List(t.Context(), query.CardFilter{Statuses: statuses}, nil, nil)
+
+	require.NoError(t, err)
+	require.Equal(t, statuses, reader.condition.Statuses)
+}
+
 func TestCardHandler_PassesDecodedAfterCursorToReader(t *testing.T) {
 	reader := &fakeReader{}
 	after := query.CardListCursor{CardType: readmodel.CardTypeItem, SortName: "dragon", CardID: uuid.New()}
@@ -93,6 +103,13 @@ func TestCardHandler_RejectsInvalidInput(t *testing.T) {
 				return query.CardFilter{NameContains: ptr(strings.Repeat("あ", 51))}
 			},
 			want: &input.TooLong{Field: "filter.nameContains", Max: 50},
+		},
+		{
+			name: "empty_statuses",
+			filter: func() query.CardFilter {
+				return query.CardFilter{Statuses: []readmodel.CardStatus{}}
+			},
+			want: &input.Required{Field: "filter.statuses"},
 		},
 		{
 			name: "empty_types",

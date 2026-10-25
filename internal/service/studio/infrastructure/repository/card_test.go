@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/infrastructure/repository"
@@ -16,8 +17,8 @@ import (
 func cardList(cardType readmodel.CardType, sortName, name string) readmodel.Card {
 	id := uuid.New()
 	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
-	metadata := readmodel.CardMetadata{ID: id, Name: name, RegisteredAt: at, UpdatedAt: at}
-	return readmodel.Card{CardID: id, CardType: cardType, SortName: sortName, Metadata: metadata}
+	metadata := readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	return readmodel.Card{CardID: id, CardType: cardType, Status: readmodel.CardStatusDraft, SortName: sortName, Metadata: metadata}
 }
 
 func put(t *testing.T, ctx context.Context, cardType readmodel.CardType, sortName, name string) readmodel.Card {
@@ -53,6 +54,8 @@ func TestCard_ListsUpsertedCardWithDisplayValuesAndCursor(t *testing.T) {
 	require.Equal(t, list.CardID, card.ID)
 	require.Equal(t, readmodel.CardTypeCreature, card.Type)
 	require.Equal(t, "Ｄragon", card.Name)
+	require.Equal(t, readmodel.CardStatusDraft, card.Status)
+	require.EqualValues(t, 1, card.Revision)
 	require.Equal(t, list.Metadata.RegisteredAt, card.RegisteredAt.UTC())
 	require.Equal(t, list.Metadata.UpdatedAt, card.UpdatedAt.UTC())
 	require.Equal(t, query.CardListCursor{CardType: readmodel.CardTypeCreature, SortName: "dragon", CardID: list.CardID}, rows[0].Cursor)
@@ -134,6 +137,41 @@ func TestCard_FiltersByCardTypes(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"Creature A", "Spell A"}, names(rows))
+}
+
+func TestCard_FiltersByStatuses(t *testing.T) {
+	ctx := emptyCardLists(t)
+	put(t, ctx, readmodel.CardTypeCreature, "a", "Draft")
+	published := cardList(readmodel.CardTypeCreature, "b", "Published")
+	published.Status = readmodel.CardStatusPublished
+	published.Metadata.Status = readmodel.CardStatusPublished
+	published.Metadata.Revision = 2
+	require.NoError(t, repository.NewCardWriter().Upsert(ctx, published))
+	retired := cardList(readmodel.CardTypeCreature, "c", "Retired")
+	retired.Status = readmodel.CardStatusRetired
+	retired.Metadata.Status = readmodel.CardStatusRetired
+	require.NoError(t, repository.NewCardWriter().Upsert(ctx, retired))
+
+	rows, err := repository.NewCardReader().List(ctx, query.ListCardsCondition{
+		Statuses: []readmodel.CardStatus{readmodel.CardStatusPublished, readmodel.CardStatusRetired}, Limit: 10,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"Published", "Retired"}, names(rows))
+	require.Equal(t, readmodel.CardStatusPublished, rows[0].Card.Status)
+	require.EqualValues(t, 2, rows[0].Card.Revision)
+}
+
+// 状態の列は CHECK で守る（make publish-master が写すカードの選びの根拠なので、read model でも列だけは守る）
+func TestCard_RejectsUnknownStatus(t *testing.T) {
+	ctx := emptyCardLists(t)
+	put(t, ctx, readmodel.CardTypeCreature, "a", "Card")
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+
+	_, err = exec.ExecContext(ctx, `UPDATE cards SET status = 'archived'`)
+
+	require.Error(t, err)
 }
 
 // LIKE の記号（% _）は文字どおりに比べる
