@@ -61,7 +61,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 			identifier.New(registry, startergrant.NewID),
 			constraint.UpdateStarterGrantPlayer,
-			repository.NewStarterDeckSetReader().Get,
+			repository.NewStarterDeckReader().ListPublished,
 			command.NewCollectionHandler(
 				eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 				identifier.New(registry, collection.NewID),

@@ -122,14 +122,6 @@ union RenamePresetDeckResult =
   | RevisionConflictError
   | ForbiddenError
 
-"変えるカードと、その枚数"
-input PresetDeckCardCountInput {
-  "カード（Creature・Item・Spell）の公開用の ID"
-  cardId: UUID!
-  "その枚数にする（0〜4。0 にするとデッキから外す）"
-  count: Int!
-}
-
 "プリセットデッキのカードの枚数を変える入力"
 input SetPresetDeckCardCountsInput {
   "プリセットデッキの公開用の ID"
@@ -137,7 +129,7 @@ input SetPresetDeckCardCountsInput {
   "画面が見ていたプリセットデッキの revision"
   revision: Int!
   "変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り）"
-  cards: [PresetDeckCardCountInput!]!
+  cards: [DeckCardCountInput!]!
 }
 
 "プリセットデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）"

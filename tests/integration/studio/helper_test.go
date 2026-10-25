@@ -9,14 +9,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら StarterDeckSet）
-const starterDeckSetQuery = `query {
-	starterDeckSet {
+// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら StarterDeckConnection）
+const starterDecksQuery = `query {
+	starterDecks {
 		__typename
-		... on StarterDeckSet {
-			revision updatedAt
-			decks { name cards { count card { __typename id name } } source { presetDeckId revision changedSinceCopied presetDeckDeleted } }
-		}
 	}
 }`
 

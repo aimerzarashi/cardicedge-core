@@ -16,6 +16,16 @@ var (
 	ErrPresetDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
 	// 公開 ID に当たるプリセットデッキが無い（削除したものを含む）
 	ErrPresetDeckNotFound = errors.New("command: starter deck not found")
+	// ほかのスターターデッキが同じ名前を使っている（状態によらない）
+	ErrStarterDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
+	// 公開 ID に当たるスターターデッキが無い（削除したものを含む）
+	ErrStarterDeckNotFound = errors.New("command: starter deck not found")
+	// 準備中のスターターデッキを使用不可にしようとした
+	ErrInvalidStarterDeckStatusTransition = errors.New("command: invalid starter deck status transition")
+	// 準備中でないスターターデッキの名前・枚数を変える、または削除しようとした
+	ErrStarterDeckNotDraft = errors.New("command: starter deck is not draft")
+	// 公開中のスターターデッキの数の上限に達している
+	ErrStarterDeckLimitReached = errors.New("command: starter deck limit reached")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした

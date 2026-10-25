@@ -3,6 +3,7 @@ package game_test
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -57,7 +58,7 @@ func resolvePlayer(t *testing.T, db *sql.DB, publicID string) player.ID {
 	return id
 }
 
-// 配られた所持カードとデッキ 2 つが、マスタの中身どおりか確かめる
+// 配られた所持カードとデッキ 2 つ（公開中のスターターデッキだけ）が、マスタの中身どおりか確かめる
 func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, owner player.ID) {
 	t.Helper()
 	ctx := rdb.WithDB(t.Context(), db)
@@ -81,6 +82,11 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, owner pla
 		startergranttest.CardCount(t, m.CardC, 2),
 	}, owned.(collection.Collection).Cards)
 
+	var deckCount int
+	require.NoError(t, db.QueryRowContext(ctx, `
+		SELECT count(*) FROM domain_unique_keys u JOIN domain_unique_key_types t ON t.id = u.unique_key_type_id
+		WHERE t.name = 'deck.starter' AND u.key LIKE $1`, strconv.FormatInt(grantID.Int64(), 10)+":%").Scan(&deckCount))
+	require.Equal(t, 2, deckCount)
 	first := loadDeck(t, ctx, registry, grantID, 1)
 	second := loadDeck(t, ctx, registry, grantID, 2)
 	require.Equal(t, "火", first.Name.String())
@@ -162,6 +168,35 @@ func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
 	require.Zero(t, decks)
 
 	require.NoError(t, testhelper.PublishGameRules(ctx, app.GameDB))
+
+	waitStarterGrantCompleted(t, app.GameDB, owner)
+	requireDistributed(t, app.GameDB, published, owner)
+}
+
+// 公開中のスターターデッキが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
+func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
+	t.Parallel()
+	app, err := testhelper.StartApp(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(app.Close)
+	isolated := testhelper.GraphQLClient{URL: app.URL + "/game/graphql"}
+	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
+	claims.Issuer = idptest.GameIssuer
+	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
+	owner := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
+	ctx := rdb.WithDB(t.Context(), app.GameDB)
+	published, err := testhelper.PublishMasterWithoutPublishedStarterDecks(ctx, app.GameDB)
+	require.NoError(t, err)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		var failures int
+		assert.NoError(c, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM event_subscriber_failures`).Scan(&failures))
+		assert.Positive(c, failures)
+	})
+	var grants int
+	require.NoError(t, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM domain_events WHERE entity_type_id = 1700`).Scan(&grants))
+	require.Zero(t, grants)
+
+	require.NoError(t, testhelper.PublishStarterDecks(ctx, app.GameDB, published))
 
 	waitStarterGrantCompleted(t, app.GameDB, owner)
 	requireDistributed(t, app.GameDB, published, owner)

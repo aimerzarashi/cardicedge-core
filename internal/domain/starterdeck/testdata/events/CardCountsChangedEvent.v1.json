@@ -1,0 +1,19 @@
+{
+  "changes": [
+    {
+      "card": {
+        "entity_type": "creature",
+        "id": 20
+      },
+      "delta": -2
+    },
+    {
+      "card": {
+        "entity_type": "item",
+        "id": 21
+      },
+      "delta": 3
+    }
+  ],
+  "changed_by": 10
+}

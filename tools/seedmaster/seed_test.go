@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -52,9 +52,15 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	for _, deck := range decks {
 		require.Equal(t, deckTotalCount, deck.TotalCount)
 	}
-	set, err := s.starterDeckSet.Get(ctx)
+	starterDecks, err := s.listStarterDecks(ctx)
 	require.NoError(t, err)
-	require.Len(t, set.Decks, starterDeckSize)
+	require.Len(t, starterDecks, len(m.StarterDecks))
+	for _, name := range m.StarterDecks {
+		deck := starterDecks[domain.NormalizeName(name)]
+		require.Equal(t, readmodel.StarterDeckStatusPublished, deck.Status)
+		require.Equal(t, deckTotalCount, deck.TotalCount)
+		require.NotNil(t, deck.Source)
+	}
 }
 
 // 途中で止まった（一部だけ入っている）状態から流し直しても、足りない分だけを入れ、見本どおりにそろう
@@ -97,17 +103,25 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			_, err = s.seedPresetDecks(ctx, m.PresetDecks[:1], cardIDs)
 			require.NoError(t, err)
 		}},
-		{name: "starter_deck_set_just_set", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+		{name: "starter_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			cardIDs, err := s.seedCards(ctx, m.Cards)
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			ids := make([]uuid.UUID, 0, len(m.StarterDeckSet))
-			for _, name := range m.StarterDeckSet {
-				ids = append(ids, deckIDs[name])
-			}
-			_, err = s.starterDeckSets.Set(ctx, 0, ids)
+			_, err = s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[m.StarterDecks[0]])
 			require.NoError(t, err)
+		}},
+		{name: "starter_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			for _, name := range m.StarterDecks {
+				copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[name])
+				require.NoError(t, err)
+				_, err = s.starterDecks.Publish(ctx, copied.ID, copied.Revision)
+				require.NoError(t, err)
+			}
 		}},
 	}
 	for _, tt := range tests {
@@ -122,7 +136,7 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 	}
 }
 
-// 設定済みなら何もしない（2 回目に流しても、カード・デッキが増えない）
+// 2 回目に流しても、カード・デッキが増えず、公開中のままそろう
 func TestSeed_DoesNothingWhenAlreadySeeded(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)

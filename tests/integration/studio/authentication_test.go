@@ -16,7 +16,7 @@ func TestAuthentication_LinksOperatorByVerifiedEmailOnFirstRequest(t *testing.T)
 	email, subject := "operator-"+id+"@example.com", "operator-"+id
 	registered := operators.Register(t, email)
 
-	status, body := client.Post(t, key.Sign(t, idptest.VerifiedClaims(subject, email)), starterDeckSetQuery, nil)
+	status, body := client.Post(t, key.Sign(t, idptest.VerifiedClaims(subject, email)), starterDecksQuery, nil)
 
 	require.Equal(t, http.StatusOK, status)
 	require.Nil(t, body["errors"])
@@ -43,10 +43,10 @@ func TestAuthentication_AcceptsValidTokenOfNonOperator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, body := client.Post(t, key.Sign(t, tt.claims), starterDeckSetQuery, nil)
+			status, body := client.Post(t, key.Sign(t, tt.claims), starterDecksQuery, nil)
 
 			require.Equal(t, http.StatusOK, status)
-			require.Equal(t, "ForbiddenError", body["data"].(map[string]any)["starterDeckSet"].(map[string]any)["__typename"])
+			require.Equal(t, "ForbiddenError", body["data"].(map[string]any)["starterDecks"].(map[string]any)["__typename"])
 			_, found := operators.Linked(t, subject)
 			require.False(t, found)
 		})
@@ -68,7 +68,7 @@ func TestAuthentication_RejectsRequestWithoutValidToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, body := client.Post(t, tt.token, starterDeckSetQuery, nil)
+			status, body := client.Post(t, tt.token, starterDecksQuery, nil)
 
 			require.Equal(t, http.StatusUnauthorized, status)
 			require.Equal(t, "UNAUTHENTICATED", body["errors"].([]any)[0].(map[string]any)["extensions"].(map[string]any)["code"])
@@ -78,7 +78,7 @@ func TestAuthentication_RejectsRequestWithoutValidToken(t *testing.T) {
 
 func TestAuthentication_RejectsGetRequest(t *testing.T) {
 	t.Parallel()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, endpoint+"?query=%7BstarterDeckSet%7B__typename%7D%7D", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, endpoint+"?query=%7BstarterDecks%7B__typename%7D%7D", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+key.Sign(t, idptest.ValidClaims("user-1")))
 

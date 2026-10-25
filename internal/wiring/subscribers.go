@@ -8,11 +8,11 @@ import "gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 var subscribers = []serviceSubscriber{
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1000, "cards")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1001, "preset_decks")},
-	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1002, "starter_deck_sets")},
 	{service: serviceGame, def: eventdriven.PolicySubscriber(1003, "starter_grant")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1004, "players")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1005, "player_starter_grants")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1006, "game_rules")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1007, "starter_decks")},
 }
 
 const (

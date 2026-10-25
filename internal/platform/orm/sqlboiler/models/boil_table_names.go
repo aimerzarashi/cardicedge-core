@@ -23,7 +23,7 @@ var TableNames = struct {
 	GameRules                  string
 	Players                    string
 	PresetDecks                string
-	StarterDeckSets            string
+	StarterDecks               string
 }{
 	Cards:                      "cards",
 	DomainEntities:             "domain_entities",
@@ -44,5 +44,5 @@ var TableNames = struct {
 	GameRules:                  "game_rules",
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
-	StarterDeckSets:            "starter_deck_sets",
+	StarterDecks:               "starter_decks",
 }

@@ -29,14 +29,12 @@ func NewID(value int64) (ID, error) {
 	return ID(value), nil
 }
 
-// 配るデッキの数。調整できるようにするのは core#23（それまでは決まった値）
-const RequiredDeckCount = 2
-
-// 何番目のデッキか（1 から RequiredDeckCount）。デッキの集約の一意な key と、配布の記録の段に使う
+// 何番目のデッキか（1 から、配るデッキの数まで）。デッキの集約の一意な key と、配布の記録の段に使う。
+// 配るデッキの数は公開中のスターターデッキの数で決まり、値の形では上限を持てないため、配るデッキの数との照合は Decide でする
 type DeckNumber int
 
 func NewDeckNumber(value int) (DeckNumber, error) {
-	if value < 1 || value > RequiredDeckCount {
+	if value < 1 {
 		return 0, ErrInvalidDeckNumber
 	}
 	return DeckNumber(value), nil

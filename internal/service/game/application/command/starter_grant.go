@@ -15,30 +15,30 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
 )
 
-// 版の衝突でやり直す回数の上限。衝突するのは、所持カードとデッキ 2 つの記録が同じ配布に同時に来たときだけ（最大 3 つ）
+// 版の衝突でやり直す回数の上限。衝突するのは、所持カードとデッキの記録が同じ配布に同時に来たときだけ（最大で、配るデッキの数 + 1 つ。既定の公開中の上限 2 なら 3 つ）
 const maxRecordAttempts = 5
 
 type StarterGrantHandler struct {
-	eventStore        domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State]
-	identifier        domain.Identifier[startergrant.ID]
-	updatePlayer      startergrant.UpdatePlayerFunc
-	getStarterDeckSet master.GetStarterDeckSetFunc
-	collections       *CollectionHandler
-	decks             *DeckHandler
-	now               func() time.Time
+	eventStore       domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State]
+	identifier       domain.Identifier[startergrant.ID]
+	updatePlayer     startergrant.UpdatePlayerFunc
+	listStarterDecks master.ListPublishedStarterDecksFunc
+	collections      *CollectionHandler
+	decks            *DeckHandler
+	now              func() time.Time
 }
 
 func NewStarterGrantHandler(
 	eventStore domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State],
 	identifier domain.Identifier[startergrant.ID],
 	updatePlayer startergrant.UpdatePlayerFunc,
-	getStarterDeckSet master.GetStarterDeckSetFunc,
+	listStarterDecks master.ListPublishedStarterDecksFunc,
 	collections *CollectionHandler,
 	decks *DeckHandler,
 	now func() time.Time,
 ) *StarterGrantHandler {
 	return &StarterGrantHandler{
-		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, getStarterDeckSet: getStarterDeckSet,
+		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, listStarterDecks: listStarterDecks,
 		collections: collections, decks: decks, now: now,
 	}
 }
@@ -62,20 +62,20 @@ func (c *StarterGrantHandler) Handle(ctx context.Context, event any) error {
 	}
 }
 
-// プレイヤーの配布を始める。マスタが公開されていなければ ErrMasterNotPublished。そのプレイヤーの配布がもう始まっていれば何もしない
+// プレイヤーの配布を始める。公開中のスターターデッキが 1 つも無ければ ErrMasterNotPublished（公開中をあるだけ配る）。そのプレイヤーの配布がもう始まっていれば何もしない
 func (c *StarterGrantHandler) Start(ctx context.Context, playerID int64) error {
 	owner, err := player.NewID(playerID)
 	if err != nil {
 		return err
 	}
-	set, found, err := c.getStarterDeckSet(ctx)
+	published, err := c.listStarterDecks(ctx)
 	if err != nil {
 		return err
 	}
-	if !found {
+	if len(published) == 0 {
 		return ErrMasterNotPublished
 	}
-	decks, err := startDecks(set)
+	decks, err := startDecks(published)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (c *StarterGrantHandler) Start(ctx context.Context, playerID int64) error {
 	return err
 }
 
-// 所持カードとデッキ 2 つを、それぞれ別のトランザクションで作る（どのトランザクションも 1 つの集約だけを変える）。
+// 所持カードと公開中のスターターデッキの数だけのデッキを、それぞれ別のトランザクションで作る（どのトランザクションも 1 つの集約だけを変える）。
 // どれも、もうあれば何もしないので、途中で止まっても、もう一度呼べば続きから進む
 func (c *StarterGrantHandler) Distribute(ctx context.Context, grantID int64) error {
 	state, err := c.load(ctx, grantID)
@@ -142,7 +142,7 @@ func (c *StarterGrantHandler) RecordDeck(ctx context.Context, grantID int64, num
 	return c.record(ctx, grantID, &startergrant.RecordDeckCommand{Number: deckNumber})
 }
 
-// 版がぶつかったら読み直してやり直す。所持カードとデッキ 2 つの記録が同じ配布に同時に来ることがあり、
+// 版がぶつかったら読み直してやり直す。所持カードとデッキの記録が同じ配布に同時に来ることがあり、
 // ぶつかるたびにポリシーの失敗にすると、やり直しの間隔を待つ分だけ配り終わるのが遅れるため
 func (c *StarterGrantHandler) record(ctx context.Context, grantID int64, cmd startergrant.Command) error {
 	for range maxRecordAttempts {
@@ -170,9 +170,9 @@ func (c *StarterGrantHandler) load(ctx context.Context, grantID int64) (starterg
 	return c.eventStore.Load(ctx, id)
 }
 
-func startDecks(set master.StarterDeckSet) ([]startergrant.Deck, error) {
-	decks := make([]startergrant.Deck, 0, len(set.Decks))
-	for _, source := range set.Decks {
+func startDecks(published []master.StarterDeck) ([]startergrant.Deck, error) {
+	decks := make([]startergrant.Deck, 0, len(published))
+	for _, source := range published {
 		name, err := startergrant.NewDeckName(source.Name)
 		if err != nil {
 			return nil, fmt.Errorf("master starter deck name %q: %w", source.Name, err)

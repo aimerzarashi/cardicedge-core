@@ -14,20 +14,20 @@
 | internal/service/studio | studio のサービスの組み立て（studio.go。下の層の部品（コマンド・問い合わせ・リゾルバー・入口）をつなぎ、studio の read model の投影を登録する） |
 | internal/service/studio/presentation/graphql | studio 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/studio/graphql。JWT の認証）・データローダー（dataloader.go。リクエストごとに作る））。generated.go・model/models_gen.go は生成コード。model のほかのファイルは、gqlgen.yml で生成させずに使わせる手書きの型（`PresetDeck`・`StarterDeck`・カードと枚数の `DeckCardCount`。resolver に渡す値を持たせるため）。テストは tests/integration |
 | internal/service/studio/application/authentication | JWT の (iss, sub) に紐づいたオペレーターを context に載せる（認証ミドルウェアが載せ、認可が読む） |
-| internal/service/studio/application/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・カードの公開と使用不可（`CardHandler`。公開 ID で種類を引いて各集約に振り分ける）・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキセットの設定・ゲーム全体のルールの起動時の作成と読み出し（`GameRulesHandler`。読み出しの関数 `GetGameRulesFunc` を、プリセットデッキとスターターデッキセットのコマンドに渡す）） |
+| internal/service/studio/application/command | コマンド（集約ごとの `XxxHandler`。オペレーターの登録・初期オペレーターの登録・初めてのログインでの紐づけ・Creature・Item・Spell の登録・カードの公開と使用不可（`CardHandler`。公開 ID で種類を引いて各集約に振り分ける）・プリセットデッキの登録・名前の変更・枚数の変更・削除・スターターデッキ（`StarterDeckHandler`）の登録（空から・プリセットデッキから写して）・名前と枚数の変更・削除・公開・使用不可・ゲーム全体のルールの起動時の作成と読み出し（`GameRulesHandler`。読み出しの関数 `GetGameRulesFunc` を、プリセットデッキとスターターデッキのコマンドに渡す）） |
 | internal/service/studio/application/input | 入力の誤り（理由ごとの型と、その一覧 `input.Errors`）。コマンドと問い合わせで共有し、presentation 層が GraphQL の `ValidationErrors` に写す |
 | internal/service/studio/application/query | 問い合わせ（read model ごとの `XxxHandler`。入力を確かめ、reader で読み、ページ分けする） |
-| internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeckSet`・`GameRules`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
+| internal/service/studio/application/query/readmodel | read model の状態の型（表の 1 行。`Card`・`PresetDeck`・`StarterDeck`・`GameRules`）と、イベントから状態を作る `Evolve`・`IsTerminal` |
 | internal/service/studio/infrastructure/repository | read model の DB の読み書き（read model ごとの `XxxWriter`（投影が使う `Upsert`・`Delete`）と `XxxReader`（`List`・`Get` 等）） |
 | internal/service/game | game のサービスの組み立て（game.go。下の層の部品（コマンド・問い合わせ・リゾルバー・入口）をつなぎ、ポリシーと read model の投影を登録する）。層は studio と同じにする（core#34） |
 | internal/service/game/presentation/graphql | game 用 GraphQL（`*.graphqls`・gqlgen.yml・リゾルバー・handler（/game/graphql。JWT の認証と、(iss, sub) のプレイヤーの特定））。generated.go・model/models_gen.go は生成コード。テストは tests/integration |
 | internal/service/game/application/authentication | JWT の (iss, sub) と、登録済みならそのプレイヤーを context に載せる（認証ミドルウェアが載せ、コマンドが読む） |
 | internal/service/game/application/command | コマンド（集約ごとの `XxxHandler`。プレイヤーの登録・自分のプレイヤーの取得・認証での (iss, sub) の特定・スターターの配布（始める・配る・済んだことの記録）・所持カードとデッキの作成）。配布のハンドラーは、配布の流れ（プロセスマネージャー）のイベントを受け取る入口 `Handle` も持ち、game.go が eventdriven のポリシーとして登録する（ポリシーを presentation 層に置くとドメインのイベントの型を import し、application 層に別のパッケージで置くとユースケースがユースケースを呼ぶ形になるため） |
-| internal/service/game/application/master | マスタ（studio が決め、`make publish-master` で core_game に写したもの）を読む部品。スターターデッキセット（デッキの名前と、カードの公開 ID と枚数）の型と、読み出しの関数の型。studio の read model の型は使わず、配布に要る項目だけを持つ |
+| internal/service/game/application/master | マスタ（studio が決め、`make publish-master` で core_game に写したもの）を読む部品。公開中のスターターデッキ（デッキの名前と、カードの公開 ID と枚数）の型と、それを決まった順（名前の正規化 → 公開 ID）で読む関数の型（1 つも無ければ空）。studio の read model の型は使わず、配布に要る項目だけを持つ |
 | internal/service/game/application/rules | 全体のルール（運営が決める、プレイヤーによらない値）を読む部品。写した `game_rules` を読む関数の型 `GetRulesFunc`（行が無ければ found が false）と、上限の値を返す `GetQuotaLimitFunc`、それを作る `FromPublished`（写されていなければ `ErrNotPublished`。既定の値に黙って戻さない） |
 | internal/service/game/application/query | 問い合わせ（read model ごとの `XxxHandler`。`PlayerHandler` は `players` から配布の状態 `StarterGrantStatus` を返す。行が無い・列が NULL なら `IN_PROGRESS`） |
 | internal/service/game/application/query/readmodel | read model の状態の型（`Player`・`PlayerStarterGrant`。どちらも `players` の 1 行の一部で、`Player` は player の投影が行を作り、`PlayerStarterGrant` は starter_grant の投影が配布の状態の列だけを書く）と、`Evolve`・`IsTerminal` |
-| internal/service/game/infrastructure/repository | core_game の表の読み書き（マスタを読む `StarterDeckSetReader`・`GameRulesReader`（行が無ければ found が false）、read model の `PlayerWriter`・`PlayerStarterGrantWriter`（投影が使う `Upsert`・`Delete`。それぞれ自分の列だけを書き、行が無ければ作る）と `PlayerReader`） |
+| internal/service/game/infrastructure/repository | core_game の表の読み書き（マスタを読む `StarterDeckReader`（公開中のスターターデッキだけ）・`GameRulesReader`（行が無ければ found が false）、read model の `PlayerWriter`・`PlayerStarterGrantWriter`（投影が使う `Upsert`・`Delete`。それぞれ自分の列だけを書き、行が無ければ作る）と `PlayerReader`） |
 | internal/domain | 集約の共通の契約（Event・ID・EventStore・制約の型（`UniqueKey`・`ReferenceType`・`QuotaType`・`Quota`・`QuotaLimit`）・名前の比べ方 `NormalizeName`（name.go）等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具。game のスターターの配布は 3 つの集約でできている: `startergrant`（プレイヤーに 1 つ。配る中身の写しと、どこまで済んだかを持つプロセスマネージャー）・`collection`（プレイヤーの所持カード）・`deck`（1 デッキ 1 集約。デッキの編集とカードの取得が互いにぶつからないため）。`gamerules`（ゲーム全体のルール。値オブジェクト `Rules` と既定の値 `Defaults()`、ゲーム全体で 1 つの集約）。どのカードも公開 ID で持つ（game の DB にカードの集約が無いため） |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go、数の上限 domain_quotas は quota.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types・domain_quota_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
@@ -44,7 +44,7 @@
 | tools/linter | カスタムリンター（検査の内容は README。対象の設定は main.go） |
 | tools/createdb | DB が無ければ作るコマンド（make test・CI が core_test とテンプレート core_template を作るのに使う） |
 | tools/synctypes | DB に種別の一覧（`domaindef.Types`）を合わせるコマンド（make migrate・make test・CI が、core を起動しないで使う DB に入れる。どの DB かは `-env` で環境変数の名前を渡す） |
-| tools/seedmaster | 開発で触る見本のマスタ（sample_master.json。カード・プリセットデッキ・スターターデッキセット）を、初期オペレーターとして studio のコマンドで登録するコマンド（`make seed-master`。設定済みなら何もしない）。core_game に公開するのは `make publish-master`。見本のカードは登録した後に公開中にする。ゲーム全体のルールも、起動時と同じ関数で（無ければ）作る |
+| tools/seedmaster | 開発で触る見本のマスタ（sample_master.json。カード・プリセットデッキ・スターターデッキ）を、初期オペレーターとして studio のコマンドで登録するコマンド（`make seed-master`。同じ名前のものがあれば飛ばすので、何度流しても同じ結果になる）。core_game に公開するのは `make publish-master`。見本のカードは登録した後に公開中にする。スターターデッキはプリセットデッキから写して作り、公開する。ゲーム全体のルールも、起動時と同じ関数で（無ければ）作る |
 | local/core-db | 開発・テストの core-db の初期化（core_game を作る。core_studio は `POSTGRES_DB` で作る） |
 | tests/integration | 結合テスト（入口ごとに studio・game）。internal/wiring で組み立てたアプリをテストと同じプロセスで動かし、HTTP で呼ぶ（GraphQL の契約・認証・認可から、投影されて一覧に出るまで）。複製した DB を 1 つ共有して並列に流し、アプリが ERROR のログを出したら実行全体を失敗にする |
 | tests/testhelper | 結合テストの道具（アプリの起動 `StartApp`（studio・game の入口の両方を持つ本番と同じ組み立て）・GraphQL の呼び出し・投影を待つ `Eventually`・オペレーターの用意・ERROR のログの記録） |
@@ -94,7 +94,7 @@
 - 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
 - read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
 - read model の表は、鍵と、検索・絞り込み・並べ替えに使う値を個別の列にし、表示に使う値は `metadata`（JSONB）に持つ（同じ項目が両方に要れば両方に持つ。migrations/0008 の決まり）。1 つの表を複数の投影が書くとき（`players`）は、それぞれが `metadata` の自分の項目だけを重ねて書く（core#38）
-- 種別（集約・イベント・一意な key・参照）の id と名前は、コードの一覧（internal/domaindef/catalog.go の `Types`）で決める。id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた id と名前は変えない・消さない。振り方は catalog.go のコメント（集約は 1000 から 100 刻み、イベントは集約の id ＋ 1 から、key・参照・上限は 1000 から順に）
+- 種別（集約・イベント・一意な key・参照）の id と名前は、コードの一覧（internal/domaindef/catalog.go の `Types`）で決める。id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた id と名前は変えない・消さない（main に入る前（リリース前）は除く。core#42 でスターターデッキセットの種別を、開発の DB を作り直す前提で消した）。振り方は catalog.go のコメント（集約は 1000 から 100 刻み、イベントは集約の id ＋ 1 から、key・参照・上限は 1000 から順に）
 - 起動時に、DB ごとのトランザクション（advisory lock で core どうしを順にする）で、一覧のうち DB に無い種別を足し、DB の行が一覧とちょうど一致するかを確かめる（`domaindef.Sync`）。続けて、ドメインの宣言と DB を両方向に照合する（`Verify...`）。食い違えば起動を止める（行は消さない。core#20・core#33）
 - 集約を足したら、表のマイグレーションが要れば足して `make gen-orm` し、種別の一覧（`Types`）にその集約とイベントを足し、起動時の照合（internal/wiring の `syncTypes` の集約の一覧）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
@@ -122,6 +122,10 @@
   - studio は集約をイベントストアで読み（`GameRulesHandler.Get`。read model を読まず、投影の遅れで古い値を見ない）、確かめてから保存するコマンドに `GetGameRulesFunc` で渡す。ドメインの `Decide`・`NewDeck` は既定の値を直接読まず、コマンドが読んだルールを受け取る（テストでは値を小さくして確かめる）
   - game は read model `game_rules` を `make publish-master` で core_game に写したものを、`GameRulesReader`（行が無ければ found が false）で読む。まだ写されていなければエラーにし、既定の値に黙って戻さない（配布のポリシーでは待てば直る失敗）
   - 値を足す手順: `Rules` に項目と既定の値を足す（検証は `New`）。state・read model（`metadata` の `rules`）・game の読み出しは `Rules` をそのまま持つので変えない。使う側のコマンドで読むだけ。イベントの payload の形が変わるときは版を上げ、古い版の golden も残す
+- スターターデッキは、1 デッキ 1 集約 `starter_deck`（studio のサービス。core#42）。空から作るか、プリセットデッキから写して作る（名前・カード・枚数を写し、写した元の公開 ID と revision を、写したときだけ持つ。元は参照にしない）。状態（準備中・公開中・使用不可）の型と移り方はカードと同じ決まり（`starterdeck.Status`。型は共有しない）。名前・枚数の変更と削除は準備中だけ（`StarterDeckNotDraftError`）。準備中は決まり（40 枚等）を満たさなくてよい
+  - 名前は、状態によらずすべてのスターターデッキの中で一意（一意な key `starter_deck.name`。登録・名前の変更で確保し、削除の識別子の削除で外れる。公開・使用不可では触らない）。入れたカードは参照 `starter_deck.card` で持つ
+  - 公開するとき（使用不可からの公開し直しも）確かめるのは、合計がちょうど `deck.total_card_count`（`Decide`）、入っているカードがすべて公開中（コマンドがイベントストアで読む）、公開中の数が `starter_deck.max_published` 未満（quota `starter_deck.published`。持ち主は `game_rules` の内部 ID を key `game_rules.singleton` から引く）。使用不可にすると quota を 1 戻す。公開中にもう一度公開する・使用不可にもう一度するのは、変わらない操作でイベントを作らず成功する
+  - `make publish-master` は starter_decks を全行（状態つき）で game に写し、game は公開中だけを（名前の正規化 → 公開 ID の順に）読んで配る。配るデッキの数は公開中の数（1 以上。1 つも無ければ `ErrMasterNotPublished` で待つ）。配るデッキの名前はスターターデッキの名前
 - 種類の違う集約で共有する key の種別（カード名）は、共有の実装（constraint/card.go。外に出さない）に、種類ごとの関数（constraint/creature.go・item.go・spell.go 等）をかぶせ、ID の型は種類ごとの関数で守る
 - テストで一意性の key から集約を引くとき・参照を読むときは constrainttest を使う（テストに制約の表の作りを書かない）
 - 集約どうしの参照（参照されている間は消せない）は、1 つの表 domain_references で持つ（一意性と同じく、参照ごとに表を作らない。core#24）。参照する側を消せば参照も消え（ON DELETE CASCADE）、参照されている側の識別子は消せない（ON DELETE RESTRICT）。何が何を参照するか（参照の種別）は参照する側の集約が宣言する（`ReferenceTypes()`。domain_reference_types と起動時に照合する）
@@ -130,7 +134,7 @@
   - 参照される集約を消すコマンドを作るときは、消す前に参照を確かめて「使われている」を結果の型で返す（確かめ忘れても DB が止めるが、利用者には内部のエラーとしか見えないため）
   - 問い合わせ（query・repository）からは domain_references を読まない（書く側が整合性を守るための表で、イベントから作り直せず、制約にしない関係は入っていないため）。参照されている関係を画面に出したいときは、参照する側の read model に持たせる（core#25）
 - ほかの集約は内部 ID で持つが、それは整合性のための参照（消せない制約がある）の話。消えうる集約から写したことの記録（スターターデッキの写しの元のプリセットデッキ等）は、公開 ID で持つ（消えた後も投影が読めるように。内部 ID だと識別子が消えて公開 ID を引けない。core#25）
-- ゲーム全体で 1 つの集約（スターターデッキセット等）は、最初の操作で識別子を発行し、「1 つだけ」を一意な key（値は決まった文字列。例: `starter_deck_set.singleton`）で守る。内部 ID も画面から受け取らず、この key の持ち主から引く。初めての操作が重なったら、後のほうは「先に変えられた」にする（未設定を見て操作したのに、もうあった状況のため。core#25）
+- ゲーム全体で 1 つの集約（`game_rules` 等）は、最初の操作で識別子を発行し、「1 つだけ」を一意な key（値は決まった文字列。例: `game_rules.singleton`）で守る。内部 ID も画面から受け取らず、この key の持ち主から引く。初めての操作が重なったら、後のほうは「先に変えられた」にする（未設定を見て操作したのに、もうあった状況のため。core#25）
 - イベントストアの版の衝突も、一意制約違反のエラーではなく `ON CONFLICT DO NOTHING RETURNING` で行が返らないことで知る。版が続いていない（版 1 でも直前の版の次でもない）イベントも保存せず、`domain.ErrVersionNotConsecutive` を返す（コードの誤りでだけ起きるので、呼ぶ側は分岐しない。core#24）
 - 画面で見た内容をもとに、既にあるものを変える・消す操作（プリセットデッキの名前・枚数の変更・削除等）は、同じ形にそろえる（core#24。流れの図は internal/eventstore/README.md）:
   - 入力に `revision`（画面が見ていた集約の版）を含め、型にも `revision` を持たせる。マスタの公開の版と取り違えないよう「版」と呼ばない（日本語では「更新の番号」）

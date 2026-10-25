@@ -15,8 +15,9 @@ var sampleMasterJSON []byte
 type master struct {
 	Cards []masterCard `json:"cards"`
 	// 名前はカードの名前で指す（登録して初めて公開 ID が決まるため、ファイルに ID は書けない）
-	PresetDecks    []masterPresetDeck `json:"preset_decks"`
-	StarterDeckSet []string           `json:"starter_deck_set"`
+	PresetDecks []masterPresetDeck `json:"preset_decks"`
+	// 写して作るプリセットデッキの名前。作って公開する（名前はプリセットデッキの名前のまま）
+	StarterDecks []string `json:"starter_decks"`
 }
 
 type masterCard struct {
@@ -35,10 +36,9 @@ type masterDeckEntry struct {
 }
 
 const (
-	nameMaxLength   = 50
-	cardMaxCount    = 4
-	deckTotalCount  = 40
-	starterDeckSize = 2
+	nameMaxLength  = 50
+	cardMaxCount   = 4
+	deckTotalCount = 40
 )
 
 func loadMaster(raw []byte) (master, error) {
@@ -94,13 +94,18 @@ func (m master) validate() error {
 			return fmt.Errorf("preset deck %q: total %d is not %d", d.Name, total, deckTotalCount)
 		}
 	}
-	if len(m.StarterDeckSet) != starterDeckSize {
-		return fmt.Errorf("starter deck set: %d decks, want %d", len(m.StarterDeckSet), starterDeckSize)
+	if len(m.StarterDecks) == 0 {
+		return fmt.Errorf("starter decks: at least one is required")
 	}
-	for _, name := range m.StarterDeckSet {
+	starterNames := map[string]bool{}
+	for _, name := range m.StarterDecks {
 		if !deckNames[name] {
-			return fmt.Errorf("starter deck set: unknown preset deck %q", name)
+			return fmt.Errorf("starter decks: unknown preset deck %q", name)
 		}
+		if starterNames[name] {
+			return fmt.Errorf("starter decks: %q is duplicated", name)
+		}
+		starterNames[name] = true
 	}
 	return nil
 }

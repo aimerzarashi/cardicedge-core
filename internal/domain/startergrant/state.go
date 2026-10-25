@@ -18,8 +18,8 @@ type InProgressStarterGrant struct {
 	Cards              []CardCount
 	Decks              []Deck
 	CollectionRecorded bool
-	// 添字は DeckNumber - 1
-	DeckRecorded [RequiredDeckCount]bool
+	// 添字は DeckNumber - 1。長さは配るデッキの数（Decks と同じ）
+	DeckRecorded []bool
 }
 
 func (InProgressStarterGrant) isStarterGrantState() {}
