@@ -88,3 +88,22 @@ func TestVerifyReferenceTypes_ReportsMismatchInBothDirections(t *testing.T) {
 	require.ErrorContains(t, err, "reference type is not in domain_reference_types: unknown.reference_type")
 	require.ErrorContains(t, err, "domain_reference_types has a reference type not declared in code: domaindef_test.reference")
 }
+
+func TestVerifyQuotaTypes_AllQuotaTypesMatchMigrations(t *testing.T) {
+	registry, err := domaindef.Load(rdbtest.Tx(t))
+	require.NoError(t, err)
+
+	require.NoError(t, registry.VerifyQuotaTypes(quotaTypes()...))
+}
+
+func TestVerifyQuotaTypes_ReportsMismatchInBothDirections(t *testing.T) {
+	ctx := isolated(t)
+	insert(t, ctx, `INSERT INTO domain_quota_types (id, name) VALUES (999, 'domaindef_test.quota')`)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+
+	err = registry.VerifyQuotaTypes(append(quotaTypes(), domain.NewQuotaType("unknown.quota_type"))...)
+
+	require.ErrorContains(t, err, "quota type is not in domain_quota_types: unknown.quota_type")
+	require.ErrorContains(t, err, "domain_quota_types has a quota type not declared in code: domaindef_test.quota")
+}

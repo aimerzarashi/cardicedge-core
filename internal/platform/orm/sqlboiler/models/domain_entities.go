@@ -120,11 +120,13 @@ var DomainEntityWhere = struct {
 // DomainEntityRels is where relationship names are stored.
 var DomainEntityRels = struct {
 	EntityType                  string
+	OwnerDomainQuotas           string
 	ReferencedDomainReferences  string
 	ReferencingDomainReferences string
 	EntityDomainUniqueKeys      string
 }{
 	EntityType:                  "EntityType",
+	OwnerDomainQuotas:           "OwnerDomainQuotas",
 	ReferencedDomainReferences:  "ReferencedDomainReferences",
 	ReferencingDomainReferences: "ReferencingDomainReferences",
 	EntityDomainUniqueKeys:      "EntityDomainUniqueKeys",
@@ -133,6 +135,7 @@ var DomainEntityRels = struct {
 // domainEntityR is where relationships are stored.
 type domainEntityR struct {
 	EntityType                  *DomainEntityType    `boil:"EntityType" json:"EntityType" toml:"EntityType" yaml:"EntityType"`
+	OwnerDomainQuotas           DomainQuotaSlice     `boil:"OwnerDomainQuotas" json:"OwnerDomainQuotas" toml:"OwnerDomainQuotas" yaml:"OwnerDomainQuotas"`
 	ReferencedDomainReferences  DomainReferenceSlice `boil:"ReferencedDomainReferences" json:"ReferencedDomainReferences" toml:"ReferencedDomainReferences" yaml:"ReferencedDomainReferences"`
 	ReferencingDomainReferences DomainReferenceSlice `boil:"ReferencingDomainReferences" json:"ReferencingDomainReferences" toml:"ReferencingDomainReferences" yaml:"ReferencingDomainReferences"`
 	EntityDomainUniqueKeys      DomainUniqueKeySlice `boil:"EntityDomainUniqueKeys" json:"EntityDomainUniqueKeys" toml:"EntityDomainUniqueKeys" yaml:"EntityDomainUniqueKeys"`
@@ -157,6 +160,22 @@ func (r *domainEntityR) GetEntityType() *DomainEntityType {
 	}
 
 	return r.EntityType
+}
+
+func (o *DomainEntity) GetOwnerDomainQuotas() DomainQuotaSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetOwnerDomainQuotas()
+}
+
+func (r *domainEntityR) GetOwnerDomainQuotas() DomainQuotaSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.OwnerDomainQuotas
 }
 
 func (o *DomainEntity) GetReferencedDomainReferences() DomainReferenceSlice {
@@ -534,6 +553,20 @@ func (o *DomainEntity) EntityType(mods ...qm.QueryMod) domainEntityTypeQuery {
 	return DomainEntityTypes(queryMods...)
 }
 
+// OwnerDomainQuotas retrieves all the domain_quota's DomainQuotas with an executor via owner_id column.
+func (o *DomainEntity) OwnerDomainQuotas(mods ...qm.QueryMod) domainQuotaQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"domain_quotas\".\"owner_id\"=?", o.ID),
+	)
+
+	return DomainQuotas(queryMods...)
+}
+
 // ReferencedDomainReferences retrieves all the domain_reference's DomainReferences with an executor via referenced_id column.
 func (o *DomainEntity) ReferencedDomainReferences(mods ...qm.QueryMod) domainReferenceQuery {
 	var queryMods []qm.QueryMod
@@ -688,6 +721,119 @@ func (domainEntityL) LoadEntityType(ctx context.Context, e boil.ContextExecutor,
 					foreign.R = &domainEntityTypeR{}
 				}
 				foreign.R.EntityTypeDomainEntities = append(foreign.R.EntityTypeDomainEntities, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadOwnerDomainQuotas allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (domainEntityL) LoadOwnerDomainQuotas(ctx context.Context, e boil.ContextExecutor, singular bool, maybeDomainEntity any, mods queries.Applicator) error {
+	var slice []*DomainEntity
+	var object *DomainEntity
+
+	if singular {
+		var ok bool
+		object, ok = maybeDomainEntity.(*DomainEntity)
+		if !ok {
+			object = new(DomainEntity)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeDomainEntity)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeDomainEntity))
+			}
+		}
+	} else {
+		s, ok := maybeDomainEntity.(*[]*DomainEntity)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeDomainEntity)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeDomainEntity))
+			}
+		}
+	}
+
+	args := make(map[any]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &domainEntityR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &domainEntityR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]any, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`domain_quotas`),
+		qm.WhereIn(`domain_quotas.owner_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load domain_quotas")
+	}
+
+	var resultSlice []*DomainQuota
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice domain_quotas")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on domain_quotas")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for domain_quotas")
+	}
+
+	if len(domainQuotaAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.OwnerDomainQuotas = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &domainQuotaR{}
+			}
+			foreign.R.Owner = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.OwnerID {
+				local.R.OwnerDomainQuotas = append(local.R.OwnerDomainQuotas, foreign)
+				if foreign.R == nil {
+					foreign.R = &domainQuotaR{}
+				}
+				foreign.R.Owner = local
 				break
 			}
 		}
@@ -1079,6 +1225,59 @@ func (o *DomainEntity) SetEntityType(ctx context.Context, exec boil.ContextExecu
 		related.R.EntityTypeDomainEntities = append(related.R.EntityTypeDomainEntities, o)
 	}
 
+	return nil
+}
+
+// AddOwnerDomainQuotas adds the given related objects to the existing relationships
+// of the domain_entity, optionally inserting them as new records.
+// Appends related to o.R.OwnerDomainQuotas.
+// Sets related.R.Owner appropriately.
+func (o *DomainEntity) AddOwnerDomainQuotas(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*DomainQuota) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.OwnerID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"domain_quotas\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"owner_id"}),
+				strmangle.WhereClause("\"", "\"", 2, domainQuotaPrimaryKeyColumns),
+			)
+			values := []any{o.ID, rel.QuotaTypeID, rel.OwnerID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.OwnerID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &domainEntityR{
+			OwnerDomainQuotas: related,
+		}
+	} else {
+		o.R.OwnerDomainQuotas = append(o.R.OwnerDomainQuotas, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &domainQuotaR{
+				Owner: o,
+			}
+		} else {
+			rel.R.Owner = o
+		}
+	}
 	return nil
 }
 

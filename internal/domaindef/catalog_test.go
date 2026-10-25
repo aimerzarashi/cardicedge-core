@@ -9,7 +9,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 )
 
-// 集約は 1000 から 100 刻み、イベントはその集約の 100 の中、一意性の key・参照は 1000 から。どれも id・名前が重ならない。
+// 集約は 1000 から 100 刻み、イベントはその集約の 100 の中、一意性の key・参照・上限は 1000 から。どれも id・名前が重ならない。
 // 決まりから外れた行を、名前つきで集めて比べる（どの行かが分かるように）
 func TestTypes_FollowsNumberingRules(t *testing.T) {
 	var violations []string
@@ -31,7 +31,7 @@ func TestTypes_FollowsNumberingRules(t *testing.T) {
 			eventNames[event.Name] = true
 		}
 	}
-	for _, named := range [][]domaindef.NamedTypeDef{domaindef.Types.UniqueKeyTypes, domaindef.Types.ReferenceTypes} {
+	for _, named := range [][]domaindef.NamedTypeDef{domaindef.Types.UniqueKeyTypes, domaindef.Types.ReferenceTypes, domaindef.Types.QuotaTypes} {
 		ids := map[int16]bool{}
 		names := map[string]bool{}
 		for _, def := range named {
@@ -83,4 +83,13 @@ func TestTypes_MatchesDeclarations(t *testing.T) {
 		catalogReferences = append(catalogReferences, def.Name)
 	}
 	require.ElementsMatch(t, declaredReferences, catalogReferences)
+
+	var declaredQuotas, catalogQuotas []string
+	for _, quotaType := range quotaTypes() {
+		declaredQuotas = append(declaredQuotas, quotaType.String())
+	}
+	for _, def := range domaindef.Types.QuotaTypes {
+		catalogQuotas = append(catalogQuotas, def.Name)
+	}
+	require.ElementsMatch(t, declaredQuotas, catalogQuotas)
 }

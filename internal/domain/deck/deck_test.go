@@ -116,3 +116,33 @@ func TestStarterKey_DiffersPerGrantAndNumber(t *testing.T) {
 	require.NotEqual(t, first, other)
 	require.Equal(t, deck.StarterKeyType, first.Type())
 }
+
+func TestNameKey_UsesNormalizedNameOfOwner(t *testing.T) {
+	full := deck.NameKey(playertest.ID(t, 10), decktest.Name(t, "ＡＢＣ"))
+	half := deck.NameKey(playertest.ID(t, 10), decktest.Name(t, " abc "))
+
+	require.Equal(t, full, half)
+	require.Equal(t, deck.NameKeyType, full.Type())
+}
+
+func TestNameKey_DiffersPerOwner(t *testing.T) {
+	require.NotEqual(t,
+		deck.NameKey(playertest.ID(t, 1), decktest.Name(t, "abc")),
+		deck.NameKey(playertest.ID(t, 2), decktest.Name(t, "abc")),
+	)
+}
+
+// 持ち主の ID と名前の数字がつながっても、別の組と同じ key にならない
+func TestNameKey_DistinguishesHowOwnerAndNameAreSplit(t *testing.T) {
+	require.NotEqual(t,
+		deck.NameKey(playertest.ID(t, 1), decktest.Name(t, "23")),
+		deck.NameKey(playertest.ID(t, 12), decktest.Name(t, "3")),
+	)
+}
+
+func TestPlayerQuota_CountsPerPlayer(t *testing.T) {
+	quota := deck.PlayerQuota(playertest.ID(t, 10))
+
+	require.Equal(t, deck.PlayerQuotaType, quota.Type())
+	require.Equal(t, int64(10), quota.OwnerID())
+}

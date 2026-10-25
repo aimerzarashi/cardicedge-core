@@ -9,6 +9,8 @@ var TableNames = struct {
 	DomainEntityTypes          string
 	DomainEventTypes           string
 	DomainEvents               string
+	DomainQuotaTypes           string
+	DomainQuotas               string
 	DomainReferenceTypes       string
 	DomainReferences           string
 	DomainUniqueKeyTypes       string
@@ -27,6 +29,8 @@ var TableNames = struct {
 	DomainEntityTypes:          "domain_entity_types",
 	DomainEventTypes:           "domain_event_types",
 	DomainEvents:               "domain_events",
+	DomainQuotaTypes:           "domain_quota_types",
+	DomainQuotas:               "domain_quotas",
 	DomainReferenceTypes:       "domain_reference_types",
 	DomainReferences:           "domain_references",
 	DomainUniqueKeyTypes:       "domain_unique_key_types",

@@ -7,6 +7,7 @@ var ViewNames = struct {
 	DomainEntityView              string
 	DomainEventTypeView           string
 	DomainEventView               string
+	DomainQuotaView               string
 	DomainReferenceView           string
 	DomainUniqueKeyView           string
 	EventSubscriberCheckpointView string
@@ -15,6 +16,7 @@ var ViewNames = struct {
 	DomainEntityView:              "domain_entity_view",
 	DomainEventTypeView:           "domain_event_type_view",
 	DomainEventView:               "domain_event_view",
+	DomainQuotaView:               "domain_quota_view",
 	DomainReferenceView:           "domain_reference_view",
 	DomainUniqueKeyView:           "domain_unique_key_view",
 	EventSubscriberCheckpointView: "event_subscriber_checkpoint_view",

@@ -43,12 +43,18 @@ func Sync(ctx context.Context, catalog Catalog) error {
 			return fmt.Errorf("failed to add domain_reference_types: %w", err)
 		}
 	}
+	for _, quotaType := range catalog.QuotaTypes {
+		if _, err := exec.ExecContext(ctx, `INSERT INTO domain_quota_types (id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			quotaType.ID, quotaType.Name); err != nil {
+			return fmt.Errorf("failed to add domain_quota_types: %w", err)
+		}
+	}
 	return verifyCatalog(ctx, exec, catalog)
 }
 
 // 行を「id: 名前」の文字列にして、両方向に比べる（どの列が食い違っても、行ごと出す）
 func verifyCatalog(ctx context.Context, exec rdb.Executor, catalog Catalog) error {
-	var entityTypes, eventTypes, uniqueKeyTypes, referenceTypes []string
+	var entityTypes, eventTypes, uniqueKeyTypes, referenceTypes, quotaTypes []string
 	for _, entityType := range catalog.EntityTypes {
 		entityTypes = append(entityTypes, fmt.Sprintf("%d: %s", entityType.ID, entityType.Name))
 		for _, event := range entityType.Events {
@@ -61,6 +67,9 @@ func verifyCatalog(ctx context.Context, exec rdb.Executor, catalog Catalog) erro
 	for _, referenceType := range catalog.ReferenceTypes {
 		referenceTypes = append(referenceTypes, fmt.Sprintf("%d: %s", referenceType.ID, referenceType.Name))
 	}
+	for _, quotaType := range catalog.QuotaTypes {
+		quotaTypes = append(quotaTypes, fmt.Sprintf("%d: %s", quotaType.ID, quotaType.Name))
+	}
 	tables := []struct {
 		name     string
 		query    string
@@ -70,6 +79,7 @@ func verifyCatalog(ctx context.Context, exec rdb.Executor, catalog Catalog) erro
 		{name: "domain_event_types", query: `SELECT id || ': ' || entity_type_id || '.' || name FROM domain_event_types`, declared: eventTypes},
 		{name: "domain_unique_key_types", query: `SELECT id || ': ' || name FROM domain_unique_key_types`, declared: uniqueKeyTypes},
 		{name: "domain_reference_types", query: `SELECT id || ': ' || name FROM domain_reference_types`, declared: referenceTypes},
+		{name: "domain_quota_types", query: `SELECT id || ': ' || name FROM domain_quota_types`, declared: quotaTypes},
 	}
 	var errs []error
 	for _, table := range tables {

@@ -13,7 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
-// Registry は domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types の name と id の対応。
+// Registry は domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types・domain_quota_types の name と id の対応。
 // パッケージの変数にせず、Load の結果を identifier・eventstore に渡すのは、読み込み忘れをコンパイル時にわかるようにし、
 // 依存を引数に表すため（参照の api はパッケージの変数だった）。起動後は読み取り専用のため錠を持たない
 type Registry struct {
@@ -23,6 +23,7 @@ type Registry struct {
 	eventTypeNames  map[EventTypeID]domain.EventName
 	uniqueKeyTypes  map[string]bool
 	referenceTypes  map[string]bool
+	quotaTypes      map[string]bool
 }
 
 // domain_entity_types・domain_event_types の id。どちらも DB では SMALLINT だが、型を分けて取り違えをコンパイルで止める
@@ -72,6 +73,11 @@ func Load(ctx context.Context) (*Registry, error) {
 		return nil, fmt.Errorf("failed to load domain_reference_types: %w", err)
 	}
 
+	quotaTypes, err := models.DomainQuotaTypes().All(ctx, exec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load domain_quota_types: %w", err)
+	}
+
 	r := &Registry{
 		entityTypeIDs:   map[domain.EntityType]EntityTypeID{},
 		entityTypeNames: map[EntityTypeID]domain.EntityType{},
@@ -79,12 +85,16 @@ func Load(ctx context.Context) (*Registry, error) {
 		eventTypeNames:  map[EventTypeID]domain.EventName{},
 		uniqueKeyTypes:  map[string]bool{},
 		referenceTypes:  map[string]bool{},
+		quotaTypes:      map[string]bool{},
 	}
 	for _, row := range uniqueKeyTypes {
 		r.uniqueKeyTypes[row.Name] = true
 	}
 	for _, row := range referenceTypes {
 		r.referenceTypes[row.Name] = true
+	}
+	for _, row := range quotaTypes {
+		r.quotaTypes[row.Name] = true
 	}
 	for _, row := range entityTypes {
 		r.entityTypeIDs[domain.NewEntityType(row.Name)] = EntityTypeID(row.ID)
@@ -198,6 +208,15 @@ func (r *Registry) VerifyReferenceTypes(referenceTypes ...domain.ReferenceType) 
 		names = append(names, referenceType.String())
 	}
 	return verifyNames("domain_reference_types", "reference type", names, r.referenceTypes)
+}
+
+// アプリケーションの起動時に呼ぶ。種別が無いと確保の文が行を返さず、上限に達したことと区別できないため、起動時に検出する
+func (r *Registry) VerifyQuotaTypes(quotaTypes ...domain.QuotaType) error {
+	names := make([]string, 0, len(quotaTypes))
+	for _, quotaType := range quotaTypes {
+		names = append(names, quotaType.String())
+	}
+	return verifyNames("domain_quota_types", "quota type", names, r.quotaTypes)
 }
 
 func verifyNames(table, kind string, declared []string, inDB map[string]bool) error {

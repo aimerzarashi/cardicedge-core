@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -190,7 +190,7 @@ func (s *seeder) seedCards(ctx context.Context, cards []masterCard) (map[string]
 		return nil, err
 	}
 	for _, c := range cards {
-		if id, ok := existing[card.NormalizeName(c.Name)]; ok {
+		if id, ok := existing[domain.NormalizeName(c.Name)]; ok {
 			ids[c.Name] = id
 			continue
 		}
@@ -199,10 +199,10 @@ func (s *seeder) seedCards(ctx context.Context, cards []masterCard) (map[string]
 			// 登録済みだが read model にまだ無い（投影の遅れ）
 			err = waitFor(ctx, "cards", func() (bool, error) {
 				existing, err = s.listCards(ctx)
-				_, ok := existing[card.NormalizeName(c.Name)]
+				_, ok := existing[domain.NormalizeName(c.Name)]
 				return ok, err
 			})
-			id = existing[card.NormalizeName(c.Name)]
+			id = existing[domain.NormalizeName(c.Name)]
 		}
 		if err != nil {
 			return nil, fmt.Errorf("register card %q: %w", c.Name, err)
@@ -238,7 +238,7 @@ func (s *seeder) listCards(ctx context.Context) (map[string]uuid.UUID, error) {
 			return nil, err
 		}
 		for _, edge := range page.Edges {
-			ids[card.NormalizeName(edge.Node.Name)] = edge.Node.ID
+			ids[domain.NormalizeName(edge.Node.Name)] = edge.Node.ID
 		}
 		if !page.PageInfo.HasNextPage {
 			return ids, nil
@@ -258,7 +258,7 @@ func (s *seeder) seedPresetDecks(ctx context.Context, decks []masterPresetDeck, 
 		for _, e := range d.Cards {
 			counts = append(counts, command.CardCountInput{CardID: cardIDs[e.Card], Count: e.Count})
 		}
-		key := card.NormalizeName(d.Name)
+		key := domain.NormalizeName(d.Name)
 		current, ok := existing[key]
 		if !ok {
 			registered, err := s.presetDecks.Register(ctx, d.Name)
@@ -288,7 +288,7 @@ func (s *seeder) seedPresetDecks(ctx context.Context, decks []masterPresetDeck, 
 // 枚数まで入っているデッキは、途中で止まる前に済んでいる。read model は投影の遅れで古いことがあり（止まった直後に流し直すと、
 // 枚数を入れたイベントがまだ投影されていない）、その revision で入れると先に変えられたになるため、追いつくのを待って読み直す
 func (s *seeder) setCardCounts(ctx context.Context, name string, current query.PresetDeck, counts []command.CardCountInput) error {
-	key := card.NormalizeName(name)
+	key := domain.NormalizeName(name)
 	for {
 		if current.TotalCount == deckTotalCount {
 			return nil
@@ -321,7 +321,7 @@ func (s *seeder) listPresetDecks(ctx context.Context) (map[string]query.PresetDe
 			return nil, err
 		}
 		for _, edge := range page.Edges {
-			decks[card.NormalizeName(edge.Node.Name)] = edge.Node
+			decks[domain.NormalizeName(edge.Node.Name)] = edge.Node
 		}
 		if !page.PageInfo.HasNextPage {
 			return decks, nil

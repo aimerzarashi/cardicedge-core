@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -86,7 +87,7 @@ func (q *CardHandler) Get(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]C
 func CompareCards(a, b Card) int {
 	return cmp.Or(
 		cmp.Compare(a.Type, b.Type),
-		strings.Compare(card.NormalizeName(a.Name), card.NormalizeName(b.Name)),
+		strings.Compare(domain.NormalizeName(a.Name), domain.NormalizeName(b.Name)),
 		strings.Compare(a.ID.String(), b.ID.String()),
 	)
 }
@@ -146,7 +147,7 @@ func (q *CardHandler) condition(filter CardFilter, first *int, after *string) (c
 	return cardListCondition{page: page, list: list}, nil
 }
 
-// カード名と同じく、長さは正規化する前の値で数え、比べるのは重複の判定と同じ正規化をした値（card.NormalizeName）。
+// カード名と同じく、長さは正規化する前の値で数え、比べるのは重複の判定と同じ正規化をした値（domain.NormalizeName）。
 // 上限を超える値で探しても必ず 0 件になるため、入力の誤りにする
 func normalizeNameContains(value *string) (string, input.Error) {
 	if value == nil {
@@ -159,5 +160,5 @@ func normalizeNameContains(value *string) (string, input.Error) {
 	if utf8.RuneCountInString(trimmed) > card.MaxNameLength {
 		return "", &input.TooLong{Field: "filter.nameContains", Max: card.MaxNameLength}
 	}
-	return card.NormalizeName(trimmed), nil
+	return domain.NormalizeName(trimmed), nil
 }

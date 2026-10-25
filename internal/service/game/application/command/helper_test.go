@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -20,6 +21,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
 
 // このパッケージのテストは、テンプレートから複製した自分専用の DB で動かす（同時に呼ぶテストは commit が要るため、
@@ -98,12 +100,21 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 
 func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 	t.Helper()
+	return newDeckHandlerWithLimit(t, ctx, deck.DefaultQuotaLimit)
+}
+
+// 上限を小さくして確かめるため、全体のルールの上限の値を渡せる
+func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.QuotaLimit) *command.DeckHandler {
+	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return command.NewDeckHandler(
 		eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve),
 		identifier.New(registry, deck.NewID),
 		constraint.UpdateDeckStarter,
+		constraint.UpdateDeckName,
+		constraint.ReserveDeckQuota,
+		rules.Defaults(map[domain.QuotaType]domain.QuotaLimit{deck.PlayerQuotaType: limit}),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

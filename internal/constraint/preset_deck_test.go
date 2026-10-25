@@ -27,7 +27,7 @@ func (f fixture) updatePresetDeckName(t *testing.T, id presetdeck.ID, name strin
 	return constraint.UpdatePresetDeckName(f.ctx, id, presetdecktest.Name(t, name))
 }
 
-// 比べ方はカード名と同じ（card.NormalizeName）なので、正規化の細かい場合はカード名のテストに任せ、ここでは代表だけを確かめる
+// 比べ方はカード名と同じ（domain.NormalizeName）なので、正規化の細かい場合はカード名のテストに任せ、ここでは代表だけを確かめる
 func TestUpdatePresetDeckName_RejectsNameUsedByOtherPresetDeck(t *testing.T) {
 	f := setup(t)
 	require.NoError(t, f.updatePresetDeckName(t, f.issuePresetDeckID(t), cardName(t, "ABC")))

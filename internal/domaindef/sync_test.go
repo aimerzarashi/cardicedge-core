@@ -43,10 +43,13 @@ func TestSync_ReportsRowsThatDifferFromCatalog(t *testing.T) {
 	insert(t, ctx, `INSERT INTO domain_unique_key_types (id, name) VALUES (9900, 'not_in_catalog.key')`)
 	catalog := domaindef.Types
 	catalog.ReferenceTypes = []domaindef.NamedTypeDef{{ID: 1000, Name: "renamed.reference"}, catalog.ReferenceTypes[1]}
+	catalog.QuotaTypes = []domaindef.NamedTypeDef{{ID: 1000, Name: "renamed.quota"}}
 
 	err := domaindef.Sync(ctx, catalog)
 
 	require.ErrorContains(t, err, "domain_unique_key_types has a row not in catalog: 9900: not_in_catalog.key")
 	require.ErrorContains(t, err, "catalog has a row not in domain_reference_types: 1000: renamed.reference")
 	require.ErrorContains(t, err, "domain_reference_types has a row not in catalog: 1000: preset_deck.card")
+	require.ErrorContains(t, err, "catalog has a row not in domain_quota_types: 1000: renamed.quota")
+	require.ErrorContains(t, err, "domain_quota_types has a row not in catalog: 1000: deck.per_player")
 }
