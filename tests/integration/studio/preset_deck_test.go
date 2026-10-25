@@ -56,10 +56,10 @@ func TestSetPresetDeckCardCounts_ShowsCardsInCardListOrder(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	spellID := registerSpell(t, token, "ファイアボール-"+id)["spell"].(map[string]any)["id"]
-	itemID := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)["id"]
-	dragonID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
-	goblinID := registerCreature(t, token, "ゴブリン-"+id)["creature"].(map[string]any)["id"]
+	spellID := registerPublishedSpell(t, token, "ファイアボール-"+id)
+	itemID := registerPublishedItem(t, token, "ポーション-"+id)
+	dragonID := registerPublishedCreature(t, token, "ドラゴン-"+id)
+	goblinID := registerPublishedCreature(t, token, "ゴブリン-"+id)
 	deck := registerPresetDeck(t, token, "初心者-"+id)
 
 	result := setPresetDeckCardCounts(t, token, deck,
@@ -87,7 +87,7 @@ func TestPresetDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.T
 		"id": stale["id"], "revision": stale["revision"], "name": "中級者-" + id,
 	}}, "renamePresetDeck")
 	require.Equal(t, "RenamePresetDeckSuccess", renamed["__typename"])
-	cardID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
+	cardID := registerPublishedCreature(t, token, "ドラゴン-"+id)
 	tests := []struct {
 		name      string
 		mutation  string
@@ -119,7 +119,7 @@ func TestSetPresetDeckCardCounts_ReturnsFieldErrorPerCard(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	cardID := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)["id"]
+	cardID := registerPublishedCreature(t, token, "ドラゴン-"+id)
 	deck := registerPresetDeck(t, token, "初心者-"+id)
 
 	result := setPresetDeckCardCounts(t, token, deck,
@@ -140,7 +140,7 @@ func TestSetPresetDeckCardCounts_ReturnsFieldErrorForWholeCards(t *testing.T) {
 	deck := registerPresetDeck(t, token, "初心者-"+id)
 	full := []map[string]any{}
 	for i := range 10 {
-		cardID := registerCreature(t, token, fmt.Sprintf("c%d-%s", i, id))["creature"].(map[string]any)["id"]
+		cardID := registerPublishedCreature(t, token, fmt.Sprintf("c%d-%s", i, id))
 		full = append(full, cardCount(cardID, 4))
 	}
 	filled := setPresetDeckCardCounts(t, token, deck, full...)
@@ -148,7 +148,7 @@ func TestSetPresetDeckCardCounts_ReturnsFieldErrorForWholeCards(t *testing.T) {
 	for range 41 {
 		tooMany = append(tooMany, cardCount(uuid.NewString(), 1))
 	}
-	extraID := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)["id"]
+	extraID := registerPublishedItem(t, token, "ポーション-"+id)
 	tests := []struct {
 		name  string
 		cards []map[string]any

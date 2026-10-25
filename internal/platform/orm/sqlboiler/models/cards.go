@@ -32,6 +32,8 @@ type Card struct {
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`
 	// 表示に使う値（イベントの値）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
+	// カードの状態（draft: 準備中、published: 公開中、retired: 使用不可）。make publish-master は準備中を game に写さない
+	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
 
 	R *cardR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L cardL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -42,11 +44,13 @@ var CardColumns = struct {
 	CardType string
 	SortName string
 	Metadata string
+	Status   string
 }{
 	CardID:   "card_id",
 	CardType: "card_type",
 	SortName: "sort_name",
 	Metadata: "metadata",
+	Status:   "status",
 }
 
 var CardTableColumns = struct {
@@ -54,11 +58,13 @@ var CardTableColumns = struct {
 	CardType string
 	SortName string
 	Metadata string
+	Status   string
 }{
 	CardID:   "cards.card_id",
 	CardType: "cards.card_type",
 	SortName: "cards.sort_name",
 	Metadata: "cards.metadata",
+	Status:   "cards.status",
 }
 
 // Generated where
@@ -143,11 +149,13 @@ var CardWhere = struct {
 	CardType whereHelperint16
 	SortName whereHelperstring
 	Metadata whereHelpertypes_JSON
+	Status   whereHelperstring
 }{
 	CardID:   whereHelperstring{field: "\"cards\".\"card_id\""},
 	CardType: whereHelperint16{field: "\"cards\".\"card_type\""},
 	SortName: whereHelperstring{field: "\"cards\".\"sort_name\""},
 	Metadata: whereHelpertypes_JSON{field: "\"cards\".\"metadata\""},
+	Status:   whereHelperstring{field: "\"cards\".\"status\""},
 }
 
 // CardRels is where relationship names are stored.
@@ -167,9 +175,9 @@ func (*cardR) NewStruct() *cardR {
 type cardL struct{}
 
 var (
-	cardAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata"}
+	cardAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata", "status"}
 	cardColumnsWithoutDefault = []string{"card_id", "card_type", "sort_name"}
-	cardColumnsWithDefault    = []string{"metadata"}
+	cardColumnsWithDefault    = []string{"metadata", "status"}
 	cardPrimaryKeyColumns     = []string{"card_id"}
 	cardGeneratedColumns      = []string{}
 )

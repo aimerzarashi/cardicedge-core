@@ -43,6 +43,8 @@ type Studio struct {
 	creatures *command.CreatureHandler
 	items     *command.ItemHandler
 	spells    *command.SpellHandler
+	// 公開 ID からカードの種類を引いて、状態の変更を Creature・Item・Spell に振り分ける
+	cardStatuses *command.CardHandler
 	// 投影もカードの公開 ID を引くため、コマンドと共有する
 	entityRefs      domain.EntityRefResolver
 	presetDecks     *command.PresetDeckHandler
@@ -61,6 +63,12 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	entityRefs := identifier.NewEntityRefResolver(registry)
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
+	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
+	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
+	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
+	creatures := command.NewCreatureHandler(creatureStore, identifier.New(registry, creature.NewID), constraint.UpdateCreatureName, now)
+	items := command.NewItemHandler(itemStore, identifier.New(registry, item.NewID), constraint.UpdateItemName, now)
+	spells := command.NewSpellHandler(spellStore, identifier.New(registry, spell.NewID), constraint.UpdateSpellName, now)
 	return &Studio{
 		config:     config,
 		entityRefs: entityRefs,
@@ -74,30 +82,17 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.OperatorExists,
 			now,
 		),
-		creatures: command.NewCreatureHandler(
-			eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
-			identifier.New(registry, creature.NewID),
-			constraint.UpdateCreatureName,
-			now,
-		),
-		items: command.NewItemHandler(
-			eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
-			identifier.New(registry, item.NewID),
-			constraint.UpdateItemName,
-			now,
-		),
-		spells: command.NewSpellHandler(
-			eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
-			identifier.New(registry, spell.NewID),
-			constraint.UpdateSpellName,
-			now,
-		),
+		creatures:    creatures,
+		items:        items,
+		spells:       spells,
+		cardStatuses: command.NewCardHandler(entityRefs, creatures, items, spells),
 		presetDecks: command.NewPresetDeckHandler(
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
 			entityRefs,
 			constraint.UpdatePresetDeckName,
 			constraint.UpdatePresetDeckCardReferences,
+			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
 			now,
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
@@ -166,7 +161,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

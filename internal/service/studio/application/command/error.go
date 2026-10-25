@@ -16,6 +16,10 @@ var (
 	ErrPresetDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
 	// 公開 ID に当たるプリセットデッキが無い（削除したものを含む）
 	ErrPresetDeckNotFound = errors.New("command: starter deck not found")
+	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
+	ErrCardNotFound = errors.New("command: card not found")
+	// 準備中のカードを使用不可にしようとした
+	ErrInvalidCardStatusTransition = errors.New("command: invalid card status transition")
 	// 画面で見た revision が今の版と違う（画面を開いた後に、ほかの操作で変わった）
 	ErrRevisionConflict = errors.New("command: revision conflict")
 )

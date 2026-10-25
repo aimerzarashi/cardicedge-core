@@ -45,8 +45,45 @@ func (*RegisteredEvent) SchemaVersion() int {
 	return 1
 }
 
+// 準備中・使用不可から公開中にした
+type PublishedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	PublishedBy operator.ID `json:"published_by"`
+}
+
+var publishedEventType = domain.NewEventName("PublishedEvent")
+
+func (*PublishedEvent) EventType() domain.EventName {
+	return publishedEventType
+}
+
+func (*PublishedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 公開中から使用不可にした
+type RetiredEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	RetiredBy   operator.ID `json:"retired_by"`
+}
+
+var retiredEventType = domain.NewEventName("RetiredEvent")
+
+func (*RetiredEvent) EventType() domain.EventName {
+	return retiredEventType
+}
+
+func (*RetiredEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
-	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{registeredEventType}}
+	return domain.AggregateTypes{
+		EntityType: entityType,
+		EventTypes: []domain.EventName{registeredEventType, publishedEventType, retiredEventType},
+	}
 }
 
 type EventType domain.EventName
@@ -60,6 +97,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 	switch t {
 	case EventType(registeredEventType):
 		event = &RegisteredEvent{EventMeta: meta}
+	case EventType(publishedEventType):
+		event = &PublishedEvent{EventMeta: meta}
+	case EventType(retiredEventType):
+		event = &RetiredEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

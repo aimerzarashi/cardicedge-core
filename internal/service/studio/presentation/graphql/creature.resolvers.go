@@ -29,6 +29,7 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 		return nil, err
 	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
-		ID: registered.ID, Name: registered.Name, RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
+		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Revision: int(registered.Revision),
+		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
 }

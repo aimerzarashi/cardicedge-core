@@ -27,6 +27,8 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
 		case *input.NotFound:
 			fieldErrors[i] = &model.FieldNotFound{Field: e.Field}
+		case *input.Unavailable:
+			fieldErrors[i] = &model.FieldUnavailable{Field: e.Field}
 		case *input.Duplicated:
 			fieldErrors[i] = &model.FieldDuplicated{Field: e.Field}
 		case *input.TotalTooLarge:

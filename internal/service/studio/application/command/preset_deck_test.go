@@ -13,7 +13,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -196,8 +195,8 @@ func TestRenamePresetDeck_RejectsInvalidName(t *testing.T) {
 func TestSetPresetDeckCardCounts_ChangesCardsWithOneRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	registered := registerPresetDeck(t, ctx, "初心者デッキ")
-	creatureID := issueCard(t, ctx, creature.NewID)
-	itemID := issueCard(t, ctx, item.NewID)
+	creatureID := publishedCreature(t, ctx)
+	itemID := publishedItem(t, ctx)
 
 	changed, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{
 		{CardID: creatureID, Count: 4},
@@ -213,8 +212,8 @@ func TestSetPresetDeckCardCounts_ChangesCardsWithOneRevision(t *testing.T) {
 func TestSetPresetDeckCardCounts_ChangesOnlyGivenCards(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	registered := registerPresetDeck(t, ctx, "初心者デッキ")
-	creatureID := issueCard(t, ctx, creature.NewID)
-	itemID := issueCard(t, ctx, item.NewID)
+	creatureID := publishedCreature(t, ctx)
+	itemID := publishedItem(t, ctx)
 	commands := newPresetDeckHandler(t, ctx)
 	changed, err := commands.SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{
 		{CardID: creatureID, Count: 2},
@@ -232,7 +231,7 @@ func TestSetPresetDeckCardCounts_ChangesOnlyGivenCards(t *testing.T) {
 func TestSetPresetDeckCardCounts_KeepsRevisionWhenNothingChanges(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	registered := registerPresetDeck(t, ctx, "初心者デッキ")
-	cardID := issueCard(t, ctx, creature.NewID)
+	cardID := publishedCreature(t, ctx)
 	commands := newPresetDeckHandler(t, ctx)
 	changed, err := commands.SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{{CardID: cardID, Count: 2}})
 	require.NoError(t, err)
@@ -257,8 +256,8 @@ func TestSetPresetDeckCardCounts_KeepsRevisionWhenNothingChanges(t *testing.T) {
 func TestSetPresetDeckCardCounts_ReferencesCardsInPresetDeck(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	registered := registerPresetDeck(t, ctx, "初心者デッキ")
-	creatureID := issueCard(t, ctx, creature.NewID)
-	itemID := issueCard(t, ctx, item.NewID)
+	creatureID := publishedCreature(t, ctx)
+	itemID := publishedItem(t, ctx)
 	commands := newPresetDeckHandler(t, ctx)
 	changed, err := commands.SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{
 		{CardID: creatureID, Count: 2},
@@ -296,14 +295,14 @@ func TestSetPresetDeckCardCounts_RejectsInvalidInput(t *testing.T) {
 		{
 			name: "count_above_max",
 			cards: func(t *testing.T, ctx context.Context, _ command.ChangedPresetDeck) []command.CardCountInput {
-				return []command.CardCountInput{{CardID: issueCard(t, ctx, creature.NewID), Count: presetdeck.MaxCardCount + 1}}
+				return []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: presetdeck.MaxCardCount + 1}}
 			},
 			want: []input.Error{&input.OutOfRange{Field: "cards.0.count", Min: 0, Max: presetdeck.MaxCardCount}},
 		},
 		{
 			name: "negative_count",
 			cards: func(t *testing.T, ctx context.Context, _ command.ChangedPresetDeck) []command.CardCountInput {
-				return []command.CardCountInput{{CardID: issueCard(t, ctx, creature.NewID), Count: -1}}
+				return []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: -1}}
 			},
 			want: []input.Error{&input.OutOfRange{Field: "cards.0.count", Min: 0, Max: presetdeck.MaxCardCount}},
 		},
@@ -311,8 +310,8 @@ func TestSetPresetDeckCardCounts_RejectsInvalidInput(t *testing.T) {
 			// 同じ枚数でも、2 回目を誤りにする
 			name: "duplicated_card",
 			cards: func(t *testing.T, ctx context.Context, _ command.ChangedPresetDeck) []command.CardCountInput {
-				cardID := issueCard(t, ctx, creature.NewID)
-				return []command.CardCountInput{{CardID: cardID, Count: 1}, {CardID: issueCard(t, ctx, item.NewID), Count: 1}, {CardID: cardID, Count: 1}}
+				cardID := publishedCreature(t, ctx)
+				return []command.CardCountInput{{CardID: cardID, Count: 1}, {CardID: publishedItem(t, ctx), Count: 1}, {CardID: cardID, Count: 1}}
 			},
 			want: []input.Error{&input.Duplicated{Field: "cards.2.cardId"}},
 		},
@@ -321,8 +320,8 @@ func TestSetPresetDeckCardCounts_RejectsInvalidInput(t *testing.T) {
 			cards: func(t *testing.T, ctx context.Context, _ command.ChangedPresetDeck) []command.CardCountInput {
 				return []command.CardCountInput{
 					{CardID: uuid.New(), Count: presetdeck.MaxCardCount + 1},
-					{CardID: issueCard(t, ctx, creature.NewID), Count: 1},
-					{CardID: issueCard(t, ctx, item.NewID), Count: -1},
+					{CardID: publishedCreature(t, ctx), Count: 1},
+					{CardID: publishedItem(t, ctx), Count: -1},
 				}
 			},
 			want: []input.Error{
@@ -368,14 +367,14 @@ func TestSetPresetDeckCardCounts_RejectsTotalCountOverMax(t *testing.T) {
 	deck := registerPresetDeck(t, ctx, "初心者デッキ")
 	full := make([]command.CardCountInput, 0, presetdeck.MaxTotalCount/presetdeck.MaxCardCount)
 	for range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
-		full = append(full, command.CardCountInput{CardID: issueCard(t, ctx, creature.NewID), Count: presetdeck.MaxCardCount})
+		full = append(full, command.CardCountInput{CardID: publishedCreature(t, ctx), Count: presetdeck.MaxCardCount})
 	}
 	commands := newPresetDeckHandler(t, ctx)
 	filled, err := commands.SetCardCounts(ctx, deck.ID, deck.Revision, full)
 	require.NoError(t, err)
 	require.Equal(t, presetdeck.MaxTotalCount, restoredPresetDeck(t, ctx, deck.ID).TotalCount())
 
-	_, err = commands.SetCardCounts(ctx, filled.ID, filled.Revision, []command.CardCountInput{{CardID: issueCard(t, ctx, item.NewID), Count: 1}})
+	_, err = commands.SetCardCounts(ctx, filled.ID, filled.Revision, []command.CardCountInput{{CardID: publishedItem(t, ctx), Count: 1}})
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
@@ -389,7 +388,7 @@ func TestSetPresetDeckCardCounts_ChangesNothingWhenAnyCardIsInvalid(t *testing.T
 	registered := registerPresetDeck(t, ctx, "初心者デッキ")
 
 	_, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{
-		{CardID: issueCard(t, ctx, creature.NewID), Count: 2},
+		{CardID: publishedCreature(t, ctx), Count: 2},
 		{CardID: uuid.New(), Count: 1},
 	})
 
@@ -448,7 +447,7 @@ func TestPresetDeckCommands_RejectUnknownPresetDeck(t *testing.T) {
 			return err
 		}},
 		{name: "set_card_counts", call: func(t *testing.T, ctx context.Context, commands *command.PresetDeckHandler, id uuid.UUID) error {
-			_, err := commands.SetCardCounts(ctx, id, 1, []command.CardCountInput{{CardID: issueCard(t, ctx, creature.NewID), Count: 1}})
+			_, err := commands.SetCardCounts(ctx, id, 1, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 1}})
 			return err
 		}},
 		{name: "delete", call: func(_ *testing.T, ctx context.Context, commands *command.PresetDeckHandler, id uuid.UUID) error {
@@ -458,7 +457,7 @@ func TestPresetDeckCommands_RejectUnknownPresetDeck(t *testing.T) {
 			// 識別子はあるが、プリセットデッキの種類でない
 			name: "card_id",
 			call: func(t *testing.T, ctx context.Context, commands *command.PresetDeckHandler, _ uuid.UUID) error {
-				_, err := commands.Rename(ctx, issueCard(t, ctx, creature.NewID), 1, "中級者デッキ")
+				_, err := commands.Rename(ctx, publishedCreature(t, ctx), 1, "中級者デッキ")
 				return err
 			},
 		},
@@ -512,7 +511,7 @@ func TestPresetDeckCommands_RejectStaleRevision(t *testing.T) {
 			_, err := commands.Rename(ctx, stale.ID, stale.Revision, "中級者デッキ")
 			require.NoError(t, err)
 
-			err = tt.call(ctx, commands, stale, issueCard(t, ctx, creature.NewID))
+			err = tt.call(ctx, commands, stale, publishedCreature(t, ctx))
 
 			require.ErrorIs(t, err, command.ErrRevisionConflict)
 		})
@@ -545,4 +544,102 @@ func TestRenamePresetDeck_AcceptsOnlyOneOfConcurrentChanges(t *testing.T) {
 		require.ErrorIs(t, err, command.ErrRevisionConflict)
 	}
 	require.Equal(t, 1, succeeded)
+}
+
+// 新しく入れるカードは公開中だけ。準備中・使用不可のカードは入力の誤り（何も変えない）
+func TestSetPresetDeckCardCounts_RejectsAddingUnavailableCards(t *testing.T) {
+	tests := []struct {
+		name string
+		card func(t *testing.T, ctx context.Context) uuid.UUID
+	}{
+		{name: "draft", card: func(t *testing.T, ctx context.Context) uuid.UUID {
+			return cardKinds()[0].register(t, ctx).ID
+		}},
+		{name: "retired", card: func(t *testing.T, ctx context.Context) uuid.UUID {
+			retired := retireCard(t, ctx, publishCard(t, ctx, cardKinds()[1].register(t, ctx)))
+			return retired.ID
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			deck := registerPresetDeck(t, ctx, "初心者デッキ")
+			unavailable := tt.card(t, ctx)
+
+			_, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, []command.CardCountInput{
+				{CardID: publishedCreature(t, ctx), Count: 1},
+				{CardID: unavailable, Count: 1},
+			})
+
+			invalid, ok := input.AsErrors(err)
+			require.True(t, ok)
+			require.Equal(t, []input.Error{&input.Unavailable{Field: "cards.1.cardId"}}, []input.Error(invalid))
+			unchanged := restoredPresetDeck(t, ctx, deck.ID)
+			require.Empty(t, unchanged.Cards)
+			require.Equal(t, deck.Revision, unchanged.Version)
+		})
+	}
+}
+
+// すでに入っているカードは、使用不可になっても残せる（枚数を減らす・外す・変えないはできる）。増やすのは新しく入れるのと同じで誤り
+func TestSetPresetDeckCardCounts_KeepsCardRetiredAfterBeingAdded(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	deck := registerPresetDeck(t, ctx, "初心者デッキ")
+	commands := newPresetDeckHandler(t, ctx)
+	registered, err := newCreatureHandler(t, ctx).Register(ctx, "クリーチャー-"+uuid.NewString())
+	require.NoError(t, err)
+	published := publishCard(t, ctx, command.ChangedCard{ID: registered.ID, Revision: registered.Revision})
+	added, err := commands.SetCardCounts(ctx, deck.ID, deck.Revision, []command.CardCountInput{{CardID: published.ID, Count: 3}})
+	require.NoError(t, err)
+	retireCard(t, ctx, published)
+
+	unchanged, err := commands.SetCardCounts(ctx, added.ID, added.Revision, []command.CardCountInput{{CardID: published.ID, Count: 3}})
+	require.NoError(t, err)
+	require.Equal(t, added, unchanged)
+	_, err = commands.SetCardCounts(ctx, added.ID, added.Revision, []command.CardCountInput{{CardID: published.ID, Count: 4}})
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, []input.Error{&input.Unavailable{Field: "cards.0.cardId"}}, []input.Error(invalid))
+	decreased, err := commands.SetCardCounts(ctx, added.ID, added.Revision, []command.CardCountInput{{CardID: published.ID, Count: 1}})
+	require.NoError(t, err)
+	removed, err := commands.SetCardCounts(ctx, decreased.ID, decreased.Revision, []command.CardCountInput{{CardID: published.ID, Count: 0}})
+
+	require.NoError(t, err)
+	require.Equal(t, decreased.Revision+1, removed.Revision)
+	require.Empty(t, restoredCardCounts(t, ctx, deck.ID))
+}
+
+// 入力の誤りは、入力の形の誤りと同じように、使えないカードもまとめて返す
+func TestSetPresetDeckCardCounts_ReportsEveryUnavailableCard(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	deck := registerPresetDeck(t, ctx, "初心者デッキ")
+	draftA := cardKinds()[0].register(t, ctx).ID
+	draftB := cardKinds()[2].register(t, ctx).ID
+
+	_, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, []command.CardCountInput{
+		{CardID: draftA, Count: 1},
+		{CardID: publishedItem(t, ctx), Count: 1},
+		{CardID: draftB, Count: 2},
+	})
+
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, []input.Error{
+		&input.Unavailable{Field: "cards.0.cardId"},
+		&input.Unavailable{Field: "cards.2.cardId"},
+	}, []input.Error(invalid))
+}
+
+func publishCard(t *testing.T, ctx context.Context, registered command.ChangedCard) command.ChangedCard {
+	t.Helper()
+	published, err := newCardHandler(t, ctx).Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+	return published
+}
+
+func retireCard(t *testing.T, ctx context.Context, published command.ChangedCard) command.ChangedCard {
+	t.Helper()
+	retired, err := newCardHandler(t, ctx).Retire(ctx, published.ID, published.Revision)
+	require.NoError(t, err)
+	return retired
 }

@@ -20,7 +20,7 @@ make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
 make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキセット）を studio のコマンドで登録（設定済みなら何もしない）
-make publish-master # studio の cards・starter_deck_sets を core_game に写す（game が配るマスタを読めるようにする）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_deck_sets を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -36,7 +36,7 @@ make down    # 停止して DB のデータも破棄
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
-開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards・starter_deck_sets）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_deck_sets）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
@@ -73,6 +73,10 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 | `registerCreature` | Creature を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterCreatureSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerItem` | Item を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterItemSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerSpell` | Spell を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterSpellSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
+| `publishCard` | カード（Creature・Item・Spell のどれか。公開用の ID で指す）を公開中にする。準備中・使用不可から移れ、公開中にもう一度しても変わらない（revision も進まない）。結果は `PublishCardSuccess`（id・新しい revision）/ `CardNotFoundError` / `RevisionConflictError` / `InvalidCardStatusTransitionError` / `ForbiddenError` |
+| `retireCard` | カードを使用不可にする。公開中から移れ、使用不可にもう一度しても変わらない。準備中からはできない。結果は `RetireCardSuccess` / `CardNotFoundError` / `RevisionConflictError` / `InvalidCardStatusTransitionError` / `ForbiddenError` |
+
+カードは状態（`CardStatus`: 準備中 `DRAFT`・公開中 `PUBLISHED`・使用不可 `RETIRED`）を持ち、登録したときは準備中。準備中は自由に変えられ、プリセットデッキに入れられず、`make publish-master` で game に写さない。公開中はプリセットデッキに入れられ、game に写す。使用不可は新しくプリセットデッキに入れられないが、プレイヤーが持っているので game には写す。`cards` の一覧は `filter.statuses` で状態を絞り込め、`Card.status`・`Card.revision` を返す。プリセットデッキに新しく入れる・枚数を増やすカードが公開中でなければ、`setPresetDeckCardCounts` は `FieldUnavailable`（入力の誤り）を返す。すでに入っているカードは、使用不可になっても残せる。
 
 スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union で返し（成功の型は、ミューテーションは `<操作>Success` で包み、クエリは問い合わせたもの。1 件なら対象の型、一覧なら 1 ページの `XxxConnection`）、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
