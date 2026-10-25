@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -23,6 +24,11 @@ import (
 
 func newStarterDeckSetHandler(t *testing.T, ctx context.Context) *command.StarterDeckSetHandler {
 	t.Helper()
+	return newStarterDeckSetHandlerWithRules(t, ctx, gamerules.Defaults())
+}
+
+func newStarterDeckSetHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.StarterDeckSetHandler {
+	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return command.NewStarterDeckSetHandler(
@@ -33,18 +39,19 @@ func newStarterDeckSetHandler(t *testing.T, ctx context.Context) *command.Starte
 		constraint.UpdateStarterDeckSetCardReferences,
 		presetDeckStore(registry),
 		identifier.New(registry, presetdeck.NewID),
+		fixedRules(rules),
 		// wiring と同じく、DB に残る精度（マイクロ秒）にそろえる
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
 
-// 合計がちょうど MaxTotalCount のプリセットデッキを作る（MaxCardCount 枚ずつのカードで埋める）
+// 合計がちょうどルールの合計の枚数のプリセットデッキを作る（同じカードの上限の枚数ずつのカードで埋める）
 func fullPresetDeck(t *testing.T, ctx context.Context, name string) command.ChangedPresetDeck {
 	t.Helper()
 	deck := registerPresetDeck(t, ctx, name)
-	cards := make([]command.CardCountInput, 0, presetdeck.MaxTotalCount/presetdeck.MaxCardCount)
-	for range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
-		cards = append(cards, command.CardCountInput{CardID: publishedCreature(t, ctx), Count: presetdeck.MaxCardCount})
+	cards := make([]command.CardCountInput, 0, defaultRules.TotalCardCount/defaultRules.MaxCardDuplicates)
+	for range defaultRules.TotalCardCount / defaultRules.MaxCardDuplicates {
+		cards = append(cards, command.CardCountInput{CardID: publishedCreature(t, ctx), Count: defaultRules.MaxCardDuplicates})
 	}
 	filled, err := newPresetDeckHandler(t, ctx).SetCardCounts(ctx, deck.ID, deck.Revision, cards)
 	require.NoError(t, err)
@@ -73,6 +80,29 @@ func sources(set starterdeckset.StarterDeckSet) map[uuid.UUID]int64 {
 	return result
 }
 
+// 選べる合計の枚数はルールの値で決まる（既定の 40 枚でなくても、ちょうどなら写せる）
+func TestSetStarterDeckSet_UsesTotalCountOfRules(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	rules := gamerules.Defaults()
+	rules.Deck.TotalCardCount = 2
+	small := func(name string) command.ChangedPresetDeck {
+		deck := registerPresetDeck(t, ctx, name)
+		changed, err := newPresetDeckHandlerWithRules(t, ctx, rules).SetCardCounts(ctx, deck.ID, deck.Revision, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 2}})
+		require.NoError(t, err)
+		return changed
+	}
+	fire, water := small("火"), small("水")
+	forty := fullPresetDeck(t, ctx, "40 枚")
+
+	_, err := newStarterDeckSetHandlerWithRules(t, ctx, rules).Set(ctx, 0, []uuid.UUID{fire.ID, forty.ID})
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, []input.Error{&input.TotalMismatch{Field: "presetDeckIds.1", Required: 2}}, []input.Error(invalid))
+
+	_, err = newStarterDeckSetHandlerWithRules(t, ctx, rules).Set(ctx, 0, []uuid.UUID{fire.ID, water.ID})
+	require.NoError(t, err)
+}
+
 func TestSetStarterDeckSet_FirstSetCopiesPresetDecks(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	fireEarth := fullPresetDeck(t, ctx, "火・地属性")
@@ -89,7 +119,7 @@ func TestSetStarterDeckSet_FirstSetCopiesPresetDecks(t *testing.T) {
 		for _, card := range deck.Cards() {
 			total += card.Count().Int()
 		}
-		require.Equal(t, presetdeck.MaxTotalCount, total)
+		require.Equal(t, defaultRules.TotalCardCount, total)
 	}
 }
 
@@ -223,7 +253,7 @@ func TestSetStarterDeckSet_RejectsInvalidInput(t *testing.T) {
 			ids: func(t *testing.T, ctx context.Context) []uuid.UUID {
 				return []uuid.UUID{fullPresetDeck(t, ctx, "火・地属性").ID, registerPresetDeck(t, ctx, "作りかけ").ID}
 			},
-			want: []input.Error{&input.TotalMismatch{Field: "presetDeckIds.1", Required: presetdeck.MaxTotalCount}},
+			want: []input.Error{&input.TotalMismatch{Field: "presetDeckIds.1", Required: defaultRules.TotalCardCount}},
 		},
 	}
 	for _, tt := range tests {
@@ -263,7 +293,7 @@ func TestSetStarterDeckSet_ReferencesCopiedCards(t *testing.T) {
 		want = append(want, card.ID())
 	}
 	require.ElementsMatch(t, want, constrainttest.Referenced(t, ctx, starterdeckset.CardReferenceType(), set.ID.Int64()))
-	require.Len(t, want, 2*presetdeck.MaxTotalCount/presetdeck.MaxCardCount)
+	require.Len(t, want, 2*defaultRules.TotalCardCount/defaultRules.MaxCardDuplicates)
 }
 
 // 初めての設定が同時に来ても、スターターデッキセットは 1 つだけで、ほかは先に変えられたになる

@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -73,7 +74,7 @@ func (f fixture) setCountsCommand(t *testing.T, counts map[presetdeck.CardRef]in
 	for card, count := range counts {
 		cardCounts[card] = presetdecktest.CardCount(t, count)
 	}
-	return &presetdeck.SetCardCountsCommand{Counts: cardCounts, ChangedBy: f.operator}
+	return &presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: f.operator}
 }
 
 func (f fixture) setCounts(t *testing.T, state presetdeck.State, counts map[presetdeck.CardRef]int) presetdeck.State {
@@ -173,19 +174,34 @@ func TestDecide_SetCardCountsEmitsDeltasOfChangedCards(t *testing.T) {
 	}}, events)
 }
 
-// 合計はちょうど上限まで入れられ、超える変更はイベントを作らない
-func TestDecide_RejectsTotalCountOverMax(t *testing.T) {
+// 合計はちょうど上限まで入れられ、超える変更はイベントを作らない。上限はコマンドで渡されたルールの値
+func TestDecide_RejectsTotalCountOverRule(t *testing.T) {
 	f := newFixture(t)
-	full := map[presetdeck.CardRef]int{}
-	for i := range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
-		full[presetdecktest.CardRef(t, creature.Types().EntityType, int64(100+i))] = presetdeck.MaxCardCount
-	}
-	state := f.setCounts(t, f.register(t), full)
-	require.Equal(t, presetdeck.MaxTotalCount, state.(presetdeck.PresetDeck).TotalCount())
+	state := f.register(t)
+	cmd := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 3, f.potion: 2})
+	cmd.Rules.TotalCardCount = 5
+	state, _ = apply(t, state, cmd, changedAt)
+	more := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 3})
+	more.Rules.TotalCardCount = 5
 
-	_, err := presetdeck.Decide(state, f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 1}), changedAt)
+	_, err := presetdeck.Decide(state, more, changedAt)
 
 	require.ErrorIs(t, err, presetdeck.ErrTotalCountTooLarge)
+}
+
+// 同じカードの枚数の上限も、コマンドで渡されたルールの値。ちょうど上限は入れられる
+func TestDecide_RejectsCardCountOverRule(t *testing.T) {
+	f := newFixture(t)
+	atMax := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 2})
+	atMax.Rules.MaxCardDuplicates = 2
+	over := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 3})
+	over.Rules.MaxCardDuplicates = 2
+
+	_, err := presetdeck.Decide(f.register(t), atMax, changedAt)
+	require.NoError(t, err)
+	_, err = presetdeck.Decide(f.register(t), over, changedAt)
+
+	require.ErrorIs(t, err, presetdeck.ErrCardCountOutOfRange)
 }
 
 // 0 にするとデッキから外れる（枚数が 0 のカードは持たない）
@@ -283,7 +299,7 @@ func TestNewName_RejectsInvalidName(t *testing.T) {
 	}
 }
 
-func TestNewCardCount_AcceptsZeroToMax(t *testing.T) {
+func TestNewCardCount_RejectsNegative(t *testing.T) {
 	tests := []struct {
 		name  string
 		value int
@@ -291,8 +307,7 @@ func TestNewCardCount_AcceptsZeroToMax(t *testing.T) {
 	}{
 		{name: "negative", value: -1, ok: false},
 		{name: "zero", value: 0, ok: true},
-		{name: "max", value: presetdeck.MaxCardCount, ok: true},
-		{name: "over_max", value: presetdeck.MaxCardCount + 1, ok: false},
+		{name: "positive", value: 4, ok: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

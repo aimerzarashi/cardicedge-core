@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -52,6 +53,7 @@ type Studio struct {
 	presetDeckList  *query.PresetDeckHandler
 	starterDeckSets *command.StarterDeckSetHandler
 	starterDeckSet  *query.StarterDeckSetHandler
+	gameRules       *command.GameRulesHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -69,8 +71,16 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	creatures := command.NewCreatureHandler(creatureStore, identifier.New(registry, creature.NewID), constraint.UpdateCreatureName, now)
 	items := command.NewItemHandler(itemStore, identifier.New(registry, item.NewID), constraint.UpdateItemName, now)
 	spells := command.NewSpellHandler(spellStore, identifier.New(registry, spell.NewID), constraint.UpdateSpellName, now)
+	gameRules := command.NewGameRulesHandler(
+		eventstore.New(registry, gamerules.NewID, gamerules.NewEventType, gamerules.InitialState, gamerules.Evolve),
+		identifier.New(registry, gamerules.NewID),
+		constraint.FindGameRules,
+		constraint.CreateGameRules,
+		now,
+	)
 	return &Studio{
 		config:     config,
+		gameRules:  gameRules,
 		entityRefs: entityRefs,
 		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
@@ -93,6 +103,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdatePresetDeckName,
 			constraint.UpdatePresetDeckCardReferences,
 			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
+			gameRules.Get,
 			now,
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
@@ -105,6 +116,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.UpdateStarterDeckSetCardReferences,
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
+			gameRules.Get,
 			now,
 		),
 		starterDeckSet: query.NewStarterDeckSetHandler(repository.NewStarterDeckSetReader().Get, presetDeckReader.Revisions),
@@ -119,6 +131,19 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 	}
 	if registered {
 		slog.InfoContext(ctx, "registered initial operator", "email", email)
+	}
+	return nil
+}
+
+// 起動時に、ゲーム全体のルールが無ければ既定の値で作る。複数台で先を越されたら「ある」とみなす（初期オペレーターと同じ）。
+// 初めて使うときに作る案は、読むだけの処理にも「無ければ作る」と同時の扱いが入り込むため採らなかった
+func (c *Studio) CreateInitialGameRules(ctx context.Context, db *sql.DB) error {
+	created, err := c.gameRules.CreateInitial(rdb.WithDB(ctx, db))
+	if err != nil {
+		return err
+	}
+	if created {
+		slog.InfoContext(ctx, "created game rules")
 	}
 	return nil
 }
@@ -150,13 +175,24 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	starterDeckSets := repository.NewStarterDeckSetWriter(c.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
 		Name: "starter_deck_sets",
 		Subscriptions: []domain.EntityType{
 			starterdeckset.Types().EntityType,
 		},
 		Upsert: starterDeckSets.Upsert,
 		Delete: starterDeckSets.Delete,
+	}); err != nil {
+		return err
+	}
+	gameRules := repository.NewGameRulesWriter()
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GameRules]{
+		Name: "game_rules",
+		Subscriptions: []domain.EntityType{
+			gamerules.Types().EntityType,
+		},
+		Upsert: gameRules.Upsert,
+		Delete: gameRules.Delete,
 	})
 }
 

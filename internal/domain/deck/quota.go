@@ -19,10 +19,6 @@ func PlayerQuota(owner player.ID) domain.Quota {
 	return domain.NewQuota(PlayerQuotaType, owner.Int64())
 }
 
-// 調整できるようにするのは core#23（そこまでは、この既定の値を全体のルールとして使う）。型付きの定数にして、
-// 上限が 1 以上であることを生成関数を通さずにコンパイルで保つ
-const DefaultQuotaLimit domain.QuotaLimit = 10
-
 // 上限に達していれば ErrLimitReached
 type ReserveQuotaFunc func(ctx context.Context, quota domain.Quota, limit domain.QuotaLimit) error
 

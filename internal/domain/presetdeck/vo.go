@@ -54,18 +54,12 @@ func (n Name) String() string {
 	return string(n)
 }
 
-// 同じカードを入れられる枚数の上限と、カードの枚数の合計の上限（スターターに選べるのは合計がちょうど
-// MaxTotalCount のときだけ。core#25）。調整できるようにするのは core#23（それまでは決まった値）
-const (
-	MaxCardCount  = 4
-	MaxTotalCount = 40
-)
-
-// 0 はデッキから外すことを表す
+// 0 はデッキから外すことを表す。枚数の上限は値の形ではなく全体のルール（gamerules）なので、ここでは確かめない
+// （保存済みのイベントから状態を作り直すとき、ルールが変わっていても読めるように）
 type CardCount int
 
 func NewCardCount(value int) (CardCount, error) {
-	if value < 0 || value > MaxCardCount {
+	if value < 0 {
 		return 0, ErrCardCountOutOfRange
 	}
 	return CardCount(value), nil

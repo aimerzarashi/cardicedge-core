@@ -8,6 +8,7 @@ import (
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -18,10 +19,19 @@ type Master struct {
 	CardA, CardB, CardC uuid.UUID
 }
 
-// 公開は、studio の read model の cards・starter_deck_sets の行を game の DB に写すことなので（make publish-master）、
+// 公開は、studio の read model の cards・starter_deck_sets・game_rules の行を game の DB に写すことなので（make publish-master）、
 // 行を直接入れる。metadata は書き手（studio の read model）の型で作り、読み手と同じ形であることも確かめる。
 // 行を入れるのは、公開されていない状態から公開された状態への変わり目を確かめる（登録が先、公開が後）ため、アプリの起動とは別にしてある
 func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
+	master, err := PublishMasterWithoutGameRules(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	return master, PublishGameRules(ctx, gameDB)
+}
+
+// カード・スターターデッキセットだけを写す（game_rules を写し忘れた状態を確かめるため）
+func PublishMasterWithoutGameRules(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	master := Master{CardA: uuid.New(), CardB: uuid.New(), CardC: uuid.New()}
 	for _, id := range []uuid.UUID{master.CardA, master.CardB, master.CardC} {
 		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String()})
@@ -45,4 +55,14 @@ func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	}
 	set := models.StarterDeckSet{StarterDeckSetID: uuid.NewString(), Metadata: metadata}
 	return master, set.Insert(ctx, gameDB, boil.Infer())
+}
+
+// game_rules の行を写す。値は既定の値（studio が起動時に作る値）
+func PublishGameRules(ctx context.Context, gameDB *sql.DB) error {
+	metadata, err := json.Marshal(readmodel.GameRulesMetadata{ID: uuid.New(), Revision: 1, Rules: gamerules.Defaults()})
+	if err != nil {
+		return err
+	}
+	row := models.GameRule{GameRulesID: uuid.NewString(), Metadata: metadata}
+	return row.Insert(ctx, gameDB, boil.Infer())
 }

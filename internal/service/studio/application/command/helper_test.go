@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -45,7 +46,15 @@ func registrant(t *testing.T) operator.ID {
 	return operatortest.ID(t, 10)
 }
 
+var defaultRules = gamerules.Defaults().Deck
+
+// 既定のルールで動かす。値を小さくして確かめるときは newPresetDeckHandlerWithRules
 func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeckHandler {
+	t.Helper()
+	return newPresetDeckHandlerWithRules(t, ctx, gamerules.Defaults())
+}
+
+func newPresetDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.PresetDeckHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -56,9 +65,30 @@ func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeck
 		constraint.UpdatePresetDeckName,
 		constraint.UpdatePresetDeckCardReferences,
 		newCardStatusReader(registry).Statuses,
+		fixedRules(rules),
 		// wiring と同じく、DB に残る精度（マイクロ秒）にそろえる（保存の後に読み直した日時と、結果の日時を同じにするため）
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
+}
+
+func newGameRulesHandler(t *testing.T, ctx context.Context) *command.GameRulesHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewGameRulesHandler(
+		eventstore.New(registry, gamerules.NewID, gamerules.NewEventType, gamerules.InitialState, gamerules.Evolve),
+		identifier.New(registry, gamerules.NewID),
+		constraint.FindGameRules,
+		constraint.CreateGameRules,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+// 読むルールを固定する（イベントストアに作らずに、テストで値を小さくして確かめるため）
+func fixedRules(rules gamerules.Rules) command.GetGameRulesFunc {
+	return func(context.Context) (gamerules.Rules, error) {
+		return rules, nil
+	}
 }
 
 func newCardStatusReader(registry *domaindef.Registry) *command.CardStatusReader {

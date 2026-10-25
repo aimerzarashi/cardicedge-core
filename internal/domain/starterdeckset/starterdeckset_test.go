@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -25,6 +26,7 @@ var (
 	firstSetAt = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
 	resetAt    = time.Date(2026, 10, 20, 10, 0, 0, 0, time.UTC)
 	publicID   = uuid.MustParse("11111111-2222-3333-4444-555555555555")
+	rules      = gamerules.Defaults().Deck
 )
 
 type fixture struct {
@@ -37,15 +39,15 @@ func newFixture(t *testing.T) fixture {
 	return fixture{id: starterdecksettest.ID(t, 40), operator: operatortest.ID(t, 10)}
 }
 
-// 合計が MaxTotalCount のプリセットデッキ（MaxCardCount 枚ずつ、cardKinds 種類。最後の 1 種類だけ lastCard にする）
+// 合計がルールの TotalCardCount のプリセットデッキ（MaxCardDuplicates 枚ずつ、cardKinds 種類。最後の 1 種類だけ lastCard にする）
 func presetDeck(t *testing.T, publicID uuid.UUID, version int64, name string, lastCard presetdeck.CardRef) presetdeck.PresetDeck {
 	t.Helper()
-	cardKinds := presetdeck.MaxTotalCount / presetdeck.MaxCardCount
+	cardKinds := rules.TotalCardCount / rules.MaxCardDuplicates
 	cards := map[presetdeck.CardRef]presetdeck.CardCount{}
 	for i := range cardKinds - 1 {
-		cards[presetdecktest.CardRef(t, creature.Types().EntityType, int64(100+i))] = presetdecktest.CardCount(t, presetdeck.MaxCardCount)
+		cards[presetdecktest.CardRef(t, creature.Types().EntityType, int64(100+i))] = presetdecktest.CardCount(t, rules.MaxCardDuplicates)
 	}
-	cards[lastCard] = presetdecktest.CardCount(t, presetdeck.MaxCardCount)
+	cards[lastCard] = presetdecktest.CardCount(t, rules.MaxCardDuplicates)
 	return presetdeck.PresetDeck{
 		ID:       presetdecktest.ID(t, version*10),
 		Version:  version,
@@ -80,7 +82,7 @@ func (f fixture) setCommand(t *testing.T, decks ...presetdeck.PresetDeck) *start
 	t.Helper()
 	copied := make([]starterdeckset.Deck, 0, len(decks))
 	for _, deck := range decks {
-		copied = append(copied, starterdecksettest.Deck(t, deck))
+		copied = append(copied, starterdecksettest.Deck(t, deck, rules))
 	}
 	return &starterdeckset.SetCommand{ID: f.id, PublicID: publicID, Decks: copied, SetBy: f.operator}
 }
@@ -100,7 +102,7 @@ func TestNewDeck_CopiesPresetDeckAtThatPoint(t *testing.T) {
 	f := newFixture(t)
 	deck := f.fireEarth(t, 7)
 
-	copied := starterdecksettest.Deck(t, deck)
+	copied := starterdecksettest.Deck(t, deck, rules)
 
 	require.Equal(t, fireEarthID, copied.Source().PresetDeckID())
 	require.Equal(t, int64(7), copied.Source().Revision())
@@ -112,18 +114,33 @@ func TestNewDeck_CopiesPresetDeckAtThatPoint(t *testing.T) {
 	require.Equal(t, deck.Cards, counts)
 }
 
-// 選べるのは合計がちょうど MaxTotalCount のプリセットデッキだけ
+// 選べるのは合計がちょうどルールの TotalCardCount のプリセットデッキだけ
 func TestNewDeck_RejectsPresetDeckNotExactlyMaxTotal(t *testing.T) {
 	f := newFixture(t)
 	deck := f.fireEarth(t, 1)
 	for card := range deck.Cards {
-		deck.Cards[card] = presetdecktest.CardCount(t, presetdeck.MaxCardCount-1)
+		deck.Cards[card] = presetdecktest.CardCount(t, rules.MaxCardDuplicates-1)
 		break
 	}
 
-	_, err := starterdeckset.NewDeck(deck)
+	_, err := starterdeckset.NewDeck(deck, rules)
 
 	require.ErrorIs(t, err, starterdeckset.ErrDeckNotSelectable)
+}
+
+// 合計はルールの値で決まる（既定の 40 ではない値でも、ちょうどなら選べる）
+func TestNewDeck_UsesTotalCardCountOfRule(t *testing.T) {
+	f := newFixture(t)
+	deck := f.fireEarth(t, 1)
+	small := rules
+	small.TotalCardCount = deck.TotalCount() - 1
+
+	_, err := starterdeckset.NewDeck(deck, small)
+	require.ErrorIs(t, err, starterdeckset.ErrDeckNotSelectable)
+
+	small.TotalCardCount = deck.TotalCount()
+	_, err = starterdeckset.NewDeck(deck, small)
+	require.NoError(t, err)
 }
 
 // 初めての設定で、写しの中身を全部持つイベントを作る（並びは元のプリセットデッキの公開 ID の順）
@@ -136,7 +153,7 @@ func TestDecide_FirstSetEmitsDecksSetEventWithCopies(t *testing.T) {
 	require.Equal(t, []starterdeckset.Event{&starterdeckset.DecksSetEvent{
 		EventMeta: starterdeckset.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: firstSetAt},
 		PublicID:  publicID,
-		Decks:     []starterdeckset.Deck{starterdecksettest.Deck(t, fireEarth), starterdecksettest.Deck(t, waterWind)},
+		Decks:     []starterdeckset.Deck{starterdecksettest.Deck(t, fireEarth, rules), starterdecksettest.Deck(t, waterWind, rules)},
 		SetBy:     f.operator,
 	}}, events)
 	set := state.(starterdeckset.StarterDeckSet)
@@ -154,7 +171,7 @@ func TestDecide_ResetReplacesDecksWithNextVersion(t *testing.T) {
 	require.Len(t, events, 1)
 	set := state.(starterdeckset.StarterDeckSet)
 	require.Equal(t, int64(2), set.Version)
-	require.Equal(t, []starterdeckset.Deck{starterdecksettest.Deck(t, f.fireEarth(t, 7)), starterdecksettest.Deck(t, f.lightDark(t))}, set.Decks)
+	require.Equal(t, []starterdeckset.Deck{starterdecksettest.Deck(t, f.fireEarth(t, 7), rules), starterdecksettest.Deck(t, f.lightDark(t), rules)}, set.Decks)
 	require.Equal(t, resetAt, set.SetAt)
 }
 
@@ -214,7 +231,7 @@ func TestStarterDeckSet_CardsAreDistinct(t *testing.T) {
 	cards := state.(starterdeckset.StarterDeckSet).Cards()
 
 	// 共通の 9 種類と、それぞれの最後の 1 種類
-	require.Len(t, cards, presetdeck.MaxTotalCount/presetdeck.MaxCardCount+1)
+	require.Len(t, cards, rules.TotalCardCount/rules.MaxCardDuplicates+1)
 }
 
 // 保存済みのイベントを読めなくなる変更（payload の形の変更）を検出する。形を変えるときは版を上げ、古い版の golden も残す
@@ -224,7 +241,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	event := &starterdeckset.DecksSetEvent{
 		EventMeta: meta,
 		PublicID:  publicID,
-		Decks:     []starterdeckset.Deck{starterdecksettest.Deck(t, f.fireEarth(t, 7)), starterdecksettest.Deck(t, f.waterWind(t, 3))},
+		Decks:     []starterdeckset.Deck{starterdecksettest.Deck(t, f.fireEarth(t, 7), rules), starterdecksettest.Deck(t, f.waterWind(t, 3), rules)},
 		SetBy:     f.operator,
 	}
 	require.Equal(t, 1, event.SchemaVersion())

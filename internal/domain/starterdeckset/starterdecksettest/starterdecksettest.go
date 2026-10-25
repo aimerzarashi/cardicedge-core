@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
 )
@@ -19,9 +20,9 @@ func ID(t testing.TB, value int64) starterdeckset.ID {
 	return id
 }
 
-func Deck(t testing.TB, deck presetdeck.PresetDeck) starterdeckset.Deck {
+func Deck(t testing.TB, deck presetdeck.PresetDeck, rules gamerules.Deck) starterdeckset.Deck {
 	t.Helper()
-	copied, err := starterdeckset.NewDeck(deck)
+	copied, err := starterdeckset.NewDeck(deck, rules)
 	require.NoError(t, err)
 	return copied
 }

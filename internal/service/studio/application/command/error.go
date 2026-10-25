@@ -20,6 +20,8 @@ var (
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした
 	ErrInvalidCardStatusTransition = errors.New("command: invalid card status transition")
+	// ゲーム全体のルールがまだ作られていない（studio は起動時に作るので、起きないはずの状態）
+	ErrGameRulesNotCreated = errors.New("command: game rules not created")
 	// 画面で見た revision が今の版と違う（画面を開いた後に、ほかの操作で変わった）
 	ErrRevisionConflict = errors.New("command: revision conflict")
 )

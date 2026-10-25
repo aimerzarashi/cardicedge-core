@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
@@ -17,20 +18,22 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/infrastructure/repository"
 )
 
-// 合計が 40 枚の写し（識別子を発行したカードで作る。書くときにカードの公開 ID を引くため）。カードの公開 ID と枚数も返す
+var rules = gamerules.Defaults().Deck
+
+// 合計がルールの枚数（既定は 40 枚）の写し（識別子を発行したカードで作る。書くときにカードの公開 ID を引くため）。カードの公開 ID と枚数も返す
 func (f presetDeckFixture) starterDeck(t *testing.T, name string, revision int64) (starterdeckset.Deck, []query.PresetDeckCard) {
 	t.Helper()
 	cards := map[presetdeck.CardRef]presetdeck.CardCount{}
 	var want []query.PresetDeckCard
-	for range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
+	for range rules.TotalCardCount / rules.MaxCardDuplicates {
 		ref, publicID := f.issueCreature(t)
-		cards[ref] = presetdecktest.CardCount(t, presetdeck.MaxCardCount)
-		want = append(want, query.PresetDeckCard{CardID: publicID, Count: presetdeck.MaxCardCount})
+		cards[ref] = presetdecktest.CardCount(t, rules.MaxCardDuplicates)
+		want = append(want, query.PresetDeckCard{CardID: publicID, Count: rules.MaxCardDuplicates})
 	}
 	deck := presetdeck.PresetDeck{
 		ID: presetdecktest.ID(t, 1), Version: revision, PublicID: uuid.New(), Name: presetdecktest.Name(t, name), Cards: cards,
 	}
-	return starterdecksettest.Deck(t, deck), want
+	return starterdecksettest.Deck(t, deck, rules), want
 }
 
 func (f presetDeckFixture) starterDeckSetWriter() *repository.StarterDeckSetWriter {

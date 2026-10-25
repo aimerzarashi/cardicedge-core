@@ -3,6 +3,7 @@ package presetdeck
 import (
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -23,8 +24,11 @@ type RenameCommand struct {
 }
 
 // 入力は「その枚数にする」（画面が選んだ値をそのまま送れ、今の枚数を知らずに済むため）。イベントの差分は Decide が計算する
+//
+// ルールは、ドメインが既定の値を読まず、コマンドを動かす側が game_rules を読んで渡す（値が変わっても、テストで小さくしても、Decide は変えない）
 type SetCardCountsCommand struct {
 	Counts    map[CardRef]CardCount
+	Rules     gamerules.Deck
 	ChangedBy operator.ID
 }
 

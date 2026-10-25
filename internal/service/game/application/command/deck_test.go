@@ -10,12 +10,14 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
 
 func TestCreateDeck_CreatesDeckOfOwnerWithNameAndCardsOfSource(t *testing.T) {
@@ -109,6 +111,21 @@ func TestCreateDeck_RejectsDeckOverLimit(t *testing.T) {
 	require.ErrorIs(t, err, deck.ErrLimitReached)
 	require.Equal(t, 1, countEventsOf(t, ctx, deckTypeID))
 	require.Equal(t, 1, reservedDecks(t, ctx, owner))
+}
+
+// 写されていないルールの代わりに既定の値で作らない。何も残さない（トランザクションごと戻る）
+func TestCreateDeck_RejectsWhenRulesNotPublished(t *testing.T) {
+	ctx := isolatedDatabase(t)
+	handler := newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
+		return gamerules.Rules{}, false, nil
+	})
+	owner := playertest.ID(t, issuePlayerID(t, ctx))
+
+	err := handler.Create(ctx, owner, startergranttest.ID(t, 10), startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.CardCount(t, cardA, 4)))
+
+	require.ErrorIs(t, err, rules.ErrNotPublished)
+	require.Zero(t, countEventsOf(t, ctx, deckTypeID))
+	require.Zero(t, reservedDecks(t, ctx, owner))
 }
 
 func TestCreateDeck_RejectsSameNameOfSameOwner(t *testing.T) {

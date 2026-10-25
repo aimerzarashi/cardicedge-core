@@ -4,6 +4,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -28,5 +29,6 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, startergrant.NewID, startergrant.NewEventType),
 		eventstore.NewEventLoader(registry, collection.NewID, collection.NewEventType),
 		eventstore.NewEventLoader(registry, deck.NewID, deck.NewEventType),
+		eventstore.NewEventLoader(registry, gamerules.NewID, gamerules.NewEventType),
 	)
 }
