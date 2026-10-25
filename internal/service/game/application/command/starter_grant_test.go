@@ -35,19 +35,23 @@ var (
 	cardC = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 )
 
-func publishedMaster() master.GetStarterDeckSetFunc {
-	return func(context.Context) (master.StarterDeckSet, bool, error) {
-		return master.StarterDeckSet{Decks: []master.StarterDeck{
-			{Name: "火", Cards: []master.DeckCard{{CardID: cardA, Count: 4}, {CardID: cardB, Count: 1}}},
-			{Name: "水", Cards: []master.DeckCard{{CardID: cardA, Count: 2}, {CardID: cardB, Count: 3}, {CardID: cardC, Count: 2}}},
-		}}, true, nil
+var publishedDecks = []master.StarterDeck{
+	{Name: "火", Cards: []master.DeckCard{{CardID: cardA, Count: 4}, {CardID: cardB, Count: 1}}},
+	{Name: "水", Cards: []master.DeckCard{{CardID: cardA, Count: 2}, {CardID: cardB, Count: 3}, {CardID: cardC, Count: 2}}},
+}
+
+func publishedMaster() master.ListPublishedStarterDecksFunc {
+	return decksMaster(publishedDecks...)
+}
+
+func decksMaster(decks ...master.StarterDeck) master.ListPublishedStarterDecksFunc {
+	return func(context.Context) ([]master.StarterDeck, error) {
+		return decks, nil
 	}
 }
 
-func unpublishedMaster() master.GetStarterDeckSetFunc {
-	return func(context.Context) (master.StarterDeckSet, bool, error) {
-		return master.StarterDeckSet{}, false, nil
-	}
+func unpublishedMaster() master.ListPublishedStarterDecksFunc {
+	return decksMaster()
 }
 
 func TestStart_RejectsWhenMasterNotPublished(t *testing.T) {
@@ -74,6 +78,34 @@ func TestStart_CopiesMostCountOfEachCardFromMaster(t *testing.T) {
 		startergranttest.CardCount(t, cardC, 2),
 	}, state.Cards)
 	require.Len(t, state.Decks, 2)
+}
+
+// 公開中をあるだけ配る（2 つに決めない）。デッキの名前はスターターデッキの名前
+func TestStart_DistributesAsManyDecksAsPublished(t *testing.T) {
+	tests := []struct {
+		name  string
+		decks []master.StarterDeck
+	}{
+		{name: "one_deck", decks: publishedDecks[:1]},
+		{name: "three_decks", decks: append(append([]master.StarterDeck{}, publishedDecks...), master.StarterDeck{Name: "風", Cards: []master.DeckCard{{CardID: cardC, Count: 5}}})},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := isolatedDatabase(t)
+			handler := newStarterGrantHandler(t, ctx, decksMaster(tt.decks...))
+			playerID, grantID := startedGrantID(t, ctx, handler)
+
+			require.NoError(t, handler.RecordCollection(ctx, grantID))
+			require.NoError(t, handler.Distribute(ctx, grantID))
+
+			require.Equal(t, len(tt.decks), countEventsOf(t, ctx, deckTypeID))
+			state := loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant)
+			require.Len(t, state.Decks, len(tt.decks))
+			for i, deck := range tt.decks {
+				require.Equal(t, deck.Name, state.Decks[i].Name.String())
+			}
+		})
+	}
 }
 
 func TestStart_DoesNothingWhenAlreadyStarted(t *testing.T) {
@@ -186,7 +218,7 @@ func TestHandle_CompletesGrantWhenGivenEventsOfFlow(t *testing.T) {
 	handleAll(t, ctx, handler, loadEvents(t, ctx, startergrant.NewID, startergrant.NewEventType, grant.ID.Int64()))
 	owner := playertest.ID(t, playerID)
 	handleAll(t, ctx, handler, loadEvents(t, ctx, collection.NewID, collection.NewEventType, constrainttest.Owner(t, ctx, collection.OwnerKey(owner))))
-	for number := 1; number <= startergrant.RequiredDeckCount; number++ {
+	for number := 1; number <= len(publishedDecks); number++ {
 		deckID := constrainttest.Owner(t, ctx, deck.StarterKey(grant.ID, startergranttest.DeckNumber(t, number)))
 		handleAll(t, ctx, handler, loadEvents(t, ctx, deck.NewID, deck.NewEventType, deckID))
 	}

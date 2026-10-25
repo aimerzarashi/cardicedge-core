@@ -13,7 +13,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if _, ok := state.(NotStartedStarterGrant); !ok {
 			return nil, ErrAlreadyStarted
 		}
-		if len(c.Decks) != RequiredDeckCount {
+		if len(c.Decks) < 1 {
 			return nil, ErrInvalidDeckCount
 		}
 		return []Event{&StartedEvent{
@@ -37,6 +37,9 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		progress, done, err := inProgress(state)
 		if err != nil || done {
 			return nil, err
+		}
+		if c.Number.Int() > len(progress.DeckRecorded) {
+			return nil, ErrInvalidDeckNumber
 		}
 		if progress.DeckRecorded[c.Number.Int()-1] {
 			return nil, nil
@@ -62,7 +65,7 @@ func inProgress(state State) (progress InProgressStarterGrant, done bool, err er
 	}
 }
 
-// 記録のイベントで 3 つそろうなら、続けて終わったイベントを出す
+// 記録のイベントで所持カードとすべてのデッキがそろうなら、続けて終わったイベントを出す
 func withCompletion(progress InProgressStarterGrant, now time.Time, event Event) []Event {
 	next, err := Evolve(progress, event)
 	if err != nil {
@@ -77,7 +80,7 @@ func withCompletion(progress InProgressStarterGrant, now time.Time, event Event)
 	}}
 }
 
-// カードごとに、2 つのデッキのうち多いほうの枚数。1 枚の所持カードを複数のデッキで使えるため、合計にはしない。
+// カードごとに、配るデッキのうち多いほうの枚数。1 枚の所持カードを複数のデッキで使えるため、合計にはしない。
 // 同じ中身を同じ値として比べられるよう、カードの ID の順に並べる
 func collectionOf(decks []Deck) []CardCount {
 	most := map[[16]byte]CardCount{}

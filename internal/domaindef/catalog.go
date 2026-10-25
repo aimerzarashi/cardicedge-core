@@ -2,7 +2,8 @@ package domaindef
 
 // 種別の名前と id の一覧（全サービスで共通。core_studio・core_game のどちらの DB にも、同じ行を入れる）。
 // id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた名前と id は変えない・消さない（過去のイベントが id で
-// 参照しているため）。名前は各集約の宣言（Types() 等）にも書くが、ドメインのコードには id を持たせない（保存の都合のため）。
+// 参照しているため）。ただし main に入る前（リリース前）は除く（core#42 でスターターデッキセットの種別を、開発の DB を作り直す前提で消した）。
+// 名前は各集約の宣言（Types() 等）にも書くが、ドメインのコードには id を持たせない（保存の都合のため）。
 // この一覧と DB は Sync が合わせ、DB と各集約の宣言は Verify... が照合する（core#33）
 //
 // 振り方: 集約は 1000 から 100 刻み、イベントはその集約の id ＋ 1 から順に、一意性の key・参照・上限は 1000 から順に。
@@ -34,9 +35,6 @@ var Types = Catalog{
 			{ID: 1403, Name: "CardCountsChangedEvent"},
 			{ID: 1404, Name: "DeletedEvent"},
 		}},
-		{ID: 1500, Name: "starter_deck_set", Events: []EventTypeDef{
-			{ID: 1501, Name: "DecksSetEvent"},
-		}},
 		{ID: 1600, Name: "player", Events: []EventTypeDef{
 			{ID: 1601, Name: "RegisteredEvent"},
 		}},
@@ -55,26 +53,35 @@ var Types = Catalog{
 		{ID: 2000, Name: "game_rules", Events: []EventTypeDef{
 			{ID: 2001, Name: "CreatedEvent"},
 		}},
+		{ID: 2100, Name: "starter_deck", Events: []EventTypeDef{
+			{ID: 2101, Name: "RegisteredEvent"},
+			{ID: 2102, Name: "RenamedEvent"},
+			{ID: 2103, Name: "CardCountsChangedEvent"},
+			{ID: 2104, Name: "PublishedEvent"},
+			{ID: 2105, Name: "RetiredEvent"},
+			{ID: 2106, Name: "DeletedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
 		{ID: 1001, Name: "operator.subject"},
 		{ID: 1002, Name: "card.name"},
 		{ID: 1003, Name: "preset_deck.name"},
-		{ID: 1004, Name: "starter_deck_set.singleton"},
 		{ID: 1005, Name: "player.subject"},
 		{ID: 1006, Name: "starter_grant.player"},
 		{ID: 1007, Name: "collection.owner"},
 		{ID: 1008, Name: "deck.starter"},
 		{ID: 1009, Name: "deck.name"},
 		{ID: 1010, Name: "game_rules.singleton"},
+		{ID: 1011, Name: "starter_deck.name"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
-		{ID: 1001, Name: "starter_deck_set.card"},
+		{ID: 1002, Name: "starter_deck.card"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},
+		{ID: 1001, Name: "starter_deck.published"},
 	},
 }
 

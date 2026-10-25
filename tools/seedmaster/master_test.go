@@ -22,7 +22,8 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "duplicated_card_name", json: `{"cards":[{"type":"item","name":"a"},{"type":"spell","name":"a"}]}`},
 		{name: "unknown_card_in_deck", json: `{"cards":[],"preset_decks":[{"name":"d","cards":[{"card":"x","count":4}]}]}`},
 		{name: "deck_total_not_forty", json: `{"cards":[{"type":"item","name":"a"}],"preset_decks":[{"name":"d","cards":[{"card":"a","count":4}]}]}`},
-		{name: "wrong_deck_count_in_set", json: `{"cards":[],"starter_deck_set":[]}`},
+		{name: "no_starter_decks", json: `{"cards":[],"starter_decks":[]}`},
+		{name: "unknown_preset_deck_for_starter_deck", json: `{"cards":[],"starter_decks":["x"]}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

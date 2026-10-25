@@ -17,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -159,6 +160,39 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 	registered, err := newPresetDeckHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 	return registered
+}
+
+func starterDeckStore(registry *domaindef.Registry) domain.EventStore[starterdeck.ID, starterdeck.Event, starterdeck.State] {
+	return eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve)
+}
+
+// 公開中の数の持ち主（ゲーム全体のルール）が要るため、無ければ作る。ルールの値は固定する（値を小さくして確かめるため）
+func newStarterDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.StarterDeckHandler {
+	t.Helper()
+	_, err := newGameRulesHandler(t, ctx).CreateInitial(ctx)
+	require.NoError(t, err)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewStarterDeckHandler(
+		starterDeckStore(registry),
+		identifier.New(registry, starterdeck.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateStarterDeckName,
+		constraint.UpdateStarterDeckCardReferences,
+		newCardStatusReader(registry).Statuses,
+		presetDeckStore(registry),
+		identifier.New(registry, presetdeck.NewID),
+		constraint.FindGameRules,
+		constraint.ReserveStarterDeckQuota,
+		constraint.ReleaseStarterDeckQuota,
+		fixedRules(rules),
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func newStarterDeckHandler(t *testing.T, ctx context.Context) *command.StarterDeckHandler {
+	t.Helper()
+	return newStarterDeckHandlerWithRules(t, ctx, gamerules.Defaults())
 }
 
 func newCreatureHandler(t *testing.T, ctx context.Context) *command.CreatureHandler {

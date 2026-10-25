@@ -19,8 +19,8 @@ make migrate # 未適用の migrations だけを Atlas で適用（DB を作り�
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
-make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキセット）を studio のコマンドで登録（設定済みなら何もしない）
-make publish-master # studio の cards（公開中・使用不可だけ）・starter_deck_sets・game_rules を core_game に写す（game が配るマスタを読めるようにする）
+make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばす）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -36,7 +36,7 @@ make down    # 停止して DB のデータも破棄
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
-開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_deck_sets・game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 

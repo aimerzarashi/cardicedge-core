@@ -68,13 +68,51 @@ func TestDecide_StartCopiesDecksAndCollectsMostCountOfEachCard(t *testing.T) {
 	require.Equal(t, decks(t), started.Decks)
 }
 
-func TestDecide_RejectsStartWhenDeckCountIsNotTwo(t *testing.T) {
+func TestDecide_RejectsStartWithoutDecks(t *testing.T) {
 	cmd := startCommand(t)
-	cmd.Decks = cmd.Decks[:1]
+	cmd.Decks = nil
 
 	_, err := startergrant.Decide(startergrant.InitialState(), cmd, startedAt)
 
 	require.ErrorIs(t, err, startergrant.ErrInvalidDeckCount)
+}
+
+// 配るデッキの数は公開中のスターターデッキの数で決まり、1 つでも、3 つ以上でも配れる。済む条件はその数すべての記録
+func TestDecide_CompletesAfterRecordingEveryDeckWhateverTheDeckCount(t *testing.T) {
+	tests := []struct {
+		name  string
+		count int
+	}{
+		{name: "one_deck", count: 1},
+		{name: "three_decks", count: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := startCommand(t)
+			cmd.Decks = nil
+			for range tt.count {
+				cmd.Decks = append(cmd.Decks, startergranttest.Deck(t, "火", startergranttest.CardCount(t, cardA, 4)))
+			}
+			state, _ := apply(t, startergrant.InitialState(), cmd)
+			state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
+			for number := 1; number < tt.count; number++ {
+				state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, number)})
+				require.IsType(t, startergrant.InProgressStarterGrant{}, state)
+			}
+
+			state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, tt.count)})
+
+			require.IsType(t, startergrant.CompletedStarterGrant{}, state)
+		})
+	}
+}
+
+func TestDecide_RejectsRecordDeckBeyondDeckCount(t *testing.T) {
+	state, _ := started(t)
+
+	_, err := startergrant.Decide(state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 3)}, startedAt)
+
+	require.ErrorIs(t, err, startergrant.ErrInvalidDeckNumber)
 }
 
 func TestDecide_RejectsStartWhenAlreadyStarted(t *testing.T) {
@@ -193,11 +231,11 @@ func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 
 func TestNewDeckNumberAndCount_RejectOutOfRange(t *testing.T) {
 	_, zero := startergrant.NewDeckNumber(0)
-	_, three := startergrant.NewDeckNumber(3)
+	_, negative := startergrant.NewDeckNumber(-1)
 	_, noCount := startergrant.NewCount(0)
 
 	require.ErrorIs(t, zero, startergrant.ErrInvalidDeckNumber)
-	require.ErrorIs(t, three, startergrant.ErrInvalidDeckNumber)
+	require.ErrorIs(t, negative, startergrant.ErrInvalidDeckNumber)
 	require.ErrorIs(t, noCount, startergrant.ErrCountNotPositive)
 }
 

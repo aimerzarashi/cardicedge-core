@@ -51,14 +51,21 @@ type PresetDeckLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.PresetDeck, error)
 }
 
-// 実装は command.StarterDeckSetHandler
-type StarterDeckSetHandler interface {
-	Set(ctx context.Context, revision int64, presetDeckIDs []uuid.UUID) (command.ChangedStarterDeckSet, error)
+// 実装は command.StarterDeckHandler
+type StarterDeckHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedStarterDeck, error)
+	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID) (command.ChangedStarterDeck, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedStarterDeck, error)
+	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedStarterDeck, error)
+	Delete(ctx context.Context, id uuid.UUID, revision int64) error
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterDeck, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterDeck, error)
 }
 
-// 実装は query.StarterDeckSetHandler
-type StarterDeckSetGetter interface {
-	Get(ctx context.Context) (query.StarterDeckSet, error)
+// 実装は query.StarterDeckHandler
+type StarterDeckLister interface {
+	List(ctx context.Context, filter query.StarterDeckFilter, first *int, after *string) (pagination.Connection[query.StarterDeck], error)
+	Get(ctx context.Context, id uuid.UUID) (query.StarterDeck, error)
 }
 
 type Resolver struct {
@@ -69,8 +76,8 @@ type Resolver struct {
 	presetDecks     PresetDeckHandler
 	cards           CardLister
 	presetDeckList  PresetDeckLister
-	starterDeckSets StarterDeckSetHandler
-	starterDeckSet  StarterDeckSetGetter
+	starterDecks    StarterDeckHandler
+	starterDeckList StarterDeckLister
 }
 
 func NewResolver(
@@ -81,11 +88,11 @@ func NewResolver(
 	presetDecks PresetDeckHandler,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
-	starterDeckSets StarterDeckSetHandler,
-	starterDeckSet StarterDeckSetGetter,
+	starterDecks StarterDeckHandler,
+	starterDeckList StarterDeckLister,
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
-		cards: cards, presetDeckList: presetDeckList, starterDeckSets: starterDeckSets, starterDeckSet: starterDeckSet,
+		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
 	}
 }
