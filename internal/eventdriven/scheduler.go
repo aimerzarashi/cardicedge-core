@@ -84,6 +84,14 @@ func (s *scheduler) done(key workKey) {
 	s.push(key)
 }
 
+// next で受け取ったキーを、処理せずに手放す（ほかの台が処理中で、ロックが取れなかったとき。core#19）。処理中に来た知らせの印も
+// 捨てる。その知らせのイベントは、ロックを持つ台が処理中に知らせを受けてやり直すか、やることの表に残って Poller が拾うため
+func (s *scheduler) skip(key workKey) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.states, key)
+}
+
 func (s *scheduler) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
