@@ -32,7 +32,7 @@
 | internal/domain | 集約の共通の契約（Event・ID・EventStore・制約の型（`UniqueKey`・`ReferenceType`・`QuotaType`・`Quota`・`QuotaLimit`）・名前の比べ方 `NormalizeName`（name.go）等）と、集約（`operator` 等）。`<集約>test` はテストで値の型を作る道具。game のスターターの配布は 3 つの集約でできている: `startergrant`（プレイヤーに 1 つ。配る中身の写しと、どこまで済んだかを持つプロセスマネージャー）・`collection`（プレイヤーの所持カード）・`deck`（1 デッキ 1 集約。デッキの編集とカードの取得が互いにぶつからないため）。`gamerules`（ゲーム全体のルール。値オブジェクト `Rules` と既定の値 `Defaults()`、ゲーム全体で 1 つの集約）。どのカードも公開 ID で持つ（game の DB にカードの集約が無いため） |
 | internal/eventstore・internal/identifier・internal/constraint | イベントの保存と復元（版と revision の流れは eventstore の README）、ID の発行と削除・種類を決めない公開 ID の引き方（`EntityRefResolver`）、制約（一意性 domain_unique_keys は unique_key.go、集約どうしの参照 domain_references は reference.go、数の上限 domain_quotas は quota.go）。`constrainttest` はテストで key から集約を引き、参照を読む道具 |
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types・domain_quota_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
-| internal/eventdriven | イベントを受けて投影（Projection）とポリシー（Policy。イベントを 1 つずつ受けてコマンドを動かす。失敗の記録・間隔・上限・デッドレター）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表・失敗の記録）。構成は README |
+| internal/eventdriven | イベントを受けて投影（Projection）とポリシー（Policy。イベントを 1 つずつ受けてコマンドを動かす。失敗の記録・間隔・上限・デッドレター）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表・失敗の記録・複数台で単位を分け合うアドバイザリーロック）。構成は README |
 | internal/platform/pagination | 前向きのカーソルによるページ分け（first・after）の部品 |
 | internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
 | internal/platform/idp | JWT の検証（発行元ごと）。`idptest` はテストで JWKS・JWT を作る道具 |
@@ -105,6 +105,7 @@
   - そのイベントの操作をした人: `<動作>_by`（`registered_by` 等）。操作した人と持ち主が同じなら付けず、集約の名前だけにする
   - 消えた後も残す参照（公開 ID で持つもの）: `<対象>_id`（`card_id`・`preset_deck_id`）
 - Go のコードで、構造体に入れる前の値を持つ名前（ローカル変数・関数の引数・関数の型の引数）は、中身が分かる名前にする（ID なら `<集約>ID`、名前なら `<対象>Name` 等。例 `playerID player.ID`・`starterGrantID`）。集約の名前だけにすると、import しているパッケージ（`player` 等）と重なり、ID と集約そのものを取り違えやすいため（core#46）。構造体の項目は payload の JSON の名前に合わせる（`Player player.ID \`json:"player"\``・`StarterGrant startergrant.ID \`json:"starter_grant"\``。項目名と JSON の名前の間にずれを作らないため）。操作した人の `registeredBy` 等は役割の名前のまま（`By` で ID と読めるため）
+- core を複数台で動かすとき、イベントの処理は処理の単位（購読者 × 集約）ごとにアドバイザリーロックで 1 台だけが行う（core#19。eventdriven の README の「複数台で動かす」）。ロックが外れた間は 2 台が同じ単位を処理しうるので、ポリシーのコマンドは同時に 2 回呼ばれても DB の結果が 1 回になるよう、一意な key・状態で守る。DB の外への副作用（メール等）はポリシーから直接起こさない（要るときは outbox を考える）
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
 - /studio/graphql・/game/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない。aud はどちらも diecardomain-core で、iss で分ける）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
 - 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は presentation 層のミドルウェア、認可は presentation 層（resolver）、登録・紐づけは application 層のコマンド。初期オペレーターは internal/wiring が application 層のコマンドを直接呼んで登録する

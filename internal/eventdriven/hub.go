@@ -40,6 +40,8 @@ type Hub struct {
 	// 集約の種別 → その種別を購読する購読者（投影・ポリシー）の id
 	routes    map[domaindef.EntityTypeID][]int16
 	scheduler *scheduler
+	// 複数台で、1 つの単位を 1 台だけが処理するためのロック（lock.go）
+	locks unitLocks
 	// 再接続の合図。容量 1 で、待たずに送る（探している最中に何回来ても、終わった後に 1 回探すだけ）
 	pollNow chan struct{}
 	started atomic.Bool
@@ -198,6 +200,7 @@ func (h *Hub) Stop() {
 	h.cancel()
 	h.scheduler.close()
 	h.wg.Wait()
+	h.locks.close()
 }
 
 // ListenerHandler。Listener から呼ばれる
@@ -229,7 +232,23 @@ func (h *Hub) work(ctx context.Context) {
 // 投影の失敗はログに出すだけで、次の知らせか Poller で作り直す。ポリシーの失敗は失敗の記録に残し、間隔と上限で扱う（policy.go）
 func (h *Hub) process(ctx context.Context, key workKey) {
 	registered := h.registered[key.subscriberID]
+	lock, acquired, err := h.locks.tryLock(ctx, key)
+	if err != nil || !acquired {
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "eventdriven: locking unit failed",
+				"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
+		}
+		h.scheduler.skip(key)
+		return
+	}
 	defer h.scheduler.done(key)
+	// 取り消された ctx でも外す（外せないと接続を捨てることになり、ほかの単位のロックまで外れるため）
+	defer func() {
+		if err := h.locks.unlock(context.WithoutCancel(ctx), lock); err != nil {
+			slog.ErrorContext(ctx, "eventdriven: unlocking unit failed",
+				"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
+		}
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			slog.ErrorContext(ctx, "eventdriven: subscriber panicked",
@@ -237,7 +256,6 @@ func (h *Hub) process(ctx context.Context, key workKey) {
 				"panic", r, "stack", string(debug.Stack()))
 		}
 	}()
-	var err error
 	if registered.kind == KindPolicy {
 		err = h.runPolicy(ctx, key, registered)
 	} else {
