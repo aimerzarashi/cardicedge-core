@@ -99,6 +99,12 @@
 - 起動時に、DB ごとのトランザクション（advisory lock で core どうしを順にする）で、一覧のうち DB に無い種別を足し、DB の行が一覧とちょうど一致するかを確かめる（`domaindef.Sync`）。続けて、ドメインの宣言と DB を両方向に照合する（`Verify...`）。食い違えば起動を止める（行は消さない。core#20・core#33）
 - 集約を足したら、表のマイグレーションが要れば足して `make gen-orm` し、種別の一覧（`Types`）にその集約とイベントを足し、起動時の照合（internal/wiring の `syncTypes` の集約の一覧）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す
 - 種別名・イベント名・スキーマの版は型が宣言する（リフレクションで推測しない）。集約の種別名は `domain.EntityType`、イベントの種別名は `domain.EventName`、一意な key の種別は `domain.UniqueKeyType` の値の型にし、各集約が生成関数で作る変数として宣言する（string のままだと名前どうしを取り違えてもコンパイルが通るため）。種別の id も `domaindef.EntityTypeID`・`EventTypeID` で分ける。payload の形を変えるときは版を上げ、古い版の golden（testdata/events）を残す
+- イベントの payload の項目で、ほかのものを指す項目の名前（core#46）。何の ID かは型（各集約の event.go）と domain_entities の通番（種類をまたいで重ならない）で分かるため、名前は表現をそろえるためのもの:
+  - ほかの集約が 1 つだけ出てくる: 集約の名前（`player`・`starter_grant`・`card`）。`_id` は付けず、略さない
+  - 同じ集約が 2 つ以上出てくる: 役割 ＋ 集約の名前（例 `giver_player`・`receiver_player`）。役割だけにしない（何を指すかが名前から読めなくなるため）
+  - そのイベントの操作をした人: `<動作>_by`（`registered_by` 等）。操作した人と持ち主が同じなら付けず、集約の名前だけにする
+  - 消えた後も残す参照（公開 ID で持つもの）: `<対象>_id`（`card_id`・`preset_deck_id`）
+- Go のコードで、構造体に入れる前の値を持つ名前（ローカル変数・関数の引数・関数の型の引数）は、中身が分かる名前にする（ID なら `<集約>ID`、名前なら `<対象>Name` 等。例 `playerID player.ID`・`starterGrantID`）。集約の名前だけにすると、import しているパッケージ（`player` 等）と重なり、ID と集約そのものを取り違えやすいため（core#46）。構造体の項目は payload の JSON の名前に合わせる（`Player player.ID \`json:"player"\``・`StarterGrant startergrant.ID \`json:"starter_grant"\``。項目名と JSON の名前の間にずれを作らないため）。操作した人の `registeredBy` 等は役割の名前のまま（`By` で ID と読めるため）
 - `Decide` に時刻を渡す（中で time.Now を呼ばない）。`Evolve` は状態を書き換えない
 - /studio/graphql・/game/graphql はすべての呼び出しで JWT を確かめ、iss・aud で発行元を区別する（入口のパスやネットワークの位置を信じない。aud はどちらも diecardomain-core で、iss で分ける）。誰の操作かは入力ではなく JWT の (iss, sub) だけで決める
 - 層の分担: 認証（JWT の検証とオペレーターの特定・紐づけ）は presentation 層のミドルウェア、認可は presentation 層（resolver）、登録・紐づけは application 層のコマンド。初期オペレーターは internal/wiring が application 層のコマンドを直接呼んで登録する

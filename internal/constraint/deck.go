@@ -16,12 +16,12 @@ var (
 	_ deck.ReleaseQuotaFunc  = ReleaseDeckQuota
 )
 
-func UpdateDeckStarter(ctx context.Context, id deck.ID, grant startergrant.ID, number startergrant.DeckNumber) error {
-	return updateUniqueKey(ctx, id.Int64(), deck.StarterKey(grant, number), deck.ErrAlreadyCreated)
+func UpdateDeckStarter(ctx context.Context, id deck.ID, starterGrantID startergrant.ID, number startergrant.DeckNumber) error {
+	return updateUniqueKey(ctx, id.Int64(), deck.StarterKey(starterGrantID, number), deck.ErrAlreadyCreated)
 }
 
-func UpdateDeckName(ctx context.Context, id deck.ID, owner player.ID, name deck.Name) error {
-	return updateUniqueKey(ctx, id.Int64(), deck.NameKey(owner, name), deck.ErrNameAlreadyInUse)
+func UpdateDeckName(ctx context.Context, id deck.ID, playerID player.ID, name deck.Name) error {
+	return updateUniqueKey(ctx, id.Int64(), deck.NameKey(playerID, name), deck.ErrNameAlreadyInUse)
 }
 
 func ReserveDeckQuota(ctx context.Context, quota domain.Quota, limit domain.QuotaLimit) error {

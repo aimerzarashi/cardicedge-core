@@ -19,12 +19,12 @@ func (f fixture) issueCollection(t *testing.T) collection.ID {
 
 func TestUpdateCollectionOwner_RejectsOwnerWhoAlreadyHasCollection(t *testing.T) {
 	f := setup(t)
-	owner := f.issuePlayer(t)
-	require.NoError(t, constraint.UpdateCollectionOwner(f.ctx, f.issueCollection(t), owner))
+	playerID := f.issuePlayer(t)
+	require.NoError(t, constraint.UpdateCollectionPlayer(f.ctx, f.issueCollection(t), playerID))
 
-	err := constraint.UpdateCollectionOwner(f.ctx, f.issueCollection(t), f.issuePlayer(t))
+	err := constraint.UpdateCollectionPlayer(f.ctx, f.issueCollection(t), f.issuePlayer(t))
 	require.NoError(t, err)
-	err = constraint.UpdateCollectionOwner(f.ctx, f.issueCollection(t), owner)
+	err = constraint.UpdateCollectionPlayer(f.ctx, f.issueCollection(t), playerID)
 
 	require.ErrorIs(t, err, collection.ErrAlreadyCreated)
 }

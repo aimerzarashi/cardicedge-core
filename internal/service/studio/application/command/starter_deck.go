@@ -284,7 +284,7 @@ func (c *StarterDeckHandler) checkPublishable(ctx context.Context, deck starterd
 
 // 公開中の数を 1 つ確保する。持ち主は game_rules の内部 ID、上限はルールの値
 func (c *StarterDeckHandler) reservePublished(ctx context.Context, maxPublished int) error {
-	owner, found, err := c.findGameRules(ctx)
+	gameRulesID, found, err := c.findGameRules(ctx)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (c *StarterDeckHandler) reservePublished(ctx context.Context, maxPublished 
 	if err != nil {
 		return err
 	}
-	return c.reserveQuota(ctx, starterdeck.PublishedQuota(owner), limit)
+	return c.reserveQuota(ctx, starterdeck.PublishedQuota(gameRulesID), limit)
 }
 
 // 使用不可にする。公開中の数を 1 つ戻す（もう一度公開できるように）。すでに使用不可なら変えずに成功する。
@@ -315,14 +315,14 @@ func (c *StarterDeckHandler) Retire(ctx context.Context, id uuid.UUID, revision 
 			return ChangedStarterDeck{}, err
 		}
 		if changed {
-			owner, found, err := c.findGameRules(ctx)
+			gameRulesID, found, err := c.findGameRules(ctx)
 			if err != nil {
 				return ChangedStarterDeck{}, err
 			}
 			if !found {
 				return ChangedStarterDeck{}, ErrGameRulesNotCreated
 			}
-			if err := c.releaseQuota(ctx, starterdeck.PublishedQuota(owner)); err != nil {
+			if err := c.releaseQuota(ctx, starterdeck.PublishedQuota(gameRulesID)); err != nil {
 				return ChangedStarterDeck{}, err
 			}
 		}

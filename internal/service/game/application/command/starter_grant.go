@@ -54,17 +54,17 @@ func (c *StarterGrantHandler) Handle(ctx context.Context, event any) error {
 	case *startergrant.StartedEvent:
 		return c.Distribute(ctx, e.GetMeta().EntityID.Int64())
 	case *collection.CreatedEvent:
-		return c.RecordCollection(ctx, e.Grant.Int64())
+		return c.RecordCollection(ctx, e.StarterGrant.Int64())
 	case *deck.CreatedEvent:
-		return c.RecordDeck(ctx, e.Grant.Int64(), e.Number.Int())
+		return c.RecordDeck(ctx, e.StarterGrant.Int64(), e.Number.Int())
 	default:
 		return nil
 	}
 }
 
 // プレイヤーの配布を始める。公開中のスターターデッキが 1 つも無ければ ErrMasterNotPublished（公開中をあるだけ配る）。そのプレイヤーの配布がもう始まっていれば何もしない
-func (c *StarterGrantHandler) Start(ctx context.Context, playerID int64) error {
-	owner, err := player.NewID(playerID)
+func (c *StarterGrantHandler) Start(ctx context.Context, rawPlayerID int64) error {
+	playerID, err := player.NewID(rawPlayerID)
 	if err != nil {
 		return err
 	}
@@ -84,10 +84,10 @@ func (c *StarterGrantHandler) Start(ctx context.Context, playerID int64) error {
 		if err != nil {
 			return struct{}{}, err
 		}
-		if err := c.updatePlayer(ctx, id, owner); err != nil {
+		if err := c.updatePlayer(ctx, id, playerID); err != nil {
 			return struct{}{}, err
 		}
-		events, err := startergrant.Decide(startergrant.InitialState(), &startergrant.StartCommand{ID: id, Player: owner, Decks: decks}, c.now())
+		events, err := startergrant.Decide(startergrant.InitialState(), &startergrant.StartCommand{ID: id, Player: playerID, Decks: decks}, c.now())
 		if err != nil {
 			return struct{}{}, err
 		}

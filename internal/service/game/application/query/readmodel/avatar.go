@@ -12,7 +12,7 @@ import (
 // avatars の 1 行。持ち主は、イベントが内部 ID で持つため、書くときに repository が公開用の ID に引き直す
 type Avatar struct {
 	AvatarID     uuid.UUID
-	Owner        player.ID
+	Player       player.ID
 	Name         string
 	RegisteredAt time.Time
 }
@@ -32,7 +32,7 @@ func (state Avatar) Metadata() AvatarMetadata {
 func (state Avatar) Evolve(event any) Avatar {
 	if e, ok := event.(*avatar.RegisteredEvent); ok {
 		state.AvatarID = e.PublicID
-		state.Owner = e.Owner
+		state.Player = e.Player
 		state.Name = e.Name.String()
 		state.RegisteredAt = e.GetMeta().OccurredAt
 	}

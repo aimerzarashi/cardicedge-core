@@ -12,11 +12,11 @@ import (
 )
 
 func TestPlayerStarterGrant_EvolvesStatusThroughGrant(t *testing.T) {
-	owner := playertest.ID(t, 7)
+	playerID := playertest.ID(t, 7)
 	meta := func(version int64) startergrant.EventMeta {
 		return startergrant.EventMeta{EntityID: startergranttest.ID(t, 1), AggregateVersion: version}
 	}
-	started := &startergrant.StartedEvent{EventMeta: meta(1), Player: owner, Cards: []startergrant.CardCount{}, Decks: []startergrant.Deck{}}
+	started := &startergrant.StartedEvent{EventMeta: meta(1), Player: playerID, Cards: []startergrant.CardCount{}, Decks: []startergrant.Deck{}}
 	collection := &startergrant.CollectionRecordedEvent{EventMeta: meta(2)}
 	deck := &startergrant.DeckRecordedEvent{EventMeta: meta(3), Number: startergranttest.DeckNumber(t, 1)}
 	completed := &startergrant.CompletedEvent{EventMeta: meta(4)}
@@ -37,7 +37,7 @@ func TestPlayerStarterGrant_EvolvesStatusThroughGrant(t *testing.T) {
 				state = state.Evolve(event)
 			}
 
-			require.Equal(t, readmodel.PlayerStarterGrant{Player: owner, Status: tt.wantStatus}, state)
+			require.Equal(t, readmodel.PlayerStarterGrant{Player: playerID, Status: tt.wantStatus}, state)
 			require.False(t, state.IsTerminal())
 		})
 	}

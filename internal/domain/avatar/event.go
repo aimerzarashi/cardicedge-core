@@ -29,7 +29,7 @@ type RegisteredEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	PublicID    uuid.UUID `json:"public_id"`
-	Owner       player.ID `json:"owner"`
+	Player      player.ID `json:"player"`
 	Name        Name      `json:"name"`
 }
 

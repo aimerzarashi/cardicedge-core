@@ -15,8 +15,8 @@ func QuotaTypes() []domain.QuotaType {
 }
 
 // プレイヤーごとにデッキの数を数える
-func PlayerQuota(owner player.ID) domain.Quota {
-	return domain.NewQuota(PlayerQuotaType, owner.Int64())
+func PlayerQuota(playerID player.ID) domain.Quota {
+	return domain.NewQuota(PlayerQuotaType, playerID.Int64())
 }
 
 // 上限に達していれば ErrLimitReached

@@ -20,7 +20,7 @@ type Avatar struct {
 	ID           ID
 	Version      int64
 	PublicID     uuid.UUID
-	Owner        player.ID
+	Player       player.ID
 	Name         Name
 	RegisteredAt time.Time
 }

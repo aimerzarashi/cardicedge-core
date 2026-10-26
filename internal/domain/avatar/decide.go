@@ -12,7 +12,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		return []Event{&RegisteredEvent{
 			EventMeta: EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
 			PublicID:  c.PublicID,
-			Owner:     c.Owner,
+			Player:    c.Player,
 			Name:      c.Name,
 		}}, nil
 	default:

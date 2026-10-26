@@ -10,12 +10,12 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, ErrAlreadyCreated
 		}
 		return []Event{&CreatedEvent{
-			EventMeta: EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
-			Owner:     c.Owner,
-			Name:      c.Name,
-			Cards:     c.Cards,
-			Grant:     c.Grant,
-			Number:    c.Number,
+			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
+			Player:       c.Player,
+			Name:         c.Name,
+			Cards:        c.Cards,
+			StarterGrant: c.StarterGrant,
+			Number:       c.Number,
 		}}, nil
 	default:
 		return nil, ErrInvalidState

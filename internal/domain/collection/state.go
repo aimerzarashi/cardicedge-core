@@ -14,11 +14,11 @@ type UncreatedCollection struct{}
 func (UncreatedCollection) isCollectionState() {}
 
 type Collection struct {
-	ID      ID
-	Version int64
-	Owner   player.ID
-	Cards   []startergrant.CardCount
-	Grant   startergrant.ID
+	ID           ID
+	Version      int64
+	Player       player.ID
+	Cards        []startergrant.CardCount
+	StarterGrant startergrant.ID
 }
 
 func (Collection) isCollectionState() {}

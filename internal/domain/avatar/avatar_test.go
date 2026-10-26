@@ -27,7 +27,7 @@ func registerCommand(t *testing.T) *avatar.RegisterCommand {
 	return &avatar.RegisterCommand{
 		ID:       avatartest.ID(t, 30),
 		PublicID: publicID,
-		Owner:    playertest.ID(t, 10),
+		Player:   playertest.ID(t, 10),
 		Name:     avatartest.Name(t, "アリス"),
 	}
 }
@@ -50,7 +50,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 	require.Equal(t, &avatar.RegisteredEvent{
 		EventMeta: avatar.EventMeta{EntityID: cmd.ID, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:  cmd.PublicID,
-		Owner:     cmd.Owner,
+		Player:    cmd.Player,
 		Name:      cmd.Name,
 	}, event)
 }
@@ -69,7 +69,7 @@ func TestEvolve_RegisteredEventMakesAvatar(t *testing.T) {
 	state, _ := register(t)
 
 	require.Equal(t, avatar.Avatar{
-		ID: cmd.ID, Version: 1, PublicID: cmd.PublicID, Owner: cmd.Owner, Name: cmd.Name, RegisteredAt: registeredAt,
+		ID: cmd.ID, Version: 1, PublicID: cmd.PublicID, Player: cmd.Player, Name: cmd.Name, RegisteredAt: registeredAt,
 	}, state)
 }
 
@@ -129,7 +129,7 @@ func TestNewName_AcceptsMaxLengthAfterTrimming(t *testing.T) {
 	require.Equal(t, strings.Repeat("あ", avatar.MaxNameLength), name.String())
 }
 
-func TestNameKey_UsesNormalizedNameOfOwner(t *testing.T) {
+func TestNameKey_UsesNormalizedNameOfPlayer(t *testing.T) {
 	full := avatar.NameKey(playertest.ID(t, 10), avatartest.Name(t, "ＡＢＣ"))
 	half := avatar.NameKey(playertest.ID(t, 10), avatartest.Name(t, " abc "))
 
@@ -137,7 +137,7 @@ func TestNameKey_UsesNormalizedNameOfOwner(t *testing.T) {
 	require.Equal(t, avatar.NameKeyType, full.Type())
 }
 
-func TestNameKey_DiffersPerOwner(t *testing.T) {
+func TestNameKey_DiffersPerPlayer(t *testing.T) {
 	require.NotEqual(t,
 		avatar.NameKey(playertest.ID(t, 1), avatartest.Name(t, "abc")),
 		avatar.NameKey(playertest.ID(t, 2), avatartest.Name(t, "abc")),
@@ -145,7 +145,7 @@ func TestNameKey_DiffersPerOwner(t *testing.T) {
 }
 
 // 持ち主の ID と名前の数字がつながっても、別の組と同じ key にならない
-func TestNameKey_DistinguishesHowOwnerAndNameAreSplit(t *testing.T) {
+func TestNameKey_DistinguishesHowPlayerAndNameAreSplit(t *testing.T) {
 	require.NotEqual(t,
 		avatar.NameKey(playertest.ID(t, 1), avatartest.Name(t, "23")),
 		avatar.NameKey(playertest.ID(t, 12), avatartest.Name(t, "3")),

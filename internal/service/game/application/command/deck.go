@@ -42,7 +42,7 @@ func NewDeckHandler(
 // 制約は 1 つのトランザクションの中で、配布 × 番号（重なれば何もしない）→ 名前 → 上限の順に確保する。
 // 配布 × 番号が重なれば全体が戻るので、上限の数は増えない。名前の重なり・上限は、スターターの配布では起きない
 // （コードの誤り）ため、エラーのまま返す
-func (c *DeckHandler) Create(ctx context.Context, owner player.ID, grant startergrant.ID, number startergrant.DeckNumber, source startergrant.Deck) error {
+func (c *DeckHandler) Create(ctx context.Context, playerID player.ID, starterGrantID startergrant.ID, number startergrant.DeckNumber, source startergrant.Deck) error {
 	name, err := deck.NewName(source.Name.String())
 	if err != nil {
 		return err
@@ -52,21 +52,21 @@ func (c *DeckHandler) Create(ctx context.Context, owner player.ID, grant starter
 		if err != nil {
 			return struct{}{}, err
 		}
-		if err := c.updateStarter(ctx, id, grant, number); err != nil {
+		if err := c.updateStarter(ctx, id, starterGrantID, number); err != nil {
 			return struct{}{}, err
 		}
-		if err := c.updateName(ctx, id, owner, name); err != nil {
+		if err := c.updateName(ctx, id, playerID, name); err != nil {
 			return struct{}{}, err
 		}
 		limit, err := c.getQuotaLimit(ctx, deck.PlayerQuotaType)
 		if err != nil {
 			return struct{}{}, err
 		}
-		if err := c.reserveQuota(ctx, deck.PlayerQuota(owner), limit); err != nil {
+		if err := c.reserveQuota(ctx, deck.PlayerQuota(playerID), limit); err != nil {
 			return struct{}{}, err
 		}
 		events, err := deck.Decide(deck.InitialState(), &deck.CreateCommand{
-			ID: id, Owner: owner, Name: name, Cards: source.Cards, Grant: grant, Number: number,
+			ID: id, Player: playerID, Name: name, Cards: source.Cards, StarterGrant: starterGrantID, Number: number,
 		}, c.now())
 		if err != nil {
 			return struct{}{}, err

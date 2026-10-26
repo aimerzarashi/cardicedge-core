@@ -28,14 +28,14 @@ func (w *AvatarWriter) Upsert(ctx context.Context, avatar readmodel.Avatar) erro
 	if err != nil {
 		return err
 	}
-	ref := domain.NewEntityRef(player.Types().EntityType, avatar.Owner.Int64())
+	ref := domain.NewEntityRef(player.Types().EntityType, avatar.Player.Int64())
 	publicIDs, err := w.entityRefs.PublicIDs(ctx, []domain.EntityRef{ref})
 	if err != nil {
 		return err
 	}
-	owner, ok := publicIDs[ref]
+	playerPublicID, ok := publicIDs[ref]
 	if !ok {
-		return errors.New("repository: owner of avatar has no public id")
+		return errors.New("repository: player of avatar has no public id")
 	}
 	raw, err := json.Marshal(avatar.Metadata())
 	if err != nil {
@@ -43,7 +43,7 @@ func (w *AvatarWriter) Upsert(ctx context.Context, avatar readmodel.Avatar) erro
 	}
 	row := &models.Avatar{
 		AvatarID:     avatar.AvatarID.String(),
-		PlayerID:     owner.String(),
+		PlayerID:     playerPublicID.String(),
 		RegisteredAt: avatar.RegisteredAt,
 		Metadata:     raw,
 	}

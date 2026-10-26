@@ -15,8 +15,8 @@ func QuotaTypes() []domain.QuotaType {
 }
 
 // ゲーム全体で 1 つ数える。持ち主は、ゲーム全体のルールの集約（上限の値を持つ集約）の内部 ID
-func PublishedQuota(owner gamerules.ID) domain.Quota {
-	return domain.NewQuota(PublishedQuotaType, owner.Int64())
+func PublishedQuota(gameRulesID gamerules.ID) domain.Quota {
+	return domain.NewQuota(PublishedQuotaType, gameRulesID.Int64())
 }
 
 // 上限に達していれば ErrLimitReached

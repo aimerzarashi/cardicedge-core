@@ -216,8 +216,8 @@ func TestHandle_CompletesGrantWhenGivenEventsOfFlow(t *testing.T) {
 	handleAll(t, ctx, handler, loadEvents(t, ctx, player.NewID, player.NewEventType, playerID))
 	grant := loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant)
 	handleAll(t, ctx, handler, loadEvents(t, ctx, startergrant.NewID, startergrant.NewEventType, grant.ID.Int64()))
-	owner := playertest.ID(t, playerID)
-	handleAll(t, ctx, handler, loadEvents(t, ctx, collection.NewID, collection.NewEventType, constrainttest.Owner(t, ctx, collection.OwnerKey(owner))))
+	grantPlayer := playertest.ID(t, playerID)
+	handleAll(t, ctx, handler, loadEvents(t, ctx, collection.NewID, collection.NewEventType, constrainttest.Owner(t, ctx, collection.PlayerKey(grantPlayer))))
 	for number := 1; number <= len(publishedDecks); number++ {
 		deckID := constrainttest.Owner(t, ctx, deck.StarterKey(grant.ID, startergranttest.DeckNumber(t, number)))
 		handleAll(t, ctx, handler, loadEvents(t, ctx, deck.NewID, deck.NewEventType, deckID))

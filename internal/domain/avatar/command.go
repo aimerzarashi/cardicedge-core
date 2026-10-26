@@ -13,7 +13,7 @@ type Command interface {
 type RegisterCommand struct {
 	ID       ID
 	PublicID uuid.UUID
-	Owner    player.ID
+	Player   player.ID
 	Name     Name
 }
 

@@ -17,10 +17,10 @@ func UniqueKeyTypes() []domain.UniqueKeyType {
 }
 
 // 持ち主の ID の桁数を前に付けてつなぐ理由は deck.NameKey と同じ。名前の比べ方は domain.NormalizeName
-func NameKey(owner player.ID, name Name) domain.UniqueKey {
-	ownerText := strconv.FormatInt(owner.Int64(), 10)
-	return domain.NewUniqueKey(NameKeyType, fmt.Sprintf("%d:%s%s", len(ownerText), ownerText, domain.NormalizeName(name.String())))
+func NameKey(playerID player.ID, name Name) domain.UniqueKey {
+	playerText := strconv.FormatInt(playerID.Int64(), 10)
+	return domain.NewUniqueKey(NameKeyType, fmt.Sprintf("%d:%s%s", len(playerText), playerText, domain.NormalizeName(name.String())))
 }
 
 // 同じ持ち主の別のアバターが同じ名前（正規化後）を使っていれば ErrNameAlreadyInUse
-type UpdateNameFunc func(ctx context.Context, id ID, owner player.ID, name Name) error
+type UpdateNameFunc func(ctx context.Context, id ID, playerID player.ID, name Name) error

@@ -49,7 +49,7 @@ type RegisteredAvatar struct {
 // ErrAvatarLimitReached（上限の値は LimitReachedError）。ルールがまだ写されていなければ rules.ErrNotPublished。
 // 制約は 1 つのトランザクションの中で名前 → 上限の順に確保し、どれかが失敗すれば全体が戻る（上限の数だけ増えることはない）
 func (c *AvatarHandler) Register(ctx context.Context, name string) (RegisteredAvatar, error) {
-	owner, ok := authentication.Player(ctx)
+	playerID, ok := authentication.Player(ctx)
 	if !ok {
 		return RegisteredAvatar{}, ErrPlayerNotRegistered
 	}
@@ -72,13 +72,13 @@ func (c *AvatarHandler) Register(ctx context.Context, name string) (RegisteredAv
 		if err != nil {
 			return RegisteredAvatar{}, err
 		}
-		if err := c.updateName(ctx, id, owner, avatarName); err != nil {
+		if err := c.updateName(ctx, id, playerID, avatarName); err != nil {
 			return RegisteredAvatar{}, err
 		}
-		if err := c.reserveQuota(ctx, avatar.PlayerQuota(owner), limit); err != nil {
+		if err := c.reserveQuota(ctx, avatar.PlayerQuota(playerID), limit); err != nil {
 			return RegisteredAvatar{}, err
 		}
-		events, err := avatar.Decide(avatar.InitialState(), &avatar.RegisterCommand{ID: id, PublicID: publicID, Owner: owner, Name: avatarName}, c.now())
+		events, err := avatar.Decide(avatar.InitialState(), &avatar.RegisterCommand{ID: id, PublicID: publicID, Player: playerID, Name: avatarName}, c.now())
 		if err != nil {
 			return RegisteredAvatar{}, err
 		}
