@@ -215,7 +215,9 @@ func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDec
 			return false, err
 		}
 		for _, name := range names {
-			if existing[domain.NormalizeName(name)].Status == readmodel.StarterDeckStatusDraft {
+			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
+			deck, ok := existing[domain.NormalizeName(name)]
+			if !ok || deck.Status == readmodel.StarterDeckStatusDraft {
 				return false, nil
 			}
 		}
