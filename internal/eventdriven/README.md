@@ -273,4 +273,4 @@ SET version = GREATEST(event_subscriber_pending.version, EXCLUDED.version);
 COMMIT;
 ```
 
-次に Poller が読んだとき（一定の間隔）に作り直される。
+`$1` は作り直す投影の購読者の id（`event_subscription_view` か `event_subscribers` で確かめる）。次に Poller が読んだとき（一定の間隔）に作り直される。この手順で作り直せることは `TestHub_ReprojectsAllAggregatesByRebuildProcedure` で確かめている。新しい形の投影を並べて動かして切り替える（Blue-Green）仕組みは無い（使う場面が出てから考える。core#9）。
