@@ -16,7 +16,7 @@ import (
 
 var emailSuffixes sync.Map
 
-// 開発用の DB には起動時に登録した初期オペレーターがいるため、テストごとに別のメールアドレスにする（同じテストの中では同じ値）
+// 同時に動くほかのテストのオペレーターとぶつからないよう、テストごとに別のメールアドレスにする（同じテストの中では同じ値）
 func email(t *testing.T, local string) string {
 	t.Helper()
 	suffix, _ := emailSuffixes.LoadOrStore(t.Name(), uuid.NewString())
@@ -97,6 +97,27 @@ func TestFindBySubject_ReturnsLinkedOperator(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestFindByEmail_ReturnsOperatorRegardlessOfLink(t *testing.T) {
+	f := setup(t)
+	unlinked := f.register(t, email(t, "unlinked"))
+	linked := f.register(t, email(t, "linked"))
+	require.NoError(t, f.updateSubject(t, linked, "diecardomain-studio", "user-1"))
+
+	got, found, err := constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "unlinked")))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, unlinked, got)
+
+	got, found, err = constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "linked")))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, linked, got)
+
+	_, found, err = constraint.FindOperatorByEmail(f.ctx, operatortest.Email(t, email(t, "unknown")))
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
 func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 	f := setup(t)
 	unlinked := f.register(t, email(t, "operator"))
@@ -112,7 +133,7 @@ func TestFindUnlinkedByEmail_ReturnsOnlyUnlinkedOperator(t *testing.T) {
 	require.False(t, found)
 }
 
-// 「1 人もいない」は、開発用の DB の初期オペレーターや、同時に動くほかのテストに左右されるため、ここでは確かめない
+// 「1 人もいない」は、同時に動くほかのテストに左右されるため、ここでは確かめない
 // （オペレーターがいないときの起動時の登録は、application 層のテストで ExistsFunc を差し替えて確かめる）
 func TestOperatorExists_ReturnsTrueAfterRegister(t *testing.T) {
 	f := setup(t)

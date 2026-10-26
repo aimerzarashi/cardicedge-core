@@ -42,28 +42,69 @@ func TestNewName_RejectsInvalidValue(t *testing.T) {
 	}
 }
 
-func TestNormalizeName_UnifiesWidthAndCase(t *testing.T) {
-	tests := []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "full_width", value: "ＡＢＣ１２３", want: "abc123"},
-		{name: "upper_case", value: "Apple", want: "apple"},
-		{name: "upper_case_made_by_nfkc", value: "Ⅻ", want: "xii"},
-		{name: "half_width_katakana", value: "ﾄﾞﾗｺﾞﾝ", want: "ドラゴン"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, card.NormalizeName(tt.value))
-		})
-	}
-}
-
 func TestNameKey_UsesNormalizedName(t *testing.T) {
 	full := card.NameKey(cardtest.Name(t, "ＡＢＣ"))
 	half := card.NameKey(cardtest.Name(t, " abc "))
 
 	require.Equal(t, half, full)
 	require.Equal(t, "abc", full.Value())
+}
+
+func TestNewStatus_ReadsKnownValues(t *testing.T) {
+	for _, want := range []card.Status{card.StatusDraft, card.StatusPublished, card.StatusRetired} {
+		status, err := card.NewStatus(want.String())
+
+		require.NoError(t, err)
+		require.Equal(t, want, status)
+	}
+}
+
+func TestNewStatus_RejectsUnknownValue(t *testing.T) {
+	_, err := card.NewStatus("archived")
+
+	require.ErrorIs(t, err, card.ErrStatusUnknown)
+}
+
+func TestStatus_Publish(t *testing.T) {
+	tests := []struct {
+		name        string
+		from        card.Status
+		wantChanged bool
+	}{
+		{name: "draft", from: card.StatusDraft, wantChanged: true},
+		{name: "retired", from: card.StatusRetired, wantChanged: true},
+		{name: "published", from: card.StatusPublished, wantChanged: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			next, changed, err := tt.from.Publish()
+
+			require.NoError(t, err)
+			require.Equal(t, card.StatusPublished, next)
+			require.Equal(t, tt.wantChanged, changed)
+		})
+	}
+}
+
+func TestStatus_Retire(t *testing.T) {
+	tests := []struct {
+		name        string
+		from        card.Status
+		wantNext    card.Status
+		wantChanged bool
+		wantErr     error
+	}{
+		{name: "published", from: card.StatusPublished, wantNext: card.StatusRetired, wantChanged: true},
+		{name: "retired", from: card.StatusRetired, wantNext: card.StatusRetired, wantChanged: false},
+		{name: "draft", from: card.StatusDraft, wantNext: card.StatusDraft, wantErr: card.ErrInvalidStatusTransition},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			next, changed, err := tt.from.Retire()
+
+			require.ErrorIs(t, err, tt.wantErr)
+			require.Equal(t, tt.wantNext, next)
+			require.Equal(t, tt.wantChanged, changed)
+		})
+	}
 }

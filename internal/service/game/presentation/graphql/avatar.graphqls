@@ -1,0 +1,51 @@
+"プレイヤーのアバター。ほかのプレイヤーにも見える名前を持つ"
+type Avatar {
+  "アバターの公開用の ID"
+  id: UUID!
+  "名前（前後の空白を除いた値。同じプレイヤーの中では一意（全角・半角、大文字・小文字の違いを同じとみなして比べる）。ほかのプレイヤーとは同じ名前でよい）"
+  name: String!
+}
+
+"アバターを作る入力"
+input RegisterAvatarInput {
+  "名前（前後の空白を除いて 1 文字以上。長さの上限は ValidationErrors の FieldTooLong の max で返す）"
+  name: String!
+}
+
+"アバターを作った"
+type RegisterAvatarSuccess {
+  "作ったアバター"
+  avatar: Avatar!
+}
+
+"同じプレイヤーの別のアバターが同じ名前を使っている（操作は行われていない）。ほかのプレイヤーとは同じ名前でよい"
+type AvatarNameAlreadyInUseError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"プレイヤーが持てるアバターの数の上限に達している（操作は行われていない）"
+type AvatarLimitReachedError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+  "上限の数（画面が「N 体まで」と出せるよう、game は上限の値を書き写さずここから受け取る。値は game_rules の player.max_avatars）"
+  max: Int!
+}
+
+"registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union RegisterAvatarResult =
+    RegisterAvatarSuccess
+  | ValidationErrors
+  | AvatarNameAlreadyInUseError
+  | AvatarLimitReachedError
+  | PlayerNotRegisteredError
+
+extend type Mutation {
+  "ログイン中のプレイヤーのアバターを作る。上限の数は AvatarLimitReachedError の max で返す"
+  registerAvatar(input: RegisterAvatarInput!): RegisterAvatarResult!
+}
+
+extend type Player {
+  "このプレイヤーのアバター（作った順。上限があるので、ページ分けしないリスト）"
+  avatars: [Avatar!]!
+}

@@ -1,0 +1,43 @@
+"プレイヤー。JWT の (iss, sub) に 1 人だけ紐づく"
+type Player {
+  "プレイヤーの公開用の ID"
+  id: UUID!
+  "スターターの配布の状態。行がまだ無い・配布が始まっていないときも IN_PROGRESS で、画面にとっては「まだ届いていない」と同じ"
+  starterGrant: StarterGrantStatus!
+}
+
+"スターターの配布の状態"
+enum StarterGrantStatus {
+  "まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）"
+  IN_PROGRESS
+  "所持カードとデッキがそろった"
+  COMPLETED
+}
+
+"JWT の (iss, sub) のプレイヤーが、まだ登録されていない。game は registerPlayer を呼んでから、me を呼び直す"
+type PlayerNotRegisteredError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError"
+union MeResult = Player | PlayerNotRegisteredError
+
+extend type Query {
+  "ログイン中のプレイヤー（JWT の (iss, sub) に登録済みのプレイヤー）を返す。未登録なら PlayerNotRegisteredError"
+  me: MeResult!
+}
+
+"プレイヤーを登録した（登録済みだったときも同じ形で、そのプレイヤーを返す）"
+type RegisterPlayerSuccess {
+  "登録したプレイヤー。すでに登録済みなら、そのプレイヤー（新しく作らない）"
+  player: Player!
+}
+
+"registerPlayer の結果"
+union RegisterPlayerResult = RegisterPlayerSuccess
+
+extend type Mutation {
+  "JWT の (iss, sub) のプレイヤーを登録する。何度呼んでも、プレイヤーは 1 人だけで、登録済みでも同じ形（同じ id）で返す。game は me が PlayerNotRegisteredError のときに呼ぶ"
+  registerPlayer: RegisterPlayerResult!
+}

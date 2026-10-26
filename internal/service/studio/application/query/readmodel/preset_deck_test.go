@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -53,7 +54,7 @@ func (h *presetDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
 	for card, count := range counts {
 		cardCounts[card] = presetdecktest.CardCount(h.t, count)
 	}
-	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, ChangedBy: operatortest.ID(h.t, 10)}, deckChangedAt)
+	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 10)}, deckChangedAt)
 }
 
 func (h *presetDeckHistory) project() readmodel.PresetDeck {

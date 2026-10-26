@@ -4,6 +4,10 @@ type Spell implements Card {
   id: UUID!
   "カード名（登録したときの表記。前後の空白は除く）"
   name: String!
+  "状態（準備中・公開中・使用不可）"
+  status: CardStatus!
+  "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
   "登録した日時"
   registeredAt: DateTime!
   "最後に変更した日時（変更していなければ登録した日時）"

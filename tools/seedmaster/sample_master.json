@@ -1,0 +1,356 @@
+{
+  "cards": [
+    {
+      "type": "creature",
+      "name": "ウルフ"
+    },
+    {
+      "type": "creature",
+      "name": "ファイター"
+    },
+    {
+      "type": "creature",
+      "name": "コボルド"
+    },
+    {
+      "type": "creature",
+      "name": "ミノタウロス"
+    },
+    {
+      "type": "creature",
+      "name": "ドラゴンフライ"
+    },
+    {
+      "type": "creature",
+      "name": "ピラーフレイム"
+    },
+    {
+      "type": "creature",
+      "name": "フェニックス"
+    },
+    {
+      "type": "creature",
+      "name": "タイガービートル"
+    },
+    {
+      "type": "creature",
+      "name": "ドワーフ"
+    },
+    {
+      "type": "creature",
+      "name": "ストーンウォール"
+    },
+    {
+      "type": "creature",
+      "name": "ノーム"
+    },
+    {
+      "type": "creature",
+      "name": "ウッドフォーク"
+    },
+    {
+      "type": "creature",
+      "name": "マーフォーク"
+    },
+    {
+      "type": "creature",
+      "name": "アイスウォール"
+    },
+    {
+      "type": "creature",
+      "name": "キングトータス"
+    },
+    {
+      "type": "creature",
+      "name": "ジャイアントアメーバ"
+    },
+    {
+      "type": "creature",
+      "name": "リザードマン"
+    },
+    {
+      "type": "creature",
+      "name": "ジャイアントバット"
+    },
+    {
+      "type": "creature",
+      "name": "スペクター"
+    },
+    {
+      "type": "creature",
+      "name": "ハリケーン"
+    },
+    {
+      "type": "creature",
+      "name": "ハーピー"
+    },
+    {
+      "type": "creature",
+      "name": "コーンフォーク"
+    },
+    {
+      "type": "item",
+      "name": "ロングソード"
+    },
+    {
+      "type": "item",
+      "name": "バトルアックス"
+    },
+    {
+      "type": "item",
+      "name": "フレイムタン"
+    },
+    {
+      "type": "item",
+      "name": "エアスラッシャー"
+    },
+    {
+      "type": "item",
+      "name": "チェインメイル"
+    },
+    {
+      "type": "item",
+      "name": "スケールアーマー"
+    },
+    {
+      "type": "item",
+      "name": "アイシクル"
+    },
+    {
+      "type": "item",
+      "name": "ロックバイター"
+    },
+    {
+      "type": "spell",
+      "name": "ホーリーワード1"
+    },
+    {
+      "type": "spell",
+      "name": "ホーリーワード6"
+    },
+    {
+      "type": "spell",
+      "name": "フライ"
+    },
+    {
+      "type": "spell",
+      "name": "ホープ"
+    },
+    {
+      "type": "spell",
+      "name": "マナ"
+    },
+    {
+      "type": "spell",
+      "name": "マジックボルト"
+    }
+  ],
+  "preset_decks": [
+    {
+      "name": "火・地属性デッキ",
+      "cards": [
+        {
+          "card": "ウルフ",
+          "count": 2
+        },
+        {
+          "card": "ファイター",
+          "count": 2
+        },
+        {
+          "card": "コボルド",
+          "count": 1
+        },
+        {
+          "card": "ミノタウロス",
+          "count": 2
+        },
+        {
+          "card": "ドラゴンフライ",
+          "count": 2
+        },
+        {
+          "card": "ピラーフレイム",
+          "count": 2
+        },
+        {
+          "card": "フェニックス",
+          "count": 2
+        },
+        {
+          "card": "タイガービートル",
+          "count": 1
+        },
+        {
+          "card": "ドワーフ",
+          "count": 2
+        },
+        {
+          "card": "ストーンウォール",
+          "count": 2
+        },
+        {
+          "card": "ノーム",
+          "count": 2
+        },
+        {
+          "card": "ウッドフォーク",
+          "count": 2
+        },
+        {
+          "card": "ロングソード",
+          "count": 1
+        },
+        {
+          "card": "バトルアックス",
+          "count": 1
+        },
+        {
+          "card": "フレイムタン",
+          "count": 1
+        },
+        {
+          "card": "エアスラッシャー",
+          "count": 1
+        },
+        {
+          "card": "チェインメイル",
+          "count": 2
+        },
+        {
+          "card": "スケールアーマー",
+          "count": 2
+        },
+        {
+          "card": "ホーリーワード1",
+          "count": 2
+        },
+        {
+          "card": "ホーリーワード6",
+          "count": 2
+        },
+        {
+          "card": "フライ",
+          "count": 1
+        },
+        {
+          "card": "ホープ",
+          "count": 2
+        },
+        {
+          "card": "マナ",
+          "count": 2
+        },
+        {
+          "card": "マジックボルト",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "水・風属性デッキ",
+      "cards": [
+        {
+          "card": "ウルフ",
+          "count": 2
+        },
+        {
+          "card": "ファイター",
+          "count": 2
+        },
+        {
+          "card": "マーフォーク",
+          "count": 1
+        },
+        {
+          "card": "アイスウォール",
+          "count": 2
+        },
+        {
+          "card": "キングトータス",
+          "count": 2
+        },
+        {
+          "card": "ジャイアントアメーバ",
+          "count": 2
+        },
+        {
+          "card": "リザードマン",
+          "count": 2
+        },
+        {
+          "card": "ジャイアントバット",
+          "count": 1
+        },
+        {
+          "card": "スペクター",
+          "count": 2
+        },
+        {
+          "card": "ハリケーン",
+          "count": 2
+        },
+        {
+          "card": "ハーピー",
+          "count": 2
+        },
+        {
+          "card": "コーンフォーク",
+          "count": 2
+        },
+        {
+          "card": "ロングソード",
+          "count": 1
+        },
+        {
+          "card": "バトルアックス",
+          "count": 1
+        },
+        {
+          "card": "アイシクル",
+          "count": 1
+        },
+        {
+          "card": "ロックバイター",
+          "count": 1
+        },
+        {
+          "card": "チェインメイル",
+          "count": 2
+        },
+        {
+          "card": "スケールアーマー",
+          "count": 2
+        },
+        {
+          "card": "ホーリーワード1",
+          "count": 2
+        },
+        {
+          "card": "ホーリーワード6",
+          "count": 2
+        },
+        {
+          "card": "フライ",
+          "count": 1
+        },
+        {
+          "card": "ホープ",
+          "count": 2
+        },
+        {
+          "card": "マナ",
+          "count": 2
+        },
+        {
+          "card": "マジックボルト",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "starter_decks": [
+    "火・地属性デッキ",
+    "水・風属性デッキ"
+  ]
+}

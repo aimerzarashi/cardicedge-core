@@ -4,6 +4,7 @@ package studio
 import (
 	"context"
 	"database/sql"
+	"io"
 	"log/slog"
 	"time"
 
@@ -12,11 +13,12 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeckset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -42,13 +44,16 @@ type Studio struct {
 	creatures *command.CreatureHandler
 	items     *command.ItemHandler
 	spells    *command.SpellHandler
+	// 公開 ID からカードの種類を引いて、状態の変更を Creature・Item・Spell に振り分ける
+	cardStatuses *command.CardHandler
 	// 投影もカードの公開 ID を引くため、コマンドと共有する
 	entityRefs      domain.EntityRefResolver
 	presetDecks     *command.PresetDeckHandler
 	cards           *query.CardHandler
 	presetDeckList  *query.PresetDeckHandler
-	starterDeckSets *command.StarterDeckSetHandler
-	starterDeckSet  *query.StarterDeckSetHandler
+	starterDecks    *command.StarterDeckHandler
+	starterDeckList *query.StarterDeckHandler
+	gameRules       *command.GameRulesHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -60,8 +65,23 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	entityRefs := identifier.NewEntityRefResolver(registry)
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
+	starterDeckReader := repository.NewStarterDeckReader()
+	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
+	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
+	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
+	creatures := command.NewCreatureHandler(creatureStore, identifier.New(registry, creature.NewID), constraint.UpdateCreatureName, now)
+	items := command.NewItemHandler(itemStore, identifier.New(registry, item.NewID), constraint.UpdateItemName, now)
+	spells := command.NewSpellHandler(spellStore, identifier.New(registry, spell.NewID), constraint.UpdateSpellName, now)
+	gameRules := command.NewGameRulesHandler(
+		eventstore.New(registry, gamerules.NewID, gamerules.NewEventType, gamerules.InitialState, gamerules.Evolve),
+		identifier.New(registry, gamerules.NewID),
+		constraint.FindGameRules,
+		constraint.CreateGameRules,
+		now,
+	)
 	return &Studio{
 		config:     config,
+		gameRules:  gameRules,
 		entityRefs: entityRefs,
 		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
@@ -73,45 +93,38 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			constraint.OperatorExists,
 			now,
 		),
-		creatures: command.NewCreatureHandler(
-			eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve),
-			identifier.New(registry, creature.NewID),
-			constraint.UpdateCreatureName,
-			now,
-		),
-		items: command.NewItemHandler(
-			eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve),
-			identifier.New(registry, item.NewID),
-			constraint.UpdateItemName,
-			now,
-		),
-		spells: command.NewSpellHandler(
-			eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve),
-			identifier.New(registry, spell.NewID),
-			constraint.UpdateSpellName,
-			now,
-		),
+		creatures:    creatures,
+		items:        items,
+		spells:       spells,
+		cardStatuses: command.NewCardHandler(entityRefs, creatures, items, spells),
 		presetDecks: command.NewPresetDeckHandler(
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
 			entityRefs,
 			constraint.UpdatePresetDeckName,
 			constraint.UpdatePresetDeckCardReferences,
+			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
+			gameRules.Get,
 			now,
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList: query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
-		starterDeckSets: command.NewStarterDeckSetHandler(
-			eventstore.New(registry, starterdeckset.NewID, starterdeckset.NewEventType, starterdeckset.InitialState, starterdeckset.Evolve),
-			identifier.New(registry, starterdeckset.NewID),
-			constraint.FindStarterDeckSet,
-			constraint.CreateStarterDeckSet,
-			constraint.UpdateStarterDeckSetCardReferences,
+		starterDecks: command.NewStarterDeckHandler(
+			eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve),
+			identifier.New(registry, starterdeck.NewID),
+			entityRefs,
+			constraint.UpdateStarterDeckName,
+			constraint.UpdateStarterDeckCardReferences,
+			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
+			constraint.FindGameRules,
+			constraint.ReserveStarterDeckQuota,
+			constraint.ReleaseStarterDeckQuota,
+			gameRules.Get,
 			now,
 		),
-		starterDeckSet: query.NewStarterDeckSetHandler(repository.NewStarterDeckSetReader().Get, presetDeckReader.Revisions),
+		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
 	}
 }
 
@@ -127,35 +140,73 @@ func (c *Studio) RegisterInitialOperator(ctx context.Context, db *sql.DB, email 
 	return nil
 }
 
+// 起動時に、ゲーム全体のルールが無ければ既定の値で作る。複数台で先を越されたら「ある」とみなす（初期オペレーターと同じ）。
+// 初めて使うときに作る案は、読むだけの処理にも「無ければ作る」と同時の扱いが入り込むため採らなかった
+func (c *Studio) CreateInitialGameRules(ctx context.Context, db *sql.DB) error {
+	created, err := c.gameRules.CreateInitial(rdb.WithDB(ctx, db))
+	if err != nil {
+		return err
+	}
+	if created {
+		slog.InfoContext(ctx, "created game rules")
+	}
+	return nil
+}
+
 // 名前と購読は migrations の event_subscribers・event_subscriptions と照合される
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	cards := repository.NewCardWriter()
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Card]{
-		Name:          "cards",
-		Subscriptions: []domain.EntityType{creature.Types().EntityType, item.Types().EntityType, spell.Types().EntityType},
-		Upsert:        cards.Upsert,
-		Delete:        cards.Delete,
+		Name: "cards",
+		Subscriptions: []domain.EntityType{
+			creature.Types().EntityType,
+			item.Types().EntityType,
+			spell.Types().EntityType,
+		},
+		Upsert: cards.Upsert,
+		Delete: cards.Delete,
 	}); err != nil {
 		return err
 	}
 	presetDecks := repository.NewPresetDeckWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.PresetDeck]{
-		Name:          "preset_decks",
-		Subscriptions: []domain.EntityType{presetdeck.Types().EntityType},
-		Upsert:        presetDecks.Upsert,
-		Delete:        presetDecks.Delete,
+		Name: "preset_decks",
+		Subscriptions: []domain.EntityType{
+			presetdeck.Types().EntityType,
+		},
+		Upsert: presetDecks.Upsert,
+		Delete: presetDecks.Delete,
 	}); err != nil {
 		return err
 	}
-	starterDeckSets := repository.NewStarterDeckSetWriter(c.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeckSet]{
-		Name:          "starter_deck_sets",
-		Subscriptions: []domain.EntityType{starterdeckset.Types().EntityType},
-		Upsert:        starterDeckSets.Upsert,
-		Delete:        starterDeckSets.Delete,
+	starterDecks := repository.NewStarterDeckWriter(c.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeck]{
+		Name: "starter_decks",
+		Subscriptions: []domain.EntityType{
+			starterdeck.Types().EntityType,
+		},
+		Upsert: starterDecks.Upsert,
+		Delete: starterDecks.Delete,
+	}); err != nil {
+		return err
+	}
+	gameRules := repository.NewGameRulesWriter()
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GameRules]{
+		Name: "game_rules",
+		Subscriptions: []domain.EntityType{
+			gamerules.Types().EntityType,
+		},
+		Upsert: gameRules.Upsert,
+		Delete: gameRules.Delete,
 	})
 }
 
-func (c *Studio) Mount(mux chi.Router, db *sql.DB, version string) {
-	graphql.NewHandler(mux, graphql.NewResolver(version, c.creatures, c.items, c.spells, c.presetDecks, c.cards, c.presetDeckList, c.starterDeckSets, c.starterDeckSet), db, c.config.Verifier, c.config.Issuer, c.operators)
+func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
+}
+
+// `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、
+// サービスのパッケージから出す）
+func WriteSchema(w io.Writer) {
+	graphql.WriteSchema(w)
 }

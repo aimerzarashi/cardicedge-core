@@ -15,7 +15,7 @@ const cardsQuery = `query ($filter: CardFilter, $first: Int, $after: String) {
 	cards(filter: $filter, first: $first, after: $after) {
 		__typename
 		... on CardConnection {
-			edges { cursor node { __typename id name registeredAt updatedAt } }
+			edges { cursor node { __typename id name status revision registeredAt updatedAt } }
 			pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
 		}
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } ... on FieldOutOfRange { min max } } }
@@ -64,6 +64,8 @@ func TestCards_ListsRegisteredCreature(t *testing.T) {
 		"__typename":   "Creature",
 		"id":           registered["id"],
 		"name":         registered["name"],
+		"status":       "DRAFT",
+		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],
 	}, edge["node"])
@@ -89,6 +91,8 @@ func TestCards_ListsRegisteredItem(t *testing.T) {
 		"__typename":   "Item",
 		"id":           registered["id"],
 		"name":         registered["name"],
+		"status":       "DRAFT",
+		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],
 	}, edge["node"])
@@ -107,6 +111,8 @@ func TestCards_ListsRegisteredSpell(t *testing.T) {
 		"__typename":   "Spell",
 		"id":           registered["id"],
 		"name":         registered["name"],
+		"status":       "DRAFT",
+		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],
 	}, edge["node"])
@@ -182,6 +188,7 @@ func TestCards_ReturnsFieldErrorPerReason(t *testing.T) {
 		{name: "blank_name_contains", variables: map[string]any{"filter": map[string]any{"nameContains": " "}}, want: map[string]any{"__typename": "FieldRequired", "field": "filter.nameContains"}},
 		{name: "too_long_name_contains", variables: map[string]any{"filter": map[string]any{"nameContains": strings.Repeat("あ", 51)}}, want: map[string]any{"__typename": "FieldTooLong", "field": "filter.nameContains", "max": float64(50)}},
 		{name: "empty_types", variables: map[string]any{"filter": map[string]any{"types": []string{}}}, want: map[string]any{"__typename": "FieldRequired", "field": "filter.types"}},
+		{name: "empty_statuses", variables: map[string]any{"filter": map[string]any{"statuses": []string{}}}, want: map[string]any{"__typename": "FieldRequired", "field": "filter.statuses"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

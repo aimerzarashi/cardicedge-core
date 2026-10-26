@@ -1,13 +1,12 @@
 # studio 用の GraphQL（/studio/graphql）。studio の better-auth の JWT（Authorization: Bearer）が無いと、どの操作も受け付けない
-# 機能ごとのファイルは Query・Mutation を extend する（Mutation は、中身の無い型は置けないため、最初のミューテーションを足したときにここへ置いた）。
-# 結果は「<操作>Result = <操作>Success | エラー型」の union で返す（未認証は union に含めず HTTP 401）。
+# 機能ごとのファイルは Query・Mutation を extend する（ここでは中身の無い型だけを置く）。
+# 結果は「<操作>Result = 成功の型 | エラー型」の union で返す（未認証は union に含めず HTTP 401）。成功の型は、ミューテーションは
+# <操作>Success で包み、クエリは問い合わせたもの（1 件なら対象の型、一覧なら 1 ページの XxxConnection）を入れる（core#35）。
 # 認可（オペレーターでない）は ForbiddenError、入力の誤りは ValidationErrors を union に含めて返す
 
-type Query {
-  # GraphQL の仕様で Query が 1 つ以上要るため置く（ログイン中のオペレーターを返す me は、使う場面が出てくるまで作らない。core#7）
-  "core の版（リリースのタグ。開発中は none）"
-  version: String!
-}
+# ログイン中のオペレーターを返す me は、使う場面が出てくるまで作らない（core#7）。core の版は HTTP の /version で返す
+# （GraphQL の version は、Query が 1 つ以上要るために置いていたが、ほかのクエリができたため消した。core#35）
+type Query
 
 type Mutation
 
@@ -67,6 +66,12 @@ type FieldNotFound implements FieldError {
   field: String!
 }
 
+"入力の ID が指すものが、使えない状態（準備中・使用不可のカード等）。あるが、今の状態では使えない"
+type FieldUnavailable implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）"
+  field: String!
+}
+
 "一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）"
 type FieldDuplicated implements FieldError {
   "誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）"
@@ -81,7 +86,7 @@ type FieldTotalTooLarge implements FieldError {
   max: Int!
 }
 
-"合計がちょうど決まった値でない（スターターデッキセットに写すプリセットデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）"
+"合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）"
 type FieldTotalMismatch implements FieldError {
   "誤りのある入力の項目"
   field: String!

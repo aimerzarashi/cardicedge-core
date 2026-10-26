@@ -5,7 +5,7 @@
   },
   // VSCode のテスト実行（ホスト）から compose の DB に接続する。-race は make test で確認する
   "go.testEnvVars": {
-    "DB_DSN": "host=localhost port=5432 user=core_user password=core_password dbname=core sslmode=disable"
+    "TEST_DB_DSN": "host=localhost port=5432 user=core_user password=core_password dbname=core_test sslmode=disable"
   },
   "sqltools.connections": [
     {
@@ -13,8 +13,18 @@
       "server": "localhost",
       "port": 5432,
       "driver": "PostgreSQL",
-      "name": "core-db",
-      "database": "core",
+      "name": "core-studio-db",
+      "database": "core_studio",
+      "username": "core_user",
+      "password": "core_password"
+    },
+    {
+      "previewLimit": 10000,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "core-game-db",
+      "database": "core_game",
       "username": "core_user",
       "password": "core_password"
     }

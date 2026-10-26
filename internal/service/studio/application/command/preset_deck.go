@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"time"
@@ -24,6 +23,8 @@ type PresetDeckHandler struct {
 	updateName presetdeck.UpdateNameFunc
 	// 入れたカードを参照する（参照されている間はカードの識別子を消せない）
 	updateCardReferences presetdeck.UpdateCardReferencesFunc
+	cardStatuses         CardStatusesFunc
+	getRules             GetGameRulesFunc
 	now                  func() time.Time
 }
 
@@ -33,6 +34,8 @@ func NewPresetDeckHandler(
 	entityRefs domain.EntityRefResolver,
 	updateName presetdeck.UpdateNameFunc,
 	updateCardReferences presetdeck.UpdateCardReferencesFunc,
+	cardStatuses CardStatusesFunc,
+	getRules GetGameRulesFunc,
 	now func() time.Time,
 ) *PresetDeckHandler {
 	return &PresetDeckHandler{
@@ -41,6 +44,8 @@ func NewPresetDeckHandler(
 		entityRefs:           entityRefs,
 		updateName:           updateName,
 		updateCardReferences: updateCardReferences,
+		cardStatuses:         cardStatuses,
+		getRules:             getRules,
 		now:                  now,
 	}
 }
@@ -115,23 +120,22 @@ func (c *PresetDeckHandler) Rename(ctx context.Context, id uuid.UUID, revision i
 	return renamed, revisionConflict(err)
 }
 
-// 変えるカードだけの、その枚数にする入力（変えないカードは含めなくてよい）
-type CardCountInput struct {
-	CardID uuid.UUID
-	Count  int
-}
-
 // 枚数を 0 にするとデッキから外す。一覧のどれか 1 つでも誤りがあれば何も変えない。入力の誤りは、一覧が長すぎる
-// （MaxTotalCount 件を超える）・カードが無い（Creature・Item・Spell のどれでもない）・枚数が範囲の外・同じカードが 2 回出てきた
-// （2 回目に付ける）・変えた後の合計が MaxTotalCount を超える。空の一覧は誤りにしない（変わらない操作として扱う）。
-// ほかのエラーは Rename と同じ
+// （ルールの合計の枚数を超える件数）・カードが無い（Creature・Item・Spell のどれでもない）・枚数が範囲の外・同じカードが 2 回出てきた
+// （2 回目に付ける）・変えた後の合計がルールの合計の枚数を超える・新しく入れる／枚数を増やすカードが公開中でない
+// （input.Unavailable。すでに入っていて枚数を増やさないカードは、使用不可になっていても残せる）。
+// 空の一覧は誤りにしない（変わらない操作として扱う）。ほかのエラーは Rename と同じ
 func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []CardCountInput) (ChangedPresetDeck, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedPresetDeck{}, ErrNotOperator
 	}
+	rules, err := c.getRules(ctx)
+	if err != nil {
+		return ChangedPresetDeck{}, err
+	}
 	// カードを引くのは DB を読むだけなので、入力の誤りをまとめて返せるよう、トランザクションの前に確かめる
-	counts, err := c.cardCounts(ctx, cards)
+	requested, err := parseCardCounts(ctx, c.entityRefs, rules.Deck, cards)
 	if err != nil {
 		return ChangedPresetDeck{}, err
 	}
@@ -140,7 +144,10 @@ func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, rev
 		if err != nil {
 			return ChangedPresetDeck{}, err
 		}
-		changed, err := c.decideAndSave(ctx, deck, &presetdeck.SetCardCountsCommand{Counts: counts, ChangedBy: changedBy})
+		if err := requireAvailable(ctx, c.cardStatuses, deck.Cards, requested); err != nil {
+			return ChangedPresetDeck{}, err
+		}
+		changed, err := c.decideAndSave(ctx, deck, &presetdeck.SetCardCountsCommand{Counts: requested.counts, Rules: rules.Deck, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedPresetDeck{}, err
 		}
@@ -151,54 +158,9 @@ func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, rev
 		return changedPresetDeck(changed), nil
 	})
 	if errors.Is(err, presetdeck.ErrTotalCountTooLarge) {
-		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: presetdeck.MaxTotalCount}}
+		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount}}
 	}
 	return changed, revisionConflict(err)
-}
-
-// 誤りは最初の 1 つで止めず、まとめて input.Errors で返す。項目名は cards.<番号>.cardId のように一覧の位置を含める。
-// 一覧が長すぎるときは、1 件ずつの確かめをせずに返す（存在しない ID を大量に送られても、その数だけ処理しないため）
-func (c *PresetDeckHandler) cardCounts(ctx context.Context, cards []CardCountInput) (map[presetdeck.CardRef]presetdeck.CardCount, error) {
-	if len(cards) > presetdeck.MaxTotalCount {
-		return nil, input.Errors{&input.OutOfRange{Field: "cards", Min: 0, Max: presetdeck.MaxTotalCount}}
-	}
-	ids := make([]uuid.UUID, 0, len(cards))
-	for _, card := range cards {
-		ids = append(ids, card.CardID)
-	}
-	refs, err := c.entityRefs.ResolveAll(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	invalid := input.Errors{}
-	counts := make(map[presetdeck.CardRef]presetdeck.CardCount, len(cards))
-	seen := make(map[uuid.UUID]bool, len(cards))
-	for i, card := range cards {
-		cardField := fmt.Sprintf("cards.%d.cardId", i)
-		if seen[card.CardID] {
-			invalid = append(invalid, &input.Duplicated{Field: cardField})
-		}
-		seen[card.CardID] = true
-		// 行が無い・カードの種類でない、はどちらも、指したカードが無いとして扱う
-		ref, found := refs[card.CardID]
-		cardRef, err := presetdeck.NewCardRef(ref.EntityType(), ref.ID())
-		if !found || errors.Is(err, presetdeck.ErrNotCard) {
-			invalid = append(invalid, &input.NotFound{Field: cardField})
-		} else if err != nil {
-			return nil, err
-		}
-		count, err := presetdeck.NewCardCount(card.Count)
-		if errors.Is(err, presetdeck.ErrCardCountOutOfRange) {
-			invalid = append(invalid, &input.OutOfRange{Field: fmt.Sprintf("cards.%d.count", i), Min: 0, Max: presetdeck.MaxCardCount})
-		} else if err != nil {
-			return nil, err
-		}
-		counts[cardRef] = count
-	}
-	if len(invalid) > 0 {
-		return nil, invalid
-	}
-	return counts, nil
 }
 
 // 削除のイベントと一緒に識別子を消し、名前をほかのプリセットデッキが使えるようにする（core#24）。エラーは Rename と同じ

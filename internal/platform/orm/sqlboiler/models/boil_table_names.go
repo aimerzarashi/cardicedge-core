@@ -4,35 +4,47 @@
 package models
 
 var TableNames = struct {
+	Avatars                    string
 	Cards                      string
 	DomainEntities             string
 	DomainEntityTypes          string
 	DomainEventTypes           string
 	DomainEvents               string
+	DomainQuotaTypes           string
+	DomainQuotas               string
 	DomainReferenceTypes       string
 	DomainReferences           string
 	DomainUniqueKeyTypes       string
 	DomainUniqueKeys           string
 	EventSubscriberCheckpoints string
+	EventSubscriberFailures    string
 	EventSubscriberPending     string
 	EventSubscribers           string
 	EventSubscriptions         string
+	GameRules                  string
+	Players                    string
 	PresetDecks                string
-	StarterDeckSets            string
+	StarterDecks               string
 }{
+	Avatars:                    "avatars",
 	Cards:                      "cards",
 	DomainEntities:             "domain_entities",
 	DomainEntityTypes:          "domain_entity_types",
 	DomainEventTypes:           "domain_event_types",
 	DomainEvents:               "domain_events",
+	DomainQuotaTypes:           "domain_quota_types",
+	DomainQuotas:               "domain_quotas",
 	DomainReferenceTypes:       "domain_reference_types",
 	DomainReferences:           "domain_references",
 	DomainUniqueKeyTypes:       "domain_unique_key_types",
 	DomainUniqueKeys:           "domain_unique_keys",
 	EventSubscriberCheckpoints: "event_subscriber_checkpoints",
+	EventSubscriberFailures:    "event_subscriber_failures",
 	EventSubscriberPending:     "event_subscriber_pending",
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
+	GameRules:                  "game_rules",
+	Players:                    "players",
 	PresetDecks:                "preset_decks",
-	StarterDeckSets:            "starter_deck_sets",
+	StarterDecks:               "starter_decks",
 }

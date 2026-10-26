@@ -1,9 +1,11 @@
 # 環境管理
 
-# 共有ネットワーク diecardomain が無ければ作成してから起動する
+# 共有ネットワーク（game 用の diecardomain-game・studio 用の diecardomain-studio）が無ければ作成してから起動する
 .PHONY: up
 up:
-	@docker network inspect diecardomain >/dev/null 2>&1 || docker network create diecardomain >/dev/null
+	@for network in diecardomain-game diecardomain-studio; do \
+	  docker network inspect $$network >/dev/null 2>&1 || docker network create $$network >/dev/null; \
+	done
 	docker compose up -d --build --wait
 
 # 停止して DB を破棄する（次回 up で migrations が最初から適用される）。Go のキャッシュ用ボリュームは残す
@@ -12,30 +14,67 @@ down:
 	docker compose rm -sfv core-db
 	docker compose down
 
-# 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）
+# 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）。
+# 種別の行はマイグレーションで入れず、コードの一覧から入れる（core は起動時にも入れるが、テストが core を起動せずに使うため。core#33）
 .PHONY: migrate
 migrate:
-	docker compose run --rm core-migrate
+	docker compose run --rm core-migrate-studio
+	docker compose run --rm core-migrate-game
+	docker compose exec core go run ./tools/synctypes -env STUDIO_DB_DSN
+	docker compose exec core go run ./tools/synctypes -env GAME_DB_DSN
 
-# ユニットテストが複製するテンプレート（core_template）を、無ければ作り、マイグレーションを流す（make test の前に必ず実行する）。
-# テンプレートは core と分けるのは、アプリやテストが書き込む DB を複製すると、書き込みの途中を写しうるため
+# テストが使う DB（core_test）と、複製するテンプレート（core_template）を、無ければ作り、マイグレーションを流して種別の行を入れる
+# （make test の前に必ず実行する）。テンプレートを core_test と分けるのは、テストが書き込む DB を複製すると、書き込みの途中を写しうるため
 .PHONY: migrate-template
 migrate-template:
-	docker compose exec core go run ./tools/createdb -name core_template
-	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable" core-migrate
+	docker compose exec core go run ./tools/createdb -env TEST_DB_DSN -name core_test
+	docker compose exec core go run ./tools/createdb -env TEST_DB_DSN -name core_template
+	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_test?sslmode=disable" core-migrate-studio
+	docker compose run --rm -e DATABASE_URL="postgres://core_user:core_password@core-db:5432/core_template?sslmode=disable" core-migrate-studio
+	docker compose exec core go run ./tools/synctypes -env TEST_DB_DSN
+	docker compose exec core go run ./tools/synctypes -env TEST_DB_DSN -dbname core_template
 
 # migrations/ のファイルを足したら実行し、atlas.sum を作り直す（SQL と一緒にコミットする）
 .PHONY: migrate-hash
 migrate-hash:
-	docker compose run --rm --no-deps --user $$(id -u):$$(id -g) core-migrate migrate hash --dir file:///migrations
+	docker compose run --rm --no-deps --user $$(id -u):$$(id -g) core-migrate-studio migrate hash --dir file:///migrations
 
 # 開発ツール
 
-# GraphQL のスキーマ（internal/service/studio/presentation/graphql/*.graphqls）から gqlgen のコードを生成する。生成したコードもコミットする
+# GraphQL のスキーマ（internal/service/{studio,game}/presentation/graphql/*.graphqls）から gqlgen のコードを生成する。生成したコードもコミットする
 .PHONY: gen-api
 gen-api:
 	docker compose exec core sh -c 'cd internal/service/studio/presentation/graphql && go tool gqlgen generate'
+	docker compose exec core sh -c 'cd internal/service/game/presentation/graphql && go tool gqlgen generate'
 	docker compose exec core go mod tidy
+
+# 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を、初期オペレーターとして studio のコマンドで登録する。
+# スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばすので、何度流しても同じ結果になる。
+# 終わりに core の投影が starter_decks を書くまで待つので、続けて publish-master を流せる（core#37）
+.PHONY: seed-master
+seed-master:
+	docker compose exec core go run ./tools/seedmaster
+
+# マスタ（studio の read model の cards・starter_decks・game_rules）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
+# そのまま core_game の \copy に渡し、1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
+# cards は公開中・使用不可のカードだけを写す（準備中は studio の中の作りかけで、game に出さない。使用不可はプレイヤーが持っているので写す）。
+# pg_dump は行で絞れないため使わない。流し込む前に全体を一時ファイルに作るのは、読む側が途中で失敗しても、書く側が途中までの入力で
+# 空にして確定してしまわないため。
+# starter_decks は全行（準備中・使用不可も、状態つき）を写し、game は公開中だけを読む（後で配り済みのデッキの元を表示したくなっても、
+# 表を作り直さずに済むように）
+# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 3 つの表が公開用の ID だけで
+# 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
+.PHONY: publish-master
+publish-master:
+	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
+	  printf "%s\n" "TRUNCATE cards, starter_decks, game_rules;" "\\copy cards FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
+	  printf "%s\n" "\\." "\\copy starter_decks FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_decks TO STDOUT"; \
+	  printf "%s\n" "\\." "\\copy game_rules FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy game_rules TO STDOUT"; \
+	  printf "%s\n" "\\."; \
+	} > $$f; psql -U core_user -d core_game -v ON_ERROR_STOP=1 --single-transaction -f $$f'
 
 # マイグレーション済みの core-db から sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を生成する。
 # migrations を足したら make migrate の後に実行し、生成したコードもコミットする。

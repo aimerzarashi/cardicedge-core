@@ -26,7 +26,7 @@ import (
 type DomainEvent struct {
 	ID           int64 `boil:"id" json:"id" toml:"id" yaml:"id"`
 	EntityTypeID int16 `boil:"entity_type_id" json:"entity_type_id" toml:"entity_type_id" yaml:"entity_type_id"`
-	// 集約の内部の ID（domain_identifiers.id）
+	// 集約の内部の ID（domain_entities.id）
 	EntityID int64 `boil:"entity_id" json:"entity_id" toml:"entity_id" yaml:"entity_id"`
 	// 同じ集約の中で 1 から順に増える版
 	AggregateVersion int64 `boil:"aggregate_version" json:"aggregate_version" toml:"aggregate_version" yaml:"aggregate_version"`

@@ -24,7 +24,7 @@ import (
 
 // Card is an object representing the database table.
 type Card struct {
-	// カードの公開 ID（creature・item・spell の domain_identifiers.public_id）
+	// カードの公開 ID（creature・item・spell の domain_entities.public_id）
 	CardID string `boil:"card_id" json:"card_id" toml:"card_id" yaml:"card_id"`
 	// カードの種類。並び順の値（1: Creature、2: Item、3: Spell）
 	CardType int16 `boil:"card_type" json:"card_type" toml:"card_type" yaml:"card_type"`
@@ -32,6 +32,8 @@ type Card struct {
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`
 	// 表示に使う値（イベントの値）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
+	// カードの状態（draft: 準備中、published: 公開中、retired: 使用不可）。make publish-master は準備中を game に写さない
+	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
 
 	R *cardR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L cardL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -42,11 +44,13 @@ var CardColumns = struct {
 	CardType string
 	SortName string
 	Metadata string
+	Status   string
 }{
 	CardID:   "card_id",
 	CardType: "card_type",
 	SortName: "sort_name",
 	Metadata: "metadata",
+	Status:   "status",
 }
 
 var CardTableColumns = struct {
@@ -54,45 +58,16 @@ var CardTableColumns = struct {
 	CardType string
 	SortName string
 	Metadata string
+	Status   string
 }{
 	CardID:   "cards.card_id",
 	CardType: "cards.card_type",
 	SortName: "cards.sort_name",
 	Metadata: "cards.metadata",
+	Status:   "cards.status",
 }
 
 // Generated where
-
-type whereHelperstring struct{ field string }
-
-func (w whereHelperstring) EQ(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperstring) NEQ(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperstring) LT(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperstring) LTE(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperstring) GT(x string) qm.QueryMod      { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperstring) GTE(x string) qm.QueryMod     { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperstring) LIKE(x string) qm.QueryMod    { return qm.Where(w.field+" LIKE ?", x) }
-func (w whereHelperstring) NLIKE(x string) qm.QueryMod   { return qm.Where(w.field+" NOT LIKE ?", x) }
-func (w whereHelperstring) ILIKE(x string) qm.QueryMod   { return qm.Where(w.field+" ILIKE ?", x) }
-func (w whereHelperstring) NILIKE(x string) qm.QueryMod  { return qm.Where(w.field+" NOT ILIKE ?", x) }
-func (w whereHelperstring) SIMILAR(x string) qm.QueryMod { return qm.Where(w.field+" SIMILAR TO ?", x) }
-func (w whereHelperstring) NSIMILAR(x string) qm.QueryMod {
-	return qm.Where(w.field+" NOT SIMILAR TO ?", x)
-}
-func (w whereHelperstring) IN(slice []string) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
-	values := make([]any, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
 
 type whereHelperint16 struct{ field string }
 
@@ -117,37 +92,18 @@ func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-type whereHelpertypes_JSON struct{ field string }
-
-func (w whereHelpertypes_JSON) EQ(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.EQ, x)
-}
-func (w whereHelpertypes_JSON) NEQ(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.NEQ, x)
-}
-func (w whereHelpertypes_JSON) LT(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpertypes_JSON) LTE(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpertypes_JSON) GT(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpertypes_JSON) GTE(x types.JSON) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var CardWhere = struct {
 	CardID   whereHelperstring
 	CardType whereHelperint16
 	SortName whereHelperstring
 	Metadata whereHelpertypes_JSON
+	Status   whereHelperstring
 }{
 	CardID:   whereHelperstring{field: "\"cards\".\"card_id\""},
 	CardType: whereHelperint16{field: "\"cards\".\"card_type\""},
 	SortName: whereHelperstring{field: "\"cards\".\"sort_name\""},
 	Metadata: whereHelpertypes_JSON{field: "\"cards\".\"metadata\""},
+	Status:   whereHelperstring{field: "\"cards\".\"status\""},
 }
 
 // CardRels is where relationship names are stored.
@@ -167,9 +123,9 @@ func (*cardR) NewStruct() *cardR {
 type cardL struct{}
 
 var (
-	cardAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata"}
+	cardAllColumns            = []string{"card_id", "card_type", "sort_name", "metadata", "status"}
 	cardColumnsWithoutDefault = []string{"card_id", "card_type", "sort_name"}
-	cardColumnsWithDefault    = []string{"metadata"}
+	cardColumnsWithDefault    = []string{"metadata", "status"}
 	cardPrimaryKeyColumns     = []string{"card_id"}
 	cardGeneratedColumns      = []string{}
 )

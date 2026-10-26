@@ -47,3 +47,13 @@ func GetExecutor(ctx context.Context) (Executor, error) {
 	}
 	return nil, ErrNoDBConnection
 }
+
+// context に載った DB から、接続を 1 本だけ取り出す（使い終わったら Close でプールに返す）。接続に付く状態
+// （アドバイザリーロック等）を同じ接続で取って外すためで、ふだんの読み書きは GetExecutor を使う
+func Conn(ctx context.Context) (*sql.Conn, error) {
+	db, ok := dbFromContext(ctx)
+	if !ok {
+		return nil, ErrNoDBConnection
+	}
+	return db.Conn(ctx)
+}

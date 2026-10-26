@@ -1,0 +1,39 @@
+# game 用の GraphQL（/game/graphql）。game の better-auth の JWT（Authorization: Bearer）が無いと、どの操作も受け付けない
+# 機能ごとのファイルは Query・Mutation を extend する（studio の common.graphqls と同じ形にする）。
+# 結果は「<操作>Result = 成功の型 | エラー型」の union で返す（未認証は union に含めず HTTP 401）。成功の型は、ミューテーションは
+# <操作>Success で包み、クエリは問い合わせたもの（1 件なら対象の型、一覧なら 1 ページの XxxConnection）を入れる（core#35）
+
+type Query
+
+type Mutation
+
+"公開用の ID（UUID の文字列）。core の内部の ID は返さない"
+scalar UUID
+
+# 入力の誤り。理由ごとに型を分け、その理由に要る値だけを必須で持つ（理由によって null になる項目を作らないため）。
+# 文言は返さない（言い回し・項目の呼び方は画面の都合なので、game が __typename と値から作る）
+"入力の項目ごとの誤り。理由は __typename で見分ける"
+interface FieldError {
+  "誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）"
+  field: String!
+}
+
+"入力が空（前後の空白だけの場合を含む）"
+type FieldRequired implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+}
+
+"入力が長すぎる"
+type FieldTooLong implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "上限の文字数"
+  max: Int!
+}
+
+"入力の誤り（操作は行われていない）"
+type ValidationErrors {
+  "項目ごとの誤り（1 件以上）"
+  errors: [FieldError!]!
+}

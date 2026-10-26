@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
 )
@@ -28,6 +29,9 @@ const (
 	projectionWorkerCount = 4
 	// 起動時と再接続時は間隔によらずすぐ読むため、間隔で拾うのは失敗した集約の試し直しと、手で入れたやることの行（参照の api と同じ値）
 	pollInterval = 30 * time.Second
+	// 待てば直る失敗（マスタの未読み込み等）を 10 分ほど待てる値
+	policyRetryInterval = time.Minute
+	policyMaxFailures   = 10
 )
 
 var (
@@ -77,23 +81,36 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	db, err := rdb.Open(ctx, cfg.DBDSN)
+	studioDB, err := rdb.Open(ctx, cfg.StudioDBDSN)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	verifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
+	defer studioDB.Close()
+	gameDB, err := rdb.Open(ctx, cfg.GameDBDSN)
+	if err != nil {
+		return err
+	}
+	defer gameDB.Close()
+	studioVerifier, err := idp.NewVerifier(ctx, cfg.Studio.JWKSURL, cfg.Studio.Issuer, cfg.Studio.Audience)
+	if err != nil {
+		return err
+	}
+	gameVerifier, err := idp.NewVerifier(ctx, cfg.Game.JWKSURL, cfg.Game.Issuer, cfg.Game.Audience)
 	if err != nil {
 		return err
 	}
 
-	studioConfig := studio.Config{Verifier: verifier, Issuer: cfg.Studio.Issuer}
-	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval}
+	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: cfg.Studio.Issuer}
+	gameConfig := game.Config{Verifier: gameVerifier, Issuer: cfg.Game.Issuer}
+	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval, RetryInterval: policyRetryInterval, MaxFailures: policyMaxFailures}
 	app, err := wiring.Start(ctx, wiring.Config{
-		DB:                   db,
-		DSN:                  cfg.DBDSN,
+		StudioDB:             studioDB,
+		StudioDSN:            cfg.StudioDBDSN,
+		GameDB:               gameDB,
+		GameDSN:              cfg.GameDBDSN,
 		Version:              version,
 		Studio:               studioConfig,
+		Game:                 gameConfig,
 		InitialOperatorEmail: cfg.InitialOperatorEmail,
 		EventDriven:          eventDriven,
 	})

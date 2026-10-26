@@ -51,6 +51,13 @@ func (r *CardReader) List(ctx context.Context, condition query.ListCardsConditio
 		}
 		where = append(where, fmt.Sprintf("card_type = ANY(%s)", arg(pq.Array(types))))
 	}
+	if len(condition.Statuses) > 0 {
+		statuses := make([]string, len(condition.Statuses))
+		for i, status := range condition.Statuses {
+			statuses[i] = string(status)
+		}
+		where = append(where, fmt.Sprintf("status = ANY(%s)", arg(pq.Array(statuses))))
+	}
 	if condition.NameContains != "" {
 		where = append(where, fmt.Sprintf(`sort_name LIKE '%%' || %s || '%%' ESCAPE '\'`, arg(likeEscaper.Replace(condition.NameContains))))
 	}
@@ -127,6 +134,8 @@ func toCard(cardType readmodel.CardType, metadata readmodel.CardMetadata) query.
 		ID:           metadata.ID,
 		Type:         cardType,
 		Name:         metadata.Name,
+		Status:       metadata.Status,
+		Revision:     metadata.Revision,
 		RegisteredAt: metadata.RegisteredAt,
 		UpdatedAt:    metadata.UpdatedAt,
 	}

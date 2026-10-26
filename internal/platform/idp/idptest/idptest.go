@@ -15,11 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// better-auth の jwt プラグイン（studio）と同じ形の JWT・JWKS を、テストで作るための道具
+// better-auth の jwt プラグイン（studio・game）と同じ形の JWT・JWKS を、テストで作るための道具
 
 const (
-	Issuer   = "diecardomain-studio"
-	Audience = "diecardomain-core"
+	// 作る JWT（ValidClaims）の iss は studio。game の JWT は iss を GameIssuer に変えて作る
+	Issuer     = "diecardomain-studio"
+	GameIssuer = "diecardomain-game"
+	Audience   = "diecardomain-core"
 )
 
 type Key struct {

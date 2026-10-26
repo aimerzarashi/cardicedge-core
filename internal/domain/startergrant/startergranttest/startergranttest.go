@@ -1,0 +1,51 @@
+package startergranttest
+
+import (
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+)
+
+// テストでも値の型は生成関数で作る（検証を通らない値でテストしないため。factory_enforcer）。
+// 生成関数のエラーを毎回確かめると冗長なため、ここで確かめる
+
+func ID(t testing.TB, value int64) startergrant.ID {
+	t.Helper()
+	id, err := startergrant.NewID(value)
+	require.NoError(t, err)
+	return id
+}
+
+func DeckNumber(t testing.TB, value int) startergrant.DeckNumber {
+	t.Helper()
+	number, err := startergrant.NewDeckNumber(value)
+	require.NoError(t, err)
+	return number
+}
+
+func Count(t testing.TB, value int) startergrant.Count {
+	t.Helper()
+	count, err := startergrant.NewCount(value)
+	require.NoError(t, err)
+	return count
+}
+
+func CardCount(t testing.TB, cardID uuid.UUID, count int) startergrant.CardCount {
+	t.Helper()
+	return startergrant.CardCount{CardID: cardID, Count: Count(t, count)}
+}
+
+func Deck(t testing.TB, name string, cards ...startergrant.CardCount) startergrant.Deck {
+	t.Helper()
+	return startergrant.Deck{Name: DeckName(t, name), Cards: cards}
+}
+
+func DeckName(t testing.TB, value string) startergrant.DeckName {
+	t.Helper()
+	name, err := startergrant.NewDeckName(value)
+	require.NoError(t, err)
+	return name
+}

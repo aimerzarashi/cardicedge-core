@@ -3,18 +3,12 @@ package studio_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
@@ -23,6 +17,8 @@ var (
 	client    testhelper.GraphQLClient
 	key       idptest.Key
 	operators *testhelper.Operators
+	// 共有のアプリの studio の DB（起動時にできるゲーム全体のルールを確かめる）
+	studioDB *sql.DB
 )
 
 func TestMain(m *testing.M) {
@@ -32,55 +28,31 @@ func TestMain(m *testing.M) {
 // 複製した DB と組み立てたアプリを 1 つずつ作り、並列のテストで共有する（テストごとに作ると、Hub・Listener が
 // テストの数だけ動くため）。ほかのテストの行が混ざるため、各テストは一意の値で作ったものだけを見る
 func run(m *testing.M) int {
-	if os.Getenv("DB_DSN") == "" {
-		fmt.Fprintln(os.Stderr, "DB_DSN is not set. run via 'make test'")
+	if os.Getenv("TEST_DB_DSN") == "" {
+		fmt.Fprintln(os.Stderr, "TEST_DB_DSN is not set. run via 'make test'")
 		return 0
 	}
 	errorLogs := testhelper.RecordErrorLogs()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	db, dsn, drop, err := rdbtest.CloneDatabase(ctx)
+	app, err := testhelper.StartApp(ctx)
 	if err != nil {
 		return fail(err)
 	}
-	defer drop()
-	key, err = idptest.GenerateKey("k1")
+	defer app.Close()
+	key = app.Key
+	studioDB = app.StudioDB
+	operators, err = testhelper.NewOperators(ctx, app.StudioDB, key)
 	if err != nil {
 		return fail(err)
 	}
-	jwks, closeJWKS := idptest.StartJWKSServer(key)
-	defer closeJWKS()
-	verifier, err := idp.NewVerifier(ctx, jwks.URL, idptest.Issuer, idptest.Audience)
-	if err != nil {
-		return fail(err)
-	}
-	studioConfig := studio.Config{Verifier: verifier, Issuer: idptest.Issuer}
-	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second}
-	app, err := wiring.Start(ctx, wiring.Config{
-		DB:                   db,
-		DSN:                  dsn,
-		Version:              "test",
-		Studio:               studioConfig,
-		InitialOperatorEmail: "initial@example.com",
-		EventDriven:          eventDriven,
-	})
-	if err != nil {
-		return fail(err)
-	}
-	operators, err = testhelper.NewOperators(ctx, db, key)
-	if err != nil {
-		app.Stop()
-		return fail(err)
-	}
-	server := httptest.NewServer(app.Handler)
-	endpoint = server.URL + "/studio/graphql"
+	endpoint = app.URL + "/studio/graphql"
 	client = testhelper.GraphQLClient{URL: endpoint}
 
 	code := m.Run()
 
-	server.Close()
-	app.Stop()
+	app.Close()
 	if records := errorLogs.Records(); len(records) > 0 {
 		fmt.Fprintf(os.Stderr, "FAIL: アプリが ERROR のログを %d 件出した\n", len(records))
 		for _, r := range records {

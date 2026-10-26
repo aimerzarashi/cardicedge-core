@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -27,26 +28,26 @@ var (
 )
 
 type fixture struct {
-	id       presetdeck.ID
-	name     presetdeck.Name
-	operator operator.ID
-	dragon   presetdeck.CardRef
-	potion   presetdeck.CardRef
+	id         presetdeck.ID
+	name       presetdeck.Name
+	operatorID operator.ID
+	dragon     presetdeck.CardRef
+	potion     presetdeck.CardRef
 }
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	return fixture{
-		id:       presetdecktest.ID(t, 30),
-		name:     presetdecktest.Name(t, "炎のデッキ"),
-		operator: operatortest.ID(t, 10),
-		dragon:   presetdecktest.CardRef(t, creature.Types().EntityType, 20),
-		potion:   presetdecktest.CardRef(t, item.Types().EntityType, 21),
+		id:         presetdecktest.ID(t, 30),
+		name:       presetdecktest.Name(t, "炎のデッキ"),
+		operatorID: operatortest.ID(t, 10),
+		dragon:     presetdecktest.CardRef(t, creature.Types().EntityType, 20),
+		potion:     presetdecktest.CardRef(t, item.Types().EntityType, 21),
 	}
 }
 
 func (f fixture) registerCommand() *presetdeck.RegisterCommand {
-	return &presetdeck.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, RegisteredBy: f.operator}
+	return &presetdeck.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, RegisteredBy: f.operatorID}
 }
 
 // Decide の結果を Evolve に当てる（コマンドを順に実行したときの状態を作る）
@@ -73,7 +74,7 @@ func (f fixture) setCountsCommand(t *testing.T, counts map[presetdeck.CardRef]in
 	for card, count := range counts {
 		cardCounts[card] = presetdecktest.CardCount(t, count)
 	}
-	return &presetdeck.SetCardCountsCommand{Counts: cardCounts, ChangedBy: f.operator}
+	return &presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: f.operatorID}
 }
 
 func (f fixture) setCounts(t *testing.T, state presetdeck.State, counts map[presetdeck.CardRef]int) presetdeck.State {
@@ -92,7 +93,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		EventMeta:    presetdeck.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:     publicID,
 		Name:         f.name,
-		RegisteredBy: f.operator,
+		RegisteredBy: f.operatorID,
 	}}, events)
 }
 
@@ -103,7 +104,7 @@ func TestEvolve_RegisteredEventMakesEmptyPresetDeck(t *testing.T) {
 
 	require.Equal(t, presetdeck.PresetDeck{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Cards: map[presetdeck.CardRef]presetdeck.CardCount{},
-		RegisteredBy: f.operator, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
+		RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
 	}, state)
 }
 
@@ -119,12 +120,12 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	f := newFixture(t)
 	newName := presetdecktest.Name(t, "水のデッキ")
 
-	state, events := apply(t, f.register(t), &presetdeck.RenameCommand{Name: newName, RenamedBy: f.operator}, changedAt)
+	state, events := apply(t, f.register(t), &presetdeck.RenameCommand{Name: newName, RenamedBy: f.operatorID}, changedAt)
 
 	require.Equal(t, []presetdeck.Event{&presetdeck.RenamedEvent{
 		EventMeta: presetdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
 		Name:      newName,
-		RenamedBy: f.operator,
+		RenamedBy: f.operatorID,
 	}}, events)
 	deck := state.(presetdeck.PresetDeck)
 	require.Equal(t, newName, deck.Name)
@@ -140,7 +141,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		name string
 		cmd  presetdeck.Command
 	}{
-		{name: "same_name", cmd: &presetdeck.RenameCommand{Name: f.name, RenamedBy: f.operator}},
+		{name: "same_name", cmd: &presetdeck.RenameCommand{Name: f.name, RenamedBy: f.operatorID}},
 		{name: "same_count", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 2})},
 		{name: "zero_count_of_card_not_in_deck", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 0})},
 		{name: "no_cards", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{})},
@@ -169,23 +170,38 @@ func TestDecide_SetCardCountsEmitsDeltasOfChangedCards(t *testing.T) {
 			{Card: f.dragon, Delta: -2},
 			{Card: f.potion, Delta: 4},
 		},
-		ChangedBy: f.operator,
+		ChangedBy: f.operatorID,
 	}}, events)
 }
 
-// 合計はちょうど上限まで入れられ、超える変更はイベントを作らない
-func TestDecide_RejectsTotalCountOverMax(t *testing.T) {
+// 合計はちょうど上限まで入れられ、超える変更はイベントを作らない。上限はコマンドで渡されたルールの値
+func TestDecide_RejectsTotalCountOverRule(t *testing.T) {
 	f := newFixture(t)
-	full := map[presetdeck.CardRef]int{}
-	for i := range presetdeck.MaxTotalCount / presetdeck.MaxCardCount {
-		full[presetdecktest.CardRef(t, creature.Types().EntityType, int64(100+i))] = presetdeck.MaxCardCount
-	}
-	state := f.setCounts(t, f.register(t), full)
-	require.Equal(t, presetdeck.MaxTotalCount, state.(presetdeck.PresetDeck).TotalCount())
+	state := f.register(t)
+	cmd := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 3, f.potion: 2})
+	cmd.Rules.TotalCardCount = 5
+	state, _ = apply(t, state, cmd, changedAt)
+	more := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 3})
+	more.Rules.TotalCardCount = 5
 
-	_, err := presetdeck.Decide(state, f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 1}), changedAt)
+	_, err := presetdeck.Decide(state, more, changedAt)
 
 	require.ErrorIs(t, err, presetdeck.ErrTotalCountTooLarge)
+}
+
+// 同じカードの枚数の上限も、コマンドで渡されたルールの値。ちょうど上限は入れられる
+func TestDecide_RejectsCardCountOverRule(t *testing.T) {
+	f := newFixture(t)
+	atMax := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 2})
+	atMax.Rules.MaxCardDuplicates = 2
+	over := f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 3})
+	over.Rules.MaxCardDuplicates = 2
+
+	_, err := presetdeck.Decide(f.register(t), atMax, changedAt)
+	require.NoError(t, err)
+	_, err = presetdeck.Decide(f.register(t), over, changedAt)
+
+	require.ErrorIs(t, err, presetdeck.ErrCardCountOutOfRange)
 }
 
 // 0 にするとデッキから外れる（枚数が 0 のカードは持たない）
@@ -207,7 +223,7 @@ func TestEvolve_RejectsDeltaOutOfRange(t *testing.T) {
 	event := &presetdeck.CardCountsChangedEvent{
 		EventMeta: presetdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
 		Changes:   []presetdeck.CardCountChange{{Card: f.dragon, Delta: -1}},
-		ChangedBy: f.operator,
+		ChangedBy: f.operatorID,
 	}
 
 	_, err := presetdeck.Evolve(f.register(t), event)
@@ -227,25 +243,25 @@ func TestEvolve_DoesNotChangeTheGivenState(t *testing.T) {
 func TestDecide_DeleteMakesDeletedPresetDeck(t *testing.T) {
 	f := newFixture(t)
 
-	state, events := apply(t, f.register(t), &presetdeck.DeleteCommand{DeletedBy: f.operator}, changedAt)
+	state, events := apply(t, f.register(t), &presetdeck.DeleteCommand{DeletedBy: f.operatorID}, changedAt)
 
 	require.Equal(t, []presetdeck.Event{&presetdeck.DeletedEvent{
 		EventMeta: presetdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
-		DeletedBy: f.operator,
+		DeletedBy: f.operatorID,
 	}}, events)
 	require.Equal(t, presetdeck.DeletedPresetDeck{ID: f.id, Version: 2}, state)
 }
 
 func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	f := newFixture(t)
-	deleted, _ := apply(t, f.register(t), &presetdeck.DeleteCommand{DeletedBy: f.operator}, changedAt)
+	deleted, _ := apply(t, f.register(t), &presetdeck.DeleteCommand{DeletedBy: f.operatorID}, changedAt)
 	commands := []struct {
 		name string
 		cmd  presetdeck.Command
 	}{
-		{name: "rename", cmd: &presetdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operator}},
+		{name: "rename", cmd: &presetdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID}},
 		{name: "set_card_counts", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 1})},
-		{name: "delete", cmd: &presetdeck.DeleteCommand{DeletedBy: f.operator}},
+		{name: "delete", cmd: &presetdeck.DeleteCommand{DeletedBy: f.operatorID}},
 	}
 	states := []struct {
 		name  string
@@ -283,7 +299,7 @@ func TestNewName_RejectsInvalidName(t *testing.T) {
 	}
 }
 
-func TestNewCardCount_AcceptsZeroToMax(t *testing.T) {
+func TestNewCardCount_RejectsNegative(t *testing.T) {
 	tests := []struct {
 		name  string
 		value int
@@ -291,8 +307,7 @@ func TestNewCardCount_AcceptsZeroToMax(t *testing.T) {
 	}{
 		{name: "negative", value: -1, ok: false},
 		{name: "zero", value: 0, ok: true},
-		{name: "max", value: presetdeck.MaxCardCount, ok: true},
-		{name: "over_max", value: presetdeck.MaxCardCount + 1, ok: false},
+		{name: "positive", value: 4, ok: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -325,13 +340,13 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	f := newFixture(t)
 	meta := presetdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt}
 	events := []presetdeck.Event{
-		&presetdeck.RegisteredEvent{EventMeta: meta, PublicID: publicID, Name: f.name, RegisteredBy: f.operator},
-		&presetdeck.RenamedEvent{EventMeta: meta, Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operator},
+		&presetdeck.RegisteredEvent{EventMeta: meta, PublicID: publicID, Name: f.name, RegisteredBy: f.operatorID},
+		&presetdeck.RenamedEvent{EventMeta: meta, Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID},
 		&presetdeck.CardCountsChangedEvent{EventMeta: meta, Changes: []presetdeck.CardCountChange{
 			{Card: f.dragon, Delta: -2},
 			{Card: f.potion, Delta: 3},
-		}, ChangedBy: f.operator},
-		&presetdeck.DeletedEvent{EventMeta: meta, DeletedBy: f.operator},
+		}, ChangedBy: f.operatorID},
+		&presetdeck.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {

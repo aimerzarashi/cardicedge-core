@@ -9,10 +9,17 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
+// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら StarterDeckConnection）
+const starterDecksQuery = `query {
+	starterDecks {
+		__typename
+	}
+}`
+
 const registerCreatureMutation = `mutation ($input: RegisterCreatureInput!) {
 	registerCreature(input: $input) {
 		__typename
-		... on RegisterCreatureSuccess { creature { id name registeredAt updatedAt } }
+		... on RegisterCreatureSuccess { creature { id name status revision registeredAt updatedAt } }
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
 	}
 }`
@@ -20,7 +27,7 @@ const registerCreatureMutation = `mutation ($input: RegisterCreatureInput!) {
 const registerItemMutation = `mutation ($input: RegisterItemInput!) {
 	registerItem(input: $input) {
 		__typename
-		... on RegisterItemSuccess { item { id name registeredAt updatedAt } }
+		... on RegisterItemSuccess { item { id name status revision registeredAt updatedAt } }
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
 	}
 }`
@@ -28,7 +35,7 @@ const registerItemMutation = `mutation ($input: RegisterItemInput!) {
 const registerSpellMutation = `mutation ($input: RegisterSpellInput!) {
 	registerSpell(input: $input) {
 		__typename
-		... on RegisterSpellSuccess { spell { id name registeredAt updatedAt } }
+		... on RegisterSpellSuccess { spell { id name status revision registeredAt updatedAt } }
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
 	}
 }`
@@ -84,6 +91,52 @@ func registerItem(t *testing.T, token, name string) map[string]any {
 func registerSpell(t *testing.T, token, name string) map[string]any {
 	t.Helper()
 	return client.Data(t, token, registerSpellMutation, map[string]any{"input": map[string]any{"name": name}}, "registerSpell")
+}
+
+const publishCardMutation = `mutation ($input: PublishCardInput!) {
+	publishCard(input: $input) {
+		__typename
+		... on PublishCardSuccess { id revision }
+	}
+}`
+
+const retireCardMutation = `mutation ($input: RetireCardInput!) {
+	retireCard(input: $input) {
+		__typename
+		... on RetireCardSuccess { id revision }
+	}
+}`
+
+func publishCard(t *testing.T, token string, id, revision any) map[string]any {
+	t.Helper()
+	return client.Data(t, token, publishCardMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision}}, "publishCard")
+}
+
+func retireCard(t *testing.T, token string, id, revision any) map[string]any {
+	t.Helper()
+	return client.Data(t, token, retireCardMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision}}, "retireCard")
+}
+
+// プリセットデッキに入れられるカード（公開中）を、登録して公開して作り、公開用の ID を返す
+func registerPublishedCreature(t *testing.T, token, name string) any {
+	t.Helper()
+	registered := registerCreature(t, token, name)["creature"].(map[string]any)
+	require.Equal(t, "PublishCardSuccess", publishCard(t, token, registered["id"], registered["revision"])["__typename"])
+	return registered["id"]
+}
+
+func registerPublishedItem(t *testing.T, token, name string) any {
+	t.Helper()
+	registered := registerItem(t, token, name)["item"].(map[string]any)
+	require.Equal(t, "PublishCardSuccess", publishCard(t, token, registered["id"], registered["revision"])["__typename"])
+	return registered["id"]
+}
+
+func registerPublishedSpell(t *testing.T, token, name string) any {
+	t.Helper()
+	registered := registerSpell(t, token, name)["spell"].(map[string]any)
+	require.Equal(t, "PublishCardSuccess", publishCard(t, token, registered["id"], registered["revision"])["__typename"])
+	return registered["id"]
 }
 
 func registerPresetDeck(t *testing.T, token, name string) map[string]any {

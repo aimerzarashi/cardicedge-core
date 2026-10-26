@@ -5,14 +5,17 @@
 # lint はファイルを書き換えないため、複製した木で生成して比べる
 set -eu
 
-dir=internal/service/studio/presentation/graphql
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 tar --exclude=.git -cf - . | tar -xf - -C "$tmp"
-(cd "$tmp/$dir" && go tool gqlgen generate)
 
-if ! diff -r "$dir" "$tmp/$dir"; then
-  echo "check-gen-api: $dir の生成コードが .graphqls と合っていない。make gen-api を実行してコミットする" >&2
-  exit 1
-fi
+status=0
+for dir in internal/service/studio/presentation/graphql internal/service/game/presentation/graphql; do
+  (cd "$tmp/$dir" && go tool gqlgen generate)
+  if ! diff -r "$dir" "$tmp/$dir"; then
+    echo "check-gen-api: $dir の生成コードが .graphqls と合っていない。make gen-api を実行してコミットする" >&2
+    status=1
+  fi
+done
+exit $status

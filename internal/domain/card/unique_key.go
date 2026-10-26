@@ -10,5 +10,5 @@ func UniqueKeyTypes() []domain.UniqueKeyType {
 }
 
 func NameKey(name Name) domain.UniqueKey {
-	return domain.NewUniqueKey(nameKeyType, NormalizeName(name.String()))
+	return domain.NewUniqueKey(nameKeyType, domain.NormalizeName(name.String()))
 }

@@ -143,21 +143,19 @@ type hubFixture struct {
 }
 
 // ワーカーは自分でトランザクションを commit するため、テストのトランザクションではなく、テンプレートから複製した DB で動かす。
-// テストの中だけの購読者を足し、Hub を作って recorder の投影を登録する（Start はしない）
+// Hub を作ってテストの中だけの購読者に recorder の投影を登録し、DB の購読者・購読を合わせる（Start はしない）
 func newHubFixture(t *testing.T, options eventdriven.Options) hubFixture {
 	t.Helper()
 	db, dsn := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	addTestSubscriber(t, ctx, db)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	subscribers, err := eventdriven.LoadSubscribers(ctx)
-	require.NoError(t, err)
 	loader := newProbeLoader(eventstore.NewEventLoader(registry, operator.NewID, operator.NewEventType))
-	hub, err := eventdriven.NewHub(subscribers, registry, options, loader)
+	hub, err := eventdriven.NewHub(testSubscribers, registry, options, loader)
 	require.NoError(t, err)
 	rec := &recorder{upserted: make(chan countingReadModel, 10)}
 	require.NoError(t, eventdriven.RegisterProjection(hub, rec.spec()))
+	require.NoError(t, hub.Sync(ctx))
 	return hubFixture{ctx: ctx, db: db, dsn: dsn, registry: registry, hub: hub, recorder: rec, loader: loader}
 }
 
@@ -400,7 +398,7 @@ func TestHub_PollsPendingOnReconnect(t *testing.T) {
 }
 
 func TestHub_RetriesFailedProjectionByPolling(t *testing.T) {
-	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 50 * time.Millisecond})
+	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 50 * time.Millisecond, RetryInterval: time.Minute, MaxFailures: 10})
 	f.recorder.panicAt = 1
 	f.recorder.panicOnce = true
 	// 起動時の読み込みを終えてから登録する（起動時の読み込みが、試し直しの代わりにならないように）
@@ -422,4 +420,47 @@ func (f hubFixture) addPending(t *testing.T, entityID int64) {
 	_, err := f.db.ExecContext(f.ctx,
 		`INSERT INTO event_subscriber_pending (subscriber_id, entity_type_id, entity_id, version) VALUES (1, 1000, $1, 1)`, entityID)
 	require.NoError(t, err)
+}
+
+// README の「作り直す手順」の SQL を流すと、すでに作ってある集約も、すべてのイベントから作り直す
+func TestHub_ReprojectsAllAggregatesByRebuildProcedure(t *testing.T) {
+	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 20 * time.Millisecond, RetryInterval: time.Minute, MaxFailures: 10})
+	f.start(t)
+	first := f.register(t)
+	second := f.register(t)
+	f.link(t, second)
+	projected := map[int64]countingReadModel{}
+	for len(projected) < 2 || projected[second.Int64()].Applied < 2 {
+		state := f.recorder.next(t)
+		projected[state.EntityID] = state
+	}
+	// recorder は read model を書く時点（commit の前）で受け取るため、やることの表が空になる（commit した）のを待ってから流す
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var pending int
+		assert.NoError(c, f.db.QueryRowContext(f.ctx, `SELECT count(*) FROM event_subscriber_pending`).Scan(&pending))
+		assert.Zero(c, pending)
+	}, receiveTimeout, 10*time.Millisecond)
+
+	tx, err := f.db.BeginTx(f.ctx, nil)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(f.ctx, `DELETE FROM event_subscriber_checkpoints WHERE subscriber_id = $1`, testSubscribers[0].ID)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(f.ctx, `
+		INSERT INTO event_subscriber_pending (subscriber_id, entity_type_id, entity_id, version)
+		SELECT $1, e.entity_type_id, e.entity_id, max(e.aggregate_version)
+		FROM domain_events e
+		JOIN event_subscriptions s ON s.subscriber_id = $1 AND s.entity_type_id = e.entity_type_id
+		GROUP BY e.entity_type_id, e.entity_id
+		ON CONFLICT (subscriber_id, entity_type_id, entity_id) DO UPDATE
+		SET version = GREATEST(event_subscriber_pending.version, EXCLUDED.version)`, testSubscribers[0].ID)
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit())
+
+	rebuilt := map[int64]countingReadModel{}
+	for len(rebuilt) < 2 {
+		state := f.recorder.next(t)
+		rebuilt[state.EntityID] = state
+	}
+	assert.Equal(t, countingReadModel{EntityID: first.Int64(), Applied: 1}, rebuilt[first.Int64()])
+	assert.Equal(t, countingReadModel{EntityID: second.Int64(), Applied: 2}, rebuilt[second.Int64()])
 }

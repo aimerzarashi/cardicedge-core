@@ -17,12 +17,17 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
-// DB_DSN の DB にはマイグレーションを適用済みであること。外に出さないのは、開発用の DB に commit するテストを書けなくするため
+// テストが使う DB のつなぎ先。core 本体の STUDIO_DB_DSN・GAME_DB_DSN とは分け、開発の core が使う DB（core_studio・core_game）に
+// テストが触らないようにする（開発で入れたデータがテストの前提に混ざらないため。core#33）。make test（migrate-template）と CI が、
+// このサーバーに core_test と複製の元のテンプレートを作り、マイグレーションと種別を流しておく
+const envName = "TEST_DB_DSN"
+
+// 外に出さないのは、共有の core_test に commit するテストを書けなくするため（行が残り、ほかのテストの前提を崩す）
 func open(t *testing.T) *sql.DB {
 	t.Helper()
-	dsn := os.Getenv("DB_DSN")
+	dsn := os.Getenv(envName)
 	if dsn == "" {
-		t.Skip("DB_DSN is not set. run via 'make test'")
+		t.Skip(envName + " is not set. run via 'make test'")
 	}
 	db, err := rdb.Open(t.Context(), dsn)
 	require.NoError(t, err)
@@ -30,7 +35,7 @@ func open(t *testing.T) *sql.DB {
 	return db
 }
 
-// テストの終わりに rollback するのは、開発用の DB でテストしても、テストのデータを残さないため
+// テストの終わりに rollback するのは、共有の core_test にテストのデータを残さないため
 func Tx(t *testing.T) context.Context {
 	t.Helper()
 	db := open(t)
@@ -50,8 +55,8 @@ var dbNamePattern = regexp.MustCompile(`dbname=\S+`)
 // 複製はマイグレーションを流すより速い（約 0.15 秒。core#9 で計測）
 func NewDatabase(t *testing.T) (*sql.DB, string) {
 	t.Helper()
-	if os.Getenv("DB_DSN") == "" {
-		t.Skip("DB_DSN is not set. run via 'make test'")
+	if os.Getenv(envName) == "" {
+		t.Skip(envName + " is not set. run via 'make test'")
 	}
 	db, dsn, drop, err := CloneDatabase(t.Context())
 	require.NoError(t, err)
@@ -61,12 +66,12 @@ func NewDatabase(t *testing.T) (*sql.DB, string) {
 
 // NewDatabase と同じく複製する。testing.T が無いところ（結合テストの TestMain）で使うため、消す関数を返す
 func CloneDatabase(ctx context.Context) (db *sql.DB, dsn string, drop func(), err error) {
-	adminDSN := os.Getenv("DB_DSN")
+	adminDSN := os.Getenv(envName)
 	if adminDSN == "" {
-		return nil, "", nil, errors.New("DB_DSN is not set. run via 'make test'")
+		return nil, "", nil, errors.New(envName + " is not set. run via 'make test'")
 	}
 	if !dbNamePattern.MatchString(adminDSN) {
-		return nil, "", nil, errors.New("DB_DSN に dbname= が無い: 複製した DB の接続先を作れない")
+		return nil, "", nil, errors.New(envName + " に dbname= が無い: 複製した DB の接続先を作れない")
 	}
 	admin, err := rdb.Open(ctx, adminDSN)
 	if err != nil {

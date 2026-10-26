@@ -6,16 +6,46 @@ type CardNameAlreadyInUseError {
   message: String!
 }
 
+"カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）"
+type CardNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"準備中のカードを使用不可にしようとした（準備中から移れるのは公開中だけ）"
+type InvalidCardStatusTransitionError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
 "カード（Creature・Item・Spell）。種類は __typename で見分け、種類ごとの項目は断片（... on Creature 等）で取る"
 interface Card {
   "公開用の ID"
   id: UUID!
   "カード名"
   name: String!
+  "状態（準備中・公開中・使用不可）"
+  status: CardStatus!
+  "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
   "登録した日時"
   registeredAt: DateTime!
   "最後に変更した日時（変更していなければ登録した日時）"
   updatedAt: DateTime!
+}
+
+# 準備中から使用不可へ直接は移れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、変わらない操作として成功する
+"""
+カードの状態。準備中は自由に変えられ、デッキに入れられず、game に写さない。公開中はデッキに入れられ、game に写す。
+使用不可は新しくデッキに入れられないが、プレイヤーが持っているので game には写す
+"""
+enum CardStatus {
+  "準備中（登録したときの状態）"
+  DRAFT
+  "公開中"
+  PUBLISHED
+  "使用不可"
+  RETIRED
 }
 
 # デッキ（プリセットデッキ・スターターデッキ等）の中身はどれも同じ形なので、型を 1 つにする（core#25）
@@ -24,6 +54,15 @@ type DeckCard {
   "カード"
   card: Card!
   "枚数（1〜4）"
+  count: Int!
+}
+
+# デッキ（プリセットデッキ・スターターデッキ）の枚数を変える入力の 1 件も同じ形なので、型を 1 つにする（core#42）
+"変えるカードと、その枚数"
+input DeckCardCountInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  cardId: UUID!
+  "その枚数にする（0〜4。0 にするとデッキから外す）"
   count: Int!
 }
 
@@ -40,6 +79,8 @@ input CardFilter {
   nameContains: String
   "種類（指定が無ければすべて。空のリストは入力の誤り）"
   types: [CardType!]
+  "状態（指定が無ければすべて。空のリストは入力の誤り）"
+  statuses: [CardStatus!]
 }
 
 "カードの一覧の 1 件と、その位置"
@@ -73,3 +114,55 @@ extend type Query {
   ): CardsResult!
 }
 
+
+"カードを公開中にする入力"
+input PublishCardInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの revision"
+  revision: Int!
+}
+
+# 変える操作の結果は、公開 ID と新しい revision だけにする（core#24）
+"カードを公開中にした（すでに公開中なら何も変えず、revision も進まない）"
+type PublishCardSuccess {
+  "公開したカードの公開用の ID"
+  id: UUID!
+  "公開したカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"カードを公開中にする操作の結果"
+union PublishCardResult = PublishCardSuccess | CardNotFoundError | RevisionConflictError | InvalidCardStatusTransitionError | ForbiddenError
+
+"カードを使用不可にする入力"
+input RetireCardInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの revision"
+  revision: Int!
+}
+
+"カードを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）"
+type RetireCardSuccess {
+  "使用不可にしたカードの公開用の ID"
+  id: UUID!
+  "使用不可にしたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"カードを使用不可にする操作の結果"
+union RetireCardResult = RetireCardSuccess | CardNotFoundError | RevisionConflictError | InvalidCardStatusTransitionError | ForbiddenError
+
+extend type Mutation {
+  "カードを公開中にする（紐づいたオペレーターだけ。準備中・使用不可から）"
+  publishCard(
+    "公開するカード"
+    input: PublishCardInput!
+  ): PublishCardResult!
+  "カードを使用不可にする（紐づいたオペレーターだけ。公開中から）"
+  retireCard(
+    "使用不可にするカード"
+    input: RetireCardInput!
+  ): RetireCardResult!
+}

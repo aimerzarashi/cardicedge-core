@@ -25,7 +25,7 @@ import (
 type EventSubscriberCheckpoint struct {
 	SubscriberID int16 `boil:"subscriber_id" json:"subscriber_id" toml:"subscriber_id" yaml:"subscriber_id"`
 	EntityTypeID int16 `boil:"entity_type_id" json:"entity_type_id" toml:"entity_type_id" yaml:"entity_type_id"`
-	// 集約の domain_identifiers.id（外部キーは張らない）
+	// 集約の domain_entities.id（外部キーは張らない）
 	EntityID int64 `boil:"entity_id" json:"entity_id" toml:"entity_id" yaml:"entity_id"`
 	// 処理済みの集約の版（1 以上）
 	LastVersion int64 `boil:"last_version" json:"last_version" toml:"last_version" yaml:"last_version"`

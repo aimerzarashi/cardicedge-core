@@ -1,0 +1,56 @@
+// 入力の誤り。コマンドが返し、presentation 層が理由の型ごとに GraphQL の型（ValidationErrors の FieldError）へ写す。
+// studio の input と同じ形（サービスごとに縦に切る決まりなので import せず置く）。理由は、game で要るものから足す
+package input
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// 理由ごとに型を分け、その理由に要る値だけを持つ。上限などの値を持たせるのは、presentation 層や game がドメインの決まりを書き写さずに済むようにするため
+type Error interface {
+	error
+	InputField() string
+}
+
+type Required struct{ Field string }
+
+func (e *Required) Error() string {
+	return fmt.Sprintf("%s is required", e.Field)
+}
+
+func (e *Required) InputField() string {
+	return e.Field
+}
+
+type TooLong struct {
+	Field string
+	Max   int
+}
+
+func (e *TooLong) Error() string {
+	return fmt.Sprintf("%s is longer than %d", e.Field, e.Max)
+}
+
+func (e *TooLong) InputField() string {
+	return e.Field
+}
+
+// 項目が増えても、最初の 1 つで止めずにまとめて返すため
+type Errors []Error
+
+func (e Errors) Error() string {
+	messages := make([]string, len(e))
+	for i, err := range e {
+		messages[i] = err.Error()
+	}
+	return "input: invalid input: " + strings.Join(messages, "; ")
+}
+
+// 呼ぶ側に空の Errors を宣言させないため（factory_enforcer）
+func AsErrors(err error) (Errors, bool) {
+	var invalid Errors
+	ok := errors.As(err, &invalid)
+	return invalid, ok
+}

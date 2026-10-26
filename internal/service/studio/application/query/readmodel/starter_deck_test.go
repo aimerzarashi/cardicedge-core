@@ -1,0 +1,193 @@
+package readmodel_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck/starterdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
+)
+
+// 集約の Decide・Evolve でコマンドを順に当て、そのイベントを read model に当てる
+type starterDeckHistory struct {
+	t      *testing.T
+	state  starterdeck.State
+	events []starterdeck.Event
+}
+
+func newStarterDeckHistory(t *testing.T, publicID uuid.UUID, name string) *starterDeckHistory {
+	t.Helper()
+	return newStarterDeckHistoryFrom(t, &starterdeck.RegisterCommand{
+		ID: starterdecktest.ID(t, 1), PublicID: publicID, Name: presetdecktest.Name(t, name), RegisteredBy: operatortest.ID(t, 10),
+	})
+}
+
+func newStarterDeckHistoryFrom(t *testing.T, register *starterdeck.RegisterCommand) *starterDeckHistory {
+	t.Helper()
+	h := &starterDeckHistory{t: t, state: starterdeck.InitialState()}
+	h.apply(register, deckRegisteredAt)
+	return h
+}
+
+func (h *starterDeckHistory) apply(cmd starterdeck.Command, at time.Time) {
+	h.t.Helper()
+	events, err := starterdeck.Decide(h.state, cmd, at)
+	require.NoError(h.t, err)
+	for _, event := range events {
+		h.state, err = starterdeck.Evolve(h.state, event)
+		require.NoError(h.t, err)
+	}
+	h.events = append(h.events, events...)
+}
+
+func (h *starterDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
+	h.t.Helper()
+	cardCounts := make(map[presetdeck.CardRef]presetdeck.CardCount, len(counts))
+	for card, count := range counts {
+		cardCounts[card] = presetdecktest.CardCount(h.t, count)
+	}
+	h.apply(&starterdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 10)}, deckChangedAt)
+}
+
+func (h *starterDeckHistory) project() readmodel.StarterDeck {
+	var state readmodel.StarterDeck
+	for _, event := range h.events {
+		state = state.Evolve(event)
+	}
+	return state
+}
+
+func TestStarterDeck_EvolvesFromRegisteredWithoutSource(t *testing.T) {
+	publicID := uuid.New()
+
+	state := newStarterDeckHistory(t, publicID, "Ｆire デッキ").project()
+
+	metadata := readmodel.StarterDeckMetadata{
+		ID: publicID, Name: "Ｆire デッキ", Status: readmodel.StarterDeckStatusDraft, Revision: 1,
+		RegisteredAt: deckRegisteredAt, UpdatedAt: deckRegisteredAt,
+	}
+	require.Equal(t, readmodel.StarterDeck{
+		StarterDeckID: publicID,
+		// 並べ替え・検索は正規化した名前、表示は入力どおりの名前
+		SortName: "fire デッキ",
+		Status:   readmodel.StarterDeckStatusDraft,
+		Metadata: metadata,
+		Cards:    map[presetdeck.CardRef]int{},
+	}, state)
+	require.False(t, state.IsTerminal())
+}
+
+// 写して作ったときは、カードと写した元（公開 ID と revision）を持つ
+func TestStarterDeck_EvolvesFromRegisteredWithSourceAndCards(t *testing.T) {
+	publicID, presetID := uuid.New(), uuid.New()
+	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
+	source := starterdecktest.Source(t, presetID, 4)
+
+	state := newStarterDeckHistoryFrom(t, &starterdeck.RegisterCommand{
+		ID: starterdecktest.ID(t, 1), PublicID: publicID, Name: presetdecktest.Name(t, "炎のデッキ"), Source: &source,
+		Cards:        map[presetdeck.CardRef]presetdeck.CardCount{dragon: presetdecktest.CardCount(t, 3), potion: presetdecktest.CardCount(t, 2)},
+		RegisteredBy: operatortest.ID(t, 10),
+	}).project()
+
+	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3, potion: 2}, state.Cards)
+	require.Equal(t, 5, state.TotalCount())
+	require.Equal(t, &readmodel.StarterDeckSource{PresetDeckID: presetID, Revision: 4}, state.Metadata.Source)
+}
+
+func TestStarterDeck_EvolvesFromRenamed(t *testing.T) {
+	history := newStarterDeckHistory(t, uuid.New(), "炎のデッキ")
+	history.apply(&starterdeck.RenameCommand{Name: presetdecktest.Name(t, "Water デッキ"), RenamedBy: operatortest.ID(t, 10)}, deckChangedAt)
+
+	state := history.project()
+
+	require.Equal(t, "water デッキ", state.SortName)
+	require.Equal(t, "Water デッキ", state.Metadata.Name)
+	require.Equal(t, int64(2), state.Metadata.Revision)
+	require.Equal(t, deckRegisteredAt, state.Metadata.RegisteredAt)
+	require.Equal(t, deckChangedAt, state.Metadata.UpdatedAt)
+}
+
+// 差分を足して枚数を作り、0 になったカードは持たない
+func TestStarterDeck_EvolvesFromCardCountsChanged(t *testing.T) {
+	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
+	history := newStarterDeckHistory(t, uuid.New(), "炎のデッキ")
+	history.setCounts(map[presetdeck.CardRef]int{dragon: 3, potion: 2})
+	history.setCounts(map[presetdeck.CardRef]int{dragon: 0, potion: 4})
+
+	state := history.project()
+
+	require.Equal(t, map[presetdeck.CardRef]int{potion: 4}, state.Cards)
+	require.Equal(t, 4, state.TotalCount())
+	require.Equal(t, int64(3), state.Metadata.Revision)
+}
+
+// 状態は絞り込みの列と、表示の metadata の両方に持つ
+func TestStarterDeck_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
+	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	history := newStarterDeckHistory(t, uuid.New(), "炎のデッキ")
+	rules := gamerules.Defaults().Deck
+	rules.TotalCardCount = 4
+	history.apply(&starterdeck.SetCardCountsCommand{
+		Counts: map[presetdeck.CardRef]presetdeck.CardCount{dragon: presetdecktest.CardCount(t, 4)},
+		Rules:  rules, ChangedBy: operatortest.ID(t, 10),
+	}, deckChangedAt)
+	history.apply(&starterdeck.PublishCommand{Rules: rules, PublishedBy: operatortest.ID(t, 10)}, deckChangedAt)
+	published := history.project()
+	history.apply(&starterdeck.RetireCommand{RetiredBy: operatortest.ID(t, 10)}, deckChangedAt)
+	retired := history.project()
+
+	require.Equal(t, readmodel.StarterDeckStatusPublished, published.Status)
+	require.Equal(t, readmodel.StarterDeckStatusPublished, published.Metadata.Status)
+	require.Equal(t, int64(3), published.Metadata.Revision)
+	require.Equal(t, readmodel.StarterDeckStatusRetired, retired.Status)
+	require.Equal(t, readmodel.StarterDeckStatusRetired, retired.Metadata.Status)
+	require.Equal(t, int64(4), retired.Metadata.Revision)
+}
+
+func TestStarterDeck_DoesNotChangeTheGivenState(t *testing.T) {
+	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	history := newStarterDeckHistory(t, uuid.New(), "炎のデッキ")
+	history.setCounts(map[presetdeck.CardRef]int{dragon: 3})
+	before := history.project()
+	history.setCounts(map[presetdeck.CardRef]int{dragon: 1})
+
+	before.Evolve(history.events[len(history.events)-1])
+
+	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3}, before.Cards)
+}
+
+func TestStarterDeck_BecomesTerminalWhenDeleted(t *testing.T) {
+	history := newStarterDeckHistory(t, uuid.New(), "炎のデッキ")
+	history.apply(&starterdeck.DeleteCommand{DeletedBy: operatortest.ID(t, 10)}, deckChangedAt)
+
+	require.True(t, history.project().IsTerminal())
+}
+
+func TestStarterDeck_IgnoresOtherAggregateEvents(t *testing.T) {
+	state := newStarterDeckHistory(t, uuid.New(), "炎のデッキ").project()
+
+	evolved := state
+	for _, event := range registeredCreature(t, uuid.New(), "ドラゴン", deckChangedAt) {
+		evolved = evolved.Evolve(event)
+	}
+
+	require.Equal(t, state, evolved)
+}
+
+func TestNewStarterDeckStatus_RejectsUnknownValue(t *testing.T) {
+	_, err := readmodel.NewStarterDeckStatus("archived")
+
+	require.Error(t, err)
+}

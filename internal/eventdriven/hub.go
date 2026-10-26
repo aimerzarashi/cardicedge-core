@@ -23,17 +23,25 @@ type Options struct {
 	// やることの表を読む間隔。起動時と再接続時は間隔によらずすぐ読むため、間隔で拾うのは失敗した集約の試し直しと、
 	// 投影を足したとき・作り直すときに入れた行
 	PollInterval time.Duration
+	// ポリシーが失敗してから、やり直すまでの間隔。投影には使わない（投影は何度作り直しても害が無く、失敗の記録を持たない）
+	RetryInterval time.Duration
+	// ポリシーが 1 つの集約で失敗できる回数。この回数に達すると、デッドレターとしてやり直さなくなる
+	MaxFailures int
 }
 
 type Hub struct {
-	subscribers *Subscribers
-	registry    *domaindef.Registry
-	options     Options
-	loaders     map[domaindef.EntityTypeID]eventstore.EventLoader
-	projections map[int16]*registeredProjection
-	// 集約の種別 → その種別を購読する投影の id
+	// この Hub が動くサービスの購読者（コードの一覧から渡す）と、その (kind, name) から id を引く表
+	subscriberDefs []SubscriberDef
+	subscriberIDs  map[subscriberKey]int16
+	registry       *domaindef.Registry
+	options        Options
+	loaders        map[domaindef.EntityTypeID]eventstore.EventLoader
+	registered     map[int16]*registeredSubscriber
+	// 集約の種別 → その種別を購読する購読者（投影・ポリシー）の id
 	routes    map[domaindef.EntityTypeID][]int16
 	scheduler *scheduler
+	// 複数台で、1 つの単位を 1 台だけが処理するためのロック（lock.go）
+	locks unitLocks
 	// 再接続の合図。容量 1 で、待たずに送る（探している最中に何回来ても、終わった後に 1 回探すだけ）
 	pollNow chan struct{}
 	started atomic.Bool
@@ -41,31 +49,52 @@ type Hub struct {
 	wg      sync.WaitGroup
 }
 
-type registeredProjection struct {
+// 投影かポリシーのどちらか一方だけを持つ（kind で分ける）
+type registeredSubscriber struct {
+	kind          string
 	name          string
 	entityTypeIDs []domaindef.EntityTypeID
 	projection    projection
+	policy        PolicyHandleFunc
 }
 
+// subscribers は、この Hub が動くサービスの購読者（id はコードの一覧で決める。core#33）。
 // loaders は購読されうる集約ごとのイベントの読み方。購読する種別の読み方が無ければ、登録のときにエラーにする
-func NewHub(subscribers *Subscribers, registry *domaindef.Registry, options Options, loaders ...eventstore.EventLoader) (*Hub, error) {
+func NewHub(subscribers []SubscriberDef, registry *domaindef.Registry, options Options, loaders ...eventstore.EventLoader) (*Hub, error) {
 	if options.WorkerCount < 1 {
 		return nil, fmt.Errorf("eventdriven: WorkerCount must be at least 1: %d", options.WorkerCount)
 	}
 	if options.PollInterval <= 0 {
 		return nil, fmt.Errorf("eventdriven: PollInterval must be positive: %s", options.PollInterval)
 	}
+	if options.RetryInterval <= 0 {
+		return nil, fmt.Errorf("eventdriven: RetryInterval must be positive: %s", options.RetryInterval)
+	}
+	if options.MaxFailures < 1 {
+		return nil, fmt.Errorf("eventdriven: MaxFailures must be at least 1: %d", options.MaxFailures)
+	}
 	hub := &Hub{
-		subscribers: subscribers,
-		registry:    registry,
-		options:     options,
-		loaders:     make(map[domaindef.EntityTypeID]eventstore.EventLoader, len(loaders)),
-		projections: make(map[int16]*registeredProjection),
-		routes:      make(map[domaindef.EntityTypeID][]int16),
-		scheduler:   newScheduler(),
-		pollNow:     make(chan struct{}, 1),
+		subscriberDefs: subscribers,
+		subscriberIDs:  make(map[subscriberKey]int16, len(subscribers)),
+		registry:       registry,
+		options:        options,
+		loaders:        make(map[domaindef.EntityTypeID]eventstore.EventLoader, len(loaders)),
+		registered:     make(map[int16]*registeredSubscriber),
+		routes:         make(map[domaindef.EntityTypeID][]int16),
+		scheduler:      newScheduler(),
+		pollNow:        make(chan struct{}, 1),
 	}
 	var errs []error
+	ids := make(map[int16]bool, len(subscribers))
+	for _, def := range subscribers {
+		key := subscriberKey{kind: def.Kind, name: def.Name}
+		if _, ok := hub.subscriberIDs[key]; ok || ids[def.ID] {
+			errs = append(errs, fmt.Errorf("duplicate subscriber: id=%d, kind=%s, name=%s", def.ID, def.Kind, def.Name))
+			continue
+		}
+		hub.subscriberIDs[key] = def.ID
+		ids[def.ID] = true
+	}
 	for _, loader := range loaders {
 		entityTypeID, err := registry.EntityTypeID(loader.EntityType())
 		if err != nil {
@@ -84,17 +113,18 @@ func NewHub(subscribers *Subscribers, registry *domaindef.Registry, options Opti
 	return hub, nil
 }
 
-func (h *Hub) register(kind, name string, subscriptions []domain.EntityType, p projection) error {
+func (h *Hub) register(sub *registeredSubscriber, subscriptions []domain.EntityType) error {
+	kind, name := sub.kind, sub.name
 	// 動き出した後に足すと、ワーカーが routes を読むのと書き換えが重なるため
 	if h.started.Load() {
-		return fmt.Errorf("eventdriven: projection %q is registered after Start", name)
+		return fmt.Errorf("eventdriven: %s %q is registered after Start", kind, name)
 	}
-	id, err := h.subscribers.id(kind, name)
-	if err != nil {
-		return err
+	id, ok := h.subscriberIDs[subscriberKey{kind: kind, name: name}]
+	if !ok {
+		return fmt.Errorf("%w: kind=%s, name=%s", ErrSubscriberNotFound, kind, name)
 	}
-	if _, ok := h.projections[id]; ok {
-		return fmt.Errorf("eventdriven: projection %q is already registered", name)
+	if _, ok := h.registered[id]; ok {
+		return fmt.Errorf("eventdriven: %s %q is already registered", kind, name)
 	}
 	var errs []error
 	entityTypeIDs := make([]domaindef.EntityTypeID, 0, len(subscriptions))
@@ -117,31 +147,12 @@ func (h *Hub) register(kind, name string, subscriptions []domain.EntityType, p p
 		entityTypeIDs = append(entityTypeIDs, entityTypeID)
 	}
 	if err := errors.Join(errs...); err != nil {
-		return fmt.Errorf("eventdriven: projection %q: %w", name, err)
+		return fmt.Errorf("eventdriven: %s %q: %w", kind, name, err)
 	}
-	if err := h.subscribers.verifySubscriptions(id, entityTypeIDs); err != nil {
-		return fmt.Errorf("eventdriven: projection %q: %w", name, err)
-	}
-	h.projections[id] = &registeredProjection{name: name, entityTypeIDs: entityTypeIDs, projection: p}
+	sub.entityTypeIDs = entityTypeIDs
+	h.registered[id] = sub
 	for _, entityTypeID := range entityTypeIDs {
 		h.routes[entityTypeID] = append(h.routes[entityTypeID], id)
-	}
-	return nil
-}
-
-// アプリケーションの起動時に、投影をすべて登録した後に呼ぶ。event_subscribers の投影の行が、どれも登録されているかを確かめる
-// （登録されていない投影の行があると、トリガーがやることの行を入れ続け、誰も消さないため。core#20）。
-// Start の中で確かめないのは、このパッケージのテストが、テスト用の投影だけを登録して本物の購読者がある DB で動かすため
-func (h *Hub) VerifySubscribers() error {
-	var errs []error
-	for _, name := range h.subscribers.names(kindProjection) {
-		id, _ := h.subscribers.id(kindProjection, name)
-		if _, ok := h.projections[id]; !ok {
-			errs = append(errs, fmt.Errorf("event_subscribers has a projection not registered in code: %s", name))
-		}
-	}
-	if err := errors.Join(errs...); err != nil {
-		return fmt.Errorf("eventdriven: %w", err)
 	}
 	return nil
 }
@@ -189,12 +200,13 @@ func (h *Hub) Stop() {
 	h.cancel()
 	h.scheduler.close()
 	h.wg.Wait()
+	h.locks.close()
 }
 
 // ListenerHandler。Listener から呼ばれる
 func (h *Hub) HandleEvent(ref EventRef) {
 	for _, subscriberID := range h.routes[ref.EntityTypeID] {
-		h.scheduler.enqueue(projectionKey{subscriberID: subscriberID, entityTypeID: ref.EntityTypeID, entityID: ref.EntityID})
+		h.scheduler.enqueue(workKey{subscriberID: subscriberID, entityTypeID: ref.EntityTypeID, entityID: ref.EntityID})
 	}
 }
 
@@ -217,24 +229,45 @@ func (h *Hub) work(ctx context.Context) {
 }
 
 // panic も拾い、エラーと同じ扱いにする（拾わないとプロセスごと落ち、キーの印も戻らない）。
-// 失敗はログに出すだけで、次の知らせか Poller で作り直す（失敗し続けるときの扱いは core#18）
-func (h *Hub) process(ctx context.Context, key projectionKey) {
-	registered := h.projections[key.subscriberID]
+// 投影の失敗はログに出すだけで、次の知らせか Poller で作り直す。ポリシーの失敗は失敗の記録に残し、間隔と上限で扱う（policy.go）
+func (h *Hub) process(ctx context.Context, key workKey) {
+	registered := h.registered[key.subscriberID]
+	lock, acquired, err := h.locks.tryLock(ctx, key)
+	if err != nil || !acquired {
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "eventdriven: locking unit failed",
+				"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
+		}
+		h.scheduler.skip(key)
+		return
+	}
 	defer h.scheduler.done(key)
+	// 取り消された ctx でも外す（外せないと接続を捨てることになり、ほかの単位のロックまで外れるため）
+	defer func() {
+		if err := h.locks.unlock(context.WithoutCancel(ctx), lock); err != nil {
+			slog.ErrorContext(ctx, "eventdriven: unlocking unit failed",
+				"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
+		}
+	}()
 	defer func() {
 		if r := recover(); r != nil {
-			slog.ErrorContext(ctx, "eventdriven: projection panicked",
-				"projection", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID,
+			slog.ErrorContext(ctx, "eventdriven: subscriber panicked",
+				"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID,
 				"panic", r, "stack", string(debug.Stack()))
 		}
 	}()
-	if err := h.project(ctx, key, registered.projection); err != nil && ctx.Err() == nil {
-		slog.ErrorContext(ctx, "eventdriven: projection failed",
-			"projection", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
+	if registered.kind == KindPolicy {
+		err = h.runPolicy(ctx, key, registered)
+	} else {
+		err = h.project(ctx, key, registered.projection)
+	}
+	if err != nil && ctx.Err() == nil {
+		slog.ErrorContext(ctx, "eventdriven: subscriber failed",
+			"kind", registered.kind, "name", registered.name, "entity_type_id", key.entityTypeID.Int16(), "entity_id", key.entityID, "error", err)
 	}
 }
 
-func (h *Hub) project(ctx context.Context, key projectionKey, p projection) error {
+func (h *Hub) project(ctx context.Context, key workKey, p projection) error {
 	events, err := h.loaders[key.entityTypeID].LoadEvents(ctx, key.entityID)
 	if err != nil || len(events) == 0 {
 		return err

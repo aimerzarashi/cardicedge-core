@@ -19,6 +19,8 @@ make migrate # 未適用の migrations だけを Atlas で適用（DB を作り�
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
+make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばす）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -30,15 +32,18 @@ make down    # 停止して DB のデータも破棄
 | http://localhost:3333/version | バージョン情報 |
 | http://localhost:3333/health | ヘルスチェック |
 | http://localhost:3333/studio/graphql | studio 用の GraphQL（POST。studio の JWT が必須） |
+| http://localhost:3333/game/graphql | game 用の GraphQL（POST。game の JWT が必須） |
 
-PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: core）で接続できる。
+PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
+
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
 ## 他プロジェクトとの統合
 
-`make up` すると共有ネットワーク `diecardomain` に参加する（無ければ作成する）。
-game / studio は同じネットワーク経由で `http://core:3333` に接続する。core-db は参加しない。
+`make up` すると共有ネットワーク `diecardomain-game`（game 用）と `diecardomain-studio`（studio 用）の両方に参加する（無ければ作成する）。
+game / studio はそれぞれのネットワーク経由で `http://core:3333` に接続する。ネットワークを分けるのは、game が乗っ取られても studio に内部から届く経路そのものを無くすため（core#45）。core-db は参加しない。
 
 ## studio 用の GraphQL（/studio/graphql）
 
@@ -54,21 +59,35 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 
 | 環境変数 | 内容 |
 |---|---|
-| `DB_DSN` | core-db の接続先 |
+| `STUDIO_DB_DSN` / `GAME_DB_DSN` | studio 用・game 用の DB の接続先（開発・テストは同じ core-db の core_studio・core_game。別のサーバーにしてもよい） |
 | `STUDIO_JWKS_URL` | studio の JWKS（開発・テストは `http://studio-envoy:10000/api/auth/jwks`） |
 | `STUDIO_JWT_ISSUER` / `STUDIO_JWT_AUDIENCE` | studio の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-studio` / `diecardomain-core`） |
+| `GAME_JWKS_URL` | game の JWKS（開発・テストは `http://game-envoy:10000/api/auth/jwks`） |
+| `GAME_JWT_ISSUER` / `GAME_JWT_AUDIENCE` | game の `JWT_ISSUER` / `JWT_AUDIENCE` と一致させる（`diecardomain-game` / `diecardomain-core`） |
 | `STUDIO_INITIAL_OPERATOR_EMAIL` | 初期オペレーターのメールアドレス（開発・テストは `operator@example.com`）。オペレーターが 1 人もいないときだけ、起動時に登録する。本人がこのアドレスで studio にサインアップし、確認してログインすると紐づく。2 回目以降の起動では、変えても何もしない |
 
-どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。
+どれも必須で、未設定なら起動しない（既定値で動くと、別の発行元の JWT を受け付ける等の設定の誤りに気づけないため）。開発用のコンテナには、テストが使う `TEST_DB_DSN`（core_test）も渡している（core は使わない。テストが開発の core の DB に触らないよう分ける）。
 
 | 操作 | 内容 |
 |---|---|
-| `version` | core の版（GraphQL の仕様で Query が 1 つ以上要るため置く） |
 | `registerCreature` | Creature を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterCreatureSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerItem` | Item を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterItemSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
 | `registerSpell` | Spell を名前で登録し、登録後の状態（公開用の ID・名前）を返す。結果は `RegisterSpellSuccess` / `ValidationErrors`（名前が空・50 文字を超える）/ `CardNameAlreadyInUseError` / `ForbiddenError` |
+| `publishCard` | カード（Creature・Item・Spell のどれか。公開用の ID で指す）を公開中にする。準備中・使用不可から移れ、公開中にもう一度しても変わらない（revision も進まない）。結果は `PublishCardSuccess`（id・新しい revision）/ `CardNotFoundError` / `RevisionConflictError` / `InvalidCardStatusTransitionError` / `ForbiddenError` |
+| `retireCard` | カードを使用不可にする。公開中から移れ、使用不可にもう一度しても変わらない。準備中からはできない。結果は `RetireCardSuccess` / `CardNotFoundError` / `RevisionConflictError` / `InvalidCardStatusTransitionError` / `ForbiddenError` |
+| `starterDecks`（クエリ） | スターターデッキの一覧（名前の順。`filter.nameContains`・`filter.statuses` で絞り込み、`first`・`after` でページ分け）。結果は `StarterDeckConnection` / `ValidationErrors` / `ForbiddenError` |
+| `starterDeck`（クエリ） | スターターデッキの詳細（公開用の ID で指す。名前・状態・カードと枚数・合計・写し元・revision 等）。結果は `StarterDeck` / `StarterDeckNotFoundError` / `ForbiddenError` |
+| `registerStarterDeck` | スターターデッキを名前だけで登録する（空のカードで、準備中）。結果は `RegisterStarterDeckSuccess`（id・revision）/ `ValidationErrors` / `StarterDeckNameAlreadyInUseError` / `ForbiddenError` |
+| `registerStarterDeckFromPresetDeck` | プリセットデッキ（公開用の ID で指す）から名前・カードと枚数を写して、スターターデッキを登録する（準備中）。結果は `RegisterStarterDeckFromPresetDeckSuccess`（id・revision）/ `PresetDeckNotFoundError` / `StarterDeckNameAlreadyInUseError` / `ForbiddenError` |
+| `renameStarterDeck` | 準備中のスターターデッキの名前を変える。結果は `RenameStarterDeckSuccess`（id・新しい revision）/ `ValidationErrors` / `StarterDeckNotFoundError` / `StarterDeckNameAlreadyInUseError` / `StarterDeckNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `setStarterDeckCardCounts` | 準備中のスターターデッキのカードの枚数を変える（一覧のどれか 1 つでも誤りがあれば何も変えない）。結果は `SetStarterDeckCardCountsSuccess` / `ValidationErrors` / `StarterDeckNotFoundError` / `StarterDeckNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `deleteStarterDeck` | 準備中のスターターデッキを削除する（名前はほかのスターターデッキが使えるようになる）。結果は `DeleteStarterDeckSuccess`（id）/ `StarterDeckNotFoundError` / `StarterDeckNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `publishStarterDeck` | スターターデッキを公開中にする（準備中・使用不可から。すでに公開中なら変わらない）。合計がちょうど決まった枚数でない・入っているカードに公開中でないものがある場合は `ValidationErrors`（項目 `cards`）。結果は `PublishStarterDeckSuccess` / `ValidationErrors` / `StarterDeckNotFoundError` / `StarterDeckLimitReachedError`（公開中の数の上限。`max` を持つ）/ `RevisionConflictError` / `ForbiddenError` |
+| `retireStarterDeck` | スターターデッキを使用不可にする（公開中から。すでに使用不可なら変わらない。新しいプレイヤーには配らない）。結果は `RetireStarterDeckSuccess` / `StarterDeckNotFoundError` / `InvalidStarterDeckStatusTransitionError` / `RevisionConflictError` / `ForbiddenError` |
 
-スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = <操作>Success | エラー型` の union で返し、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
+カードは状態（`CardStatus`: 準備中 `DRAFT`・公開中 `PUBLISHED`・使用不可 `RETIRED`）を持ち、登録したときは準備中。準備中は自由に変えられ、プリセットデッキに入れられず、`make publish-master` で game に写さない。公開中はプリセットデッキに入れられ、game に写す。使用不可は新しくプリセットデッキに入れられないが、プレイヤーが持っているので game には写す。`cards` の一覧は `filter.statuses` で状態を絞り込め、`Card.status`・`Card.revision` を返す。プリセットデッキに新しく入れる・枚数を増やすカードが公開中でなければ、`setPresetDeckCardCounts` は `FieldUnavailable`（入力の誤り）を返す。すでに入っているカードは、使用不可になっても残せる。
+
+スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union で返し（成功の型は、ミューテーションは `<操作>Success` で包み、クエリは問い合わせたもの。1 件なら対象の型、一覧なら 1 ページの `XxxConnection`）、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
 - **層の分担**: presentation 層（GraphQL）は application 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。application 層が窓口になり、素の値を受け取ってドメインの型に変え、application 層の結果の型とエラーを返す（ドメインを変えても presentation 層に及ばないように。参照の api は application 層が GraphQL の型を受け渡していたが、そうしない）
 - **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。application 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、application 層のコマンドが context から取り出す
@@ -76,26 +95,44 @@ game / studio は同じネットワーク経由で `http://core:3333` に接続�
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
+- **数の上限の制約**: 一意性・参照と並ぶ 3 つ目の制約の表 domain_quotas（上限の種別 × 持ち主ごとに使っている数）と domain_quota_types（core#39）。デッキは 1 人にゲーム全体のルール（`game_rules`）の `player.max_decks`（既定は 10 個）まで（種別 `deck.per_player`）、アバターは 1 人に `player.max_avatars`（既定は 5 体）まで（種別 `avatar.per_player`）。確保は作るコマンドと同じトランザクションの 1 つの文（`INSERT ... ON CONFLICT DO UPDATE SET used = used + 1 WHERE used < 上限 RETURNING`）で、上限なら行が返らず `ErrLimitReached` とする（エラーにせず、トランザクションも中断しない）。同時に取り合っても DB が同じ行を順番に更新するので上限を超えず、流し直しは要らない。上限の値は表にも CHECK にも持たず文に渡す（下限の 0 以上だけ CHECK）。使っている数はイベントから作り直せない、書く側の整合性のための記録。上限の値は game の `application/rules` が、写した `game_rules` から読んで返す（まだ写されていなければ、既定の値には戻さずエラー。調整は core#23）。デッキの名前は持ち主ごとに一意（`deck.name`）で、比べ方は `domain.NormalizeName`（カード名・プリセットデッキと同じ）。中身は確認用の VIEW `domain_quota_view` で読める
+
+## game 用の GraphQL（/game/graphql）
+
+スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`・`registerAvatar`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
+
+- **registerPlayer**（ミューテーション）: JWT の (iss, sub) のプレイヤーを登録し、公開 ID（`player { id }`）を返す。何度呼んでも、プレイヤーは (iss, sub) ごとに 1 人だけで、登録済みなら何も作らず同じ形（同じ id）で返す。同時に呼ばれても 1 人だけ
+- **me**（クエリ）: 自分のプレイヤーを返す。`starterGrant` は read model `players` から読み、行がまだ無い（投影の遅れ）・配布が始まっていないときも `IN_PROGRESS`（画面にとっては「まだ届いていない」と同じ）。`registerPlayer` の結果の `player` からも取れる。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す。`avatars` は自分のアバターを作った順に返す（read model `avatars` から読む。上限があるので、ページ分けしないリスト。作った直後は投影の遅れで、まだ出ないことがある）
+- **registerAvatar**（ミューテーション）: ログイン中のプレイヤーのアバターを名前（`input.name`）で作り、作ったアバター（`avatar { id name }`）を返す。結果は `RegisterAvatarSuccess` / `ValidationErrors`（名前が空 `FieldRequired`・20 文字を超える `FieldTooLong{max}`）/ `AvatarNameAlreadyInUseError`（同じプレイヤーの別のアバターが同じ名前。比べ方は `domain.NormalizeName`。ほかのプレイヤーとは同じ名前でよい）/ `AvatarLimitReachedError`（1 人 5 体まで。`max` に上限の値を持つ）/ `PlayerNotRegisteredError`（未登録）。上限は `game_rules` の `player.max_avatars`（種別 `avatar.per_player`）で、写されていなければ作れない。名前の変更・削除はまだ無い
+- **認可**: 登録済みのプレイヤーが要る操作（`registerAvatar` 等）は、resolver の最初に登録済みかを確かめ（`requirePlayer`）、未登録なら `PlayerNotRegisteredError` を返す
+- **入力の誤り**: studio 用と同じ形（application 層が `input.Errors`（internal/service/game/application/input）を返し、resolver が `ValidationErrors` に写す）。理由は game で要るもの（`Required`・`TooLong`）から足す
+
+- **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
+- **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）
+- **DB**: game の入口の操作は、game 用の DB（core_game）だけを読み書きする（core#33）
+- **ゲーム全体のルール**: デッキの合計の枚数・同じカードの枚数・持てる数の上限など、運営が決める全体の値は、1 つの集約 `game_rules`（studio のサービス。一意な key `game_rules.singleton` でゲーム全体に 1 つ）が持つ（core#43）。値は値オブジェクト `gamerules.Rules`（internal/domain/gamerules。何の決まりかで `player`・`deck`（デッキに共通）・`starter_deck` に分け、JSON はスネークケース）で、studio と game が同じ型を使う。studio が起動時に既定の値で作る（あれば何もしない。複数台で先を越されても成功）。値の変更の操作はまだ無い（core#23）。studio は集約をイベントストアで読んで確かめる（投影の遅れで古い値を見ないため）。game は read model `game_rules` を `make publish-master` で写したものを読み、写されていなければ既定の値に黙って戻さずエラー（配布のポリシーでは、写されれば直る失敗）。カード名・デッキ名の長さは値の形の決まりとして `game_rules` に入れない
+- **スターターの配布**: プレイヤーを登録すると、それをきっかけにポリシー（`starter_grant`）が、公開済みのマスタ（`make publish-master`）から所持カードとデッキ 2 つを配る。マスタが未公開のあいだは、間隔を空けてやり直し、公開されたら配られる。所持カードはカードごとに 2 つのデッキのうち多いほうの枚数。配布の状態は `me` の `Player.starterGrant`（`IN_PROGRESS`・`COMPLETED`）で返す
+- **プレイヤーの特定**: JWT が正しければ、プレイヤーに登録されていなくても拒否しない（初めての `registerPlayer` が登録するため）。誰のプレイヤーかは入力ではなく JWT の (iss, sub) だけで決める
 
 ## イベントストア
 
 DDD + CQRS + Event Sourcing（設計メモ）。参照プロジェクトの api の形に、設計メモの 6 節の修正点を反映し、さらに次の点を変えた（#7）。
 
 - 種別のレジストリ（`domaindef.Registry`）はパッケージの変数にせず、起動時に読み込んで `identifier`・`eventstore` に渡す
-- 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。起動時に `Registry.Verify` で DB（マイグレーション）と照合し、食い違えば起動しない
+- 種別名・イベント名は、型が宣言する（ID の `EntityType()`、イベントの `EventType()`）。種別の id と名前はコードの一覧（`domaindef.Types`）が決め、起動時に DB ごとに `domaindef.Sync` で足してから、`Registry.Verify...` で照合し、食い違えば起動しない（core#33）
 - イベントのスキーマの版は、イベントの型が宣言する（`SchemaVersion()`）。読み込み時は保存された版を `Unmarshal` に渡す
-- 集約を足したら: 種別とイベント種別のマイグレーションを足し（`make migrate-hash`・`make migrate`・`make gen-orm`）、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す
+- 集約を足したら: 種別の一覧（`domaindef.Types`）にその集約とイベントを足し、起動時の `Verify` と `domaindef` のテストにその集約の `Types()` を足す（表が要るときは、マイグレーションも足して `make migrate-hash`・`make migrate`・`make gen-orm`）
 
 中身を確かめるときは、種別の id を名前に展開した確認用の VIEW（`domain_entity_view`・`domain_event_view`・`domain_event_type_view`）を使う（アプリからは使わない）。
 
-テストで DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、開発用の DB に触るかがわかるように）。
+テストは `TEST_DB_DSN` のサーバーだけを使い、開発の core の DB（core_studio・core_game）には触らない（core#33）。DB を使うときは、パッケージごとにどちらか一方にそろえる（パッケージを見れば、共有の core_test に触るかがわかるように）。
 
-- `rdbtest.Tx`: 開発用の DB で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
+- `rdbtest.Tx`: 共有の core_test で、テストの終わりに rollback する。1 つのトランザクションで済むパッケージ（domaindef・constraint・eventstore 等）
 - `rdbtest.NewDatabase`: テンプレートの DB（`core_template`）から自分だけの DB を複製する（テストの終わりに消える）。commit するパッケージ（同時実行・HTTP のリクエスト・イベント駆動）と、ほかのデータが無いことを前提にするパッケージ（studio/app/command・studio/infrastructure/repository・eventdriven・platform/rdb）
 
-開発用の DB に commit すると、開発用の core の Hub がそれを投影して read model に行が残るため、commit する道具（`Open`）は外に出さない。
+共有の core_test に commit すると行が残り、ほかのテストの前提を崩すため、commit する道具（`Open`）は外に出さない。
 
-結合テスト（tests/integration）は、`TestMain` で `rdbtest.CloneDatabase` により DB を 1 つ複製し、`internal/wiring` で組み立てたアプリ（Hub を含む）と共有して並列に流す。テンプレートは `make test`（`migrate-template`）と CI が、`tools/createdb` で作ってマイグレーションを流しておく。テストの種類と DB の使い分けの議論は core#9。
+結合テスト（tests/integration）は、`TestMain` で `rdbtest.CloneDatabase` により studio 用・game 用の DB を複製し、`internal/wiring` で組み立てたアプリ（Hub を含む）と共有して並列に流す。core_test とテンプレートは `make test`（`migrate-template`）と CI が、`tools/createdb` で作ってマイグレーションと種別（`tools/synctypes`）を流しておく。テストの種類と DB の使い分けの議論は core#9。
 
 ## テスト用環境（compose.test.yaml）
 
@@ -154,6 +191,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 |---|---|
 | `migrations/NNNN_name.sql` | PostgreSQL の SQL（手で書く） |
 | `migrations/atlas.sum` | Atlas が作るハッシュの一覧。SQL と一緒にコミットする |
+| `migrations/BASELINE` | 並びをどの作り直しから始めたかの印（1 行目）。`scripts/check-migrations.sh` が読む |
 | `local/migrate/Dockerfile`・`atlas.hcl` | マイグレーション用イメージ（Atlas + migrations）。DB の接続先は実行時に `DATABASE_URL` で渡す |
 
 ### 追加の手順
@@ -166,7 +204,9 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 ### 決まり
 
 - ファイル名は `NNNN_name.sql`（番号は 4 桁の数字、名前は小文字・数字・`_`）。Atlas は最初の `_` までを番号として読む
+- 表の作り（DDL）だけを書き、studio 用・game 用の両方の DB に同じものを流す。種別・購読者の行は入れない（コードの一覧から、core が起動時に入れる。core#33）
 - 追加のみ。down は無い。誤りは新しいマイグレーションで直す。適用済みのファイルは変更・削除・改名しない
+- 例外として、リリース前（本番の DB ができる前）に限り、並びを作り直してよい。作り直したら `migrations/BASELINE` の 1 行目を書き換える（`check-migrations.sh` は比較元とこの行が違えば比べ合わせを飛ばす）
 - マージで `atlas.sum` が衝突したら、自分のファイルの番号を付け直して `make migrate-hash` し直す
 - トランザクション内で実行できない文（`CREATE INDEX CONCURRENTLY` 等）は、ファイルの先頭に `-- atlas:txmode none` を書き、**直後に空行を入れる**（空行が無いと指示が無視され、トランザクション内で実行されて失敗する）
 
@@ -199,7 +239,7 @@ Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも�
 
 | 環境 | 実行方法 |
 |---|---|
-| 開発（compose.yaml） | core-migrate サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate` |
-| テスト用（compose.test.yaml） | core-migrate サービス（マイグレーション用イメージ） |
+| 開発（compose.yaml） | core-migrate-studio・core-migrate-game サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate`（種別の行も入れる） |
+| テスト用（compose.test.yaml） | core-migrate-studio・core-migrate-game サービス（マイグレーション用イメージ） |
 | CI | test ジョブで Atlas（v1.3.3）を取得し、適用してから go test |
-| リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に `DATABASE_URL` を渡してジョブとして実行する |
+| リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に、studio 用・game 用の DB それぞれの `DATABASE_URL` を渡してジョブとして実行する |

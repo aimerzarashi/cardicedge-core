@@ -49,8 +49,8 @@ func (h *Hub) enqueuePending(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	subscriberIDs := make([]int64, 0, len(h.projections))
-	for id := range h.projections {
+	subscriberIDs := make([]int64, 0, len(h.registered))
+	for id := range h.registered {
 		subscriberIDs = append(subscriberIDs, int64(id))
 	}
 	rows, err := exec.QueryContext(ctx, findPendingQuery, pq.Array(subscriberIDs))
@@ -64,7 +64,7 @@ func (h *Hub) enqueuePending(ctx context.Context) error {
 		if err := rows.Scan(&subscriberID, &entityTypeID, &entityID); err != nil {
 			return err
 		}
-		h.scheduler.enqueue(projectionKey{subscriberID: subscriberID, entityTypeID: domaindef.NewEntityTypeID(entityTypeID), entityID: entityID})
+		h.scheduler.enqueue(workKey{subscriberID: subscriberID, entityTypeID: domaindef.NewEntityTypeID(entityTypeID), entityID: entityID})
 	}
 	return rows.Err()
 }

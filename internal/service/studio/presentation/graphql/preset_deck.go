@@ -37,7 +37,7 @@ func toPresetDeckConnection(connection pagination.Connection[query.PresetDeck]) 
 	return &model.PresetDeckConnection{Edges: edges, PageInfo: pageInfo}
 }
 
-func toCardCountInputs(cards []*model.PresetDeckCardCountInput) []command.CardCountInput {
+func toCardCountInputs(cards []*model.DeckCardCountInput) []command.CardCountInput {
 	inputs := make([]command.CardCountInput, 0, len(cards))
 	for _, card := range cards {
 		inputs = append(inputs, command.CardCountInput{CardID: card.CardID, Count: card.Count})

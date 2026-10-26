@@ -33,6 +33,11 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if !ok {
 			return nil, ErrInvalidState
 		}
+		for _, count := range c.Counts {
+			if count.Int() > c.Rules.MaxCardDuplicates {
+				return nil, ErrCardCountOutOfRange
+			}
+		}
 		changes := cardCountChanges(deck, c.Counts)
 		if len(changes) == 0 {
 			return nil, nil
@@ -41,7 +46,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		for _, change := range changes {
 			total += change.Delta
 		}
-		if total > MaxTotalCount {
+		if total > c.Rules.TotalCardCount {
 			return nil, ErrTotalCountTooLarge
 		}
 		return []Event{&CardCountsChangedEvent{EventMeta: nextMeta(deck, now), Changes: changes, ChangedBy: c.ChangedBy}}, nil

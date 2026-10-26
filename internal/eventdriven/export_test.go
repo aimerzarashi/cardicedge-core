@@ -9,8 +9,8 @@ import (
 
 // 登録した投影に、イベントの並びを当てて書かせる。Hub が知らせを受けて投影する流れはまだ無いため、テストから直接呼ぶ
 func Project(ctx context.Context, hub *Hub, name string, events []eventstore.LoadedEvent) error {
-	for _, registered := range hub.projections {
-		if registered.name == name {
+	for _, registered := range hub.registered {
+		if registered.name == name && registered.projection != nil {
 			return registered.projection.project(ctx, events)
 		}
 	}
