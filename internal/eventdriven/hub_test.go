@@ -421,3 +421,46 @@ func (f hubFixture) addPending(t *testing.T, entityID int64) {
 		`INSERT INTO event_subscriber_pending (subscriber_id, entity_type_id, entity_id, version) VALUES (1, 1000, $1, 1)`, entityID)
 	require.NoError(t, err)
 }
+
+// README の「作り直す手順」の SQL を流すと、すでに作ってある集約も、すべてのイベントから作り直す
+func TestHub_ReprojectsAllAggregatesByRebuildProcedure(t *testing.T) {
+	f := newHubFixture(t, eventdriven.Options{WorkerCount: 1, PollInterval: 20 * time.Millisecond, RetryInterval: time.Minute, MaxFailures: 10})
+	f.start(t)
+	first := f.register(t)
+	second := f.register(t)
+	f.link(t, second)
+	projected := map[int64]countingReadModel{}
+	for len(projected) < 2 || projected[second.Int64()].Applied < 2 {
+		state := f.recorder.next(t)
+		projected[state.EntityID] = state
+	}
+	// recorder は read model を書く時点（commit の前）で受け取るため、やることの表が空になる（commit した）のを待ってから流す
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var pending int
+		assert.NoError(c, f.db.QueryRowContext(f.ctx, `SELECT count(*) FROM event_subscriber_pending`).Scan(&pending))
+		assert.Zero(c, pending)
+	}, receiveTimeout, 10*time.Millisecond)
+
+	tx, err := f.db.BeginTx(f.ctx, nil)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(f.ctx, `DELETE FROM event_subscriber_checkpoints WHERE subscriber_id = $1`, testSubscribers[0].ID)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(f.ctx, `
+		INSERT INTO event_subscriber_pending (subscriber_id, entity_type_id, entity_id, version)
+		SELECT $1, e.entity_type_id, e.entity_id, max(e.aggregate_version)
+		FROM domain_events e
+		JOIN event_subscriptions s ON s.subscriber_id = $1 AND s.entity_type_id = e.entity_type_id
+		GROUP BY e.entity_type_id, e.entity_id
+		ON CONFLICT (subscriber_id, entity_type_id, entity_id) DO UPDATE
+		SET version = GREATEST(event_subscriber_pending.version, EXCLUDED.version)`, testSubscribers[0].ID)
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit())
+
+	rebuilt := map[int64]countingReadModel{}
+	for len(rebuilt) < 2 {
+		state := f.recorder.next(t)
+		rebuilt[state.EntityID] = state
+	}
+	assert.Equal(t, countingReadModel{EntityID: first.Int64(), Applied: 1}, rebuilt[first.Int64()])
+	assert.Equal(t, countingReadModel{EntityID: second.Int64(), Applied: 2}, rebuilt[second.Int64()])
+}

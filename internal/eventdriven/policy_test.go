@@ -355,3 +355,29 @@ func TestNewHub_RejectsInvalidPolicyOptions(t *testing.T) {
 		})
 	}
 }
+
+// 途中まで処理して止まった後、別の Hub（再起動した core）が続きから処理する。処理済みのイベントは渡し直さず、
+// 止まっている間に来たイベントは版の順に渡す
+func TestPolicy_ResumesAfterRestartWithoutDuplicatesOrGaps(t *testing.T) {
+	policy := newFakePolicy()
+	options := policyOptions(time.Minute, 10)
+	f := newPolicyFixture(t, options, policy, nil)
+	f.sync(t)
+	f.start(t)
+	id := f.register(t)
+	assert.Equal(t, attempt{entityID: id.Int64(), version: 1, checkpoint: 0}, withoutTime(policy.next(t)))
+	f.waitPolicyCheckpoint(t, id, 1)
+
+	f.hub.Stop()
+	f.link(t, id)
+	f.startAnotherPolicyHub(t, options, policy)
+
+	assert.Equal(t, attempt{entityID: id.Int64(), version: 2, checkpoint: 1}, withoutTime(policy.next(t)))
+	f.waitPolicyCheckpoint(t, id, 2)
+	f.waitPendingRemoved(t, id)
+	select {
+	case extra := <-policy.attempts:
+		t.Fatalf("handled more than once: %+v", extra)
+	default:
+	}
+}
