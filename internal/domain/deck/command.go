@@ -10,12 +10,12 @@ type Command interface {
 }
 
 type CreateCommand struct {
-	ID     ID
-	Owner  player.ID
-	Name   Name
-	Cards  []startergrant.CardCount
-	Grant  startergrant.ID
-	Number startergrant.DeckNumber
+	ID           ID
+	Player       player.ID
+	Name         Name
+	Cards        []startergrant.CardCount
+	StarterGrant startergrant.ID
+	Number       startergrant.DeckNumber
 }
 
 func (*CreateCommand) isDeckCommand() {}

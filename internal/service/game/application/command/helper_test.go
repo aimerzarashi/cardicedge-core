@@ -95,7 +95,7 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 	return command.NewCollectionHandler(
 		eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 		identifier.New(registry, collection.NewID),
-		constraint.UpdateCollectionOwner,
+		constraint.UpdateCollectionPlayer,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
@@ -147,9 +147,9 @@ func loadStarterGrant(t *testing.T, ctx context.Context, playerID int64) starter
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	owner, err := player.NewID(playerID)
+	grantPlayer, err := player.NewID(playerID)
 	require.NoError(t, err)
-	id, err := startergrant.NewID(constrainttest.Owner(t, ctx, startergrant.PlayerKey(owner)))
+	id, err := startergrant.NewID(constrainttest.Owner(t, ctx, startergrant.PlayerKey(grantPlayer)))
 	require.NoError(t, err)
 	state, err := eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve).Load(ctx, id)
 	require.NoError(t, err)

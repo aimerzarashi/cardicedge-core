@@ -20,12 +20,12 @@ func (f fixture) issueDeck(t *testing.T) deck.ID {
 
 func TestUpdateDeckStarter_RejectsSameNumberOfSameGrantOnly(t *testing.T) {
 	f := setup(t)
-	grant := f.issueStarterGrant(t)
-	require.NoError(t, constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), grant, startergranttest.DeckNumber(t, 1)))
+	starterGrantID := f.issueStarterGrant(t)
+	require.NoError(t, constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), starterGrantID, startergranttest.DeckNumber(t, 1)))
 
-	require.NoError(t, constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), grant, startergranttest.DeckNumber(t, 2)))
+	require.NoError(t, constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), starterGrantID, startergranttest.DeckNumber(t, 2)))
 	require.NoError(t, constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), f.issueStarterGrant(t), startergranttest.DeckNumber(t, 1)))
-	err := constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), grant, startergranttest.DeckNumber(t, 1))
+	err := constraint.UpdateDeckStarter(f.ctx, f.issueDeck(t), starterGrantID, startergranttest.DeckNumber(t, 1))
 
 	require.ErrorIs(t, err, deck.ErrAlreadyCreated)
 }

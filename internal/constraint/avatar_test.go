@@ -24,10 +24,10 @@ func (f fixture) issueAvatar(t *testing.T) avatar.ID {
 
 func TestUpdateAvatarName_RejectsSameNormalizedNameOfSameOwnerOnly(t *testing.T) {
 	f := setup(t)
-	owner := f.issuePlayer(t)
-	require.NoError(t, constraint.UpdateAvatarName(f.ctx, f.issueAvatar(t), owner, avatartest.Name(t, "ABC")))
+	playerID := f.issuePlayer(t)
+	require.NoError(t, constraint.UpdateAvatarName(f.ctx, f.issueAvatar(t), playerID, avatartest.Name(t, "ABC")))
 
-	err := constraint.UpdateAvatarName(f.ctx, f.issueAvatar(t), owner, avatartest.Name(t, " ａｂｃ"))
+	err := constraint.UpdateAvatarName(f.ctx, f.issueAvatar(t), playerID, avatartest.Name(t, " ａｂｃ"))
 
 	require.ErrorIs(t, err, avatar.ErrNameAlreadyInUse)
 	require.NoError(t, constraint.UpdateAvatarName(f.ctx, f.issueAvatar(t), f.issuePlayer(t), avatartest.Name(t, "ABC")))
@@ -35,13 +35,13 @@ func TestUpdateAvatarName_RejectsSameNormalizedNameOfSameOwnerOnly(t *testing.T)
 
 func TestReserveAvatarQuota_ReservesUpToLimitThenReportsLimitReached(t *testing.T) {
 	f := setup(t)
-	owner := f.issuePlayer(t)
+	playerID := f.issuePlayer(t)
 	limit := quotaLimit(t, 3)
 	for range 3 {
-		require.NoError(t, constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(owner), limit))
+		require.NoError(t, constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(playerID), limit))
 	}
 
-	err := constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(owner), limit)
+	err := constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(playerID), limit)
 
 	require.ErrorIs(t, err, avatar.ErrLimitReached)
 }
@@ -49,11 +49,11 @@ func TestReserveAvatarQuota_ReservesUpToLimitThenReportsLimitReached(t *testing.
 // アバターの数は、デッキの数とは別の種別で数える
 func TestReserveAvatarQuota_CountsSeparatelyFromDecks(t *testing.T) {
 	f := setup(t)
-	owner := f.issuePlayer(t)
+	playerID := f.issuePlayer(t)
 	limit := quotaLimit(t, 1)
-	require.NoError(t, constraint.ReserveDeckQuota(f.ctx, deck.PlayerQuota(owner), limit))
+	require.NoError(t, constraint.ReserveDeckQuota(f.ctx, deck.PlayerQuota(playerID), limit))
 
-	require.NoError(t, constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(owner), limit))
+	require.NoError(t, constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(playerID), limit))
 }
 
 func TestReserveAvatarQuota_CountsPerOwner(t *testing.T) {
@@ -67,7 +67,7 @@ func TestReserveAvatarQuota_CountsPerOwner(t *testing.T) {
 
 func TestReserveAvatarQuota_DoesNotExceedLimitWhenReservedConcurrently(t *testing.T) {
 	f := isolatedSetup(t)
-	owner := f.issuePlayer(t)
+	playerID := f.issuePlayer(t)
 	limit := quotaLimit(t, 5)
 	var succeeded, reached atomic.Int32
 	var wg sync.WaitGroup
@@ -75,7 +75,7 @@ func TestReserveAvatarQuota_DoesNotExceedLimitWhenReservedConcurrently(t *testin
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(owner), limit)
+			err := constraint.ReserveAvatarQuota(f.ctx, avatar.PlayerQuota(playerID), limit)
 			switch {
 			case err == nil:
 				succeeded.Add(1)

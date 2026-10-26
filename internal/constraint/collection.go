@@ -7,8 +7,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
-var _ collection.UpdateOwnerFunc = UpdateCollectionOwner
+var _ collection.UpdatePlayerFunc = UpdateCollectionPlayer
 
-func UpdateCollectionOwner(ctx context.Context, id collection.ID, owner player.ID) error {
-	return updateUniqueKey(ctx, id.Int64(), collection.OwnerKey(owner), collection.ErrAlreadyCreated)
+func UpdateCollectionPlayer(ctx context.Context, id collection.ID, playerID player.ID) error {
+	return updateUniqueKey(ctx, id.Int64(), collection.PlayerKey(playerID), collection.ErrAlreadyCreated)
 }

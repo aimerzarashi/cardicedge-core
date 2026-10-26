@@ -72,7 +72,7 @@ var Types = Catalog{
 		{ID: 1003, Name: "preset_deck.name"},
 		{ID: 1005, Name: "player.subject"},
 		{ID: 1006, Name: "starter_grant.player"},
-		{ID: 1007, Name: "collection.owner"},
+		{ID: 1007, Name: "collection.player"},
 		{ID: 1008, Name: "deck.starter"},
 		{ID: 1009, Name: "deck.name"},
 		{ID: 1010, Name: "game_rules.singleton"},

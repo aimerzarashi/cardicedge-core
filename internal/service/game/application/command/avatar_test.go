@@ -37,9 +37,9 @@ func reservedAvatars(t *testing.T, ctx context.Context) int {
 
 func TestRegisterAvatar_CreatesAvatarOfPlayerWithName(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	player := registeredPlayer(t, ctx, "user-1")
+	playerCtx := registeredPlayer(t, ctx, "user-1")
 
-	registered, err := newAvatarHandlerWithMax(t, ctx, 5).Register(player, " アリス ")
+	registered, err := newAvatarHandlerWithMax(t, ctx, 5).Register(playerCtx, " アリス ")
 
 	require.NoError(t, err)
 	require.Equal(t, "アリス", registered.Name)
@@ -69,9 +69,9 @@ func TestRegisterAvatar_RejectsInvalidName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := isolatedDatabase(t)
-			player := registeredPlayer(t, ctx, "user-1")
+			playerCtx := registeredPlayer(t, ctx, "user-1")
 
-			_, err := newAvatarHandlerWithMax(t, ctx, 5).Register(player, tt.value)
+			_, err := newAvatarHandlerWithMax(t, ctx, 5).Register(playerCtx, tt.value)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -84,12 +84,12 @@ func TestRegisterAvatar_RejectsInvalidName(t *testing.T) {
 
 func TestRegisterAvatar_RejectsSameNameOfSamePlayer(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	player := registeredPlayer(t, ctx, "user-1")
+	playerCtx := registeredPlayer(t, ctx, "user-1")
 	handler := newAvatarHandlerWithMax(t, ctx, 5)
-	_, err := handler.Register(player, "アリス")
+	_, err := handler.Register(playerCtx, "アリス")
 	require.NoError(t, err)
 
-	_, err = handler.Register(player, " アリス ")
+	_, err = handler.Register(playerCtx, " アリス ")
 
 	require.ErrorIs(t, err, command.ErrAvatarNameAlreadyInUse)
 	require.Equal(t, 1, countEventsOf(t, ctx, avatarTypeID))
@@ -111,14 +111,14 @@ func TestRegisterAvatar_AllowsSameNameOfOtherPlayer(t *testing.T) {
 
 func TestRegisterAvatar_RejectsAvatarOverLimitWithMax(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	player := registeredPlayer(t, ctx, "user-1")
+	playerCtx := registeredPlayer(t, ctx, "user-1")
 	handler := newAvatarHandlerWithMax(t, ctx, 2)
 	for _, name := range []string{"一", "二"} {
-		_, err := handler.Register(player, name)
+		_, err := handler.Register(playerCtx, name)
 		require.NoError(t, err)
 	}
 
-	_, err := handler.Register(player, "三")
+	_, err := handler.Register(playerCtx, "三")
 
 	require.ErrorIs(t, err, command.ErrAvatarLimitReached)
 	var limitReached *command.LimitReachedError
@@ -144,7 +144,7 @@ func TestRegisterAvatar_CountsLimitPerPlayer(t *testing.T) {
 
 func TestRegisterAvatar_DoesNotExceedLimitWhenCalledConcurrently(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	player := registeredPlayer(t, ctx, "user-1")
+	playerCtx := registeredPlayer(t, ctx, "user-1")
 	handler := newAvatarHandlerWithMax(t, ctx, 3)
 
 	const callers = 12
@@ -152,7 +152,7 @@ func TestRegisterAvatar_DoesNotExceedLimitWhenCalledConcurrently(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range callers {
 		wg.Go(func() {
-			_, err := handler.Register(player, string(rune('あ'+i)))
+			_, err := handler.Register(playerCtx, string(rune('あ'+i)))
 			switch {
 			case err == nil:
 				succeeded.Add(1)
@@ -183,12 +183,12 @@ func TestRegisterAvatar_RejectsPlayerNotRegistered(t *testing.T) {
 // 写されていないルールの代わりに既定の値で作らない。何も残さない
 func TestRegisterAvatar_RejectsWhenRulesNotPublished(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	player := registeredPlayer(t, ctx, "user-1")
+	playerCtx := registeredPlayer(t, ctx, "user-1")
 	handler := newAvatarHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
 		return gamerules.Rules{}, false, nil
 	})
 
-	_, err := handler.Register(player, "アリス")
+	_, err := handler.Register(playerCtx, "アリス")
 
 	require.ErrorIs(t, err, rules.ErrNotPublished)
 	require.Zero(t, countEventsOf(t, ctx, avatarTypeID))

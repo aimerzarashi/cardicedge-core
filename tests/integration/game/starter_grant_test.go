@@ -36,12 +36,12 @@ const starterGrantCompletedQuery = `
 	)
 `
 
-func waitStarterGrantCompleted(t *testing.T, db *sql.DB, owner player.ID) {
+func waitStarterGrantCompleted(t *testing.T, db *sql.DB, playerID player.ID) {
 	t.Helper()
 	ctx := rdb.WithDB(t.Context(), db)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		var completed bool
-		err := db.QueryRowContext(ctx, starterGrantCompletedQuery, startergrant.PlayerKey(owner).Value()).Scan(&completed)
+		err := db.QueryRowContext(ctx, starterGrantCompletedQuery, startergrant.PlayerKey(playerID).Value()).Scan(&completed)
 		assert.NoError(c, err)
 		assert.True(c, completed)
 	})
@@ -59,19 +59,19 @@ func resolvePlayer(t *testing.T, db *sql.DB, publicID string) player.ID {
 }
 
 // 配られた所持カードとデッキ 2 つ（公開中のスターターデッキだけ）が、マスタの中身どおりか確かめる
-func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, owner player.ID) {
+func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID player.ID) {
 	t.Helper()
 	ctx := rdb.WithDB(t.Context(), db)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 
-	grantID, err := startergrant.NewID(constrainttest.Owner(t, ctx, startergrant.PlayerKey(owner)))
+	grantID, err := startergrant.NewID(constrainttest.Owner(t, ctx, startergrant.PlayerKey(playerID)))
 	require.NoError(t, err)
 	grant, err := eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve).Load(ctx, grantID)
 	require.NoError(t, err)
 	require.IsType(t, startergrant.CompletedStarterGrant{}, grant)
 
-	collectionID, err := collection.NewID(constrainttest.Owner(t, ctx, collection.OwnerKey(owner)))
+	collectionID, err := collection.NewID(constrainttest.Owner(t, ctx, collection.PlayerKey(playerID)))
 	require.NoError(t, err)
 	owned, err := eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve).Load(ctx, collectionID)
 	require.NoError(t, err)
@@ -109,10 +109,10 @@ func loadDeck(t *testing.T, ctx context.Context, registry *domaindef.Registry, g
 func TestRegisterPlayer_GrantsStarterCollectionAndDecks(t *testing.T) {
 	t.Parallel()
 
-	owner := resolvePlayer(t, gameDB, registeredPlayerID(t, registerPlayer(t, newPlayerToken(t))))
+	playerID := resolvePlayer(t, gameDB, registeredPlayerID(t, registerPlayer(t, newPlayerToken(t))))
 
-	waitStarterGrantCompleted(t, gameDB, owner)
-	requireDistributed(t, gameDB, master, owner)
+	waitStarterGrantCompleted(t, gameDB, playerID)
+	requireDistributed(t, gameDB, master, playerID)
 }
 
 // マスタの有無を変えるため、共有のアプリではなく、独立したアプリ（自分だけの DB）で動かす
@@ -126,7 +126,7 @@ func TestRegisterPlayer_GrantsStarterAfterMasterIsPublished(t *testing.T) {
 	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
 	claims.Issuer = idptest.GameIssuer
 	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
-	owner := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
+	playerID := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
 	ctx := rdb.WithDB(t.Context(), app.GameDB)
 	// マスタが無いため、配布を始められずに失敗の記録が残る（やり直しの間隔ごとに繰り返す）のを待ってから公開する
 	testhelper.Eventually(t, func(c *assert.CollectT) {
@@ -138,8 +138,8 @@ func TestRegisterPlayer_GrantsStarterAfterMasterIsPublished(t *testing.T) {
 	published, err := testhelper.PublishMaster(ctx, app.GameDB)
 	require.NoError(t, err)
 
-	waitStarterGrantCompleted(t, app.GameDB, owner)
-	requireDistributed(t, app.GameDB, published, owner)
+	waitStarterGrantCompleted(t, app.GameDB, playerID)
+	requireDistributed(t, app.GameDB, published, playerID)
 }
 
 // game_rules が写されていないと、マスタがあっても配布は終わらない（ドメインの既定の値で黙って動かない）。
@@ -153,7 +153,7 @@ func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
 	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
 	claims.Issuer = idptest.GameIssuer
 	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
-	owner := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
+	playerID := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
 	ctx := rdb.WithDB(t.Context(), app.GameDB)
 	published, err := testhelper.PublishMasterWithoutGameRules(ctx, app.GameDB)
 	require.NoError(t, err)
@@ -169,8 +169,8 @@ func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
 
 	require.NoError(t, testhelper.PublishGameRules(ctx, app.GameDB))
 
-	waitStarterGrantCompleted(t, app.GameDB, owner)
-	requireDistributed(t, app.GameDB, published, owner)
+	waitStarterGrantCompleted(t, app.GameDB, playerID)
+	requireDistributed(t, app.GameDB, published, playerID)
 }
 
 // 公開中のスターターデッキが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
@@ -183,7 +183,7 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 	claims := idptest.ValidClaims("player-" + testhelper.UniqueID(t))
 	claims.Issuer = idptest.GameIssuer
 	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
-	owner := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
+	playerID := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
 	ctx := rdb.WithDB(t.Context(), app.GameDB)
 	published, err := testhelper.PublishMasterWithoutPublishedStarterDecks(ctx, app.GameDB)
 	require.NoError(t, err)
@@ -198,8 +198,8 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 
 	require.NoError(t, testhelper.PublishStarterDecks(ctx, app.GameDB, published))
 
-	waitStarterGrantCompleted(t, app.GameDB, owner)
-	requireDistributed(t, app.GameDB, published, owner)
+	waitStarterGrantCompleted(t, app.GameDB, playerID)
+	requireDistributed(t, app.GameDB, published, playerID)
 }
 
 const registerPlayerStarterGrantMutation = `mutation {
@@ -226,9 +226,9 @@ func starterGrantOf(t *testing.T, c testhelper.GraphQLClient, token, query, fiel
 func TestMe_ReturnsCompletedStarterGrantAfterGranted(t *testing.T) {
 	t.Parallel()
 	token := newPlayerToken(t)
-	owner := resolvePlayer(t, gameDB, registeredPlayerID(t, registerPlayer(t, token)))
+	playerID := resolvePlayer(t, gameDB, registeredPlayerID(t, registerPlayer(t, token)))
 
-	waitStarterGrantCompleted(t, gameDB, owner)
+	waitStarterGrantCompleted(t, gameDB, playerID)
 
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		assert.Equal(c, "COMPLETED", starterGrantOf(t, client, token, meStarterGrantQuery, "me"))

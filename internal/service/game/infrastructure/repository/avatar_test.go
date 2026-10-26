@@ -15,13 +15,13 @@ import (
 
 func TestAvatarReader_ListsOwnAvatarsInRegistrationOrder(t *testing.T) {
 	f := newPlayerFixture(t)
-	owner, ownerPublicID := f.issuePlayer(t)
+	playerID, ownerPublicID := f.issuePlayer(t)
 	other, otherPublicID := f.issuePlayer(t)
 	writer := repository.NewAvatarWriter(identifier.NewEntityRefResolver(f.registry))
 	base := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
-	older := readmodel.Avatar{AvatarID: uuid.New(), Owner: owner, Name: "先", RegisteredAt: base}
-	newer := readmodel.Avatar{AvatarID: uuid.New(), Owner: owner, Name: "後", RegisteredAt: base.Add(time.Second)}
-	others := readmodel.Avatar{AvatarID: uuid.New(), Owner: other, Name: "他", RegisteredAt: base}
+	older := readmodel.Avatar{AvatarID: uuid.New(), Player: playerID, Name: "先", RegisteredAt: base}
+	newer := readmodel.Avatar{AvatarID: uuid.New(), Player: playerID, Name: "後", RegisteredAt: base.Add(time.Second)}
+	others := readmodel.Avatar{AvatarID: uuid.New(), Player: other, Name: "他", RegisteredAt: base}
 	// 作った順と逆に書いても、作った順に読む
 	for _, avatar := range []readmodel.Avatar{newer, others, older} {
 		require.NoError(t, writer.Upsert(f.ctx, avatar))
@@ -38,9 +38,9 @@ func TestAvatarReader_ListsOwnAvatarsInRegistrationOrder(t *testing.T) {
 
 func TestAvatarWriter_UpsertTwiceKeepsOneRow(t *testing.T) {
 	f := newPlayerFixture(t)
-	owner, ownerPublicID := f.issuePlayer(t)
+	playerID, ownerPublicID := f.issuePlayer(t)
 	writer := repository.NewAvatarWriter(identifier.NewEntityRefResolver(f.registry))
-	avatar := readmodel.Avatar{AvatarID: uuid.New(), Owner: owner, Name: "アリス", RegisteredAt: time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)}
+	avatar := readmodel.Avatar{AvatarID: uuid.New(), Player: playerID, Name: "アリス", RegisteredAt: time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)}
 
 	require.NoError(t, writer.Upsert(f.ctx, avatar))
 	require.NoError(t, writer.Upsert(f.ctx, avatar))
@@ -52,9 +52,9 @@ func TestAvatarWriter_UpsertTwiceKeepsOneRow(t *testing.T) {
 
 func TestAvatarWriter_DeleteRemovesRowAndToleratesMissing(t *testing.T) {
 	f := newPlayerFixture(t)
-	owner, ownerPublicID := f.issuePlayer(t)
+	playerID, ownerPublicID := f.issuePlayer(t)
 	writer := repository.NewAvatarWriter(identifier.NewEntityRefResolver(f.registry))
-	avatar := readmodel.Avatar{AvatarID: uuid.New(), Owner: owner, Name: "アリス", RegisteredAt: time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)}
+	avatar := readmodel.Avatar{AvatarID: uuid.New(), Player: playerID, Name: "アリス", RegisteredAt: time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)}
 	require.NoError(t, writer.Upsert(f.ctx, avatar))
 
 	require.NoError(t, writer.Delete(f.ctx, avatar))

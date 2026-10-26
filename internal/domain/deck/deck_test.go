@@ -26,12 +26,12 @@ var (
 func createCommand(t *testing.T) *deck.CreateCommand {
 	t.Helper()
 	return &deck.CreateCommand{
-		ID:     decktest.ID(t, 40),
-		Owner:  playertest.ID(t, 10),
-		Name:   decktest.Name(t, "火"),
-		Cards:  []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
-		Grant:  startergranttest.ID(t, 20),
-		Number: startergranttest.DeckNumber(t, 1),
+		ID:           decktest.ID(t, 40),
+		Player:       playertest.ID(t, 10),
+		Name:         decktest.Name(t, "火"),
+		Cards:        []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
+		StarterGrant: startergranttest.ID(t, 20),
+		Number:       startergranttest.DeckNumber(t, 1),
 	}
 }
 
@@ -51,12 +51,12 @@ func TestDecide_CreateEmitsCreatedEvent(t *testing.T) {
 	_, event := create(t)
 
 	require.Equal(t, &deck.CreatedEvent{
-		EventMeta: deck.EventMeta{EntityID: cmd.ID, AggregateVersion: 1, OccurredAt: createdAt},
-		Owner:     cmd.Owner,
-		Name:      cmd.Name,
-		Cards:     cmd.Cards,
-		Grant:     cmd.Grant,
-		Number:    cmd.Number,
+		EventMeta:    deck.EventMeta{EntityID: cmd.ID, AggregateVersion: 1, OccurredAt: createdAt},
+		Player:       cmd.Player,
+		Name:         cmd.Name,
+		Cards:        cmd.Cards,
+		StarterGrant: cmd.StarterGrant,
+		Number:       cmd.Number,
 	}, event)
 }
 
@@ -73,7 +73,7 @@ func TestEvolve_CreatedEventMakesDeck(t *testing.T) {
 
 	state, _ := create(t)
 
-	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1, Owner: cmd.Owner, Name: cmd.Name, Cards: cmd.Cards, Grant: cmd.Grant, Number: cmd.Number}, state)
+	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1, Player: cmd.Player, Name: cmd.Name, Cards: cmd.Cards, StarterGrant: cmd.StarterGrant, Number: cmd.Number}, state)
 }
 
 func TestEvolve_RejectsCreatedEventWhenAlreadyCreated(t *testing.T) {
@@ -107,9 +107,9 @@ func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 }
 
 func TestStarterKey_DiffersPerGrantAndNumber(t *testing.T) {
-	grant := startergranttest.ID(t, 20)
-	first := deck.StarterKey(grant, startergranttest.DeckNumber(t, 1))
-	second := deck.StarterKey(grant, startergranttest.DeckNumber(t, 2))
+	starterGrantID := startergranttest.ID(t, 20)
+	first := deck.StarterKey(starterGrantID, startergranttest.DeckNumber(t, 1))
+	second := deck.StarterKey(starterGrantID, startergranttest.DeckNumber(t, 2))
 	other := deck.StarterKey(startergranttest.ID(t, 21), startergranttest.DeckNumber(t, 1))
 
 	require.NotEqual(t, first, second)
@@ -117,7 +117,7 @@ func TestStarterKey_DiffersPerGrantAndNumber(t *testing.T) {
 	require.Equal(t, deck.StarterKeyType, first.Type())
 }
 
-func TestNameKey_UsesNormalizedNameOfOwner(t *testing.T) {
+func TestNameKey_UsesNormalizedNameOfPlayer(t *testing.T) {
 	full := deck.NameKey(playertest.ID(t, 10), decktest.Name(t, "ＡＢＣ"))
 	half := deck.NameKey(playertest.ID(t, 10), decktest.Name(t, " abc "))
 
@@ -125,7 +125,7 @@ func TestNameKey_UsesNormalizedNameOfOwner(t *testing.T) {
 	require.Equal(t, deck.NameKeyType, full.Type())
 }
 
-func TestNameKey_DiffersPerOwner(t *testing.T) {
+func TestNameKey_DiffersPerPlayer(t *testing.T) {
 	require.NotEqual(t,
 		deck.NameKey(playertest.ID(t, 1), decktest.Name(t, "abc")),
 		deck.NameKey(playertest.ID(t, 2), decktest.Name(t, "abc")),
@@ -133,7 +133,7 @@ func TestNameKey_DiffersPerOwner(t *testing.T) {
 }
 
 // 持ち主の ID と名前の数字がつながっても、別の組と同じ key にならない
-func TestNameKey_DistinguishesHowOwnerAndNameAreSplit(t *testing.T) {
+func TestNameKey_DistinguishesHowPlayerAndNameAreSplit(t *testing.T) {
 	require.NotEqual(t,
 		deck.NameKey(playertest.ID(t, 1), decktest.Name(t, "23")),
 		deck.NameKey(playertest.ID(t, 12), decktest.Name(t, "3")),

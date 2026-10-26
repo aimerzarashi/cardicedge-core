@@ -20,13 +20,13 @@ func TestAvatar_EvolvesFromRegistered(t *testing.T) {
 	event := &avatar.RegisteredEvent{
 		EventMeta: avatar.EventMeta{EntityID: avatartest.ID(t, 1), AggregateVersion: 1, OccurredAt: occurredAt},
 		PublicID:  publicID,
-		Owner:     playertest.ID(t, 7),
+		Player:    playertest.ID(t, 7),
 		Name:      avatartest.Name(t, "アリス"),
 	}
 
 	state := readmodel.Avatar{}.Evolve(event)
 
-	require.Equal(t, readmodel.Avatar{AvatarID: publicID, Owner: playertest.ID(t, 7), Name: "アリス", RegisteredAt: occurredAt}, state)
+	require.Equal(t, readmodel.Avatar{AvatarID: publicID, Player: playertest.ID(t, 7), Name: "アリス", RegisteredAt: occurredAt}, state)
 	require.Equal(t, readmodel.AvatarMetadata{ID: publicID, Name: "アリス", RegisteredAt: occurredAt}, state.Metadata())
 	require.False(t, state.IsTerminal())
 }

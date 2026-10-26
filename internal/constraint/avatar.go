@@ -13,8 +13,8 @@ var (
 	_ avatar.ReserveQuotaFunc = ReserveAvatarQuota
 )
 
-func UpdateAvatarName(ctx context.Context, id avatar.ID, owner player.ID, name avatar.Name) error {
-	return updateUniqueKey(ctx, id.Int64(), avatar.NameKey(owner, name), avatar.ErrNameAlreadyInUse)
+func UpdateAvatarName(ctx context.Context, id avatar.ID, playerID player.ID, name avatar.Name) error {
+	return updateUniqueKey(ctx, id.Int64(), avatar.NameKey(playerID, name), avatar.ErrNameAlreadyInUse)
 }
 
 func ReserveAvatarQuota(ctx context.Context, quota domain.Quota, limit domain.QuotaLimit) error {

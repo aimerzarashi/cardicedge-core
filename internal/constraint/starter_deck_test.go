@@ -117,26 +117,26 @@ func (f fixture) starterDeckUsed(t *testing.T, ownerID int64) int {
 
 func TestReserveStarterDeckQuota_ReservesUpToLimitThenReportsLimitReached(t *testing.T) {
 	f := setup(t)
-	owner := f.issueGameRulesID(t)
+	gameRulesID := f.issueGameRulesID(t)
 	limit := quotaLimit(t, 2)
 	for range 2 {
-		require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(owner), limit))
+		require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(gameRulesID), limit))
 	}
 
-	err := constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(owner), limit)
+	err := constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(gameRulesID), limit)
 
 	require.ErrorIs(t, err, starterdeck.ErrLimitReached)
-	require.Equal(t, 2, f.starterDeckUsed(t, owner.Int64()))
+	require.Equal(t, 2, f.starterDeckUsed(t, gameRulesID.Int64()))
 }
 
 func TestReleaseStarterDeckQuota_MakesRoomForNextPublish(t *testing.T) {
 	f := setup(t)
-	owner := f.issueGameRulesID(t)
+	gameRulesID := f.issueGameRulesID(t)
 	limit := quotaLimit(t, 1)
-	require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(owner), limit))
+	require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(gameRulesID), limit))
 
-	require.NoError(t, constraint.ReleaseStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(owner)))
+	require.NoError(t, constraint.ReleaseStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(gameRulesID)))
 
-	require.Equal(t, 0, f.starterDeckUsed(t, owner.Int64()))
-	require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(owner), limit))
+	require.Equal(t, 0, f.starterDeckUsed(t, gameRulesID.Int64()))
+	require.NoError(t, constraint.ReserveStarterDeckQuota(f.ctx, starterdeck.PublishedQuota(gameRulesID), limit))
 }

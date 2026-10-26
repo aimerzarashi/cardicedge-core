@@ -26,10 +26,10 @@ var (
 func createCommand(t *testing.T) *collection.CreateCommand {
 	t.Helper()
 	return &collection.CreateCommand{
-		ID:    collectiontest.ID(t, 30),
-		Owner: playertest.ID(t, 10),
-		Cards: []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
-		Grant: startergranttest.ID(t, 20),
+		ID:           collectiontest.ID(t, 30),
+		Player:       playertest.ID(t, 10),
+		Cards:        []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
+		StarterGrant: startergranttest.ID(t, 20),
 	}
 }
 
@@ -49,10 +49,10 @@ func TestDecide_CreateEmitsCreatedEvent(t *testing.T) {
 	_, event := create(t)
 
 	require.Equal(t, &collection.CreatedEvent{
-		EventMeta: collection.EventMeta{EntityID: cmd.ID, AggregateVersion: 1, OccurredAt: createdAt},
-		Owner:     cmd.Owner,
-		Cards:     cmd.Cards,
-		Grant:     cmd.Grant,
+		EventMeta:    collection.EventMeta{EntityID: cmd.ID, AggregateVersion: 1, OccurredAt: createdAt},
+		Player:       cmd.Player,
+		Cards:        cmd.Cards,
+		StarterGrant: cmd.StarterGrant,
 	}, event)
 }
 
@@ -69,7 +69,7 @@ func TestEvolve_CreatedEventMakesCollection(t *testing.T) {
 
 	state, _ := create(t)
 
-	require.Equal(t, collection.Collection{ID: cmd.ID, Version: 1, Owner: cmd.Owner, Cards: cmd.Cards, Grant: cmd.Grant}, state)
+	require.Equal(t, collection.Collection{ID: cmd.ID, Version: 1, Player: cmd.Player, Cards: cmd.Cards, StarterGrant: cmd.StarterGrant}, state)
 }
 
 func TestEvolve_RejectsCreatedEventWhenAlreadyCreated(t *testing.T) {
@@ -102,6 +102,6 @@ func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOwnerKey_DiffersPerOwner(t *testing.T) {
-	require.NotEqual(t, collection.OwnerKey(playertest.ID(t, 10)), collection.OwnerKey(playertest.ID(t, 11)))
+func TestPlayerKey_DiffersPerPlayer(t *testing.T) {
+	require.NotEqual(t, collection.PlayerKey(playertest.ID(t, 10)), collection.PlayerKey(playertest.ID(t, 11)))
 }

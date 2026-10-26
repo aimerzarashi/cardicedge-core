@@ -14,13 +14,13 @@ type UncreatedDeck struct{}
 func (UncreatedDeck) isDeckState() {}
 
 type Deck struct {
-	ID      ID
-	Version int64
-	Owner   player.ID
-	Name    Name
-	Cards   []startergrant.CardCount
-	Grant   startergrant.ID
-	Number  startergrant.DeckNumber
+	ID           ID
+	Version      int64
+	Player       player.ID
+	Name         Name
+	Cards        []startergrant.CardCount
+	StarterGrant startergrant.ID
+	Number       startergrant.DeckNumber
 }
 
 func (Deck) isDeckState() {}

@@ -30,26 +30,26 @@ var (
 )
 
 type fixture struct {
-	id       starterdeck.ID
-	name     presetdeck.Name
-	operator operator.ID
-	dragon   presetdeck.CardRef
-	potion   presetdeck.CardRef
+	id         starterdeck.ID
+	name       presetdeck.Name
+	operatorID operator.ID
+	dragon     presetdeck.CardRef
+	potion     presetdeck.CardRef
 }
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	return fixture{
-		id:       starterdecktest.ID(t, 30),
-		name:     presetdecktest.Name(t, "炎のデッキ"),
-		operator: operatortest.ID(t, 10),
-		dragon:   presetdecktest.CardRef(t, creature.Types().EntityType, 20),
-		potion:   presetdecktest.CardRef(t, item.Types().EntityType, 21),
+		id:         starterdecktest.ID(t, 30),
+		name:       presetdecktest.Name(t, "炎のデッキ"),
+		operatorID: operatortest.ID(t, 10),
+		dragon:     presetdecktest.CardRef(t, creature.Types().EntityType, 20),
+		potion:     presetdecktest.CardRef(t, item.Types().EntityType, 21),
 	}
 }
 
 func (f fixture) registerCommand() *starterdeck.RegisterCommand {
-	return &starterdeck.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, RegisteredBy: f.operator}
+	return &starterdeck.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, RegisteredBy: f.operatorID}
 }
 
 func apply(t *testing.T, state starterdeck.State, cmd starterdeck.Command, now time.Time) (starterdeck.State, []starterdeck.Event) {
@@ -75,7 +75,7 @@ func (f fixture) setCountsCommand(t *testing.T, counts map[presetdeck.CardRef]in
 	for card, count := range counts {
 		cardCounts[card] = presetdecktest.CardCount(t, count)
 	}
-	return &starterdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: f.operator}
+	return &starterdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: f.operatorID}
 }
 
 func (f fixture) setCounts(t *testing.T, state starterdeck.State, counts map[presetdeck.CardRef]int) starterdeck.State {
@@ -91,11 +91,11 @@ func (f fixture) fullDraft(t *testing.T) starterdeck.State {
 }
 
 func (f fixture) publishCommand(rules gamerules.Deck) *starterdeck.PublishCommand {
-	return &starterdeck.PublishCommand{Rules: rules, PublishedBy: f.operator}
+	return &starterdeck.PublishCommand{Rules: rules, PublishedBy: f.operatorID}
 }
 
 func (f fixture) retireCommand() *starterdeck.RetireCommand {
-	return &starterdeck.RetireCommand{RetiredBy: f.operator}
+	return &starterdeck.RetireCommand{RetiredBy: f.operatorID}
 }
 
 // 合計 8 枚を満たすルールの値にして、公開までの移り方を小さく確かめる
@@ -125,11 +125,11 @@ func TestDecide_RegisterEmptyMakesDraftWithoutSource(t *testing.T) {
 		EventMeta:    starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:     publicID,
 		Name:         f.name,
-		RegisteredBy: f.operator,
+		RegisteredBy: f.operatorID,
 	}}, events)
 	require.Equal(t, starterdeck.StarterDeck{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Status: starterdeck.StatusDraft,
-		Cards: map[presetdeck.CardRef]presetdeck.CardCount{}, RegisteredBy: f.operator, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
+		Cards: map[presetdeck.CardRef]presetdeck.CardCount{}, RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
 	}, f.register(t))
 }
 
@@ -167,12 +167,12 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	f := newFixture(t)
 	newName := presetdecktest.Name(t, "水のデッキ")
 
-	state, events := apply(t, f.register(t), &starterdeck.RenameCommand{Name: newName, RenamedBy: f.operator}, changedAt)
+	state, events := apply(t, f.register(t), &starterdeck.RenameCommand{Name: newName, RenamedBy: f.operatorID}, changedAt)
 
 	require.Equal(t, []starterdeck.Event{&starterdeck.RenamedEvent{
 		EventMeta: starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
 		Name:      newName,
-		RenamedBy: f.operator,
+		RenamedBy: f.operatorID,
 	}}, events)
 	deck := state.(starterdeck.StarterDeck)
 	require.Equal(t, newName, deck.Name)
@@ -189,7 +189,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		state starterdeck.State
 		cmd   starterdeck.Command
 	}{
-		{name: "same_name", state: withDragon, cmd: &starterdeck.RenameCommand{Name: f.name, RenamedBy: f.operator}},
+		{name: "same_name", state: withDragon, cmd: &starterdeck.RenameCommand{Name: f.name, RenamedBy: f.operatorID}},
 		{name: "same_count", state: withDragon, cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 2})},
 		{name: "zero_count_of_card_not_in_deck", state: withDragon, cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.potion: 0})},
 		{name: "no_cards", state: withDragon, cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{})},
@@ -219,7 +219,7 @@ func TestDecide_SetCardCountsEmitsDeltasOfChangedCards(t *testing.T) {
 			{Card: f.dragon, Delta: -2},
 			{Card: f.potion, Delta: 4},
 		},
-		ChangedBy: f.operator,
+		ChangedBy: f.operatorID,
 	}}, events)
 }
 
@@ -267,7 +267,7 @@ func TestEvolve_RejectsDeltaOutOfRange(t *testing.T) {
 	event := &starterdeck.CardCountsChangedEvent{
 		EventMeta: starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
 		Changes:   []starterdeck.CardCountChange{{Card: f.dragon, Delta: -1}},
-		ChangedBy: f.operator,
+		ChangedBy: f.operatorID,
 	}
 
 	_, err := starterdeck.Evolve(f.register(t), event)
@@ -291,7 +291,7 @@ func TestDecide_PublishMakesPublishedWhenTotalMatchesRule(t *testing.T) {
 
 	require.Equal(t, []starterdeck.Event{&starterdeck.PublishedEvent{
 		EventMeta:   starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
-		PublishedBy: f.operator,
+		PublishedBy: f.operatorID,
 	}}, events)
 	require.Equal(t, starterdeck.StatusPublished, state.(starterdeck.StarterDeck).Status)
 }
@@ -332,7 +332,7 @@ func TestDecide_RetireMakesRetiredOnlyFromPublished(t *testing.T) {
 
 	require.Equal(t, []starterdeck.Event{&starterdeck.RetiredEvent{
 		EventMeta: starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
-		RetiredBy: f.operator,
+		RetiredBy: f.operatorID,
 	}}, events)
 	require.Equal(t, starterdeck.StatusRetired, state.(starterdeck.StarterDeck).Status)
 
@@ -347,9 +347,9 @@ func TestDecide_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 		name string
 		cmd  starterdeck.Command
 	}{
-		{name: "rename", cmd: &starterdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operator}},
+		{name: "rename", cmd: &starterdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID}},
 		{name: "set_card_counts", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 1})},
-		{name: "delete", cmd: &starterdeck.DeleteCommand{DeletedBy: f.operator}},
+		{name: "delete", cmd: &starterdeck.DeleteCommand{DeletedBy: f.operatorID}},
 	}
 	states := []struct {
 		name  string
@@ -372,27 +372,27 @@ func TestDecide_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 func TestDecide_DeleteMakesDeletedStarterDeck(t *testing.T) {
 	f := newFixture(t)
 
-	state, events := apply(t, f.register(t), &starterdeck.DeleteCommand{DeletedBy: f.operator}, changedAt)
+	state, events := apply(t, f.register(t), &starterdeck.DeleteCommand{DeletedBy: f.operatorID}, changedAt)
 
 	require.Equal(t, []starterdeck.Event{&starterdeck.DeletedEvent{
 		EventMeta: starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
-		DeletedBy: f.operator,
+		DeletedBy: f.operatorID,
 	}}, events)
 	require.Equal(t, starterdeck.DeletedStarterDeck{ID: f.id, Version: 2}, state)
 }
 
 func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	f := newFixture(t)
-	deleted, _ := apply(t, f.register(t), &starterdeck.DeleteCommand{DeletedBy: f.operator}, changedAt)
+	deleted, _ := apply(t, f.register(t), &starterdeck.DeleteCommand{DeletedBy: f.operatorID}, changedAt)
 	commands := []struct {
 		name string
 		cmd  starterdeck.Command
 	}{
-		{name: "rename", cmd: &starterdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operator}},
+		{name: "rename", cmd: &starterdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID}},
 		{name: "set_card_counts", cmd: f.setCountsCommand(t, map[presetdeck.CardRef]int{f.dragon: 1})},
 		{name: "publish", cmd: f.publishCommand(smallRules())},
 		{name: "retire", cmd: f.retireCommand()},
-		{name: "delete", cmd: &starterdeck.DeleteCommand{DeletedBy: f.operator}},
+		{name: "delete", cmd: &starterdeck.DeleteCommand{DeletedBy: f.operatorID}},
 	}
 	states := []struct {
 		name  string
@@ -483,16 +483,16 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 				{Card: f.dragon, Count: presetdecktest.CardCount(t, 2)},
 				{Card: f.potion, Count: presetdecktest.CardCount(t, 3)},
 			},
-			RegisteredBy: f.operator,
+			RegisteredBy: f.operatorID,
 		},
-		&starterdeck.RenamedEvent{EventMeta: meta, Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operator},
+		&starterdeck.RenamedEvent{EventMeta: meta, Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID},
 		&starterdeck.CardCountsChangedEvent{EventMeta: meta, Changes: []starterdeck.CardCountChange{
 			{Card: f.dragon, Delta: -2},
 			{Card: f.potion, Delta: 3},
-		}, ChangedBy: f.operator},
-		&starterdeck.PublishedEvent{EventMeta: meta, PublishedBy: f.operator},
-		&starterdeck.RetiredEvent{EventMeta: meta, RetiredBy: f.operator},
-		&starterdeck.DeletedEvent{EventMeta: meta, DeletedBy: f.operator},
+		}, ChangedBy: f.operatorID},
+		&starterdeck.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
+		&starterdeck.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
+		&starterdeck.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -516,7 +516,7 @@ func TestEvent_RegisteredWithoutSourceOmitsSourceAndCards(t *testing.T) {
 	f := newFixture(t)
 	event := &starterdeck.RegisteredEvent{
 		EventMeta: starterdeck.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
-		PublicID:  publicID, Name: f.name, RegisteredBy: f.operator,
+		PublicID:  publicID, Name: f.name, RegisteredBy: f.operatorID,
 	}
 
 	payload, err := json.Marshal(event)

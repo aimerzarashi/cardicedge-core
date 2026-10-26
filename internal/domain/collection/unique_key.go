@@ -9,15 +9,15 @@ import (
 )
 
 // domain_unique_key_types の名前。プレイヤーの所持カードを 1 つにする
-var OwnerKeyType = domain.NewUniqueKeyType("collection.owner")
+var PlayerKeyType = domain.NewUniqueKeyType("collection.player")
 
 func UniqueKeyTypes() []domain.UniqueKeyType {
-	return []domain.UniqueKeyType{OwnerKeyType}
+	return []domain.UniqueKeyType{PlayerKeyType}
 }
 
-func OwnerKey(owner player.ID) domain.UniqueKey {
-	return domain.NewUniqueKey(OwnerKeyType, strconv.FormatInt(owner.Int64(), 10))
+func PlayerKey(playerID player.ID) domain.UniqueKey {
+	return domain.NewUniqueKey(PlayerKeyType, strconv.FormatInt(playerID.Int64(), 10))
 }
 
 // そのプレイヤーの所持カードがもうあれば ErrAlreadyCreated
-type UpdateOwnerFunc func(ctx context.Context, id ID, owner player.ID) error
+type UpdatePlayerFunc func(ctx context.Context, id ID, playerID player.ID) error

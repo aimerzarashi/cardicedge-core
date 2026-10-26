@@ -25,11 +25,11 @@ type EventMeta = domain.EventMeta[ID]
 
 // 持ち主と配布は、ほかの集約なので内部 ID で持つ。カードは公開 ID（理由は startergrant.CardCount）
 type CreatedEvent struct {
-	EventMeta   `json:"-"`
-	eventMarker `json:"-"`
-	Owner       player.ID                `json:"owner"`
-	Cards       []startergrant.CardCount `json:"cards"`
-	Grant       startergrant.ID          `json:"grant"`
+	EventMeta    `json:"-"`
+	eventMarker  `json:"-"`
+	Player       player.ID                `json:"player"`
+	Cards        []startergrant.CardCount `json:"cards"`
+	StarterGrant startergrant.ID          `json:"starter_grant"`
 }
 
 var createdEventType = domain.NewEventName("CreatedEvent")
