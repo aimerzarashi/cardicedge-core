@@ -15,6 +15,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
@@ -93,9 +94,11 @@ type seeder struct {
 	cardStatuses    *command.CardHandler
 	presetDecks     *command.PresetDeckHandler
 	starterDecks    *command.StarterDeckHandler
+	boards          *command.BoardHandler
 	cards           *query.CardHandler
 	presetDeckList  *query.PresetDeckHandler
 	starterDeckList *query.StarterDeckHandler
+	boardList       *query.BoardHandler
 }
 
 func newSeeder(registry *domaindef.Registry) *seeder {
@@ -106,6 +109,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
 	starterDeckReader := repository.NewStarterDeckReader()
+	boardReader := repository.NewBoardReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -152,9 +156,16 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			gameRules.Get,
 			now,
 		),
+		boards: command.NewBoardHandler(
+			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
+			identifier.New(registry, board.NewID),
+			constraint.UpdateBoardName,
+			now,
+		),
 		cards:           query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList:  query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
 		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
+		boardList:       query.NewBoardHandler(boardReader.List, boardReader.Get),
 	}
 }
 
@@ -170,7 +181,109 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err != nil {
 		return err
 	}
-	return s.seedStarterDecks(ctx, m.StarterDecks, deckIDs)
+	if err := s.seedStarterDecks(ctx, m.StarterDecks, deckIDs); err != nil {
+		return err
+	}
+	return s.seedBoards(ctx, m.Boards)
+}
+
+// 登録してレイアウトを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
+// レイアウトと公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）。
+// 続けて make publish-master を流せるよう、core の投影が公開中を書くまで待つ
+func (s *seeder) seedBoards(ctx context.Context, boards []masterBoard) error {
+	existing, err := s.listBoards(ctx)
+	if err != nil {
+		return err
+	}
+	for _, b := range boards {
+		key := domain.NormalizeName(b.Name)
+		current, ok := existing[key]
+		if !ok {
+			registered, err := s.boards.Register(ctx, b.Name)
+			if errors.Is(err, command.ErrBoardNameAlreadyInUse) {
+				// 登録済みだが read model にまだ無い（投影の遅れ）
+				err = waitFor(ctx, "boards", func() (bool, error) {
+					existing, err = s.listBoards(ctx)
+					_, ok := existing[key]
+					return ok, err
+				})
+				current = existing[key]
+			} else if err == nil {
+				current = query.Board{ID: registered.ID, Status: readmodel.BoardStatusDraft, Revision: registered.Revision}
+				slog.InfoContext(ctx, "registered board", "name", b.Name)
+			}
+			if err != nil {
+				return fmt.Errorf("register board %q: %w", b.Name, err)
+			}
+		}
+		if current.Status != readmodel.BoardStatusDraft {
+			continue
+		}
+		if err := s.publishBoard(ctx, b, current); err != nil {
+			return fmt.Errorf("publish board %q: %w", b.Name, err)
+		}
+	}
+	return waitFor(ctx, "boards", func() (bool, error) {
+		existing, err := s.listBoards(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, b := range boards {
+			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
+			published, ok := existing[domain.NormalizeName(b.Name)]
+			if !ok || published.Status == readmodel.BoardStatusDraft {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+// レイアウトを入れてから公開する。レイアウトが入っていれば変えずに成功する（revision は進まない）ので、途中で止まった続きも
+// 同じ手順でよい。read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って
+// 読み直す（publishStarterDeck と同じ）
+func (s *seeder) publishBoard(ctx context.Context, b masterBoard, current query.Board) error {
+	key := domain.NormalizeName(b.Name)
+	for {
+		changed, err := s.boards.ChangeLayout(ctx, current.ID, current.Revision, b.layoutInput())
+		if err == nil {
+			_, err = s.boards.Publish(ctx, current.ID, changed.Revision)
+		}
+		if !errors.Is(err, command.ErrRevisionConflict) {
+			if err == nil {
+				slog.InfoContext(ctx, "published board", "name", b.Name)
+			}
+			return err
+		}
+		stale := current.Revision
+		if err := waitFor(ctx, "boards", func() (bool, error) {
+			existing, err := s.listBoards(ctx)
+			current = existing[key]
+			return current.Revision > stale, err
+		}); err != nil {
+			return err
+		}
+	}
+}
+
+// 正規化した名前（重複の判定と同じ）からボードを引く表
+func (s *seeder) listBoards(ctx context.Context) (map[string]query.Board, error) {
+	boards := map[string]query.Board{}
+	var after *string
+	for {
+		first := pagination.MaxFirst
+		page, err := s.boardList.List(ctx, query.BoardFilter{}, &first, after)
+		if err != nil {
+			return nil, err
+		}
+		for _, edge := range page.Edges {
+			boards[domain.NormalizeName(edge.Node.Name)] = edge.Node
+		}
+		if !page.PageInfo.HasNextPage {
+			return boards, nil
+		}
+		after = page.PageInfo.EndCursor
+	}
 }
 
 // プリセットデッキから写してスターターデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前のスターターデッキが

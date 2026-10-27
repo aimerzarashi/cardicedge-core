@@ -37,6 +37,30 @@ func (e *TooLong) InputField() string {
 	return e.Field
 }
 
+type OutOfRange struct {
+	Field string
+	Min   int
+	Max   int
+}
+
+func (e *OutOfRange) Error() string {
+	return fmt.Sprintf("%s is out of range %d..%d", e.Field, e.Min, e.Max)
+}
+
+func (e *OutOfRange) InputField() string {
+	return e.Field
+}
+
+type InvalidFormat struct{ Field string }
+
+func (e *InvalidFormat) Error() string {
+	return fmt.Sprintf("%s has an invalid format", e.Field)
+}
+
+func (e *InvalidFormat) InputField() string {
+	return e.Field
+}
+
 // 項目が増えても、最初の 1 つで止めずにまとめて返すため
 type Errors []Error
 

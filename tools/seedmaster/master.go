@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"unicode/utf8"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
 // テスト用の値ではなく、開発で触る見本。本番に近い中身（火・地と水・風の属性のスターターデッキ）にし、ファイル名で見本と分かるようにする
@@ -18,6 +21,8 @@ type master struct {
 	PresetDecks []masterPresetDeck `json:"preset_decks"`
 	// 写して作るプリセットデッキの名前。作って公開する（名前はプリセットデッキの名前のまま）
 	StarterDecks []string `json:"starter_decks"`
+	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
+	Boards []masterBoard `json:"boards"`
 }
 
 type masterCard struct {
@@ -33,6 +38,30 @@ type masterPresetDeck struct {
 type masterDeckEntry struct {
 	Card  string `json:"card"`
 	Count int    `json:"count"`
+}
+
+type masterBoard struct {
+	Name        string                  `json:"name"`
+	Width       int                     `json:"width"`
+	Height      int                     `json:"height"`
+	Tiles       []masterBoardTile       `json:"tiles"`
+	Connections []masterBoardConnection `json:"connections"`
+}
+
+type masterBoardTile struct {
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	Kind string `json:"kind"`
+}
+
+type masterBoardPosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type masterBoardConnection struct {
+	A masterBoardPosition `json:"a"`
+	B masterBoardPosition `json:"b"`
 }
 
 const (
@@ -107,5 +136,63 @@ func (m master) validate() error {
 		}
 		starterNames[name] = true
 	}
+	return m.validateBoards()
+}
+
+// レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に
+// 書くと、流すたびに公開で止まるため、始める前に見つける
+func (m master) validateBoards() error {
+	names := map[string]bool{}
+	for _, b := range m.Boards {
+		if n := utf8.RuneCountInString(b.Name); n == 0 || n > nameMaxLength {
+			return fmt.Errorf("board %q: name length %d is out of range", b.Name, n)
+		}
+		if names[b.Name] {
+			return fmt.Errorf("board %q: duplicated", b.Name)
+		}
+		names[b.Name] = true
+		layout, err := b.layout()
+		if err != nil {
+			return fmt.Errorf("board %q: %w", b.Name, err)
+		}
+		if readiness := layout.Readiness(); !readiness.Publishable() {
+			return fmt.Errorf("board %q: not publishable: %+v", b.Name, readiness)
+		}
+	}
 	return nil
+}
+
+func (b masterBoard) layout() (board.Layout, error) {
+	size, err := board.NewSize(b.Width, b.Height)
+	if err != nil {
+		return board.Layout{}, err
+	}
+	tiles := make([]board.Tile, 0, len(b.Tiles))
+	for _, t := range b.Tiles {
+		kind, err := board.NewTileKind(t.Kind)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		tiles = append(tiles, board.Tile{Position: board.NewPosition(t.X, t.Y), Kind: kind})
+	}
+	connections := make([]board.Connection, 0, len(b.Connections))
+	for _, c := range b.Connections {
+		connections = append(connections, board.NewConnection(board.NewPosition(c.A.X, c.A.Y), board.NewPosition(c.B.X, c.B.Y)))
+	}
+	return board.NewLayout(size, tiles, connections)
+}
+
+func (b masterBoard) layoutInput() command.BoardLayoutInput {
+	tiles := make([]command.BoardTileInput, 0, len(b.Tiles))
+	for _, t := range b.Tiles {
+		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind})
+	}
+	connections := make([]command.BoardConnectionInput, 0, len(b.Connections))
+	for _, c := range b.Connections {
+		connections = append(connections, command.BoardConnectionInput{
+			A: command.NewBoardPosition(c.A.X, c.A.Y),
+			B: command.NewBoardPosition(c.B.X, c.B.Y),
+		})
+	}
+	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
@@ -18,6 +19,14 @@ import (
 // 準備中・使用不可のスターターデッキも写してあり（C を 5 枚持つので、配られれば所持カードが変わる）、配られないことを確かめる
 type Master struct {
 	CardA, CardB, CardC uuid.UUID
+	// PublishMaster だけが写す
+	Boards Boards
+}
+
+// 見本のマスタのボード。公開中が 2 つ（名前の順に A・B）、公開中でないものが 2 つ。
+// 準備中は make publish-master が写さないが、写されても出ないことを確かめるために入れる（スターターデッキの準備中と同じ）
+type Boards struct {
+	PublishedA, PublishedB, Draft, Retired uuid.UUID
 }
 
 // 公開は、studio の read model の cards・starter_decks・game_rules の行を game の DB に写すことなので（make publish-master）、
@@ -28,7 +37,11 @@ func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	if err != nil {
 		return Master{}, err
 	}
-	return master, PublishGameRules(ctx, gameDB)
+	if err := PublishGameRules(ctx, gameDB); err != nil {
+		return Master{}, err
+	}
+	master.Boards, err = PublishBoards(ctx, gameDB)
+	return master, err
 }
 
 // カード・スターターデッキだけを写す（game_rules を写し忘れた状態を確かめるため）
@@ -114,4 +127,49 @@ func PublishGameRules(ctx context.Context, gameDB *sql.DB) error {
 	}
 	row := models.GameRule{GameRulesID: uuid.NewString(), Metadata: metadata}
 	return row.Insert(ctx, gameDB, boil.Infer())
+}
+
+// boards の行を写す。公開中の A は 2×1（拠点とチェックポイントがつながる）、B は 3×2（真ん中のマスが 3 方向につながる）
+func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
+	boards := Boards{PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New()}
+	a := readmodel.BoardMetadata{
+		ID: boards.PublishedA, Name: "公開中A", Status: readmodel.BoardStatusPublished, Width: 2, Height: 1,
+		Tiles: []readmodel.BoardTile{
+			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
+		},
+		Connections: []readmodel.BoardConnection{
+			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
+		},
+	}
+	b := readmodel.BoardMetadata{
+		ID: boards.PublishedB, Name: "公開中B", Status: readmodel.BoardStatusPublished, Width: 3, Height: 2,
+		Tiles: []readmodel.BoardTile{
+			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand},
+			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
+			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand},
+		},
+		Connections: []readmodel.BoardConnection{
+			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
+			{A: readmodel.NewBoardPosition(1, 0), B: readmodel.NewBoardPosition(1, 1)},
+			{A: readmodel.NewBoardPosition(1, 0), B: readmodel.NewBoardPosition(2, 0)},
+		},
+	}
+	// 公開中でなければ出ないことだけを確かめるので、中身は A と同じにする
+	draft, retired := a, a
+	draft.ID, draft.Name, draft.Status = boards.Draft, "準備中", readmodel.BoardStatusDraft
+	retired.ID, retired.Name, retired.Status = boards.Retired, "使用不可", readmodel.BoardStatusRetired
+	// sort_name は並びを決めるだけの値（読み手は sort_name の順に返す）
+	for i, metadata := range []readmodel.BoardMetadata{a, b, draft, retired} {
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return Boards{}, err
+		}
+		row := models.Board{BoardID: metadata.ID.String(), SortName: fmt.Sprint(i + 1), Status: string(metadata.Status), Metadata: raw}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return Boards{}, err
+		}
+	}
+	return boards, nil
 }

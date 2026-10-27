@@ -11,6 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// ボードの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type BoardResult interface {
+	IsBoardResult()
+}
+
+// ボードの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type BoardsResult interface {
+	IsBoardsResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -59,6 +69,102 @@ type AvatarNameAlreadyInUseError struct {
 
 func (AvatarNameAlreadyInUseError) IsRegisterAvatarResult() {}
 
+// ボード（公開中のもの）
+type Board struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 幅（列の数）
+	Width int `json:"width"`
+	// 高さ（行の数）
+	Height int `json:"height"`
+	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
+	Tiles []*BoardTile `json:"tiles"`
+	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
+	Connections []*BoardConnection `json:"connections"`
+}
+
+func (Board) IsBoardResult() {}
+
+// マスどうしのつながり（向きは無い）
+type BoardConnection struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
+}
+
+// 公開中のボードが無い（公開中でないものを含む）
+type BoardNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (BoardNotFoundError) IsBoardResult() {}
+
+// 格子の座標。x が列、y が行（どちらも 0 始まり）
+type BoardPosition struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+}
+
+// 置いてあるマス
+type BoardTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+	// 種類
+	Kind BoardTileKind `json:"kind"`
+}
+
+// ボードの一覧の 1 ページ（名前の順）
+type BoardsConnection struct {
+	// このページのボード
+	Edges []*BoardsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (BoardsConnection) IsBoardsResult() {}
+
+// ボードの一覧の 1 件と、その位置
+type BoardsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// ボード
+	Node *Board `json:"node"`
+}
+
+// 入力の形が正しくない（ページの位置（カーソル）が読めない等）
+type FieldInvalidFormat struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldInvalidFormat) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が範囲の外
+type FieldOutOfRange struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 範囲の下限（この値を含む）
+	Min int `json:"min"`
+	// 範囲の上限（この値を含む）
+	Max int `json:"max"`
+}
+
+func (FieldOutOfRange) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldOutOfRange) GetField() string { return this.Field }
+
 // 入力が空（前後の空白だけの場合を含む）
 type FieldRequired struct {
 	// 誤りのある入力の項目
@@ -86,6 +192,18 @@ func (this FieldTooLong) GetField() string { return this.Field }
 type Mutation struct {
 }
 
+// ページの情報
+type PageInfo struct {
+	// 次のページがあるか
+	HasNextPage bool `json:"hasNextPage"`
+	// 前のページがあるか（after を指定したら true）
+	HasPreviousPage bool `json:"hasPreviousPage"`
+	// このページの最初の 1 件の位置
+	StartCursor *string `json:"startCursor,omitempty"`
+	// このページの最後の 1 件の位置（次のページは after にこれを渡す）
+	EndCursor *string `json:"endCursor,omitempty"`
+}
+
 // プレイヤー。JWT の (iss, sub) に 1 人だけ紐づく
 type Player struct {
 	// プレイヤーの公開用の ID
@@ -105,6 +223,10 @@ type PlayerNotRegisteredError struct {
 }
 
 func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
+
+func (PlayerNotRegisteredError) IsBoardsResult() {}
+
+func (PlayerNotRegisteredError) IsBoardResult() {}
 
 func (PlayerNotRegisteredError) IsMeResult() {}
 
@@ -140,6 +262,69 @@ type ValidationErrors struct {
 }
 
 func (ValidationErrors) IsRegisterAvatarResult() {}
+
+func (ValidationErrors) IsBoardsResult() {}
+
+// マスの種類
+type BoardTileKind string
+
+const (
+	// 土地（ふつうのマス）
+	BoardTileKindLand BoardTileKind = "LAND"
+	// 拠点
+	BoardTileKindBase BoardTileKind = "BASE"
+	// チェックポイント
+	BoardTileKindCheckpoint BoardTileKind = "CHECKPOINT"
+)
+
+var AllBoardTileKind = []BoardTileKind{
+	BoardTileKindLand,
+	BoardTileKindBase,
+	BoardTileKindCheckpoint,
+}
+
+func (e BoardTileKind) IsValid() bool {
+	switch e {
+	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
+		return true
+	}
+	return false
+}
+
+func (e BoardTileKind) String() string {
+	return string(e)
+}
+
+func (e *BoardTileKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardTileKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardTileKind", str)
+	}
+	return nil
+}
+
+func (e BoardTileKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardTileKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardTileKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
 
 // スターターの配布の状態
 type StarterGrantStatus string
