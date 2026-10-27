@@ -104,7 +104,14 @@ type starterDeckRow struct {
 	metadata readmodel.StarterDeckMetadata
 }
 
+// 1 つのトランザクションで書く（make publish-master と同じ）。行ごとに書くと、登録の後に写すテストで、配布が 1 つ目の
+// デッキだけを読んで配ることがある（core#53）
 func insertStarterDecks(ctx context.Context, gameDB *sql.DB, decks []starterDeckRow) error {
+	tx, err := gameDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
 	for _, deck := range decks {
 		deck.metadata.ID = uuid.New()
 		metadata, err := json.Marshal(deck.metadata)
@@ -112,11 +119,11 @@ func insertStarterDecks(ctx context.Context, gameDB *sql.DB, decks []starterDeck
 			return err
 		}
 		row := models.StarterDeck{StarterDeckID: deck.metadata.ID.String(), SortName: deck.sortName, Status: string(deck.metadata.Status), Metadata: metadata}
-		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+		if err := row.Insert(ctx, tx, boil.Infer()); err != nil {
 			return err
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 // game_rules の行を写す。値は既定の値（studio が起動時に作る値）
