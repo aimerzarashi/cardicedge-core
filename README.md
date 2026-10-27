@@ -19,8 +19,8 @@ make migrate # 未適用の migrations だけを Atlas で適用（DB を作り�
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
-make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばす）
-make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
+make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ・ボード）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。ボードはレイアウトを入れて公開する。作成済みなら飛ばす）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・boards（cards と同じく公開中・使用不可だけ）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -36,7 +36,7 @@ make down    # 停止して DB のデータも破棄
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
-開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。boards は cards と同じ選び方で、game は公開中だけを見せる。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
@@ -97,7 +97,7 @@ game / studio はそれぞれのネットワーク経由で `http://core:3333` �
 
 スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union で返し（成功の型は、ミューテーションは `<操作>Success` で包み、クエリは問い合わせたもの。1 件なら対象の型、一覧なら 1 ページの `XxxConnection`）、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
-- **ボード**: 1 ボード 1 集約 `board`（studio のサービス。core#48）。形は四角形の格子（`square` のみ）で、マスは座標（x が列、y が行。0 始まり）と種類（土地 `land`・拠点 `base`・チェックポイント `checkpoint`）、つながりは向きの無い、上下左右に隣り合うマスどうしだけ。大きさは幅・高さとも 1〜32（値の形の決まりで、`game_rules` には入れない）で、登録の直後は 8×8・マスもつながりも無い。状態（準備中・公開中・使用不可）の移り方と、名前の変更・レイアウトの変更・削除が準備中だけなのはスターターデッキと同じ。名前はすべてのボードの中で一意（`board.name`）。レイアウトの決まり（マスは格子の中で 1 座標に 1 つ、つながりの両端は置いてあるマスで隣どうし、同じつながりは 1 つ）は準備中でも保存の時点で守り、違反は `board.ValidateLayout` の 1 か所で数えて、application 層が入力の項目のパスに写す。公開の条件（拠点 1・チェックポイント 1 以上・全マスに拠点から行ける。行き止まりは認める）は公開するときの `Decide` で確かめる。レイアウトの変更は変えた後の全体を受け取り、`Decide` が前との差分を 1 つのイベントにする。read model は `boards`（購読者 1009）で、マスとつながりは `metadata` に持つ
+- **ボード**: 1 ボード 1 集約 `board`（studio のサービス。core#48）。形は四角形の格子（`square` のみ）で、マスは座標（x が列、y が行。0 始まり）と種類（土地 `land`・拠点 `base`・チェックポイント `checkpoint`）、つながりは向きの無い、上下左右に隣り合うマスどうしだけ。大きさは幅・高さとも 1〜32（値の形の決まりで、`game_rules` には入れない）で、登録の直後は 8×8・マスもつながりも無い。状態（準備中・公開中・使用不可）の移り方と、名前の変更・レイアウトの変更・削除が準備中だけなのはスターターデッキと同じ。名前はすべてのボードの中で一意（`board.name`）。レイアウトの決まり（マスは格子の中で 1 座標に 1 つ、つながりの両端は置いてあるマスで隣どうし、同じつながりは 1 つ）は準備中でも保存の時点で守り、違反は `board.ValidateLayout` の 1 か所で数えて、application 層が入力の項目のパスに写す。公開の条件（拠点 1・チェックポイント 1 以上・全マスに拠点から行ける。行き止まりは認める）は公開するときの `Decide` で確かめる。レイアウトの変更は変えた後の全体を受け取り、`Decide` が前との差分を 1 つのイベントにする。read model は `boards`（購読者 1009）で、マスとつながりは `metadata` に持つ。`make publish-master` は公開中・使用不可の行を core_game の `boards` に写し（準備中は写さない）、game が公開中だけを読む（`Query.boards`・`Query.board`）
 - **層の分担**: presentation 層（GraphQL）は application 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。application 層が窓口になり、素の値を受け取ってドメインの型に変え、application 層の結果の型とエラーを返す（ドメインを変えても presentation 層に及ばないように。参照の api は application 層が GraphQL の型を受け渡していたが、そうしない）
 - **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。application 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、application 層のコマンドが context から取り出す
 - **入力の誤り**: application 層が `input.Errors`（internal/service/studio/application/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
@@ -108,13 +108,15 @@ game / studio はそれぞれのネットワーク経由で `http://core:3333` �
 
 ## game 用の GraphQL（/game/graphql）
 
-スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`・`registerAvatar`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
+スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`・`registerAvatar`・`boards`・`board`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
 
 - **registerPlayer**（ミューテーション）: JWT の (iss, sub) のプレイヤーを登録し、公開 ID（`player { id }`）を返す。何度呼んでも、プレイヤーは (iss, sub) ごとに 1 人だけで、登録済みなら何も作らず同じ形（同じ id）で返す。同時に呼ばれても 1 人だけ
 - **me**（クエリ）: 自分のプレイヤーを返す。`starterGrant` は read model `players` から読み、行がまだ無い（投影の遅れ）・配布が始まっていないときも `IN_PROGRESS`（画面にとっては「まだ届いていない」と同じ）。`registerPlayer` の結果の `player` からも取れる。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す。`avatars` は自分のアバターを作った順に返す（read model `avatars` から読む。上限があるので、ページ分けしないリスト。作った直後は投影の遅れで、まだ出ないことがある）
 - **registerAvatar**（ミューテーション）: ログイン中のプレイヤーのアバターを名前（`input.name`）で作り、作ったアバター（`avatar { id name }`）を返す。結果は `RegisterAvatarSuccess` / `ValidationErrors`（名前が空 `FieldRequired`・20 文字を超える `FieldTooLong{max}`）/ `AvatarNameAlreadyInUseError`（同じプレイヤーの別のアバターが同じ名前。比べ方は `domain.NormalizeName`。ほかのプレイヤーとは同じ名前でよい）/ `AvatarLimitReachedError`（1 人 5 体まで。`max` に上限の値を持つ）/ `PlayerNotRegisteredError`（未登録）。上限は `game_rules` の `player.max_avatars`（種別 `avatar.per_player`）で、写されていなければ作れない。名前の変更・削除はまだ無い
-- **認可**: 登録済みのプレイヤーが要る操作（`registerAvatar` 等）は、resolver の最初に登録済みかを確かめ（`requirePlayer`）、未登録なら `PlayerNotRegisteredError` を返す
-- **入力の誤り**: studio 用と同じ形（application 層が `input.Errors`（internal/service/game/application/input）を返し、resolver が `ValidationErrors` に写す）。理由は game で要るもの（`Required`・`TooLong`）から足す
+- **boards**（クエリ）: 公開中のボードの一覧（`first`・`after` でページ分け。並びは名前の正規化 → 公開 ID で studio と同じ）。各要素が `id`・`name`・`width`・`height`・`tiles { x y kind }`（`kind` は `LAND`・`BASE`・`CHECKPOINT`。行 → 列の順）・`connections { a { x y } b { x y } }`（向きは無い。a → b の順）を持つ。状態・revision・日時は持たない。結果は `BoardsConnection` / `ValidationErrors`（`first` が範囲外 `FieldOutOfRange{min, max}`・`after` が読めない `FieldInvalidFormat`）/ `PlayerNotRegisteredError`
+- **board**（クエリ）: 公開中のボードの詳細（公開用の ID で指す）。結果は `Board` / `BoardNotFoundError`（無い・準備中・使用不可を区別せず同じ扱い）/ `PlayerNotRegisteredError`。ボードは `make publish-master` で写したもの（core_game の `boards`）を読む
+- **認可**: 登録済みのプレイヤーが要る操作（`registerAvatar`・`boards`・`board` 等）は、resolver の最初に登録済みかを確かめ（`requirePlayer`）、未登録なら `PlayerNotRegisteredError` を返す
+- **入力の誤り**: studio 用と同じ形（application 層が `input.Errors`（internal/service/game/application/input）を返し、resolver が `ValidationErrors` に写す）。理由は game で要るもの（`Required`・`TooLong`・`OutOfRange`・`InvalidFormat`）から足す
 
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）

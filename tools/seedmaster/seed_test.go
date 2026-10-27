@@ -61,6 +61,15 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		require.Equal(t, deckTotalCount, deck.TotalCount)
 		require.NotNil(t, deck.Source)
 	}
+	boards, err := s.listBoards(ctx)
+	require.NoError(t, err)
+	require.Len(t, boards, len(m.Boards))
+	for _, b := range m.Boards {
+		board := boards[domain.NormalizeName(b.Name)]
+		require.Equal(t, readmodel.BoardStatusPublished, board.Status)
+		require.Len(t, board.Tiles, len(b.Tiles))
+		require.Len(t, board.Connections, len(b.Connections))
+	}
 }
 
 // 途中で止まった（一部だけ入っている）状態から流し直しても、足りない分だけを入れ、見本どおりにそろう
@@ -122,6 +131,16 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 				_, err = s.starterDecks.Publish(ctx, copied.ID, copied.Revision)
 				require.NoError(t, err)
 			}
+		}},
+		{name: "board_registered_without_layout", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.boards.Register(ctx, m.Boards[0].Name)
+			require.NoError(t, err)
+		}},
+		{name: "board_layout_changed_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			registered, err := s.boards.Register(ctx, m.Boards[0].Name)
+			require.NoError(t, err)
+			_, err = s.boards.ChangeLayout(ctx, registered.ID, registered.Revision, m.Boards[0].layoutInput())
+			require.NoError(t, err)
 		}},
 	}
 	for _, tt := range tests {

@@ -12,6 +12,33 @@ func TestSampleMaster_IsValid(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// 見本のボードは、公開の条件を満たし、拠点 1・チェックポイント 2 以上・分かれ道（3 方向以上につながるマス）が 1 つ以上ある 8×8
+func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+	require.NotEmpty(t, m.Boards)
+
+	for _, b := range m.Boards {
+		layout, err := b.layout()
+		require.NoError(t, err)
+		readiness := layout.Readiness()
+		degrees := map[masterBoardPosition]int{}
+		for _, c := range b.Connections {
+			degrees[c.A]++
+			degrees[c.B]++
+		}
+		fork := false
+		for _, degree := range degrees {
+			fork = fork || degree >= 3
+		}
+		require.Equal(t, 8, b.Width)
+		require.Equal(t, 8, b.Height)
+		require.Equal(t, 1, readiness.BaseCount)
+		require.GreaterOrEqual(t, readiness.CheckpointCount, 2)
+		require.True(t, fork)
+	}
+}
+
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 	tests := []struct {
 		name string
@@ -24,6 +51,12 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "deck_total_not_forty", json: `{"cards":[{"type":"item","name":"a"}],"preset_decks":[{"name":"d","cards":[{"card":"a","count":4}]}]}`},
 		{name: "no_starter_decks", json: `{"cards":[],"starter_decks":[]}`},
 		{name: "unknown_preset_deck_for_starter_deck", json: `{"cards":[],"starter_decks":["x"]}`},
+		{name: "blank_board_name", json: boardJSON("", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
+		{name: "board_tile_outside_grid", json: boardJSON("b", `{"x":8,"y":0,"kind":"base"}`, ``)},
+		{name: "board_without_checkpoint", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"}`, ``)},
+		{name: "board_with_unreachable_tile", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, ``)},
+		{name: "unknown_board_tile_kind", json: boardJSON("b", `{"x":0,"y":0,"kind":"water"}`, ``)},
+		{name: "duplicated_board_name", json: `{"cards":[],"starter_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -32,4 +65,17 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+}
+
+// 8×8 の盤面を 1 つ持つ見本の JSON。tiles・connections は中身だけを渡す
+func boardJSON(name, tiles, connections string) string {
+	return `{"cards":[],"starter_decks":[],"boards":[` + boardBodyWith(name, tiles, connections) + `]}`
+}
+
+func boardBody(name string) string {
+	return boardBodyWith(name, `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)
+}
+
+func boardBodyWith(name, tiles, connections string) string {
+	return `{"name":"` + name + `","width":8,"height":8,"tiles":[` + tiles + `],"connections":[` + connections + `]}`
 }

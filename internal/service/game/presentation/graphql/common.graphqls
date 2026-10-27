@@ -32,8 +32,37 @@ type FieldTooLong implements FieldError {
   max: Int!
 }
 
+"入力が範囲の外"
+type FieldOutOfRange implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "範囲の下限（この値を含む）"
+  min: Int!
+  "範囲の上限（この値を含む）"
+  max: Int!
+}
+
+"入力の形が正しくない（ページの位置（カーソル）が読めない等）"
+type FieldInvalidFormat implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+}
+
 "入力の誤り（操作は行われていない）"
 type ValidationErrors {
   "項目ごとの誤り（1 件以上）"
   errors: [FieldError!]!
+}
+
+# 一覧のページ分けは、Relay の決まり（Connection）の形にし、順方向（first・after）だけにする（studio と同じ。core#12）
+"ページの情報"
+type PageInfo {
+  "次のページがあるか"
+  hasNextPage: Boolean!
+  "前のページがあるか（after を指定したら true）"
+  hasPreviousPage: Boolean!
+  "このページの最初の 1 件の位置"
+  startCursor: String
+  "このページの最後の 1 件の位置（次のページは after にこれを渡す）"
+  endCursor: String
 }
