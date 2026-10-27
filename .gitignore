@@ -7,3 +7,10 @@ build-errors.log
 
 # Claude 関連
 .claude/settings.local.json
+
+# 直下で go build ./tools/<名前> や go build ./cmd/app を実行するとできるバイナリ（道具は go run で使い、バイナリは使わない）
+/app
+/createdb
+/linter
+/seedmaster
+/synctypes
