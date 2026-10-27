@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/time/rate"
 )
 
 var ErrInvalidToken = errors.New("idp: invalid token")
@@ -17,10 +19,14 @@ type Verifier struct {
 	parser  *jwt.Parser
 }
 
-// JWKS は keyfunc の既定どおり、1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）に取り直す。
-// 最初の取得に失敗しても作成は失敗しない（core は studio より先に起動するため）
+// JWKS は 1 時間ごとと、知らない kid の JWT が来たときに取り直す。最初の取得に失敗しても作成は失敗しない（core は studio より先に起動するため）。
+// 知らない kid での取り直しを keyfunc の既定の 5 分に 1 回にしないのは、新しい鍵の JWT が同時に来たとき、枠を取れなかった方が
+// 手元を読み直さずに（待ちの上限 1 分では次の枠に届かず）401 になるため（core#51）。1 秒に 1 回なら、同時に来た N 個目も N−1 秒待てば
+// 自分で取り直せる。同時の数が増えて待ちが長くなるなら間隔を縮める。偽の kid で取りに行かせられる回数も毎秒 1 回までに収まる
 func NewVerifier(ctx context.Context, jwksURL, issuer, audience string) (*Verifier, error) {
-	kf, err := keyfunc.NewDefaultCtx(ctx, []string{jwksURL})
+	kf, err := keyfunc.NewDefaultOverrideCtx(ctx, []string{jwksURL}, keyfunc.Override{
+		RefreshUnknownKID: rate.NewLimiter(rate.Every(time.Second), 1),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create keyfunc for %s: %w", jwksURL, err)
 	}
