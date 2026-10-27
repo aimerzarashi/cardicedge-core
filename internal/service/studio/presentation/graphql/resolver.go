@@ -68,6 +68,22 @@ type StarterDeckLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.StarterDeck, error)
 }
 
+// 実装は command.BoardHandler
+type BoardHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedBoard, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedBoard, error)
+	ChangeLayout(ctx context.Context, id uuid.UUID, revision int64, layout command.BoardLayoutInput) (command.ChangedBoard, error)
+	Delete(ctx context.Context, id uuid.UUID, revision int64) error
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedBoard, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedBoard, error)
+}
+
+// 実装は query.BoardHandler
+type BoardLister interface {
+	List(ctx context.Context, filter query.BoardFilter, first *int, after *string) (pagination.Connection[query.Board], error)
+	Get(ctx context.Context, id uuid.UUID) (query.Board, error)
+}
+
 type Resolver struct {
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
@@ -78,6 +94,8 @@ type Resolver struct {
 	presetDeckList  PresetDeckLister
 	starterDecks    StarterDeckHandler
 	starterDeckList StarterDeckLister
+	boards          BoardHandler
+	boardList       BoardLister
 }
 
 func NewResolver(
@@ -90,9 +108,12 @@ func NewResolver(
 	presetDeckList PresetDeckLister,
 	starterDecks StarterDeckHandler,
 	starterDeckList StarterDeckLister,
+	boards BoardHandler,
+	boardList BoardLister,
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
+		boards: boards, boardList: boardList,
 	}
 }

@@ -12,6 +12,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// ボードの詳細の結果
+type BoardResult interface {
+	IsBoardResult()
+}
+
+// ボードの一覧の結果
+type BoardsResult interface {
+	IsBoardsResult()
+}
+
 // カード（Creature・Item・Spell）。種類は __typename で見分け、種類ごとの項目は断片（... on Creature 等）で取る
 type Card interface {
 	IsCard()
@@ -32,6 +42,16 @@ type Card interface {
 // カードの一覧の結果
 type CardsResult interface {
 	IsCardsResult()
+}
+
+// ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）
+type ChangeBoardLayoutResult interface {
+	IsChangeBoardLayoutResult()
+}
+
+// ボードの削除の結果（準備中のものだけ消せる）
+type DeleteBoardResult interface {
+	IsDeleteBoardResult()
 }
 
 // プリセットデッキの削除の結果
@@ -61,6 +81,11 @@ type PresetDecksResult interface {
 	IsPresetDecksResult()
 }
 
+// ボードの公開の結果（準備中・使用不可から公開中にできる。公開の条件を満たさなければ公開できない）
+type PublishBoardResult interface {
+	IsPublishBoardResult()
+}
+
 // カードを公開中にする操作の結果
 type PublishCardResult interface {
 	IsPublishCardResult()
@@ -69,6 +94,11 @@ type PublishCardResult interface {
 // スターターデッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
 type PublishStarterDeckResult interface {
 	IsPublishStarterDeckResult()
+}
+
+// ボードの登録の結果
+type RegisterBoardResult interface {
+	IsRegisterBoardResult()
 }
 
 // クリーチャーの登録の結果
@@ -101,6 +131,11 @@ type RegisterStarterDeckResult interface {
 	IsRegisterStarterDeckResult()
 }
 
+// ボードの名前の変更の結果（準備中のものだけ変えられる）
+type RenameBoardResult interface {
+	IsRenameBoardResult()
+}
+
 // プリセットデッキの名前の変更の結果
 type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
@@ -109,6 +144,11 @@ type RenamePresetDeckResult interface {
 // スターターデッキの名前の変更の結果（準備中のものだけ変えられる）
 type RenameStarterDeckResult interface {
 	IsRenameStarterDeckResult()
+}
+
+// ボードの使用不可の結果
+type RetireBoardResult interface {
+	IsRetireBoardResult()
 }
 
 // カードを使用不可にする操作の結果
@@ -139,6 +179,164 @@ type StarterDeckResult interface {
 // スターターデッキの一覧の結果
 type StarterDecksResult interface {
 	IsStarterDecksResult()
+}
+
+// ボード
+type Board struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前（登録・変更したときの表記。前後の空白は除く。状態によらず、すべてのボードの中で一意）
+	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status BoardStatus `json:"status"`
+	// 幅（列の数。1〜32。登録した直後は 8）
+	Width int `json:"width"`
+	// 高さ（行の数。1〜32。登録した直後は 8）
+	Height int `json:"height"`
+	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
+	Tiles []*BoardTile `json:"tiles"`
+	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
+	Connections []*BoardConnection `json:"connections"`
+	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (Board) IsBoardResult() {}
+
+// マスどうしのつながり（向きは無い）
+type BoardConnection struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
+}
+
+// つなぐマスの入力（向きは無い。a と b を入れ替えても同じつながり）
+type BoardConnectionInput struct {
+	// 片方の端（マスが置いてある座標）
+	A *BoardPositionInput `json:"a"`
+	// もう片方の端（a の上下左右に隣り合う、マスが置いてある座標）
+	B *BoardPositionInput `json:"b"`
+}
+
+// ボードの一覧の絞り込み
+type BoardFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []BoardStatus `json:"statuses,omitempty"`
+}
+
+// 名前が、ほかのボードですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type BoardNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (BoardNameAlreadyInUseError) IsRegisterBoardResult() {}
+
+func (BoardNameAlreadyInUseError) IsRenameBoardResult() {}
+
+// 準備中でないボードの名前・レイアウトを変える、または削除しようとした（準備中のものだけ変えられる）
+type BoardNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (BoardNotDraftError) IsRenameBoardResult() {}
+
+func (BoardNotDraftError) IsChangeBoardLayoutResult() {}
+
+func (BoardNotDraftError) IsDeleteBoardResult() {}
+
+// ボードが無い（削除したものを含む）
+type BoardNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (BoardNotFoundError) IsBoardResult() {}
+
+func (BoardNotFoundError) IsRenameBoardResult() {}
+
+func (BoardNotFoundError) IsChangeBoardLayoutResult() {}
+
+func (BoardNotFoundError) IsDeleteBoardResult() {}
+
+func (BoardNotFoundError) IsPublishBoardResult() {}
+
+func (BoardNotFoundError) IsRetireBoardResult() {}
+
+// 公開の条件を満たしていない（拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点からつながりをたどって行ける）
+type BoardNotPublishableError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 拠点の数（ちょうど 1 つでなければ公開できない）
+	BaseCount int `json:"baseCount"`
+	// チェックポイントの数（1 つ以上でなければ公開できない）
+	CheckpointCount int `json:"checkpointCount"`
+	// 拠点からつながりをたどって行けないマス（行 → 列の順）。拠点がちょうど 1 つのときだけ計算し、0 個・2 個以上のときは空
+	UnreachableTiles []*BoardPosition `json:"unreachableTiles"`
+}
+
+func (BoardNotPublishableError) IsPublishBoardResult() {}
+
+// 格子の座標。x が列、y が行（どちらも 0 始まり）
+type BoardPosition struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+}
+
+// つながりの端の座標の入力
+type BoardPositionInput struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+// 置いてあるマス
+type BoardTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+	// 種類
+	Kind BoardTileKind `json:"kind"`
+}
+
+// 置くマスの入力
+type BoardTileInput struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+	// 種類
+	Kind BoardTileKind `json:"kind"`
+}
+
+// ボードの一覧の 1 ページ（名前の順）
+type BoardsConnection struct {
+	// このページのボード
+	Edges []*BoardsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (BoardsConnection) IsBoardsResult() {}
+
+// ボードの一覧の 1 件と、その位置
+type BoardsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// ボード
+	Node *Board `json:"node"`
 }
 
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
@@ -191,6 +389,32 @@ func (CardNotFoundError) IsPublishCardResult() {}
 
 func (CardNotFoundError) IsRetireCardResult() {}
 
+// ボードのレイアウトを変える入力（変えた後の全体。前の内容は引き継がれず、ここに無いマス・つながりは消える）
+type ChangeBoardLayoutInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+	// 幅（1〜32）
+	Width int `json:"width"`
+	// 高さ（1〜32）
+	Height int `json:"height"`
+	// 置くマスの全体（同じ座標を 2 回入れると入力の誤り）
+	Tiles []*BoardTileInput `json:"tiles"`
+	// つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）
+	Connections []*BoardConnectionInput `json:"connections"`
+}
+
+// ボードのレイアウトを変えた（前と変わらなければ何も変えず、revision も進まない）
+type ChangeBoardLayoutSuccess struct {
+	// 変えたボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeBoardLayoutSuccess) IsChangeBoardLayoutResult() {}
+
 // クリーチャー（カードの種類の 1 つ）
 type Creature struct {
 	// 公開用の ID
@@ -242,6 +466,22 @@ type DeckCardCountInput struct {
 	// その枚数にする（0〜4。0 にするとデッキから外す）
 	Count int `json:"count"`
 }
+
+// ボードを削除する入力
+type DeleteBoardInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+}
+
+// ボードを削除した（名前はほかのボードが使えるようになる）
+type DeleteBoardSuccess struct {
+	// 削除したボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteBoardSuccess) IsDeleteBoardResult() {}
 
 // プリセットデッキを削除する入力
 type DeletePresetDeckInput struct {
@@ -296,6 +536,17 @@ func (FieldInvalidFormat) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// つながりの両端が隣どうし（上下左右に 1 マス）でない（同じ座標を指すものを含む）
+type FieldNotAdjacent struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: connections.2）
+	Field string `json:"field"`
+}
+
+func (FieldNotAdjacent) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotAdjacent) GetField() string { return this.Field }
 
 // 入力の ID が指すもの（プリセットデッキに入れるカード等）が無い
 type FieldNotFound struct {
@@ -390,6 +641,22 @@ type ForbiddenError struct {
 	Message string `json:"message"`
 }
 
+func (ForbiddenError) IsBoardsResult() {}
+
+func (ForbiddenError) IsBoardResult() {}
+
+func (ForbiddenError) IsRegisterBoardResult() {}
+
+func (ForbiddenError) IsRenameBoardResult() {}
+
+func (ForbiddenError) IsChangeBoardLayoutResult() {}
+
+func (ForbiddenError) IsDeleteBoardResult() {}
+
+func (ForbiddenError) IsPublishBoardResult() {}
+
+func (ForbiddenError) IsRetireBoardResult() {}
+
 func (ForbiddenError) IsCardsResult() {}
 
 func (ForbiddenError) IsPublishCardResult() {}
@@ -431,6 +698,14 @@ func (ForbiddenError) IsDeleteStarterDeckResult() {}
 func (ForbiddenError) IsPublishStarterDeckResult() {}
 
 func (ForbiddenError) IsRetireStarterDeckResult() {}
+
+// 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidBoardStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidBoardStatusTransitionError) IsRetireBoardResult() {}
 
 // 準備中のカードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidCardStatusTransitionError struct {
@@ -551,6 +826,24 @@ func (PresetDeckNotFoundError) IsDeletePresetDeckResult() {}
 
 func (PresetDeckNotFoundError) IsRegisterStarterDeckFromPresetDeckResult() {}
 
+// ボードを公開する入力
+type PublishBoardInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+}
+
+// ボードを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishBoardSuccess struct {
+	// 公開したボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開したボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishBoardSuccess) IsPublishBoardResult() {}
+
 // カードを公開中にする入力
 type PublishCardInput struct {
 	// カード（Creature・Item・Spell）の公開用の ID
@@ -589,6 +882,22 @@ func (PublishStarterDeckSuccess) IsPublishStarterDeckResult() {}
 
 type Query struct {
 }
+
+// ボードを登録する入力
+type RegisterBoardInput struct {
+	// 名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// ボードを登録した（準備中。四角形の 8×8 で、マスもつながりも無い）
+type RegisterBoardSuccess struct {
+	// 登録したボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録したボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterBoardSuccess) IsRegisterBoardResult() {}
 
 // クリーチャーを登録する入力
 type RegisterCreatureInput struct {
@@ -680,6 +989,26 @@ type RegisterStarterDeckSuccess struct {
 
 func (RegisterStarterDeckSuccess) IsRegisterStarterDeckResult() {}
 
+// ボードの名前を変える入力
+type RenameBoardInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// ボードの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameBoardSuccess struct {
+	// 変えたボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameBoardSuccess) IsRenameBoardResult() {}
+
 // プリセットデッキの名前を変える入力
 type RenamePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -719,6 +1048,24 @@ type RenameStarterDeckSuccess struct {
 }
 
 func (RenameStarterDeckSuccess) IsRenameStarterDeckResult() {}
+
+// ボードを使用不可にする入力
+type RetireBoardInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+}
+
+// ボードを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireBoardSuccess struct {
+	// 使用不可にしたボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にしたボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireBoardSuccess) IsRetireBoardResult() {}
 
 // カードを使用不可にする入力
 type RetireCardInput struct {
@@ -761,6 +1108,16 @@ type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
+
+func (RevisionConflictError) IsRenameBoardResult() {}
+
+func (RevisionConflictError) IsChangeBoardLayoutResult() {}
+
+func (RevisionConflictError) IsDeleteBoardResult() {}
+
+func (RevisionConflictError) IsPublishBoardResult() {}
+
+func (RevisionConflictError) IsRetireBoardResult() {}
 
 func (RevisionConflictError) IsPublishCardResult() {}
 
@@ -954,6 +1311,14 @@ type ValidationErrors struct {
 	Errors []FieldError `json:"errors"`
 }
 
+func (ValidationErrors) IsBoardsResult() {}
+
+func (ValidationErrors) IsRegisterBoardResult() {}
+
+func (ValidationErrors) IsRenameBoardResult() {}
+
+func (ValidationErrors) IsChangeBoardLayoutResult() {}
+
 func (ValidationErrors) IsCardsResult() {}
 
 func (ValidationErrors) IsRegisterCreatureResult() {}
@@ -979,6 +1344,129 @@ func (ValidationErrors) IsRenameStarterDeckResult() {}
 func (ValidationErrors) IsSetStarterDeckCardCountsResult() {}
 
 func (ValidationErrors) IsPublishStarterDeckResult() {}
+
+// ボードの状態。準備中は名前・レイアウトを自由に変えられ、公開の条件を満たさなくてよい。公開中は公開の条件を満たす。
+// 使用不可は新しい対戦に使わない
+type BoardStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	BoardStatusDraft BoardStatus = "DRAFT"
+	// 公開中
+	BoardStatusPublished BoardStatus = "PUBLISHED"
+	// 使用不可
+	BoardStatusRetired BoardStatus = "RETIRED"
+)
+
+var AllBoardStatus = []BoardStatus{
+	BoardStatusDraft,
+	BoardStatusPublished,
+	BoardStatusRetired,
+}
+
+func (e BoardStatus) IsValid() bool {
+	switch e {
+	case BoardStatusDraft, BoardStatusPublished, BoardStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e BoardStatus) String() string {
+	return string(e)
+}
+
+func (e *BoardStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardStatus", str)
+	}
+	return nil
+}
+
+func (e BoardStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// マスの種類
+type BoardTileKind string
+
+const (
+	// 土地（ふつうのマス）
+	BoardTileKindLand BoardTileKind = "LAND"
+	// 拠点（公開するボードにちょうど 1 つ）
+	BoardTileKindBase BoardTileKind = "BASE"
+	// チェックポイント（公開するボードに 1 つ以上）
+	BoardTileKindCheckpoint BoardTileKind = "CHECKPOINT"
+)
+
+var AllBoardTileKind = []BoardTileKind{
+	BoardTileKindLand,
+	BoardTileKindBase,
+	BoardTileKindCheckpoint,
+}
+
+func (e BoardTileKind) IsValid() bool {
+	switch e {
+	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
+		return true
+	}
+	return false
+}
+
+func (e BoardTileKind) String() string {
+	return string(e)
+}
+
+func (e *BoardTileKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardTileKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardTileKind", str)
+	}
+	return nil
+}
+
+func (e BoardTileKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardTileKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardTileKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
 
 // カードの状態。準備中は自由に変えられ、デッキに入れられず、game に写さない。公開中はデッキに入れられ、game に写す。
 // 使用不可は新しくデッキに入れられないが、プレイヤーが持っているので game には写す

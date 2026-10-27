@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
@@ -53,6 +54,8 @@ type Studio struct {
 	presetDeckList  *query.PresetDeckHandler
 	starterDecks    *command.StarterDeckHandler
 	starterDeckList *query.StarterDeckHandler
+	boards          *command.BoardHandler
+	boardList       *query.BoardHandler
 	gameRules       *command.GameRulesHandler
 }
 
@@ -66,6 +69,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
 	starterDeckReader := repository.NewStarterDeckReader()
+	boardReader := repository.NewBoardReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -125,6 +129,13 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			now,
 		),
 		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
+		boards: command.NewBoardHandler(
+			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
+			identifier.New(registry, board.NewID),
+			constraint.UpdateBoardName,
+			now,
+		),
+		boardList: query.NewBoardHandler(boardReader.List, boardReader.Get),
 	}
 }
 
@@ -190,6 +201,17 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	}); err != nil {
 		return err
 	}
+	boards := repository.NewBoardWriter()
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Board]{
+		Name: "boards",
+		Subscriptions: []domain.EntityType{
+			board.Types().EntityType,
+		},
+		Upsert: boards.Upsert,
+		Delete: boards.Delete,
+	}); err != nil {
+		return err
+	}
 	gameRules := repository.NewGameRulesWriter()
 	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GameRules]{
 		Name: "game_rules",
@@ -202,7 +224,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

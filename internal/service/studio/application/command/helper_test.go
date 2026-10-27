@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
@@ -216,5 +217,21 @@ func newItemHandler(t *testing.T, ctx context.Context) *command.ItemHandler {
 		identifier.New(registry, item.NewID),
 		constraint.UpdateItemName,
 		func() time.Time { return time.Now().UTC() },
+	)
+}
+
+func boardStore(registry *domaindef.Registry) domain.EventStore[board.ID, board.Event, board.State] {
+	return eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve)
+}
+
+func newBoardHandler(t *testing.T, ctx context.Context) *command.BoardHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewBoardHandler(
+		boardStore(registry),
+		identifier.New(registry, board.NewID),
+		constraint.UpdateBoardName,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
