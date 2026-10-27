@@ -23,6 +23,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -88,6 +89,7 @@ func run(ctx context.Context, env string) error {
 // studio.New は部品を外に出さないため、tests/testhelper と同じく、ここで組み立てる
 type seeder struct {
 	gameRules       *command.GameRulesHandler
+	studioRules     *command.StudioRulesHandler
 	creatures       *command.CreatureHandler
 	items           *command.ItemHandler
 	spells          *command.SpellHandler
@@ -125,8 +127,16 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 		constraint.CreateGameRules,
 		now,
 	)
+	studioRules := command.NewStudioRulesHandler(
+		eventstore.New(registry, studiorules.NewID, studiorules.NewEventType, studiorules.InitialState, studiorules.Evolve),
+		identifier.New(registry, studiorules.NewID),
+		constraint.FindStudioRules,
+		constraint.CreateStudioRules,
+		now,
+	)
 	return &seeder{
 		gameRules:    gameRules,
+		studioRules:  studioRules,
 		creatures:    creatures,
 		items:        items,
 		spells:       spells,
@@ -160,6 +170,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
 			identifier.New(registry, board.NewID),
 			constraint.UpdateBoardName,
+			studioRules.Get,
 			now,
 		),
 		cards:           query.NewCardHandler(cardReader.List, cardReader.Get),
@@ -171,6 +182,9 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 
 func (s *seeder) seed(ctx context.Context, m master) error {
 	if err := s.seedGameRules(ctx); err != nil {
+		return err
+	}
+	if err := s.seedStudioRules(ctx); err != nil {
 		return err
 	}
 	cardIDs, err := s.seedCards(ctx, m.Cards)
@@ -574,6 +588,15 @@ func waitFor(ctx context.Context, what string, done func() (bool, error)) error 
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
+}
+
+// ボードの登録がルールを読むため、core を起動する前に流しても動くよう、起動時と同じ関数で作る。
+// game に写さない（publish-master の対象ではない）ので、read model は待たない
+func (s *seeder) seedStudioRules(ctx context.Context) error {
+	if _, err := s.studioRules.CreateInitial(ctx); err != nil {
+		return fmt.Errorf("create studio rules: %w", err)
+	}
+	return nil
 }
 
 // core は起動時にゲーム全体のルールを作るので、ふだんは何もしない。core を起動する前に流しても、プリセットデッキの確かめ

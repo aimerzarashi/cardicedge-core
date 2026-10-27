@@ -1,0 +1,25 @@
+# studio でマスタを作るときの決まり（運営が決める値。core#52）。入力の範囲を studio に書き写さず、画面が入力の時点で止めるために読む。
+# 値を変える操作は、ゲーム全体のルールと一緒に作る（core#23）
+
+"studio でマスタを作るときの決まり"
+type StudioRules {
+  "ボードの決まり"
+  board: BoardRules!
+}
+
+"ボードの決まり"
+type BoardRules {
+  "幅・高さの下限（この値を含む。幅・高さに共通）"
+  minSize: Int!
+  "幅・高さの上限（この値を含む。幅・高さに共通）"
+  maxSize: Int!
+}
+
+# 起動時に作った直後で、読み出し用の値がまだ用意できていないときは、既定の値を返さず GraphQL の errors にする（待てば直る失敗）
+"studio の決まりの結果"
+union StudioRulesResult = StudioRules | ForbiddenError
+
+extend type Query {
+  "studio でマスタを作るときの決まり（紐づいたオペレーターだけ）"
+  studioRules: StudioRulesResult!
+}

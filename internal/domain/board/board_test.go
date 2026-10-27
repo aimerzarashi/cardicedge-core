@@ -17,6 +17,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules/studiorulestest"
 )
 
 var (
@@ -40,8 +42,11 @@ func newFixture(t *testing.T) fixture {
 	}
 }
 
+// 範囲は既定の値。範囲を変えて確かめるテストは、コマンドの Rules を差し替える
+var defaultRules = studiorules.Defaults().Board
+
 func (f fixture) registerCommand() *board.RegisterCommand {
-	return &board.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, RegisteredBy: f.operatorID}
+	return &board.RegisterCommand{ID: f.id, PublicID: publicID, Name: f.name, Rules: defaultRules, RegisteredBy: f.operatorID}
 }
 
 func apply(t *testing.T, state board.State, cmd board.Command, now time.Time) (board.State, []board.Event) {
@@ -62,7 +67,7 @@ func (f fixture) register(t *testing.T) board.State {
 }
 
 func (f fixture) changeLayoutCommand(layout board.Layout) *board.ChangeLayoutCommand {
-	return &board.ChangeLayoutCommand{Layout: layout, ChangedBy: f.operatorID}
+	return &board.ChangeLayoutCommand{Layout: layout, Rules: defaultRules, ChangedBy: f.operatorID}
 }
 
 func (f fixture) changeLayout(t *testing.T, state board.State, layout board.Layout) board.State {
@@ -124,6 +129,32 @@ func TestDecide_RegisterMakesEmptyDraftOfDefaultSize(t *testing.T) {
 	}, f.register(t))
 }
 
+// 既定の 8×8 が範囲の外なら、範囲の中に収める
+func TestDecide_RegisterClampsDefaultSizeIntoRange(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules studiorules.Board
+		want  int
+	}{
+		{name: "inside_range", rules: studiorulestest.Board(t, 1, 32), want: 8},
+		{name: "min_above_default", rules: studiorulestest.Board(t, 10, 32), want: 10},
+		{name: "max_below_default", rules: studiorulestest.Board(t, 1, 5), want: 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			cmd := f.registerCommand()
+			cmd.Rules = tt.rules
+
+			state, _ := apply(t, board.InitialState(), cmd, registeredAt)
+
+			size := state.(board.Board).Layout.Size()
+			require.Equal(t, tt.want, size.Width())
+			require.Equal(t, tt.want, size.Height())
+		})
+	}
+}
+
 func TestDecide_RejectsRegisterWhenAlreadyRegistered(t *testing.T) {
 	f := newFixture(t)
 
@@ -136,13 +167,13 @@ func TestEvolve_KeepsRegisteredSizeOutsideCurrentRange(t *testing.T) {
 	f := newFixture(t)
 	event := &board.RegisteredEvent{
 		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
-		PublicID:  publicID, Name: f.name, Width: board.MaxSize + 1, Height: 8, RegisteredBy: f.operatorID,
+		PublicID:  publicID, Name: f.name, Width: defaultRules.MaxSize + 1, Height: 8, RegisteredBy: f.operatorID,
 	}
 
 	state, err := board.Evolve(board.InitialState(), event)
 
 	require.NoError(t, err)
-	require.Equal(t, board.MaxSize+1, state.(board.Board).Layout.Size().Width())
+	require.Equal(t, defaultRules.MaxSize+1, state.(board.Board).Layout.Size().Width())
 }
 
 func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
@@ -214,6 +245,41 @@ func TestDecide_ChangeLayoutEmitsDifferenceInOrder(t *testing.T) {
 		ChangedBy:    f.operatorID,
 	}}, events)
 	require.Equal(t, after, state.(board.Board).Layout)
+}
+
+func TestDecide_RejectsChangeLayoutOutsideRange(t *testing.T) {
+	tests := []struct {
+		name          string
+		width, height int
+		rules         studiorules.Board
+	}{
+		{name: "too_wide", width: 33, height: 8, rules: defaultRules},
+		{name: "too_high", width: 8, height: 33, rules: defaultRules},
+		{name: "below_min_width", width: 3, height: 8, rules: studiorulestest.Board(t, 4, 32)},
+		{name: "above_lowered_max_height", width: 8, height: 8, rules: studiorulestest.Board(t, 1, 7)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			cmd := f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, tt.width, tt.height)))
+			cmd.Rules = tt.rules
+
+			_, err := board.Decide(f.register(t), cmd, changedAt)
+
+			require.ErrorIs(t, err, board.ErrSizeOutOfRange)
+		})
+	}
+}
+
+// 範囲を下げた後は、大きさを変えない保存でも新しい範囲で確かめる（準備中のものを保存し直すときに範囲に収めさせるため）
+func TestDecide_RejectsChangeLayoutKeepingSizeOutsideLoweredRange(t *testing.T) {
+	f := newFixture(t)
+	cmd := f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 8, 8)))
+	cmd.Rules = studiorulestest.Board(t, 1, 7)
+
+	_, err := board.Decide(f.register(t), cmd, changedAt)
+
+	require.ErrorIs(t, err, board.ErrSizeOutOfRange)
 }
 
 func TestDecide_ChangeLayoutOmitsSizeWhenSizeIsSame(t *testing.T) {
@@ -506,20 +572,19 @@ func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrNameTooLong)
 }
 
-func TestNewSize_AcceptsOneToThirtyTwo(t *testing.T) {
+// 範囲（上限・下限）は studio_rules が決めるので、値の形（1 以上）だけを確かめる
+func TestNewSize_AcceptsOneOrMore(t *testing.T) {
 	tests := []struct {
 		name          string
 		width, height int
 		wantErr       bool
 	}{
 		{name: "minimum", width: 1, height: 1},
-		{name: "maximum", width: 32, height: 32},
+		{name: "beyond_default_max", width: 100, height: 33},
 		{name: "not_square", width: 1, height: 32},
 		{name: "zero_width", width: 0, height: 8, wantErr: true},
 		{name: "zero_height", width: 8, height: 0, wantErr: true},
 		{name: "negative_width", width: -1, height: 8, wantErr: true},
-		{name: "too_wide", width: 33, height: 8, wantErr: true},
-		{name: "too_high", width: 8, height: 33, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

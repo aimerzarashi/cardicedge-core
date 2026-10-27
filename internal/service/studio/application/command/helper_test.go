@@ -19,6 +19,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -86,9 +87,29 @@ func newGameRulesHandler(t *testing.T, ctx context.Context) *command.GameRulesHa
 	)
 }
 
+func newStudioRulesHandler(t *testing.T, ctx context.Context) *command.StudioRulesHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewStudioRulesHandler(
+		eventstore.New(registry, studiorules.NewID, studiorules.NewEventType, studiorules.InitialState, studiorules.Evolve),
+		identifier.New(registry, studiorules.NewID),
+		constraint.FindStudioRules,
+		constraint.CreateStudioRules,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
 // 読むルールを固定する（イベントストアに作らずに、テストで値を小さくして確かめるため）
 func fixedRules(rules gamerules.Rules) command.GetGameRulesFunc {
 	return func(context.Context) (gamerules.Rules, error) {
+		return rules, nil
+	}
+}
+
+// 読む studio_rules を固定する（ボードの大きさの範囲を変えて確かめるため）
+func fixedStudioRules(rules studiorules.Rules) command.GetStudioRulesFunc {
+	return func(context.Context) (studiorules.Rules, error) {
 		return rules, nil
 	}
 }
@@ -224,7 +245,13 @@ func boardStore(registry *domaindef.Registry) domain.EventStore[board.ID, board.
 	return eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve)
 }
 
+// 既定の範囲で動かす。範囲を変えて確かめるときは newBoardHandlerWithRules
 func newBoardHandler(t *testing.T, ctx context.Context) *command.BoardHandler {
+	t.Helper()
+	return newBoardHandlerWithRules(t, ctx, studiorules.Defaults())
+}
+
+func newBoardHandlerWithRules(t *testing.T, ctx context.Context, rules studiorules.Rules) *command.BoardHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -232,6 +259,7 @@ func newBoardHandler(t *testing.T, ctx context.Context) *command.BoardHandler {
 		boardStore(registry),
 		identifier.New(registry, board.NewID),
 		constraint.UpdateBoardName,
+		fixedStudioRules(rules),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

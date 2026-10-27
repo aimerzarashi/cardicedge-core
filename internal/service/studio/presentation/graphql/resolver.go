@@ -84,6 +84,11 @@ type BoardLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.Board, error)
 }
 
+// 実装は query.StudioRulesHandler
+type StudioRulesGetter interface {
+	Get(ctx context.Context) (query.StudioRules, error)
+}
+
 type Resolver struct {
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
@@ -96,6 +101,7 @@ type Resolver struct {
 	starterDeckList StarterDeckLister
 	boards          BoardHandler
 	boardList       BoardLister
+	studioRules     StudioRulesGetter
 }
 
 func NewResolver(
@@ -110,10 +116,11 @@ func NewResolver(
 	starterDeckList StarterDeckLister,
 	boards BoardHandler,
 	boardList BoardLister,
+	studioRules StudioRulesGetter,
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
-		boards: boards, boardList: boardList,
+		boards: boards, boardList: boardList, studioRules: studioRules,
 	}
 }

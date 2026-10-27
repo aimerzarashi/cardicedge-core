@@ -8,21 +8,19 @@ import (
 	"slices"
 )
 
-// 幅・高さの範囲は、名前の長さと同じく値の形の決まりとして core に固定する。ゲーム全体のルール（gamerules）にすると、
-// 運用で下げたときに既存のボードをどう扱うかを決める必要が出るため
-const (
-	MinSize     = 1
-	MaxSize     = 32
-	DefaultSize = 8
-)
+// 登録の直後の大きさ。範囲（studiorules.Board）の外なら、範囲の中に収める。範囲に入れないのは、
+// 下げた後の既存のボードの大きさと関係なく、新しく作るときの初期値でしかないため
+const DefaultSize = 8
 
 type Size struct {
 	width  int
 	height int
 }
 
+// 値の形（1 以上）だけを確かめる。範囲の上限・下限は studio_rules が決め、書くときにコマンドを動かす側が渡す
+// （ここで確かめると、範囲を変えても、保存済みのボードを読み直す処理まで巻き込むため）
 func NewSize(width, height int) (Size, error) {
-	if width < MinSize || width > MaxSize || height < MinSize || height > MaxSize {
+	if width < 1 || height < 1 {
 		return Size{}, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, width, height)
 	}
 	return Size{width: width, height: height}, nil
@@ -45,7 +43,7 @@ func (s Size) MarshalJSON() ([]byte, error) {
 	return json.Marshal(sizeJSON{Width: s.width, Height: s.height})
 }
 
-// 範囲は確かめない（読み出しをルールの変更に巻き込まないため。MinSize・MaxSize は書くときに NewSize で守る）
+// 範囲は確かめない（読み出しをルールの変更に巻き込まないため。範囲は書くときに Decide が守る）
 func (s *Size) UnmarshalJSON(data []byte) error {
 	var v sizeJSON
 	if err := json.Unmarshal(data, &v); err != nil {

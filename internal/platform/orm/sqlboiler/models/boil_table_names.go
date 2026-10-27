@@ -26,6 +26,7 @@ var TableNames = struct {
 	Players                    string
 	PresetDecks                string
 	StarterDecks               string
+	StudioRules                string
 }{
 	Avatars:                    "avatars",
 	Boards:                     "boards",
@@ -49,4 +50,5 @@ var TableNames = struct {
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
 	StarterDecks:               "starter_decks",
+	StudioRules:                "studio_rules",
 }

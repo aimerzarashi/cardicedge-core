@@ -12,7 +12,7 @@ var (
 	ErrNameAlreadyInUse = errors.New("board: name already in use")
 	ErrStatusUnknown    = errors.New("board: unknown status")
 	ErrTileKindUnknown  = errors.New("board: unknown tile kind")
-	// 幅・高さが MinSize〜MaxSize の外
+	// 幅・高さが 1 未満、または studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")

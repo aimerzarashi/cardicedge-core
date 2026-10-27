@@ -20,6 +20,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -57,6 +58,8 @@ type Studio struct {
 	boards          *command.BoardHandler
 	boardList       *query.BoardHandler
 	gameRules       *command.GameRulesHandler
+	studioRules     *command.StudioRulesHandler
+	studioRulesList *query.StudioRulesHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -83,10 +86,19 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		constraint.CreateGameRules,
 		now,
 	)
+	studioRules := command.NewStudioRulesHandler(
+		eventstore.New(registry, studiorules.NewID, studiorules.NewEventType, studiorules.InitialState, studiorules.Evolve),
+		identifier.New(registry, studiorules.NewID),
+		constraint.FindStudioRules,
+		constraint.CreateStudioRules,
+		now,
+	)
 	return &Studio{
-		config:     config,
-		gameRules:  gameRules,
-		entityRefs: entityRefs,
+		config:          config,
+		gameRules:       gameRules,
+		studioRules:     studioRules,
+		studioRulesList: query.NewStudioRulesHandler(repository.NewStudioRulesReader().Get),
+		entityRefs:      entityRefs,
 		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
 			identifier.New(registry, operator.NewID),
@@ -133,6 +145,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
 			identifier.New(registry, board.NewID),
 			constraint.UpdateBoardName,
+			studioRules.Get,
 			now,
 		),
 		boardList: query.NewBoardHandler(boardReader.List, boardReader.Get),
@@ -160,6 +173,18 @@ func (c *Studio) CreateInitialGameRules(ctx context.Context, db *sql.DB) error {
 	}
 	if created {
 		slog.InfoContext(ctx, "created game rules")
+	}
+	return nil
+}
+
+// 起動時に、studio_rules が無ければ既定の値で作る（ゲーム全体のルールと同じ）
+func (c *Studio) CreateInitialStudioRules(ctx context.Context, db *sql.DB) error {
+	created, err := c.studioRules.CreateInitial(rdb.WithDB(ctx, db))
+	if err != nil {
+		return err
+	}
+	if created {
+		slog.InfoContext(ctx, "created studio rules")
 	}
 	return nil
 }
@@ -213,18 +238,29 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	gameRules := repository.NewGameRulesWriter()
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GameRules]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GameRules]{
 		Name: "game_rules",
 		Subscriptions: []domain.EntityType{
 			gamerules.Types().EntityType,
 		},
 		Upsert: gameRules.Upsert,
 		Delete: gameRules.Delete,
+	}); err != nil {
+		return err
+	}
+	studioRules := repository.NewStudioRulesWriter()
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StudioRules]{
+		Name: "studio_rules",
+		Subscriptions: []domain.EntityType{
+			studiorules.Types().EntityType,
+		},
+		Upsert: studioRules.Upsert,
+		Delete: studioRules.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

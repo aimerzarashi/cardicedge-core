@@ -72,6 +72,9 @@ var Types = Catalog{
 			{ID: 2305, Name: "RetiredEvent"},
 			{ID: 2306, Name: "DeletedEvent"},
 		}},
+		{ID: 2400, Name: "studio_rules", Events: []EventTypeDef{
+			{ID: 2401, Name: "CreatedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
@@ -87,6 +90,7 @@ var Types = Catalog{
 		{ID: 1011, Name: "starter_deck.name"},
 		{ID: 1012, Name: "avatar.name"},
 		{ID: 1013, Name: "board.name"},
+		{ID: 1014, Name: "studio_rules.singleton"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},

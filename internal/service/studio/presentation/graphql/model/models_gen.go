@@ -181,6 +181,11 @@ type StarterDecksResult interface {
 	IsStarterDecksResult()
 }
 
+// studio の決まりの結果
+type StudioRulesResult interface {
+	IsStudioRulesResult()
+}
+
 // ボード
 type Board struct {
 	// 公開用の ID
@@ -189,9 +194,9 @@ type Board struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status BoardStatus `json:"status"`
-	// 幅（列の数。1〜32。登録した直後は 8）
+	// 幅（列の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）
 	Width int `json:"width"`
-	// 高さ（行の数。1〜32。登録した直後は 8）
+	// 高さ（行の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）
 	Height int `json:"height"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
 	Tiles []*BoardTile `json:"tiles"`
@@ -301,6 +306,14 @@ type BoardPositionInput struct {
 	Y int `json:"y"`
 }
 
+// ボードの決まり
+type BoardRules struct {
+	// 幅・高さの下限（この値を含む。幅・高さに共通）
+	MinSize int `json:"minSize"`
+	// 幅・高さの上限（この値を含む。幅・高さに共通）
+	MaxSize int `json:"maxSize"`
+}
+
 // 置いてあるマス
 type BoardTile struct {
 	// 列
@@ -395,9 +408,9 @@ type ChangeBoardLayoutInput struct {
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていたボードの revision
 	Revision int `json:"revision"`
-	// 幅（1〜32）
+	// 幅（studioRules.board の範囲の中。外なら入力の誤り）
 	Width int `json:"width"`
-	// 高さ（1〜32）
+	// 高さ（studioRules.board の範囲の中。外なら入力の誤り）
 	Height int `json:"height"`
 	// 置くマスの全体（同じ座標を 2 回入れると入力の誤り）
 	Tiles []*BoardTileInput `json:"tiles"`
@@ -699,6 +712,8 @@ func (ForbiddenError) IsPublishStarterDeckResult() {}
 
 func (ForbiddenError) IsRetireStarterDeckResult() {}
 
+func (ForbiddenError) IsStudioRulesResult() {}
+
 // 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidBoardStatusTransitionError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -889,7 +904,7 @@ type RegisterBoardInput struct {
 	Name string `json:"name"`
 }
 
-// ボードを登録した（準備中。四角形の 8×8 で、マスもつながりも無い）
+// ボードを登録した（準備中。四角形の 8×8（範囲の外なら範囲に収めた値）で、マスもつながりも無い）
 type RegisterBoardSuccess struct {
 	// 登録したボードの公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1304,6 +1319,14 @@ type StarterDeckSource struct {
 	// 元のプリセットデッキが削除されている
 	PresetDeckDeleted bool `json:"presetDeckDeleted"`
 }
+
+// studio でマスタを作るときの決まり
+type StudioRules struct {
+	// ボードの決まり
+	Board *BoardRules `json:"board"`
+}
+
+func (StudioRules) IsStudioRulesResult() {}
 
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
