@@ -17,6 +17,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.37
 	github.com/vikstrous/dataloadgen v0.0.10
 	golang.org/x/text v0.41.0
+	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.49.0
 )
 
@@ -64,7 +65,6 @@ require (
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
