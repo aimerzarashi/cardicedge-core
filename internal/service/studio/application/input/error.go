@@ -123,6 +123,17 @@ func (e *TotalMismatch) InputField() string {
 	return e.Field
 }
 
+// つながりの両端が隣どうし（上下左右）でない（同じ座標を指すものを含む）
+type NotAdjacent struct{ Field string }
+
+func (e *NotAdjacent) Error() string {
+	return fmt.Sprintf("%s connects tiles that are not adjacent", e.Field)
+}
+
+func (e *NotAdjacent) InputField() string {
+	return e.Field
+}
+
 // 項目が増えても、最初の 1 つで止めずにまとめて返すため
 type Errors []Error
 

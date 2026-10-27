@@ -78,6 +78,12 @@ type FieldDuplicated implements FieldError {
   field: String!
 }
 
+"つながりの両端が隣どうし（上下左右に 1 マス）でない（同じ座標を指すものを含む）"
+type FieldNotAdjacent implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: connections.2）"
+  field: String!
+}
+
 "入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
 type FieldTotalTooLarge implements FieldError {
   "誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）"
