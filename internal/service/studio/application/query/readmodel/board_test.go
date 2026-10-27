@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
@@ -28,7 +29,7 @@ type boardHistory struct {
 func newBoardHistory(t *testing.T, publicID uuid.UUID, name string) *boardHistory {
 	t.Helper()
 	h := &boardHistory{t: t, state: board.InitialState()}
-	h.apply(&board.RegisterCommand{ID: boardtest.ID(t, 1), PublicID: publicID, Name: boardtest.Name(t, name), RegisteredBy: operatortest.ID(t, 10)}, boardRegisteredAt)
+	h.apply(&board.RegisterCommand{ID: boardtest.ID(t, 1), PublicID: publicID, Name: boardtest.Name(t, name), Rules: studiorules.Defaults().Board, RegisteredBy: operatortest.ID(t, 10)}, boardRegisteredAt)
 	return h
 }
 
@@ -45,7 +46,7 @@ func (h *boardHistory) apply(cmd board.Command, at time.Time) {
 
 func (h *boardHistory) changeLayout(layout board.Layout) {
 	h.t.Helper()
-	h.apply(&board.ChangeLayoutCommand{Layout: layout, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
+	h.apply(&board.ChangeLayoutCommand{Layout: layout, Rules: studiorules.Defaults().Board, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
 }
 
 func (h *boardHistory) project() readmodel.Board {

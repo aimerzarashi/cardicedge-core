@@ -1,6 +1,9 @@
 package board
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // 変えても同じになる操作（同じ名前・同じレイアウト・公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）。
 // 名前・レイアウトの変更と削除は準備中だけ。同じ状態への公開・使用不可も、準備中でなくてよい
@@ -14,8 +17,8 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
 			PublicID:     c.PublicID,
 			Name:         c.Name,
-			Width:        DefaultSize,
-			Height:       DefaultSize,
+			Width:        c.Rules.Clamp(DefaultSize),
+			Height:       c.Rules.Clamp(DefaultSize),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *RenameCommand:
@@ -31,6 +34,9 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		board, err := draft(state)
 		if err != nil {
 			return nil, err
+		}
+		if size := c.Layout.Size(); !c.Rules.Contains(size.Width()) || !c.Rules.Contains(size.Height()) {
+			return nil, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, size.Width(), size.Height())
 		}
 		event := diffLayout(board.Layout, c.Layout)
 		if event == nil {

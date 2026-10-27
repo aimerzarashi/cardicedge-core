@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -34,5 +35,6 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, gamerules.NewID, gamerules.NewEventType),
 		eventstore.NewEventLoader(registry, avatar.NewID, avatar.NewEventType),
 		eventstore.NewEventLoader(registry, board.NewID, board.NewEventType),
+		eventstore.NewEventLoader(registry, studiorules.NewID, studiorules.NewEventType),
 	)
 }

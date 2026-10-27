@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules/studiorulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
@@ -71,6 +73,30 @@ func TestRegisterBoard_ReturnsPublicIDAndMakesEmptyDraft(t *testing.T) {
 	require.Equal(t, 8, current.Layout.Size().Height())
 	require.Empty(t, current.Layout.Tiles())
 	require.Empty(t, current.Layout.Connections())
+}
+
+// 8×8 を、studio_rules の範囲の中に収める
+func TestRegisterBoard_ClampsDefaultSizeIntoStudioRulesRange(t *testing.T) {
+	tests := []struct {
+		name  string
+		board studiorules.Board
+		want  int
+	}{
+		{name: "min_above_default", board: studiorulestest.Board(t, 10, 20), want: 10},
+		{name: "max_below_default", board: studiorulestest.Board(t, 1, 5), want: 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			commands := newBoardHandlerWithRules(t, ctx, studiorules.Rules{Board: tt.board})
+
+			registered := registerBoard(t, ctx, commands, "草原")
+
+			current := restoredBoard(t, ctx, registered.ID)
+			require.Equal(t, tt.want, current.Layout.Size().Width())
+			require.Equal(t, tt.want, current.Layout.Size().Height())
+		})
+	}
 }
 
 func TestRegisterBoard_RejectsNameAlreadyInUse(t *testing.T) {
@@ -233,6 +259,29 @@ func tiles(inputs ...command.BoardTileInput) []command.BoardTileInput {
 
 func connections(inputs ...command.BoardConnectionInput) []command.BoardConnectionInput {
 	return inputs
+}
+
+// 範囲は固定の値ではなく studio_rules から読む。範囲を変えた後は、準備中のボードを保存し直すときも新しい範囲で確かめる
+func TestChangeBoardLayout_UsesStudioRulesRange(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	registered := registerBoard(t, ctx, newBoardHandler(t, ctx), "草原")
+	narrowed := newBoardHandlerWithRules(t, ctx, studiorulestest.Rules(t, 2, 4))
+
+	_, err := narrowed.ChangeLayout(ctx, registered.ID, registered.Revision, layoutInput(8, 8, nil, nil))
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, input.Errors{
+		&input.OutOfRange{Field: "width", Min: 2, Max: 4},
+		&input.OutOfRange{Field: "height", Min: 2, Max: 4},
+	}, invalid)
+	_, err = narrowed.ChangeLayout(ctx, registered.ID, registered.Revision, layoutInput(1, 4, nil, nil))
+	invalid, ok = input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, input.Errors{&input.OutOfRange{Field: "width", Min: 2, Max: 4}}, invalid)
+
+	changed, err := narrowed.ChangeLayout(ctx, registered.ID, registered.Revision, layoutInput(4, 2, nil, nil))
+	require.NoError(t, err)
+	require.Equal(t, int64(2), changed.Revision)
 }
 
 // ValidateLayout の違反を、入力の項目のパスに写す。つながりの a・b は、入力で書いた側のパスにする

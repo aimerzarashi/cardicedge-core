@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -19,6 +20,7 @@ type BoardHandler struct {
 	eventStore domain.EventStore[board.ID, board.Event, board.State]
 	identifier domain.Identifier[board.ID]
 	updateName board.UpdateNameFunc
+	getRules   GetStudioRulesFunc
 	now        func() time.Time
 }
 
@@ -26,9 +28,10 @@ func NewBoardHandler(
 	eventStore domain.EventStore[board.ID, board.Event, board.State],
 	identifier domain.Identifier[board.ID],
 	updateName board.UpdateNameFunc,
+	getRules GetStudioRulesFunc,
 	now func() time.Time,
 ) *BoardHandler {
-	return &BoardHandler{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
+	return &BoardHandler{eventStore: eventStore, identifier: identifier, updateName: updateName, getRules: getRules, now: now}
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（理由は ChangedPresetDeck と同じ）
@@ -67,7 +70,7 @@ type BoardLayoutInput struct {
 	Connections []BoardConnectionInput
 }
 
-// 空のボード（準備中。四角形の 8×8 でマスもつながりも無い）を作る。操作した人は context のオペレーター。
+// 空のボード（準備中。四角形でマスもつながりも無い。大きさは 8×8 を studio_rules の範囲に収めた値）を作る。操作した人は context のオペレーター。
 // 入力の誤りは input.Errors、使われている名前（状態によらず、すべてのボードの中で）なら ErrBoardNameAlreadyInUse
 func (c *BoardHandler) Register(ctx context.Context, name string) (ChangedBoard, error) {
 	registeredBy, ok := authentication.Operator(ctx)
@@ -78,6 +81,10 @@ func (c *BoardHandler) Register(ctx context.Context, name string) (ChangedBoard,
 	if invalid != nil {
 		return ChangedBoard{}, input.Errors{invalid}
 	}
+	rules, err := c.getRules(ctx)
+	if err != nil {
+		return ChangedBoard{}, err
+	}
 	registered, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedBoard, error) {
 		id, publicID, err := c.identifier.Issue(ctx)
 		if err != nil {
@@ -86,7 +93,7 @@ func (c *BoardHandler) Register(ctx context.Context, name string) (ChangedBoard,
 		if err := c.updateName(ctx, id, boardName); err != nil {
 			return ChangedBoard{}, err
 		}
-		registered, _, err := c.decideAndSave(ctx, board.InitialState(), &board.RegisterCommand{ID: id, PublicID: publicID, Name: boardName, RegisteredBy: registeredBy})
+		registered, _, err := c.decideAndSave(ctx, board.InitialState(), &board.RegisterCommand{ID: id, PublicID: publicID, Name: boardName, Rules: rules.Board, RegisteredBy: registeredBy})
 		if err != nil {
 			return ChangedBoard{}, err
 		}
@@ -134,13 +141,17 @@ func (c *BoardHandler) Rename(ctx context.Context, id uuid.UUID, revision int64,
 
 // 変えた後のレイアウトの全体を受け取る。入力の誤りは input.Errors
 // （項目は width・height・tiles.N.x・tiles.N.y・tiles.N.kind・tiles.N・connections.N.a・connections.N.b・connections.N）。
-// 幅・高さが範囲外なら、格子の範囲が決まらないため、マス・つながりは調べない。ほかのエラーは Rename と同じ
+// 幅・高さが studio_rules の範囲外なら、格子の範囲が決まらないため、マス・つながりは調べない。ほかのエラーは Rename と同じ
 func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision int64, layoutInput BoardLayoutInput) (ChangedBoard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedBoard{}, ErrNotOperator
 	}
-	layout, err := newLayout(layoutInput)
+	rules, err := c.getRules(ctx)
+	if err != nil {
+		return ChangedBoard{}, err
+	}
+	layout, err := newLayout(rules.Board, layoutInput)
 	if err != nil {
 		return ChangedBoard{}, err
 	}
@@ -149,7 +160,7 @@ func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision 
 		if err != nil {
 			return ChangedBoard{}, err
 		}
-		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeLayoutCommand{Layout: layout, ChangedBy: changedBy})
+		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeLayoutCommand{Layout: layout, Rules: rules.Board, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedBoard{}, err
 		}
@@ -278,18 +289,22 @@ func newBoardName(field, value string) (board.Name, input.Error) {
 }
 
 // 幅・高さ → マスの種類 → ValidateLayout の順に確かめ、誤りはまとめて input.Errors で返す。レイアウトの決まりは ValidateLayout の
-// 1 か所にあり、ここはその違反を入力の項目のパスに写すだけ
-func newLayout(layoutInput BoardLayoutInput) (board.Layout, error) {
+// 1 か所にあり、ここはその違反を入力の項目のパスに写すだけ。幅・高さの範囲は studio_rules（rules）の値
+func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Layout, error) {
 	invalid := input.Errors{}
+	if !rules.Contains(layoutInput.Width) {
+		invalid = append(invalid, &input.OutOfRange{Field: "width", Min: rules.MinSize, Max: rules.MaxSize})
+	}
+	if !rules.Contains(layoutInput.Height) {
+		invalid = append(invalid, &input.OutOfRange{Field: "height", Min: rules.MinSize, Max: rules.MaxSize})
+	}
+	if len(invalid) > 0 {
+		return board.Layout{}, invalid
+	}
+	// 範囲の下限は 1 以上（studiorules.New）なので、範囲の中なら失敗しない。失敗するならコードの誤りなので、内部のエラーのまま返す
 	size, err := board.NewSize(layoutInput.Width, layoutInput.Height)
 	if err != nil {
-		if layoutInput.Width < board.MinSize || layoutInput.Width > board.MaxSize {
-			invalid = append(invalid, &input.OutOfRange{Field: "width", Min: board.MinSize, Max: board.MaxSize})
-		}
-		if layoutInput.Height < board.MinSize || layoutInput.Height > board.MaxSize {
-			invalid = append(invalid, &input.OutOfRange{Field: "height", Min: board.MinSize, Max: board.MaxSize})
-		}
-		return board.Layout{}, invalid
+		return board.Layout{}, err
 	}
 
 	tiles := make([]board.Tile, len(layoutInput.Tiles))

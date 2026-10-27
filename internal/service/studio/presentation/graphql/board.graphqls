@@ -9,9 +9,9 @@ type Board {
   name: String!
   "状態（準備中・公開中・使用不可）"
   status: BoardStatus!
-  "幅（列の数。1〜32。登録した直後は 8）"
+  "幅（列の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）"
   width: Int!
-  "高さ（行の数。1〜32。登録した直後は 8）"
+  "高さ（行の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）"
   height: Int!
   "置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）"
   tiles: [BoardTile!]!
@@ -169,7 +169,7 @@ input RegisterBoardInput {
 }
 
 # 変える操作の結果は、公開 ID と新しい revision だけにする（PresetDeck と同じ）
-"ボードを登録した（準備中。四角形の 8×8 で、マスもつながりも無い）"
+"ボードを登録した（準備中。四角形の 8×8（範囲の外なら範囲に収めた値）で、マスもつながりも無い）"
 type RegisterBoardSuccess {
   "登録したボードの公開用の ID"
   id: UUID!
@@ -241,9 +241,9 @@ input ChangeBoardLayoutInput {
   id: UUID!
   "画面が見ていたボードの revision"
   revision: Int!
-  "幅（1〜32）"
+  "幅（studioRules.board の範囲の中。外なら入力の誤り）"
   width: Int!
-  "高さ（1〜32）"
+  "高さ（studioRules.board の範囲の中。外なら入力の誤り）"
   height: Int!
   "置くマスの全体（同じ座標を 2 回入れると入力の誤り）"
   tiles: [BoardTileInput!]!
