@@ -29,6 +29,8 @@ type Board struct {
 	Connections  []readmodel.BoardConnection
 	DefaultRules readmodel.BoardDefaultRules
 	TileCounts   readmodel.BoardTileCounts
+	// 公開できない理由（空なら公開できる）。投影が計算して持つ値をそのまま返す
+	PublishProblems []readmodel.BoardPublishProblem
 	// 集約の版（画面が変える操作に渡す）。投影が遅れているあいだは古いことがある（internal/eventstore/README.md）
 	Revision     int64
 	RegisteredAt time.Time

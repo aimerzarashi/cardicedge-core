@@ -360,38 +360,84 @@ func (l Layout) KindAt(pos Position) (TileKind, bool) {
 	return tile.Kind, ok
 }
 
-// 公開の条件を数えた結果。条件を満たすかの判定は Publishable
+// 公開の条件を調べた結果。条件を満たすかの判定は Publishable、満たさない理由の一覧は Problems
 type Readiness struct {
-	BaseCount       int
+	// 拠点の座標（y → x の順）。ちょうど 1 つでなければ公開できない
+	BasePositions   []Position
 	CheckpointCount int
 	// 拠点からつながりをたどって行けないマス（y → x の順）。拠点がちょうど 1 つのときだけ計算し、そうでなければ空
 	// （どこから行けるかが決まらないため）
 	UnreachableTiles []Position
 }
 
-// 拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点から行ける（行き止まりは認める）
+func (r Readiness) BaseCount() int {
+	return len(r.BasePositions)
+}
+
+// 公開できない理由の種類。理由を足すときは、ここに種類を足して Problems に並べる
+type PublishProblemKind string
+
+const (
+	// 拠点がちょうど 1 つでない
+	PublishProblemBaseCount PublishProblemKind = "base_count"
+	// チェックポイントが無い
+	PublishProblemNoCheckpoint PublishProblemKind = "no_checkpoint"
+	// 拠点から行けないマスがある
+	PublishProblemUnreachableTiles PublishProblemKind = "unreachable_tiles"
+)
+
+// 公開できない理由 1 つ。Positions は理由に関わるマスの座標（関わるマスの無い理由では空）
+type PublishProblem struct {
+	Kind      PublishProblemKind
+	Positions []Position
+}
+
+// 公開できない理由の一覧。順は 拠点の数 → チェックポイント → 行けないマス で固定。空なら公開できる
+// （拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点から行ける。行き止まりは認める）
+func (r Readiness) Problems() []PublishProblem {
+	var problems []PublishProblem
+	if r.BaseCount() != 1 {
+		problems = append(problems, PublishProblem{Kind: PublishProblemBaseCount, Positions: r.BasePositions})
+	}
+	if r.CheckpointCount < 1 {
+		problems = append(problems, PublishProblem{Kind: PublishProblemNoCheckpoint})
+	}
+	if len(r.UnreachableTiles) > 0 {
+		problems = append(problems, PublishProblem{Kind: PublishProblemUnreachableTiles, Positions: r.UnreachableTiles})
+	}
+	return problems
+}
+
 func (r Readiness) Publishable() bool {
-	return r.BaseCount == 1 && r.CheckpointCount >= 1 && len(r.UnreachableTiles) == 0
+	return len(r.Problems()) == 0
 }
 
 func (l Layout) Readiness() Readiness {
+	return CheckReadiness(l.Tiles(), l.Connections())
+}
+
+// 公開の条件を調べる。Layout を作らず（大きさも決まりの検査もせず）置いてあるマスとつながりだけで調べるのは、
+// 保存済みのイベントから作った read model の投影が、書くときの決まりを読み直さずに同じ判定を使えるようにするため
+func CheckReadiness(tiles []Tile, connections []Connection) Readiness {
 	var readiness Readiness
-	var base Position
-	for pos, tile := range l.tiles {
+	tilePositions := make(map[Position]struct{}, len(tiles))
+	for _, tile := range tiles {
+		tilePositions[tile.Position] = struct{}{}
 		switch tile.Kind {
 		case TileKindBase:
-			readiness.BaseCount++
-			base = pos
+			readiness.BasePositions = append(readiness.BasePositions, tile.Position)
 		case TileKindCheckpoint:
 			readiness.CheckpointCount++
 		}
 	}
-	if readiness.BaseCount != 1 {
+	slices.SortFunc(readiness.BasePositions, Position.Compare)
+	if readiness.BaseCount() != 1 {
 		return readiness
 	}
+	base := readiness.BasePositions[0]
 
-	neighbors := make(map[Position][]Position, len(l.tiles))
-	for connection := range l.connections {
+	neighbors := make(map[Position][]Position, len(tiles))
+	for _, connection := range connections {
 		neighbors[connection.a] = append(neighbors[connection.a], connection.b)
 		neighbors[connection.b] = append(neighbors[connection.b], connection.a)
 	}
@@ -407,7 +453,7 @@ func (l Layout) Readiness() Readiness {
 			}
 		}
 	}
-	for pos := range l.tiles {
+	for pos := range tilePositions {
 		if _, ok := reached[pos]; !ok {
 			readiness.UnreachableTiles = append(readiness.UnreachableTiles, pos)
 		}

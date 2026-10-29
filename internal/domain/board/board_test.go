@@ -433,7 +433,7 @@ func TestDecide_RejectsPublishUnlessConditionsAreMet(t *testing.T) {
 	tests := []struct {
 		name        string
 		layout      board.Layout
-		wantBases   int
+		wantBases   []board.Position
 		wantChecks  int
 		wantUnreach []board.Position
 	}{
@@ -446,20 +446,20 @@ func TestDecide_RejectsPublishUnlessConditionsAreMet(t *testing.T) {
 		{
 			name:       "two_bases",
 			layout:     boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "base", ""), boardtest.Tile(t, 2, 0, "checkpoint", "")}, nil),
-			wantBases:  2,
+			wantBases:  []board.Position{boardtest.Position(0, 0), boardtest.Position(1, 0)},
 			wantChecks: 1,
 		},
 		{
 			name:      "no_checkpoint",
 			layout:    boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}),
-			wantBases: 1,
+			wantBases: []board.Position{boardtest.Position(0, 0)},
 		},
 		{
 			name: "unreachable_tiles",
 			layout: boardtest.Layout(t, size,
 				[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 2, "land", "fire"), boardtest.Tile(t, 0, 2, "land", "fire"), boardtest.Tile(t, 1, 2, "checkpoint", "")},
 				[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(0, 2, 1, 2)}),
-			wantBases:   1,
+			wantBases:   []board.Position{boardtest.Position(0, 0)},
 			wantChecks:  2,
 			wantUnreach: []board.Position{boardtest.Position(0, 2), boardtest.Position(1, 2), boardtest.Position(2, 2)},
 		},
@@ -471,7 +471,7 @@ func TestDecide_RejectsPublishUnlessConditionsAreMet(t *testing.T) {
 			require.ErrorIs(t, err, board.ErrNotPublishable)
 			var notPublishable *board.NotPublishableError
 			require.True(t, errors.As(err, &notPublishable))
-			require.Equal(t, board.Readiness{BaseCount: tt.wantBases, CheckpointCount: tt.wantChecks, UnreachableTiles: tt.wantUnreach}, notPublishable.Readiness)
+			require.Equal(t, board.Readiness{BasePositions: tt.wantBases, CheckpointCount: tt.wantChecks, UnreachableTiles: tt.wantUnreach}, notPublishable.Readiness)
 		})
 	}
 }
@@ -872,7 +872,7 @@ func TestReadiness_LeavesUnreachableEmptyUnlessExactlyOneBase(t *testing.T) {
 	layout := boardtest.Layout(t, size,
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "base", ""), boardtest.Tile(t, 2, 2, "land", "fire")}, nil)
 
-	require.Equal(t, board.Readiness{BaseCount: 2}, layout.Readiness())
+	require.Equal(t, board.Readiness{BasePositions: []board.Position{boardtest.Position(0, 0), boardtest.Position(1, 0)}}, layout.Readiness())
 }
 
 func TestReadiness_TracesConnectionsInEitherDirection(t *testing.T) {
@@ -883,7 +883,7 @@ func TestReadiness_TracesConnectionsInEitherDirection(t *testing.T) {
 
 	readiness := layout.Readiness()
 
-	require.Equal(t, board.Readiness{BaseCount: 1, CheckpointCount: 1}, readiness)
+	require.Equal(t, board.Readiness{BasePositions: []board.Position{boardtest.Position(2, 2)}, CheckpointCount: 1}, readiness)
 	require.True(t, readiness.Publishable())
 }
 
@@ -957,4 +957,47 @@ func TestEvent_LayoutChangedOmitsEmptyLists(t *testing.T) {
 func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 	_, err := board.NewEventType(domain.NewEventName("UnknownEvent")).Unmarshal(board.EventMeta{}, 1, []byte(`{}`))
 	require.Error(t, err)
+}
+
+func TestReadiness_ListsProblemsInFixedOrderWithPositions(t *testing.T) {
+	size := boardtest.Size(t, 4, 4)
+	tests := []struct {
+		name   string
+		layout board.Layout
+		want   []board.PublishProblem
+	}{
+		{name: "empty", layout: board.EmptyLayout(size), want: []board.PublishProblem{
+			{Kind: board.PublishProblemBaseCount},
+			{Kind: board.PublishProblemNoCheckpoint},
+		}},
+		{
+			name: "two_bases_without_checkpoint",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{boardtest.Tile(t, 3, 1, "base", ""), boardtest.Tile(t, 0, 2, "base", "")}, nil),
+			want: []board.PublishProblem{
+				{Kind: board.PublishProblemBaseCount, Positions: []board.Position{boardtest.Position(3, 1), boardtest.Position(0, 2)}},
+				{Kind: board.PublishProblemNoCheckpoint},
+			},
+		},
+		{
+			name: "unreachable_after_exactly_one_base",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 3, 3, "land", "fire")},
+				[]board.Connection{boardtest.Connection(0, 0, 1, 0)}),
+			want: []board.PublishProblem{
+				{Kind: board.PublishProblemUnreachableTiles, Positions: []board.Position{boardtest.Position(3, 3)}},
+			},
+		},
+		{
+			name: "publishable",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
+				[]board.Connection{boardtest.Connection(0, 0, 1, 0)}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tt.layout.Readiness().Problems())
+		})
+	}
 }

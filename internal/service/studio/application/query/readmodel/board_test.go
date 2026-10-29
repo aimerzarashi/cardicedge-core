@@ -69,6 +69,10 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 		ID: publicID, Name: "Ｆire 草原", Status: readmodel.BoardStatusDraft, Revision: 1, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{},
 		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0),
+		PublishProblems: []readmodel.BoardPublishProblem{
+			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemBaseCount),
+			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
+		},
 		RegisteredAt: boardRegisteredAt, UpdatedAt: boardRegisteredAt,
 	}, state.Metadata)
 	require.False(t, state.IsTerminal())
@@ -139,6 +143,31 @@ func TestBoard_LayoutChangeRecountsTilesByKindAndAttribute(t *testing.T) {
 
 	require.Equal(t, readmodel.NewBoardTileCounts(4, 1, 1, 2, 1, 0, 0, 0, 1), placed)
 	require.Equal(t, readmodel.NewBoardTileCounts(3, 1, 2, 0, 0, 1, 1, 1, 0), changed)
+}
+
+// 差分を当てるたびに、置いてあるマス全体から公開できない理由を計算し直す（投影で持ち、読むときに計算しない）
+func TestBoard_LayoutChangeRecomputesPublishProblems(t *testing.T) {
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
+		[]board.Tile{boardtest.Tile(t, 1, 1, "base", ""), boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 2, 2, "land", "fire")}, nil))
+	twoBases := h.project().Metadata.PublishProblems
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 2, "land", "fire")},
+		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+	unreachable := h.project().Metadata.PublishProblems
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
+		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+	publishable := h.project().Metadata.PublishProblems
+
+	require.Equal(t, []readmodel.BoardPublishProblem{
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemBaseCount, readmodel.NewBoardPosition(0, 0), readmodel.NewBoardPosition(1, 1)),
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
+	}, twoBases)
+	require.Equal(t, []readmodel.BoardPublishProblem{
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemUnreachableTiles, readmodel.NewBoardPosition(2, 2)),
+	}, unreachable)
+	require.Equal(t, []readmodel.BoardPublishProblem{}, publishable)
 }
 
 func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {

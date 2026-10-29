@@ -35,7 +35,7 @@ func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
 		}
 		require.Equal(t, 8, b.Width)
 		require.Equal(t, 8, b.Height)
-		require.Equal(t, 1, readiness.BaseCount)
+		require.Equal(t, 1, readiness.BaseCount())
 		require.GreaterOrEqual(t, readiness.CheckpointCount, 2)
 		require.True(t, fork)
 	}

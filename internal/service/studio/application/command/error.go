@@ -37,7 +37,7 @@ var (
 	ErrInvalidBoardStatusTransition = errors.New("command: invalid board status transition")
 	// 準備中でないボードの名前・レイアウトを変える、または削除しようとした
 	ErrBoardNotDraft = errors.New("command: board is not draft")
-	// 公開の条件（拠点・チェックポイント・拠点から行けること）を満たしていない。数は NotPublishableBoardError で受け取る
+	// 公開の条件（拠点・チェックポイント・拠点から行けること）を満たしていない。理由は BoardNotPublishableError で受け取る
 	ErrBoardNotPublishable = errors.New("command: board is not publishable")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
@@ -66,17 +66,29 @@ func (e *LimitReachedError) Unwrap() error {
 	return e.reason
 }
 
-// 公開の条件を満たしていない。画面が直す先を示せるよう、数と行けないマスを持つ（LimitReachedError と同じ考え）。
-// errors.Is は ErrBoardNotPublishable と一致する
+// 公開できない理由の種類。read model の publish_problems と同じ種類（domain の board.PublishProblemKind の値）
+type BoardPublishProblemKind string
+
+const (
+	BoardPublishProblemBaseCount        BoardPublishProblemKind = "base_count"
+	BoardPublishProblemNoCheckpoint     BoardPublishProblemKind = "no_checkpoint"
+	BoardPublishProblemUnreachableTiles BoardPublishProblemKind = "unreachable_tiles"
+)
+
+// 公開できない理由 1 つ。Positions は関わるマスの座標（無ければ空）
+type BoardPublishProblem struct {
+	Kind      BoardPublishProblemKind
+	Positions []BoardPosition
+}
+
+// 公開の条件を満たしていない。画面が直す先を示せるよう、理由ごとの種類と座標を持つ（LimitReachedError と同じ考え）。
+// 理由の順は 拠点の数 → チェックポイント → 行けないマス。errors.Is は ErrBoardNotPublishable と一致する
 type BoardNotPublishableError struct {
-	BaseCount       int
-	CheckpointCount int
-	// 拠点がちょうど 1 つのときだけ計算する（そうでなければ空。どこから行けるかが決まらないため）。y → x の順
-	UnreachableTiles []BoardPosition
+	Problems []BoardPublishProblem
 }
 
 func (e *BoardNotPublishableError) Error() string {
-	return fmt.Sprintf("%s (bases %d, checkpoints %d, unreachable %d)", ErrBoardNotPublishable, e.BaseCount, e.CheckpointCount, len(e.UnreachableTiles))
+	return fmt.Sprintf("%s (%d problems)", ErrBoardNotPublishable, len(e.Problems))
 }
 
 func (e *BoardNotPublishableError) Unwrap() error {

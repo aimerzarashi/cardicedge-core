@@ -100,9 +100,13 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	if err := json.Unmarshal(raw, &metadata); err != nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: %w", id, err)
 	}
+	// 公開できない理由を持たない行（理由を足す前に投影した行）を、公開できるものとして返さない。投影を作り直せば入る
+	if metadata.PublishProblems == nil {
+		return query.Board{}, fmt.Errorf("boards.metadata of %s: publish_problems is missing", id)
+	}
 	return query.Board{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Width: metadata.Width, Height: metadata.Height,
-		Tiles: metadata.Tiles, Connections: metadata.Connections, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts,
+		Tiles: metadata.Tiles, Connections: metadata.Connections, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts, PublishProblems: metadata.PublishProblems,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 	}, nil
 }

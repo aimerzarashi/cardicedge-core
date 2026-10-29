@@ -28,7 +28,7 @@ var (
 	ErrNotDraft = errors.New("board: not draft")
 	// レイアウトの決まり（ValidateLayout）を守っていない。違反の一覧は *InvalidLayoutError
 	ErrInvalidLayout = errors.New("board: invalid layout")
-	// 公開の条件を満たしていない。数は *NotPublishableError
+	// 公開の条件を満たしていない。理由は *NotPublishableError
 	ErrNotPublishable = errors.New("board: not publishable")
 )
 
@@ -44,14 +44,14 @@ func (e *InvalidLayoutError) Is(target error) bool {
 	return target == ErrInvalidLayout
 }
 
-// 画面が何を直せばよいか示せるよう、Readiness の数と行けないマスをそのまま持つ
+// 画面が何を直せばよいか示せるよう、Readiness をそのまま持つ（理由の一覧は Readiness.Problems）
 type NotPublishableError struct {
 	Readiness Readiness
 }
 
 func (e *NotPublishableError) Error() string {
 	return fmt.Sprintf("%s: bases=%d checkpoints=%d unreachable=%d",
-		ErrNotPublishable, e.Readiness.BaseCount, e.Readiness.CheckpointCount, len(e.Readiness.UnreachableTiles))
+		ErrNotPublishable, e.Readiness.BaseCount(), e.Readiness.CheckpointCount, len(e.Readiness.UnreachableTiles))
 }
 
 func (e *NotPublishableError) Is(target error) bool {

@@ -24,6 +24,14 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 		}
 		tiles = append(tiles, converted)
 	}
+	problems := make([]model.BoardPublishProblem, 0, len(board.PublishProblems))
+	for _, problem := range board.PublishProblems {
+		converted, err := fromBoardPublishProblem(string(problem.Kind), fromReadmodelPositions(problem.Positions))
+		if err != nil {
+			return nil, err
+		}
+		problems = append(problems, converted)
+	}
 	connections := make([]*model.BoardConnection, 0, len(board.Connections))
 	for _, connection := range board.Connections {
 		connections = append(connections, &model.BoardConnection{
@@ -33,7 +41,7 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 	}
 	return &model.Board{
 		ID: board.ID, Name: board.Name, Status: status, Width: board.Width, Height: board.Height,
-		Tiles: tiles, Connections: connections, DefaultRules: fromBoardDefaultRules(board.DefaultRules), TileCounts: fromBoardTileCounts(board.TileCounts), Revision: int(board.Revision),
+		Tiles: tiles, Connections: connections, DefaultRules: fromBoardDefaultRules(board.DefaultRules), TileCounts: fromBoardTileCounts(board.TileCounts), PublishProblems: problems, Revision: int(board.Revision),
 		RegisteredAt: board.RegisteredAt, UpdatedAt: board.UpdatedAt,
 	}, nil
 }
@@ -115,14 +123,45 @@ func toBoardLayoutInput(layoutInput model.ChangeBoardLayoutInput) (command.Board
 	return command.BoardLayoutInput{Width: layoutInput.Width, Height: layoutInput.Height, Tiles: tiles, Connections: connections}, nil
 }
 
-func fromBoardNotPublishable(err *command.BoardNotPublishableError) *model.BoardNotPublishableError {
-	unreachable := make([]*model.BoardPosition, 0, len(err.UnreachableTiles))
-	for _, pos := range err.UnreachableTiles {
-		unreachable = append(unreachable, &model.BoardPosition{X: pos.X, Y: pos.Y})
+func fromBoardNotPublishable(err *command.BoardNotPublishableError) (*model.BoardNotPublishableError, error) {
+	problems := make([]model.BoardPublishProblem, 0, len(err.Problems))
+	for _, problem := range err.Problems {
+		converted, err := fromBoardPublishProblem(string(problem.Kind), fromCommandPositions(problem.Positions))
+		if err != nil {
+			return nil, err
+		}
+		problems = append(problems, converted)
 	}
-	return &model.BoardNotPublishableError{
-		Message: "board is not publishable", BaseCount: err.BaseCount, CheckpointCount: err.CheckpointCount, UnreachableTiles: unreachable,
+	return &model.BoardNotPublishableError{Message: "board is not publishable", Problems: problems}, nil
+}
+
+func fromCommandPositions(positions []command.BoardPosition) []*model.BoardPosition {
+	result := make([]*model.BoardPosition, 0, len(positions))
+	for _, pos := range positions {
+		result = append(result, &model.BoardPosition{X: pos.X, Y: pos.Y})
 	}
+	return result
+}
+
+func fromReadmodelPositions(positions []readmodel.BoardPosition) []*model.BoardPosition {
+	result := make([]*model.BoardPosition, 0, len(positions))
+	for _, pos := range positions {
+		result = append(result, &model.BoardPosition{X: pos.X, Y: pos.Y})
+	}
+	return result
+}
+
+// 種類は read model（読む側）と command（公開に失敗した側）で同じ文字列。理由を足したのに写し方を足し忘れたら、黙って捨てずに止める
+func fromBoardPublishProblem(kind string, positions []*model.BoardPosition) (model.BoardPublishProblem, error) {
+	switch kind {
+	case string(readmodel.BoardPublishProblemBaseCount):
+		return &model.BaseCountProblem{Message: "board must have exactly one base", Positions: positions}, nil
+	case string(readmodel.BoardPublishProblemNoCheckpoint):
+		return &model.NoCheckpointProblem{Message: "board must have at least one checkpoint"}, nil
+	case string(readmodel.BoardPublishProblemUnreachableTiles):
+		return &model.UnreachableTilesProblem{Message: "board has tiles that cannot be reached from the base", Positions: positions}, nil
+	}
+	return nil, fmt.Errorf("unknown board publish problem: %q", kind)
 }
 
 // enum の値と状態の対応を明示する（toCardStatus と同じ）

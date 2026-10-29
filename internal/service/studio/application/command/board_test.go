@@ -504,7 +504,7 @@ func TestPublishBoard_MakesPublishedAndSecondCallKeepsRevision(t *testing.T) {
 	require.Equal(t, board.StatusPublished, restoredBoard(t, ctx, changed.ID).Status)
 }
 
-func TestPublishBoard_ReportsCountsAndUnreachableTiles(t *testing.T) {
+func TestPublishBoard_ReportsProblemsWithPositions(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newBoardHandler(t, ctx)
 	registered := registerBoard(t, ctx, commands, "草原")
@@ -521,7 +521,9 @@ func TestPublishBoard_ReportsCountsAndUnreachableTiles(t *testing.T) {
 	var notPublishable *command.BoardNotPublishableError
 	require.ErrorAs(t, err, &notPublishable)
 	require.Equal(t, &command.BoardNotPublishableError{
-		BaseCount: 1, CheckpointCount: 1, UnreachableTiles: []command.BoardPosition{command.NewBoardPosition(2, 2)},
+		Problems: []command.BoardPublishProblem{
+			{Kind: command.BoardPublishProblemUnreachableTiles, Positions: []command.BoardPosition{command.NewBoardPosition(2, 2)}},
+		},
 	}, notPublishable)
 	require.Equal(t, board.StatusDraft, restoredBoard(t, ctx, changed.ID).Status)
 }
