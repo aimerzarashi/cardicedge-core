@@ -71,6 +71,11 @@ type ChangeBoardLayoutResult interface {
 	IsChangeBoardLayoutResult()
 }
 
+// ボードのレイアウトの判定の結果
+type CheckBoardLayoutResult interface {
+	IsCheckBoardLayoutResult()
+}
+
 // ボードの削除の結果（準備中のものだけ消せる）
 type DeleteBoardResult interface {
 	IsDeleteBoardResult()
@@ -536,6 +541,26 @@ type ChangeBoardLayoutSuccess struct {
 
 func (ChangeBoardLayoutSuccess) IsChangeBoardLayoutResult() {}
 
+// ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）
+type CheckBoardLayoutInput struct {
+	// 幅（studioRules.board の範囲の中。外なら入力の誤り）
+	Width int `json:"width"`
+	// 高さ（studioRules.board の範囲の中。外なら入力の誤り）
+	Height int `json:"height"`
+	// 置くマスの全体（同じ座標を 2 回入れると入力の誤り）
+	Tiles []*BoardTileInput `json:"tiles"`
+	// つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）
+	Connections []*BoardConnectionInput `json:"connections"`
+}
+
+// レイアウトの判定の結果（保存していない）。公開できる条件を満たしていれば publishProblems は空
+type CheckBoardLayoutSuccess struct {
+	// 公開できない理由（公開するときの BoardNotPublishableError.problems と同じ型・順。空なら公開できる）
+	PublishProblems []BoardPublishProblem `json:"publishProblems"`
+}
+
+func (CheckBoardLayoutSuccess) IsCheckBoardLayoutResult() {}
+
 // チェックポイント（公開するボードに 1 つ以上）
 type CheckpointTile struct {
 	// 列
@@ -807,6 +832,8 @@ type ForbiddenError struct {
 func (ForbiddenError) IsBoardsResult() {}
 
 func (ForbiddenError) IsBoardResult() {}
+
+func (ForbiddenError) IsCheckBoardLayoutResult() {}
 
 func (ForbiddenError) IsRegisterBoardResult() {}
 
@@ -1549,6 +1576,8 @@ type ValidationErrors struct {
 }
 
 func (ValidationErrors) IsBoardsResult() {}
+
+func (ValidationErrors) IsCheckBoardLayoutResult() {}
 
 func (ValidationErrors) IsRegisterBoardResult() {}
 

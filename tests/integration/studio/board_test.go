@@ -72,6 +72,14 @@ const changeBoardDefaultRulesMutation = `mutation ($input: ChangeBoardDefaultRul
 	}
 }`
 
+const checkBoardLayoutQuery = `query ($input: CheckBoardLayoutInput!) {
+	checkBoardLayout(input: $input) {
+		__typename
+		... on CheckBoardLayoutSuccess { publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } } }
+		` + boardErrorFields + `
+	}
+}`
+
 const deleteBoardMutation = `mutation ($input: DeleteBoardInput!) {
 	deleteBoard(input: $input) {
 		__typename
@@ -543,4 +551,84 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 			require.Equal(t, tt.want, body["data"].(map[string]any)[tt.field].(map[string]any)["__typename"])
 		})
 	}
+}
+
+func checkBoardLayout(t *testing.T, token string, width, height int, tiles, connections []map[string]any) map[string]any {
+	t.Helper()
+	if tiles == nil {
+		tiles = []map[string]any{}
+	}
+	if connections == nil {
+		connections = []map[string]any{}
+	}
+	return client.Data(t, token, checkBoardLayoutQuery,
+		map[string]any{"input": map[string]any{"width": width, "height": height, "tiles": tiles, "connections": connections}}, "checkBoardLayout")
+}
+
+// 公開するときと同じ理由・順を、保存せずに返す。何も保存しない（ボードの revision が進まない）
+func TestCheckBoardLayout_ReturnsProblemsPerReasonAndSavesNothing(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+
+	empty := checkBoardLayout(t, token, 3, 3, nil, nil)
+	twoBases := checkBoardLayout(t, token, 3, 3, []map[string]any{boardTile(2, 1, "BASE"), boardTile(0, 0, "BASE")}, nil)
+	unreachable := checkBoardLayout(t, token, 3, 3,
+		[]map[string]any{boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT"), boardTile(2, 2, "LAND"), boardTile(0, 2, "LAND")},
+		[]map[string]any{boardConnection(0, 0, 1, 0)})
+	publishable := checkBoardLayout(t, token, 3, 3,
+		[]map[string]any{boardTile(0, 0, "BASE"), boardTile(1, 0, "LAND"), boardTile(2, 0, "CHECKPOINT")},
+		[]map[string]any{boardConnection(0, 0, 1, 0), boardConnection(1, 0, 2, 0)})
+
+	require.Equal(t, map[string]any{"__typename": "CheckBoardLayoutSuccess", "publishProblems": []any{problemBaseCount(), problemNoCheckpoint()}}, empty)
+	require.Equal(t, map[string]any{"__typename": "CheckBoardLayoutSuccess", "publishProblems": []any{
+		problemBaseCount(position(0, 0), position(2, 1)), problemNoCheckpoint(),
+	}}, twoBases)
+	require.Equal(t, map[string]any{"__typename": "CheckBoardLayoutSuccess", "publishProblems": []any{problemUnreachable(position(0, 2), position(2, 2))}}, unreachable)
+	require.Equal(t, map[string]any{"__typename": "CheckBoardLayoutSuccess", "publishProblems": []any{}}, publishable)
+	detail := waitBoard(t, token, board["id"], 1)
+	require.Empty(t, detail["tiles"])
+	same := changeBoardLayout(t, token, board, 1, 1, nil, nil)
+	require.EqualValues(t, 2, same["revision"])
+}
+
+// 入力の誤りは保存と同じ項目のパスになる
+func TestCheckBoardLayout_ReturnsSameFieldErrorsAsChangeBoardLayout(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	position := map[string]any{"x": 0, "y": 0}
+	tests := []struct {
+		name        string
+		width       int
+		height      int
+		tiles       []map[string]any
+		connections []map[string]any
+	}{
+		{name: "size_out_of_range", width: 0, height: 33, tiles: []map[string]any{boardTile(99, 99, "LAND")}},
+		{name: "layout_violations", width: 3, height: 2,
+			tiles:       []map[string]any{boardTile(0, 0, "LAND"), boardTile(3, 2, "LAND"), boardTile(0, 0, "BASE"), boardTile(1, 1, "LAND")},
+			connections: []map[string]any{boardConnection(0, 0, 1, 1), boardConnection(0, 0, 0, 1), boardConnection(1, 1, 1, 0), boardConnection(0, 1, 0, 0)}},
+		{name: "written_kind_in_path", width: 2, height: 1, tiles: []map[string]any{boardTile(2, 0, "BASE"), boardTile(0, 1, "CHECKPOINT")}},
+		{name: "tile_without_exactly_one_kind", width: 3, height: 1,
+			tiles: []map[string]any{{}, {"base": position, "checkpoint": position}, boardTile(2, 0, "LAND")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			saved := changeBoardLayout(t, token, board, tt.width, tt.height, tt.tiles, tt.connections)
+			checked := checkBoardLayout(t, token, tt.width, tt.height, tt.tiles, tt.connections)
+
+			require.Equal(t, "ValidationErrors", checked["__typename"])
+			require.Equal(t, saved, checked)
+		})
+	}
+}
+
+func TestCheckBoardLayout_ReturnsForbiddenErrorWhenNotOperator(t *testing.T) {
+	t.Parallel()
+	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
+
+	forbidden := checkBoardLayout(t, notOperator, 1, 1, nil, nil)
+
+	require.Equal(t, "ForbiddenError", forbidden["__typename"])
 }

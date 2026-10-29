@@ -202,3 +202,29 @@ func (r *queryResolver) Board(ctx context.Context, id uuid.UUID) (model.BoardRes
 	}
 	return fromQueryBoard(board)
 }
+
+// CheckBoardLayout is the resolver for the checkBoardLayout field.
+func (r *queryResolver) CheckBoardLayout(ctx context.Context, input model.CheckBoardLayoutInput) (model.CheckBoardLayoutResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	layout, err := toCheckBoardLayoutInput(input)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	commandProblems, err := r.boards.CheckLayout(ctx, layout)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	problems, err := fromCommandPublishProblems(commandProblems)
+	if err != nil {
+		return nil, err
+	}
+	return &model.CheckBoardLayoutSuccess{PublishProblems: problems}, nil
+}

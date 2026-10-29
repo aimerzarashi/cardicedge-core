@@ -156,6 +156,10 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	CheckBoardLayoutSuccess struct {
+		PublishProblems func(childComplexity int) int
+	}
+
 	CheckpointTile struct {
 		X func(childComplexity int) int
 		Y func(childComplexity int) int
@@ -354,14 +358,15 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Board        func(childComplexity int, id uuid.UUID) int
-		Boards       func(childComplexity int, filter *model.BoardFilter, first *int, after *string) int
-		Cards        func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
-		PresetDeck   func(childComplexity int, id uuid.UUID) int
-		PresetDecks  func(childComplexity int, filter *model.PresetDeckFilter, first *int, after *string) int
-		StarterDeck  func(childComplexity int, id uuid.UUID) int
-		StarterDecks func(childComplexity int, filter *model.StarterDeckFilter, first *int, after *string) int
-		StudioRules  func(childComplexity int) int
+		Board            func(childComplexity int, id uuid.UUID) int
+		Boards           func(childComplexity int, filter *model.BoardFilter, first *int, after *string) int
+		Cards            func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
+		CheckBoardLayout func(childComplexity int, input model.CheckBoardLayoutInput) int
+		PresetDeck       func(childComplexity int, id uuid.UUID) int
+		PresetDecks      func(childComplexity int, filter *model.PresetDeckFilter, first *int, after *string) int
+		StarterDeck      func(childComplexity int, id uuid.UUID) int
+		StarterDecks     func(childComplexity int, filter *model.StarterDeckFilter, first *int, after *string) int
+		StudioRules      func(childComplexity int) int
 	}
 
 	RegisterBoardSuccess struct {
@@ -544,6 +549,7 @@ type PresetDeckResolver interface {
 type QueryResolver interface {
 	Boards(ctx context.Context, filter *model.BoardFilter, first *int, after *string) (model.BoardsResult, error)
 	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
+	CheckBoardLayout(ctx context.Context, input model.CheckBoardLayoutInput) (model.CheckBoardLayoutResult, error)
 	Cards(ctx context.Context, filter *model.CardFilter, first *int, after *string) (model.CardsResult, error)
 	PresetDecks(ctx context.Context, filter *model.PresetDeckFilter, first *int, after *string) (model.PresetDecksResult, error)
 	PresetDeck(ctx context.Context, id uuid.UUID) (model.PresetDeckResult, error)
@@ -922,6 +928,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ChangeBoardLayoutSuccess.Revision(childComplexity), true
+
+	case "CheckBoardLayoutSuccess.publishProblems":
+		if e.ComplexityRoot.CheckBoardLayoutSuccess.PublishProblems == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckBoardLayoutSuccess.PublishProblems(childComplexity), true
 
 	case "CheckpointTile.x":
 		if e.ComplexityRoot.CheckpointTile.X == nil {
@@ -1658,6 +1671,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Cards(childComplexity, args["filter"].(*model.CardFilter), args["first"].(*int), args["after"].(*string)), true
+	case "Query.checkBoardLayout":
+		if e.ComplexityRoot.Query.CheckBoardLayout == nil {
+			break
+		}
+
+		args, err := ec.field_Query_checkBoardLayout_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.CheckBoardLayout(childComplexity, args["input"].(model.CheckBoardLayoutInput)), true
 
 	case "Query.presetDeck":
 		if e.ComplexityRoot.Query.PresetDeck == nil {
@@ -2113,6 +2137,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCardFilter,
 		ec.unmarshalInputChangeBoardDefaultRulesInput,
 		ec.unmarshalInputChangeBoardLayoutInput,
+		ec.unmarshalInputCheckBoardLayoutInput,
 		ec.unmarshalInputDeckCardCountInput,
 		ec.unmarshalInputDeleteBoardInput,
 		ec.unmarshalInputDeletePresetDeckInput,
@@ -3040,6 +3065,20 @@ func (ec *executionContext) field_Query_cards_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["after"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_checkBoardLayout_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CheckBoardLayoutInput, error) {
+			return ec.unmarshalNCheckBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -4589,6 +4628,38 @@ func (ec *executionContext) _ChangeBoardLayoutSuccess_revision(ctx context.Conte
 }
 func (ec *executionContext) fieldContext_ChangeBoardLayoutSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ChangeBoardLayoutSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CheckBoardLayoutSuccess_publishProblems(ctx context.Context, field graphql.CollectedField, obj *model.CheckBoardLayoutSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckBoardLayoutSuccess_publishProblems(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PublishProblems, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckBoardLayoutSuccess_publishProblems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckBoardLayoutSuccess",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _CheckpointTile_x(ctx context.Context, field graphql.CollectedField, obj *model.CheckpointTile) (ret graphql.Marshaler) {
@@ -7317,6 +7388,50 @@ func (ec *executionContext) fieldContext_Query_board(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_board_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_checkBoardLayout(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_checkBoardLayout(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().CheckBoardLayout(ctx, fc.Args["input"].(model.CheckBoardLayoutInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CheckBoardLayoutResult) graphql.Marshaler {
+			return ec.marshalNCheckBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_checkBoardLayout(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CheckBoardLayoutResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_checkBoardLayout_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -10509,6 +10624,57 @@ func (ec *executionContext) unmarshalInputChangeBoardLayoutInput(ctx context.Con
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCheckBoardLayoutInput(ctx context.Context, obj any) (model.CheckBoardLayoutInput, error) {
+	var it model.CheckBoardLayoutInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"width", "height", "tiles", "connections"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "width":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("width"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Width = data
+		case "height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("height"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Height = data
+		case "tiles":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("tiles"))
+			data, err := ec.unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Tiles = data
+		case "connections":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("connections"))
+			data, err := ec.unmarshalNBoardConnectionInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Connections = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputDeckCardCountInput(ctx context.Context, obj any) (model.DeckCardCountInput, error) {
 	var it model.DeckCardCountInput
 	if obj == nil {
@@ -11771,6 +11937,40 @@ func (ec *executionContext) _ChangeBoardLayoutResult(ctx context.Context, sel as
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeBoardLayoutResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _CheckBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, obj model.CheckBoardLayoutResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CheckBoardLayoutSuccess:
+		return ec._CheckBoardLayoutSuccess(ctx, sel, &obj)
+	case *model.CheckBoardLayoutSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CheckBoardLayoutSuccess(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CheckBoardLayoutResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -13975,6 +14175,44 @@ func (ec *executionContext) _ChangeBoardLayoutSuccess(ctx context.Context, sel a
 	return out
 }
 
+var checkBoardLayoutSuccessImplementors = []string{"CheckBoardLayoutSuccess", "CheckBoardLayoutResult"}
+
+func (ec *executionContext) _CheckBoardLayoutSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.CheckBoardLayoutSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkBoardLayoutSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckBoardLayoutSuccess")
+		case "publishProblems":
+			out.Values[i] = ec._CheckBoardLayoutSuccess_publishProblems(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var checkpointTileImplementors = []string{"CheckpointTile", "BoardTile"}
 
 func (ec *executionContext) _CheckpointTile(ctx context.Context, sel ast.SelectionSet, obj *model.CheckpointTile) graphql.Marshaler {
@@ -14729,7 +14967,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult", "StudioRulesResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -15729,6 +15967,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_board(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "checkBoardLayout":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_checkBoardLayout(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -17127,7 +17387,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -17920,6 +18180,21 @@ func (ec *executionContext) marshalNChangeBoardLayoutResult2gitlabᚗcomᚋaimer
 		return graphql.Null
 	}
 	return ec._ChangeBoardLayoutResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCheckBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutInput(ctx context.Context, v any) (model.CheckBoardLayoutInput, error) {
+	res, err := ec.unmarshalInputCheckBoardLayoutInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCheckBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, v model.CheckBoardLayoutResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CheckBoardLayoutResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreature(ctx context.Context, sel ast.SelectionSet, v *model.Creature) graphql.Marshaler {
