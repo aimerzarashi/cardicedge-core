@@ -67,9 +67,14 @@ func Connection(ax, ay, bx, by int) board.Connection {
 	return board.NewConnection(board.NewPosition(ax, ay), board.NewPosition(bx, by))
 }
 
-func Layout(t testing.TB, size board.Size, tiles []board.Tile, connections []board.Connection) board.Layout {
+func Pair(ax, ay, bx, by int) board.Pair {
+	return board.NewPair(board.NewPosition(ax, ay), board.NewPosition(bx, by))
+}
+
+// 対が要らないテストは pairs を渡さない
+func Layout(t testing.TB, size board.Size, tiles []board.Tile, connections []board.Connection, pairs ...board.Pair) board.Layout {
 	t.Helper()
-	layout, err := board.NewLayout(size, tiles, connections)
+	layout, err := board.NewLayout(size, tiles, connections, pairs)
 	require.NoError(t, err)
 	return layout
 }

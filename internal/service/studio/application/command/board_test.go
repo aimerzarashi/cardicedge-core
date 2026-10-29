@@ -278,6 +278,15 @@ func layoutInput(width, height int, tiles []command.BoardTileInput, connections 
 	return command.BoardLayoutInput{Width: width, Height: height, Tiles: tiles, Connections: connections}
 }
 
+func pairInput(ax, ay, bx, by int) command.BoardPairInput {
+	return command.BoardPairInput{A: command.NewBoardPosition(ax, ay), B: command.NewBoardPosition(bx, by)}
+}
+
+func withPairs(layout command.BoardLayoutInput, pairs ...command.BoardPairInput) command.BoardLayoutInput {
+	layout.Pairs = pairs
+	return layout
+}
+
 func tiles(inputs ...command.BoardTileInput) []command.BoardTileInput {
 	return inputs
 }
@@ -368,6 +377,51 @@ func TestChangeBoardLayout_MapsViolationsToInputPaths(t *testing.T) {
 			want:   []input.Error{&input.NotAdjacent{Field: "connections.0"}},
 		},
 		{
+			name:   "prophecy_shop_out_of_range_uses_input_field_name",
+			layout: layoutInput(3, 2, tiles(tileInput(3, 0, "prophecy_shop")), nil),
+			want:   []input.Error{&input.OutOfRange{Field: "tiles.0.prophecyShop.x", Min: 0, Max: 2}},
+		},
+		{
+			name:   "card_shop_out_of_range_uses_input_field_name",
+			layout: layoutInput(3, 2, tiles(tileInput(0, 2, "card_shop")), nil),
+			want:   []input.Error{&input.OutOfRange{Field: "tiles.0.cardShop.y", Min: 0, Max: 1}},
+		},
+		{
+			name:   "pair_end_a_without_tile",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(1, 0, "warp")), nil), pairInput(0, 0, 1, 0)),
+			want:   []input.Error{&input.NotFound{Field: "pairs.0.a"}},
+		},
+		{
+			name:   "pair_end_b_without_tile_when_ends_are_swapped_in_input",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(1, 0, "bridge")), nil), pairInput(1, 0, 0, 0)),
+			want:   []input.Error{&input.NotFound{Field: "pairs.0.b"}},
+		},
+		{
+			name:   "pair_end_is_not_pairable_when_ends_are_swapped_in_input",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "warp"), tileInput(1, 0, "land")), nil), pairInput(1, 0, 0, 0)),
+			want:   []input.Error{&input.NotPairable{Field: "pairs.0.a"}},
+		},
+		{
+			name:   "pair_of_different_kinds",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "warp"), tileInput(2, 2, "bridge")), nil), pairInput(0, 0, 2, 2)),
+			want:   []input.Error{&input.PairKindMismatch{Field: "pairs.0"}},
+		},
+		{
+			name:   "pair_with_itself",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "warp")), nil), pairInput(0, 0, 0, 0)),
+			want:   []input.Error{&input.PairedWithSelf{Field: "pairs.0"}},
+		},
+		{
+			name:   "tile_in_two_pairs",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "warp"), tileInput(1, 0, "warp"), tileInput(2, 0, "warp")), nil), pairInput(0, 0, 1, 0), pairInput(2, 0, 0, 0)),
+			want:   []input.Error{&input.Duplicated{Field: "pairs.1.b"}},
+		},
+		{
+			name:   "duplicated_pair",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "warp"), tileInput(2, 2, "warp")), nil), pairInput(0, 0, 2, 2), pairInput(2, 2, 0, 0)),
+			want:   []input.Error{&input.Duplicated{Field: "pairs.1"}},
+		},
+		{
 			name:   "duplicated_connection",
 			layout: layoutInput(3, 3, tiles(tileInput(0, 0, "land"), tileInput(1, 0, "land")), connections(connectionInput(0, 0, 1, 0), connectionInput(1, 0, 0, 0))),
 			want:   []input.Error{&input.Duplicated{Field: "connections.1"}},
@@ -413,6 +467,25 @@ func TestChangeBoardLayout_ReturnsInternalErrorForShapesTheInputRulesOut(t *test
 			require.False(t, isInput)
 		})
 	}
+}
+
+// 離れた転送円・橋の対と、施設・相手のいない転送円も保存でき、読み直すと同じ形で戻る
+func TestChangeBoardLayout_SavesSpecialTilesAndPairs(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandler(t, ctx)
+	registered := registerBoard(t, ctx, commands, "草原")
+	layout := withPairs(layoutInput(4, 2,
+		tiles(
+			tileInput(0, 0, "warp"), tileInput(3, 1, "warp"), tileInput(1, 0, "bridge"), tileInput(2, 1, "bridge"), tileInput(2, 0, "warp"),
+			tileInput(0, 1, "sanctuary"), tileInput(1, 1, "shrine"), tileInput(3, 0, "prophecy_shop"),
+		), nil), pairInput(3, 1, 0, 0), pairInput(1, 0, 2, 1))
+
+	changed, err := commands.ChangeLayout(ctx, registered.ID, registered.Revision, layout)
+
+	require.NoError(t, err)
+	current := restoredBoard(t, ctx, changed.ID)
+	require.Len(t, current.Layout.Tiles(), 8)
+	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 3, 1), boardtest.Pair(1, 0, 2, 1)}, current.Layout.Pairs())
 }
 
 func TestChangeBoardDefaultRules_SavesAllValuesAndKeepsLayout(t *testing.T) {
@@ -528,6 +601,24 @@ func TestPublishBoard_ReportsProblemsWithPositions(t *testing.T) {
 		},
 	}, notPublishable)
 	require.Equal(t, board.StatusDraft, restoredBoard(t, ctx, changed.ID).Status)
+}
+
+func TestPublishBoard_ReportsUnpairedWarpsAndBridges(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandler(t, ctx)
+	registered := registerBoard(t, ctx, commands, "草原")
+	changed, err := commands.ChangeLayout(ctx, registered.ID, registered.Revision, layoutInput(3, 3,
+		tiles(tileInput(0, 0, "base"), tileInput(1, 0, "checkpoint"), tileInput(2, 0, "warp"), tileInput(0, 1, "bridge")),
+		connections(connectionInput(0, 0, 1, 0), connectionInput(1, 0, 2, 0), connectionInput(0, 0, 0, 1))))
+	require.NoError(t, err)
+
+	_, err = commands.Publish(ctx, changed.ID, changed.Revision)
+
+	var notPublishable *command.BoardNotPublishableError
+	require.ErrorAs(t, err, &notPublishable)
+	require.Equal(t, []command.BoardPublishProblem{
+		{Kind: command.BoardPublishProblemUnpairedTiles, Positions: []command.BoardPosition{command.NewBoardPosition(2, 0), command.NewBoardPosition(0, 1)}},
+	}, notPublishable.Problems)
 }
 
 func TestRetireBoard_MakesRetiredOnlyFromPublishedAndCanBePublishedAgain(t *testing.T) {

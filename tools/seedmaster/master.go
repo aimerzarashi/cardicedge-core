@@ -47,6 +47,7 @@ type masterBoard struct {
 	DefaultRules masterBoardDefaultRules `json:"default_rules"`
 	Tiles        []masterBoardTile       `json:"tiles"`
 	Connections  []masterBoardConnection `json:"connections"`
+	Pairs        []masterBoardConnection `json:"pairs"`
 }
 
 type masterBoardDefaultRules struct {
@@ -199,7 +200,11 @@ func (b masterBoard) layout() (board.Layout, error) {
 	for _, c := range b.Connections {
 		connections = append(connections, board.NewConnection(board.NewPosition(c.A.X, c.A.Y), board.NewPosition(c.B.X, c.B.Y)))
 	}
-	return board.NewLayout(size, tiles, connections)
+	pairs := make([]board.Pair, 0, len(b.Pairs))
+	for _, p := range b.Pairs {
+		pairs = append(pairs, board.NewPair(board.NewPosition(p.A.X, p.A.Y), board.NewPosition(p.B.X, p.B.Y)))
+	}
+	return board.NewLayout(size, tiles, connections, pairs)
 }
 
 func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {
@@ -221,5 +226,12 @@ func (b masterBoard) layoutInput() command.BoardLayoutInput {
 			B: command.NewBoardPosition(c.B.X, c.B.Y),
 		})
 	}
-	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections}
+	pairs := make([]command.BoardPairInput, 0, len(b.Pairs))
+	for _, p := range b.Pairs {
+		pairs = append(pairs, command.BoardPairInput{
+			A: command.NewBoardPosition(p.A.X, p.A.Y),
+			B: command.NewBoardPosition(p.B.X, p.B.Y),
+		})
+	}
+	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections, Pairs: pairs}
 }

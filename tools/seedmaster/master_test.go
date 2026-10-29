@@ -70,6 +70,25 @@ func TestSampleMaster_HasEveryLandAttribute(t *testing.T) {
 	}
 }
 
+// 転送円の対 1 つ・橋の対 1 つ・施設 4 つがある（studio・game の画面で、どの特殊なマスも見て確かめられるように）
+func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	for _, b := range m.Boards {
+		kinds := map[string]int{}
+		for _, tile := range b.Tiles {
+			kinds[tile.Kind]++
+		}
+		require.Equal(t, 2, kinds["warp"])
+		require.Equal(t, 2, kinds["bridge"])
+		for _, facility := range []string{"sanctuary", "shrine", "prophecy_shop", "card_shop"} {
+			require.Equal(t, 1, kinds[facility])
+		}
+		require.Len(t, b.Pairs, 2)
+	}
+}
+
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 	tests := []struct {
 		name string

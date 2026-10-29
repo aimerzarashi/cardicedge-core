@@ -136,7 +136,7 @@ func PublishGameRules(ctx context.Context, gameDB *sql.DB) error {
 	return row.Insert(ctx, gameDB, boil.Infer())
 }
 
-// boards の行を写す。公開中の A は 2×1（拠点とチェックポイントがつながる。既定のルールは登録の直後の値）、B は 3×2（真ん中のマスが 3 方向につながる。既定のルールは A と違う値）
+// boards の行を写す。公開中の A は 2×1（拠点とチェックポイントがつながる。既定のルールは登録の直後の値）、B は 3×2（真ん中のマスが 3 方向につながる。転送円の対がある。既定のルールは A と違う値）
 func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 	boards := Boards{PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New()}
 	a := readmodel.BoardMetadata{
@@ -148,8 +148,9 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 		Connections: []readmodel.BoardConnection{
 			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
 		},
+		Pairs:        []readmodel.BoardPair{},
 		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100),
-		TileCounts:   readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0),
+		TileCounts:   readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 	}
 	b := readmodel.BoardMetadata{
 		ID: boards.PublishedB, Name: "公開中B", Status: readmodel.BoardStatusPublished, Width: 3, Height: 2,
@@ -157,15 +158,19 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
 			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
 			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
+			{X: 0, Y: 1, Kind: readmodel.BoardTileKindWarp},
 			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeMulti},
+			{X: 2, Y: 1, Kind: readmodel.BoardTileKindWarp},
 		},
 		Connections: []readmodel.BoardConnection{
 			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
 			{A: readmodel.NewBoardPosition(1, 0), B: readmodel.NewBoardPosition(1, 1)},
 			{A: readmodel.NewBoardPosition(1, 0), B: readmodel.NewBoardPosition(2, 0)},
+			{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(1, 1)},
 		},
+		Pairs:        []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}},
 		DefaultRules: readmodel.NewBoardDefaultRules(5000, 0, 200, 50),
-		TileCounts:   readmodel.NewBoardTileCounts(2, 1, 1, 1, 0, 0, 0, 0, 1),
+		TileCounts:   readmodel.NewBoardTileCounts(2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0),
 	}
 	// 公開中でなければ出ないことだけを確かめるので、中身は A と同じにする
 	draft, retired := a, a

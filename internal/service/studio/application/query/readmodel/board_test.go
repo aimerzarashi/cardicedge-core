@@ -67,8 +67,8 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 	require.Equal(t, readmodel.BoardStatusDraft, state.Status)
 	require.Equal(t, readmodel.BoardMetadata{
 		ID: publicID, Name: "Ｆire 草原", Status: readmodel.BoardStatusDraft, Revision: 1, Width: 8, Height: 8,
-		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0),
+		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{},
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 		PublishProblems: []readmodel.BoardPublishProblem{
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemBaseCount),
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
@@ -141,8 +141,8 @@ func TestBoard_LayoutChangeRecountsTilesByKindAndAttribute(t *testing.T) {
 
 	changed := h.project().Metadata.TileCounts
 
-	require.Equal(t, readmodel.NewBoardTileCounts(4, 1, 1, 2, 1, 0, 0, 0, 1), placed)
-	require.Equal(t, readmodel.NewBoardTileCounts(3, 1, 2, 0, 0, 1, 1, 1, 0), changed)
+	require.Equal(t, readmodel.NewBoardTileCounts(4, 1, 1, 2, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0), placed)
+	require.Equal(t, readmodel.NewBoardTileCounts(3, 1, 2, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0), changed)
 }
 
 // 差分を当てるたびに、置いてあるマス全体から公開できない理由を計算し直す（投影で持ち、読むときに計算しない）
@@ -168,6 +168,48 @@ func TestBoard_LayoutChangeRecomputesPublishProblems(t *testing.T) {
 		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemUnreachableTiles, readmodel.NewBoardPosition(2, 2)),
 	}, unreachable)
 	require.Equal(t, []readmodel.BoardPublishProblem{}, publishable)
+}
+
+// 対の差分を当て、切れた対（マスを消した・種類を変えた）は外れる。公開できない理由と数も、置いてある全体から計算し直す
+func TestBoard_LayoutChangeAppliesPairsAndRecomputesUnpairedProblem(t *testing.T) {
+	size := boardtest.Size(t, 4, 2)
+	tiles := []board.Tile{
+		boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""),
+		boardtest.Tile(t, 2, 0, "warp", ""), boardtest.Tile(t, 3, 0, "warp", ""), boardtest.Tile(t, 0, 1, "bridge", ""), boardtest.Tile(t, 1, 1, "bridge", ""),
+		boardtest.Tile(t, 2, 1, "sanctuary", ""), boardtest.Tile(t, 3, 1, "card_shop", ""),
+	}
+	connections := []board.Connection{
+		boardtest.Connection(0, 0, 1, 0), boardtest.Connection(0, 0, 0, 1), boardtest.Connection(0, 1, 1, 1),
+		boardtest.Connection(1, 0, 2, 0), boardtest.Connection(2, 0, 2, 1), boardtest.Connection(3, 0, 3, 1),
+	}
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(3, 0, 2, 0), boardtest.Pair(0, 1, 1, 1)))
+	paired := h.project().Metadata
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(2, 0, 3, 0)))
+	unpaired := h.project().Metadata
+
+	require.Equal(t, []readmodel.BoardPair{
+		{A: readmodel.NewBoardPosition(2, 0), B: readmodel.NewBoardPosition(3, 0)},
+		{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(1, 1)},
+	}, paired.Pairs)
+	require.Equal(t, []readmodel.BoardPublishProblem{}, paired.PublishProblems)
+	require.Equal(t, readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 1, 0, 0, 1), paired.TileCounts)
+	require.Equal(t, []readmodel.BoardPair{{A: readmodel.NewBoardPosition(2, 0), B: readmodel.NewBoardPosition(3, 0)}}, unpaired.Pairs)
+	require.Equal(t, []readmodel.BoardPublishProblem{
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemUnpairedTiles, readmodel.NewBoardPosition(0, 1), readmodel.NewBoardPosition(1, 1)),
+	}, unpaired.PublishProblems)
+}
+
+// マスを消して切れた対は、イベントの Unpaired に入っているので read model からも外れる
+func TestBoard_LayoutChangeDropsPairOfRemovedTile(t *testing.T) {
+	size := boardtest.Size(t, 3, 1)
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")}, nil, boardtest.Pair(0, 0, 2, 0)))
+	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", "")}, nil))
+
+	state := h.project()
+
+	require.Equal(t, []readmodel.BoardPair{}, state.Metadata.Pairs)
 }
 
 func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {

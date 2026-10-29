@@ -41,6 +41,11 @@ type boardMetadata struct {
 		A boardPosition `json:"a"`
 		B boardPosition `json:"b"`
 	} `json:"connections"`
+	// 無い（対を写す前の行）なら、空にせず読み出しの誤りにするため、ポインターで受ける（空の対は [] で写る）
+	Pairs *[]struct {
+		A boardPosition `json:"a"`
+		B boardPosition `json:"b"`
+	} `json:"pairs"`
 	// 無い（既定のルールを写す前の行）なら、0 にせず読み出しの誤りにするため、ポインターで受ける
 	DefaultRules *struct {
 		TargetMagic     int `json:"target_magic"`
@@ -59,6 +64,13 @@ type boardMetadata struct {
 		Wind       int `json:"wind"`
 		Neutral    int `json:"neutral"`
 		Multi      int `json:"multi"`
+		// 特殊なマスの数を写す前の行を、0 にせず読み出しの誤りにするため、ポインターで受ける
+		Warp         *int `json:"warp"`
+		Bridge       *int `json:"bridge"`
+		Sanctuary    *int `json:"sanctuary"`
+		Shrine       *int `json:"shrine"`
+		ProphecyShop *int `json:"prophecy_shop"`
+		CardShop     *int `json:"card_shop"`
 	} `json:"tile_counts"`
 }
 
@@ -138,6 +150,17 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	if metadata.TileCounts == nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: tile_counts is missing", id)
 	}
+	if metadata.Pairs == nil {
+		return query.Board{}, fmt.Errorf("boards.metadata of %s: pairs is missing", id)
+	}
+	c := metadata.TileCounts
+	for name, count := range map[string]*int{
+		"warp": c.Warp, "bridge": c.Bridge, "sanctuary": c.Sanctuary, "shrine": c.Shrine, "prophecy_shop": c.ProphecyShop, "card_shop": c.CardShop,
+	} {
+		if count == nil {
+			return query.Board{}, fmt.Errorf("boards.metadata of %s: tile_counts.%s is missing", id, name)
+		}
+	}
 	tiles := make([]query.BoardTile, 0, len(metadata.Tiles))
 	for _, tile := range metadata.Tiles {
 		kind, err := query.NewBoardTileKind(tile.Kind)
@@ -157,13 +180,20 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 			B: query.NewBoardPosition(connection.B.X, connection.B.Y),
 		})
 	}
+	pairs := make([]query.BoardPair, 0, len(*metadata.Pairs))
+	for _, pair := range *metadata.Pairs {
+		pairs = append(pairs, query.BoardPair{
+			A: query.NewBoardPosition(pair.A.X, pair.A.Y),
+			B: query.NewBoardPosition(pair.B.X, pair.B.Y),
+		})
+	}
 	defaultRules := query.BoardDefaultRules{
 		TargetMagic: metadata.DefaultRules.TargetMagic, StartingMagic: metadata.DefaultRules.StartingMagic,
 		LapBonus: metadata.DefaultRules.LapBonus, CheckpointBonus: metadata.DefaultRules.CheckpointBonus,
 	}
-	c := metadata.TileCounts
-	tileCounts := query.NewBoardTileCounts(c.Land, c.Base, c.Checkpoint, c.Fire, c.Earth, c.Water, c.Wind, c.Neutral, c.Multi)
-	return query.Board{ID: id, Name: metadata.Name, Width: metadata.Width, Height: metadata.Height, Tiles: tiles, Connections: connections, DefaultRules: defaultRules, TileCounts: tileCounts}, nil
+	tileCounts := query.NewBoardTileCounts(c.Land, c.Base, c.Checkpoint, c.Fire, c.Earth, c.Water, c.Wind, c.Neutral, c.Multi,
+		*c.Warp, *c.Bridge, *c.Sanctuary, *c.Shrine, *c.ProphecyShop, *c.CardShop)
+	return query.Board{ID: id, Name: metadata.Name, Width: metadata.Width, Height: metadata.Height, Tiles: tiles, Connections: connections, Pairs: pairs, DefaultRules: defaultRules, TileCounts: tileCounts}, nil
 }
 
 // 土地でないマスには属性が無い（空）

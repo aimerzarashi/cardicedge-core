@@ -102,6 +102,24 @@ type FieldNotAdjacent implements FieldError {
   field: String!
 }
 
+"対の端のマスが、転送円でも橋でもない"
+type FieldNotPairable implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置と端を含む。例: pairs.2.a）"
+  field: String!
+}
+
+"対の両端が、転送円と橋（組めるのは同じ種類どうしだけ）"
+type FieldPairKindMismatch implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: pairs.2）"
+  field: String!
+}
+
+"対の両端が同じ座標（自分自身と組んでいる）"
+type FieldPairedWithSelf implements FieldError {
+  "誤りのある入力の項目（一覧の中の位置を含む。例: pairs.2）"
+  field: String!
+}
+
 "入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
 type FieldTotalTooLarge implements FieldError {
   "誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）"

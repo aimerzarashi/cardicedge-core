@@ -163,6 +163,39 @@ func (e *NotAdjacent) InputField() string {
 	return e.Field
 }
 
+// 対の端のマスが、転送円でも橋でもない
+type NotPairable struct{ Field string }
+
+func (e *NotPairable) Error() string {
+	return fmt.Sprintf("%s is not a warp or a bridge", e.Field)
+}
+
+func (e *NotPairable) InputField() string {
+	return e.Field
+}
+
+// 対の両端が、転送円と橋（組めるのは同じ種類どうしだけ）
+type PairKindMismatch struct{ Field string }
+
+func (e *PairKindMismatch) Error() string {
+	return fmt.Sprintf("%s pairs tiles of different kinds", e.Field)
+}
+
+func (e *PairKindMismatch) InputField() string {
+	return e.Field
+}
+
+// 対の両端が同じ座標（自分自身と組んでいる）
+type PairedWithSelf struct{ Field string }
+
+func (e *PairedWithSelf) Error() string {
+	return fmt.Sprintf("%s pairs a tile with itself", e.Field)
+}
+
+func (e *PairedWithSelf) InputField() string {
+	return e.Field
+}
+
 // 項目が増えても、最初の 1 つで止めずにまとめて返すため
 type Errors []Error
 

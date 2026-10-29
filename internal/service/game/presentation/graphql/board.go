@@ -24,6 +24,13 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 			B: &model.BoardPosition{X: connection.B.X, Y: connection.B.Y},
 		})
 	}
+	pairs := make([]*model.BoardTilePair, 0, len(board.Pairs))
+	for _, pair := range board.Pairs {
+		pairs = append(pairs, &model.BoardTilePair{
+			A: &model.BoardPosition{X: pair.A.X, Y: pair.A.Y},
+			B: &model.BoardPosition{X: pair.B.X, Y: pair.B.Y},
+		})
+	}
 	defaultRules := &model.BoardDefaultRules{
 		TargetMagic: board.DefaultRules.TargetMagic, StartingMagic: board.DefaultRules.StartingMagic,
 		LapBonus: board.DefaultRules.LapBonus, CheckpointBonus: board.DefaultRules.CheckpointBonus,
@@ -32,8 +39,9 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 	tileCounts := &model.BoardTileCounts{
 		Land: c.Land, Base: c.Base, Checkpoint: c.Checkpoint,
 		Fire: c.Fire, Earth: c.Earth, Water: c.Water, Wind: c.Wind, Neutral: c.Neutral, Multi: c.Multi,
+		Warp: c.Warp, Bridge: c.Bridge, Sanctuary: c.Sanctuary, Shrine: c.Shrine, ProphecyShop: c.ProphecyShop, CardShop: c.CardShop,
 	}
-	return &model.Board{ID: board.ID, Name: board.Name, Width: board.Width, Height: board.Height, DefaultRules: defaultRules, TileCounts: tileCounts, Tiles: tiles, Connections: connections}, nil
+	return &model.Board{ID: board.ID, Name: board.Name, Width: board.Width, Height: board.Height, DefaultRules: defaultRules, TileCounts: tileCounts, Tiles: tiles, Connections: connections, Pairs: pairs}, nil
 }
 
 func toBoardsConnection(connection pagination.Connection[query.Board]) (*model.BoardsConnection, error) {
@@ -67,6 +75,18 @@ func fromBoardTile(tile query.BoardTile) (model.BoardTile, error) {
 		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
 	case query.BoardTileKindCheckpoint:
 		return model.CheckpointTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindWarp:
+		return model.WarpTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindBridge:
+		return model.BridgeTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindSanctuary:
+		return model.SanctuaryTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindShrine:
+		return model.ShrineTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindProphecyShop:
+		return model.ProphecyShopTile{X: tile.X, Y: tile.Y}, nil
+	case query.BoardTileKindCardShop:
+		return model.CardShopTile{X: tile.X, Y: tile.Y}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown board tile kind: %q", tile.Kind)
 	}

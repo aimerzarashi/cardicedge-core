@@ -27,7 +27,7 @@ func boardState(sortName, name string, status readmodel.BoardStatus) readmodel.B
 	at := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 	metadata := readmodel.BoardMetadata{
 		ID: id, Name: name, Status: status, Revision: 3, Width: 8, Height: 8,
-		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, RegisteredAt: at, UpdatedAt: at,
+		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{}, RegisteredAt: at, UpdatedAt: at,
 		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), PublishProblems: []readmodel.BoardPublishProblem{},
 	}
 	return readmodel.Board{BoardID: id, SortName: sortName, Status: status, Metadata: metadata}
@@ -67,7 +67,8 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	board.Metadata.Width, board.Metadata.Height = 4, 3
 	board.Metadata.Tiles = []readmodel.BoardTile{{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase}, {X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint}}
 	board.Metadata.Connections = []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}}
-	board.Metadata.TileCounts = readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0)
+	board.Metadata.Pairs = []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}}
+	board.Metadata.TileCounts = readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0)
 	board.Metadata.DefaultRules = readmodel.NewBoardDefaultRules(5000, 0, 200, 50)
 	board.Metadata.PublishProblems = []readmodel.BoardPublishProblem{
 		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
@@ -85,6 +86,7 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	require.Equal(t, 3, got.Height)
 	require.Equal(t, board.Metadata.Tiles, got.Tiles)
 	require.Equal(t, board.Metadata.Connections, got.Connections)
+	require.Equal(t, board.Metadata.Pairs, got.Pairs)
 	require.Equal(t, board.Metadata.DefaultRules, got.DefaultRules)
 	require.Equal(t, board.Metadata.TileCounts, got.TileCounts)
 	require.Equal(t, board.Metadata.PublishProblems, got.PublishProblems)
@@ -94,6 +96,18 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 }
 
 // 理由を足す前に投影した行を、公開できるもの（理由が空）として返さない
+// 対を持たない行（対を足す前に投影した行）を、対の無いボードとして返さない。投影を作り直せば入る
+func TestBoard_GetFailsWhenPairsAreMissing(t *testing.T) {
+	f := newBoardFixture(t)
+	board := boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
+	board.Metadata.Pairs = nil
+	require.NoError(t, f.writer.Upsert(f.ctx, board))
+
+	_, err := repository.NewBoardReader().Get(f.ctx, board.BoardID)
+
+	require.Error(t, err)
+}
+
 func TestBoard_GetFailsWhenPublishProblemsAreMissing(t *testing.T) {
 	f := newBoardFixture(t)
 	board := boardState("fire", "Ｆire", readmodel.BoardStatusDraft)

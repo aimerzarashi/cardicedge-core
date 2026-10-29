@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// 公開できない理由（BaseCountProblem・NoCheckpointProblem・UnreachableTilesProblem）。理由は __typename で見分け、
+// 公開できない理由（BaseCountProblem・NoCheckpointProblem・UnreachableTilesProblem・UnpairedTilesProblem）。理由は __typename で見分け、
 // 座標を持つ理由は断片（... on BaseCountProblem 等）で取る
 type BoardPublishProblem interface {
 	IsBoardPublishProblem()
@@ -25,7 +25,7 @@ type BoardResult interface {
 	IsBoardResult()
 }
 
-// 置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
+// 置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
 type BoardTile interface {
 	IsBoardTile()
 	// 列
@@ -264,6 +264,8 @@ type Board struct {
 	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
 	Connections []*BoardConnection `json:"connections"`
+	// 転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。相手のいない転送円・橋は含まれない（公開できない理由 UnpairedTilesProblem になる）
+	Pairs []*BoardTilePair `json:"pairs"`
 	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -355,7 +357,7 @@ func (BoardNotFoundError) IsPublishBoardResult() {}
 
 func (BoardNotFoundError) IsRetireBoardResult() {}
 
-// 公開の条件を満たしていない（拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点からつながりをたどって行ける）
+// 公開の条件を満たしていない（拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点からつながりと対をたどって行ける、すべての転送円・橋に対の相手がいる）
 type BoardNotPublishableError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
@@ -409,9 +411,21 @@ type BoardTileCounts struct {
 	Neutral int `json:"neutral"`
 	// 複属性の土地の数
 	Multi int `json:"multi"`
+	// 転送円の数
+	Warp int `json:"warp"`
+	// 橋の数
+	Bridge int `json:"bridge"`
+	// 聖堂の数
+	Sanctuary int `json:"sanctuary"`
+	// ほこらの数
+	Shrine int `json:"shrine"`
+	// 占い館の数
+	ProphecyShop int `json:"prophecyShop"`
+	// カード屋の数
+	CardShop int `json:"cardShop"`
 }
 
-// 置くマスの入力。land・base・checkpoint のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）
+// 置くマスの入力。land・base・checkpoint・warp・bridge・sanctuary・shrine・prophecyShop・cardShop のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）
 type BoardTileInput struct {
 	// 土地
 	Land *LandTileInput `json:"land,omitempty"`
@@ -419,6 +433,34 @@ type BoardTileInput struct {
 	Base *TilePositionInput `json:"base,omitempty"`
 	// チェックポイント
 	Checkpoint *TilePositionInput `json:"checkpoint,omitempty"`
+	// 転送円（属性は持たない。対は pairs で指す）
+	Warp *TilePositionInput `json:"warp,omitempty"`
+	// 橋（属性は持たない。対は pairs で指す）
+	Bridge *TilePositionInput `json:"bridge,omitempty"`
+	// 聖堂（属性は持たない）
+	Sanctuary *TilePositionInput `json:"sanctuary,omitempty"`
+	// ほこら（属性は持たない）
+	Shrine *TilePositionInput `json:"shrine,omitempty"`
+	// 占い館（属性は持たない）
+	ProphecyShop *TilePositionInput `json:"prophecyShop,omitempty"`
+	// カード屋（属性は持たない）
+	CardShop *TilePositionInput `json:"cardShop,omitempty"`
+}
+
+// 転送円どうし・橋どうしの対（向きは無い。離れていてよい）
+type BoardTilePair struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
+}
+
+// 対にするマスの入力（転送円どうし・橋どうし。向きは無い。a と b を入れ替えても同じ対で、離れていてよい）
+type BoardTilePairInput struct {
+	// 片方の端（転送円または橋が置いてある座標）
+	A *BoardPositionInput `json:"a"`
+	// もう片方の端（a と同じ種類のマスが置いてある、a と違う座標）
+	B *BoardPositionInput `json:"b"`
 }
 
 // ボードの一覧の 1 ページ（名前の順）
@@ -438,6 +480,23 @@ type BoardsEdge struct {
 	// ボード
 	Node *Board `json:"node"`
 }
+
+// 橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない。
+// 対は Board.pairs で持つ（相手のいない橋は保存できるが、公開できない）
+type BridgeTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BridgeTile) IsBoardTile() {}
+
+// 列
+func (this BridgeTile) GetX() int { return this.X }
+
+// 行
+func (this BridgeTile) GetY() int { return this.Y }
 
 // カードの一覧の 1 ページ（種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）
 type CardConnection struct {
@@ -489,6 +548,22 @@ func (CardNotFoundError) IsPublishCardResult() {}
 
 func (CardNotFoundError) IsRetireCardResult() {}
 
+// カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
+type CardShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CardShopTile) IsBoardTile() {}
+
+// 列
+func (this CardShopTile) GetX() int { return this.X }
+
+// 行
+func (this CardShopTile) GetY() int { return this.Y }
+
 // ボードの既定のルールを変える入力（変えた後の 4 つの値の全体）
 type ChangeBoardDefaultRulesInput struct {
 	// ボードの公開用の ID
@@ -529,6 +604,8 @@ type ChangeBoardLayoutInput struct {
 	Tiles []*BoardTileInput `json:"tiles"`
 	// つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）
 	Connections []*BoardConnectionInput `json:"connections"`
+	// 対の全体（転送円どうし・橋どうし。端にマスが置いてあり、同じ種類で、別の座標であること。同じマスを 2 つの対に入れる、同じ対を 2 回入れると入力の誤り。相手のいない転送円・橋は保存できる）。対が無ければ空のリスト
+	Pairs []*BoardTilePairInput `json:"pairs"`
 }
 
 // ボードのレイアウトを変えた（前と変わらなければ何も変えず、revision も進まない）
@@ -551,6 +628,8 @@ type CheckBoardLayoutInput struct {
 	Tiles []*BoardTileInput `json:"tiles"`
 	// つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）
 	Connections []*BoardConnectionInput `json:"connections"`
+	// 対の全体（転送円どうし・橋どうし。changeBoardLayout と同じ決まり）。対が無ければ空のリスト
+	Pairs []*BoardTilePairInput `json:"pairs"`
 }
 
 // レイアウトの判定の結果（保存していない）。公開できる条件を満たしていれば publishProblems は空
@@ -734,6 +813,17 @@ func (FieldNotGreaterThan) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotGreaterThan) GetField() string { return this.Field }
 
+// 対の端のマスが、転送円でも橋でもない
+type FieldNotPairable struct {
+	// 誤りのある入力の項目（一覧の中の位置と端を含む。例: pairs.2.a）
+	Field string `json:"field"`
+}
+
+func (FieldNotPairable) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotPairable) GetField() string { return this.Field }
+
 // 入力が範囲の外
 type FieldOutOfRange struct {
 	// 誤りのある入力の項目
@@ -748,6 +838,28 @@ func (FieldOutOfRange) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldOutOfRange) GetField() string { return this.Field }
+
+// 対の両端が、転送円と橋（組めるのは同じ種類どうしだけ）
+type FieldPairKindMismatch struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: pairs.2）
+	Field string `json:"field"`
+}
+
+func (FieldPairKindMismatch) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldPairKindMismatch) GetField() string { return this.Field }
+
+// 対の両端が同じ座標（自分自身と組んでいる）
+type FieldPairedWithSelf struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: pairs.2）
+	Field string `json:"field"`
+}
+
+func (FieldPairedWithSelf) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldPairedWithSelf) GetField() string { return this.Field }
 
 // 入力が空（前後の空白だけの場合を含む）
 type FieldRequired struct {
@@ -1058,6 +1170,22 @@ func (PresetDeckNotFoundError) IsSetPresetDeckCardCountsResult() {}
 func (PresetDeckNotFoundError) IsDeletePresetDeckResult() {}
 
 func (PresetDeckNotFoundError) IsRegisterStarterDeckFromPresetDeckResult() {}
+
+// 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
+type ProphecyShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ProphecyShopTile) IsBoardTile() {}
+
+// 列
+func (this ProphecyShopTile) GetX() int { return this.X }
+
+// 行
+func (this ProphecyShopTile) GetY() int { return this.Y }
 
 // ボードを公開する入力
 type PublishBoardInput struct {
@@ -1374,6 +1502,22 @@ func (RevisionConflictError) IsPublishStarterDeckResult() {}
 
 func (RevisionConflictError) IsRetireStarterDeckResult() {}
 
+// 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
+type SanctuaryTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (SanctuaryTile) IsBoardTile() {}
+
+// 列
+func (this SanctuaryTile) GetX() int { return this.X }
+
+// 行
+func (this SanctuaryTile) GetY() int { return this.Y }
+
 // プリセットデッキのカードの枚数を変える入力
 type SetPresetDeckCardCountsInput struct {
 	// プリセットデッキの公開用の ID
@@ -1413,6 +1557,22 @@ type SetStarterDeckCardCountsSuccess struct {
 }
 
 func (SetStarterDeckCardCountsSuccess) IsSetStarterDeckCardCountsResult() {}
+
+// ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
+type ShrineTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ShrineTile) IsBoardTile() {}
+
+// 列
+func (this ShrineTile) GetX() int { return this.X }
+
+// 行
+func (this ShrineTile) GetY() int { return this.Y }
 
 // スペル（カードの種類の 1 つ）
 type Spell struct {
@@ -1548,7 +1708,7 @@ type StudioRules struct {
 
 func (StudioRules) IsStudioRulesResult() {}
 
-// 置く拠点・チェックポイントの座標の入力
+// 置く拠点・チェックポイント・転送円・橋・施設の座標の入力
 type TilePositionInput struct {
 	// 列（0 以上、幅 − 1 以下）
 	X int `json:"x"`
@@ -1556,7 +1716,20 @@ type TilePositionInput struct {
 	Y int `json:"y"`
 }
 
-// 拠点からつながりをたどって行けないマスがある（拠点がちょうど 1 つのときだけ判定する）
+// 対の相手のいない転送円・橋がある（公開するボードのすべての転送円・橋に、対の相手がいる）。拠点の数によらず判定する
+type UnpairedTilesProblem struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 相手のいない転送円・橋の座標（行 → 列の順）
+	Positions []*BoardPosition `json:"positions"`
+}
+
+func (UnpairedTilesProblem) IsBoardPublishProblem() {}
+
+// 開発者向けの説明（画面にそのまま出す文言ではない）
+func (this UnpairedTilesProblem) GetMessage() string { return this.Message }
+
+// 拠点からつながりと対をたどって行けないマスがある（拠点がちょうど 1 つのときだけ判定する。対の 2 マスは隣どうしと同じに道として数える）
 type UnreachableTilesProblem struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
@@ -1612,6 +1785,23 @@ func (ValidationErrors) IsRenameStarterDeckResult() {}
 func (ValidationErrors) IsSetStarterDeckCardCountsResult() {}
 
 func (ValidationErrors) IsPublishStarterDeckResult() {}
+
+// 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない。
+// 対は Board.pairs で持つ（相手のいない転送円は保存できるが、公開できない）
+type WarpTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (WarpTile) IsBoardTile() {}
+
+// 列
+func (this WarpTile) GetX() int { return this.X }
+
+// 行
+func (this WarpTile) GetY() int { return this.Y }
 
 // ボードの状態。準備中は名前・レイアウトを自由に変えられ、公開の条件を満たさなくてよい。公開中は公開の条件を満たす。
 // 使用不可は新しい対戦に使わない

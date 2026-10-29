@@ -23,6 +23,8 @@ type Board {
   tiles: [BoardTile!]!
   "マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）"
   connections: [BoardConnection!]!
+  "転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。相手のいない転送円・橋は含まれない（公開できない理由 UnpairedTilesProblem になる）"
+  pairs: [BoardTilePair!]!
   "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -53,6 +55,18 @@ type BoardTileCounts {
   neutral: Int!
   "複属性の土地の数"
   multi: Int!
+  "転送円の数"
+  warp: Int!
+  "橋の数"
+  bridge: Int!
+  "聖堂の数"
+  sanctuary: Int!
+  "ほこらの数"
+  shrine: Int!
+  "占い館の数"
+  prophecyShop: Int!
+  "カード屋の数"
+  cardShop: Int!
 }
 
 # 魔力は対戦の通貨・得点にあたる値の呼び方で、core の名前は汎用的にする（世界観のデザインで呼び方を変えるときに画面の文言だけで済ませるため）。
@@ -115,7 +129,7 @@ type BoardPosition {
 }
 
 # 種類によって null になる項目を作らないため、種類ごとの型に分ける（カードの Card と同じ。理由は common.graphqls の FieldError と同じ考え）
-"置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
+"置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
 interface BoardTile {
   "列"
   x: Int!
@@ -149,8 +163,72 @@ type CheckpointTile implements BoardTile {
   y: Int!
 }
 
+# 動きは対戦を作るときに作る。説明の動きは決まった内容で、ここでは置けることだけを決める。施設の名前は仮（世界観のデザインで見直す）。
+# 施設は施設ごとに型を分ける（持つものが後で増えても、その型に足せるように。FacilityTile に種類を持たせる案は採らなかった）
+"""
+転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない。
+対は Board.pairs で持つ（相手のいない転送円は保存できるが、公開できない）
+"""
+type WarpTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"""
+橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない。
+対は Board.pairs で持つ（相手のいない橋は保存できるが、公開できない）
+"""
+type BridgeTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない"
+type SanctuaryTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない"
+type ShrineTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない"
+type ProphecyShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない"
+type CardShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
 "マスどうしのつながり（向きは無い）"
 type BoardConnection {
+  "片方の端（座標が小さい側。行 → 列の順に比べる）"
+  a: BoardPosition!
+  "もう片方の端"
+  b: BoardPosition!
+}
+
+"転送円どうし・橋どうしの対（向きは無い。離れていてよい）"
+type BoardTilePair {
   "片方の端（座標が小さい側。行 → 列の順に比べる）"
   a: BoardPosition!
   "もう片方の端"
@@ -182,9 +260,9 @@ type BoardNotDraftError {
 }
 
 # 理由ごとの型に分けるのは、画面が理由ごとに印を付けるマスを知るため（BoardTile と同じ考え）。理由が増えても、
-# 既存の理由の型は変わらない。理由の順は 拠点の数 → チェックポイント → 行けないマス で固定
+# 既存の理由の型は変わらない。理由の順は 拠点の数 → チェックポイント → 行けないマス → 相手のいない転送円・橋 で固定
 """
-公開できない理由（BaseCountProblem・NoCheckpointProblem・UnreachableTilesProblem）。理由は __typename で見分け、
+公開できない理由（BaseCountProblem・NoCheckpointProblem・UnreachableTilesProblem・UnpairedTilesProblem）。理由は __typename で見分け、
 座標を持つ理由は断片（... on BaseCountProblem 等）で取る
 """
 interface BoardPublishProblem {
@@ -207,7 +285,7 @@ type NoCheckpointProblem implements BoardPublishProblem {
 }
 
 # 拠点が 0 個・2 個以上のときは、どこから行けるかが決まらないので、この理由は出さない
-"拠点からつながりをたどって行けないマスがある（拠点がちょうど 1 つのときだけ判定する）"
+"拠点からつながりと対をたどって行けないマスがある（拠点がちょうど 1 つのときだけ判定する。対の 2 マスは隣どうしと同じに道として数える）"
 type UnreachableTilesProblem implements BoardPublishProblem {
   "開発者向けの説明（画面にそのまま出す文言ではない）"
   message: String!
@@ -215,7 +293,15 @@ type UnreachableTilesProblem implements BoardPublishProblem {
   positions: [BoardPosition!]!
 }
 
-"公開の条件を満たしていない（拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点からつながりをたどって行ける）"
+"対の相手のいない転送円・橋がある（公開するボードのすべての転送円・橋に、対の相手がいる）。拠点の数によらず判定する"
+type UnpairedTilesProblem implements BoardPublishProblem {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+  "相手のいない転送円・橋の座標（行 → 列の順）"
+  positions: [BoardPosition!]!
+}
+
+"公開の条件を満たしていない（拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点からつながりと対をたどって行ける、すべての転送円・橋に対の相手がいる）"
 type BoardNotPublishableError {
   "開発者向けの説明（画面にそのまま出す文言ではない）"
   message: String!
@@ -287,6 +373,8 @@ input CheckBoardLayoutInput {
   tiles: [BoardTileInput!]!
   "つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）"
   connections: [BoardConnectionInput!]!
+  "対の全体（転送円どうし・橋どうし。changeBoardLayout と同じ決まり）。対が無ければ空のリスト"
+  pairs: [BoardTilePairInput!]!
 }
 
 "レイアウトの判定の結果（保存していない）。公開できる条件を満たしていれば publishProblems は空"
@@ -346,7 +434,7 @@ union RenameBoardResult =
 
 # 種類と属性の組み合わせの誤り（土地に属性が無い・拠点に属性がある）を、入力の形として作れなくするため、種類ごとの項目のうち 1 つだけを書く。
 # @oneOf の「ちょうど 1 つ」は変数で送られた値だと GraphQL の層が確かめないため、core が確かめて FieldInvalidFormat（tiles.N）にする
-"置くマスの入力。land・base・checkpoint のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）"
+"置くマスの入力。land・base・checkpoint・warp・bridge・sanctuary・shrine・prophecyShop・cardShop のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）"
 input BoardTileInput @oneOf {
   "土地"
   land: LandTileInput
@@ -354,6 +442,18 @@ input BoardTileInput @oneOf {
   base: TilePositionInput
   "チェックポイント"
   checkpoint: TilePositionInput
+  "転送円（属性は持たない。対は pairs で指す）"
+  warp: TilePositionInput
+  "橋（属性は持たない。対は pairs で指す）"
+  bridge: TilePositionInput
+  "聖堂（属性は持たない）"
+  sanctuary: TilePositionInput
+  "ほこら（属性は持たない）"
+  shrine: TilePositionInput
+  "占い館（属性は持たない）"
+  prophecyShop: TilePositionInput
+  "カード屋（属性は持たない）"
+  cardShop: TilePositionInput
 }
 
 "置く土地の入力"
@@ -366,7 +466,7 @@ input LandTileInput {
   attribute: BoardTileAttribute!
 }
 
-"置く拠点・チェックポイントの座標の入力"
+"置く拠点・チェックポイント・転送円・橋・施設の座標の入力"
 input TilePositionInput {
   "列（0 以上、幅 − 1 以下）"
   x: Int!
@@ -390,6 +490,14 @@ input BoardConnectionInput {
   b: BoardPositionInput!
 }
 
+"対にするマスの入力（転送円どうし・橋どうし。向きは無い。a と b を入れ替えても同じ対で、離れていてよい）"
+input BoardTilePairInput {
+  "片方の端（転送円または橋が置いてある座標）"
+  a: BoardPositionInput!
+  "もう片方の端（a と同じ種類のマスが置いてある、a と違う座標）"
+  b: BoardPositionInput!
+}
+
 # 差分ではなく変えた後の全体を受け取る。前との差分は core が計算し、1 回の操作で revision は 1 つ進む
 "ボードのレイアウトを変える入力（変えた後の全体。前の内容は引き継がれず、ここに無いマス・つながりは消える）"
 input ChangeBoardLayoutInput {
@@ -405,6 +513,8 @@ input ChangeBoardLayoutInput {
   tiles: [BoardTileInput!]!
   "つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）"
   connections: [BoardConnectionInput!]!
+  "対の全体（転送円どうし・橋どうし。端にマスが置いてあり、同じ種類で、別の座標であること。同じマスを 2 つの対に入れる、同じ対を 2 回入れると入力の誤り。相手のいない転送円・橋は保存できる）。対が無ければ空のリスト"
+  pairs: [BoardTilePairInput!]!
 }
 
 "ボードのレイアウトを変えた（前と変わらなければ何も変えず、revision も進まない）"
@@ -417,8 +527,10 @@ type ChangeBoardLayoutSuccess {
 
 # 入力の誤りの項目: width・height（FieldOutOfRange。範囲外なら、マス・つながりは調べない）、tiles.N.land.x・tiles.N.land.y・
 # tiles.N.base.x 等（書いた種類の名前を挟む。FieldOutOfRange。範囲は 0〜幅 − 1・0〜高さ − 1）、
-# tiles.N（同じ座標は FieldDuplicated。land・base・checkpoint がちょうど 1 つでないのは FieldInvalidFormat）、connections.N.a・connections.N.b（端にマスが無いは FieldNotFound）、
-# connections.N（隣どうしでないは FieldNotAdjacent、同じつながりは FieldDuplicated）。N は入力の何番目か（0 始まり）
+# tiles.N（同じ座標は FieldDuplicated。マスの種類の項目がちょうど 1 つでないのは FieldInvalidFormat）、connections.N.a・connections.N.b（端にマスが無いは FieldNotFound）、
+# connections.N（隣どうしでないは FieldNotAdjacent、同じつながりは FieldDuplicated）、
+# pairs.N.a・pairs.N.b（端にマスが無いは FieldNotFound、転送円でも橋でもないは FieldNotPairable、すでに別の対に入っているは FieldDuplicated）、
+# pairs.N（転送円と橋を組むは FieldPairKindMismatch、自分自身と組むは FieldPairedWithSelf、同じ対は FieldDuplicated）。N は入力の何番目か（0 始まり）
 "ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
 union ChangeBoardLayoutResult =
     ChangeBoardLayoutSuccess

@@ -16,7 +16,7 @@ type BoardResult interface {
 	IsBoardResult()
 }
 
-// 置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
+// 置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
 type BoardTile interface {
 	IsBoardTile()
 	// 列
@@ -112,6 +112,8 @@ type Board struct {
 	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
 	Connections []*BoardConnection `json:"connections"`
+	// 転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。公開中のボードのすべての転送円・橋に対の相手がいる
+	Pairs []*BoardTilePair `json:"pairs"`
 }
 
 func (Board) IsBoardResult() {}
@@ -173,6 +175,26 @@ type BoardTileCounts struct {
 	Neutral int `json:"neutral"`
 	// 複属性の土地の数
 	Multi int `json:"multi"`
+	// 転送円の数
+	Warp int `json:"warp"`
+	// 橋の数
+	Bridge int `json:"bridge"`
+	// 聖堂の数
+	Sanctuary int `json:"sanctuary"`
+	// ほこらの数
+	Shrine int `json:"shrine"`
+	// 占い館の数
+	ProphecyShop int `json:"prophecyShop"`
+	// カード屋の数
+	CardShop int `json:"cardShop"`
+}
+
+// 転送円どうし・橋どうしの対（向きは無い。離れていてよい）
+type BoardTilePair struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
 }
 
 // ボードの一覧の 1 ページ（名前の順）
@@ -192,6 +214,38 @@ type BoardsEdge struct {
 	// ボード
 	Node *Board `json:"node"`
 }
+
+// 橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない
+type BridgeTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BridgeTile) IsBoardTile() {}
+
+// 列
+func (this BridgeTile) GetX() int { return this.X }
+
+// 行
+func (this BridgeTile) GetY() int { return this.Y }
+
+// カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
+type CardShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CardShopTile) IsBoardTile() {}
+
+// 列
+func (this CardShopTile) GetX() int { return this.X }
+
+// 行
+func (this CardShopTile) GetY() int { return this.Y }
 
 // チェックポイント
 type CheckpointTile struct {
@@ -318,6 +372,22 @@ func (PlayerNotRegisteredError) IsBoardResult() {}
 
 func (PlayerNotRegisteredError) IsMeResult() {}
 
+// 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
+type ProphecyShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ProphecyShopTile) IsBoardTile() {}
+
+// 列
+func (this ProphecyShopTile) GetX() int { return this.X }
+
+// 行
+func (this ProphecyShopTile) GetY() int { return this.Y }
+
 type Query struct {
 }
 
@@ -343,6 +413,38 @@ type RegisterPlayerSuccess struct {
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
 
+// 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
+type SanctuaryTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (SanctuaryTile) IsBoardTile() {}
+
+// 列
+func (this SanctuaryTile) GetX() int { return this.X }
+
+// 行
+func (this SanctuaryTile) GetY() int { return this.Y }
+
+// ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
+type ShrineTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ShrineTile) IsBoardTile() {}
+
+// 列
+func (this ShrineTile) GetX() int { return this.X }
+
+// 行
+func (this ShrineTile) GetY() int { return this.Y }
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -352,6 +454,22 @@ type ValidationErrors struct {
 func (ValidationErrors) IsRegisterAvatarResult() {}
 
 func (ValidationErrors) IsBoardsResult() {}
+
+// 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
+type WarpTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (WarpTile) IsBoardTile() {}
+
+// 列
+func (this WarpTile) GetX() int { return this.X }
+
+// 行
+func (this WarpTile) GetY() int { return this.Y }
 
 // 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 // 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない

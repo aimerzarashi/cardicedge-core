@@ -50,8 +50,8 @@ type NotPublishableError struct {
 }
 
 func (e *NotPublishableError) Error() string {
-	return fmt.Sprintf("%s: bases=%d checkpoints=%d unreachable=%d",
-		ErrNotPublishable, e.Readiness.BaseCount(), e.Readiness.CheckpointCount, len(e.Readiness.UnreachableTiles))
+	return fmt.Sprintf("%s: bases=%d checkpoints=%d unreachable=%d unpaired=%d",
+		ErrNotPublishable, e.Readiness.BaseCount(), e.Readiness.CheckpointCount, len(e.Readiness.UnreachableTiles), len(e.Readiness.UnpairedTiles))
 }
 
 func (e *NotPublishableError) Is(target error) bool {

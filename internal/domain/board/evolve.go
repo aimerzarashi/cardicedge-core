@@ -90,6 +90,7 @@ func applyLayoutChange(before Layout, e *LayoutChangedEvent) (Layout, error) {
 	}
 	tiles := maps.Clone(before.tiles)
 	connections := maps.Clone(before.connections)
+	pairs := maps.Clone(before.pairs)
 	for _, pos := range e.RemovedTiles {
 		delete(tiles, pos)
 	}
@@ -105,7 +106,13 @@ func applyLayoutChange(before Layout, e *LayoutChangedEvent) (Layout, error) {
 	for _, connection := range e.Connected {
 		connections[connection] = struct{}{}
 	}
-	return NewLayout(size, tilesOf(tiles), connectionsOf(connections))
+	for _, pair := range e.Unpaired {
+		delete(pairs, pair)
+	}
+	for _, pair := range e.Paired {
+		pairs[pair] = struct{}{}
+	}
+	return NewLayout(size, tilesOf(tiles), connectionsOf(connections), pairsOf(pairs))
 }
 
 func tilesOf(tiles map[Position]Tile) []Tile {
@@ -120,6 +127,14 @@ func connectionsOf(connections map[Connection]struct{}) []Connection {
 	result := make([]Connection, 0, len(connections))
 	for connection := range connections {
 		result = append(result, connection)
+	}
+	return result
+}
+
+func pairsOf(pairs map[Pair]struct{}) []Pair {
+	result := make([]Pair, 0, len(pairs))
+	for pair := range pairs {
+		result = append(result, pair)
 	}
 	return result
 }

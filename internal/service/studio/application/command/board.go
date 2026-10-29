@@ -50,7 +50,7 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// kind は land・base・checkpoint（GraphQL の @oneOf で書いた項目）、attribute は fire・earth・water・wind・neutral・multi。
+// kind は domain のマスの種類（land・base・checkpoint・warp・bridge・sanctuary・shrine・prophecy_shop・card_shop。GraphQL の @oneOf で書いた項目に対応する）、attribute は fire・earth・water・wind・neutral・multi。
 // attribute は土地のときだけ指定し、拠点・チェックポイントは空。この組み合わせは GraphQL の入力の形で守られるため、
 // 守られていなければ（kind・attribute が不明、土地に無い、拠点にある）入力の誤りにせず内部のエラーにする。
 // 種類ごとの型に分けないのは、ドメインの Tile（種類と属性）に写す形を 1 つにし、誤りのパスの組み立てもこの形から行うため
@@ -66,12 +66,19 @@ type BoardConnectionInput struct {
 	B BoardPosition
 }
 
+// 転送円どうし・橋どうしの対。端の種類は、置いたマスの種類で決まる
+type BoardPairInput struct {
+	A BoardPosition
+	B BoardPosition
+}
+
 // 変えた後のレイアウトの全体。前との差分は Decide が作る
 type BoardLayoutInput struct {
 	Width       int
 	Height      int
 	Tiles       []BoardTileInput
 	Connections []BoardConnectionInput
+	Pairs       []BoardPairInput
 }
 
 // 変えた後の既定のルールの全体。決まりは board.NewDefaultRules の 1 か所にあり、違反は入力の項目のパスに写す
@@ -156,7 +163,7 @@ func (c *BoardHandler) Rename(ctx context.Context, id uuid.UUID, revision int64,
 }
 
 // 変えた後のレイアウトの全体を受け取る。入力の誤りは input.Errors
-// （項目は width・height・tiles.N.x・tiles.N.y・tiles.N.kind・tiles.N.attribute・tiles.N・connections.N.a・connections.N.b・connections.N）。
+// （項目は width・height・tiles.N.x・tiles.N.y・tiles.N.kind・tiles.N.attribute・tiles.N・connections.N.a・connections.N.b・connections.N・pairs.N.a・pairs.N.b・pairs.N）。
 // 幅・高さが studio_rules の範囲外なら、格子の範囲が決まらないため、マス・つながりは調べない。ほかのエラーは Rename と同じ
 func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision int64, layoutInput BoardLayoutInput) (ChangedBoard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -385,7 +392,12 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 		connections[i] = board.NewConnection(board.NewPosition(connection.A.X, connection.A.Y), board.NewPosition(connection.B.X, connection.B.Y))
 	}
 
-	for _, violation := range board.ValidateLayout(size, tiles, connections) {
+	pairs := make([]board.Pair, len(layoutInput.Pairs))
+	for i, pair := range layoutInput.Pairs {
+		pairs[i] = board.NewPair(board.NewPosition(pair.A.X, pair.A.Y), board.NewPosition(pair.B.X, pair.B.Y))
+	}
+
+	for _, violation := range board.ValidateLayout(size, tiles, connections, pairs) {
 		converted, err := layoutViolationToInput(violation, size, layoutInput)
 		if err != nil {
 			return board.Layout{}, err
@@ -396,7 +408,7 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 		return board.Layout{}, invalid
 	}
 	// ValidateLayout が通ったのに失敗するならコードの誤りなので、入力の誤りにせず内部のエラーのまま返す
-	return board.NewLayout(size, tiles, connections)
+	return board.NewLayout(size, tiles, connections, pairs)
 }
 
 // 決まりは board.NewDefaultRules にあり、ここは違反を入力の項目のパスに写すだけ。誤りはまとめて input.Errors で返す
@@ -434,8 +446,8 @@ func layoutViolationToInput(violation board.LayoutViolation, size board.Size, la
 		field := fmt.Sprintf("tiles.%d", violation.Index)
 		switch violation.Reason {
 		case board.ReasonOutOfRange:
-			// 座標は、書いた種類の項目（land・base・checkpoint）の中にある
-			kindField := field + "." + layoutInput.Tiles[violation.Index].Kind
+			// 座標は、書いた種類の項目（land・base・checkpoint・warp・prophecyShop 等）の中にある
+			kindField := field + "." + tileInputField(layoutInput.Tiles[violation.Index].Kind)
 			if violation.Part == board.PartX {
 				return &input.OutOfRange{Field: kindField + ".x", Min: 0, Max: size.Width() - 1}, nil
 			}
@@ -456,6 +468,22 @@ func layoutViolationToInput(violation board.LayoutViolation, size board.Size, la
 		case board.ReasonDuplicatedConnection:
 			return &input.Duplicated{Field: field}, nil
 		}
+	case board.SubjectPair:
+		field := fmt.Sprintf("pairs.%d", violation.Index)
+		switch violation.Reason {
+		case board.ReasonTileNotFound:
+			return &input.NotFound{Field: field + "." + string(inputPairEnd(violation.Part, layoutInput.Pairs[violation.Index]))}, nil
+		case board.ReasonNotPairableTile:
+			return &input.NotPairable{Field: field + "." + string(inputPairEnd(violation.Part, layoutInput.Pairs[violation.Index]))}, nil
+		case board.ReasonTileAlreadyPaired:
+			return &input.Duplicated{Field: field + "." + string(inputPairEnd(violation.Part, layoutInput.Pairs[violation.Index]))}, nil
+		case board.ReasonMixedPairKinds:
+			return &input.PairKindMismatch{Field: field}, nil
+		case board.ReasonPairedWithSelf:
+			return &input.PairedWithSelf{Field: field}, nil
+		case board.ReasonDuplicatedPair:
+			return &input.Duplicated{Field: field}, nil
+		}
 	}
 	// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って別の誤りにしない）
 	panic(fmt.Sprintf("unknown layout violation: %+v", violation))
@@ -472,6 +500,23 @@ func inputEnd(part board.Part, connection BoardConnectionInput) board.Part {
 		return board.PartB
 	}
 	return board.PartA
+}
+
+// つながりの inputEnd と同じ。対も並べ方の小さい方が a にそろった後の a・b を、入力の側に戻す
+func inputPairEnd(part board.Part, pair BoardPairInput) board.Part {
+	return inputEnd(part, BoardConnectionInput(pair))
+}
+
+// 入力の @oneOf の項目の名前。domain の種類の名前（スネークケース）と、GraphQL の項目の名前（キャメルケース）が違うものだけ変える
+func tileInputField(kind string) string {
+	switch kind {
+	case string(board.TileKindProphecyShop):
+		return "prophecyShop"
+	case string(board.TileKindCardShop):
+		return "cardShop"
+	default:
+		return kind
+	}
 }
 
 // presentation 層にドメインのエラーを見せないため、application 層のエラーに変える

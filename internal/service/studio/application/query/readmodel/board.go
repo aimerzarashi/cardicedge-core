@@ -38,12 +38,20 @@ const (
 	BoardTileKindLand       BoardTileKind = "land"
 	BoardTileKindBase       BoardTileKind = "base"
 	BoardTileKindCheckpoint BoardTileKind = "checkpoint"
+	// 施設の名前は仮（世界観のデザインで見直す）
+	BoardTileKindWarp         BoardTileKind = "warp"
+	BoardTileKindBridge       BoardTileKind = "bridge"
+	BoardTileKindSanctuary    BoardTileKind = "sanctuary"
+	BoardTileKindShrine       BoardTileKind = "shrine"
+	BoardTileKindProphecyShop BoardTileKind = "prophecy_shop"
+	BoardTileKindCardShop     BoardTileKind = "card_shop"
 )
 
 func NewBoardTileKind(value string) (BoardTileKind, error) {
 	kind := BoardTileKind(value)
 	switch kind {
-	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
+	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint,
+		BoardTileKindWarp, BoardTileKindBridge, BoardTileKindSanctuary, BoardTileKindShrine, BoardTileKindProphecyShop, BoardTileKindCardShop:
 		return kind, nil
 	default:
 		return "", fmt.Errorf("readmodel: unknown board tile kind: %q", value)
@@ -102,10 +110,20 @@ type BoardTileCounts struct {
 	Wind       int `json:"wind"`
 	Neutral    int `json:"neutral"`
 	Multi      int `json:"multi"`
+	// 属性を持たない特殊なマスの種類ごとの数（土地の合計には入らない）
+	Warp         int `json:"warp"`
+	Bridge       int `json:"bridge"`
+	Sanctuary    int `json:"sanctuary"`
+	Shrine       int `json:"shrine"`
+	ProphecyShop int `json:"prophecy_shop"`
+	CardShop     int `json:"card_shop"`
 }
 
-func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi int) BoardTileCounts {
-	return BoardTileCounts{Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi}
+func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi, warp, bridge, sanctuary, shrine, prophecyShop, cardShop int) BoardTileCounts {
+	return BoardTileCounts{
+		Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi,
+		Warp: warp, Bridge: bridge, Sanctuary: sanctuary, Shrine: shrine, ProphecyShop: prophecyShop, CardShop: cardShop,
+	}
 }
 
 func countBoardTiles(tiles map[board.Position]BoardTile) BoardTileCounts {
@@ -118,6 +136,18 @@ func countBoardTiles(tiles map[board.Position]BoardTile) BoardTileCounts {
 			counts.Base++
 		case BoardTileKindCheckpoint:
 			counts.Checkpoint++
+		case BoardTileKindWarp:
+			counts.Warp++
+		case BoardTileKindBridge:
+			counts.Bridge++
+		case BoardTileKindSanctuary:
+			counts.Sanctuary++
+		case BoardTileKindShrine:
+			counts.Shrine++
+		case BoardTileKindProphecyShop:
+			counts.ProphecyShop++
+		case BoardTileKindCardShop:
+			counts.CardShop++
 		}
 		switch tile.Attribute {
 		case BoardTileAttributeFire:
@@ -150,6 +180,7 @@ const (
 	BoardPublishProblemBaseCount        BoardPublishProblemKind = "base_count"
 	BoardPublishProblemNoCheckpoint     BoardPublishProblemKind = "no_checkpoint"
 	BoardPublishProblemUnreachableTiles BoardPublishProblemKind = "unreachable_tiles"
+	BoardPublishProblemUnpairedTiles    BoardPublishProblemKind = "unpaired_tiles"
 )
 
 func NewBoardPublishProblem(kind BoardPublishProblemKind, positions ...BoardPosition) BoardPublishProblem {
@@ -159,9 +190,9 @@ func NewBoardPublishProblem(kind BoardPublishProblemKind, positions ...BoardPosi
 	return BoardPublishProblem{Kind: kind, Positions: positions}
 }
 
-// 置いてあるマスとつながりから、公開できない理由を調べる（判定は domain の board.CheckReadiness の 1 か所）。
+// 置いてあるマスとつながりと対から、公開できない理由を調べる（判定は domain の board.CheckReadiness の 1 か所）。
 // 理由の順は domain の Problems のまま。空（公開できる）でも nil にせず、JSON を [] にする
-func publishProblems(tiles map[board.Position]BoardTile, connections map[board.Connection]struct{}) []BoardPublishProblem {
+func publishProblems(tiles map[board.Position]BoardTile, connections map[board.Connection]struct{}, pairs map[board.Pair]struct{}) []BoardPublishProblem {
 	domainTiles := make([]board.Tile, 0, len(tiles))
 	for pos, tile := range tiles {
 		kind, err := board.NewTileKind(string(tile.Kind))
@@ -172,7 +203,7 @@ func publishProblems(tiles map[board.Position]BoardTile, connections map[board.C
 		domainTiles = append(domainTiles, board.Tile{Position: pos, Kind: kind})
 	}
 	domainConnections := slices.Collect(maps.Keys(connections))
-	problems := board.CheckReadiness(domainTiles, domainConnections).Problems()
+	problems := board.CheckReadiness(domainTiles, domainConnections, slices.Collect(maps.Keys(pairs))).Problems()
 	result := make([]BoardPublishProblem, 0, len(problems))
 	for _, problem := range problems {
 		positions := make([]BoardPosition, 0, len(problem.Positions))
@@ -206,20 +237,27 @@ type BoardConnection struct {
 	B BoardPosition `json:"b"`
 }
 
+// boards.metadata の pairs の 1 つ。a → b の順（a が並べ方の小さい方）
+type BoardPair struct {
+	A BoardPosition `json:"a"`
+	B BoardPosition `json:"b"`
+}
+
 // boards の 1 行。個別の列（SortName・Status）は並べ替え・絞り込み用、Metadata は表示用
 type Board struct {
 	BoardID  uuid.UUID
 	SortName string
 	Status   BoardStatus
 	Metadata BoardMetadata
-	// マスとつながりの今の集合。イベントの差分を当てるための作業用で、DB には持たない（Metadata.Tiles・Connections に並べて持つ）
+	// マスとつながりと対の今の集合。イベントの差分を当てるための作業用で、DB には持たない（Metadata.Tiles・Connections・Pairs に並べて持つ）
 	tiles       map[board.Position]BoardTile
 	connections map[board.Connection]struct{}
+	pairs       map[board.Pair]struct{}
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
 	IsDeleted bool
 }
 
-// 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）。マスは y → x、つながりは a → b の順に並べる
+// 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）。マスは y → x、つながりと対は a → b の順に並べる
 type BoardMetadata struct {
 	ID           uuid.UUID         `json:"id"`
 	Name         string            `json:"name"`
@@ -229,6 +267,7 @@ type BoardMetadata struct {
 	Height       int               `json:"height"`
 	Tiles        []BoardTile       `json:"tiles"`
 	Connections  []BoardConnection `json:"connections"`
+	Pairs        []BoardPair       `json:"pairs"`
 	DefaultRules BoardDefaultRules `json:"default_rules"`
 	TileCounts   BoardTileCounts   `json:"tile_counts"`
 	// 公開できない理由（空なら公開できる）。レイアウトが変わるたびに投影が計算し直す。
@@ -238,7 +277,7 @@ type BoardMetadata struct {
 	UpdatedAt       time.Time             `json:"updated_at"`
 }
 
-// ボードのイベントだけを扱い、ほかは状態をそのまま返す。状態を書き換えないよう、マスとつながりは写してから変える
+// ボードのイベントだけを扱い、ほかは状態をそのまま返す。状態を書き換えないよう、マスとつながりと対は写してから変える
 func (state Board) Evolve(event any) Board {
 	switch e := event.(type) {
 	case *board.RegisteredEvent:
@@ -248,11 +287,12 @@ func (state Board) Evolve(event any) Board {
 		state.Status = BoardStatusDraft
 		state.tiles = map[board.Position]BoardTile{}
 		state.connections = map[board.Connection]struct{}{}
+		state.pairs = map[board.Pair]struct{}{}
 		state.Metadata = BoardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: BoardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Width: e.Width, Height: e.Height,
-			Tiles: []BoardTile{}, Connections: []BoardConnection{}, DefaultRules: toBoardDefaultRules(e.DefaultRules),
-			PublishProblems: publishProblems(state.tiles, state.connections),
+			Tiles: []BoardTile{}, Connections: []BoardConnection{}, Pairs: []BoardPair{}, DefaultRules: toBoardDefaultRules(e.DefaultRules),
+			PublishProblems: publishProblems(state.tiles, state.connections, state.pairs),
 			RegisteredAt:    occurredAt, UpdatedAt: occurredAt,
 		}
 	case *board.RenamedEvent:
@@ -278,6 +318,7 @@ func (state Board) Evolve(event any) Board {
 func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	tiles := maps.Clone(state.tiles)
 	connections := maps.Clone(state.connections)
+	pairs := maps.Clone(state.pairs)
 	if e.Size != nil {
 		state.Metadata.Width = e.Size.Width()
 		state.Metadata.Height = e.Size.Height()
@@ -297,9 +338,15 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	for _, connection := range e.Connected {
 		connections[connection] = struct{}{}
 	}
-	state.tiles, state.connections = tiles, connections
+	for _, pair := range e.Unpaired {
+		delete(pairs, pair)
+	}
+	for _, pair := range e.Paired {
+		pairs[pair] = struct{}{}
+	}
+	state.tiles, state.connections, state.pairs = tiles, connections, pairs
 	state.Metadata.TileCounts = countBoardTiles(tiles)
-	state.Metadata.PublishProblems = publishProblems(tiles, connections)
+	state.Metadata.PublishProblems = publishProblems(tiles, connections, pairs)
 
 	positions := slices.SortedFunc(maps.Keys(tiles), board.Position.Compare)
 	state.Metadata.Tiles = make([]BoardTile, 0, len(positions))
@@ -312,6 +359,14 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 		state.Metadata.Connections = append(state.Metadata.Connections, BoardConnection{
 			A: NewBoardPosition(connection.A().X, connection.A().Y),
 			B: NewBoardPosition(connection.B().X, connection.B().Y),
+		})
+	}
+	sortedPairs := slices.SortedFunc(maps.Keys(pairs), board.Pair.Compare)
+	state.Metadata.Pairs = make([]BoardPair, 0, len(sortedPairs))
+	for _, pair := range sortedPairs {
+		state.Metadata.Pairs = append(state.Metadata.Pairs, BoardPair{
+			A: NewBoardPosition(pair.A().X, pair.A().Y),
+			B: NewBoardPosition(pair.B().X, pair.B().Y),
 		})
 	}
 	return state

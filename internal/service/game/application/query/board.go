@@ -21,12 +21,20 @@ const (
 	BoardTileKindLand       BoardTileKind = "land"
 	BoardTileKindBase       BoardTileKind = "base"
 	BoardTileKindCheckpoint BoardTileKind = "checkpoint"
+	// 施設の名前は仮（世界観のデザインで見直す）
+	BoardTileKindWarp         BoardTileKind = "warp"
+	BoardTileKindBridge       BoardTileKind = "bridge"
+	BoardTileKindSanctuary    BoardTileKind = "sanctuary"
+	BoardTileKindShrine       BoardTileKind = "shrine"
+	BoardTileKindProphecyShop BoardTileKind = "prophecy_shop"
+	BoardTileKindCardShop     BoardTileKind = "card_shop"
 )
 
 func NewBoardTileKind(value string) (BoardTileKind, error) {
 	kind := BoardTileKind(value)
 	switch kind {
-	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
+	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint,
+		BoardTileKindWarp, BoardTileKindBridge, BoardTileKindSanctuary, BoardTileKindShrine, BoardTileKindProphecyShop, BoardTileKindCardShop:
 		return kind, nil
 	default:
 		return "", fmt.Errorf("query: unknown board tile kind: %q", value)
@@ -77,6 +85,12 @@ type BoardConnection struct {
 	B BoardPosition
 }
 
+// 写した boards.metadata の pairs の 1 つ（転送円どうし・橋どうし）
+type BoardPair struct {
+	A BoardPosition
+	B BoardPosition
+}
+
 // 写した boards.metadata の default_rules。対戦を始めるときの既定の値で、始めるときにここから変えられる前提
 type BoardDefaultRules struct {
 	TargetMagic     int
@@ -100,13 +114,23 @@ type BoardTileCounts struct {
 	Wind       int
 	Neutral    int
 	Multi      int
+	// 属性を持たない特殊なマスの種類ごとの数（土地の合計には入らない）
+	Warp         int
+	Bridge       int
+	Sanctuary    int
+	Shrine       int
+	ProphecyShop int
+	CardShop     int
 }
 
-func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi int) BoardTileCounts {
-	return BoardTileCounts{Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi}
+func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi, warp, bridge, sanctuary, shrine, prophecyShop, cardShop int) BoardTileCounts {
+	return BoardTileCounts{
+		Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi,
+		Warp: warp, Bridge: bridge, Sanctuary: sanctuary, Shrine: shrine, ProphecyShop: prophecyShop, CardShop: cardShop,
+	}
 }
 
-// 公開中のボードの、盤面に要る項目だけ。状態・revision・日時は game で使わないので持たない。マスは y → x、つながりは a → b の順
+// 公開中のボードの、盤面に要る項目だけ。状態・revision・日時は game で使わないので持たない。マスは y → x、つながりと対は a → b の順
 // （写した metadata の並びのまま）。一覧の要素にもマスとつながりを持たせるのは、別に引き直す仕組みを作らなくても、
 // 1 ページ 100 件・最大 32×32 に収まるため（studio の BoardHandler と同じ）
 type Board struct {
@@ -116,6 +140,7 @@ type Board struct {
 	Height       int
 	Tiles        []BoardTile
 	Connections  []BoardConnection
+	Pairs        []BoardPair
 	DefaultRules BoardDefaultRules
 	TileCounts   BoardTileCounts
 }
