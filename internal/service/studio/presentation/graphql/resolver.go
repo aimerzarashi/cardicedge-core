@@ -73,6 +73,7 @@ type BoardHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedBoard, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedBoard, error)
 	ChangeLayout(ctx context.Context, id uuid.UUID, revision int64, layout command.BoardLayoutInput) (command.ChangedBoard, error)
+	CheckLayout(ctx context.Context, layout command.BoardLayoutInput) ([]command.BoardPublishProblem, error)
 	ChangeDefaultRules(ctx context.Context, id uuid.UUID, revision int64, rules command.BoardDefaultRulesInput) (command.ChangedBoard, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedBoard, error)

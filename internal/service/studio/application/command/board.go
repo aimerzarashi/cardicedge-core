@@ -185,6 +185,26 @@ func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision 
 	return changed, mapBoardError(err)
 }
 
+// 保存せずに、このレイアウトが公開できるかを調べる。ボードを指さず、イベントも作らず、revision も使わない。
+// 入力の誤りは ChangeLayout と同じ input.Errors（同じ newLayout を通す）。誤りが無ければ、公開できない理由の一覧
+// （公開するときの BoardNotPublishableError と同じ型・順。空なら公開できる）
+// コマンド（Handler）に置いたのは、レイアウトの組み立てと入力の項目のパスへの写し方（newLayout）を保存と共有し、決まりを 2 か所に書かないため。
+// query の BoardHandler は read model を読む部品で、studio_rules も newLayout も持たない
+func (c *BoardHandler) CheckLayout(ctx context.Context, layoutInput BoardLayoutInput) ([]BoardPublishProblem, error) {
+	if _, ok := authentication.Operator(ctx); !ok {
+		return nil, ErrNotOperator
+	}
+	rules, err := c.getRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	layout, err := newLayout(rules.Board, layoutInput)
+	if err != nil {
+		return nil, err
+	}
+	return boardPublishProblems(layout.Readiness()), nil
+}
+
 // 既定のルールの全体を変える。入力の誤りは input.Errors（項目は targetMagic・startingMagic・lapBonus・checkpointBonus）。
 // 同じ値なら変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
 func (c *BoardHandler) ChangeDefaultRules(ctx context.Context, id uuid.UUID, revision int64, rulesInput BoardDefaultRulesInput) (ChangedBoard, error) {
@@ -459,22 +479,26 @@ func mapBoardError(err error) error {
 	var notPublishable *board.NotPublishableError
 	switch {
 	case errors.As(err, &notPublishable):
-		problems := notPublishable.Readiness.Problems()
-		result := make([]BoardPublishProblem, 0, len(problems))
-		for _, problem := range problems {
-			positions := make([]BoardPosition, 0, len(problem.Positions))
-			for _, pos := range problem.Positions {
-				positions = append(positions, NewBoardPosition(pos.X, pos.Y))
-			}
-			result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
-		}
-		return &BoardNotPublishableError{Problems: result}
+		return &BoardNotPublishableError{Problems: boardPublishProblems(notPublishable.Readiness)}
 	case errors.Is(err, board.ErrNotDraft):
 		return ErrBoardNotDraft
 	case errors.Is(err, board.ErrInvalidStatusTransition):
 		return ErrInvalidBoardStatusTransition
 	}
 	return revisionConflict(err)
+}
+
+func boardPublishProblems(readiness board.Readiness) []BoardPublishProblem {
+	problems := readiness.Problems()
+	result := make([]BoardPublishProblem, 0, len(problems))
+	for _, problem := range problems {
+		positions := make([]BoardPosition, 0, len(problem.Positions))
+		for _, pos := range problem.Positions {
+			positions = append(positions, NewBoardPosition(pos.X, pos.Y))
+		}
+		result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
+	}
+	return result
 }
 
 // 土地でないマスには属性が無い（空）

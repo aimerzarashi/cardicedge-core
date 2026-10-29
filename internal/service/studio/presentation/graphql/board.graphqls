@@ -269,7 +269,34 @@ extend type Query {
     "ボードの公開用の ID"
     id: UUID!
   ): BoardResult!
+  "ボードのレイアウトを保存せずに判定する（紐づいたオペレーターだけ。ボードを指さず、何も保存せず、イベントも作らない。入力の誤りは changeBoardLayout と同じ決まりと項目で ValidationErrors になり、誤りが無ければ公開できない理由を、公開するときと同じ判定で返す。保存と違い、準備中でなくても、どのボードにも関わらず呼べる）"
+  checkBoardLayout(
+    "判定するレイアウトの全体"
+    input: CheckBoardLayoutInput!
+  ): CheckBoardLayoutResult!
 }
+
+# ChangeBoardLayoutInput から id・revision を除いた形。ボードを指さないので、保存と違い対象も版も持たない
+"ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）"
+input CheckBoardLayoutInput {
+  "幅（studioRules.board の範囲の中。外なら入力の誤り）"
+  width: Int!
+  "高さ（studioRules.board の範囲の中。外なら入力の誤り）"
+  height: Int!
+  "置くマスの全体（同じ座標を 2 回入れると入力の誤り）"
+  tiles: [BoardTileInput!]!
+  "つながりの全体（両端にマスが置いてあり、隣どうしであること。同じつながりを 2 回入れると入力の誤り）"
+  connections: [BoardConnectionInput!]!
+}
+
+"レイアウトの判定の結果（保存していない）。公開できる条件を満たしていれば publishProblems は空"
+type CheckBoardLayoutSuccess {
+  "公開できない理由（公開するときの BoardNotPublishableError.problems と同じ型・順。空なら公開できる）"
+  publishProblems: [BoardPublishProblem!]!
+}
+
+"ボードのレイアウトの判定の結果"
+union CheckBoardLayoutResult = CheckBoardLayoutSuccess | ValidationErrors | ForbiddenError
 
 "ボードを登録する入力"
 input RegisterBoardInput {

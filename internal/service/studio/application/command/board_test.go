@@ -166,6 +166,8 @@ func TestBoardHandler_RejectsCallWithoutOperator(t *testing.T) {
 	require.ErrorIs(t, err, command.ErrNotOperator)
 	_, err = commands.ChangeDefaultRules(ctx, uuid.New(), 1, command.BoardDefaultRulesInput{TargetMagic: 5000})
 	require.ErrorIs(t, err, command.ErrNotOperator)
+	_, err = commands.CheckLayout(ctx, publishableLayoutInput())
+	require.ErrorIs(t, err, command.ErrNotOperator)
 }
 
 func TestRenameBoard_ChangesNameAndFreesOldName(t *testing.T) {
@@ -574,4 +576,56 @@ func TestDeleteBoard_RemovesBoardAndFreesName(t *testing.T) {
 	_, err := commands.Rename(ctx, registered.ID, registered.Revision, "砂漠")
 	require.ErrorIs(t, err, command.ErrBoardNotFound)
 	registerBoard(t, ctx, commands, "草原")
+}
+
+func TestCheckBoardLayout_ReportsProblemsLikePublishAndSavesNothing(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandler(t, ctx)
+	registered := registerBoard(t, ctx, commands, "草原")
+	unreachable := command.BoardLayoutInput{
+		Width: 3, Height: 3,
+		Tiles:       []command.BoardTileInput{tileInput(0, 0, "base"), tileInput(1, 0, "checkpoint"), tileInput(2, 2, "land")},
+		Connections: []command.BoardConnectionInput{connectionInput(0, 0, 1, 0)},
+	}
+
+	empty, err := commands.CheckLayout(ctx, layoutInput(3, 3, nil, nil))
+	require.NoError(t, err)
+	notPublishable, err := commands.CheckLayout(ctx, unreachable)
+	require.NoError(t, err)
+	publishable, err := commands.CheckLayout(ctx, publishableLayoutInput())
+	require.NoError(t, err)
+
+	require.Equal(t, []command.BoardPublishProblem{
+		{Kind: command.BoardPublishProblemBaseCount, Positions: []command.BoardPosition{}},
+		{Kind: command.BoardPublishProblemNoCheckpoint, Positions: []command.BoardPosition{}},
+	}, empty)
+	require.Equal(t, []command.BoardPublishProblem{
+		{Kind: command.BoardPublishProblemUnreachableTiles, Positions: []command.BoardPosition{command.NewBoardPosition(2, 2)}},
+	}, notPublishable)
+	require.Empty(t, publishable)
+	// 保存していないので、ボードは登録の直後のまま（版が進まず、同じ revision で保存できる）
+	current := restoredBoard(t, ctx, registered.ID)
+	require.Equal(t, registered.Revision, current.Version)
+	require.Empty(t, current.Layout.Tiles())
+}
+
+// 入力の誤りは保存（ChangeLayout）と同じ写し方を通る。範囲は保存と同じく studio_rules から読む
+func TestCheckBoardLayout_ReturnsSameInputErrorsAsChangeLayout(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandlerWithRules(t, ctx, studiorulestest.Rules(t, 2, 4))
+	registered := registerBoard(t, ctx, commands, "草原")
+	layouts := []command.BoardLayoutInput{
+		layoutInput(8, 1, tiles(tileInput(99, 99, "land")), nil),
+		layoutInput(3, 3, tiles(tileInput(5, 0, "base"), tileInput(0, 0, "land"), tileInput(0, 0, "base")), connections(connectionInput(0, 0, 1, 1), connectionInput(2, 2, 1, 2))),
+	}
+
+	for _, layout := range layouts {
+		_, saveErr := commands.ChangeLayout(ctx, registered.ID, registered.Revision, layout)
+		_, checkErr := commands.CheckLayout(ctx, layout)
+
+		invalid, ok := input.AsErrors(checkErr)
+		require.True(t, ok)
+		require.NotEmpty(t, invalid)
+		require.Equal(t, saveErr, checkErr)
+	}
 }

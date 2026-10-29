@@ -96,10 +96,19 @@ func toBoardFilter(filter *model.BoardFilter) (query.BoardFilter, error) {
 	return query.BoardFilter{NameContains: filter.NameContains, Statuses: statuses}, nil
 }
 
+// 保存（changeBoardLayout）と判定（checkBoardLayout）の入力は、レイアウトの 4 項目が同じ。写し方を共有する
 func toBoardLayoutInput(layoutInput model.ChangeBoardLayoutInput) (command.BoardLayoutInput, error) {
-	tiles := make([]command.BoardTileInput, 0, len(layoutInput.Tiles))
+	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections)
+}
+
+func toCheckBoardLayoutInput(layoutInput model.CheckBoardLayoutInput) (command.BoardLayoutInput, error) {
+	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections)
+}
+
+func toBoardLayout(width, height int, inputTiles []*model.BoardTileInput, inputConnections []*model.BoardConnectionInput) (command.BoardLayoutInput, error) {
+	tiles := make([]command.BoardTileInput, 0, len(inputTiles))
 	invalid := input.Errors{}
-	for i, tile := range layoutInput.Tiles {
+	for i, tile := range inputTiles {
 		converted, ok, err := toBoardTileInput(tile)
 		if err != nil {
 			return command.BoardLayoutInput{}, err
@@ -113,26 +122,34 @@ func toBoardLayoutInput(layoutInput model.ChangeBoardLayoutInput) (command.Board
 	if len(invalid) > 0 {
 		return command.BoardLayoutInput{}, invalid
 	}
-	connections := make([]command.BoardConnectionInput, 0, len(layoutInput.Connections))
-	for _, connection := range layoutInput.Connections {
+	connections := make([]command.BoardConnectionInput, 0, len(inputConnections))
+	for _, connection := range inputConnections {
 		connections = append(connections, command.BoardConnectionInput{
 			A: command.NewBoardPosition(connection.A.X, connection.A.Y),
 			B: command.NewBoardPosition(connection.B.X, connection.B.Y),
 		})
 	}
-	return command.BoardLayoutInput{Width: layoutInput.Width, Height: layoutInput.Height, Tiles: tiles, Connections: connections}, nil
+	return command.BoardLayoutInput{Width: width, Height: height, Tiles: tiles, Connections: connections}, nil
 }
 
-func fromBoardNotPublishable(err *command.BoardNotPublishableError) (*model.BoardNotPublishableError, error) {
-	problems := make([]model.BoardPublishProblem, 0, len(err.Problems))
-	for _, problem := range err.Problems {
+func fromBoardNotPublishable(notPublishable *command.BoardNotPublishableError) (*model.BoardNotPublishableError, error) {
+	problems, err := fromCommandPublishProblems(notPublishable.Problems)
+	if err != nil {
+		return nil, err
+	}
+	return &model.BoardNotPublishableError{Message: "board is not publishable", Problems: problems}, nil
+}
+
+func fromCommandPublishProblems(commandProblems []command.BoardPublishProblem) ([]model.BoardPublishProblem, error) {
+	problems := make([]model.BoardPublishProblem, 0, len(commandProblems))
+	for _, problem := range commandProblems {
 		converted, err := fromBoardPublishProblem(string(problem.Kind), fromCommandPositions(problem.Positions))
 		if err != nil {
 			return nil, err
 		}
 		problems = append(problems, converted)
 	}
-	return &model.BoardNotPublishableError{Message: "board is not publishable", Problems: problems}, nil
+	return problems, nil
 }
 
 func fromCommandPositions(positions []command.BoardPosition) []*model.BoardPosition {
