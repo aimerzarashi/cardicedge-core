@@ -13,7 +13,7 @@ import (
 )
 
 const boardFields = `id name status width height revision registeredAt updatedAt
-	tiles { x y kind }
+	tiles { x y kind attribute }
 	connections { a { x y } b { x y } }`
 
 const boardQuery = `query ($id: UUID!) {
@@ -102,8 +102,16 @@ func boardInput(board map[string]any, extra map[string]any) map[string]any {
 	return input
 }
 
+// 土地には火属性を付ける（属性を確かめないテストで、属性の誤りが出ないように）
 func boardTile(x, y int, kind string) map[string]any {
+	if kind == "LAND" {
+		return boardTileWithAttribute(x, y, kind, "FIRE")
+	}
 	return map[string]any{"x": x, "y": y, "kind": kind}
+}
+
+func boardTileWithAttribute(x, y int, kind, attribute string) map[string]any {
+	return map[string]any{"x": x, "y": y, "kind": kind, "attribute": attribute}
 }
 
 func boardConnection(ax, ay, bx, by int) map[string]any {
@@ -203,7 +211,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
 
 	changed := changeBoardLayout(t, token, board, 3, 2,
-		[]map[string]any{boardTile(2, 1, "LAND"), boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT")},
+		[]map[string]any{boardTileWithAttribute(2, 1, "LAND", "MULTI"), boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT")},
 		[]map[string]any{boardConnection(1, 0, 0, 0)})
 
 	require.Equal(t, "ChangeBoardLayoutSuccess", changed["__typename"])
@@ -212,9 +220,9 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	require.EqualValues(t, 3, detail["width"])
 	require.EqualValues(t, 2, detail["height"])
 	require.Equal(t, []any{
-		map[string]any{"x": float64(0), "y": float64(0), "kind": "BASE"},
-		map[string]any{"x": float64(1), "y": float64(0), "kind": "CHECKPOINT"},
-		map[string]any{"x": float64(2), "y": float64(1), "kind": "LAND"},
+		map[string]any{"x": float64(0), "y": float64(0), "kind": "BASE", "attribute": nil},
+		map[string]any{"x": float64(1), "y": float64(0), "kind": "CHECKPOINT", "attribute": nil},
+		map[string]any{"x": float64(2), "y": float64(1), "kind": "LAND", "attribute": "MULTI"},
 	}, detail["tiles"])
 	require.Equal(t, []any{map[string]any{
 		"a": map[string]any{"x": float64(0), "y": float64(0)}, "b": map[string]any{"x": float64(1), "y": float64(0)},
@@ -254,6 +262,25 @@ func TestChangeBoardLayout_ReturnsFieldErrorPerViolation(t *testing.T) {
 		map[string]any{"__typename": "FieldNotFound", "field": "connections.3.a"},
 		map[string]any{"__typename": "FieldDuplicated", "field": "connections.3"},
 	}}, layoutErrors)
+}
+
+func TestChangeBoardLayout_ReturnsFieldErrorForAttribute(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+
+	invalid := changeBoardLayout(t, token, board, 3, 1,
+		[]map[string]any{
+			{"x": 0, "y": 0, "kind": "LAND"},
+			boardTileWithAttribute(1, 0, "BASE", "WATER"),
+			boardTileWithAttribute(2, 0, "CHECKPOINT", "MULTI"),
+		}, nil)
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldRequired", "field": "tiles.0.attribute"},
+		map[string]any{"__typename": "FieldNotAllowed", "field": "tiles.1.attribute"},
+		map[string]any{"__typename": "FieldNotAllowed", "field": "tiles.2.attribute"},
+	}}, invalid)
 }
 
 func TestPublishBoard_ReturnsConditionsWhenNotPublishable(t *testing.T) {

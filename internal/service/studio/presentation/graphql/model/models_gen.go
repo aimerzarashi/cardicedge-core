@@ -322,6 +322,8 @@ type BoardTile struct {
 	Y int `json:"y"`
 	// 種類
 	Kind BoardTileKind `json:"kind"`
+	// 属性（土地のときだけ。拠点・チェックポイントは null）
+	Attribute *BoardTileAttribute `json:"attribute,omitempty"`
 }
 
 // 置くマスの入力
@@ -332,6 +334,8 @@ type BoardTileInput struct {
 	Y int `json:"y"`
 	// 種類
 	Kind BoardTileKind `json:"kind"`
+	// 属性（土地には必須。拠点・チェックポイントには指定できない）
+	Attribute *BoardTileAttribute `json:"attribute,omitempty"`
 }
 
 // ボードの一覧の 1 ページ（名前の順）
@@ -560,6 +564,17 @@ func (FieldNotAdjacent) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotAdjacent) GetField() string { return this.Field }
+
+// この項目は、ほかの入力の値（マスの種類等）のときには指定できない（拠点・チェックポイントのマスの属性等）
+type FieldNotAllowed struct {
+	// 誤りのある入力の項目（一覧の中の位置を含む。例: tiles.2.attribute）
+	Field string `json:"field"`
+}
+
+func (FieldNotAllowed) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotAllowed) GetField() string { return this.Field }
 
 // 入力の ID が指すもの（プリセットデッキに入れるカード等）が無い
 type FieldNotFound struct {
@@ -1425,6 +1440,77 @@ func (e *BoardStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e BoardStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
+// 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
+type BoardTileAttribute string
+
+const (
+	// 火（火属性）
+	BoardTileAttributeFire BoardTileAttribute = "FIRE"
+	// 地（地属性）
+	BoardTileAttributeEarth BoardTileAttribute = "EARTH"
+	// 水（水属性）
+	BoardTileAttributeWater BoardTileAttribute = "WATER"
+	// 風（風属性）
+	BoardTileAttributeWind BoardTileAttribute = "WIND"
+	// 無（無属性）
+	BoardTileAttributeNeutral BoardTileAttribute = "NEUTRAL"
+	// 複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）
+	BoardTileAttributeMulti BoardTileAttribute = "MULTI"
+)
+
+var AllBoardTileAttribute = []BoardTileAttribute{
+	BoardTileAttributeFire,
+	BoardTileAttributeEarth,
+	BoardTileAttributeWater,
+	BoardTileAttributeWind,
+	BoardTileAttributeNeutral,
+	BoardTileAttributeMulti,
+}
+
+func (e BoardTileAttribute) IsValid() bool {
+	switch e {
+	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+		return true
+	}
+	return false
+}
+
+func (e BoardTileAttribute) String() string {
+	return string(e)
+}
+
+func (e *BoardTileAttribute) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardTileAttribute(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardTileAttribute", str)
+	}
+	return nil
+}
+
+func (e BoardTileAttribute) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

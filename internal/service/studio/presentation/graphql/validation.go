@@ -33,6 +33,8 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldDuplicated{Field: e.Field}
 		case *input.NotAdjacent:
 			fieldErrors[i] = &model.FieldNotAdjacent{Field: e.Field}
+		case *input.NotAllowed:
+			fieldErrors[i] = &model.FieldNotAllowed{Field: e.Field}
 		case *input.TotalTooLarge:
 			fieldErrors[i] = &model.FieldTotalTooLarge{Field: e.Field, Max: e.Max}
 		case *input.TotalMismatch:

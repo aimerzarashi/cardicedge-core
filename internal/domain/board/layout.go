@@ -100,20 +100,50 @@ func (k TileKind) String() string {
 	return string(k)
 }
 
+// 土地の属性。火・地・水・風・無・複の 6 つで、複は火・地・水・風の 4 色のマークが描かれた特殊な土地を表す値の 1 つ
+// （組み合わせは持たない）。カードの属性とは型を分ける（カードの属性はこのボードの属性と決まりが別で、片方を変えたくなったときに分けられなくなるため）
+type Attribute string
+
+const (
+	AttributeFire    Attribute = "fire"
+	AttributeEarth   Attribute = "earth"
+	AttributeWater   Attribute = "water"
+	AttributeWind    Attribute = "wind"
+	AttributeNeutral Attribute = "neutral"
+	AttributeMulti   Attribute = "multi"
+)
+
+func NewAttribute(value string) (Attribute, error) {
+	attribute := Attribute(value)
+	switch attribute {
+	case AttributeFire, AttributeEarth, AttributeWater, AttributeWind, AttributeNeutral, AttributeMulti:
+		return attribute, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrAttributeUnknown, value)
+	}
+}
+
+func (a Attribute) String() string {
+	return string(a)
+}
+
+// Attribute は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
 type Tile struct {
-	Position Position
-	Kind     TileKind
+	Position  Position
+	Kind      TileKind
+	Attribute Attribute
 }
 
 type tileJSON struct {
-	X    int      `json:"x"`
-	Y    int      `json:"y"`
-	Kind TileKind `json:"kind"`
+	X         int       `json:"x"`
+	Y         int       `json:"y"`
+	Kind      TileKind  `json:"kind"`
+	Attribute Attribute `json:"attribute,omitempty"`
 }
 
 // 座標を入れ子にしない。イベントの payload を読みやすくするため
 func (t Tile) MarshalJSON() ([]byte, error) {
-	return json.Marshal(tileJSON{X: t.Position.X, Y: t.Position.Y, Kind: t.Kind})
+	return json.Marshal(tileJSON{X: t.Position.X, Y: t.Position.Y, Kind: t.Kind, Attribute: t.Attribute})
 }
 
 func (t *Tile) UnmarshalJSON(data []byte) error {
@@ -121,7 +151,7 @@ func (t *Tile) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	*t = Tile{Position: NewPosition(v.X, v.Y), Kind: v.Kind}
+	*t = Tile{Position: NewPosition(v.X, v.Y), Kind: v.Kind, Attribute: v.Attribute}
 	return nil
 }
 
@@ -185,6 +215,8 @@ const (
 	PartY     Part = "y"
 	PartA     Part = "a"
 	PartB     Part = "b"
+	// マスの属性
+	PartAttribute Part = "attribute"
 )
 
 type Reason string
@@ -200,6 +232,10 @@ const (
 	ReasonNotAdjacent Reason = "not_adjacent"
 	// 同じつながり（a,b の順を入れ替えたものを含む）の 2 回目
 	ReasonDuplicatedConnection Reason = "duplicated_connection"
+	// 土地に属性が無い
+	ReasonAttributeRequired Reason = "attribute_required"
+	// 拠点・チェックポイントに属性がある
+	ReasonAttributeNotAllowed Reason = "attribute_not_allowed"
 )
 
 // Index は渡された tiles / connections の何番目か
@@ -227,6 +263,13 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection) []LayoutV
 		if pos.Y < 0 || pos.Y >= size.height {
 			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartY, Reason: ReasonOutOfRange})
 			inRange = false
+		}
+		// 座標の誤りとは別に示せるよう、格子の外のマスでも調べる
+		switch {
+		case tile.Kind == TileKindLand && tile.Attribute == "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeRequired})
+		case tile.Kind != TileKindLand && tile.Attribute != "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeNotAllowed})
 		}
 		if !inRange {
 			continue
@@ -263,7 +306,7 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection) []LayoutV
 // 作った後は変えない（中の map を外に出さず、読むときは並べて写す）
 type Layout struct {
 	size        Size
-	tiles       map[Position]TileKind
+	tiles       map[Position]Tile
 	connections map[Connection]struct{}
 }
 
@@ -274,11 +317,11 @@ func NewLayout(size Size, tiles []Tile, connections []Connection) (Layout, error
 	}
 	layout := Layout{
 		size:        size,
-		tiles:       make(map[Position]TileKind, len(tiles)),
+		tiles:       make(map[Position]Tile, len(tiles)),
 		connections: make(map[Connection]struct{}, len(connections)),
 	}
 	for _, tile := range tiles {
-		layout.tiles[tile.Position] = tile.Kind
+		layout.tiles[tile.Position] = tile
 	}
 	for _, connection := range connections {
 		layout.connections[connection] = struct{}{}
@@ -288,7 +331,7 @@ func NewLayout(size Size, tiles []Tile, connections []Connection) (Layout, error
 
 // 登録の直後のレイアウト。マスもつながりも無い
 func EmptyLayout(size Size) Layout {
-	return Layout{size: size, tiles: map[Position]TileKind{}, connections: map[Connection]struct{}{}}
+	return Layout{size: size, tiles: map[Position]Tile{}, connections: map[Connection]struct{}{}}
 }
 
 func (l Layout) Size() Size {
@@ -298,8 +341,8 @@ func (l Layout) Size() Size {
 // y → x の順
 func (l Layout) Tiles() []Tile {
 	tiles := make([]Tile, 0, len(l.tiles))
-	for pos, kind := range l.tiles {
-		tiles = append(tiles, Tile{Position: pos, Kind: kind})
+	for _, tile := range l.tiles {
+		tiles = append(tiles, tile)
 	}
 	slices.SortFunc(tiles, func(a, b Tile) int { return a.Position.Compare(b.Position) })
 	return tiles
@@ -313,8 +356,8 @@ func (l Layout) Connections() []Connection {
 }
 
 func (l Layout) KindAt(pos Position) (TileKind, bool) {
-	kind, ok := l.tiles[pos]
-	return kind, ok
+	tile, ok := l.tiles[pos]
+	return tile.Kind, ok
 }
 
 // 公開の条件を数えた結果。条件を満たすかの判定は Publishable
@@ -334,8 +377,8 @@ func (r Readiness) Publishable() bool {
 func (l Layout) Readiness() Readiness {
 	var readiness Readiness
 	var base Position
-	for pos, kind := range l.tiles {
-		switch kind {
+	for pos, tile := range l.tiles {
+		switch tile.Kind {
 		case TileKindBase:
 			readiness.BaseCount++
 			base = pos

@@ -77,9 +77,10 @@ type ComplexityRoot struct {
 	}
 
 	BoardTile struct {
-		Kind func(childComplexity int) int
-		X    func(childComplexity int) int
-		Y    func(childComplexity int) int
+		Attribute func(childComplexity int) int
+		Kind      func(childComplexity int) int
+		X         func(childComplexity int) int
+		Y         func(childComplexity int) int
 	}
 
 	BoardsConnection struct {
@@ -291,6 +292,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BoardPosition.Y(childComplexity), true
 
+	case "BoardTile.attribute":
+		if e.ComplexityRoot.BoardTile.Attribute == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTile.Attribute(childComplexity), true
 	case "BoardTile.kind":
 		if e.ComplexityRoot.BoardTile.Kind == nil {
 			break
@@ -664,6 +671,8 @@ func (ec *executionContext) childFields_BoardTile(ctx context.Context, field gra
 		return ec.fieldContext_BoardTile_y(ctx, field)
 	case "kind":
 		return ec.fieldContext_BoardTile_kind(ctx, field)
+	case "attribute":
+		return ec.fieldContext_BoardTile_attribute(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardTile", field.Name)
 }
@@ -1415,6 +1424,29 @@ func (ec *executionContext) _BoardTile_kind(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_BoardTile_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type BoardTileKind does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTile_attribute(ctx context.Context, field graphql.CollectedField, obj *model.BoardTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTile_attribute(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attribute, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardTileAttribute) graphql.Marshaler {
+			return ec.marshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type BoardTileAttribute does not have child fields"))
 }
 
 func (ec *executionContext) _BoardsConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.BoardsConnection) (ret graphql.Marshaler) {
@@ -3879,6 +3911,11 @@ func (ec *executionContext) _BoardTile(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "attribute":
+			out.Values[i] = ec._BoardTile_attribute(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5487,6 +5524,22 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, v any) (*model.BoardTileAttribute, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.BoardTileAttribute)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, sel ast.SelectionSet, v *model.BoardTileAttribute) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {

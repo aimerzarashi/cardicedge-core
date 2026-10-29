@@ -88,7 +88,7 @@ func (f fixture) retireCommand() *board.RetireCommand {
 func publishableLayout(t *testing.T) board.Layout {
 	t.Helper()
 	return boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 2, 0, "checkpoint")},
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "checkpoint", "")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0)})
 }
 
@@ -205,7 +205,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		{name: "same_name", state: withLayout, cmd: &board.RenameCommand{Name: f.name, RenamedBy: f.operatorID}},
 		{name: "same_layout", state: withLayout, cmd: f.changeLayoutCommand(publishableLayout(t))},
 		{name: "same_layout_built_in_other_order", state: withLayout, cmd: f.changeLayoutCommand(boardtest.Layout(t, boardtest.Size(t, 3, 3),
-			[]board.Tile{boardtest.Tile(t, 2, 0, "checkpoint"), boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 0, 0, "base")},
+			[]board.Tile{boardtest.Tile(t, 2, 0, "checkpoint", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 0, 0, "base", "")},
 			[]board.Connection{boardtest.Connection(2, 0, 1, 0), boardtest.Connection(1, 0, 0, 0)}))},
 		{name: "empty_layout_of_same_size", state: f.register(t), cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 8, 8)))},
 		{name: "publish_published", state: f.published(t), cmd: f.publishCommand()},
@@ -224,11 +224,11 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 func TestDecide_ChangeLayoutEmitsDifferenceInOrder(t *testing.T) {
 	f := newFixture(t)
 	before := boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 2, 0, "land"), boardtest.Tile(t, 0, 1, "land")},
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire"), boardtest.Tile(t, 0, 1, "land", "fire")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0), boardtest.Connection(0, 0, 0, 1)})
 	// (2,0) を消して (2,1)・(1,1) を置き、(1,0) をチェックポイントにし、(0,1)-(1,1) をつなぐ。(0,0)-(0,1) は外す
 	after := boardtest.Layout(t, boardtest.Size(t, 4, 3),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "checkpoint"), boardtest.Tile(t, 0, 1, "land"), boardtest.Tile(t, 2, 1, "land"), boardtest.Tile(t, 1, 1, "land")},
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 0, 1, "land", "fire"), boardtest.Tile(t, 2, 1, "land", "fire"), boardtest.Tile(t, 1, 1, "land", "fire")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 1, 2, 1), boardtest.Connection(0, 1, 1, 1)})
 	size := boardtest.Size(t, 4, 3)
 
@@ -237,14 +237,29 @@ func TestDecide_ChangeLayoutEmitsDifferenceInOrder(t *testing.T) {
 	require.Equal(t, []board.Event{&board.LayoutChangedEvent{
 		EventMeta:    board.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
 		Size:         &size,
-		PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 1, "land"), boardtest.Tile(t, 2, 1, "land")},
+		PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 1, "land", "fire"), boardtest.Tile(t, 2, 1, "land", "fire")},
 		RemovedTiles: []board.Position{boardtest.Position(2, 0)},
-		ChangedTiles: []board.Tile{boardtest.Tile(t, 1, 0, "checkpoint")},
+		ChangedTiles: []board.Tile{boardtest.Tile(t, 1, 0, "checkpoint", "")},
 		Connected:    []board.Connection{boardtest.Connection(0, 1, 1, 1), boardtest.Connection(1, 1, 2, 1)},
 		Disconnected: []board.Connection{boardtest.Connection(0, 0, 0, 1), boardtest.Connection(1, 0, 2, 0)},
 		ChangedBy:    f.operatorID,
 	}}, events)
 	require.Equal(t, after, state.(board.Board).Layout)
+}
+
+func TestDecide_ChangeLayoutEmitsChangedTileWhenOnlyAttributeChanges(t *testing.T) {
+	f := newFixture(t)
+	size := boardtest.Size(t, 2, 1)
+	before := boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "water")}, nil)
+	after := boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "multi")}, nil)
+
+	_, events := apply(t, f.changeLayout(t, f.register(t), before), f.changeLayoutCommand(after), changedAt)
+
+	require.Len(t, events, 1)
+	event := events[0].(*board.LayoutChangedEvent)
+	require.Equal(t, []board.Tile{boardtest.Tile(t, 1, 0, "land", "multi")}, event.ChangedTiles)
+	require.Empty(t, event.PlacedTiles)
+	require.Empty(t, event.RemovedTiles)
 }
 
 func TestDecide_RejectsChangeLayoutOutsideRange(t *testing.T) {
@@ -284,13 +299,13 @@ func TestDecide_RejectsChangeLayoutKeepingSizeOutsideLoweredRange(t *testing.T) 
 
 func TestDecide_ChangeLayoutOmitsSizeWhenSizeIsSame(t *testing.T) {
 	f := newFixture(t)
-	layout := boardtest.Layout(t, boardtest.Size(t, 8, 8), []board.Tile{boardtest.Tile(t, 7, 7, "land")}, nil)
+	layout := boardtest.Layout(t, boardtest.Size(t, 8, 8), []board.Tile{boardtest.Tile(t, 7, 7, "land", "fire")}, nil)
 
 	_, events := apply(t, f.register(t), f.changeLayoutCommand(layout), changedAt)
 
 	event := events[0].(*board.LayoutChangedEvent)
 	require.Nil(t, event.Size)
-	require.Equal(t, []board.Tile{boardtest.Tile(t, 7, 7, "land")}, event.PlacedTiles)
+	require.Equal(t, []board.Tile{boardtest.Tile(t, 7, 7, "land", "fire")}, event.PlacedTiles)
 }
 
 // 大きさだけを変えたときも、マスの差分は空でイベントを作る
@@ -311,7 +326,7 @@ func TestDecide_ChangeLayoutEmitsSizeAloneWhenOnlySizeChanges(t *testing.T) {
 // マスを消すと、そのマスのつながりも切れる（前と後の集合の差なので Disconnected に入る）
 func TestDecide_ChangeLayoutDisconnectsConnectionsOfRemovedTile(t *testing.T) {
 	f := newFixture(t)
-	after := boardtest.Layout(t, boardtest.Size(t, 3, 3), []board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "land")},
+	after := boardtest.Layout(t, boardtest.Size(t, 3, 3), []board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0)})
 
 	_, events := apply(t, f.publishableDraft(t), f.changeLayoutCommand(after), changedAt)
@@ -360,7 +375,7 @@ func TestDecide_PublishMakesPublished(t *testing.T) {
 func TestDecide_PublishAllowsDeadEndsAndManyCheckpoints(t *testing.T) {
 	f := newFixture(t)
 	layout := boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 1, 1, "base"), boardtest.Tile(t, 1, 0, "checkpoint"), boardtest.Tile(t, 0, 1, "checkpoint"), boardtest.Tile(t, 2, 1, "land")},
+		[]board.Tile{boardtest.Tile(t, 1, 1, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 0, 1, "checkpoint", ""), boardtest.Tile(t, 2, 1, "land", "fire")},
 		[]board.Connection{boardtest.Connection(1, 1, 1, 0), boardtest.Connection(1, 1, 0, 1), boardtest.Connection(1, 1, 2, 1)})
 
 	state, _ := apply(t, f.changeLayout(t, f.register(t), layout), f.publishCommand(), changedAt)
@@ -381,24 +396,24 @@ func TestDecide_RejectsPublishUnlessConditionsAreMet(t *testing.T) {
 		{name: "empty", layout: board.EmptyLayout(size)},
 		{
 			name:       "no_base",
-			layout:     boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "checkpoint")}, nil),
+			layout:     boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "checkpoint", "")}, nil),
 			wantChecks: 1,
 		},
 		{
 			name:       "two_bases",
-			layout:     boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "base"), boardtest.Tile(t, 2, 0, "checkpoint")}, nil),
+			layout:     boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "base", ""), boardtest.Tile(t, 2, 0, "checkpoint", "")}, nil),
 			wantBases:  2,
 			wantChecks: 1,
 		},
 		{
 			name:      "no_checkpoint",
-			layout:    boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "land")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}),
+			layout:    boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}),
 			wantBases: 1,
 		},
 		{
 			name: "unreachable_tiles",
 			layout: boardtest.Layout(t, size,
-				[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "checkpoint"), boardtest.Tile(t, 2, 2, "land"), boardtest.Tile(t, 0, 2, "land"), boardtest.Tile(t, 1, 2, "checkpoint")},
+				[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 2, "land", "fire"), boardtest.Tile(t, 0, 2, "land", "fire"), boardtest.Tile(t, 1, 2, "checkpoint", "")},
 				[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(0, 2, 1, 2)}),
 			wantBases:   1,
 			wantChecks:  2,
@@ -559,6 +574,18 @@ func TestNewTileKind_RejectsUnknownValue(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrTileKindUnknown)
 }
 
+func TestNewAttribute_RejectsUnknownValue(t *testing.T) {
+	for _, value := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
+		attribute, err := board.NewAttribute(value)
+		require.NoError(t, err)
+		require.Equal(t, value, attribute.String())
+	}
+
+	_, err := board.NewAttribute("light")
+
+	require.ErrorIs(t, err, board.ErrAttributeUnknown)
+}
+
 func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
 	name, err := board.NewName("  草原  ")
 	require.NoError(t, err)
@@ -603,7 +630,7 @@ func TestNewSize_AcceptsOneOrMore(t *testing.T) {
 
 func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 	size := boardtest.Size(t, 3, 2)
-	land := func(x, y int) board.Tile { return boardtest.Tile(t, x, y, "land") }
+	land := func(x, y int) board.Tile { return boardtest.Tile(t, x, y, "land", "fire") }
 	tests := []struct {
 		name        string
 		tiles       []board.Tile
@@ -611,6 +638,29 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 		want        []board.LayoutViolation
 	}{
 		{name: "valid", tiles: []board.Tile{land(0, 0), land(2, 1)}},
+		{
+			name:  "land_without_attribute",
+			tiles: []board.Tile{land(0, 0), {Position: boardtest.Position(1, 0), Kind: boardtest.TileKind(t, "land")}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 1, Part: board.PartAttribute, Reason: board.ReasonAttributeRequired}},
+		},
+		{
+			name:  "base_with_attribute",
+			tiles: []board.Tile{{Position: boardtest.Position(0, 0), Kind: boardtest.TileKind(t, "base"), Attribute: boardtest.Attribute(t, "fire")}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed}},
+		},
+		{
+			name:  "checkpoint_with_attribute",
+			tiles: []board.Tile{{Position: boardtest.Position(0, 0), Kind: boardtest.TileKind(t, "checkpoint"), Attribute: boardtest.Attribute(t, "multi")}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed}},
+		},
+		{
+			name:  "out_of_range_land_without_attribute",
+			tiles: []board.Tile{{Position: boardtest.Position(3, 0), Kind: boardtest.TileKind(t, "land")}},
+			want: []board.LayoutViolation{
+				{Subject: board.SubjectTile, Index: 0, Part: board.PartX, Reason: board.ReasonOutOfRange},
+				{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeRequired},
+			},
+		},
 		{
 			name:  "x_out_of_range",
 			tiles: []board.Tile{land(0, 0), land(3, 0)},
@@ -631,7 +681,7 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 		},
 		{
 			name:  "duplicated_position",
-			tiles: []board.Tile{land(1, 1), boardtest.Tile(t, 1, 1, "base"), land(1, 1)},
+			tiles: []board.Tile{land(1, 1), boardtest.Tile(t, 1, 1, "base", ""), land(1, 1)},
 			want: []board.LayoutViolation{
 				{Subject: board.SubjectTile, Index: 1, Part: board.PartWhole, Reason: board.ReasonDuplicatedTile},
 				{Subject: board.SubjectTile, Index: 2, Part: board.PartWhole, Reason: board.ReasonDuplicatedTile},
@@ -692,7 +742,7 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 func TestNewLayout_RejectsViolationsWithTheirList(t *testing.T) {
 	size := boardtest.Size(t, 2, 2)
 
-	_, err := board.NewLayout(size, []board.Tile{boardtest.Tile(t, 2, 0, "land")}, nil)
+	_, err := board.NewLayout(size, []board.Tile{boardtest.Tile(t, 2, 0, "land", "fire")}, nil)
 
 	require.ErrorIs(t, err, board.ErrInvalidLayout)
 	var invalid *board.InvalidLayoutError
@@ -702,11 +752,11 @@ func TestNewLayout_RejectsViolationsWithTheirList(t *testing.T) {
 
 func TestLayout_ListsTilesByRowThenColumnAndConnectionsFromA(t *testing.T) {
 	layout := boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 0, 1, "land"), boardtest.Tile(t, 2, 0, "land"), boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 1, 1, "land")},
+		[]board.Tile{boardtest.Tile(t, 0, 1, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 1, 1, "land", "fire")},
 		[]board.Connection{boardtest.Connection(1, 1, 1, 0), boardtest.Connection(1, 0, 2, 0), boardtest.Connection(0, 1, 1, 1)})
 
 	require.Equal(t, []board.Tile{
-		boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 2, 0, "land"), boardtest.Tile(t, 0, 1, "land"), boardtest.Tile(t, 1, 1, "land"),
+		boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire"), boardtest.Tile(t, 0, 1, "land", "fire"), boardtest.Tile(t, 1, 1, "land", "fire"),
 	}, layout.Tiles())
 	require.Equal(t, []board.Connection{
 		boardtest.Connection(1, 0, 2, 0), boardtest.Connection(1, 0, 1, 1), boardtest.Connection(0, 1, 1, 1),
@@ -724,7 +774,7 @@ func TestNewConnection_PutsSmallerPositionFirst(t *testing.T) {
 func TestReadiness_LeavesUnreachableEmptyUnlessExactlyOneBase(t *testing.T) {
 	size := boardtest.Size(t, 3, 3)
 	layout := boardtest.Layout(t, size,
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "base"), boardtest.Tile(t, 2, 2, "land")}, nil)
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "base", ""), boardtest.Tile(t, 2, 2, "land", "fire")}, nil)
 
 	require.Equal(t, board.Readiness{BaseCount: 2}, layout.Readiness())
 }
@@ -732,7 +782,7 @@ func TestReadiness_LeavesUnreachableEmptyUnlessExactlyOneBase(t *testing.T) {
 func TestReadiness_TracesConnectionsInEitherDirection(t *testing.T) {
 	size := boardtest.Size(t, 3, 3)
 	layout := boardtest.Layout(t, size,
-		[]board.Tile{boardtest.Tile(t, 2, 2, "base"), boardtest.Tile(t, 1, 2, "land"), boardtest.Tile(t, 0, 2, "checkpoint")},
+		[]board.Tile{boardtest.Tile(t, 2, 2, "base", ""), boardtest.Tile(t, 1, 2, "land", "fire"), boardtest.Tile(t, 0, 2, "checkpoint", "")},
 		[]board.Connection{boardtest.Connection(0, 2, 1, 2), boardtest.Connection(1, 2, 2, 2)})
 
 	readiness := layout.Readiness()
@@ -761,9 +811,9 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&board.LayoutChangedEvent{
 			EventMeta:    meta,
 			Size:         &size,
-			PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 0, 1, "base")},
+			PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 0, 1, "base", "")},
 			RemovedTiles: []board.Position{boardtest.Position(2, 1)},
-			ChangedTiles: []board.Tile{boardtest.Tile(t, 3, 2, "checkpoint")},
+			ChangedTiles: []board.Tile{boardtest.Tile(t, 3, 2, "checkpoint", ""), boardtest.Tile(t, 3, 1, "land", "multi")},
 			Connected:    []board.Connection{boardtest.Connection(0, 1, 1, 1)},
 			Disconnected: []board.Connection{boardtest.Connection(1, 1, 2, 1)},
 			ChangedBy:    f.operatorID,
@@ -794,14 +844,14 @@ func TestEvent_LayoutChangedOmitsEmptyLists(t *testing.T) {
 	f := newFixture(t)
 	event := &board.LayoutChangedEvent{
 		EventMeta:   board.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
-		PlacedTiles: []board.Tile{boardtest.Tile(t, 1, 0, "land")},
+		PlacedTiles: []board.Tile{boardtest.Tile(t, 1, 0, "land", "fire")},
 		ChangedBy:   f.operatorID,
 	}
 
 	payload, err := json.Marshal(event)
 	require.NoError(t, err)
 
-	require.JSONEq(t, `{"placed_tiles":[{"x":1,"y":0,"kind":"land"}],"changed_by":10}`, string(payload))
+	require.JSONEq(t, `{"placed_tiles":[{"x":1,"y":0,"kind":"land","attribute":"fire"}],"changed_by":10}`, string(payload))
 	restored, err := board.NewEventType(event.EventType()).Unmarshal(event.GetMeta(), 1, payload)
 	require.NoError(t, err)
 	require.Equal(t, event, restored)

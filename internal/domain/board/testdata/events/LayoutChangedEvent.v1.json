@@ -1,11 +1,14 @@
 {
   "size": { "width": 4, "height": 3 },
   "placed_tiles": [
-    { "x": 1, "y": 0, "kind": "land" },
+    { "x": 1, "y": 0, "kind": "land", "attribute": "fire" },
     { "x": 0, "y": 1, "kind": "base" }
   ],
   "removed_tiles": [{ "x": 2, "y": 1 }],
-  "changed_tiles": [{ "x": 3, "y": 2, "kind": "checkpoint" }],
+  "changed_tiles": [
+    { "x": 3, "y": 2, "kind": "checkpoint" },
+    { "x": 3, "y": 1, "kind": "land", "attribute": "multi" }
+  ],
   "connected": [{ "a": { "x": 0, "y": 1 }, "b": { "x": 1, "y": 1 } }],
   "disconnected": [{ "a": { "x": 1, "y": 1 }, "b": { "x": 2, "y": 1 } }],
   "changed_by": 10

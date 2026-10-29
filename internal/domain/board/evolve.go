@@ -86,10 +86,10 @@ func applyLayoutChange(before Layout, e *LayoutChangedEvent) (Layout, error) {
 		delete(tiles, pos)
 	}
 	for _, tile := range e.PlacedTiles {
-		tiles[tile.Position] = tile.Kind
+		tiles[tile.Position] = tile
 	}
 	for _, tile := range e.ChangedTiles {
-		tiles[tile.Position] = tile.Kind
+		tiles[tile.Position] = tile
 	}
 	for _, connection := range e.Disconnected {
 		delete(connections, connection)
@@ -100,10 +100,10 @@ func applyLayoutChange(before Layout, e *LayoutChangedEvent) (Layout, error) {
 	return NewLayout(size, tilesOf(tiles), connectionsOf(connections))
 }
 
-func tilesOf(tiles map[Position]TileKind) []Tile {
+func tilesOf(tiles map[Position]Tile) []Tile {
 	result := make([]Tile, 0, len(tiles))
-	for pos, kind := range tiles {
-		result = append(result, Tile{Position: pos, Kind: kind})
+	for _, tile := range tiles {
+		result = append(result, tile)
 	}
 	return result
 }

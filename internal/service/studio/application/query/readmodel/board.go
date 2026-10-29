@@ -50,6 +50,28 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
+// 土地の属性。domain の board.Attribute を使わない理由は BoardTileKind と同じ
+type BoardTileAttribute string
+
+const (
+	BoardTileAttributeFire    BoardTileAttribute = "fire"
+	BoardTileAttributeEarth   BoardTileAttribute = "earth"
+	BoardTileAttributeWater   BoardTileAttribute = "water"
+	BoardTileAttributeWind    BoardTileAttribute = "wind"
+	BoardTileAttributeNeutral BoardTileAttribute = "neutral"
+	BoardTileAttributeMulti   BoardTileAttribute = "multi"
+)
+
+func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
+	attribute := BoardTileAttribute(value)
+	switch attribute {
+	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+		return attribute, nil
+	default:
+		return "", fmt.Errorf("readmodel: unknown board tile attribute: %q", value)
+	}
+}
+
 type BoardPosition struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -59,10 +81,12 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
+// Attribute は土地のときだけ値があり、そうでなければ省く（空）
 type BoardTile struct {
-	X    int           `json:"x"`
-	Y    int           `json:"y"`
-	Kind BoardTileKind `json:"kind"`
+	X         int                `json:"x"`
+	Y         int                `json:"y"`
+	Kind      BoardTileKind      `json:"kind"`
+	Attribute BoardTileAttribute `json:"attribute,omitempty"`
 }
 
 type BoardConnection struct {
@@ -77,7 +101,7 @@ type Board struct {
 	Status   BoardStatus
 	Metadata BoardMetadata
 	// マスとつながりの今の集合。イベントの差分を当てるための作業用で、DB には持たない（Metadata.Tiles・Connections に並べて持つ）
-	tiles       map[board.Position]BoardTileKind
+	tiles       map[board.Position]BoardTile
 	connections map[board.Connection]struct{}
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
 	IsDeleted bool
@@ -105,7 +129,7 @@ func (state Board) Evolve(event any) Board {
 		state.BoardID = e.PublicID
 		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Status = BoardStatusDraft
-		state.tiles = map[board.Position]BoardTileKind{}
+		state.tiles = map[board.Position]BoardTile{}
 		state.connections = map[board.Connection]struct{}{}
 		state.Metadata = BoardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: BoardStatusDraft, Revision: e.GetMeta().AggregateVersion,
@@ -141,10 +165,10 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 		delete(tiles, pos)
 	}
 	for _, tile := range e.PlacedTiles {
-		tiles[tile.Position] = BoardTileKind(tile.Kind)
+		tiles[tile.Position] = toBoardTile(tile)
 	}
 	for _, tile := range e.ChangedTiles {
-		tiles[tile.Position] = BoardTileKind(tile.Kind)
+		tiles[tile.Position] = toBoardTile(tile)
 	}
 	for _, connection := range e.Disconnected {
 		delete(connections, connection)
@@ -157,7 +181,7 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	positions := slices.SortedFunc(maps.Keys(tiles), board.Position.Compare)
 	state.Metadata.Tiles = make([]BoardTile, 0, len(positions))
 	for _, pos := range positions {
-		state.Metadata.Tiles = append(state.Metadata.Tiles, BoardTile{X: pos.X, Y: pos.Y, Kind: tiles[pos]})
+		state.Metadata.Tiles = append(state.Metadata.Tiles, tiles[pos])
 	}
 	sorted := slices.SortedFunc(maps.Keys(connections), board.Connection.Compare)
 	state.Metadata.Connections = make([]BoardConnection, 0, len(sorted))
@@ -168,6 +192,10 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 		})
 	}
 	return state
+}
+
+func toBoardTile(tile board.Tile) BoardTile {
+	return BoardTile{X: tile.Position.X, Y: tile.Position.Y, Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
 }
 
 func (state Board) changeStatus(status BoardStatus, revision int64, at time.Time) Board {
