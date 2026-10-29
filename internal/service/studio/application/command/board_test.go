@@ -316,39 +316,24 @@ func TestChangeBoardLayout_MapsViolationsToInputPaths(t *testing.T) {
 			name:   "tile_out_of_range",
 			layout: layoutInput(3, 2, tiles(tileInput(0, 0, "land"), tileInput(3, 2, "land")), nil),
 			want: []input.Error{
-				&input.OutOfRange{Field: "tiles.1.x", Min: 0, Max: 2},
-				&input.OutOfRange{Field: "tiles.1.y", Min: 0, Max: 1},
+				&input.OutOfRange{Field: "tiles.1.land.x", Min: 0, Max: 2},
+				&input.OutOfRange{Field: "tiles.1.land.y", Min: 0, Max: 1},
 			},
+		},
+		{
+			name:   "base_out_of_range",
+			layout: layoutInput(3, 2, tiles(tileInput(3, 0, "base")), nil),
+			want:   []input.Error{&input.OutOfRange{Field: "tiles.0.base.x", Min: 0, Max: 2}},
+		},
+		{
+			name:   "checkpoint_out_of_range",
+			layout: layoutInput(3, 2, tiles(tileInput(0, 2, "checkpoint")), nil),
+			want:   []input.Error{&input.OutOfRange{Field: "tiles.0.checkpoint.y", Min: 0, Max: 1}},
 		},
 		{
 			name:   "duplicated_tile",
 			layout: layoutInput(3, 3, tiles(tileInput(1, 1, "land"), tileInput(1, 1, "base")), nil),
 			want:   []input.Error{&input.Duplicated{Field: "tiles.1"}},
-		},
-		{
-			name:   "unknown_tile_kind",
-			layout: layoutInput(3, 3, tiles(tileInput(1, 1, "water")), nil),
-			want:   []input.Error{&input.InvalidFormat{Field: "tiles.0.kind"}},
-		},
-		{
-			name:   "land_without_attribute",
-			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "land", "")), nil),
-			want:   []input.Error{&input.Required{Field: "tiles.0.attribute"}},
-		},
-		{
-			name:   "base_with_attribute",
-			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "base", "fire")), nil),
-			want:   []input.Error{&input.NotAllowed{Field: "tiles.0.attribute"}},
-		},
-		{
-			name:   "checkpoint_with_attribute",
-			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "checkpoint", "multi")), nil),
-			want:   []input.Error{&input.NotAllowed{Field: "tiles.0.attribute"}},
-		},
-		{
-			name:   "unknown_attribute",
-			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "land", "light")), nil),
-			want:   []input.Error{&input.InvalidFormat{Field: "tiles.0.attribute"}},
 		},
 		{
 			name:   "connection_end_a_without_tile",
@@ -383,6 +368,32 @@ func TestChangeBoardLayout_MapsViolationsToInputPaths(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, tt.want, []input.Error(invalid))
 			require.Equal(t, int64(1), restoredBoard(t, ctx, registered.ID).Version)
+		})
+	}
+}
+
+func TestChangeBoardLayout_ReturnsInternalErrorForShapesTheInputRulesOut(t *testing.T) {
+	tests := []struct {
+		name string
+		tile command.BoardTileInput
+	}{
+		{name: "unknown_kind", tile: tileInput(1, 1, "water")},
+		{name: "unknown_attribute", tile: tileInputWithAttribute(1, 1, "land", "light")},
+		{name: "land_without_attribute", tile: tileInputWithAttribute(1, 1, "land", "")},
+		{name: "base_with_attribute", tile: tileInputWithAttribute(1, 1, "base", "fire")},
+		{name: "checkpoint_with_attribute", tile: tileInputWithAttribute(1, 1, "checkpoint", "multi")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			commands := newBoardHandler(t, ctx)
+			registered := registerBoard(t, ctx, commands, "草原")
+
+			_, err := commands.ChangeLayout(ctx, registered.ID, registered.Revision, layoutInput(3, 3, tiles(tt.tile), nil))
+
+			require.Error(t, err)
+			_, isInput := input.AsErrors(err)
+			require.False(t, isInput)
 		})
 	}
 }

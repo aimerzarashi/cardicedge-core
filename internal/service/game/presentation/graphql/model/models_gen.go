@@ -16,6 +16,15 @@ type BoardResult interface {
 	IsBoardResult()
 }
 
+// 置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
+type BoardTile interface {
+	IsBoardTile()
+	// 列
+	GetX() int
+	// 行
+	GetY() int
+}
+
 // ボードの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type BoardsResult interface {
 	IsBoardsResult()
@@ -69,6 +78,22 @@ type AvatarNameAlreadyInUseError struct {
 
 func (AvatarNameAlreadyInUseError) IsRegisterAvatarResult() {}
 
+// 拠点
+type BaseTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BaseTile) IsBoardTile() {}
+
+// 列
+func (this BaseTile) GetX() int { return this.X }
+
+// 行
+func (this BaseTile) GetY() int { return this.Y }
+
 // ボード（公開中のもの）
 type Board struct {
 	// 公開用の ID
@@ -80,7 +105,7 @@ type Board struct {
 	// 高さ（行の数）
 	Height int `json:"height"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
-	Tiles []*BoardTile `json:"tiles"`
+	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
 	Connections []*BoardConnection `json:"connections"`
 }
@@ -111,18 +136,6 @@ type BoardPosition struct {
 	Y int `json:"y"`
 }
 
-// 置いてあるマス
-type BoardTile struct {
-	// 列
-	X int `json:"x"`
-	// 行
-	Y int `json:"y"`
-	// 種類
-	Kind BoardTileKind `json:"kind"`
-	// 属性（土地のときだけ。拠点・チェックポイントは null）
-	Attribute *BoardTileAttribute `json:"attribute,omitempty"`
-}
-
 // ボードの一覧の 1 ページ（名前の順）
 type BoardsConnection struct {
 	// このページのボード
@@ -140,6 +153,22 @@ type BoardsEdge struct {
 	// ボード
 	Node *Board `json:"node"`
 }
+
+// チェックポイント
+type CheckpointTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CheckpointTile) IsBoardTile() {}
+
+// 列
+func (this CheckpointTile) GetX() int { return this.X }
+
+// 行
+func (this CheckpointTile) GetY() int { return this.Y }
 
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
@@ -190,6 +219,24 @@ func (FieldTooLong) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 土地（ふつうのマス）
+type LandTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+	// 属性
+	Attribute BoardTileAttribute `json:"attribute"`
+}
+
+func (LandTile) IsBoardTile() {}
+
+// 列
+func (this LandTile) GetX() int { return this.X }
+
+// 行
+func (this LandTile) GetY() int { return this.Y }
 
 type Mutation struct {
 }
@@ -333,67 +380,6 @@ func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
 }
 
 func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-// マスの種類
-type BoardTileKind string
-
-const (
-	// 土地（ふつうのマス）
-	BoardTileKindLand BoardTileKind = "LAND"
-	// 拠点
-	BoardTileKindBase BoardTileKind = "BASE"
-	// チェックポイント
-	BoardTileKindCheckpoint BoardTileKind = "CHECKPOINT"
-)
-
-var AllBoardTileKind = []BoardTileKind{
-	BoardTileKindLand,
-	BoardTileKindBase,
-	BoardTileKindCheckpoint,
-}
-
-func (e BoardTileKind) IsValid() bool {
-	switch e {
-	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
-		return true
-	}
-	return false
-}
-
-func (e BoardTileKind) String() string {
-	return string(e)
-}
-
-func (e *BoardTileKind) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = BoardTileKind(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BoardTileKind", str)
-	}
-	return nil
-}
-
-func (e BoardTileKind) MarshalGQL(w io.Writer) {
-	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *BoardTileKind) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e BoardTileKind) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

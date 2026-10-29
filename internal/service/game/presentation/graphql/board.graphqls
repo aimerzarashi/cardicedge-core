@@ -17,16 +17,6 @@ type Board {
   connections: [BoardConnection!]!
 }
 
-"マスの種類"
-enum BoardTileKind {
-  "土地（ふつうのマス）"
-  LAND
-  "拠点"
-  BASE
-  "チェックポイント"
-  CHECKPOINT
-}
-
 """
 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
@@ -54,16 +44,39 @@ type BoardPosition {
   y: Int!
 }
 
-"置いてあるマス"
-type BoardTile {
+# 種類によって null になる項目を作らないため、種類ごとの型に分ける（studio と同じ形）
+"置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
+interface BoardTile {
   "列"
   x: Int!
   "行"
   y: Int!
-  "種類"
-  kind: BoardTileKind!
-  "属性（土地のときだけ。拠点・チェックポイントは null）"
-  attribute: BoardTileAttribute
+}
+
+"土地（ふつうのマス）"
+type LandTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+  "属性"
+  attribute: BoardTileAttribute!
+}
+
+"拠点"
+type BaseTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"チェックポイント"
+type CheckpointTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
 }
 
 "マスどうしのつながり（向きは無い）"

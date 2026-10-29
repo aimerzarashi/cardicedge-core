@@ -17,6 +17,15 @@ type BoardResult interface {
 	IsBoardResult()
 }
 
+// 置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
+type BoardTile interface {
+	IsBoardTile()
+	// 列
+	GetX() int
+	// 行
+	GetY() int
+}
+
 // ボードの一覧の結果
 type BoardsResult interface {
 	IsBoardsResult()
@@ -186,6 +195,22 @@ type StudioRulesResult interface {
 	IsStudioRulesResult()
 }
 
+// 拠点（公開するボードにちょうど 1 つ）
+type BaseTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BaseTile) IsBoardTile() {}
+
+// 列
+func (this BaseTile) GetX() int { return this.X }
+
+// 行
+func (this BaseTile) GetY() int { return this.Y }
+
 // ボード
 type Board struct {
 	// 公開用の ID
@@ -199,7 +224,7 @@ type Board struct {
 	// 高さ（行の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）
 	Height int `json:"height"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
-	Tiles []*BoardTile `json:"tiles"`
+	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
 	Connections []*BoardConnection `json:"connections"`
 	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
@@ -314,28 +339,14 @@ type BoardRules struct {
 	MaxSize int `json:"maxSize"`
 }
 
-// 置いてあるマス
-type BoardTile struct {
-	// 列
-	X int `json:"x"`
-	// 行
-	Y int `json:"y"`
-	// 種類
-	Kind BoardTileKind `json:"kind"`
-	// 属性（土地のときだけ。拠点・チェックポイントは null）
-	Attribute *BoardTileAttribute `json:"attribute,omitempty"`
-}
-
-// 置くマスの入力
+// 置くマスの入力。land・base・checkpoint のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）
 type BoardTileInput struct {
-	// 列（0 以上、幅 − 1 以下）
-	X int `json:"x"`
-	// 行（0 以上、高さ − 1 以下）
-	Y int `json:"y"`
-	// 種類
-	Kind BoardTileKind `json:"kind"`
-	// 属性（土地には必須。拠点・チェックポイントには指定できない）
-	Attribute *BoardTileAttribute `json:"attribute,omitempty"`
+	// 土地
+	Land *LandTileInput `json:"land,omitempty"`
+	// 拠点
+	Base *TilePositionInput `json:"base,omitempty"`
+	// チェックポイント
+	Checkpoint *TilePositionInput `json:"checkpoint,omitempty"`
 }
 
 // ボードの一覧の 1 ページ（名前の順）
@@ -431,6 +442,22 @@ type ChangeBoardLayoutSuccess struct {
 }
 
 func (ChangeBoardLayoutSuccess) IsChangeBoardLayoutResult() {}
+
+// チェックポイント（公開するボードに 1 つ以上）
+type CheckpointTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CheckpointTile) IsBoardTile() {}
+
+// 列
+func (this CheckpointTile) GetX() int { return this.X }
+
+// 行
+func (this CheckpointTile) GetY() int { return this.Y }
 
 // クリーチャー（カードの種類の 1 つ）
 type Creature struct {
@@ -564,17 +591,6 @@ func (FieldNotAdjacent) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotAdjacent) GetField() string { return this.Field }
-
-// この項目は、ほかの入力の値（マスの種類等）のときには指定できない（拠点・チェックポイントのマスの属性等）
-type FieldNotAllowed struct {
-	// 誤りのある入力の項目（一覧の中の位置を含む。例: tiles.2.attribute）
-	Field string `json:"field"`
-}
-
-func (FieldNotAllowed) IsFieldError() {}
-
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
-func (this FieldNotAllowed) GetField() string { return this.Field }
 
 // 入力の ID が指すもの（プリセットデッキに入れるカード等）が無い
 type FieldNotFound struct {
@@ -790,6 +806,34 @@ func (this Item) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Item) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// 土地（ふつうのマス。公開するボードの、拠点・チェックポイント以外のマス）
+type LandTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+	// 属性
+	Attribute BoardTileAttribute `json:"attribute"`
+}
+
+func (LandTile) IsBoardTile() {}
+
+// 列
+func (this LandTile) GetX() int { return this.X }
+
+// 行
+func (this LandTile) GetY() int { return this.Y }
+
+// 置く土地の入力
+type LandTileInput struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+	// 属性
+	Attribute BoardTileAttribute `json:"attribute"`
+}
 
 type Mutation struct {
 }
@@ -1343,6 +1387,14 @@ type StudioRules struct {
 
 func (StudioRules) IsStudioRulesResult() {}
 
+// 置く拠点・チェックポイントの座標の入力
+type TilePositionInput struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+}
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -1511,67 +1563,6 @@ func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
 }
 
 func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-// マスの種類
-type BoardTileKind string
-
-const (
-	// 土地（ふつうのマス）
-	BoardTileKindLand BoardTileKind = "LAND"
-	// 拠点（公開するボードにちょうど 1 つ）
-	BoardTileKindBase BoardTileKind = "BASE"
-	// チェックポイント（公開するボードに 1 つ以上）
-	BoardTileKindCheckpoint BoardTileKind = "CHECKPOINT"
-)
-
-var AllBoardTileKind = []BoardTileKind{
-	BoardTileKindLand,
-	BoardTileKindBase,
-	BoardTileKindCheckpoint,
-}
-
-func (e BoardTileKind) IsValid() bool {
-	switch e {
-	case BoardTileKindLand, BoardTileKindBase, BoardTileKindCheckpoint:
-		return true
-	}
-	return false
-}
-
-func (e BoardTileKind) String() string {
-	return string(e)
-}
-
-func (e *BoardTileKind) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = BoardTileKind(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BoardTileKind", str)
-	}
-	return nil
-}
-
-func (e BoardTileKind) MarshalGQL(w io.Writer) {
-	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *BoardTileKind) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e BoardTileKind) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

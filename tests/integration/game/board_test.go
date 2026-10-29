@@ -8,7 +8,7 @@ import (
 )
 
 const boardFields = `id name width height
-	tiles { x y kind attribute }
+	tiles { __typename x y ... on LandTile { attribute } }
 	connections { a { x y } b { x y } }`
 
 const boardQuery = `query ($id: UUID!) {
@@ -42,13 +42,13 @@ func position(x, y int) map[string]any {
 	return map[string]any{"x": float64(x), "y": float64(y)}
 }
 
-// attribute は土地のときだけ（無ければ空で、null になる）
-func tile(x, y int, kind, attribute string) map[string]any {
-	var value any
+// attribute は土地のときだけ（無ければ空）
+func tile(x, y int, typename, attribute string) map[string]any {
+	value := map[string]any{"__typename": typename, "x": float64(x), "y": float64(y)}
 	if attribute != "" {
-		value = attribute
+		value["attribute"] = attribute
 	}
-	return map[string]any{"x": float64(x), "y": float64(y), "kind": kind, "attribute": value}
+	return value
 }
 
 func connection(a, b map[string]any) map[string]any {
@@ -59,7 +59,7 @@ func connection(a, b map[string]any) map[string]any {
 func publishedBoardA() map[string]any {
 	return map[string]any{
 		"id": master.Boards.PublishedA.String(), "name": "公開中A", "width": float64(2), "height": float64(1),
-		"tiles":       []any{tile(0, 0, "BASE", ""), tile(1, 0, "CHECKPOINT", "")},
+		"tiles":       []any{tile(0, 0, "BaseTile", ""), tile(1, 0, "CheckpointTile", "")},
 		"connections": []any{connection(position(0, 0), position(1, 0))},
 	}
 }
@@ -67,7 +67,7 @@ func publishedBoardA() map[string]any {
 func publishedBoardB() map[string]any {
 	return map[string]any{
 		"id": master.Boards.PublishedB.String(), "name": "公開中B", "width": float64(3), "height": float64(2),
-		"tiles": []any{tile(0, 0, "BASE", ""), tile(1, 0, "LAND", "FIRE"), tile(2, 0, "CHECKPOINT", ""), tile(1, 1, "LAND", "MULTI")},
+		"tiles": []any{tile(0, 0, "BaseTile", ""), tile(1, 0, "LandTile", "FIRE"), tile(2, 0, "CheckpointTile", ""), tile(1, 1, "LandTile", "MULTI")},
 		"connections": []any{
 			connection(position(0, 0), position(1, 0)),
 			connection(position(1, 0), position(1, 1)),

@@ -40,16 +40,6 @@ enum BoardStatus {
   RETIRED
 }
 
-"マスの種類"
-enum BoardTileKind {
-  "土地（ふつうのマス）"
-  LAND
-  "拠点（公開するボードにちょうど 1 つ）"
-  BASE
-  "チェックポイント（公開するボードに 1 つ以上）"
-  CHECKPOINT
-}
-
 """
 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
@@ -77,16 +67,39 @@ type BoardPosition {
   y: Int!
 }
 
-"置いてあるマス"
-type BoardTile {
+# 種類によって null になる項目を作らないため、種類ごとの型に分ける（カードの Card と同じ。理由は common.graphqls の FieldError と同じ考え）
+"置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
+interface BoardTile {
   "列"
   x: Int!
   "行"
   y: Int!
-  "種類"
-  kind: BoardTileKind!
-  "属性（土地のときだけ。拠点・チェックポイントは null）"
-  attribute: BoardTileAttribute
+}
+
+"土地（ふつうのマス。公開するボードの、拠点・チェックポイント以外のマス）"
+type LandTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+  "属性"
+  attribute: BoardTileAttribute!
+}
+
+"拠点（公開するボードにちょうど 1 つ）"
+type BaseTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"チェックポイント（公開するボードに 1 つ以上）"
+type CheckpointTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
 }
 
 "マスどうしのつながり（向きは無い）"
@@ -229,16 +242,34 @@ union RenameBoardResult =
   | RevisionConflictError
   | ForbiddenError
 
-"置くマスの入力"
-input BoardTileInput {
+# 種類と属性の組み合わせの誤り（土地に属性が無い・拠点に属性がある）を、入力の形として作れなくするため、種類ごとの項目のうち 1 つだけを書く。
+# @oneOf の「ちょうど 1 つ」は変数で送られた値だと GraphQL の層が確かめないため、core が確かめて FieldInvalidFormat（tiles.N）にする
+"置くマスの入力。land・base・checkpoint のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）"
+input BoardTileInput @oneOf {
+  "土地"
+  land: LandTileInput
+  "拠点"
+  base: TilePositionInput
+  "チェックポイント"
+  checkpoint: TilePositionInput
+}
+
+"置く土地の入力"
+input LandTileInput {
   "列（0 以上、幅 − 1 以下）"
   x: Int!
   "行（0 以上、高さ − 1 以下）"
   y: Int!
-  "種類"
-  kind: BoardTileKind!
-  "属性（土地には必須。拠点・チェックポイントには指定できない）"
-  attribute: BoardTileAttribute
+  "属性"
+  attribute: BoardTileAttribute!
+}
+
+"置く拠点・チェックポイントの座標の入力"
+input TilePositionInput {
+  "列（0 以上、幅 − 1 以下）"
+  x: Int!
+  "行（0 以上、高さ − 1 以下）"
+  y: Int!
 }
 
 "つながりの端の座標の入力"
@@ -282,9 +313,9 @@ type ChangeBoardLayoutSuccess {
   revision: Int!
 }
 
-# 入力の誤りの項目: width・height（FieldOutOfRange。範囲外なら、マス・つながりは調べない）、tiles.N.x・tiles.N.y（FieldOutOfRange。
-# 範囲は 0〜幅 − 1・0〜高さ − 1）、tiles.N.attribute（土地に無いのは FieldRequired、拠点・チェックポイントにあるのは FieldNotAllowed）、
-# tiles.N（同じ座標は FieldDuplicated）、connections.N.a・connections.N.b（端にマスが無いは FieldNotFound）、
+# 入力の誤りの項目: width・height（FieldOutOfRange。範囲外なら、マス・つながりは調べない）、tiles.N.land.x・tiles.N.land.y・
+# tiles.N.base.x 等（書いた種類の名前を挟む。FieldOutOfRange。範囲は 0〜幅 − 1・0〜高さ − 1）、
+# tiles.N（同じ座標は FieldDuplicated。land・base・checkpoint がちょうど 1 つでないのは FieldInvalidFormat）、connections.N.a・connections.N.b（端にマスが無いは FieldNotFound）、
 # connections.N（隣どうしでないは FieldNotAdjacent、同じつながりは FieldDuplicated）。N は入力の何番目か（0 始まり）
 "ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
 union ChangeBoardLayoutResult =

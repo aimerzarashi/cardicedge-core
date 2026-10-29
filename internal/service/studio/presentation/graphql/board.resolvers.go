@@ -63,6 +63,9 @@ func (r *mutationResolver) ChangeBoardLayout(ctx context.Context, input model.Ch
 		return forbidden, nil
 	}
 	layout, err := toBoardLayoutInput(input)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
 	if err != nil {
 		return nil, err
 	}

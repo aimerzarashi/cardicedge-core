@@ -84,12 +84,6 @@ type FieldNotAdjacent implements FieldError {
   field: String!
 }
 
-"この項目は、ほかの入力の値（マスの種類等）のときには指定できない（拠点・チェックポイントのマスの属性等）"
-type FieldNotAllowed implements FieldError {
-  "誤りのある入力の項目（一覧の中の位置を含む。例: tiles.2.attribute）"
-  field: String!
-}
-
 "入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える（入力の値そのものではなく、今の状態と合わせた結果の誤り）"
 type FieldTotalTooLarge implements FieldError {
   "誤りのある入力の項目（一覧全体の結果のときは一覧の項目名。例: cards）"

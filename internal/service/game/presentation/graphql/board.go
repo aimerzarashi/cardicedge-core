@@ -9,17 +9,13 @@ import (
 )
 
 func fromQueryBoard(board query.Board) (*model.Board, error) {
-	tiles := make([]*model.BoardTile, 0, len(board.Tiles))
+	tiles := make([]model.BoardTile, 0, len(board.Tiles))
 	for _, tile := range board.Tiles {
-		kind, err := fromBoardTileKind(tile.Kind)
+		converted, err := fromBoardTile(tile)
 		if err != nil {
 			return nil, err
 		}
-		attribute, err := fromBoardTileAttribute(tile.Attribute)
-		if err != nil {
-			return nil, err
-		}
-		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Attribute: attribute})
+		tiles = append(tiles, converted)
 	}
 	connections := make([]*model.BoardConnection, 0, len(board.Connections))
 	for _, connection := range board.Connections {
@@ -49,40 +45,40 @@ func toBoardsConnection(connection pagination.Connection[query.Board]) (*model.B
 	return &model.BoardsConnection{Edges: edges, PageInfo: pageInfo}, nil
 }
 
-// enum の値と種類の対応を明示する
-func fromBoardTileKind(kind query.BoardTileKind) (model.BoardTileKind, error) {
-	switch kind {
+// 種類の対応を明示する（read model の kind が増えて写し忘れたら、黙って落とさずエラーにする）
+func fromBoardTile(tile query.BoardTile) (model.BoardTile, error) {
+	switch tile.Kind {
 	case query.BoardTileKindLand:
-		return model.BoardTileKindLand, nil
+		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		if err != nil {
+			return nil, err
+		}
+		return model.LandTile{X: tile.X, Y: tile.Y, Attribute: attribute}, nil
 	case query.BoardTileKindBase:
-		return model.BoardTileKindBase, nil
+		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
 	case query.BoardTileKindCheckpoint:
-		return model.BoardTileKindCheckpoint, nil
+		return model.CheckpointTile{X: tile.X, Y: tile.Y}, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile kind: %q", kind)
+		return nil, fmt.Errorf("graphql: unknown board tile kind: %q", tile.Kind)
 	}
 }
 
-// 空（土地でないマス）は null
-func fromBoardTileAttribute(attribute query.BoardTileAttribute) (*model.BoardTileAttribute, error) {
-	var converted model.BoardTileAttribute
+// 土地は必ず属性を持つので、空は不明な値と同じくエラーにする
+func fromBoardTileAttribute(attribute query.BoardTileAttribute) (model.BoardTileAttribute, error) {
 	switch attribute {
-	case "":
-		return nil, nil
 	case query.BoardTileAttributeFire:
-		converted = model.BoardTileAttributeFire
+		return model.BoardTileAttributeFire, nil
 	case query.BoardTileAttributeEarth:
-		converted = model.BoardTileAttributeEarth
+		return model.BoardTileAttributeEarth, nil
 	case query.BoardTileAttributeWater:
-		converted = model.BoardTileAttributeWater
+		return model.BoardTileAttributeWater, nil
 	case query.BoardTileAttributeWind:
-		converted = model.BoardTileAttributeWind
+		return model.BoardTileAttributeWind, nil
 	case query.BoardTileAttributeNeutral:
-		converted = model.BoardTileAttributeNeutral
+		return model.BoardTileAttributeNeutral, nil
 	case query.BoardTileAttributeMulti:
-		converted = model.BoardTileAttributeMulti
+		return model.BoardTileAttributeMulti, nil
 	default:
-		return nil, fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+		return "", fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
 	}
-	return &converted, nil
 }
