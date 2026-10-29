@@ -74,6 +74,18 @@ type BoardLayoutInput struct {
 	Connections []BoardConnectionInput
 }
 
+// 変えた後の既定のルールの全体。決まりは board.NewDefaultRules の 1 か所にあり、違反は入力の項目のパスに写す
+type BoardDefaultRulesInput struct {
+	TargetMagic     int
+	StartingMagic   int
+	LapBonus        int
+	CheckpointBonus int
+}
+
+func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRulesInput {
+	return BoardDefaultRulesInput{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+}
+
 // 空のボード（準備中。四角形でマスもつながりも無い。大きさは 8×8 を studio_rules の範囲に収めた値）を作る。操作した人は context のオペレーター。
 // 入力の誤りは input.Errors、使われている名前（状態によらず、すべてのボードの中で）なら ErrBoardNameAlreadyInUse
 func (c *BoardHandler) Register(ctx context.Context, name string) (ChangedBoard, error) {
@@ -165,6 +177,31 @@ func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision 
 			return ChangedBoard{}, err
 		}
 		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeLayoutCommand{Layout: layout, Rules: rules.Board, ChangedBy: changedBy})
+		if err != nil {
+			return ChangedBoard{}, err
+		}
+		return changedBoard(changed), nil
+	})
+	return changed, mapBoardError(err)
+}
+
+// 既定のルールの全体を変える。入力の誤りは input.Errors（項目は targetMagic・startingMagic・lapBonus・checkpointBonus）。
+// 同じ値なら変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
+func (c *BoardHandler) ChangeDefaultRules(ctx context.Context, id uuid.UUID, revision int64, rulesInput BoardDefaultRulesInput) (ChangedBoard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedBoard{}, ErrNotOperator
+	}
+	rules, err := newBoardDefaultRules(rulesInput)
+	if err != nil {
+		return ChangedBoard{}, err
+	}
+	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedBoard, error) {
+		current, err := c.load(ctx, id, revision)
+		if err != nil {
+			return ChangedBoard{}, err
+		}
+		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeDefaultRulesCommand{DefaultRules: rules, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedBoard{}, err
 		}
@@ -340,6 +377,35 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 	}
 	// ValidateLayout が通ったのに失敗するならコードの誤りなので、入力の誤りにせず内部のエラーのまま返す
 	return board.NewLayout(size, tiles, connections)
+}
+
+// 決まりは board.NewDefaultRules にあり、ここは違反を入力の項目のパスに写すだけ。誤りはまとめて input.Errors で返す
+func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules, error) {
+	rules, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus)
+	if err == nil {
+		return rules, nil
+	}
+	invalid := input.Errors{}
+	if errors.Is(err, board.ErrTargetMagicTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "targetMagic", Min: 1})
+	}
+	if errors.Is(err, board.ErrStartingMagicTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "startingMagic", Min: 0})
+	}
+	if errors.Is(err, board.ErrLapBonusTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "lapBonus", Min: 0})
+	}
+	if errors.Is(err, board.ErrCheckpointBonusTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "checkpointBonus", Min: 0})
+	}
+	if errors.Is(err, board.ErrTargetMagicNotGreaterThanStartingMagic) {
+		invalid = append(invalid, &input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"})
+	}
+	if len(invalid) == 0 {
+		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）
+		return board.DefaultRules{}, err
+	}
+	return board.DefaultRules{}, invalid
 }
 
 func layoutViolationToInput(violation board.LayoutViolation, size board.Size, layoutInput BoardLayoutInput) (input.Error, error) {

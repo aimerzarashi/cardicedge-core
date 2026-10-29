@@ -86,6 +86,31 @@ func (r *mutationResolver) ChangeBoardLayout(ctx context.Context, input model.Ch
 	return &model.ChangeBoardLayoutSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ChangeBoardDefaultRules is the resolver for the changeBoardDefaultRules field.
+func (r *mutationResolver) ChangeBoardDefaultRules(ctx context.Context, input model.ChangeBoardDefaultRulesInput) (model.ChangeBoardDefaultRulesResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	rules := command.BoardDefaultRulesInput{
+		TargetMagic: input.TargetMagic, StartingMagic: input.StartingMagic, LapBonus: input.LapBonus, CheckpointBonus: input.CheckpointBonus,
+	}
+	changed, err := r.boards.ChangeDefaultRules(ctx, input.ID, int64(input.Revision), rules)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	switch {
+	case errors.Is(err, command.ErrBoardNotFound):
+		return &model.BoardNotFoundError{Message: "board not found"}, nil
+	case errors.Is(err, command.ErrBoardNotDraft):
+		return &model.BoardNotDraftError{Message: "board is not draft"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.ChangeBoardDefaultRulesSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // DeleteBoard is the resolver for the deleteBoard field.
 func (r *mutationResolver) DeleteBoard(ctx context.Context, input model.DeleteBoardInput) (model.DeleteBoardResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {

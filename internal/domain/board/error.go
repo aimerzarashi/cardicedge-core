@@ -15,9 +15,16 @@ var (
 	ErrAttributeUnknown = errors.New("board: unknown attribute")
 	// 幅・高さが 1 未満、または studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
+	// 既定のルールの決まり。目標の魔力は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
+	// 目標の魔力は開始時の魔力より大きい
+	ErrTargetMagicTooSmall                    = errors.New("board: target magic is too small")
+	ErrStartingMagicTooSmall                  = errors.New("board: starting magic is too small")
+	ErrLapBonusTooSmall                       = errors.New("board: lap bonus is too small")
+	ErrCheckpointBonusTooSmall                = errors.New("board: checkpoint bonus is too small")
+	ErrTargetMagicNotGreaterThanStartingMagic = errors.New("board: target magic is not greater than starting magic")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")
-	// 準備中でないボードの名前・レイアウトを変える、または削除しようとした
+	// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした
 	ErrNotDraft = errors.New("board: not draft")
 	// レイアウトの決まり（ValidateLayout）を守っていない。違反の一覧は *InvalidLayoutError
 	ErrInvalidLayout = errors.New("board: invalid layout")

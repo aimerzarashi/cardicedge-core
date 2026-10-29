@@ -24,15 +24,16 @@ type Event interface {
 
 type EventMeta = domain.EventMeta[ID]
 
-// 登録の直後の大きさを明示的に持つ。DefaultSize を変えても、過去のボードの大きさの意味が変わらないため
+// 登録の直後の大きさと既定のルールを明示的に持つ。DefaultSize や既定の値の定数を変えても、過去のボードの意味が変わらないため
 type RegisteredEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
-	PublicID     uuid.UUID   `json:"public_id"`
-	Name         Name        `json:"name"`
-	Width        int         `json:"width"`
-	Height       int         `json:"height"`
-	RegisteredBy operator.ID `json:"registered_by"`
+	PublicID     uuid.UUID    `json:"public_id"`
+	Name         Name         `json:"name"`
+	Width        int          `json:"width"`
+	Height       int          `json:"height"`
+	DefaultRules DefaultRules `json:"default_rules"`
+	RegisteredBy operator.ID  `json:"registered_by"`
 }
 
 type RenamedEvent struct {
@@ -59,6 +60,14 @@ type LayoutChangedEvent struct {
 	ChangedBy    operator.ID  `json:"changed_by"`
 }
 
+// 変えた後の全体を持つ。値が 4 つと小さいので、レイアウトのような差分にしない
+type DefaultRulesChangedEvent struct {
+	EventMeta    `json:"-"`
+	eventMarker  `json:"-"`
+	DefaultRules DefaultRules `json:"default_rules"`
+	ChangedBy    operator.ID  `json:"changed_by"`
+}
+
 type PublishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -78,12 +87,13 @@ type DeletedEvent struct {
 }
 
 var (
-	registeredEventType    = domain.NewEventName("RegisteredEvent")
-	renamedEventType       = domain.NewEventName("RenamedEvent")
-	layoutChangedEventType = domain.NewEventName("LayoutChangedEvent")
-	publishedEventType     = domain.NewEventName("PublishedEvent")
-	retiredEventType       = domain.NewEventName("RetiredEvent")
-	deletedEventType       = domain.NewEventName("DeletedEvent")
+	registeredEventType          = domain.NewEventName("RegisteredEvent")
+	renamedEventType             = domain.NewEventName("RenamedEvent")
+	layoutChangedEventType       = domain.NewEventName("LayoutChangedEvent")
+	publishedEventType           = domain.NewEventName("PublishedEvent")
+	defaultRulesChangedEventType = domain.NewEventName("DefaultRulesChangedEvent")
+	retiredEventType             = domain.NewEventName("RetiredEvent")
+	deletedEventType             = domain.NewEventName("DeletedEvent")
 )
 
 func (*RegisteredEvent) EventType() domain.EventName {
@@ -96,6 +106,10 @@ func (*RenamedEvent) EventType() domain.EventName {
 
 func (*LayoutChangedEvent) EventType() domain.EventName {
 	return layoutChangedEventType
+}
+
+func (*DefaultRulesChangedEvent) EventType() domain.EventName {
+	return defaultRulesChangedEventType
 }
 
 func (*PublishedEvent) EventType() domain.EventName {
@@ -123,6 +137,10 @@ func (*LayoutChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*DefaultRulesChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*PublishedEvent) SchemaVersion() int {
 	return 1
 }
@@ -139,7 +157,7 @@ func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
-			registeredEventType, renamedEventType, layoutChangedEventType, publishedEventType, retiredEventType, deletedEventType,
+			registeredEventType, renamedEventType, layoutChangedEventType, publishedEventType, retiredEventType, deletedEventType, defaultRulesChangedEventType,
 		},
 	}
 }
@@ -159,6 +177,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &RenamedEvent{EventMeta: meta}
 	case EventType(layoutChangedEventType):
 		event = &LayoutChangedEvent{EventMeta: meta}
+	case EventType(defaultRulesChangedEventType):
+		event = &DefaultRulesChangedEvent{EventMeta: meta}
 	case EventType(publishedEventType):
 		event = &PublishedEvent{EventMeta: meta}
 	case EventType(retiredEventType):

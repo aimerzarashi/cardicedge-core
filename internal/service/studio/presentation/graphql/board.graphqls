@@ -13,6 +13,10 @@ type Board {
   width: Int!
   "高さ（行の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）"
   height: Int!
+  "既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）"
+  defaultRules: BoardDefaultRules!
+  "マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）"
+  tileCounts: BoardTileCounts!
   "置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）"
   tiles: [BoardTile!]!
   "マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）"
@@ -23,6 +27,47 @@ type Board {
   registeredAt: DateTime!
   "最後に変更した日時（変更していなければ登録した日時）"
   updatedAt: DateTime!
+}
+
+"""
+ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+"""
+type BoardTileCounts {
+  "土地の数（属性ごとの数の和）"
+  land: Int!
+  "拠点の数"
+  base: Int!
+  "チェックポイントの数"
+  checkpoint: Int!
+  "火属性の土地の数"
+  fire: Int!
+  "地属性の土地の数"
+  earth: Int!
+  "水属性の土地の数"
+  water: Int!
+  "風属性の土地の数"
+  wind: Int!
+  "無属性の土地の数"
+  neutral: Int!
+  "複属性の土地の数"
+  multi: Int!
+}
+
+# 魔力は対戦の通貨・得点にあたる値の呼び方で、core の名前は汎用的にする（世界観のデザインで呼び方を変えるときに画面の文言だけで済ませるため）。
+# studio_rules の BoardRules（大きさの範囲）と紛らわしいので、「ルール」だけの名前にしない
+"""
+ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+効き方は対戦の決まりで、ここでは値の形だけを決める
+"""
+type BoardDefaultRules {
+  "目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち。1 以上、開始時の魔力より大きい。登録した直後は 8000）"
+  targetMagic: Int!
+  "開始時の魔力（対戦を始めるときの魔力。0 以上。登録した直後は 600）"
+  startingMagic: Int!
+  "周回のボーナス（拠点に戻ったときに増える魔力。0 以上。登録した直後は 300）"
+  lapBonus: Int!
+  "チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上。登録した直後は 100）"
+  checkpointBonus: Int!
 }
 
 # 準備中から使用不可へ直接は移れず、公開中から準備中へも戻れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、
@@ -128,7 +173,7 @@ type InvalidBoardStatusTransitionError {
   message: String!
 }
 
-"準備中でないボードの名前・レイアウトを変える、または削除しようとした（準備中のものだけ変えられる）"
+"準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした（準備中のものだけ変えられる）"
 type BoardNotDraftError {
   "開発者向けの説明（画面にそのまま出す文言ではない）"
   message: String!
@@ -326,6 +371,41 @@ union ChangeBoardLayoutResult =
   | RevisionConflictError
   | ForbiddenError
 
+"ボードの既定のルールを変える入力（変えた後の 4 つの値の全体）"
+input ChangeBoardDefaultRulesInput {
+  "ボードの公開用の ID"
+  id: UUID!
+  "画面が見ていたボードの revision"
+  revision: Int!
+  "目標の魔力（1 以上。開始時の魔力より大きくなければ入力の誤り）"
+  targetMagic: Int!
+  "開始時の魔力（0 以上）"
+  startingMagic: Int!
+  "周回のボーナス（0 以上）"
+  lapBonus: Int!
+  "チェックポイントのボーナス（0 以上）"
+  checkpointBonus: Int!
+}
+
+"ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）"
+type ChangeBoardDefaultRulesSuccess {
+  "変えたボードの公開用の ID"
+  id: UUID!
+  "変えたボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+# 入力の誤りの項目: targetMagic（FieldTooSmall。開始時の魔力以下なら FieldNotGreaterThan で相手は startingMagic）、
+# startingMagic・lapBonus・checkpointBonus（FieldTooSmall）。上限は持たない
+"ボードの既定のルールの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
+union ChangeBoardDefaultRulesResult =
+    ChangeBoardDefaultRulesSuccess
+  | ValidationErrors
+  | BoardNotFoundError
+  | BoardNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
 "ボードを削除する入力"
 input DeleteBoardInput {
   "ボードの公開用の ID"
@@ -412,6 +492,11 @@ extend type Mutation {
     "変える内容"
     input: ChangeBoardLayoutInput!
   ): ChangeBoardLayoutResult!
+  "ボードの既定のルールを変える（準備中のものだけ。紐づいたオペレーターだけ）"
+  changeBoardDefaultRules(
+    "変える内容"
+    input: ChangeBoardDefaultRulesInput!
+  ): ChangeBoardDefaultRulesResult!
   "ボードを削除する（準備中のものだけ。紐づいたオペレーターだけ）"
   deleteBoard(
     "削除するボード"

@@ -72,6 +72,71 @@ func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
 	}
 }
 
+// boards.metadata の default_rules。domain の board.DefaultRules を使わない理由は BoardTileKind と同じ
+type BoardDefaultRules struct {
+	TargetMagic     int `json:"target_magic"`
+	StartingMagic   int `json:"starting_magic"`
+	LapBonus        int `json:"lap_bonus"`
+	CheckpointBonus int `json:"checkpoint_bonus"`
+}
+
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRules {
+	return BoardDefaultRules{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+}
+
+func toBoardDefaultRules(rules board.DefaultRules) BoardDefaultRules {
+	return BoardDefaultRules{
+		TargetMagic: rules.TargetMagic(), StartingMagic: rules.StartingMagic(), LapBonus: rules.LapBonus(), CheckpointBonus: rules.CheckpointBonus(),
+	}
+}
+
+// boards.metadata の tile_counts。土地の合計と、属性ごとの数（土地だけが属性を持つので、属性の数の和が土地の合計になる）。
+// studio は core が返した一覧を画面で絞り込まない決まりなので、画面が使う数は投影のときに数えて持つ
+type BoardTileCounts struct {
+	Land       int `json:"land"`
+	Base       int `json:"base"`
+	Checkpoint int `json:"checkpoint"`
+	Fire       int `json:"fire"`
+	Earth      int `json:"earth"`
+	Water      int `json:"water"`
+	Wind       int `json:"wind"`
+	Neutral    int `json:"neutral"`
+	Multi      int `json:"multi"`
+}
+
+func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi int) BoardTileCounts {
+	return BoardTileCounts{Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi}
+}
+
+func countBoardTiles(tiles map[board.Position]BoardTile) BoardTileCounts {
+	var counts BoardTileCounts
+	for _, tile := range tiles {
+		switch tile.Kind {
+		case BoardTileKindLand:
+			counts.Land++
+		case BoardTileKindBase:
+			counts.Base++
+		case BoardTileKindCheckpoint:
+			counts.Checkpoint++
+		}
+		switch tile.Attribute {
+		case BoardTileAttributeFire:
+			counts.Fire++
+		case BoardTileAttributeEarth:
+			counts.Earth++
+		case BoardTileAttributeWater:
+			counts.Water++
+		case BoardTileAttributeWind:
+			counts.Wind++
+		case BoardTileAttributeNeutral:
+			counts.Neutral++
+		case BoardTileAttributeMulti:
+			counts.Multi++
+		}
+	}
+	return counts
+}
+
 type BoardPosition struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -117,6 +182,8 @@ type BoardMetadata struct {
 	Height       int               `json:"height"`
 	Tiles        []BoardTile       `json:"tiles"`
 	Connections  []BoardConnection `json:"connections"`
+	DefaultRules BoardDefaultRules `json:"default_rules"`
+	TileCounts   BoardTileCounts   `json:"tile_counts"`
 	RegisteredAt time.Time         `json:"registered_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
 }
@@ -134,7 +201,7 @@ func (state Board) Evolve(event any) Board {
 		state.Metadata = BoardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: BoardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Width: e.Width, Height: e.Height,
-			Tiles: []BoardTile{}, Connections: []BoardConnection{},
+			Tiles: []BoardTile{}, Connections: []BoardConnection{}, DefaultRules: toBoardDefaultRules(e.DefaultRules),
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 	case *board.RenamedEvent:
@@ -143,6 +210,9 @@ func (state Board) Evolve(event any) Board {
 		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
 	case *board.LayoutChangedEvent:
 		state = state.changeLayout(e)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+	case *board.DefaultRulesChangedEvent:
+		state.Metadata.DefaultRules = toBoardDefaultRules(e.DefaultRules)
 		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
 	case *board.PublishedEvent:
 		state = state.changeStatus(BoardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
@@ -177,6 +247,7 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 		connections[connection] = struct{}{}
 	}
 	state.tiles, state.connections = tiles, connections
+	state.Metadata.TileCounts = countBoardTiles(tiles)
 
 	positions := slices.SortedFunc(maps.Keys(tiles), board.Position.Compare)
 	state.Metadata.Tiles = make([]BoardTile, 0, len(positions))

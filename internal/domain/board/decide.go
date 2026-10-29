@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// 変えても同じになる操作（同じ名前・同じレイアウト・公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）。
-// 名前・レイアウトの変更と削除は準備中だけ。同じ状態への公開・使用不可も、準備中でなくてよい
+// 変えても同じになる操作（同じ名前・同じレイアウト・同じ既定のルール・公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）。
+// 名前・レイアウト・既定のルールの変更と削除は準備中だけ。同じ状態への公開・使用不可も、準備中でなくてよい
 func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	switch c := cmd.(type) {
 	case *RegisterCommand:
@@ -19,6 +19,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Name:         c.Name,
 			Width:        c.Rules.Clamp(DefaultSize),
 			Height:       c.Rules.Clamp(DefaultSize),
+			DefaultRules: InitialDefaultRules(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *RenameCommand:
@@ -45,6 +46,15 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		event.EventMeta = nextMeta(board, now)
 		event.ChangedBy = c.ChangedBy
 		return []Event{event}, nil
+	case *ChangeDefaultRulesCommand:
+		board, err := draft(state)
+		if err != nil {
+			return nil, err
+		}
+		if board.DefaultRules == c.DefaultRules {
+			return nil, nil
+		}
+		return []Event{&DefaultRulesChangedEvent{EventMeta: nextMeta(board, now), DefaultRules: c.DefaultRules, ChangedBy: c.ChangedBy}}, nil
 	case *PublishCommand:
 		board, ok := state.(Board)
 		if !ok {

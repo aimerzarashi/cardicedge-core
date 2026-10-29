@@ -104,6 +104,10 @@ type Board struct {
 	Width int `json:"width"`
 	// 高さ（行の数）
 	Height int `json:"height"`
+	// 既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）
+	DefaultRules *BoardDefaultRules `json:"defaultRules"`
+	// マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）
+	TileCounts *BoardTileCounts `json:"tileCounts"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
 	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
@@ -120,6 +124,19 @@ type BoardConnection struct {
 	B *BoardPosition `json:"b"`
 }
 
+// ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+// 効き方は対戦の決まりで、ここでは値の形だけを決める
+type BoardDefaultRules struct {
+	// 目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（対戦を始めるときの魔力）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（拠点に戻ったときに増える魔力）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力）
+	CheckpointBonus int `json:"checkpointBonus"`
+}
+
 // 公開中のボードが無い（公開中でないものを含む）
 type BoardNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -134,6 +151,28 @@ type BoardPosition struct {
 	X int `json:"x"`
 	// 行（0 以上、高さ − 1 以下）
 	Y int `json:"y"`
+}
+
+// ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+type BoardTileCounts struct {
+	// 土地の数（属性ごとの数の和）
+	Land int `json:"land"`
+	// 拠点の数
+	Base int `json:"base"`
+	// チェックポイントの数
+	Checkpoint int `json:"checkpoint"`
+	// 火属性の土地の数
+	Fire int `json:"fire"`
+	// 地属性の土地の数
+	Earth int `json:"earth"`
+	// 水属性の土地の数
+	Water int `json:"water"`
+	// 風属性の土地の数
+	Wind int `json:"wind"`
+	// 無属性の土地の数
+	Neutral int `json:"neutral"`
+	// 複属性の土地の数
+	Multi int `json:"multi"`
 }
 
 // ボードの一覧の 1 ページ（名前の順）

@@ -71,6 +71,7 @@ var Types = Catalog{
 			{ID: 2304, Name: "PublishedEvent"},
 			{ID: 2305, Name: "RetiredEvent"},
 			{ID: 2306, Name: "DeletedEvent"},
+			{ID: 2307, Name: "DefaultRulesChangedEvent"},
 		}},
 		{ID: 2400, Name: "studio_rules", Events: []EventTypeDef{
 			{ID: 2401, Name: "CreatedEvent"},

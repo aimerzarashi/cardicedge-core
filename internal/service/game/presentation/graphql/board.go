@@ -24,7 +24,16 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 			B: &model.BoardPosition{X: connection.B.X, Y: connection.B.Y},
 		})
 	}
-	return &model.Board{ID: board.ID, Name: board.Name, Width: board.Width, Height: board.Height, Tiles: tiles, Connections: connections}, nil
+	defaultRules := &model.BoardDefaultRules{
+		TargetMagic: board.DefaultRules.TargetMagic, StartingMagic: board.DefaultRules.StartingMagic,
+		LapBonus: board.DefaultRules.LapBonus, CheckpointBonus: board.DefaultRules.CheckpointBonus,
+	}
+	c := board.TileCounts
+	tileCounts := &model.BoardTileCounts{
+		Land: c.Land, Base: c.Base, Checkpoint: c.Checkpoint,
+		Fire: c.Fire, Earth: c.Earth, Water: c.Water, Wind: c.Wind, Neutral: c.Neutral, Multi: c.Multi,
+	}
+	return &model.Board{ID: board.ID, Name: board.Name, Width: board.Width, Height: board.Height, DefaultRules: defaultRules, TileCounts: tileCounts, Tiles: tiles, Connections: connections}, nil
 }
 
 func toBoardsConnection(connection pagination.Connection[query.Board]) (*model.BoardsConnection, error) {

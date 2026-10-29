@@ -25,8 +25,10 @@ type Board struct {
 	Width  int
 	Height int
 	// 置いてあるマスだけ（置いていない座標は含まない）
-	Tiles       []readmodel.BoardTile
-	Connections []readmodel.BoardConnection
+	Tiles        []readmodel.BoardTile
+	Connections  []readmodel.BoardConnection
+	DefaultRules readmodel.BoardDefaultRules
+	TileCounts   readmodel.BoardTileCounts
 	// 集約の版（画面が変える操作に渡す）。投影が遅れているあいだは古いことがある（internal/eventstore/README.md）
 	Revision     int64
 	RegisteredAt time.Time

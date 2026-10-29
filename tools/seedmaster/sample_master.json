@@ -358,6 +358,7 @@
       "name": "見本の周回ボード",
       "width": 8,
       "height": 8,
+      "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100},
       "tiles": [
         {"x": 1, "y": 1, "kind": "base"},
         {"x": 2, "y": 1, "kind": "land", "attribute": "fire"},

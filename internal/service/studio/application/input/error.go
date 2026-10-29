@@ -50,6 +50,35 @@ func (e *OutOfRange) InputField() string {
 	return e.Field
 }
 
+// 上限の無い値が下限より小さい（既定のルールの魔力等）。範囲の上限が決まっている値は OutOfRange
+type TooSmall struct {
+	Field string
+	Min   int
+}
+
+func (e *TooSmall) Error() string {
+	return fmt.Sprintf("%s is smaller than %d", e.Field, e.Min)
+}
+
+func (e *TooSmall) InputField() string {
+	return e.Field
+}
+
+// 別の入力の項目の値より大きくなければならない値が、大きくない（等しいのも含む）。Than はその項目の名前。
+// 下限の値は、相手の項目の値によって変わるので持たない
+type NotGreaterThan struct {
+	Field string
+	Than  string
+}
+
+func (e *NotGreaterThan) Error() string {
+	return fmt.Sprintf("%s is not greater than %s", e.Field, e.Than)
+}
+
+func (e *NotGreaterThan) InputField() string {
+	return e.Field
+}
+
 type InvalidFormat struct{ Field string }
 
 func (e *InvalidFormat) Error() string {

@@ -53,6 +53,11 @@ type CardsResult interface {
 	IsCardsResult()
 }
 
+// ボードの既定のルールの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）
+type ChangeBoardDefaultRulesResult interface {
+	IsChangeBoardDefaultRulesResult()
+}
+
 // ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）
 type ChangeBoardLayoutResult interface {
 	IsChangeBoardLayoutResult()
@@ -223,6 +228,10 @@ type Board struct {
 	Width int `json:"width"`
 	// 高さ（行の数。範囲は studioRules.board。登録した直後は 8 を範囲に収めた値）
 	Height int `json:"height"`
+	// 既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）
+	DefaultRules *BoardDefaultRules `json:"defaultRules"`
+	// マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）
+	TileCounts *BoardTileCounts `json:"tileCounts"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
 	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
@@ -253,6 +262,19 @@ type BoardConnectionInput struct {
 	B *BoardPositionInput `json:"b"`
 }
 
+// ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+// 効き方は対戦の決まりで、ここでは値の形だけを決める
+type BoardDefaultRules struct {
+	// 目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち。1 以上、開始時の魔力より大きい。登録した直後は 8000）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（対戦を始めるときの魔力。0 以上。登録した直後は 600）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（拠点に戻ったときに増える魔力。0 以上。登録した直後は 300）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上。登録した直後は 100）
+	CheckpointBonus int `json:"checkpointBonus"`
+}
+
 // ボードの一覧の絞り込み
 type BoardFilter struct {
 	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
@@ -271,7 +293,7 @@ func (BoardNameAlreadyInUseError) IsRegisterBoardResult() {}
 
 func (BoardNameAlreadyInUseError) IsRenameBoardResult() {}
 
-// 準備中でないボードの名前・レイアウトを変える、または削除しようとした（準備中のものだけ変えられる）
+// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした（準備中のものだけ変えられる）
 type BoardNotDraftError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
@@ -280,6 +302,8 @@ type BoardNotDraftError struct {
 func (BoardNotDraftError) IsRenameBoardResult() {}
 
 func (BoardNotDraftError) IsChangeBoardLayoutResult() {}
+
+func (BoardNotDraftError) IsChangeBoardDefaultRulesResult() {}
 
 func (BoardNotDraftError) IsDeleteBoardResult() {}
 
@@ -294,6 +318,8 @@ func (BoardNotFoundError) IsBoardResult() {}
 func (BoardNotFoundError) IsRenameBoardResult() {}
 
 func (BoardNotFoundError) IsChangeBoardLayoutResult() {}
+
+func (BoardNotFoundError) IsChangeBoardDefaultRulesResult() {}
 
 func (BoardNotFoundError) IsDeleteBoardResult() {}
 
@@ -337,6 +363,28 @@ type BoardRules struct {
 	MinSize int `json:"minSize"`
 	// 幅・高さの上限（この値を含む。幅・高さに共通）
 	MaxSize int `json:"maxSize"`
+}
+
+// ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+type BoardTileCounts struct {
+	// 土地の数（属性ごとの数の和）
+	Land int `json:"land"`
+	// 拠点の数
+	Base int `json:"base"`
+	// チェックポイントの数
+	Checkpoint int `json:"checkpoint"`
+	// 火属性の土地の数
+	Fire int `json:"fire"`
+	// 地属性の土地の数
+	Earth int `json:"earth"`
+	// 水属性の土地の数
+	Water int `json:"water"`
+	// 風属性の土地の数
+	Wind int `json:"wind"`
+	// 無属性の土地の数
+	Neutral int `json:"neutral"`
+	// 複属性の土地の数
+	Multi int `json:"multi"`
 }
 
 // 置くマスの入力。land・base・checkpoint のうち、ちょうど 1 つだけを書く（書いた項目が種類になる）
@@ -416,6 +464,32 @@ type CardNotFoundError struct {
 func (CardNotFoundError) IsPublishCardResult() {}
 
 func (CardNotFoundError) IsRetireCardResult() {}
+
+// ボードの既定のルールを変える入力（変えた後の 4 つの値の全体）
+type ChangeBoardDefaultRulesInput struct {
+	// ボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたボードの revision
+	Revision int `json:"revision"`
+	// 目標の魔力（1 以上。開始時の魔力より大きくなければ入力の誤り）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（0 以上）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（0 以上）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（0 以上）
+	CheckpointBonus int `json:"checkpointBonus"`
+}
+
+// ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）
+type ChangeBoardDefaultRulesSuccess struct {
+	// 変えたボードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたボードの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeBoardDefaultRulesSuccess) IsChangeBoardDefaultRulesResult() {}
 
 // ボードのレイアウトを変える入力（変えた後の全体。前の内容は引き継がれず、ここに無いマス・つながりは消える）
 type ChangeBoardLayoutInput struct {
@@ -603,6 +677,19 @@ func (FieldNotFound) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotFound) GetField() string { return this.Field }
 
+// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）
+type FieldNotGreaterThan struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 大きくなければならない相手の入力の項目（例: startingMagic）
+	Than string `json:"than"`
+}
+
+func (FieldNotGreaterThan) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotGreaterThan) GetField() string { return this.Field }
+
 // 入力が範囲の外
 type FieldOutOfRange struct {
 	// 誤りのある入力の項目
@@ -641,6 +728,19 @@ func (FieldTooLong) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 入力が下限より小さい（上限は無い）
+type FieldTooSmall struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 下限（この値を含む）
+	Min int `json:"min"`
+}
+
+func (FieldTooSmall) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooSmall) GetField() string { return this.Field }
 
 // 合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）
 type FieldTotalMismatch struct {
@@ -694,6 +794,8 @@ func (ForbiddenError) IsRegisterBoardResult() {}
 func (ForbiddenError) IsRenameBoardResult() {}
 
 func (ForbiddenError) IsChangeBoardLayoutResult() {}
+
+func (ForbiddenError) IsChangeBoardDefaultRulesResult() {}
 
 func (ForbiddenError) IsDeleteBoardResult() {}
 
@@ -1187,6 +1289,8 @@ func (RevisionConflictError) IsRenameBoardResult() {}
 
 func (RevisionConflictError) IsChangeBoardLayoutResult() {}
 
+func (RevisionConflictError) IsChangeBoardDefaultRulesResult() {}
+
 func (RevisionConflictError) IsDeleteBoardResult() {}
 
 func (RevisionConflictError) IsPublishBoardResult() {}
@@ -1408,6 +1512,8 @@ func (ValidationErrors) IsRegisterBoardResult() {}
 func (ValidationErrors) IsRenameBoardResult() {}
 
 func (ValidationErrors) IsChangeBoardLayoutResult() {}
+
+func (ValidationErrors) IsChangeBoardDefaultRulesResult() {}
 
 func (ValidationErrors) IsCardsResult() {}
 

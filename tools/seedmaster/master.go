@@ -41,11 +41,19 @@ type masterDeckEntry struct {
 }
 
 type masterBoard struct {
-	Name        string                  `json:"name"`
-	Width       int                     `json:"width"`
-	Height      int                     `json:"height"`
-	Tiles       []masterBoardTile       `json:"tiles"`
-	Connections []masterBoardConnection `json:"connections"`
+	Name         string                  `json:"name"`
+	Width        int                     `json:"width"`
+	Height       int                     `json:"height"`
+	DefaultRules masterBoardDefaultRules `json:"default_rules"`
+	Tiles        []masterBoardTile       `json:"tiles"`
+	Connections  []masterBoardConnection `json:"connections"`
+}
+
+type masterBoardDefaultRules struct {
+	TargetMagic     int `json:"target_magic"`
+	StartingMagic   int `json:"starting_magic"`
+	LapBonus        int `json:"lap_bonus"`
+	CheckpointBonus int `json:"checkpoint_bonus"`
 }
 
 type masterBoardTile struct {
@@ -152,6 +160,10 @@ func (m master) validateBoards() error {
 			return fmt.Errorf("board %q: duplicated", b.Name)
 		}
 		names[b.Name] = true
+		// 決まりは domain の関数で確かめる。書き忘れ（0）もここで見つかる
+		if _, err := board.NewDefaultRules(b.DefaultRules.TargetMagic, b.DefaultRules.StartingMagic, b.DefaultRules.LapBonus, b.DefaultRules.CheckpointBonus); err != nil {
+			return fmt.Errorf("board %q: %w", b.Name, err)
+		}
 		layout, err := b.layout()
 		if err != nil {
 			return fmt.Errorf("board %q: %w", b.Name, err)
@@ -188,6 +200,13 @@ func (b masterBoard) layout() (board.Layout, error) {
 		connections = append(connections, board.NewConnection(board.NewPosition(c.A.X, c.A.Y), board.NewPosition(c.B.X, c.B.Y)))
 	}
 	return board.NewLayout(size, tiles, connections)
+}
+
+func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {
+	return command.BoardDefaultRulesInput{
+		TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
+		LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
+	}
 }
 
 func (b masterBoard) layoutInput() command.BoardLayoutInput {

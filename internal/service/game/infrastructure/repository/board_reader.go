@@ -41,6 +41,25 @@ type boardMetadata struct {
 		A boardPosition `json:"a"`
 		B boardPosition `json:"b"`
 	} `json:"connections"`
+	// 無い（既定のルールを写す前の行）なら、0 にせず読み出しの誤りにするため、ポインターで受ける
+	DefaultRules *struct {
+		TargetMagic     int `json:"target_magic"`
+		StartingMagic   int `json:"starting_magic"`
+		LapBonus        int `json:"lap_bonus"`
+		CheckpointBonus int `json:"checkpoint_bonus"`
+	} `json:"default_rules"`
+	// default_rules と同じ理由で、無い行は 0 にせず読み出しの誤りにする
+	TileCounts *struct {
+		Land       int `json:"land"`
+		Base       int `json:"base"`
+		Checkpoint int `json:"checkpoint"`
+		Fire       int `json:"fire"`
+		Earth      int `json:"earth"`
+		Water      int `json:"water"`
+		Wind       int `json:"wind"`
+		Neutral    int `json:"neutral"`
+		Multi      int `json:"multi"`
+	} `json:"tile_counts"`
 }
 
 type boardPosition struct {
@@ -113,6 +132,12 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	if err := json.Unmarshal(raw, &metadata); err != nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: %w", id, err)
 	}
+	if metadata.DefaultRules == nil {
+		return query.Board{}, fmt.Errorf("boards.metadata of %s: default_rules is missing", id)
+	}
+	if metadata.TileCounts == nil {
+		return query.Board{}, fmt.Errorf("boards.metadata of %s: tile_counts is missing", id)
+	}
 	tiles := make([]query.BoardTile, 0, len(metadata.Tiles))
 	for _, tile := range metadata.Tiles {
 		kind, err := query.NewBoardTileKind(tile.Kind)
@@ -132,7 +157,13 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 			B: query.NewBoardPosition(connection.B.X, connection.B.Y),
 		})
 	}
-	return query.Board{ID: id, Name: metadata.Name, Width: metadata.Width, Height: metadata.Height, Tiles: tiles, Connections: connections}, nil
+	defaultRules := query.BoardDefaultRules{
+		TargetMagic: metadata.DefaultRules.TargetMagic, StartingMagic: metadata.DefaultRules.StartingMagic,
+		LapBonus: metadata.DefaultRules.LapBonus, CheckpointBonus: metadata.DefaultRules.CheckpointBonus,
+	}
+	c := metadata.TileCounts
+	tileCounts := query.NewBoardTileCounts(c.Land, c.Base, c.Checkpoint, c.Fire, c.Earth, c.Water, c.Wind, c.Neutral, c.Multi)
+	return query.Board{ID: id, Name: metadata.Name, Width: metadata.Width, Height: metadata.Height, Tiles: tiles, Connections: connections, DefaultRules: defaultRules, TileCounts: tileCounts}, nil
 }
 
 // 土地でないマスには属性が無い（空）

@@ -54,6 +54,24 @@ type FieldOutOfRange implements FieldError {
   max: Int!
 }
 
+# 上限の無い値の下限。上限のある値の FieldOutOfRange は max が必須で、上限の無い値には使えない
+"入力が下限より小さい（上限は無い）"
+type FieldTooSmall implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "下限（この値を含む）"
+  min: Int!
+}
+
+# 下限が相手の項目の値で決まるので、数ではなく相手の項目の名前を返す。画面は相手の項目の入力中の値で文言を作る
+"入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）"
+type FieldNotGreaterThan implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "大きくなければならない相手の入力の項目（例: startingMagic）"
+  than: String!
+}
+
 "入力の形が正しくない（メールアドレスとして読めない、ページの位置（カーソル）が読めない等）"
 type FieldInvalidFormat implements FieldError {
   "誤りのある入力の項目"

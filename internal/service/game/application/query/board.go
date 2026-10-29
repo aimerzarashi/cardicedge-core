@@ -77,16 +77,47 @@ type BoardConnection struct {
 	B BoardPosition
 }
 
+// 写した boards.metadata の default_rules。対戦を始めるときの既定の値で、始めるときにここから変えられる前提
+type BoardDefaultRules struct {
+	TargetMagic     int
+	StartingMagic   int
+	LapBonus        int
+	CheckpointBonus int
+}
+
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRules {
+	return BoardDefaultRules{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+}
+
+// 写した boards.metadata の tile_counts。種類ごと・土地の属性ごとのマスの数
+type BoardTileCounts struct {
+	Land       int
+	Base       int
+	Checkpoint int
+	Fire       int
+	Earth      int
+	Water      int
+	Wind       int
+	Neutral    int
+	Multi      int
+}
+
+func NewBoardTileCounts(land, base, checkpoint, fire, earth, water, wind, neutral, multi int) BoardTileCounts {
+	return BoardTileCounts{Land: land, Base: base, Checkpoint: checkpoint, Fire: fire, Earth: earth, Water: water, Wind: wind, Neutral: neutral, Multi: multi}
+}
+
 // 公開中のボードの、盤面に要る項目だけ。状態・revision・日時は game で使わないので持たない。マスは y → x、つながりは a → b の順
 // （写した metadata の並びのまま）。一覧の要素にもマスとつながりを持たせるのは、別に引き直す仕組みを作らなくても、
 // 1 ページ 100 件・最大 32×32 に収まるため（studio の BoardHandler と同じ）
 type Board struct {
-	ID          uuid.UUID
-	Name        string
-	Width       int
-	Height      int
-	Tiles       []BoardTile
-	Connections []BoardConnection
+	ID           uuid.UUID
+	Name         string
+	Width        int
+	Height       int
+	Tiles        []BoardTile
+	Connections  []BoardConnection
+	DefaultRules BoardDefaultRules
+	TileCounts   BoardTileCounts
 }
 
 // 並び順（正規化した名前 → 公開 ID）の位置。項目名を 1 文字にする理由は studio のカーソルと同じ
