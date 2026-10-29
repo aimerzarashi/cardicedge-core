@@ -39,9 +39,16 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 			B: &model.BoardPosition{X: connection.B.X, Y: connection.B.Y},
 		})
 	}
+	pairs := make([]*model.BoardTilePair, 0, len(board.Pairs))
+	for _, pair := range board.Pairs {
+		pairs = append(pairs, &model.BoardTilePair{
+			A: &model.BoardPosition{X: pair.A.X, Y: pair.A.Y},
+			B: &model.BoardPosition{X: pair.B.X, Y: pair.B.Y},
+		})
+	}
 	return &model.Board{
 		ID: board.ID, Name: board.Name, Status: status, Width: board.Width, Height: board.Height,
-		Tiles: tiles, Connections: connections, DefaultRules: fromBoardDefaultRules(board.DefaultRules), TileCounts: fromBoardTileCounts(board.TileCounts), PublishProblems: problems, Revision: int(board.Revision),
+		Tiles: tiles, Connections: connections, Pairs: pairs, DefaultRules: fromBoardDefaultRules(board.DefaultRules), TileCounts: fromBoardTileCounts(board.TileCounts), PublishProblems: problems, Revision: int(board.Revision),
 		RegisteredAt: board.RegisteredAt, UpdatedAt: board.UpdatedAt,
 	}, nil
 }
@@ -56,6 +63,7 @@ func fromBoardTileCounts(counts readmodel.BoardTileCounts) *model.BoardTileCount
 	return &model.BoardTileCounts{
 		Land: counts.Land, Base: counts.Base, Checkpoint: counts.Checkpoint,
 		Fire: counts.Fire, Earth: counts.Earth, Water: counts.Water, Wind: counts.Wind, Neutral: counts.Neutral, Multi: counts.Multi,
+		Warp: counts.Warp, Bridge: counts.Bridge, Sanctuary: counts.Sanctuary, Shrine: counts.Shrine, ProphecyShop: counts.ProphecyShop, CardShop: counts.CardShop,
 	}
 }
 
@@ -96,16 +104,16 @@ func toBoardFilter(filter *model.BoardFilter) (query.BoardFilter, error) {
 	return query.BoardFilter{NameContains: filter.NameContains, Statuses: statuses}, nil
 }
 
-// 保存（changeBoardLayout）と判定（checkBoardLayout）の入力は、レイアウトの 4 項目が同じ。写し方を共有する
+// 保存（changeBoardLayout）と判定（checkBoardLayout）の入力は、レイアウトの 5 項目が同じ。写し方を共有する
 func toBoardLayoutInput(layoutInput model.ChangeBoardLayoutInput) (command.BoardLayoutInput, error) {
-	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections)
+	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections, layoutInput.Pairs)
 }
 
 func toCheckBoardLayoutInput(layoutInput model.CheckBoardLayoutInput) (command.BoardLayoutInput, error) {
-	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections)
+	return toBoardLayout(layoutInput.Width, layoutInput.Height, layoutInput.Tiles, layoutInput.Connections, layoutInput.Pairs)
 }
 
-func toBoardLayout(width, height int, inputTiles []*model.BoardTileInput, inputConnections []*model.BoardConnectionInput) (command.BoardLayoutInput, error) {
+func toBoardLayout(width, height int, inputTiles []*model.BoardTileInput, inputConnections []*model.BoardConnectionInput, inputPairs []*model.BoardTilePairInput) (command.BoardLayoutInput, error) {
 	tiles := make([]command.BoardTileInput, 0, len(inputTiles))
 	invalid := input.Errors{}
 	for i, tile := range inputTiles {
@@ -129,7 +137,14 @@ func toBoardLayout(width, height int, inputTiles []*model.BoardTileInput, inputC
 			B: command.NewBoardPosition(connection.B.X, connection.B.Y),
 		})
 	}
-	return command.BoardLayoutInput{Width: width, Height: height, Tiles: tiles, Connections: connections}, nil
+	pairs := make([]command.BoardPairInput, 0, len(inputPairs))
+	for _, pair := range inputPairs {
+		pairs = append(pairs, command.BoardPairInput{
+			A: command.NewBoardPosition(pair.A.X, pair.A.Y),
+			B: command.NewBoardPosition(pair.B.X, pair.B.Y),
+		})
+	}
+	return command.BoardLayoutInput{Width: width, Height: height, Tiles: tiles, Connections: connections, Pairs: pairs}, nil
 }
 
 func fromBoardNotPublishable(notPublishable *command.BoardNotPublishableError) (*model.BoardNotPublishableError, error) {
@@ -177,6 +192,8 @@ func fromBoardPublishProblem(kind string, positions []*model.BoardPosition) (mod
 		return &model.NoCheckpointProblem{Message: "board must have at least one checkpoint"}, nil
 	case string(readmodel.BoardPublishProblemUnreachableTiles):
 		return &model.UnreachableTilesProblem{Message: "board has tiles that cannot be reached from the base", Positions: positions}, nil
+	case string(readmodel.BoardPublishProblemUnpairedTiles):
+		return &model.UnpairedTilesProblem{Message: "board has warps or bridges without a pair", Positions: positions}, nil
 	}
 	return nil, fmt.Errorf("unknown board publish problem: %q", kind)
 }
@@ -221,6 +238,18 @@ func fromBoardTile(tile readmodel.BoardTile) (model.BoardTile, error) {
 		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
 	case readmodel.BoardTileKindCheckpoint:
 		return model.CheckpointTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindWarp:
+		return model.WarpTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindBridge:
+		return model.BridgeTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindSanctuary:
+		return model.SanctuaryTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindShrine:
+		return model.ShrineTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindProphecyShop:
+		return model.ProphecyShopTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindCardShop:
+		return model.CardShopTile{X: tile.X, Y: tile.Y}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown board tile kind: %q", tile.Kind)
 	}
@@ -229,20 +258,45 @@ func fromBoardTile(tile readmodel.BoardTile) (model.BoardTile, error) {
 // @oneOf の「ちょうど 1 つ」は、gqlparser・gqlgen が変数で送られた値を確かめない（0 個・2 個でもここまで届く。結合テストで確かめた）ため、
 // ここで確かめ、満たさなければ ok が false（入力の誤り）。GraphQL の errors にしないのは、ほかの入力の誤りと同じく項目ごとに示すため
 func toBoardTileInput(tile *model.BoardTileInput) (command.BoardTileInput, bool, error) {
-	switch {
-	case tile.Land != nil && tile.Base == nil && tile.Checkpoint == nil:
+	// 土地以外はどれも x・y だけ
+	positions := []struct {
+		position *model.TilePositionInput
+		kind     readmodel.BoardTileKind
+	}{
+		{tile.Base, readmodel.BoardTileKindBase},
+		{tile.Checkpoint, readmodel.BoardTileKindCheckpoint},
+		{tile.Warp, readmodel.BoardTileKindWarp},
+		{tile.Bridge, readmodel.BoardTileKindBridge},
+		{tile.Sanctuary, readmodel.BoardTileKindSanctuary},
+		{tile.Shrine, readmodel.BoardTileKindShrine},
+		{tile.ProphecyShop, readmodel.BoardTileKindProphecyShop},
+		{tile.CardShop, readmodel.BoardTileKindCardShop},
+	}
+	written := 0
+	if tile.Land != nil {
+		written++
+	}
+	for _, p := range positions {
+		if p.position != nil {
+			written++
+		}
+	}
+	if written != 1 {
+		return command.BoardTileInput{}, false, nil
+	}
+	if tile.Land != nil {
 		attribute, err := toBoardTileAttribute(tile.Land.Attribute)
 		if err != nil {
 			return command.BoardTileInput{}, false, err
 		}
 		return command.BoardTileInput{X: tile.Land.X, Y: tile.Land.Y, Kind: string(readmodel.BoardTileKindLand), Attribute: string(attribute)}, true, nil
-	case tile.Base != nil && tile.Land == nil && tile.Checkpoint == nil:
-		return command.BoardTileInput{X: tile.Base.X, Y: tile.Base.Y, Kind: string(readmodel.BoardTileKindBase)}, true, nil
-	case tile.Checkpoint != nil && tile.Land == nil && tile.Base == nil:
-		return command.BoardTileInput{X: tile.Checkpoint.X, Y: tile.Checkpoint.Y, Kind: string(readmodel.BoardTileKindCheckpoint)}, true, nil
-	default:
-		return command.BoardTileInput{}, false, nil
 	}
+	for _, p := range positions {
+		if p.position != nil {
+			return command.BoardTileInput{X: p.position.X, Y: p.position.Y, Kind: string(p.kind)}, true, nil
+		}
+	}
+	return command.BoardTileInput{}, false, nil
 }
 
 func toBoardTileAttribute(attribute model.BoardTileAttribute) (readmodel.BoardTileAttribute, error) {

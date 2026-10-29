@@ -15,10 +15,11 @@ import (
 
 const boardFields = `id name status width height revision registeredAt updatedAt
 	defaultRules { targetMagic startingMagic lapBonus checkpointBonus }
-	tileCounts { land base checkpoint fire earth water wind neutral multi }
-	publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } }
+	tileCounts { land base checkpoint fire earth water wind neutral multi warp bridge sanctuary shrine prophecyShop cardShop }
+	publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } ... on UnpairedTilesProblem { positions { x y } } }
 	tiles { __typename x y ... on LandTile { attribute } }
-	connections { a { x y } b { x y } }`
+	connections { a { x y } b { x y } }
+	pairs { a { x y } b { x y } }`
 
 const boardQuery = `query ($id: UUID!) {
 	board(id: $id) {
@@ -75,7 +76,7 @@ const changeBoardDefaultRulesMutation = `mutation ($input: ChangeBoardDefaultRul
 const checkBoardLayoutQuery = `query ($input: CheckBoardLayoutInput!) {
 	checkBoardLayout(input: $input) {
 		__typename
-		... on CheckBoardLayoutSuccess { publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } } }
+		... on CheckBoardLayoutSuccess { publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } ... on UnpairedTilesProblem { positions { x y } } } }
 		` + boardErrorFields + `
 	}
 }`
@@ -91,7 +92,7 @@ const publishBoardMutation = `mutation ($input: PublishBoardInput!) {
 	publishBoard(input: $input) {
 		__typename
 		... on PublishBoardSuccess { id revision }
-		... on BoardNotPublishableError { message problems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } } }
+		... on BoardNotPublishableError { message problems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } ... on UnpairedTilesProblem { positions { x y } } } }
 	}
 }`
 
@@ -138,7 +139,16 @@ func boardConnection(ax, ay, bx, by int) map[string]any {
 	return map[string]any{"a": map[string]any{"x": ax, "y": ay}, "b": map[string]any{"x": bx, "y": by}}
 }
 
+func boardPair(ax, ay, bx, by int) map[string]any {
+	return boardConnection(ax, ay, bx, by)
+}
+
 func changeBoardLayout(t *testing.T, token string, board map[string]any, width, height int, tiles, connections []map[string]any) map[string]any {
+	t.Helper()
+	return changeBoardLayoutWithPairs(t, token, board, width, height, tiles, connections, nil)
+}
+
+func changeBoardLayoutWithPairs(t *testing.T, token string, board map[string]any, width, height int, tiles, connections, pairs []map[string]any) map[string]any {
 	t.Helper()
 	// nil のスライスは JSON の null になり、必須のリストの入力の誤りになるため、空のリストにする
 	if tiles == nil {
@@ -147,8 +157,11 @@ func changeBoardLayout(t *testing.T, token string, board map[string]any, width, 
 	if connections == nil {
 		connections = []map[string]any{}
 	}
+	if pairs == nil {
+		pairs = []map[string]any{}
+	}
 	return boardOperation(t, token, changeBoardLayoutMutation, "changeBoardLayout",
-		boardInput(board, map[string]any{"width": width, "height": height, "tiles": tiles, "connections": connections}))
+		boardInput(board, map[string]any{"width": width, "height": height, "tiles": tiles, "connections": connections, "pairs": pairs}))
 }
 
 // 拠点 → 土地 → チェックポイントが横に並ぶ、公開できる 3×3 を入れる
@@ -198,8 +211,9 @@ func TestRegisterBoard_ListsDraftBoardOfDefaultSize(t *testing.T) {
 	require.EqualValues(t, 8, node["height"])
 	require.Empty(t, node["tiles"])
 	require.Empty(t, node["connections"])
+	require.Empty(t, node["pairs"])
 	require.Equal(t, map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100)}, node["defaultRules"])
-	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0)}, node["tileCounts"])
+	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0), "warp": float64(0), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)}, node["tileCounts"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	detail := waitBoard(t, token, registered["id"], 1)
 	delete(detail, "__typename")
@@ -249,7 +263,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	require.Equal(t, []any{map[string]any{
 		"a": map[string]any{"x": float64(0), "y": float64(0)}, "b": map[string]any{"x": float64(1), "y": float64(0)},
 	}}, detail["connections"])
-	require.Equal(t, map[string]any{"land": float64(1), "base": float64(1), "checkpoint": float64(1), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(1)}, detail["tileCounts"])
+	require.Equal(t, map[string]any{"land": float64(1), "base": float64(1), "checkpoint": float64(1), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(1), "warp": float64(0), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)}, detail["tileCounts"])
 
 	replaced := changeBoardLayout(t, token, ref(changed), 1, 1, nil, nil)
 
@@ -257,7 +271,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	detail = waitBoard(t, token, replaced["id"], 3)
 	require.Empty(t, detail["tiles"])
 	require.Empty(t, detail["connections"])
-	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0)}, detail["tileCounts"])
+	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0), "warp": float64(0), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)}, detail["tileCounts"])
 	same := changeBoardLayout(t, token, ref(replaced), 1, 1, nil, nil)
 	require.EqualValues(t, 3, same["revision"])
 }
@@ -369,6 +383,12 @@ func problemNoCheckpoint() map[string]any {
 func problemUnreachable(positions ...map[string]any) map[string]any {
 	return map[string]any{
 		"__typename": "UnreachableTilesProblem", "message": "board has tiles that cannot be reached from the base", "positions": positionList(positions),
+	}
+}
+
+func problemUnpaired(positions ...map[string]any) map[string]any {
+	return map[string]any{
+		"__typename": "UnpairedTilesProblem", "message": "board has warps or bridges without a pair", "positions": positionList(positions),
 	}
 }
 
@@ -500,7 +520,7 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
 	unknown := map[string]any{"id": uuid.NewString(), "revision": 1}
 	rules := boardInput(unknown, defaultRulesInput(5000, 0, 200, 50))
-	layout := boardInput(unknown, map[string]any{"width": 1, "height": 1, "tiles": []any{}, "connections": []any{}})
+	layout := boardInput(unknown, map[string]any{"width": 1, "height": 1, "tiles": []any{}, "connections": []any{}, "pairs": []any{}})
 	tests := []struct {
 		name      string
 		token     string
@@ -555,14 +575,22 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 
 func checkBoardLayout(t *testing.T, token string, width, height int, tiles, connections []map[string]any) map[string]any {
 	t.Helper()
+	return checkBoardLayoutWithPairs(t, token, width, height, tiles, connections, nil)
+}
+
+func checkBoardLayoutWithPairs(t *testing.T, token string, width, height int, tiles, connections, pairs []map[string]any) map[string]any {
+	t.Helper()
 	if tiles == nil {
 		tiles = []map[string]any{}
 	}
 	if connections == nil {
 		connections = []map[string]any{}
 	}
+	if pairs == nil {
+		pairs = []map[string]any{}
+	}
 	return client.Data(t, token, checkBoardLayoutQuery,
-		map[string]any{"input": map[string]any{"width": width, "height": height, "tiles": tiles, "connections": connections}}, "checkBoardLayout")
+		map[string]any{"input": map[string]any{"width": width, "height": height, "tiles": tiles, "connections": connections, "pairs": pairs}}, "checkBoardLayout")
 }
 
 // 公開するときと同じ理由・順を、保存せずに返す。何も保存しない（ボードの revision が進まない）
@@ -631,4 +659,116 @@ func TestCheckBoardLayout_ReturnsForbiddenErrorWhenNotOperator(t *testing.T) {
 	forbidden := checkBoardLayout(t, notOperator, 1, 1, nil, nil)
 
 	require.Equal(t, "ForbiddenError", forbidden["__typename"])
+}
+
+func boardSpecialTile(x, y int, field string) map[string]any {
+	return map[string]any{field: map[string]any{"x": x, "y": y}}
+}
+
+// 転送円・橋・施設 4 つを置き、離れた転送円どうし・橋どうしを対にして保存する。読むと、種類は __typename、対は a → b（a が小さい側）の順で戻り、数も数えられる
+func TestChangeBoardLayout_ShowsSpecialTilesAndPairs(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+
+	changed := changeBoardLayoutWithPairs(t, token, board, 4, 2,
+		[]map[string]any{
+			boardSpecialTile(3, 1, "warp"), boardSpecialTile(0, 0, "warp"), boardSpecialTile(1, 0, "bridge"), boardSpecialTile(2, 1, "bridge"),
+			boardSpecialTile(0, 1, "sanctuary"), boardSpecialTile(1, 1, "shrine"), boardSpecialTile(2, 0, "prophecyShop"), boardSpecialTile(3, 0, "cardShop"),
+		}, nil,
+		[]map[string]any{boardPair(3, 1, 0, 0), boardPair(1, 0, 2, 1)})
+
+	require.Equal(t, "ChangeBoardLayoutSuccess", changed["__typename"])
+	detail := waitBoard(t, token, changed["id"], 2)
+	require.Equal(t, []any{
+		map[string]any{"__typename": "WarpTile", "x": float64(0), "y": float64(0)},
+		map[string]any{"__typename": "BridgeTile", "x": float64(1), "y": float64(0)},
+		map[string]any{"__typename": "ProphecyShopTile", "x": float64(2), "y": float64(0)},
+		map[string]any{"__typename": "CardShopTile", "x": float64(3), "y": float64(0)},
+		map[string]any{"__typename": "SanctuaryTile", "x": float64(0), "y": float64(1)},
+		map[string]any{"__typename": "ShrineTile", "x": float64(1), "y": float64(1)},
+		map[string]any{"__typename": "BridgeTile", "x": float64(2), "y": float64(1)},
+		map[string]any{"__typename": "WarpTile", "x": float64(3), "y": float64(1)},
+	}, detail["tiles"])
+	require.Equal(t, []any{
+		map[string]any{"a": position(0, 0), "b": position(3, 1)},
+		map[string]any{"a": position(1, 0), "b": position(2, 1)},
+	}, detail["pairs"])
+	require.Equal(t, map[string]any{
+		"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0),
+		"warp": float64(2), "bridge": float64(2), "sanctuary": float64(1), "shrine": float64(1), "prophecyShop": float64(1), "cardShop": float64(1),
+	}, detail["tileCounts"])
+
+	cleared := changeBoardLayout(t, token, ref(changed), 4, 2, []map[string]any{boardSpecialTile(0, 0, "warp"), boardSpecialTile(3, 1, "warp")}, nil)
+
+	require.EqualValues(t, 3, cleared["revision"])
+	require.Empty(t, waitBoard(t, token, cleared["id"], 3)["pairs"])
+}
+
+func TestChangeBoardLayout_ReturnsFieldErrorPerPairViolation(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	tiles := []map[string]any{
+		boardSpecialTile(0, 0, "warp"), boardSpecialTile(1, 0, "warp"), boardSpecialTile(2, 0, "warp"), boardSpecialTile(0, 1, "bridge"),
+		boardSpecialTile(1, 1, "shrine"), boardSpecialTile(2, 1, "bridge"),
+	}
+	pairs := []map[string]any{
+		boardPair(0, 0, 1, 0),
+		boardPair(2, 0, 0, 0),
+		boardPair(0, 0, 0, 1),
+		boardPair(2, 0, 2, 0),
+		boardPair(0, 1, 1, 1),
+		boardPair(0, 1, 2, 1),
+		boardPair(1, 0, 0, 0),
+		boardPair(2, 1, 0, 1),
+		boardPair(1, 0, 5, 5),
+	}
+
+	invalid := changeBoardLayoutWithPairs(t, token, board, 3, 2, tiles, nil, pairs)
+	checked := checkBoardLayoutWithPairs(t, token, 3, 2, tiles, nil, pairs)
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldDuplicated", "field": "pairs.1.b"},
+		map[string]any{"__typename": "FieldPairKindMismatch", "field": "pairs.2"},
+		map[string]any{"__typename": "FieldPairedWithSelf", "field": "pairs.3"},
+		map[string]any{"__typename": "FieldNotPairable", "field": "pairs.4.b"},
+		map[string]any{"__typename": "FieldDuplicated", "field": "pairs.6"},
+		map[string]any{"__typename": "FieldDuplicated", "field": "pairs.7"},
+		map[string]any{"__typename": "FieldNotFound", "field": "pairs.8.b"},
+	}}, invalid)
+	require.Equal(t, invalid, checked)
+}
+
+// 相手のいない転送円・橋は準備中として保存でき、読むと・判定すると・公開を押すと、同じ理由（相手のいない転送円・橋の座標）が出る
+func TestBoard_ShowsUnpairedTilesAsPublishProblemAndPublishesOncePaired(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	tiles := []map[string]any{
+		boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT"), boardSpecialTile(2, 0, "warp"), boardSpecialTile(0, 1, "bridge"), boardSpecialTile(2, 1, "warp"), boardSpecialTile(1, 1, "cardShop"),
+	}
+	connections := []map[string]any{boardConnection(0, 0, 1, 0), boardConnection(1, 0, 2, 0), boardConnection(0, 0, 0, 1), boardConnection(0, 1, 1, 1), boardConnection(1, 1, 2, 1)}
+
+	unpaired := changeBoardLayoutWithPairs(t, token, board, 3, 2, tiles, connections, []map[string]any{boardPair(2, 0, 2, 1)})
+	require.Equal(t, "ChangeBoardLayoutSuccess", unpaired["__typename"])
+	detail := waitBoard(t, token, unpaired["id"], 2)
+	checked := checkBoardLayoutWithPairs(t, token, 3, 2, tiles, connections, []map[string]any{boardPair(2, 0, 2, 1)})
+	published := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(unpaired, nil))
+
+	require.Equal(t, []any{problemUnpaired(position(0, 1))}, detail["publishProblems"])
+	require.Equal(t, map[string]any{"__typename": "CheckBoardLayoutSuccess", "publishProblems": []any{problemUnpaired(position(0, 1))}}, checked)
+	require.Equal(t, map[string]any{
+		"__typename": "BoardNotPublishableError", "message": "board is not publishable", "problems": []any{problemUnpaired(position(0, 1))},
+	}, published)
+
+	// カード屋を橋に替えて対にすると、公開できる
+	pairedTiles := []map[string]any{
+		boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT"), boardSpecialTile(2, 0, "warp"), boardSpecialTile(0, 1, "bridge"), boardSpecialTile(2, 1, "warp"), boardSpecialTile(1, 1, "bridge"),
+	}
+	paired := changeBoardLayoutWithPairs(t, token, ref(unpaired), 3, 2, pairedTiles, connections, []map[string]any{boardPair(2, 0, 2, 1), boardPair(0, 1, 1, 1)})
+	require.Equal(t, "ChangeBoardLayoutSuccess", paired["__typename"])
+	require.Empty(t, waitBoard(t, token, paired["id"], 3)["publishProblems"])
+	publishedOK := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(paired, nil))
+	require.Equal(t, "PublishBoardSuccess", publishedOK["__typename"])
 }

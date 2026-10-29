@@ -1,4 +1,4 @@
-# ボード（四角形の格子のマスと、マスどうしのつながり）。studio が決めて make publish-master で写したもののうち、公開中のものだけを読む
+# ボード（四角形の格子のマスと、マスどうしのつながり・転送円と橋の対）。studio が決めて make publish-master で写したもののうち、公開中のものだけを読む
 # （準備中・使用不可は一覧にも詳細にも出さない）。状態・更新の番号・日時は game で使わないので持たない
 
 "ボード（公開中のもの）"
@@ -19,6 +19,8 @@ type Board {
   tiles: [BoardTile!]!
   "マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）"
   connections: [BoardConnection!]!
+  "転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。公開中のボードのすべての転送円・橋に対の相手がいる"
+  pairs: [BoardTilePair!]!
 }
 
 """
@@ -43,6 +45,18 @@ type BoardTileCounts {
   neutral: Int!
   "複属性の土地の数"
   multi: Int!
+  "転送円の数"
+  warp: Int!
+  "橋の数"
+  bridge: Int!
+  "聖堂の数"
+  sanctuary: Int!
+  "ほこらの数"
+  shrine: Int!
+  "占い館の数"
+  prophecyShop: Int!
+  "カード屋の数"
+  cardShop: Int!
 }
 
 """
@@ -88,7 +102,7 @@ type BoardPosition {
 }
 
 # 種類によって null になる項目を作らないため、種類ごとの型に分ける（studio と同じ形）
-"置いてあるマス（LandTile・BaseTile・CheckpointTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
+"置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
 interface BoardTile {
   "列"
   x: Int!
@@ -122,8 +136,65 @@ type CheckpointTile implements BoardTile {
   y: Int!
 }
 
+# 動きは対戦を作るときに作る（studio と同じ形。施設の名前は仮）
+"転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない"
+type WarpTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない"
+type BridgeTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない"
+type SanctuaryTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない"
+type ShrineTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない"
+type ProphecyShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない"
+type CardShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
 "マスどうしのつながり（向きは無い）"
 type BoardConnection {
+  "片方の端（座標が小さい側。行 → 列の順に比べる）"
+  a: BoardPosition!
+  "もう片方の端"
+  b: BoardPosition!
+}
+
+"転送円どうし・橋どうしの対（向きは無い。離れていてよい）"
+type BoardTilePair {
   "片方の端（座標が小さい側。行 → 列の順に比べる）"
   a: BoardPosition!
   "もう片方の端"

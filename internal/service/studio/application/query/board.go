@@ -27,6 +27,7 @@ type Board struct {
 	// 置いてあるマスだけ（置いていない座標は含まない）
 	Tiles        []readmodel.BoardTile
 	Connections  []readmodel.BoardConnection
+	Pairs        []readmodel.BoardPair
 	DefaultRules readmodel.BoardDefaultRules
 	TileCounts   readmodel.BoardTileCounts
 	// 公開できない理由（空なら公開できる）。投影が計算して持つ値をそのまま返す

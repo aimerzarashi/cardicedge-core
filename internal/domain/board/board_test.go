@@ -381,6 +381,69 @@ func TestDecide_ChangeLayoutDisconnectsConnectionsOfRemovedTile(t *testing.T) {
 	require.Empty(t, event.Connected)
 }
 
+func TestDecide_ChangeLayoutEmitsPairDifferenceInOrder(t *testing.T) {
+	f := newFixture(t)
+	size := boardtest.Size(t, 4, 2)
+	tiles := []board.Tile{
+		boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 3, 0, "warp", ""), boardtest.Tile(t, 0, 1, "warp", ""), boardtest.Tile(t, 3, 1, "warp", ""),
+		boardtest.Tile(t, 1, 1, "bridge", ""), boardtest.Tile(t, 2, 1, "bridge", ""),
+	}
+	before := boardtest.Layout(t, size, tiles, nil, boardtest.Pair(0, 0, 3, 0), boardtest.Pair(1, 1, 2, 1))
+	after := boardtest.Layout(t, size, tiles, nil, boardtest.Pair(0, 0, 0, 1), boardtest.Pair(3, 1, 3, 0), boardtest.Pair(1, 1, 2, 1))
+
+	_, events := apply(t, f.changeLayout(t, f.register(t), before), f.changeLayoutCommand(after), changedAt)
+
+	require.Equal(t, []board.Event{&board.LayoutChangedEvent{
+		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Paired:    []board.Pair{boardtest.Pair(0, 0, 0, 1), boardtest.Pair(3, 0, 3, 1)},
+		Unpaired:  []board.Pair{boardtest.Pair(0, 0, 3, 0)},
+		ChangedBy: f.operatorID,
+	}}, events)
+}
+
+func TestDecide_ChangeLayoutEmitsEventWhenOnlyPairsChange(t *testing.T) {
+	f := newFixture(t)
+	size := boardtest.Size(t, 2, 1)
+	tiles := []board.Tile{boardtest.Tile(t, 0, 0, "bridge", ""), boardtest.Tile(t, 1, 0, "bridge", "")}
+	before := boardtest.Layout(t, size, tiles, nil)
+	after := boardtest.Layout(t, size, tiles, nil, boardtest.Pair(0, 0, 1, 0))
+
+	state, events := apply(t, f.changeLayout(t, f.register(t), before), f.changeLayoutCommand(after), changedAt)
+
+	require.Len(t, events, 1)
+	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 1, 0)}, events[0].(*board.LayoutChangedEvent).Paired)
+	require.Equal(t, after, state.(board.Board).Layout)
+}
+
+// マスを消すと、そのマスの対も切れる（前と後の集合の差なので Unpaired に入る）。種類を変えて対にできなくなった場合も同じ
+func TestDecide_ChangeLayoutUnpairsPairsOfRemovedOrChangedTile(t *testing.T) {
+	f := newFixture(t)
+	size := boardtest.Size(t, 3, 1)
+	tiles := []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "warp", ""), boardtest.Tile(t, 2, 0, "bridge", "")}
+	withPairs := f.changeLayout(t, f.register(t), boardtest.Layout(t, size, tiles, nil, boardtest.Pair(0, 0, 1, 0)))
+	removed := boardtest.Layout(t, size, tiles[:1], nil)
+	changed := boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "sanctuary", ""), tiles[2]}, nil)
+
+	_, removedEvents := apply(t, withPairs, f.changeLayoutCommand(removed), changedAt)
+	_, changedEvents := apply(t, withPairs, f.changeLayoutCommand(changed), changedAt)
+
+	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 1, 0)}, removedEvents[0].(*board.LayoutChangedEvent).Unpaired)
+	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 1, 0)}, changedEvents[0].(*board.LayoutChangedEvent).Unpaired)
+}
+
+func TestEvolve_RejectsPairThatBreaksLayoutRules(t *testing.T) {
+	f := newFixture(t)
+	event := &board.LayoutChangedEvent{
+		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Paired:    []board.Pair{boardtest.Pair(0, 0, 1, 0)},
+		ChangedBy: f.operatorID,
+	}
+
+	_, err := board.Evolve(f.publishableDraft(t), event)
+
+	require.ErrorIs(t, err, board.ErrInvalidLayout)
+}
+
 func TestEvolve_DoesNotChangeTheGivenState(t *testing.T) {
 	f := newFixture(t)
 	before := f.publishableDraft(t)
@@ -609,6 +672,17 @@ func TestNewStatus_RejectsUnknownValue(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrStatusUnknown)
 }
 
+func TestNewTileKind_AcceptsSpecialTileKinds(t *testing.T) {
+	for _, value := range []string{"warp", "bridge", "sanctuary", "shrine", "prophecy_shop", "card_shop"} {
+		t.Run(value, func(t *testing.T) {
+			kind, err := board.NewTileKind(value)
+
+			require.NoError(t, err)
+			require.Equal(t, value, kind.String())
+		})
+	}
+}
+
 func TestNewTileKind_RejectsUnknownValue(t *testing.T) {
 	for _, value := range []string{"land", "base", "checkpoint"} {
 		kind, err := board.NewTileKind(value)
@@ -731,9 +805,76 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 		name        string
 		tiles       []board.Tile
 		connections []board.Connection
+		pairs       []board.Pair
 		want        []board.LayoutViolation
 	}{
 		{name: "valid", tiles: []board.Tile{land(0, 0), land(2, 1)}},
+		{
+			name:  "special_tiles_with_attribute",
+			tiles: []board.Tile{{Position: boardtest.Position(0, 0), Kind: boardtest.TileKind(t, "warp"), Attribute: boardtest.Attribute(t, "fire")}, {Position: boardtest.Position(1, 0), Kind: boardtest.TileKind(t, "card_shop"), Attribute: boardtest.Attribute(t, "wind")}},
+			want: []board.LayoutViolation{
+				{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed},
+				{Subject: board.SubjectTile, Index: 1, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed},
+			},
+		},
+		{
+			name: "pairs_of_distant_warps_and_bridges",
+			tiles: []board.Tile{
+				boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 1, "warp", ""), boardtest.Tile(t, 1, 0, "bridge", ""), boardtest.Tile(t, 0, 1, "bridge", ""),
+			},
+			pairs: []board.Pair{boardtest.Pair(2, 1, 0, 0), boardtest.Pair(1, 0, 0, 1)},
+		},
+		{
+			name:  "pair_end_a_without_tile",
+			tiles: []board.Tile{boardtest.Tile(t, 1, 0, "warp", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 1, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 0, Part: board.PartA, Reason: board.ReasonTileNotFound}},
+		},
+		{
+			name:  "pair_end_b_without_tile",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "bridge", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 1, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 0, Part: board.PartB, Reason: board.ReasonTileNotFound}},
+		},
+		{
+			name:  "pair_end_is_land",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), land(1, 0)},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 1, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 0, Part: board.PartB, Reason: board.ReasonNotPairableTile}},
+		},
+		{
+			name:  "pair_ends_are_facilities",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "sanctuary", ""), boardtest.Tile(t, 1, 0, "shrine", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 1, 0)},
+			want: []board.LayoutViolation{
+				{Subject: board.SubjectPair, Index: 0, Part: board.PartA, Reason: board.ReasonNotPairableTile},
+				{Subject: board.SubjectPair, Index: 0, Part: board.PartB, Reason: board.ReasonNotPairableTile},
+			},
+		},
+		{
+			name:  "warp_paired_with_bridge",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "bridge", "")},
+			pairs: []board.Pair{boardtest.Pair(1, 0, 0, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 0, Part: board.PartWhole, Reason: board.ReasonMixedPairKinds}},
+		},
+		{
+			name:  "tile_paired_with_itself",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "warp", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 0, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 0, Part: board.PartWhole, Reason: board.ReasonPairedWithSelf}},
+		},
+		{
+			name:  "tile_in_two_pairs",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 1, 0), boardtest.Pair(2, 0, 0, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 1, Part: board.PartA, Reason: board.ReasonTileAlreadyPaired}},
+		},
+		{
+			name:  "duplicated_pair_in_reverse_order",
+			tiles: []board.Tile{boardtest.Tile(t, 0, 0, "bridge", ""), boardtest.Tile(t, 2, 1, "bridge", "")},
+			pairs: []board.Pair{boardtest.Pair(0, 0, 2, 1), boardtest.Pair(2, 1, 0, 0)},
+			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 1, Part: board.PartWhole, Reason: board.ReasonDuplicatedPair}},
+		},
 		{
 			name:  "land_without_attribute",
 			tiles: []board.Tile{land(0, 0), {Position: boardtest.Position(1, 0), Kind: boardtest.TileKind(t, "land")}},
@@ -830,7 +971,7 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, board.ValidateLayout(size, tt.tiles, tt.connections))
+			require.Equal(t, tt.want, board.ValidateLayout(size, tt.tiles, tt.connections, tt.pairs))
 		})
 	}
 }
@@ -838,7 +979,7 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 func TestNewLayout_RejectsViolationsWithTheirList(t *testing.T) {
 	size := boardtest.Size(t, 2, 2)
 
-	_, err := board.NewLayout(size, []board.Tile{boardtest.Tile(t, 2, 0, "land", "fire")}, nil)
+	_, err := board.NewLayout(size, []board.Tile{boardtest.Tile(t, 2, 0, "land", "fire")}, nil, nil)
 
 	require.ErrorIs(t, err, board.ErrInvalidLayout)
 	var invalid *board.InvalidLayoutError
@@ -857,6 +998,23 @@ func TestLayout_ListsTilesByRowThenColumnAndConnectionsFromA(t *testing.T) {
 	require.Equal(t, []board.Connection{
 		boardtest.Connection(1, 0, 2, 0), boardtest.Connection(1, 0, 1, 1), boardtest.Connection(0, 1, 1, 1),
 	}, layout.Connections())
+}
+
+func TestLayout_ListsPairsFromA(t *testing.T) {
+	layout := boardtest.Layout(t, boardtest.Size(t, 3, 3),
+		[]board.Tile{
+			boardtest.Tile(t, 2, 2, "warp", ""), boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "bridge", ""), boardtest.Tile(t, 0, 2, "bridge", ""),
+		}, nil, boardtest.Pair(0, 2, 1, 0), boardtest.Pair(2, 2, 0, 0))
+
+	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 2, 2), boardtest.Pair(1, 0, 0, 2)}, layout.Pairs())
+}
+
+func TestNewPair_PutsSmallerPositionFirst(t *testing.T) {
+	pair := boardtest.Pair(2, 1, 0, 0)
+
+	require.Equal(t, boardtest.Position(0, 0), pair.A())
+	require.Equal(t, boardtest.Position(2, 1), pair.B())
+	require.Equal(t, pair, boardtest.Pair(0, 0, 2, 1))
 }
 
 func TestNewConnection_PutsSmallerPositionFirst(t *testing.T) {
@@ -887,6 +1045,32 @@ func TestReadiness_TracesConnectionsInEitherDirection(t *testing.T) {
 	require.True(t, readiness.Publishable())
 }
 
+func TestReadiness_CountsPairsAsRoadsInEitherDirection(t *testing.T) {
+	size := boardtest.Size(t, 5, 1)
+	// 拠点 → 転送円(1) と、離れた転送円(3) → 橋(4)... (3)(4) は対でだけ拠点側とつながる
+	layout := boardtest.Layout(t, size,
+		[]board.Tile{
+			boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "warp", ""), boardtest.Tile(t, 2, 0, "checkpoint", ""), boardtest.Tile(t, 3, 0, "warp", ""),
+		},
+		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}, boardtest.Pair(3, 0, 1, 0))
+
+	readiness := layout.Readiness()
+
+	// (2,0) は隣の (1,0)・(3,0) とつながっていないので、対で届く (3,0) だけが行ける
+	require.Equal(t, []board.Position{boardtest.Position(2, 0)}, readiness.UnreachableTiles)
+	require.Empty(t, readiness.UnpairedTiles)
+}
+
+func TestReadiness_ListsUnpairedWarpsAndBridgesEvenWithoutExactlyOneBase(t *testing.T) {
+	layout := boardtest.Layout(t, boardtest.Size(t, 4, 4),
+		[]board.Tile{
+			boardtest.Tile(t, 3, 1, "warp", ""), boardtest.Tile(t, 0, 2, "bridge", ""), boardtest.Tile(t, 1, 2, "bridge", ""), boardtest.Tile(t, 2, 3, "sanctuary", ""),
+			boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 1, 0, "warp", ""),
+		}, nil, boardtest.Pair(0, 2, 1, 2), boardtest.Pair(0, 0, 1, 0))
+
+	require.Equal(t, []board.Position{boardtest.Position(3, 1)}, layout.Readiness().UnpairedTiles)
+}
+
 // 公開中の名前だけでなく、状態によらず、すべてのボードで比べる。比べ方はカード名と同じ
 func TestNameKey_TreatsWidthAndCaseAsSame(t *testing.T) {
 	require.Equal(t,
@@ -907,11 +1091,13 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&board.LayoutChangedEvent{
 			EventMeta:    meta,
 			Size:         &size,
-			PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 0, 1, "base", "")},
+			PlacedTiles:  []board.Tile{boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 0, 1, "base", ""), boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 3, 0, "warp", "")},
 			RemovedTiles: []board.Position{boardtest.Position(2, 1)},
 			ChangedTiles: []board.Tile{boardtest.Tile(t, 3, 2, "checkpoint", ""), boardtest.Tile(t, 3, 1, "land", "multi")},
 			Connected:    []board.Connection{boardtest.Connection(0, 1, 1, 1)},
 			Disconnected: []board.Connection{boardtest.Connection(1, 1, 2, 1)},
+			Paired:       []board.Pair{boardtest.Pair(0, 0, 3, 0)},
+			Unpaired:     []board.Pair{boardtest.Pair(1, 2, 2, 2)},
 			ChangedBy:    f.operatorID,
 		},
 		&board.DefaultRulesChangedEvent{EventMeta: meta, DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50), ChangedBy: f.operatorID},
@@ -954,6 +1140,20 @@ func TestEvent_LayoutChangedOmitsEmptyLists(t *testing.T) {
 	require.Equal(t, event, restored)
 }
 
+// 対を足す前に保存したイベント（paired・unpaired が無い payload）を、対の増減が無いものとして読める
+func TestEvent_LayoutChangedReadsPayloadWithoutPairs(t *testing.T) {
+	f := newFixture(t)
+	meta := board.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt}
+	payload := []byte(`{"connected":[{"a":{"x":0,"y":1},"b":{"x":1,"y":1}}],"changed_by":10}`)
+
+	restored, err := board.NewEventType(domain.NewEventName("LayoutChangedEvent")).Unmarshal(meta, 1, payload)
+
+	require.NoError(t, err)
+	require.Equal(t, &board.LayoutChangedEvent{
+		EventMeta: meta, Connected: []board.Connection{boardtest.Connection(0, 1, 1, 1)}, ChangedBy: f.operatorID,
+	}, restored)
+}
+
 func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 	_, err := board.NewEventType(domain.NewEventName("UnknownEvent")).Unmarshal(board.EventMeta{}, 1, []byte(`{}`))
 	require.Error(t, err)
@@ -987,6 +1187,38 @@ func TestReadiness_ListsProblemsInFixedOrderWithPositions(t *testing.T) {
 			want: []board.PublishProblem{
 				{Kind: board.PublishProblemUnreachableTiles, Positions: []board.Position{boardtest.Position(3, 3)}},
 			},
+		},
+		{
+			name: "unpaired_after_unreachable",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{
+					boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 3, 3, "land", "fire"),
+					boardtest.Tile(t, 1, 1, "warp", ""), boardtest.Tile(t, 0, 1, "bridge", ""),
+				},
+				[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 1, 1), boardtest.Connection(0, 0, 0, 1)}),
+			want: []board.PublishProblem{
+				{Kind: board.PublishProblemUnreachableTiles, Positions: []board.Position{boardtest.Position(3, 3)}},
+				{Kind: board.PublishProblemUnpairedTiles, Positions: []board.Position{boardtest.Position(0, 1), boardtest.Position(1, 1)}},
+			},
+		},
+		{
+			name: "unpaired_without_base_comes_last",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{boardtest.Tile(t, 2, 2, "bridge", "")}, nil),
+			want: []board.PublishProblem{
+				{Kind: board.PublishProblemBaseCount},
+				{Kind: board.PublishProblemNoCheckpoint},
+				{Kind: board.PublishProblemUnpairedTiles, Positions: []board.Position{boardtest.Position(2, 2)}},
+			},
+		},
+		{
+			name: "pairs_and_facilities_publishable",
+			layout: boardtest.Layout(t, size,
+				[]board.Tile{
+					boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 0, "warp", ""), boardtest.Tile(t, 3, 3, "warp", ""),
+					boardtest.Tile(t, 3, 0, "shrine", ""),
+				},
+				[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0), boardtest.Connection(2, 0, 3, 0)}, boardtest.Pair(2, 0, 3, 3)),
 		},
 		{
 			name: "publishable",

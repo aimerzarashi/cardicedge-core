@@ -73,6 +73,7 @@ const (
 	BoardPublishProblemBaseCount        BoardPublishProblemKind = "base_count"
 	BoardPublishProblemNoCheckpoint     BoardPublishProblemKind = "no_checkpoint"
 	BoardPublishProblemUnreachableTiles BoardPublishProblemKind = "unreachable_tiles"
+	BoardPublishProblemUnpairedTiles    BoardPublishProblemKind = "unpaired_tiles"
 )
 
 // 公開できない理由 1 つ。Positions は関わるマスの座標（無ければ空）

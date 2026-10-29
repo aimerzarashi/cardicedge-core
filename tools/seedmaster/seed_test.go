@@ -76,6 +76,7 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			require.Equal(t, attributes[masterBoardPosition{X: tile.X, Y: tile.Y}], string(tile.Attribute))
 		}
 		require.Len(t, board.Connections, len(b.Connections))
+		require.Len(t, board.Pairs, len(b.Pairs))
 		require.Equal(t, readmodel.BoardDefaultRules{
 			TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
 			LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,

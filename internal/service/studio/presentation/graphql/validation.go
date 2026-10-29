@@ -37,6 +37,12 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldDuplicated{Field: e.Field}
 		case *input.NotAdjacent:
 			fieldErrors[i] = &model.FieldNotAdjacent{Field: e.Field}
+		case *input.NotPairable:
+			fieldErrors[i] = &model.FieldNotPairable{Field: e.Field}
+		case *input.PairKindMismatch:
+			fieldErrors[i] = &model.FieldPairKindMismatch{Field: e.Field}
+		case *input.PairedWithSelf:
+			fieldErrors[i] = &model.FieldPairedWithSelf{Field: e.Field}
 		case *input.TotalTooLarge:
 			fieldErrors[i] = &model.FieldTotalTooLarge{Field: e.Field, Max: e.Max}
 		case *input.TotalMismatch:

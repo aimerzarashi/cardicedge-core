@@ -104,9 +104,13 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	if metadata.PublishProblems == nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: publish_problems is missing", id)
 	}
+	// 対を持たない行（対を足す前に投影した行）を、対の無いボードとして返さない。投影を作り直せば入る
+	if metadata.Pairs == nil {
+		return query.Board{}, fmt.Errorf("boards.metadata of %s: pairs is missing", id)
+	}
 	return query.Board{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Width: metadata.Width, Height: metadata.Height,
-		Tiles: metadata.Tiles, Connections: metadata.Connections, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts, PublishProblems: metadata.PublishProblems,
+		Tiles: metadata.Tiles, Connections: metadata.Connections, Pairs: metadata.Pairs, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts, PublishProblems: metadata.PublishProblems,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 	}, nil
 }

@@ -84,12 +84,26 @@ const (
 	TileKindLand       TileKind = "land"
 	TileKindBase       TileKind = "base"
 	TileKindCheckpoint TileKind = "checkpoint"
+	// 転送円と橋は対の相手を持つ（Pair）。施設 4 つは x・y だけ。どれも属性は持たず、動きは対戦を作るときに作る。
+	// 施設の名前は仮（世界観のデザインで見直す）
+	TileKindWarp         TileKind = "warp"
+	TileKindBridge       TileKind = "bridge"
+	TileKindSanctuary    TileKind = "sanctuary"
+	TileKindShrine       TileKind = "shrine"
+	TileKindProphecyShop TileKind = "prophecy_shop"
+	TileKindCardShop     TileKind = "card_shop"
 )
+
+// 対の相手を持つ種類（転送円・橋）
+func (k TileKind) pairable() bool {
+	return k == TileKindWarp || k == TileKindBridge
+}
 
 func NewTileKind(value string) (TileKind, error) {
 	kind := TileKind(value)
 	switch kind {
-	case TileKindLand, TileKindBase, TileKindCheckpoint:
+	case TileKindLand, TileKindBase, TileKindCheckpoint,
+		TileKindWarp, TileKindBridge, TileKindSanctuary, TileKindShrine, TileKindProphecyShop, TileKindCardShop:
 		return kind, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrTileKindUnknown, value)
@@ -198,12 +212,52 @@ func (c *Connection) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// 転送円どうし・橋どうしの対。向きが無いので Connection と同じく並べ方の小さい方を A にそろえる。
+// Connection と型を分けるのは、隣どうしの道（歩数を使う）と、離れていてよい対（転送円・橋）で決まりも意味も違い、取り違えないため
+type Pair struct {
+	a Position
+	b Position
+}
+
+func NewPair(a, b Position) Pair {
+	if a.Compare(b) > 0 {
+		a, b = b, a
+	}
+	return Pair{a: a, b: b}
+}
+
+func (p Pair) A() Position {
+	return p.a
+}
+
+func (p Pair) B() Position {
+	return p.b
+}
+
+func (p Pair) Compare(other Pair) int {
+	return cmp.Or(p.a.Compare(other.a), p.b.Compare(other.b))
+}
+
+func (p Pair) MarshalJSON() ([]byte, error) {
+	return json.Marshal(connectionJSON{A: p.a, B: p.b})
+}
+
+func (p *Pair) UnmarshalJSON(data []byte) error {
+	var v connectionJSON
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*p = NewPair(v.A, v.B)
+	return nil
+}
+
 // どの要素の、どの部分か
 type Subject string
 
 const (
 	SubjectTile       Subject = "tile"
 	SubjectConnection Subject = "connection"
+	SubjectPair       Subject = "pair"
 )
 
 // 違反した部分。マスの座標は x・y、つながりの端は a・b。要素の全体なら空
@@ -226,7 +280,7 @@ const (
 	ReasonOutOfRange Reason = "out_of_range"
 	// 同じ座標のマスの 2 回目
 	ReasonDuplicatedTile Reason = "duplicated_tile"
-	// つながりの端にマスが無い
+	// つながり・対の端にマスが無い
 	ReasonTileNotFound Reason = "tile_not_found"
 	// つながりが隣どうしでない（a と b が同じ座標を含む）
 	ReasonNotAdjacent Reason = "not_adjacent"
@@ -236,9 +290,19 @@ const (
 	ReasonAttributeRequired Reason = "attribute_required"
 	// 拠点・チェックポイントに属性がある
 	ReasonAttributeNotAllowed Reason = "attribute_not_allowed"
+	// 対の端が転送円でも橋でもない
+	ReasonNotPairableTile Reason = "not_pairable_tile"
+	// 対の両端が転送円と橋（どちらの対かは端のマスの種類で決まるので、組めるのは同じ種類どうしだけ）
+	ReasonMixedPairKinds Reason = "mixed_pair_kinds"
+	// 対の両端が同じ座標
+	ReasonPairedWithSelf Reason = "paired_with_self"
+	// すでに別の対に入っているマス（2 つ目の対の端）
+	ReasonTileAlreadyPaired Reason = "tile_already_paired"
+	// 同じ対（a,b の順を入れ替えたものを含む）の 2 回目
+	ReasonDuplicatedPair Reason = "duplicated_pair"
 )
 
-// Index は渡された tiles / connections の何番目か
+// Index は渡された tiles / connections / pairs の何番目か
 type LayoutViolation struct {
 	Subject Subject
 	Index   int
@@ -250,9 +314,9 @@ type LayoutViolation struct {
 // 最初の違反で止めないのは、画面が直すべき項目を一度に示せるようにするため。
 // 同じ座標のマスは、格子の外のものでは調べない（範囲の違反と二重に出さないため）。同じつながりは、隣どうしのものだけ調べる
 // （隣どうしでないものは、それだけで違反になっているため）
-func ValidateLayout(size Size, tiles []Tile, connections []Connection) []LayoutViolation {
+func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []Pair) []LayoutViolation {
 	var violations []LayoutViolation
-	placed := make(map[Position]struct{}, len(tiles))
+	placed := make(map[Position]TileKind, len(tiles))
 	for i, tile := range tiles {
 		pos := tile.Position
 		inRange := true
@@ -278,7 +342,7 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection) []LayoutV
 			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartWhole, Reason: ReasonDuplicatedTile})
 			continue
 		}
-		placed[pos] = struct{}{}
+		placed[pos] = tile.Kind
 	}
 
 	seen := make(map[Connection]struct{}, len(connections))
@@ -299,26 +363,72 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection) []LayoutV
 		}
 		seen[connection] = struct{}{}
 	}
+
+	// 端の誤りがある対は、別の対との重なりの検査に使わない（誤りを重ねて出さないため）。離れていてよいので隣どうしは調べない
+	seenPairs := make(map[Pair]struct{}, len(pairs))
+	paired := make(map[Position]struct{}, len(pairs)*2)
+	for i, pair := range pairs {
+		before := len(violations)
+		kindA, okA := placed[pair.a]
+		kindB, okB := placed[pair.b]
+		if !okA {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartA, Reason: ReasonTileNotFound})
+		}
+		if !okB {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartB, Reason: ReasonTileNotFound})
+		}
+		if pair.a == pair.b {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartWhole, Reason: ReasonPairedWithSelf})
+			continue
+		}
+		if okA && !kindA.pairable() {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartA, Reason: ReasonNotPairableTile})
+		}
+		if okB && !kindB.pairable() {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartB, Reason: ReasonNotPairableTile})
+		}
+		if okA && okB && kindA.pairable() && kindB.pairable() && kindA != kindB {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartWhole, Reason: ReasonMixedPairKinds})
+		}
+		if len(violations) > before {
+			continue
+		}
+		if _, ok := seenPairs[pair]; ok {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartWhole, Reason: ReasonDuplicatedPair})
+			continue
+		}
+		seenPairs[pair] = struct{}{}
+		if _, ok := paired[pair.a]; ok {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartA, Reason: ReasonTileAlreadyPaired})
+		}
+		if _, ok := paired[pair.b]; ok {
+			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartB, Reason: ReasonTileAlreadyPaired})
+		}
+		paired[pair.a] = struct{}{}
+		paired[pair.b] = struct{}{}
+	}
 	return violations
 }
 
-// 大きさ・マス・つながりをまとめた値オブジェクト。保存の時点で ValidateLayout の決まりを必ず守る（準備中でも）。
+// 大きさ・マス・つながり・対をまとめた値オブジェクト。保存の時点で ValidateLayout の決まりを必ず守る（準備中でも）。
 // 作った後は変えない（中の map を外に出さず、読むときは並べて写す）
 type Layout struct {
 	size        Size
 	tiles       map[Position]Tile
 	connections map[Connection]struct{}
+	pairs       map[Pair]struct{}
 }
 
 // 違反があれば *InvalidLayoutError（errors.Is で ErrInvalidLayout）
-func NewLayout(size Size, tiles []Tile, connections []Connection) (Layout, error) {
-	if violations := ValidateLayout(size, tiles, connections); len(violations) > 0 {
+func NewLayout(size Size, tiles []Tile, connections []Connection, pairs []Pair) (Layout, error) {
+	if violations := ValidateLayout(size, tiles, connections, pairs); len(violations) > 0 {
 		return Layout{}, &InvalidLayoutError{Violations: violations}
 	}
 	layout := Layout{
 		size:        size,
 		tiles:       make(map[Position]Tile, len(tiles)),
 		connections: make(map[Connection]struct{}, len(connections)),
+		pairs:       make(map[Pair]struct{}, len(pairs)),
 	}
 	for _, tile := range tiles {
 		layout.tiles[tile.Position] = tile
@@ -326,12 +436,15 @@ func NewLayout(size Size, tiles []Tile, connections []Connection) (Layout, error
 	for _, connection := range connections {
 		layout.connections[connection] = struct{}{}
 	}
+	for _, pair := range pairs {
+		layout.pairs[pair] = struct{}{}
+	}
 	return layout, nil
 }
 
-// 登録の直後のレイアウト。マスもつながりも無い
+// 登録の直後のレイアウト。マスもつながりも対も無い
 func EmptyLayout(size Size) Layout {
-	return Layout{size: size, tiles: map[Position]Tile{}, connections: map[Connection]struct{}{}}
+	return Layout{size: size, tiles: map[Position]Tile{}, connections: map[Connection]struct{}{}, pairs: map[Pair]struct{}{}}
 }
 
 func (l Layout) Size() Size {
@@ -355,6 +468,13 @@ func (l Layout) Connections() []Connection {
 	return connections
 }
 
+// a → b の順
+func (l Layout) Pairs() []Pair {
+	pairs := slices.Collect(maps.Keys(l.pairs))
+	slices.SortFunc(pairs, Pair.Compare)
+	return pairs
+}
+
 func (l Layout) KindAt(pos Position) (TileKind, bool) {
 	tile, ok := l.tiles[pos]
 	return tile.Kind, ok
@@ -368,6 +488,8 @@ type Readiness struct {
 	// 拠点からつながりをたどって行けないマス（y → x の順）。拠点がちょうど 1 つのときだけ計算し、そうでなければ空
 	// （どこから行けるかが決まらないため）
 	UnreachableTiles []Position
+	// 対の相手のいない転送円・橋（y → x の順）。拠点の数によらず計算する
+	UnpairedTiles []Position
 }
 
 func (r Readiness) BaseCount() int {
@@ -384,6 +506,8 @@ const (
 	PublishProblemNoCheckpoint PublishProblemKind = "no_checkpoint"
 	// 拠点から行けないマスがある
 	PublishProblemUnreachableTiles PublishProblemKind = "unreachable_tiles"
+	// 対の相手のいない転送円・橋がある
+	PublishProblemUnpairedTiles PublishProblemKind = "unpaired_tiles"
 )
 
 // 公開できない理由 1 つ。Positions は理由に関わるマスの座標（関わるマスの無い理由では空）
@@ -392,8 +516,8 @@ type PublishProblem struct {
 	Positions []Position
 }
 
-// 公開できない理由の一覧。順は 拠点の数 → チェックポイント → 行けないマス で固定。空なら公開できる
-// （拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点から行ける。行き止まりは認める）
+// 公開できない理由の一覧。順は 拠点の数 → チェックポイント → 行けないマス → 相手のいない転送円・橋 で固定。空なら公開できる
+// （拠点がちょうど 1 つ、チェックポイントが 1 つ以上、すべてのマスに拠点から行ける、すべての転送円・橋に対の相手がいる。行き止まりは認める）
 func (r Readiness) Problems() []PublishProblem {
 	var problems []PublishProblem
 	if r.BaseCount() != 1 {
@@ -405,6 +529,9 @@ func (r Readiness) Problems() []PublishProblem {
 	if len(r.UnreachableTiles) > 0 {
 		problems = append(problems, PublishProblem{Kind: PublishProblemUnreachableTiles, Positions: r.UnreachableTiles})
 	}
+	if len(r.UnpairedTiles) > 0 {
+		problems = append(problems, PublishProblem{Kind: PublishProblemUnpairedTiles, Positions: r.UnpairedTiles})
+	}
 	return problems
 }
 
@@ -413,14 +540,19 @@ func (r Readiness) Publishable() bool {
 }
 
 func (l Layout) Readiness() Readiness {
-	return CheckReadiness(l.Tiles(), l.Connections())
+	return CheckReadiness(l.Tiles(), l.Connections(), l.Pairs())
 }
 
 // 公開の条件を調べる。Layout を作らず（大きさも決まりの検査もせず）置いてあるマスとつながりだけで調べるのは、
 // 保存済みのイベントから作った read model の投影が、書くときの決まりを読み直さずに同じ判定を使えるようにするため
-func CheckReadiness(tiles []Tile, connections []Connection) Readiness {
+func CheckReadiness(tiles []Tile, connections []Connection, pairs []Pair) Readiness {
 	var readiness Readiness
 	tilePositions := make(map[Position]struct{}, len(tiles))
+	pairedPositions := make(map[Position]struct{}, len(pairs)*2)
+	for _, pair := range pairs {
+		pairedPositions[pair.a] = struct{}{}
+		pairedPositions[pair.b] = struct{}{}
+	}
 	for _, tile := range tiles {
 		tilePositions[tile.Position] = struct{}{}
 		switch tile.Kind {
@@ -429,8 +561,12 @@ func CheckReadiness(tiles []Tile, connections []Connection) Readiness {
 		case TileKindCheckpoint:
 			readiness.CheckpointCount++
 		}
+		if _, ok := pairedPositions[tile.Position]; !ok && tile.Kind.pairable() {
+			readiness.UnpairedTiles = append(readiness.UnpairedTiles, tile.Position)
+		}
 	}
 	slices.SortFunc(readiness.BasePositions, Position.Compare)
+	slices.SortFunc(readiness.UnpairedTiles, Position.Compare)
 	if readiness.BaseCount() != 1 {
 		return readiness
 	}
@@ -440,6 +576,11 @@ func CheckReadiness(tiles []Tile, connections []Connection) Readiness {
 	for _, connection := range connections {
 		neighbors[connection.a] = append(neighbors[connection.a], connection.b)
 		neighbors[connection.b] = append(neighbors[connection.b], connection.a)
+	}
+	// 対の 2 マスも、隣どうしと同じに道として数える（転送円は止まれば、橋は通れば相手へ移るため、どちらも行き来がある）
+	for _, pair := range pairs {
+		neighbors[pair.a] = append(neighbors[pair.a], pair.b)
+		neighbors[pair.b] = append(neighbors[pair.b], pair.a)
 	}
 	reached := map[Position]struct{}{base: {}}
 	queue := []Position{base}

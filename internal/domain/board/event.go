@@ -57,7 +57,11 @@ type LayoutChangedEvent struct {
 	ChangedTiles []Tile       `json:"changed_tiles,omitempty"`
 	Connected    []Connection `json:"connected,omitempty"`
 	Disconnected []Connection `json:"disconnected,omitempty"`
-	ChangedBy    operator.ID  `json:"changed_by"`
+	// 対の増減。つながりと同じく座標の組を鍵にした差分で、マスを消して切れた対も Unpaired に入る。
+	// あとから足した項目なので、無い payload は空として読む（保存済みのイベントを書き換えない）
+	Paired    []Pair      `json:"paired,omitempty"`
+	Unpaired  []Pair      `json:"unpaired,omitempty"`
+	ChangedBy operator.ID `json:"changed_by"`
 }
 
 // 変えた後の全体を持つ。値が 4 つと小さいので、レイアウトのような差分にしない

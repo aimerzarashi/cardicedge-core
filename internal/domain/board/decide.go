@@ -105,7 +105,7 @@ func nextMeta(board Board, now time.Time) EventMeta {
 	return EventMeta{EntityID: board.ID, AggregateVersion: board.Version + 1, OccurredAt: now}
 }
 
-// 変わらなければ nil。マスの座標は map の順が決まらないため、Tiles・Connections の並び（y → x、a → b）で比べて、
+// 変わらなければ nil。マスの座標は map の順が決まらないため、Tiles・Connections・Pairs の並び（y → x、a → b）で比べて、
 // 同じレイアウトの変更から同じイベントを作る
 func diffLayout(before, after Layout) *LayoutChangedEvent {
 	event := &LayoutChangedEvent{}
@@ -137,8 +137,18 @@ func diffLayout(before, after Layout) *LayoutChangedEvent {
 			event.Disconnected = append(event.Disconnected, connection)
 		}
 	}
+	for _, pair := range after.Pairs() {
+		if _, ok := before.pairs[pair]; !ok {
+			event.Paired = append(event.Paired, pair)
+		}
+	}
+	for _, pair := range before.Pairs() {
+		if _, ok := after.pairs[pair]; !ok {
+			event.Unpaired = append(event.Unpaired, pair)
+		}
+	}
 	if event.Size == nil && len(event.PlacedTiles) == 0 && len(event.RemovedTiles) == 0 && len(event.ChangedTiles) == 0 &&
-		len(event.Connected) == 0 && len(event.Disconnected) == 0 {
+		len(event.Connected) == 0 && len(event.Disconnected) == 0 && len(event.Paired) == 0 && len(event.Unpaired) == 0 {
 		return nil
 	}
 	return event
