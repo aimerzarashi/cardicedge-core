@@ -68,6 +68,13 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		board := boards[domain.NormalizeName(b.Name)]
 		require.Equal(t, readmodel.BoardStatusPublished, board.Status)
 		require.Len(t, board.Tiles, len(b.Tiles))
+		attributes := map[masterBoardPosition]string{}
+		for _, tile := range b.Tiles {
+			attributes[masterBoardPosition{X: tile.X, Y: tile.Y}] = tile.Attribute
+		}
+		for _, tile := range board.Tiles {
+			require.Equal(t, attributes[masterBoardPosition{X: tile.X, Y: tile.Y}], string(tile.Attribute))
+		}
 		require.Len(t, board.Connections, len(b.Connections))
 	}
 }

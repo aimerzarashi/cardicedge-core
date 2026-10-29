@@ -21,7 +21,11 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 		if err != nil {
 			return nil, err
 		}
-		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind})
+		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		if err != nil {
+			return nil, err
+		}
+		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Attribute: attribute})
 	}
 	connections := make([]*model.BoardConnection, 0, len(board.Connections))
 	for _, connection := range board.Connections {
@@ -81,7 +85,11 @@ func toBoardLayoutInput(input model.ChangeBoardLayoutInput) (command.BoardLayout
 		if err != nil {
 			return command.BoardLayoutInput{}, err
 		}
-		tiles = append(tiles, command.BoardTileInput{X: tile.X, Y: tile.Y, Kind: string(kind)})
+		attribute, err := toOptionalBoardTileAttribute(tile.Attribute)
+		if err != nil {
+			return command.BoardLayoutInput{}, err
+		}
+		tiles = append(tiles, command.BoardTileInput{X: tile.X, Y: tile.Y, Kind: string(kind), Attribute: string(attribute)})
 	}
 	connections := make([]command.BoardConnectionInput, 0, len(input.Connections))
 	for _, connection := range input.Connections {
@@ -154,4 +162,55 @@ func fromBoardTileKind(kind readmodel.BoardTileKind) (model.BoardTileKind, error
 	default:
 		return "", fmt.Errorf("graphql: unknown board tile kind: %q", kind)
 	}
+}
+
+func toBoardTileAttribute(attribute model.BoardTileAttribute) (readmodel.BoardTileAttribute, error) {
+	switch attribute {
+	case model.BoardTileAttributeFire:
+		return readmodel.BoardTileAttributeFire, nil
+	case model.BoardTileAttributeEarth:
+		return readmodel.BoardTileAttributeEarth, nil
+	case model.BoardTileAttributeWater:
+		return readmodel.BoardTileAttributeWater, nil
+	case model.BoardTileAttributeWind:
+		return readmodel.BoardTileAttributeWind, nil
+	case model.BoardTileAttributeNeutral:
+		return readmodel.BoardTileAttributeNeutral, nil
+	case model.BoardTileAttributeMulti:
+		return readmodel.BoardTileAttributeMulti, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown board tile attribute: %s", attribute)
+	}
+}
+
+// 空（土地でないマス）は null
+func fromBoardTileAttribute(attribute readmodel.BoardTileAttribute) (*model.BoardTileAttribute, error) {
+	var converted model.BoardTileAttribute
+	switch attribute {
+	case "":
+		return nil, nil
+	case readmodel.BoardTileAttributeFire:
+		converted = model.BoardTileAttributeFire
+	case readmodel.BoardTileAttributeEarth:
+		converted = model.BoardTileAttributeEarth
+	case readmodel.BoardTileAttributeWater:
+		converted = model.BoardTileAttributeWater
+	case readmodel.BoardTileAttributeWind:
+		converted = model.BoardTileAttributeWind
+	case readmodel.BoardTileAttributeNeutral:
+		converted = model.BoardTileAttributeNeutral
+	case readmodel.BoardTileAttributeMulti:
+		converted = model.BoardTileAttributeMulti
+	default:
+		return nil, fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+	}
+	return &converted, nil
+}
+
+// null（土地でないマス）は空
+func toOptionalBoardTileAttribute(attribute *model.BoardTileAttribute) (readmodel.BoardTileAttribute, error) {
+	if attribute == nil {
+		return "", nil
+	}
+	return toBoardTileAttribute(*attribute)
 }

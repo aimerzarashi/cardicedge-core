@@ -33,6 +33,28 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
+// 写した boards.metadata の tiles の attribute の値（土地のときだけある）
+type BoardTileAttribute string
+
+const (
+	BoardTileAttributeFire    BoardTileAttribute = "fire"
+	BoardTileAttributeEarth   BoardTileAttribute = "earth"
+	BoardTileAttributeWater   BoardTileAttribute = "water"
+	BoardTileAttributeWind    BoardTileAttribute = "wind"
+	BoardTileAttributeNeutral BoardTileAttribute = "neutral"
+	BoardTileAttributeMulti   BoardTileAttribute = "multi"
+)
+
+func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
+	attribute := BoardTileAttribute(value)
+	switch attribute {
+	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+		return attribute, nil
+	default:
+		return "", fmt.Errorf("query: unknown board tile attribute: %q", value)
+	}
+}
+
 type BoardPosition struct {
 	X int
 	Y int
@@ -42,10 +64,12 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
+// Attribute は土地のときだけ値があり、そうでなければ空
 type BoardTile struct {
-	X    int
-	Y    int
-	Kind BoardTileKind
+	X         int
+	Y         int
+	Kind      BoardTileKind
+	Attribute BoardTileAttribute
 }
 
 type BoardConnection struct {

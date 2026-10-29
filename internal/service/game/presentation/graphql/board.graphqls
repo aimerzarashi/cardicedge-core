@@ -27,6 +27,25 @@ enum BoardTileKind {
   CHECKPOINT
 }
 
+"""
+土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
+効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
+"""
+enum BoardTileAttribute {
+  "火（火属性）"
+  FIRE
+  "地（地属性）"
+  EARTH
+  "水（水属性）"
+  WATER
+  "風（風属性）"
+  WIND
+  "無（無属性）"
+  NEUTRAL
+  "複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）"
+  MULTI
+}
+
 "格子の座標。x が列、y が行（どちらも 0 始まり）"
 type BoardPosition {
   "列（0 以上、幅 − 1 以下）"
@@ -43,6 +62,8 @@ type BoardTile {
   y: Int!
   "種類"
   kind: BoardTileKind!
+  "属性（土地のときだけ。拠点・チェックポイントは null）"
+  attribute: BoardTileAttribute
 }
 
 "マスどうしのつながり（向きは無い）"

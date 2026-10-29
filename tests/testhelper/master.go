@@ -153,9 +153,9 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 		ID: boards.PublishedB, Name: "公開中B", Status: readmodel.BoardStatusPublished, Width: 3, Height: 2,
 		Tiles: []readmodel.BoardTile{
 			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
 			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
-			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand},
+			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeMulti},
 		},
 		Connections: []readmodel.BoardConnection{
 			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},

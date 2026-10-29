@@ -43,6 +43,7 @@ type RenamedEvent struct {
 }
 
 // 1 回の操作で 1 つのイベントにし、前のレイアウトとの差分だけを持つ（presetdeck.CardCountsChangedEvent と同じ）。
+// 属性もマスの一部なので、同じ座標で種類か属性が変わったら ChangedTiles に新しい種類と属性を入れる。
 // どの一覧も y → x（つながりは a → b）の順で、空なら省く。マスを消して切れたつながりも Disconnected に入る
 // （前と後のつながりの集合の差なので、Evolve が消したマスのつながりを別に探さなくてよい）
 type LayoutChangedEvent struct {

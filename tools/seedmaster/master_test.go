@@ -39,6 +39,23 @@ func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
 	}
 }
 
+// 6 つの属性が見本のどこかの土地に出てくる（studio・game の画面で、どの属性も見て確かめられるように）
+func TestSampleMaster_HasEveryLandAttribute(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	attributes := map[string]bool{}
+	for _, b := range m.Boards {
+		for _, tile := range b.Tiles {
+			attributes[tile.Attribute] = true
+		}
+	}
+
+	for _, attribute := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
+		require.True(t, attributes[attribute])
+	}
+}
+
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 	tests := []struct {
 		name string
@@ -56,6 +73,9 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "board_without_checkpoint", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"}`, ``)},
 		{name: "board_with_unreachable_tile", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, ``)},
 		{name: "unknown_board_tile_kind", json: boardJSON("b", `{"x":0,"y":0,"kind":"water"}`, ``)},
+		{name: "land_without_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
+		{name: "base_with_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base","attribute":"fire"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
+		{name: "unknown_board_tile_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land","attribute":"light"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
 		{name: "duplicated_board_name", json: `{"cards":[],"starter_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
 	}
 	for _, tt := range tests {

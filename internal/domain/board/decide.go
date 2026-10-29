@@ -104,11 +104,11 @@ func diffLayout(before, after Layout) *LayoutChangedEvent {
 		event.Size = &size
 	}
 	for _, tile := range after.Tiles() {
-		kind, ok := before.tiles[tile.Position]
+		previous, ok := before.tiles[tile.Position]
 		switch {
 		case !ok:
 			event.PlacedTiles = append(event.PlacedTiles, tile)
-		case kind != tile.Kind:
+		case previous != tile:
 			event.ChangedTiles = append(event.ChangedTiles, tile)
 		}
 	}

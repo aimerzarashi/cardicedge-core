@@ -35,10 +35,11 @@ func insertBoardRow(t *testing.T, ctx context.Context, id uuid.UUID, sortName, s
 
 func boardMetadata(name string, status readmodel.BoardStatus) readmodel.BoardMetadata {
 	return readmodel.BoardMetadata{
-		ID: uuid.New(), Name: name, Status: status, Revision: 3, Width: 2, Height: 1,
+		ID: uuid.New(), Name: name, Status: status, Revision: 3, Width: 3, Height: 1,
 		Tiles: []readmodel.BoardTile{
 			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeWind},
+			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
 		},
 		Connections: []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}},
 	}
@@ -47,10 +48,11 @@ func boardMetadata(name string, status readmodel.BoardStatus) readmodel.BoardMet
 func wantBoard(metadata readmodel.BoardMetadata) query.Board {
 	connection := query.BoardConnection{A: query.NewBoardPosition(0, 0), B: query.NewBoardPosition(1, 0)}
 	return query.Board{
-		ID: metadata.ID, Name: metadata.Name, Width: 2, Height: 1,
+		ID: metadata.ID, Name: metadata.Name, Width: 3, Height: 1,
 		Tiles: []query.BoardTile{
 			{X: 0, Y: 0, Kind: query.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: query.BoardTileKindCheckpoint},
+			{X: 1, Y: 0, Kind: query.BoardTileKindLand, Attribute: query.BoardTileAttributeWind},
+			{X: 2, Y: 0, Kind: query.BoardTileKindCheckpoint},
 		},
 		Connections: []query.BoardConnection{connection},
 	}
@@ -147,6 +149,17 @@ func TestBoardReader_GetFailsForUnknownTileKind(t *testing.T) {
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
 	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"water"}],"connections":[]}`))
+
+	_, err := repository.NewBoardReader().GetPublished(ctx, id)
+
+	require.Error(t, err)
+}
+
+func TestBoardReader_GetFailsForUnknownTileAttribute(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	id := uuid.New()
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[]}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 

@@ -15,7 +15,11 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 		if err != nil {
 			return nil, err
 		}
-		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind})
+		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		if err != nil {
+			return nil, err
+		}
+		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Attribute: attribute})
 	}
 	connections := make([]*model.BoardConnection, 0, len(board.Connections))
 	for _, connection := range board.Connections {
@@ -57,4 +61,28 @@ func fromBoardTileKind(kind query.BoardTileKind) (model.BoardTileKind, error) {
 	default:
 		return "", fmt.Errorf("graphql: unknown board tile kind: %q", kind)
 	}
+}
+
+// 空（土地でないマス）は null
+func fromBoardTileAttribute(attribute query.BoardTileAttribute) (*model.BoardTileAttribute, error) {
+	var converted model.BoardTileAttribute
+	switch attribute {
+	case "":
+		return nil, nil
+	case query.BoardTileAttributeFire:
+		converted = model.BoardTileAttributeFire
+	case query.BoardTileAttributeEarth:
+		converted = model.BoardTileAttributeEarth
+	case query.BoardTileAttributeWater:
+		converted = model.BoardTileAttributeWater
+	case query.BoardTileAttributeWind:
+		converted = model.BoardTileAttributeWind
+	case query.BoardTileAttributeNeutral:
+		converted = model.BoardTileAttributeNeutral
+	case query.BoardTileAttributeMulti:
+		converted = model.BoardTileAttributeMulti
+	default:
+		return nil, fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+	}
+	return &converted, nil
 }

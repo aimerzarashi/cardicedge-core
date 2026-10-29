@@ -89,14 +89,16 @@ func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 1, 1, "land"), boardtest.Tile(t, 2, 0, "base"), boardtest.Tile(t, 0, 0, "land"), boardtest.Tile(t, 1, 0, "land")},
+		[]board.Tile{boardtest.Tile(t, 1, 1, "land", "fire"), boardtest.Tile(t, 2, 0, "base", ""), boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "fire")},
 		[]board.Connection{boardtest.Connection(1, 1, 1, 0), boardtest.Connection(0, 0, 1, 0)}))
 
 	state := h.project()
 
 	require.Equal(t, []readmodel.BoardTile{
-		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand}, {X: 1, Y: 0, Kind: readmodel.BoardTileKindLand},
-		{X: 2, Y: 0, Kind: readmodel.BoardTileKindBase}, {X: 1, Y: 1, Kind: readmodel.BoardTileKindLand},
+		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
+		{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
+		{X: 2, Y: 0, Kind: readmodel.BoardTileKindBase},
+		{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
 	}, state.Metadata.Tiles)
 	require.Equal(t, []readmodel.BoardConnection{
 		{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
@@ -106,13 +108,30 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	require.Equal(t, int64(2), state.Metadata.Revision)
 }
 
+func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
+		[]board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "water")}, nil))
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
+		[]board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "checkpoint", "")}, nil))
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
+		[]board.Tile{boardtest.Tile(t, 0, 0, "land", "multi"), boardtest.Tile(t, 1, 0, "checkpoint", "")}, nil))
+
+	state := h.project()
+
+	require.Equal(t, []readmodel.BoardTile{
+		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeMulti},
+		{X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
+	}, state.Metadata.Tiles)
+}
+
 func TestBoard_LayoutChangeRemovesChangesAndResizes(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "land"), boardtest.Tile(t, 2, 0, "land")},
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0)}))
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 2),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "checkpoint")},
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
 		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
 
 	state := h.project()
@@ -128,7 +147,7 @@ func TestBoard_LayoutChangeRemovesChangesAndResizes(t *testing.T) {
 
 func TestBoard_DoesNotChangeTheGivenState(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3), []board.Tile{boardtest.Tile(t, 0, 0, "base")}, nil))
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3), []board.Tile{boardtest.Tile(t, 0, 0, "base", "")}, nil))
 	before := h.project()
 	h.changeLayout(board.EmptyLayout(boardtest.Size(t, 3, 3)))
 
@@ -142,7 +161,7 @@ func TestBoard_DoesNotChangeTheGivenState(t *testing.T) {
 func TestBoard_StatusEventsChangeStatusAndRevision(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base"), boardtest.Tile(t, 1, 0, "checkpoint")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}))
 	h.apply(&board.PublishCommand{PublishedBy: operatortest.ID(t, 10)}, boardChangedAt)
 	published := h.project()
 	h.apply(&board.RetireCommand{RetiredBy: operatortest.ID(t, 10)}, boardChangedAt)

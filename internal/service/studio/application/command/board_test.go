@@ -35,8 +35,16 @@ func registerBoard(t *testing.T, ctx context.Context, commands *command.BoardHan
 	return registered
 }
 
+// 土地には火属性を付ける（属性を確かめないテストで、属性の誤りが出ないように）
 func tileInput(x, y int, kind string) command.BoardTileInput {
+	if kind == "land" {
+		return tileInputWithAttribute(x, y, kind, "fire")
+	}
 	return command.BoardTileInput{X: x, Y: y, Kind: kind}
+}
+
+func tileInputWithAttribute(x, y int, kind, attribute string) command.BoardTileInput {
+	return command.BoardTileInput{X: x, Y: y, Kind: kind, Attribute: attribute}
 }
 
 func connectionInput(ax, ay, bx, by int) command.BoardConnectionInput {
@@ -321,6 +329,26 @@ func TestChangeBoardLayout_MapsViolationsToInputPaths(t *testing.T) {
 			name:   "unknown_tile_kind",
 			layout: layoutInput(3, 3, tiles(tileInput(1, 1, "water")), nil),
 			want:   []input.Error{&input.InvalidFormat{Field: "tiles.0.kind"}},
+		},
+		{
+			name:   "land_without_attribute",
+			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "land", "")), nil),
+			want:   []input.Error{&input.Required{Field: "tiles.0.attribute"}},
+		},
+		{
+			name:   "base_with_attribute",
+			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "base", "fire")), nil),
+			want:   []input.Error{&input.NotAllowed{Field: "tiles.0.attribute"}},
+		},
+		{
+			name:   "checkpoint_with_attribute",
+			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "checkpoint", "multi")), nil),
+			want:   []input.Error{&input.NotAllowed{Field: "tiles.0.attribute"}},
+		},
+		{
+			name:   "unknown_attribute",
+			layout: layoutInput(3, 3, tiles(tileInputWithAttribute(1, 1, "land", "light")), nil),
+			want:   []input.Error{&input.InvalidFormat{Field: "tiles.0.attribute"}},
 		},
 		{
 			name:   "connection_end_a_without_tile",

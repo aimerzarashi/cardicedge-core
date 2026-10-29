@@ -39,9 +39,21 @@ func TileKind(t testing.TB, value string) board.TileKind {
 	return kind
 }
 
-func Tile(t testing.TB, x, y int, kind string) board.Tile {
+func Attribute(t testing.TB, value string) board.Attribute {
 	t.Helper()
-	return board.Tile{Position: board.NewPosition(x, y), Kind: TileKind(t, kind)}
+	attribute, err := board.NewAttribute(value)
+	require.NoError(t, err)
+	return attribute
+}
+
+// 属性は土地のときだけ渡す（拠点・チェックポイントは空にする）
+func Tile(t testing.TB, x, y int, kind, attribute string) board.Tile {
+	t.Helper()
+	tile := board.Tile{Position: board.NewPosition(x, y), Kind: TileKind(t, kind)}
+	if attribute != "" {
+		tile.Attribute = Attribute(t, attribute)
+	}
+	return tile
 }
 
 func Connection(ax, ay, bx, by int) board.Connection {

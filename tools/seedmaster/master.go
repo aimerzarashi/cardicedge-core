@@ -49,9 +49,10 @@ type masterBoard struct {
 }
 
 type masterBoardTile struct {
-	X    int    `json:"x"`
-	Y    int    `json:"y"`
-	Kind string `json:"kind"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	Kind      string `json:"kind"`
+	Attribute string `json:"attribute"`
 }
 
 type masterBoardPosition struct {
@@ -173,7 +174,14 @@ func (b masterBoard) layout() (board.Layout, error) {
 		if err != nil {
 			return board.Layout{}, err
 		}
-		tiles = append(tiles, board.Tile{Position: board.NewPosition(t.X, t.Y), Kind: kind})
+		tile := board.Tile{Position: board.NewPosition(t.X, t.Y), Kind: kind}
+		if t.Attribute != "" {
+			tile.Attribute, err = board.NewAttribute(t.Attribute)
+			if err != nil {
+				return board.Layout{}, err
+			}
+		}
+		tiles = append(tiles, tile)
 	}
 	connections := make([]board.Connection, 0, len(b.Connections))
 	for _, c := range b.Connections {
@@ -185,7 +193,7 @@ func (b masterBoard) layout() (board.Layout, error) {
 func (b masterBoard) layoutInput() command.BoardLayoutInput {
 	tiles := make([]command.BoardTileInput, 0, len(b.Tiles))
 	for _, t := range b.Tiles {
-		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind})
+		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind, Attribute: t.Attribute})
 	}
 	connections := make([]command.BoardConnectionInput, 0, len(b.Connections))
 	for _, c := range b.Connections {
