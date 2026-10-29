@@ -11,10 +11,53 @@ type Board {
   width: Int!
   "高さ（行の数）"
   height: Int!
+  "既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）"
+  defaultRules: BoardDefaultRules!
+  "マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）"
+  tileCounts: BoardTileCounts!
   "置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）"
   tiles: [BoardTile!]!
   "マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）"
   connections: [BoardConnection!]!
+}
+
+"""
+ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+"""
+type BoardTileCounts {
+  "土地の数（属性ごとの数の和）"
+  land: Int!
+  "拠点の数"
+  base: Int!
+  "チェックポイントの数"
+  checkpoint: Int!
+  "火属性の土地の数"
+  fire: Int!
+  "地属性の土地の数"
+  earth: Int!
+  "水属性の土地の数"
+  water: Int!
+  "風属性の土地の数"
+  wind: Int!
+  "無属性の土地の数"
+  neutral: Int!
+  "複属性の土地の数"
+  multi: Int!
+}
+
+"""
+ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+効き方は対戦の決まりで、ここでは値の形だけを決める
+"""
+type BoardDefaultRules {
+  "目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち）"
+  targetMagic: Int!
+  "開始時の魔力（対戦を始めるときの魔力）"
+  startingMagic: Int!
+  "周回のボーナス（拠点に戻ったときに増える魔力）"
+  lapBonus: Int!
+  "チェックポイントのボーナス（チェックポイントを通ったときに増える魔力）"
+  checkpointBonus: Int!
 }
 
 """

@@ -76,6 +76,10 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			require.Equal(t, attributes[masterBoardPosition{X: tile.X, Y: tile.Y}], string(tile.Attribute))
 		}
 		require.Len(t, board.Connections, len(b.Connections))
+		require.Equal(t, readmodel.BoardDefaultRules{
+			TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
+			LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
+		}, board.DefaultRules)
 	}
 }
 
@@ -147,6 +151,14 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			registered, err := s.boards.Register(ctx, m.Boards[0].Name)
 			require.NoError(t, err)
 			_, err = s.boards.ChangeLayout(ctx, registered.ID, registered.Revision, m.Boards[0].layoutInput())
+			require.NoError(t, err)
+		}},
+		{name: "board_default_rules_changed_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			registered, err := s.boards.Register(ctx, m.Boards[0].Name)
+			require.NoError(t, err)
+			changed, err := s.boards.ChangeLayout(ctx, registered.ID, registered.Revision, m.Boards[0].layoutInput())
+			require.NoError(t, err)
+			_, err = s.boards.ChangeDefaultRules(ctx, registered.ID, changed.Revision, m.Boards[0].defaultRulesInput())
 			require.NoError(t, err)
 		}},
 	}

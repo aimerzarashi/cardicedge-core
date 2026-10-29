@@ -35,6 +35,13 @@ type ChangeLayoutCommand struct {
 	ChangedBy operator.ID
 }
 
+// 既定のルールの全体を変える（レイアウトとは別の操作。格子とは別に見直す値で、小さなフォームで扱えるため）。
+// 決まりは DefaultRules を作る時点で守っている
+type ChangeDefaultRulesCommand struct {
+	DefaultRules DefaultRules
+	ChangedBy    operator.ID
+}
+
 // 公開の条件（拠点・チェックポイント・行き着けるか）はレイアウトだけで決まるため、Decide で確かめる
 type PublishCommand struct {
 	PublishedBy operator.ID
@@ -48,9 +55,10 @@ type DeleteCommand struct {
 	DeletedBy operator.ID
 }
 
-func (*RegisterCommand) isBoardCommand()     {}
-func (*RenameCommand) isBoardCommand()       {}
-func (*ChangeLayoutCommand) isBoardCommand() {}
-func (*PublishCommand) isBoardCommand()      {}
-func (*RetireCommand) isBoardCommand()       {}
-func (*DeleteCommand) isBoardCommand()       {}
+func (*RegisterCommand) isBoardCommand()           {}
+func (*RenameCommand) isBoardCommand()             {}
+func (*ChangeLayoutCommand) isBoardCommand()       {}
+func (*ChangeDefaultRulesCommand) isBoardCommand() {}
+func (*PublishCommand) isBoardCommand()            {}
+func (*RetireCommand) isBoardCommand()             {}
+func (*DeleteCommand) isBoardCommand()             {}

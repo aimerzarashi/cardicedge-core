@@ -201,8 +201,8 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	return s.seedBoards(ctx, m.Boards)
 }
 
-// 登録してレイアウトを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
-// レイアウトと公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）。
+// 登録してレイアウトと既定のルールを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
+// レイアウト・既定のルール・公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）。
 // 続けて make publish-master を流せるよう、core の投影が公開中を書くまで待つ
 func (s *seeder) seedBoards(ctx context.Context, boards []masterBoard) error {
 	existing, err := s.listBoards(ctx)
@@ -253,13 +253,16 @@ func (s *seeder) seedBoards(ctx context.Context, boards []masterBoard) error {
 	})
 }
 
-// レイアウトを入れてから公開する。レイアウトが入っていれば変えずに成功する（revision は進まない）ので、途中で止まった続きも
+// レイアウトと既定のルールを入れてから公開する。入っていれば変えずに成功する（revision は進まない）ので、途中で止まった続きも
 // 同じ手順でよい。read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って
 // 読み直す（publishStarterDeck と同じ）
 func (s *seeder) publishBoard(ctx context.Context, b masterBoard, current query.Board) error {
 	key := domain.NormalizeName(b.Name)
 	for {
 		changed, err := s.boards.ChangeLayout(ctx, current.ID, current.Revision, b.layoutInput())
+		if err == nil {
+			changed, err = s.boards.ChangeDefaultRules(ctx, current.ID, changed.Revision, b.defaultRulesInput())
+		}
 		if err == nil {
 			_, err = s.boards.Publish(ctx, current.ID, changed.Revision)
 		}

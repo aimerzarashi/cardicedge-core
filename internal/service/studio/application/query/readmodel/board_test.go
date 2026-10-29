@@ -68,6 +68,7 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 	require.Equal(t, readmodel.BoardMetadata{
 		ID: publicID, Name: "Ｆire 草原", Status: readmodel.BoardStatusDraft, Revision: 1, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{},
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0),
 		RegisteredAt: boardRegisteredAt, UpdatedAt: boardRegisteredAt,
 	}, state.Metadata)
 	require.False(t, state.IsTerminal())
@@ -81,6 +82,17 @@ func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 
 	require.Equal(t, "sand", state.SortName)
 	require.Equal(t, "Ｓand", state.Metadata.Name)
+	require.Equal(t, int64(2), state.Metadata.Revision)
+	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
+}
+
+func TestBoard_DefaultRulesChangeReplacesAllValues(t *testing.T) {
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50), ChangedBy: operatortest.ID(t, 10)}, boardChangedAt)
+
+	state := h.project()
+
+	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50), state.Metadata.DefaultRules)
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
 }
@@ -106,6 +118,27 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	}, state.Metadata.Connections)
 	require.Equal(t, 3, state.Metadata.Width)
 	require.Equal(t, int64(2), state.Metadata.Revision)
+}
+
+// 差分を当てるたびに、置いてあるマス全体から数え直す（置く・消す・種類か属性を変えるのどれでも合う）
+func TestBoard_LayoutChangeRecountsTilesByKindAndAttribute(t *testing.T) {
+	h := newBoardHistory(t, uuid.New(), "草原")
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 4, 2),
+		[]board.Tile{
+			boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire"),
+			boardtest.Tile(t, 3, 0, "checkpoint", ""), boardtest.Tile(t, 0, 1, "land", "earth"), boardtest.Tile(t, 1, 1, "land", "multi"),
+		}, nil))
+	placed := h.project().Metadata.TileCounts
+	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 4, 2),
+		[]board.Tile{
+			boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "water"), boardtest.Tile(t, 3, 0, "checkpoint", ""),
+			boardtest.Tile(t, 0, 1, "checkpoint", ""), boardtest.Tile(t, 1, 1, "land", "neutral"), boardtest.Tile(t, 2, 1, "land", "wind"),
+		}, nil))
+
+	changed := h.project().Metadata.TileCounts
+
+	require.Equal(t, readmodel.NewBoardTileCounts(4, 1, 1, 2, 1, 0, 0, 0, 1), placed)
+	require.Equal(t, readmodel.NewBoardTileCounts(3, 1, 2, 0, 0, 1, 1, 1, 0), changed)
 }
 
 func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {

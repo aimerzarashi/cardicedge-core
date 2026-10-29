@@ -1,6 +1,7 @@
 package board
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -99,4 +100,96 @@ func (s Status) Retire() (Status, bool, error) {
 	default:
 		return s, false, ErrStatusUnknown
 	}
+}
+
+// 登録の直後の既定のルール（対戦を始めるとき、ここから変えられる前提の値）。登録のイベントが値を明示して持つので、
+// 変えても過去のボードの値は変わらない
+const (
+	DefaultTargetMagic     = 8000
+	DefaultStartingMagic   = 600
+	DefaultLapBonus        = 300
+	DefaultCheckpointBonus = 100
+)
+
+// 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
+type DefaultRules struct {
+	targetMagic     int
+	startingMagic   int
+	lapBonus        int
+	checkpointBonus int
+}
+
+// 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
+func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) (DefaultRules, error) {
+	var errs []error
+	if targetMagic < 1 {
+		errs = append(errs, ErrTargetMagicTooSmall)
+	}
+	if startingMagic < 0 {
+		errs = append(errs, ErrStartingMagicTooSmall)
+	}
+	if lapBonus < 0 {
+		errs = append(errs, ErrLapBonusTooSmall)
+	}
+	if checkpointBonus < 0 {
+		errs = append(errs, ErrCheckpointBonusTooSmall)
+	}
+	// 下限を割った値と比べても意味がないので、開始時の魔力が下限を満たすときだけ比べる
+	if startingMagic >= 0 && targetMagic <= startingMagic {
+		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
+	}
+	if len(errs) > 0 {
+		return DefaultRules{}, errors.Join(errs...)
+	}
+	return DefaultRules{targetMagic: targetMagic, startingMagic: startingMagic, lapBonus: lapBonus, checkpointBonus: checkpointBonus}, nil
+}
+
+// 登録の直後の既定のルール。定数が決まりを満たすことはテストで確かめる
+func InitialDefaultRules() DefaultRules {
+	return DefaultRules{
+		targetMagic: DefaultTargetMagic, startingMagic: DefaultStartingMagic,
+		lapBonus: DefaultLapBonus, checkpointBonus: DefaultCheckpointBonus,
+	}
+}
+
+// 届いて拠点に戻ると勝ちになる魔力
+func (r DefaultRules) TargetMagic() int {
+	return r.targetMagic
+}
+
+func (r DefaultRules) StartingMagic() int {
+	return r.startingMagic
+}
+
+// 拠点に戻ったときに増える魔力
+func (r DefaultRules) LapBonus() int {
+	return r.lapBonus
+}
+
+// チェックポイントを通ったときに増える魔力
+func (r DefaultRules) CheckpointBonus() int {
+	return r.checkpointBonus
+}
+
+type defaultRulesJSON struct {
+	TargetMagic     int `json:"target_magic"`
+	StartingMagic   int `json:"starting_magic"`
+	LapBonus        int `json:"lap_bonus"`
+	CheckpointBonus int `json:"checkpoint_bonus"`
+}
+
+func (r DefaultRules) MarshalJSON() ([]byte, error) {
+	return json.Marshal(defaultRulesJSON{
+		TargetMagic: r.targetMagic, StartingMagic: r.startingMagic, LapBonus: r.lapBonus, CheckpointBonus: r.checkpointBonus,
+	})
+}
+
+// 決まりは確かめない（読み出しを決まりの変更に巻き込まないため。決まりは書くときに NewDefaultRules が守る。Size と同じ）
+func (r *DefaultRules) UnmarshalJSON(data []byte) error {
+	var v defaultRulesJSON
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	*r = DefaultRules{targetMagic: v.TargetMagic, startingMagic: v.StartingMagic, lapBonus: v.LapBonus, checkpointBonus: v.CheckpointBonus}
+	return nil
 }

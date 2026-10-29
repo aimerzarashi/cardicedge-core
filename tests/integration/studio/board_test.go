@@ -14,6 +14,8 @@ import (
 )
 
 const boardFields = `id name status width height revision registeredAt updatedAt
+	defaultRules { targetMagic startingMagic lapBonus checkpointBonus }
+	tileCounts { land base checkpoint fire earth water wind neutral multi }
 	tiles { __typename x y ... on LandTile { attribute } }
 	connections { a { x y } b { x y } }`
 
@@ -35,7 +37,7 @@ const boardsListQuery = `query ($filter: BoardFilter, $first: Int, $after: Strin
 	}
 }`
 
-const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }`
+const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTooSmall { min } ... on FieldNotGreaterThan { than } } }`
 
 const registerBoardMutation = `mutation ($input: RegisterBoardInput!) {
 	registerBoard(input: $input) {
@@ -57,6 +59,14 @@ const changeBoardLayoutMutation = `mutation ($input: ChangeBoardLayoutInput!) {
 	changeBoardLayout(input: $input) {
 		__typename
 		... on ChangeBoardLayoutSuccess { id revision }
+		` + boardErrorFields + `
+	}
+}`
+
+const changeBoardDefaultRulesMutation = `mutation ($input: ChangeBoardDefaultRulesInput!) {
+	changeBoardDefaultRules(input: $input) {
+		__typename
+		... on ChangeBoardDefaultRulesSuccess { id revision }
 		` + boardErrorFields + `
 	}
 }`
@@ -179,6 +189,8 @@ func TestRegisterBoard_ListsDraftBoardOfDefaultSize(t *testing.T) {
 	require.EqualValues(t, 8, node["height"])
 	require.Empty(t, node["tiles"])
 	require.Empty(t, node["connections"])
+	require.Equal(t, map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100)}, node["defaultRules"])
+	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0)}, node["tileCounts"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	detail := waitBoard(t, token, registered["id"], 1)
 	delete(detail, "__typename")
@@ -228,6 +240,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	require.Equal(t, []any{map[string]any{
 		"a": map[string]any{"x": float64(0), "y": float64(0)}, "b": map[string]any{"x": float64(1), "y": float64(0)},
 	}}, detail["connections"])
+	require.Equal(t, map[string]any{"land": float64(1), "base": float64(1), "checkpoint": float64(1), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(1)}, detail["tileCounts"])
 
 	replaced := changeBoardLayout(t, token, ref(changed), 1, 1, nil, nil)
 
@@ -235,6 +248,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	detail = waitBoard(t, token, replaced["id"], 3)
 	require.Empty(t, detail["tiles"])
 	require.Empty(t, detail["connections"])
+	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0)}, detail["tileCounts"])
 	same := changeBoardLayout(t, token, ref(replaced), 1, 1, nil, nil)
 	require.EqualValues(t, 3, same["revision"])
 }
@@ -295,6 +309,46 @@ func TestChangeBoardLayout_ReturnsFieldErrorForTileWithoutExactlyOneKind(t *test
 	}}, invalid)
 }
 
+func defaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus int) map[string]any {
+	return map[string]any{"targetMagic": targetMagic, "startingMagic": startingMagic, "lapBonus": lapBonus, "checkpointBonus": checkpointBonus}
+}
+
+func TestChangeBoardDefaultRules_ShowsNewValuesAndKeepsLayout(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	withLayout := changePublishableLayout(t, token, board)
+
+	changed := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(withLayout, defaultRulesInput(5000, 0, 200, 50)))
+
+	require.Equal(t, "ChangeBoardDefaultRulesSuccess", changed["__typename"])
+	require.EqualValues(t, 3, changed["revision"])
+	detail := waitBoard(t, token, changed["id"], 3)
+	require.Equal(t, map[string]any{"targetMagic": float64(5000), "startingMagic": float64(0), "lapBonus": float64(200), "checkpointBonus": float64(50)}, detail["defaultRules"])
+	require.Len(t, detail["tiles"], 3)
+	same := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(ref(changed), defaultRulesInput(5000, 0, 200, 50)))
+	require.EqualValues(t, 3, same["revision"])
+}
+
+func TestChangeBoardDefaultRules_ReturnsFieldErrorPerViolation(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+
+	tooSmall := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(0, -1, -2, -3)))
+	notGreater := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(600, 600, 0, 0)))
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldTooSmall", "field": "targetMagic", "min": float64(1)},
+		map[string]any{"__typename": "FieldTooSmall", "field": "startingMagic", "min": float64(0)},
+		map[string]any{"__typename": "FieldTooSmall", "field": "lapBonus", "min": float64(0)},
+		map[string]any{"__typename": "FieldTooSmall", "field": "checkpointBonus", "min": float64(0)},
+	}}, tooSmall)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldNotGreaterThan", "field": "targetMagic", "than": "startingMagic"},
+	}}, notGreater)
+}
+
 func TestPublishBoard_ReturnsConditionsWhenNotPublishable(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
@@ -350,6 +404,7 @@ func TestBoardOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing.T) 
 	published := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(changed, nil))
 	renamePublished := boardOperation(t, token, renameBoardMutation, "renameBoard", boardInput(published, map[string]any{"name": "湖-" + id}))
 	layoutPublished := changeBoardLayout(t, token, published, 1, 1, nil, nil)
+	rulesPublished := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(published, defaultRulesInput(5000, 0, 200, 50)))
 	deletePublished := boardOperation(t, token, deleteBoardMutation, "deleteBoard", boardInput(published, nil))
 
 	require.Equal(t, "BoardNameAlreadyInUseError", used["__typename"])
@@ -357,6 +412,7 @@ func TestBoardOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing.T) 
 	require.Equal(t, "RevisionConflictError", stale["__typename"])
 	require.Equal(t, "BoardNotDraftError", renamePublished["__typename"])
 	require.Equal(t, "BoardNotDraftError", layoutPublished["__typename"])
+	require.Equal(t, "BoardNotDraftError", rulesPublished["__typename"])
 	require.Equal(t, "BoardNotDraftError", deletePublished["__typename"])
 }
 
@@ -384,6 +440,7 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 	t.Parallel()
 	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
 	unknown := map[string]any{"id": uuid.NewString(), "revision": 1}
+	rules := boardInput(unknown, defaultRulesInput(5000, 0, 200, 50))
 	layout := boardInput(unknown, map[string]any{"width": 1, "height": 1, "tiles": []any{}, "connections": []any{}})
 	tests := []struct {
 		name      string
@@ -399,6 +456,8 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 			variables: map[string]any{"input": boardInput(unknown, map[string]any{"name": "草原"})}, want: "BoardNotFoundError"},
 		{name: "change_layout_unknown", token: operators.Token(t), operation: changeBoardLayoutMutation, field: "changeBoardLayout",
 			variables: map[string]any{"input": layout}, want: "BoardNotFoundError"},
+		{name: "change_default_rules_unknown", token: operators.Token(t), operation: changeBoardDefaultRulesMutation, field: "changeBoardDefaultRules",
+			variables: map[string]any{"input": rules}, want: "BoardNotFoundError"},
 		{name: "delete_unknown", token: operators.Token(t), operation: deleteBoardMutation, field: "deleteBoard",
 			variables: map[string]any{"input": unknown}, want: "BoardNotFoundError"},
 		{name: "publish_unknown", token: operators.Token(t), operation: publishBoardMutation, field: "publishBoard",
@@ -415,6 +474,8 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 			variables: map[string]any{"input": boardInput(unknown, map[string]any{"name": "草原"})}, want: "ForbiddenError"},
 		{name: "change_layout_by_not_operator", token: notOperator, operation: changeBoardLayoutMutation, field: "changeBoardLayout",
 			variables: map[string]any{"input": layout}, want: "ForbiddenError"},
+		{name: "change_default_rules_by_not_operator", token: notOperator, operation: changeBoardDefaultRulesMutation, field: "changeBoardDefaultRules",
+			variables: map[string]any{"input": rules}, want: "ForbiddenError"},
 		{name: "delete_by_not_operator", token: notOperator, operation: deleteBoardMutation, field: "deleteBoard",
 			variables: map[string]any{"input": unknown}, want: "ForbiddenError"},
 		{name: "publish_by_not_operator", token: notOperator, operation: publishBoardMutation, field: "publishBoard",

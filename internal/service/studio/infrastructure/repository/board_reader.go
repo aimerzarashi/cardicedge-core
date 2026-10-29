@@ -102,7 +102,7 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	}
 	return query.Board{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Width: metadata.Width, Height: metadata.Height,
-		Tiles: metadata.Tiles, Connections: metadata.Connections,
+		Tiles: metadata.Tiles, Connections: metadata.Connections, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 	}, nil
 }

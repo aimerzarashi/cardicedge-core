@@ -19,6 +19,7 @@ func Evolve(state State, event Event) (State, error) {
 			Name:         e.Name,
 			Status:       StatusDraft,
 			Layout:       EmptyLayout(size),
+			DefaultRules: e.DefaultRules,
 			RegisteredBy: e.RegisteredBy,
 			RegisteredAt: meta.OccurredAt,
 			UpdatedAt:    meta.OccurredAt,
@@ -40,6 +41,13 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		board.Layout = layout
+		return touched(board, meta), nil
+	case *DefaultRulesChangedEvent:
+		board, ok := state.(Board)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		board.DefaultRules = e.DefaultRules
 		return touched(board, meta), nil
 	case *PublishedEvent:
 		board, ok := state.(Board)

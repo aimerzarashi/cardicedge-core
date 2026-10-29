@@ -41,7 +41,9 @@ func boardMetadata(name string, status readmodel.BoardStatus) readmodel.BoardMet
 			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeWind},
 			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
 		},
-		Connections: []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}},
+		Connections:  []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}},
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100),
+		TileCounts:   readmodel.NewBoardTileCounts(1, 1, 1, 0, 0, 0, 1, 0, 0),
 	}
 }
 
@@ -54,7 +56,9 @@ func wantBoard(metadata readmodel.BoardMetadata) query.Board {
 			{X: 1, Y: 0, Kind: query.BoardTileKindLand, Attribute: query.BoardTileAttributeWind},
 			{X: 2, Y: 0, Kind: query.BoardTileKindCheckpoint},
 		},
-		Connections: []query.BoardConnection{connection},
+		Connections:  []query.BoardConnection{connection},
+		DefaultRules: query.NewBoardDefaultRules(8000, 600, 300, 100),
+		TileCounts:   query.NewBoardTileCounts(1, 1, 1, 0, 0, 0, 1, 0, 0),
 	}
 }
 
@@ -148,7 +152,7 @@ func TestBoardReader_GetFailsForUnknownTileKind(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"water"}],"connections":[]}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"water"}],"connections":[],"tile_counts":{},"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 
@@ -159,7 +163,30 @@ func TestBoardReader_GetFailsForUnknownTileAttribute(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[]}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[],"tile_counts":{},"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+
+	_, err := repository.NewBoardReader().GetPublished(ctx, id)
+
+	require.Error(t, err)
+}
+
+// 既定のルールを写す前の行を、0 の値として読まず失敗させる（既定の値に黙って戻さない）
+func TestBoardReader_GetFailsForBoardWithoutDefaultRules(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	id := uuid.New()
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[]}`))
+
+	_, err := repository.NewBoardReader().GetPublished(ctx, id)
+
+	require.Error(t, err)
+}
+
+func TestBoardReader_GetFailsForBoardWithoutTileCounts(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	id := uuid.New()
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 

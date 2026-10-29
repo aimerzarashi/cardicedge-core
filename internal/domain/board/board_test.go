@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -109,6 +110,15 @@ func (f fixture) retired(t *testing.T) board.State {
 	return state
 }
 
+func initialDefaultRules(t *testing.T) board.DefaultRules {
+	t.Helper()
+	return boardtest.DefaultRules(t, 8000, 600, 300, 100)
+}
+
+func (f fixture) changeDefaultRulesCommand(rules board.DefaultRules) *board.ChangeDefaultRulesCommand {
+	return &board.ChangeDefaultRulesCommand{DefaultRules: rules, ChangedBy: f.operatorID}
+}
+
 func TestDecide_RegisterMakesEmptyDraftOfDefaultSize(t *testing.T) {
 	f := newFixture(t)
 
@@ -121,11 +131,12 @@ func TestDecide_RegisterMakesEmptyDraftOfDefaultSize(t *testing.T) {
 		Name:         f.name,
 		Width:        8,
 		Height:       8,
+		DefaultRules: initialDefaultRules(t),
 		RegisteredBy: f.operatorID,
 	}}, events)
 	require.Equal(t, board.Board{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Status: board.StatusDraft,
-		Layout: board.EmptyLayout(boardtest.Size(t, 8, 8)), RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
+		Layout: board.EmptyLayout(boardtest.Size(t, 8, 8)), DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
 	}, f.register(t))
 }
 
@@ -167,7 +178,7 @@ func TestEvolve_KeepsRegisteredSizeOutsideCurrentRange(t *testing.T) {
 	f := newFixture(t)
 	event := &board.RegisteredEvent{
 		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
-		PublicID:  publicID, Name: f.name, Width: defaultRules.MaxSize + 1, Height: 8, RegisteredBy: f.operatorID,
+		PublicID:  publicID, Name: f.name, Width: defaultRules.MaxSize + 1, Height: 8, DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID,
 	}
 
 	state, err := board.Evolve(board.InitialState(), event)
@@ -193,6 +204,38 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	require.Equal(t, changedAt, b.UpdatedAt)
 }
 
+func TestDecide_ChangeDefaultRulesReplacesAllValues(t *testing.T) {
+	f := newFixture(t)
+	rules := boardtest.DefaultRules(t, 5000, 0, 200, 50)
+
+	state, events := apply(t, f.register(t), f.changeDefaultRulesCommand(rules), changedAt)
+
+	require.Equal(t, []board.Event{&board.DefaultRulesChangedEvent{
+		EventMeta:    board.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
+		DefaultRules: rules,
+		ChangedBy:    f.operatorID,
+	}}, events)
+	b := state.(board.Board)
+	require.Equal(t, rules, b.DefaultRules)
+	require.Equal(t, int64(2), b.Version)
+	require.Equal(t, changedAt, b.UpdatedAt)
+}
+
+// 値を決めたのは登録のときで、定数を変えても過去のボードの値が変わらないことを、登録のイベントの値で確かめる
+func TestEvolve_KeepsRegisteredDefaultRules(t *testing.T) {
+	f := newFixture(t)
+	rules := boardtest.DefaultRules(t, 9999, 1, 2, 3)
+	event := &board.RegisteredEvent{
+		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
+		PublicID:  publicID, Name: f.name, Width: 8, Height: 8, DefaultRules: rules, RegisteredBy: f.operatorID,
+	}
+
+	state, err := board.Evolve(board.InitialState(), event)
+
+	require.NoError(t, err)
+	require.Equal(t, rules, state.(board.Board).DefaultRules)
+}
+
 // 版を進めないため（画面で見た版を古くしないため）
 func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 	f := newFixture(t)
@@ -207,6 +250,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		{name: "same_layout_built_in_other_order", state: withLayout, cmd: f.changeLayoutCommand(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 			[]board.Tile{boardtest.Tile(t, 2, 0, "checkpoint", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 0, 0, "base", "")},
 			[]board.Connection{boardtest.Connection(2, 0, 1, 0), boardtest.Connection(1, 0, 0, 0)}))},
+		{name: "same_default_rules", state: withLayout, cmd: f.changeDefaultRulesCommand(initialDefaultRules(t))},
 		{name: "empty_layout_of_same_size", state: f.register(t), cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 8, 8)))},
 		{name: "publish_published", state: f.published(t), cmd: f.publishCommand()},
 		{name: "retire_retired", state: f.retired(t), cmd: f.retireCommand()},
@@ -465,6 +509,7 @@ func TestDecide_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 	}{
 		{name: "rename", cmd: &board.RenameCommand{Name: boardtest.Name(t, "砂漠"), RenamedBy: f.operatorID}},
 		{name: "change_layout", cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 2, 2)))},
+		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50))},
 		{name: "delete", cmd: &board.DeleteCommand{DeletedBy: f.operatorID}},
 	}
 	states := []struct {
@@ -506,6 +551,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	}{
 		{name: "rename", cmd: &board.RenameCommand{Name: boardtest.Name(t, "砂漠"), RenamedBy: f.operatorID}},
 		{name: "change_layout", cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 2, 2)))},
+		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50))},
 		{name: "publish", cmd: f.publishCommand()},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: &board.DeleteCommand{DeletedBy: f.operatorID}},
@@ -597,6 +643,56 @@ func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrNameEmpty)
 	_, err = board.NewName(strings.Repeat("あ", board.MaxNameLength+1))
 	require.ErrorIs(t, err, board.ErrNameTooLong)
+}
+
+func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
+	tests := []struct {
+		name                              string
+		target, starting, lap, checkpoint int
+		wantErrs                          []error
+	}{
+		{name: "minimum", target: 1, starting: 0, lap: 0, checkpoint: 0},
+		{name: "beyond_default_values", target: 1_000_000, starting: 999_999, lap: 1_000_000, checkpoint: 1_000_000},
+		{name: "zero_target", target: 0, starting: 0, lap: 0, checkpoint: 0, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
+		{name: "negative_target", target: -1, starting: 0, lap: 0, checkpoint: 0, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
+		{name: "negative_starting", target: 100, starting: -1, lap: 0, checkpoint: 0, wantErrs: []error{board.ErrStartingMagicTooSmall}},
+		{name: "negative_lap_bonus", target: 100, starting: 0, lap: -1, checkpoint: 0, wantErrs: []error{board.ErrLapBonusTooSmall}},
+		{name: "negative_checkpoint_bonus", target: 100, starting: 0, lap: 0, checkpoint: -1, wantErrs: []error{board.ErrCheckpointBonusTooSmall}},
+		{name: "target_equal_to_starting", target: 600, starting: 600, lap: 0, checkpoint: 0, wantErrs: []error{board.ErrTargetMagicNotGreaterThanStartingMagic}},
+		{name: "target_less_than_starting", target: 500, starting: 600, lap: 0, checkpoint: 0, wantErrs: []error{board.ErrTargetMagicNotGreaterThanStartingMagic}},
+		{name: "reports_all_violations", target: 0, starting: 0, lap: -1, checkpoint: -1, wantErrs: []error{
+			board.ErrTargetMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic,
+		}},
+	}
+	all := []error{
+		board.ErrTargetMagicTooSmall, board.ErrStartingMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall,
+		board.ErrTargetMagicNotGreaterThanStartingMagic,
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rules, err := board.NewDefaultRules(tt.target, tt.starting, tt.lap, tt.checkpoint)
+
+			if len(tt.wantErrs) == 0 {
+				require.NoError(t, err)
+				require.Equal(t, []int{tt.target, tt.starting, tt.lap, tt.checkpoint},
+					[]int{rules.TargetMagic(), rules.StartingMagic(), rules.LapBonus(), rules.CheckpointBonus()})
+				return
+			}
+			got := slices.DeleteFunc(slices.Clone(all), func(e error) bool { return !errors.Is(err, e) })
+			require.ElementsMatch(t, tt.wantErrs, got)
+		})
+	}
+}
+
+// 登録の直後の値が、保存のときの決まりを満たさなければ、登録しただけで違反のボードができてしまう
+func TestInitialDefaultRules_SatisfiesTheRules(t *testing.T) {
+	rules := board.InitialDefaultRules()
+
+	checked, err := board.NewDefaultRules(rules.TargetMagic(), rules.StartingMagic(), rules.LapBonus(), rules.CheckpointBonus())
+
+	require.NoError(t, err)
+	require.Equal(t, rules, checked)
+	require.Equal(t, initialDefaultRules(t), rules)
 }
 
 // 範囲（上限・下限）は studio_rules が決めるので、値の形（1 以上）だけを確かめる
@@ -805,7 +901,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	size := boardtest.Size(t, 4, 3)
 	events := []board.Event{
 		&board.RegisteredEvent{
-			EventMeta: meta, PublicID: publicID, Name: f.name, Width: 8, Height: 8, RegisteredBy: f.operatorID,
+			EventMeta: meta, PublicID: publicID, Name: f.name, Width: 8, Height: 8, DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID,
 		},
 		&board.RenamedEvent{EventMeta: meta, Name: boardtest.Name(t, "砂漠"), RenamedBy: f.operatorID},
 		&board.LayoutChangedEvent{
@@ -818,6 +914,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 			Disconnected: []board.Connection{boardtest.Connection(1, 1, 2, 1)},
 			ChangedBy:    f.operatorID,
 		},
+		&board.DefaultRulesChangedEvent{EventMeta: meta, DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50), ChangedBy: f.operatorID},
 		&board.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
 		&board.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
 		&board.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},

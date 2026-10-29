@@ -33,9 +33,22 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 	}
 	return &model.Board{
 		ID: board.ID, Name: board.Name, Status: status, Width: board.Width, Height: board.Height,
-		Tiles: tiles, Connections: connections, Revision: int(board.Revision),
+		Tiles: tiles, Connections: connections, DefaultRules: fromBoardDefaultRules(board.DefaultRules), TileCounts: fromBoardTileCounts(board.TileCounts), Revision: int(board.Revision),
 		RegisteredAt: board.RegisteredAt, UpdatedAt: board.UpdatedAt,
 	}, nil
+}
+
+func fromBoardDefaultRules(rules readmodel.BoardDefaultRules) *model.BoardDefaultRules {
+	return &model.BoardDefaultRules{
+		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
+	}
+}
+
+func fromBoardTileCounts(counts readmodel.BoardTileCounts) *model.BoardTileCounts {
+	return &model.BoardTileCounts{
+		Land: counts.Land, Base: counts.Base, Checkpoint: counts.Checkpoint,
+		Fire: counts.Fire, Earth: counts.Earth, Water: counts.Water, Wind: counts.Wind, Neutral: counts.Neutral, Multi: counts.Multi,
+	}
 }
 
 func toBoardsConnection(connection pagination.Connection[query.Board]) (*model.BoardsConnection, error) {

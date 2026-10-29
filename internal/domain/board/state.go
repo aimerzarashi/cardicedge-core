@@ -23,6 +23,7 @@ type Board struct {
 	Name         Name
 	Status       Status
 	Layout       Layout
+	DefaultRules DefaultRules
 	RegisteredBy operator.ID
 	RegisteredAt time.Time
 	UpdatedAt    time.Time

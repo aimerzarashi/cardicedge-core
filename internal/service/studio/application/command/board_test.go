@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules/studiorulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -107,6 +108,14 @@ func TestRegisterBoard_ClampsDefaultSizeIntoStudioRulesRange(t *testing.T) {
 	}
 }
 
+func TestRegisterBoard_StartsWithInitialDefaultRules(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+
+	registered := registerBoard(t, ctx, newBoardHandler(t, ctx), "草原")
+
+	require.Equal(t, board.InitialDefaultRules(), restoredBoard(t, ctx, registered.ID).DefaultRules)
+}
+
 func TestRegisterBoard_RejectsNameAlreadyInUse(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newBoardHandler(t, ctx)
@@ -151,9 +160,11 @@ func TestRegisterBoard_RejectsInvalidName(t *testing.T) {
 
 func TestBoardHandler_RejectsCallWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
+	commands := newBoardHandler(t, ctx)
 
-	_, err := newBoardHandler(t, ctx).Register(ctx, "草原")
-
+	_, err := commands.Register(ctx, "草原")
+	require.ErrorIs(t, err, command.ErrNotOperator)
+	_, err = commands.ChangeDefaultRules(ctx, uuid.New(), 1, command.BoardDefaultRulesInput{TargetMagic: 5000})
 	require.ErrorIs(t, err, command.ErrNotOperator)
 }
 
@@ -208,6 +219,10 @@ func TestBoardHandler_RejectsStaleRevisionAndMissingBoard(t *testing.T) {
 		}},
 		{name: "change_layout", call: func(id uuid.UUID, revision int64) error {
 			_, err := commands.ChangeLayout(ctx, id, revision, publishableLayoutInput())
+			return err
+		}},
+		{name: "change_default_rules", call: func(id uuid.UUID, revision int64) error {
+			_, err := commands.ChangeDefaultRules(ctx, id, revision, command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
 			return err
 		}},
 		{name: "publish", call: func(id uuid.UUID, revision int64) error { _, err := commands.Publish(ctx, id, revision); return err }},
@@ -398,6 +413,82 @@ func TestChangeBoardLayout_ReturnsInternalErrorForShapesTheInputRulesOut(t *test
 	}
 }
 
+func TestChangeBoardDefaultRules_SavesAllValuesAndKeepsLayout(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandler(t, ctx)
+	changed := publishableBoard(t, ctx, commands)
+
+	rulesChanged, err := commands.ChangeDefaultRules(ctx, changed.ID, changed.Revision,
+		command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
+
+	require.NoError(t, err)
+	require.Equal(t, changed.Revision+1, rulesChanged.Revision)
+	current := restoredBoard(t, ctx, changed.ID)
+	require.Equal(t, boardtest.DefaultRules(t, 5000, 0, 200, 50), current.DefaultRules)
+	require.Len(t, current.Layout.Tiles(), 3)
+}
+
+func TestChangeBoardDefaultRules_SameValuesKeepRevision(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newBoardHandler(t, ctx)
+	registered := registerBoard(t, ctx, commands, "草原")
+
+	same, err := commands.ChangeDefaultRules(ctx, registered.ID, registered.Revision,
+		command.NewBoardDefaultRulesInput(8000, 600, 300, 100))
+
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision, same.Revision)
+}
+
+func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules command.BoardDefaultRulesInput
+		want  []input.Error
+	}{
+		{
+			name:  "zero_target",
+			rules: command.NewBoardDefaultRulesInput(0, 0, 0, 0),
+			want: []input.Error{
+				&input.TooSmall{Field: "targetMagic", Min: 1},
+				&input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"},
+			},
+		},
+		{
+			name:  "negative_starting",
+			rules: command.NewBoardDefaultRulesInput(100, -1, 0, 0),
+			want:  []input.Error{&input.TooSmall{Field: "startingMagic", Min: 0}},
+		},
+		{
+			name:  "negative_bonuses",
+			rules: command.NewBoardDefaultRulesInput(100, 0, -1, -2),
+			want: []input.Error{
+				&input.TooSmall{Field: "lapBonus", Min: 0},
+				&input.TooSmall{Field: "checkpointBonus", Min: 0},
+			},
+		},
+		{
+			name:  "target_equal_to_starting",
+			rules: command.NewBoardDefaultRulesInput(600, 600, 0, 0),
+			want:  []input.Error{&input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			commands := newBoardHandler(t, ctx)
+			registered := registerBoard(t, ctx, commands, "草原")
+
+			_, err := commands.ChangeDefaultRules(ctx, registered.ID, registered.Revision, tt.rules)
+
+			invalid, ok := input.AsErrors(err)
+			require.True(t, ok)
+			require.Equal(t, tt.want, []input.Error(invalid))
+			require.Equal(t, int64(1), restoredBoard(t, ctx, registered.ID).Version)
+		})
+	}
+}
+
 func TestPublishBoard_MakesPublishedAndSecondCallKeepsRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newBoardHandler(t, ctx)
@@ -464,6 +555,9 @@ func TestBoardHandler_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 	require.ErrorIs(t, err, command.ErrBoardNotDraft)
 	// 入力の誤りより先に、準備中でないことを返す
 	_, err = commands.ChangeLayout(ctx, published.ID, published.Revision, publishableLayoutInput())
+	require.ErrorIs(t, err, command.ErrBoardNotDraft)
+	_, err = commands.ChangeDefaultRules(ctx, published.ID, published.Revision,
+		command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
 	require.ErrorIs(t, err, command.ErrBoardNotDraft)
 	require.ErrorIs(t, commands.Delete(ctx, published.ID, published.Revision), command.ErrBoardNotDraft)
 }
