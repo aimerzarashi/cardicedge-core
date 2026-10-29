@@ -16,6 +16,7 @@ import (
 const boardFields = `id name status width height revision registeredAt updatedAt
 	defaultRules { targetMagic startingMagic lapBonus checkpointBonus }
 	tileCounts { land base checkpoint fire earth water wind neutral multi }
+	publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } }
 	tiles { __typename x y ... on LandTile { attribute } }
 	connections { a { x y } b { x y } }`
 
@@ -82,7 +83,7 @@ const publishBoardMutation = `mutation ($input: PublishBoardInput!) {
 	publishBoard(input: $input) {
 		__typename
 		... on PublishBoardSuccess { id revision }
-		... on BoardNotPublishableError { baseCount checkpointCount unreachableTiles { x y } }
+		... on BoardNotPublishableError { message problems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } } }
 	}
 }`
 
@@ -349,7 +350,33 @@ func TestChangeBoardDefaultRules_ReturnsFieldErrorPerViolation(t *testing.T) {
 	}}, notGreater)
 }
 
-func TestPublishBoard_ReturnsConditionsWhenNotPublishable(t *testing.T) {
+func problemBaseCount(positions ...map[string]any) map[string]any {
+	return map[string]any{"__typename": "BaseCountProblem", "message": "board must have exactly one base", "positions": positionList(positions)}
+}
+
+func problemNoCheckpoint() map[string]any {
+	return map[string]any{"__typename": "NoCheckpointProblem", "message": "board must have at least one checkpoint"}
+}
+
+func problemUnreachable(positions ...map[string]any) map[string]any {
+	return map[string]any{
+		"__typename": "UnreachableTilesProblem", "message": "board has tiles that cannot be reached from the base", "positions": positionList(positions),
+	}
+}
+
+func positionList(positions []map[string]any) []any {
+	list := make([]any, 0, len(positions))
+	for _, pos := range positions {
+		list = append(list, pos)
+	}
+	return list
+}
+
+func position(x, y int) map[string]any {
+	return map[string]any{"x": float64(x), "y": float64(y)}
+}
+
+func TestPublishBoard_ReturnsProblemsPerReasonWhenNotPublishable(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
@@ -361,15 +388,39 @@ func TestPublishBoard_ReturnsConditionsWhenNotPublishable(t *testing.T) {
 	unreachable := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(changed, nil))
 
 	require.Equal(t, map[string]any{
-		"__typename": "BoardNotPublishableError", "baseCount": float64(0), "checkpointCount": float64(0), "unreachableTiles": []any{},
+		"__typename": "BoardNotPublishableError", "message": "board is not publishable",
+		"problems": []any{problemBaseCount(), problemNoCheckpoint()},
 	}, empty)
 	require.Equal(t, map[string]any{
-		"__typename": "BoardNotPublishableError", "baseCount": float64(1), "checkpointCount": float64(1),
-		"unreachableTiles": []any{
-			map[string]any{"x": float64(0), "y": float64(2)},
-			map[string]any{"x": float64(2), "y": float64(2)},
-		},
+		"__typename": "BoardNotPublishableError", "message": "board is not publishable",
+		"problems": []any{problemUnreachable(position(0, 2), position(2, 2))},
 	}, unreachable)
+}
+
+// 保存のたびに投影が理由を計算するので、公開を押す前に読んで分かる。理由は 拠点の数 → チェックポイント → 行けないマス の順
+func TestBoard_ShowsPublishProblemsPerReasonAndEmptyWhenPublishable(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	registered := waitBoard(t, token, board["id"], 1)
+	twoBases := changeBoardLayout(t, token, board, 3, 3,
+		[]map[string]any{boardTile(2, 1, "BASE"), boardTile(0, 0, "BASE"), boardTile(1, 1, "LAND")}, nil)
+	twoBasesDetail := waitBoard(t, token, twoBases["id"], 2)
+	unreachable := changeBoardLayout(t, token, ref(twoBases), 3, 3,
+		[]map[string]any{boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT"), boardTile(2, 2, "LAND")},
+		[]map[string]any{boardConnection(0, 0, 1, 0)})
+	unreachableDetail := waitBoard(t, token, unreachable["id"], 3)
+	publishable := changePublishableLayout(t, token, ref(unreachable))
+	publishableDetail := waitBoard(t, token, publishable["id"], 4)
+	published := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(publishable, nil))
+	publishedDetail := waitBoard(t, token, published["id"], 5)
+
+	require.Equal(t, []any{problemBaseCount(), problemNoCheckpoint()}, registered["publishProblems"])
+	require.Equal(t, []any{problemBaseCount(position(0, 0), position(2, 1)), problemNoCheckpoint()}, twoBasesDetail["publishProblems"])
+	require.Equal(t, []any{problemUnreachable(position(2, 2))}, unreachableDetail["publishProblems"])
+	require.Empty(t, publishableDetail["publishProblems"])
+	require.Equal(t, "PUBLISHED", publishedDetail["status"])
+	require.Empty(t, publishedDetail["publishProblems"])
 }
 
 func TestPublishBoard_PublishesRetiresAndPublishesAgain(t *testing.T) {

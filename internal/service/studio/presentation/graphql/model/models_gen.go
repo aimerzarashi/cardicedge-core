@@ -12,6 +12,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// 公開できない理由（BaseCountProblem・NoCheckpointProblem・UnreachableTilesProblem）。理由は __typename で見分け、
+// 座標を持つ理由は断片（... on BaseCountProblem 等）で取る
+type BoardPublishProblem interface {
+	IsBoardPublishProblem()
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	GetMessage() string
+}
+
 // ボードの詳細の結果
 type BoardResult interface {
 	IsBoardResult()
@@ -200,6 +208,19 @@ type StudioRulesResult interface {
 	IsStudioRulesResult()
 }
 
+// 拠点がちょうど 1 つでない（公開するボードの拠点はちょうど 1 つ）
+type BaseCountProblem struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 置いてある拠点の座標（行 → 列の順。拠点が無ければ空）
+	Positions []*BoardPosition `json:"positions"`
+}
+
+func (BaseCountProblem) IsBoardPublishProblem() {}
+
+// 開発者向けの説明（画面にそのまま出す文言ではない）
+func (this BaseCountProblem) GetMessage() string { return this.Message }
+
 // 拠点（公開するボードにちょうど 1 つ）
 type BaseTile struct {
 	// 列
@@ -232,6 +253,8 @@ type Board struct {
 	DefaultRules *BoardDefaultRules `json:"defaultRules"`
 	// マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）
 	TileCounts *BoardTileCounts `json:"tileCounts"`
+	// 公開できない理由（空なら公開できる）。保存のたびに、置いてあるマスから投影が計算する。状態によらず計算した結果を返す（公開中のボードは条件を満たしているので空）
+	PublishProblems []BoardPublishProblem `json:"publishProblems"`
 	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
 	Tiles []BoardTile `json:"tiles"`
 	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
@@ -331,12 +354,8 @@ func (BoardNotFoundError) IsRetireBoardResult() {}
 type BoardNotPublishableError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
-	// 拠点の数（ちょうど 1 つでなければ公開できない）
-	BaseCount int `json:"baseCount"`
-	// チェックポイントの数（1 つ以上でなければ公開できない）
-	CheckpointCount int `json:"checkpointCount"`
-	// 拠点からつながりをたどって行けないマス（行 → 列の順）。拠点がちょうど 1 つのときだけ計算し、0 個・2 個以上のときは空
-	UnreachableTiles []*BoardPosition `json:"unreachableTiles"`
+	// 公開できない理由の一覧（Board.publishProblems と同じ形と順）
+	Problems []BoardPublishProblem `json:"problems"`
 }
 
 func (BoardNotPublishableError) IsPublishBoardResult() {}
@@ -940,6 +959,17 @@ type LandTileInput struct {
 type Mutation struct {
 }
 
+// チェックポイントが 1 つも無い（公開するボードのチェックポイントは 1 つ以上）
+type NoCheckpointProblem struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NoCheckpointProblem) IsBoardPublishProblem() {}
+
+// 開発者向けの説明（画面にそのまま出す文言ではない）
+func (this NoCheckpointProblem) GetMessage() string { return this.Message }
+
 // ページの情報
 type PageInfo struct {
 	// 次のページがあるか
@@ -1498,6 +1528,19 @@ type TilePositionInput struct {
 	// 行（0 以上、高さ − 1 以下）
 	Y int `json:"y"`
 }
+
+// 拠点からつながりをたどって行けないマスがある（拠点がちょうど 1 つのときだけ判定する）
+type UnreachableTilesProblem struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 行けないマスの座標（行 → 列の順）
+	Positions []*BoardPosition `json:"positions"`
+}
+
+func (UnreachableTilesProblem) IsBoardPublishProblem() {}
+
+// 開発者向けの説明（画面にそのまま出す文言ではない）
+func (this UnreachableTilesProblem) GetMessage() string { return this.Message }
 
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {

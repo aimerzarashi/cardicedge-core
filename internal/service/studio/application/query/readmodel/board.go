@@ -137,6 +137,53 @@ func countBoardTiles(tiles map[board.Position]BoardTile) BoardTileCounts {
 	return counts
 }
 
+// boards.metadata の publish_problems の 1 つ。公開できない理由の種類と、関わるマスの座標（無ければ空）。
+// 種類は domain の board.PublishProblemKind の値と同じ。domain の型を使わない理由は BoardTileKind と同じ
+type BoardPublishProblem struct {
+	Kind      BoardPublishProblemKind `json:"kind"`
+	Positions []BoardPosition         `json:"positions"`
+}
+
+type BoardPublishProblemKind string
+
+const (
+	BoardPublishProblemBaseCount        BoardPublishProblemKind = "base_count"
+	BoardPublishProblemNoCheckpoint     BoardPublishProblemKind = "no_checkpoint"
+	BoardPublishProblemUnreachableTiles BoardPublishProblemKind = "unreachable_tiles"
+)
+
+func NewBoardPublishProblem(kind BoardPublishProblemKind, positions ...BoardPosition) BoardPublishProblem {
+	if positions == nil {
+		positions = []BoardPosition{}
+	}
+	return BoardPublishProblem{Kind: kind, Positions: positions}
+}
+
+// 置いてあるマスとつながりから、公開できない理由を調べる（判定は domain の board.CheckReadiness の 1 か所）。
+// 理由の順は domain の Problems のまま。空（公開できる）でも nil にせず、JSON を [] にする
+func publishProblems(tiles map[board.Position]BoardTile, connections map[board.Connection]struct{}) []BoardPublishProblem {
+	domainTiles := make([]board.Tile, 0, len(tiles))
+	for pos, tile := range tiles {
+		kind, err := board.NewTileKind(string(tile.Kind))
+		if err != nil {
+			// マスの種類は検査済みのイベントから作った値なので、ここに来るのはコードの誤り。黙って数えずに止める
+			panic(fmt.Sprintf("readmodel: board tile at %v: %v", pos, err))
+		}
+		domainTiles = append(domainTiles, board.Tile{Position: pos, Kind: kind})
+	}
+	domainConnections := slices.Collect(maps.Keys(connections))
+	problems := board.CheckReadiness(domainTiles, domainConnections).Problems()
+	result := make([]BoardPublishProblem, 0, len(problems))
+	for _, problem := range problems {
+		positions := make([]BoardPosition, 0, len(problem.Positions))
+		for _, pos := range problem.Positions {
+			positions = append(positions, NewBoardPosition(pos.X, pos.Y))
+		}
+		result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
+	}
+	return result
+}
+
 type BoardPosition struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -184,8 +231,11 @@ type BoardMetadata struct {
 	Connections  []BoardConnection `json:"connections"`
 	DefaultRules BoardDefaultRules `json:"default_rules"`
 	TileCounts   BoardTileCounts   `json:"tile_counts"`
-	RegisteredAt time.Time         `json:"registered_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
+	// 公開できない理由（空なら公開できる）。レイアウトが変わるたびに投影が計算し直す。
+	// 状態（公開中等）は見ない。公開中のボードは条件を満たしているので、空になる
+	PublishProblems []BoardPublishProblem `json:"publish_problems"`
+	RegisteredAt    time.Time             `json:"registered_at"`
+	UpdatedAt       time.Time             `json:"updated_at"`
 }
 
 // ボードのイベントだけを扱い、ほかは状態をそのまま返す。状態を書き換えないよう、マスとつながりは写してから変える
@@ -202,7 +252,8 @@ func (state Board) Evolve(event any) Board {
 			ID: e.PublicID, Name: e.Name.String(), Status: BoardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Width: e.Width, Height: e.Height,
 			Tiles: []BoardTile{}, Connections: []BoardConnection{}, DefaultRules: toBoardDefaultRules(e.DefaultRules),
-			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
+			PublishProblems: publishProblems(state.tiles, state.connections),
+			RegisteredAt:    occurredAt, UpdatedAt: occurredAt,
 		}
 	case *board.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
@@ -248,6 +299,7 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	}
 	state.tiles, state.connections = tiles, connections
 	state.Metadata.TileCounts = countBoardTiles(tiles)
+	state.Metadata.PublishProblems = publishProblems(tiles, connections)
 
 	positions := slices.SortedFunc(maps.Keys(tiles), board.Position.Compare)
 	state.Metadata.Tiles = make([]BoardTile, 0, len(positions))

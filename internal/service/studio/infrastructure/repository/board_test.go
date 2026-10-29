@@ -28,7 +28,7 @@ func boardState(sortName, name string, status readmodel.BoardStatus) readmodel.B
 	metadata := readmodel.BoardMetadata{
 		ID: id, Name: name, Status: status, Revision: 3, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, RegisteredAt: at, UpdatedAt: at,
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), PublishProblems: []readmodel.BoardPublishProblem{},
 	}
 	return readmodel.Board{BoardID: id, SortName: sortName, Status: status, Metadata: metadata}
 }
@@ -69,6 +69,10 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	board.Metadata.Connections = []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}}
 	board.Metadata.TileCounts = readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0)
 	board.Metadata.DefaultRules = readmodel.NewBoardDefaultRules(5000, 0, 200, 50)
+	board.Metadata.PublishProblems = []readmodel.BoardPublishProblem{
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
+		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemUnreachableTiles, readmodel.NewBoardPosition(2, 1)),
+	}
 
 	require.NoError(t, f.writer.Upsert(f.ctx, board))
 	got, err := repository.NewBoardReader().Get(f.ctx, board.BoardID)
@@ -83,9 +87,22 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	require.Equal(t, board.Metadata.Connections, got.Connections)
 	require.Equal(t, board.Metadata.DefaultRules, got.DefaultRules)
 	require.Equal(t, board.Metadata.TileCounts, got.TileCounts)
+	require.Equal(t, board.Metadata.PublishProblems, got.PublishProblems)
 	require.Equal(t, int64(3), got.Revision)
 	require.Equal(t, board.Metadata.RegisteredAt, got.RegisteredAt.UTC())
 	require.Equal(t, board.Metadata.UpdatedAt, got.UpdatedAt.UTC())
+}
+
+// 理由を足す前に投影した行を、公開できるもの（理由が空）として返さない
+func TestBoard_GetFailsWhenPublishProblemsAreMissing(t *testing.T) {
+	f := newBoardFixture(t)
+	board := boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
+	board.Metadata.PublishProblems = nil
+	require.NoError(t, f.writer.Upsert(f.ctx, board))
+
+	_, err := repository.NewBoardReader().Get(f.ctx, board.BoardID)
+
+	require.ErrorContains(t, err, "publish_problems is missing")
 }
 
 func TestBoard_GetFailsForMissingBoard(t *testing.T) {

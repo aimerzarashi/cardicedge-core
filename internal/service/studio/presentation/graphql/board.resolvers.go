@@ -141,7 +141,7 @@ func (r *mutationResolver) PublishBoard(ctx context.Context, input model.Publish
 	case errors.Is(err, command.ErrBoardNotFound):
 		return &model.BoardNotFoundError{Message: "board not found"}, nil
 	case errors.As(err, &notPublishable):
-		return fromBoardNotPublishable(notPublishable), nil
+		return fromBoardNotPublishable(notPublishable)
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:

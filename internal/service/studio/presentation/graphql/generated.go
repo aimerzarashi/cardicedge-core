@@ -41,24 +41,30 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	BaseCountProblem struct {
+		Message   func(childComplexity int) int
+		Positions func(childComplexity int) int
+	}
+
 	BaseTile struct {
 		X func(childComplexity int) int
 		Y func(childComplexity int) int
 	}
 
 	Board struct {
-		Connections  func(childComplexity int) int
-		DefaultRules func(childComplexity int) int
-		Height       func(childComplexity int) int
-		ID           func(childComplexity int) int
-		Name         func(childComplexity int) int
-		RegisteredAt func(childComplexity int) int
-		Revision     func(childComplexity int) int
-		Status       func(childComplexity int) int
-		TileCounts   func(childComplexity int) int
-		Tiles        func(childComplexity int) int
-		UpdatedAt    func(childComplexity int) int
-		Width        func(childComplexity int) int
+		Connections     func(childComplexity int) int
+		DefaultRules    func(childComplexity int) int
+		Height          func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Name            func(childComplexity int) int
+		PublishProblems func(childComplexity int) int
+		RegisteredAt    func(childComplexity int) int
+		Revision        func(childComplexity int) int
+		Status          func(childComplexity int) int
+		TileCounts      func(childComplexity int) int
+		Tiles           func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+		Width           func(childComplexity int) int
 	}
 
 	BoardConnection struct {
@@ -86,10 +92,8 @@ type ComplexityRoot struct {
 	}
 
 	BoardNotPublishableError struct {
-		BaseCount        func(childComplexity int) int
-		CheckpointCount  func(childComplexity int) int
-		Message          func(childComplexity int) int
-		UnreachableTiles func(childComplexity int) int
+		Message  func(childComplexity int) int
+		Problems func(childComplexity int) int
 	}
 
 	BoardPosition struct {
@@ -295,6 +299,10 @@ type ComplexityRoot struct {
 		SetStarterDeckCardCounts          func(childComplexity int, input model.SetStarterDeckCardCountsInput) int
 	}
 
+	NoCheckpointProblem struct {
+		Message func(childComplexity int) int
+	}
+
 	PageInfo struct {
 		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
@@ -491,6 +499,11 @@ type ComplexityRoot struct {
 		Board func(childComplexity int) int
 	}
 
+	UnreachableTilesProblem struct {
+		Message   func(childComplexity int) int
+		Positions func(childComplexity int) int
+	}
+
 	ValidationErrors struct {
 		Errors func(childComplexity int) int
 	}
@@ -560,6 +573,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "BaseCountProblem.message":
+		if e.ComplexityRoot.BaseCountProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseCountProblem.Message(childComplexity), true
+	case "BaseCountProblem.positions":
+		if e.ComplexityRoot.BaseCountProblem.Positions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseCountProblem.Positions(childComplexity), true
+
 	case "BaseTile.x":
 		if e.ComplexityRoot.BaseTile.X == nil {
 			break
@@ -603,6 +629,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Board.Name(childComplexity), true
+	case "Board.publishProblems":
+		if e.ComplexityRoot.Board.PublishProblems == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.PublishProblems(childComplexity), true
 	case "Board.registeredAt":
 		if e.ComplexityRoot.Board.RegisteredAt == nil {
 			break
@@ -705,30 +737,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BoardNotFoundError.Message(childComplexity), true
 
-	case "BoardNotPublishableError.baseCount":
-		if e.ComplexityRoot.BoardNotPublishableError.BaseCount == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardNotPublishableError.BaseCount(childComplexity), true
-	case "BoardNotPublishableError.checkpointCount":
-		if e.ComplexityRoot.BoardNotPublishableError.CheckpointCount == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardNotPublishableError.CheckpointCount(childComplexity), true
 	case "BoardNotPublishableError.message":
 		if e.ComplexityRoot.BoardNotPublishableError.Message == nil {
 			break
 		}
 
 		return e.ComplexityRoot.BoardNotPublishableError.Message(childComplexity), true
-	case "BoardNotPublishableError.unreachableTiles":
-		if e.ComplexityRoot.BoardNotPublishableError.UnreachableTiles == nil {
+	case "BoardNotPublishableError.problems":
+		if e.ComplexityRoot.BoardNotPublishableError.Problems == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardNotPublishableError.UnreachableTiles(childComplexity), true
+		return e.ComplexityRoot.BoardNotPublishableError.Problems(childComplexity), true
 
 	case "BoardPosition.x":
 		if e.ComplexityRoot.BoardPosition.X == nil {
@@ -1451,6 +1471,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.SetStarterDeckCardCounts(childComplexity, args["input"].(model.SetStarterDeckCardCountsInput)), true
 
+	case "NoCheckpointProblem.message":
+		if e.ComplexityRoot.NoCheckpointProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NoCheckpointProblem.Message(childComplexity), true
+
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
 			break
@@ -2051,6 +2078,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StudioRules.Board(childComplexity), true
 
+	case "UnreachableTilesProblem.message":
+		if e.ComplexityRoot.UnreachableTilesProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnreachableTilesProblem.Message(childComplexity), true
+	case "UnreachableTilesProblem.positions":
+		if e.ComplexityRoot.UnreachableTilesProblem.Positions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnreachableTilesProblem.Positions(childComplexity), true
+
 	case "ValidationErrors.errors":
 		if e.ComplexityRoot.ValidationErrors.Errors == nil {
 			break
@@ -2217,6 +2257,8 @@ func (ec *executionContext) childFields_Board(ctx context.Context, field graphql
 		return ec.fieldContext_Board_defaultRules(ctx, field)
 	case "tileCounts":
 		return ec.fieldContext_Board_tileCounts(ctx, field)
+	case "publishProblems":
+		return ec.fieldContext_Board_publishProblems(ctx, field)
 	case "tiles":
 		return ec.fieldContext_Board_tiles(ctx, field)
 	case "connections":
@@ -3149,6 +3191,61 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
+func (ec *executionContext) _BaseCountProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.BaseCountProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseCountProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseCountProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseCountProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BaseCountProblem_positions(ctx context.Context, field graphql.CollectedField, obj *model.BaseCountProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseCountProblem_positions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Positions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseCountProblem_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BaseCountProblem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _BaseTile_x(ctx context.Context, field graphql.CollectedField, obj *model.BaseTile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3369,6 +3466,38 @@ func (ec *executionContext) fieldContext_Board_tileCounts(_ context.Context, fie
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_BoardTileCounts(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_publishProblems(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_publishProblems(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PublishProblems, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_publishProblems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -3755,79 +3884,33 @@ func (ec *executionContext) fieldContext_BoardNotPublishableError_message(_ cont
 	return graphql.NewScalarFieldContext("BoardNotPublishableError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _BoardNotPublishableError_baseCount(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
+func (ec *executionContext) _BoardNotPublishableError_problems(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardNotPublishableError_baseCount(ctx, field)
+			return ec.fieldContext_BoardNotPublishableError_problems(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.BaseCount, nil
+			return obj.Problems, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_BoardNotPublishableError_baseCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardNotPublishableError", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _BoardNotPublishableError_checkpointCount(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardNotPublishableError_checkpointCount(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.CheckpointCount, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardNotPublishableError_checkpointCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardNotPublishableError", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _BoardNotPublishableError_unreachableTiles(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardNotPublishableError_unreachableTiles(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UnreachableTiles, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
-			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardNotPublishableError_unreachableTiles(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_BoardNotPublishableError_problems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "BoardNotPublishableError",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BoardPosition(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -6564,6 +6647,29 @@ func (ec *executionContext) fieldContext_Mutation_retireStarterDeck(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _NoCheckpointProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.NoCheckpointProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NoCheckpointProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NoCheckpointProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NoCheckpointProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8923,6 +9029,61 @@ func (ec *executionContext) fieldContext_StudioRules_board(_ context.Context, fi
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_BoardRules(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UnreachableTilesProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.UnreachableTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnreachableTilesProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnreachableTilesProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UnreachableTilesProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UnreachableTilesProblem_positions(ctx context.Context, field graphql.CollectedField, obj *model.UnreachableTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnreachableTilesProblem_positions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Positions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnreachableTilesProblem_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UnreachableTilesProblem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
 		},
 	}
 	return fc, nil
@@ -11300,6 +11461,40 @@ func (ec *executionContext) unmarshalInputTilePositionInput(ctx context.Context,
 
 // region    ************************** interface.gotpl ***************************
 
+func (ec *executionContext) _BoardPublishProblem(ctx context.Context, sel ast.SelectionSet, obj model.BoardPublishProblem) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.UnreachableTilesProblem:
+		return ec._UnreachableTilesProblem(ctx, sel, &obj)
+	case *model.UnreachableTilesProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UnreachableTilesProblem(ctx, sel, obj)
+	case model.NoCheckpointProblem:
+		return ec._NoCheckpointProblem(ctx, sel, &obj)
+	case *model.NoCheckpointProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NoCheckpointProblem(ctx, sel, obj)
+	case model.BaseCountProblem:
+		return ec._BaseCountProblem(ctx, sel, &obj)
+	case *model.BaseCountProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BaseCountProblem(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardPublishProblem must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _BoardResult(ctx context.Context, sel ast.SelectionSet, obj model.BoardResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -12845,6 +13040,49 @@ func (ec *executionContext) _StudioRulesResult(ctx context.Context, sel ast.Sele
 
 // region    **************************** object.gotpl ****************************
 
+var baseCountProblemImplementors = []string{"BaseCountProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _BaseCountProblem(ctx context.Context, sel ast.SelectionSet, obj *model.BaseCountProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, baseCountProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BaseCountProblem")
+		case "message":
+			out.Values[i] = ec._BaseCountProblem_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "positions":
+			out.Values[i] = ec._BaseCountProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var baseTileImplementors = []string{"BaseTile", "BoardTile"}
 
 func (ec *executionContext) _BaseTile(ctx context.Context, sel ast.SelectionSet, obj *model.BaseTile) graphql.Marshaler {
@@ -12932,6 +13170,11 @@ func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "tileCounts":
 			out.Values[i] = ec._Board_tileCounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "publishProblems":
+			out.Values[i] = ec._Board_publishProblems(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -13208,18 +13451,8 @@ func (ec *executionContext) _BoardNotPublishableError(ctx context.Context, sel a
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "baseCount":
-			out.Values[i] = ec._BoardNotPublishableError_baseCount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "checkpointCount":
-			out.Values[i] = ec._BoardNotPublishableError_checkpointCount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "unreachableTiles":
-			out.Values[i] = ec._BoardNotPublishableError_unreachableTiles(ctx, field, obj)
+		case "problems":
+			out.Values[i] = ec._BoardNotPublishableError_problems(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -14937,6 +15170,44 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_retireStarterDeck(ctx, field)
 			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var noCheckpointProblemImplementors = []string{"NoCheckpointProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _NoCheckpointProblem(ctx context.Context, sel ast.SelectionSet, obj *model.NoCheckpointProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, noCheckpointProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NoCheckpointProblem")
+		case "message":
+			out.Values[i] = ec._NoCheckpointProblem_message(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -16813,6 +17084,49 @@ func (ec *executionContext) _StudioRules(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var unreachableTilesProblemImplementors = []string{"UnreachableTilesProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel ast.SelectionSet, obj *model.UnreachableTilesProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unreachableTilesProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnreachableTilesProblem")
+		case "message":
+			out.Values[i] = ec._UnreachableTilesProblem_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "positions":
+			out.Values[i] = ec._UnreachableTilesProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
@@ -17337,6 +17651,32 @@ func (ec *executionContext) marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashi
 func (ec *executionContext) unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx context.Context, v any) (*model.BoardPositionInput, error) {
 	res, err := ec.unmarshalInputBoardPositionInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardPublishProblem2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblem(ctx context.Context, sel ast.SelectionSet, v model.BoardPublishProblem) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardPublishProblem(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardPublishProblem2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblem(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardResult(ctx context.Context, sel ast.SelectionSet, v model.BoardResult) graphql.Marshaler {

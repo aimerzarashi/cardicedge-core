@@ -459,13 +459,16 @@ func mapBoardError(err error) error {
 	var notPublishable *board.NotPublishableError
 	switch {
 	case errors.As(err, &notPublishable):
-		unreachable := make([]BoardPosition, 0, len(notPublishable.Readiness.UnreachableTiles))
-		for _, pos := range notPublishable.Readiness.UnreachableTiles {
-			unreachable = append(unreachable, BoardPosition{X: pos.X, Y: pos.Y})
+		problems := notPublishable.Readiness.Problems()
+		result := make([]BoardPublishProblem, 0, len(problems))
+		for _, problem := range problems {
+			positions := make([]BoardPosition, 0, len(problem.Positions))
+			for _, pos := range problem.Positions {
+				positions = append(positions, NewBoardPosition(pos.X, pos.Y))
+			}
+			result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
 		}
-		return &BoardNotPublishableError{
-			BaseCount: notPublishable.Readiness.BaseCount, CheckpointCount: notPublishable.Readiness.CheckpointCount, UnreachableTiles: unreachable,
-		}
+		return &BoardNotPublishableError{Problems: result}
 	case errors.Is(err, board.ErrNotDraft):
 		return ErrBoardNotDraft
 	case errors.Is(err, board.ErrInvalidStatusTransition):
