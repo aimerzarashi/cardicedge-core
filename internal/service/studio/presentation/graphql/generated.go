@@ -41,6 +41,11 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	BaseTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
 	Board struct {
 		Connections  func(childComplexity int) int
 		Height       func(childComplexity int) int
@@ -88,13 +93,6 @@ type ComplexityRoot struct {
 		MinSize func(childComplexity int) int
 	}
 
-	BoardTile struct {
-		Attribute func(childComplexity int) int
-		Kind      func(childComplexity int) int
-		X         func(childComplexity int) int
-		Y         func(childComplexity int) int
-	}
-
 	BoardsConnection struct {
 		Edges    func(childComplexity int) int
 		PageInfo func(childComplexity int) int
@@ -126,6 +124,11 @@ type ComplexityRoot struct {
 	ChangeBoardLayoutSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
+	}
+
+	CheckpointTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
 	}
 
 	Creature struct {
@@ -163,10 +166,6 @@ type ComplexityRoot struct {
 	}
 
 	FieldNotAdjacent struct {
-		Field func(childComplexity int) int
-	}
-
-	FieldNotAllowed struct {
 		Field func(childComplexity int) int
 	}
 
@@ -226,6 +225,12 @@ type ComplexityRoot struct {
 		Revision     func(childComplexity int) int
 		Status       func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
+	}
+
+	LandTile struct {
+		Attribute func(childComplexity int) int
+		X         func(childComplexity int) int
+		Y         func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -517,6 +522,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "BaseTile.x":
+		if e.ComplexityRoot.BaseTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseTile.X(childComplexity), true
+	case "BaseTile.y":
+		if e.ComplexityRoot.BaseTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseTile.Y(childComplexity), true
+
 	case "Board.connections":
 		if e.ComplexityRoot.Board.Connections == nil {
 			break
@@ -663,31 +681,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BoardRules.MinSize(childComplexity), true
 
-	case "BoardTile.attribute":
-		if e.ComplexityRoot.BoardTile.Attribute == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardTile.Attribute(childComplexity), true
-	case "BoardTile.kind":
-		if e.ComplexityRoot.BoardTile.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardTile.Kind(childComplexity), true
-	case "BoardTile.x":
-		if e.ComplexityRoot.BoardTile.X == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardTile.X(childComplexity), true
-	case "BoardTile.y":
-		if e.ComplexityRoot.BoardTile.Y == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BoardTile.Y(childComplexity), true
-
 	case "BoardsConnection.edges":
 		if e.ComplexityRoot.BoardsConnection.Edges == nil {
 			break
@@ -766,6 +759,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ChangeBoardLayoutSuccess.Revision(childComplexity), true
+
+	case "CheckpointTile.x":
+		if e.ComplexityRoot.CheckpointTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckpointTile.X(childComplexity), true
+	case "CheckpointTile.y":
+		if e.ComplexityRoot.CheckpointTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckpointTile.Y(childComplexity), true
 
 	case "Creature.id":
 		if e.ComplexityRoot.Creature.ID == nil {
@@ -858,13 +864,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FieldNotAdjacent.Field(childComplexity), true
-
-	case "FieldNotAllowed.field":
-		if e.ComplexityRoot.FieldNotAllowed.Field == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldNotAllowed.Field(childComplexity), true
 
 	case "FieldNotFound.field":
 		if e.ComplexityRoot.FieldNotFound.Field == nil {
@@ -1009,6 +1008,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Item.UpdatedAt(childComplexity), true
+
+	case "LandTile.attribute":
+		if e.ComplexityRoot.LandTile.Attribute == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.Attribute(childComplexity), true
+	case "LandTile.x":
+		if e.ComplexityRoot.LandTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.X(childComplexity), true
+	case "LandTile.y":
+		if e.ComplexityRoot.LandTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.Y(childComplexity), true
 
 	case "Mutation.changeBoardLayout":
 		if e.ComplexityRoot.Mutation.ChangeBoardLayout == nil {
@@ -1878,6 +1896,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputDeleteBoardInput,
 		ec.unmarshalInputDeletePresetDeckInput,
 		ec.unmarshalInputDeleteStarterDeckInput,
+		ec.unmarshalInputLandTileInput,
 		ec.unmarshalInputPresetDeckFilter,
 		ec.unmarshalInputPublishBoardInput,
 		ec.unmarshalInputPublishCardInput,
@@ -1898,6 +1917,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputSetPresetDeckCardCountsInput,
 		ec.unmarshalInputSetStarterDeckCardCountsInput,
 		ec.unmarshalInputStarterDeckFilter,
+		ec.unmarshalInputTilePositionInput,
 	)
 	first := true
 
@@ -2054,20 +2074,6 @@ func (ec *executionContext) childFields_BoardRules(ctx context.Context, field gr
 		return ec.fieldContext_BoardRules_maxSize(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardRules", field.Name)
-}
-
-func (ec *executionContext) childFields_BoardTile(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "x":
-		return ec.fieldContext_BoardTile_x(ctx, field)
-	case "y":
-		return ec.fieldContext_BoardTile_y(ctx, field)
-	case "kind":
-		return ec.fieldContext_BoardTile_kind(ctx, field)
-	case "attribute":
-		return ec.fieldContext_BoardTile_attribute(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type BoardTile", field.Name)
 }
 
 func (ec *executionContext) childFields_BoardsEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2906,6 +2912,52 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
+func (ec *executionContext) _BaseTile_x(ctx context.Context, field graphql.CollectedField, obj *model.BaseTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BaseTile_y(ctx context.Context, field graphql.CollectedField, obj *model.BaseTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Board_id(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3033,8 +3085,8 @@ func (ec *executionContext) _Board_tiles(ctx context.Context, field graphql.Coll
 			return obj.Tiles, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardTile) graphql.Marshaler {
-			return ec.marshalNBoardTile2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardTile) graphql.Marshaler {
+			return ec.marshalNBoardTile2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -3047,7 +3099,7 @@ func (ec *executionContext) fieldContext_Board_tiles(_ context.Context, field gr
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BoardTile(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -3480,98 +3532,6 @@ func (ec *executionContext) fieldContext_BoardRules_maxSize(_ context.Context, f
 	return graphql.NewScalarFieldContext("BoardRules", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _BoardTile_x(ctx context.Context, field graphql.CollectedField, obj *model.BoardTile) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardTile_x(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.X, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _BoardTile_y(ctx context.Context, field graphql.CollectedField, obj *model.BoardTile) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardTile_y(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Y, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _BoardTile_kind(ctx context.Context, field graphql.CollectedField, obj *model.BoardTile) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardTile_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.BoardTileKind) graphql.Marshaler {
-			return ec.marshalNBoardTileKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardTile_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type BoardTileKind does not have child fields"))
-}
-
-func (ec *executionContext) _BoardTile_attribute(ctx context.Context, field graphql.CollectedField, obj *model.BoardTile) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardTile_attribute(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Attribute, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardTileAttribute) graphql.Marshaler {
-			return ec.marshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_BoardTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardTile", field, false, false, errors.New("field of type BoardTileAttribute does not have child fields"))
-}
-
 func (ec *executionContext) _BoardsConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.BoardsConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3900,6 +3860,52 @@ func (ec *executionContext) _ChangeBoardLayoutSuccess_revision(ctx context.Conte
 }
 func (ec *executionContext) fieldContext_ChangeBoardLayoutSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ChangeBoardLayoutSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CheckpointTile_x(ctx context.Context, field graphql.CollectedField, obj *model.CheckpointTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckpointTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckpointTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckpointTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CheckpointTile_y(ctx context.Context, field graphql.CollectedField, obj *model.CheckpointTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckpointTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckpointTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckpointTile", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Creature_id(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
@@ -4231,29 +4237,6 @@ func (ec *executionContext) _FieldNotAdjacent_field(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_FieldNotAdjacent_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldNotAdjacent", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _FieldNotAllowed_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotAllowed) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldNotAllowed_field(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Field, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldNotAllowed_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldNotAllowed", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _FieldNotFound_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotFound) (ret graphql.Marshaler) {
@@ -4760,6 +4743,75 @@ func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_Item_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_x(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_y(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_attribute(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_attribute(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attribute, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
+			return ec.marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type BoardTileAttribute does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_registerBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -9307,41 +9359,34 @@ func (ec *executionContext) unmarshalInputBoardTileInput(ctx context.Context, ob
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"x", "y", "kind", "attribute"}
+	fieldsInOrder := [...]string{"land", "base", "checkpoint"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "x":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
-			data, err := ec.unmarshalNInt2int(ctx, v)
+		case "land":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("land"))
+			data, err := ec.unmarshalOLandTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐLandTileInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.X = data
-		case "y":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
-			data, err := ec.unmarshalNInt2int(ctx, v)
+			it.Land = data
+		case "base":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("base"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Y = data
-		case "kind":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
-			data, err := ec.unmarshalNBoardTileKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileKind(ctx, v)
+			it.Base = data
+		case "checkpoint":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkpoint"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Kind = data
-		case "attribute":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attribute"))
-			data, err := ec.unmarshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Attribute = data
+			it.Checkpoint = data
 		}
 	}
 	return it, nil
@@ -9599,6 +9644,50 @@ func (ec *executionContext) unmarshalInputDeleteStarterDeckInput(ctx context.Con
 				return it, err
 			}
 			it.Revision = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputLandTileInput(ctx context.Context, obj any) (model.LandTileInput, error) {
+	var it model.LandTileInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"x", "y", "attribute"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "x":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.X = data
+		case "y":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Y = data
+		case "attribute":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attribute"))
+			data, err := ec.unmarshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Attribute = data
 		}
 	}
 	return it, nil
@@ -10323,6 +10412,43 @@ func (ec *executionContext) unmarshalInputStarterDeckFilter(ctx context.Context,
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputTilePositionInput(ctx context.Context, obj any) (model.TilePositionInput, error) {
+	var it model.TilePositionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"x", "y"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "x":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.X = data
+		case "y":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Y = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -10357,6 +10483,40 @@ func (ec *executionContext) _BoardResult(ctx context.Context, sel ast.SelectionS
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _BoardTile(ctx context.Context, sel ast.SelectionSet, obj model.BoardTile) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.LandTile:
+		return ec._LandTile(ctx, sel, &obj)
+	case *model.LandTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._LandTile(ctx, sel, obj)
+	case model.CheckpointTile:
+		return ec._CheckpointTile(ctx, sel, &obj)
+	case *model.CheckpointTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CheckpointTile(ctx, sel, obj)
+	case model.BaseTile:
+		return ec._BaseTile(ctx, sel, &obj)
+	case *model.BaseTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BaseTile(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardTile must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -10708,13 +10868,6 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldNotFound(ctx, sel, obj)
-	case model.FieldNotAllowed:
-		return ec._FieldNotAllowed(ctx, sel, &obj)
-	case *model.FieldNotAllowed:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._FieldNotAllowed(ctx, sel, obj)
 	case model.FieldNotAdjacent:
 		return ec._FieldNotAdjacent(ctx, sel, &obj)
 	case *model.FieldNotAdjacent:
@@ -11776,6 +11929,49 @@ func (ec *executionContext) _StudioRulesResult(ctx context.Context, sel ast.Sele
 
 // region    **************************** object.gotpl ****************************
 
+var baseTileImplementors = []string{"BaseTile", "BoardTile"}
+
+func (ec *executionContext) _BaseTile(ctx context.Context, sel ast.SelectionSet, obj *model.BaseTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, baseTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BaseTile")
+		case "x":
+			out.Values[i] = ec._BaseTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._BaseTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var boardImplementors = []string{"Board", "BoardResult"}
 
 func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, obj *model.Board) graphql.Marshaler {
@@ -12155,59 +12351,6 @@ func (ec *executionContext) _BoardRules(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
-var boardTileImplementors = []string{"BoardTile"}
-
-func (ec *executionContext) _BoardTile(ctx context.Context, sel ast.SelectionSet, obj *model.BoardTile) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, boardTileImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("BoardTile")
-		case "x":
-			out.Values[i] = ec._BoardTile_x(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "y":
-			out.Values[i] = ec._BoardTile_y(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "kind":
-			out.Values[i] = ec._BoardTile_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "attribute":
-			out.Values[i] = ec._BoardTile_attribute(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
 var boardsConnectionImplementors = []string{"BoardsConnection", "BoardsResult"}
 
 func (ec *executionContext) _BoardsConnection(ctx context.Context, sel ast.SelectionSet, obj *model.BoardsConnection) graphql.Marshaler {
@@ -12475,6 +12618,49 @@ func (ec *executionContext) _ChangeBoardLayoutSuccess(ctx context.Context, sel a
 			}
 		case "revision":
 			out.Values[i] = ec._ChangeBoardLayoutSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var checkpointTileImplementors = []string{"CheckpointTile", "BoardTile"}
+
+func (ec *executionContext) _CheckpointTile(ctx context.Context, sel ast.SelectionSet, obj *model.CheckpointTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkpointTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckpointTile")
+		case "x":
+			out.Values[i] = ec._CheckpointTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._CheckpointTile_y(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -12809,44 +12995,6 @@ func (ec *executionContext) _FieldNotAdjacent(ctx context.Context, sel ast.Selec
 			out.Values[i] = graphql.MarshalString("FieldNotAdjacent")
 		case "field":
 			out.Values[i] = ec._FieldNotAdjacent_field(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var fieldNotAllowedImplementors = []string{"FieldNotAllowed", "FieldError"}
-
-func (ec *executionContext) _FieldNotAllowed(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotAllowed) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, fieldNotAllowedImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("FieldNotAllowed")
-		case "field":
-			out.Values[i] = ec._FieldNotAllowed_field(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -13353,6 +13501,54 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Item_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var landTileImplementors = []string{"LandTile", "BoardTile"}
+
+func (ec *executionContext) _LandTile(ctx context.Context, sel ast.SelectionSet, obj *model.LandTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, landTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LandTile")
+		case "x":
+			out.Values[i] = ec._LandTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._LandTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attribute":
+			out.Values[i] = ec._LandTile_attribute(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -15970,11 +16166,21 @@ func (ec *executionContext) marshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdi
 	return v
 }
 
-func (ec *executionContext) marshalNBoardTile2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardTile) graphql.Marshaler {
+func (ec *executionContext) marshalNBoardTile2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx context.Context, sel ast.SelectionSet, v model.BoardTile) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardTile(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardTile2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardTile) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNBoardTile2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx, sel, v[i])
+		return ec.marshalNBoardTile2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -15986,14 +16192,14 @@ func (ec *executionContext) marshalNBoardTile2ᚕᚖgitlabᚗcomᚋaimerzarashi�
 	return ret
 }
 
-func (ec *executionContext) marshalNBoardTile2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx context.Context, sel ast.SelectionSet, v *model.BoardTile) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._BoardTile(ctx, sel, v)
+func (ec *executionContext) unmarshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, v any) (model.BoardTileAttribute, error) {
+	var res model.BoardTileAttribute
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, sel ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx context.Context, v any) ([]*model.BoardTileInput, error) {
@@ -16013,16 +16219,6 @@ func (ec *executionContext) unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerz
 func (ec *executionContext) unmarshalNBoardTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInput(ctx context.Context, v any) (*model.BoardTileInput, error) {
 	res, err := ec.unmarshalInputBoardTileInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNBoardTileKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileKind(ctx context.Context, v any) (model.BoardTileKind, error) {
-	var res model.BoardTileKind
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNBoardTileKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileKind(ctx context.Context, sel ast.SelectionSet, v model.BoardTileKind) graphql.Marshaler {
-	return v
 }
 
 func (ec *executionContext) marshalNBoardsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardsEdge) graphql.Marshaler {
@@ -16964,22 +17160,6 @@ func (ec *executionContext) marshalOBoardStatus2ᚕgitlabᚗcomᚋaimerzarashi�
 	return ret
 }
 
-func (ec *executionContext) unmarshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, v any) (*model.BoardTileAttribute, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(model.BoardTileAttribute)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOBoardTileAttribute2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, sel ast.SelectionSet, v *model.BoardTileAttribute) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return v
-}
-
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -17108,6 +17288,14 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) unmarshalOLandTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐLandTileInput(ctx context.Context, v any) (*model.LandTileInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputLandTileInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOPresetDeckFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPresetDeckFilter(ctx context.Context, v any) (*model.PresetDeckFilter, error) {
 	if v == nil {
 		return nil, nil
@@ -17183,6 +17371,14 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx context.Context, v any) (*model.TilePositionInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTilePositionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

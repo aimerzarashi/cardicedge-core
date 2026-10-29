@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
@@ -15,17 +16,13 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	tiles := make([]*model.BoardTile, 0, len(board.Tiles))
+	tiles := make([]model.BoardTile, 0, len(board.Tiles))
 	for _, tile := range board.Tiles {
-		kind, err := fromBoardTileKind(tile.Kind)
+		converted, err := fromBoardTile(tile)
 		if err != nil {
 			return nil, err
 		}
-		attribute, err := fromBoardTileAttribute(tile.Attribute)
-		if err != nil {
-			return nil, err
-		}
-		tiles = append(tiles, &model.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Attribute: attribute})
+		tiles = append(tiles, converted)
 	}
 	connections := make([]*model.BoardConnection, 0, len(board.Connections))
 	for _, connection := range board.Connections {
@@ -78,27 +75,31 @@ func toBoardFilter(filter *model.BoardFilter) (query.BoardFilter, error) {
 	return query.BoardFilter{NameContains: filter.NameContains, Statuses: statuses}, nil
 }
 
-func toBoardLayoutInput(input model.ChangeBoardLayoutInput) (command.BoardLayoutInput, error) {
-	tiles := make([]command.BoardTileInput, 0, len(input.Tiles))
-	for _, tile := range input.Tiles {
-		kind, err := toBoardTileKind(tile.Kind)
+func toBoardLayoutInput(layoutInput model.ChangeBoardLayoutInput) (command.BoardLayoutInput, error) {
+	tiles := make([]command.BoardTileInput, 0, len(layoutInput.Tiles))
+	invalid := input.Errors{}
+	for i, tile := range layoutInput.Tiles {
+		converted, ok, err := toBoardTileInput(tile)
 		if err != nil {
 			return command.BoardLayoutInput{}, err
 		}
-		attribute, err := toOptionalBoardTileAttribute(tile.Attribute)
-		if err != nil {
-			return command.BoardLayoutInput{}, err
+		if !ok {
+			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("tiles.%d", i)})
+			continue
 		}
-		tiles = append(tiles, command.BoardTileInput{X: tile.X, Y: tile.Y, Kind: string(kind), Attribute: string(attribute)})
+		tiles = append(tiles, converted)
 	}
-	connections := make([]command.BoardConnectionInput, 0, len(input.Connections))
-	for _, connection := range input.Connections {
+	if len(invalid) > 0 {
+		return command.BoardLayoutInput{}, invalid
+	}
+	connections := make([]command.BoardConnectionInput, 0, len(layoutInput.Connections))
+	for _, connection := range layoutInput.Connections {
 		connections = append(connections, command.BoardConnectionInput{
 			A: command.NewBoardPosition(connection.A.X, connection.A.Y),
 			B: command.NewBoardPosition(connection.B.X, connection.B.Y),
 		})
 	}
-	return command.BoardLayoutInput{Width: input.Width, Height: input.Height, Tiles: tiles, Connections: connections}, nil
+	return command.BoardLayoutInput{Width: layoutInput.Width, Height: layoutInput.Height, Tiles: tiles, Connections: connections}, nil
 }
 
 func fromBoardNotPublishable(err *command.BoardNotPublishableError) *model.BoardNotPublishableError {
@@ -138,29 +139,40 @@ func fromBoardStatus(status readmodel.BoardStatus) (model.BoardStatus, error) {
 	}
 }
 
-func toBoardTileKind(kind model.BoardTileKind) (readmodel.BoardTileKind, error) {
-	switch kind {
-	case model.BoardTileKindLand:
-		return readmodel.BoardTileKindLand, nil
-	case model.BoardTileKindBase:
-		return readmodel.BoardTileKindBase, nil
-	case model.BoardTileKindCheckpoint:
-		return readmodel.BoardTileKindCheckpoint, nil
+// 種類の対応を明示する（read model の kind が増えて写し忘れたら、黙って落とさずエラーにする）
+func fromBoardTile(tile readmodel.BoardTile) (model.BoardTile, error) {
+	switch tile.Kind {
+	case readmodel.BoardTileKindLand:
+		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		if err != nil {
+			return nil, err
+		}
+		return model.LandTile{X: tile.X, Y: tile.Y, Attribute: attribute}, nil
+	case readmodel.BoardTileKindBase:
+		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
+	case readmodel.BoardTileKindCheckpoint:
+		return model.CheckpointTile{X: tile.X, Y: tile.Y}, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile kind: %s", kind)
+		return nil, fmt.Errorf("graphql: unknown board tile kind: %q", tile.Kind)
 	}
 }
 
-func fromBoardTileKind(kind readmodel.BoardTileKind) (model.BoardTileKind, error) {
-	switch kind {
-	case readmodel.BoardTileKindLand:
-		return model.BoardTileKindLand, nil
-	case readmodel.BoardTileKindBase:
-		return model.BoardTileKindBase, nil
-	case readmodel.BoardTileKindCheckpoint:
-		return model.BoardTileKindCheckpoint, nil
+// @oneOf の「ちょうど 1 つ」は、gqlparser・gqlgen が変数で送られた値を確かめない（0 個・2 個でもここまで届く。結合テストで確かめた）ため、
+// ここで確かめ、満たさなければ ok が false（入力の誤り）。GraphQL の errors にしないのは、ほかの入力の誤りと同じく項目ごとに示すため
+func toBoardTileInput(tile *model.BoardTileInput) (command.BoardTileInput, bool, error) {
+	switch {
+	case tile.Land != nil && tile.Base == nil && tile.Checkpoint == nil:
+		attribute, err := toBoardTileAttribute(tile.Land.Attribute)
+		if err != nil {
+			return command.BoardTileInput{}, false, err
+		}
+		return command.BoardTileInput{X: tile.Land.X, Y: tile.Land.Y, Kind: string(readmodel.BoardTileKindLand), Attribute: string(attribute)}, true, nil
+	case tile.Base != nil && tile.Land == nil && tile.Checkpoint == nil:
+		return command.BoardTileInput{X: tile.Base.X, Y: tile.Base.Y, Kind: string(readmodel.BoardTileKindBase)}, true, nil
+	case tile.Checkpoint != nil && tile.Land == nil && tile.Base == nil:
+		return command.BoardTileInput{X: tile.Checkpoint.X, Y: tile.Checkpoint.Y, Kind: string(readmodel.BoardTileKindCheckpoint)}, true, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile kind: %q", kind)
+		return command.BoardTileInput{}, false, nil
 	}
 }
 
@@ -183,34 +195,21 @@ func toBoardTileAttribute(attribute model.BoardTileAttribute) (readmodel.BoardTi
 	}
 }
 
-// 空（土地でないマス）は null
-func fromBoardTileAttribute(attribute readmodel.BoardTileAttribute) (*model.BoardTileAttribute, error) {
-	var converted model.BoardTileAttribute
+func fromBoardTileAttribute(attribute readmodel.BoardTileAttribute) (model.BoardTileAttribute, error) {
 	switch attribute {
-	case "":
-		return nil, nil
 	case readmodel.BoardTileAttributeFire:
-		converted = model.BoardTileAttributeFire
+		return model.BoardTileAttributeFire, nil
 	case readmodel.BoardTileAttributeEarth:
-		converted = model.BoardTileAttributeEarth
+		return model.BoardTileAttributeEarth, nil
 	case readmodel.BoardTileAttributeWater:
-		converted = model.BoardTileAttributeWater
+		return model.BoardTileAttributeWater, nil
 	case readmodel.BoardTileAttributeWind:
-		converted = model.BoardTileAttributeWind
+		return model.BoardTileAttributeWind, nil
 	case readmodel.BoardTileAttributeNeutral:
-		converted = model.BoardTileAttributeNeutral
+		return model.BoardTileAttributeNeutral, nil
 	case readmodel.BoardTileAttributeMulti:
-		converted = model.BoardTileAttributeMulti
+		return model.BoardTileAttributeMulti, nil
 	default:
-		return nil, fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+		return "", fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
 	}
-	return &converted, nil
-}
-
-// null（土地でないマス）は空
-func toOptionalBoardTileAttribute(attribute *model.BoardTileAttribute) (readmodel.BoardTileAttribute, error) {
-	if attribute == nil {
-		return "", nil
-	}
-	return toBoardTileAttribute(*attribute)
 }

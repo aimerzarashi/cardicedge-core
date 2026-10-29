@@ -93,18 +93,6 @@ func (e *Duplicated) InputField() string {
 	return e.Field
 }
 
-// 項目が、ほかの入力の値（マスの種類等）のときには指定できない（拠点・チェックポイントのマスの属性等）。
-// 指定が要るのに無い（Required）のとは逆の誤り
-type NotAllowed struct{ Field string }
-
-func (e *NotAllowed) Error() string {
-	return fmt.Sprintf("%s is not allowed for the other input", e.Field)
-}
-
-func (e *NotAllowed) InputField() string {
-	return e.Field
-}
-
 // 入力を当てた後の合計（プリセットデッキのカードの枚数の合計等）が上限を超える。入力の値そのものではなく、
 // 今の状態と合わせた結果の誤りなので、OutOfRange と分ける（画面が言い分けられるように）
 type TotalTooLarge struct {

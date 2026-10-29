@@ -50,8 +50,10 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// kind は land・base・checkpoint、attribute は fire・earth・water・wind・neutral・multi（どちらも GraphQL では enum）。
-// attribute は土地のときだけ指定し、無ければ空
+// kind は land・base・checkpoint（GraphQL の @oneOf で書いた項目）、attribute は fire・earth・water・wind・neutral・multi。
+// attribute は土地のときだけ指定し、拠点・チェックポイントは空。この組み合わせは GraphQL の入力の形で守られるため、
+// 守られていなければ（kind・attribute が不明、土地に無い、拠点にある）入力の誤りにせず内部のエラーにする。
+// 種類ごとの型に分けないのは、ドメインの Tile（種類と属性）に写す形を 1 つにし、誤りのパスの組み立てもこの形から行うため
 type BoardTileInput struct {
 	X         int
 	Y         int
@@ -290,7 +292,7 @@ func newBoardName(field, value string) (board.Name, input.Error) {
 	return name, nil
 }
 
-// 幅・高さ → マスの種類 → ValidateLayout の順に確かめ、誤りはまとめて input.Errors で返す。レイアウトの決まりは ValidateLayout の
+// 幅・高さ → ValidateLayout の順に確かめ、誤りはまとめて input.Errors で返す。レイアウトの決まりは ValidateLayout の
 // 1 か所にあり、ここはその違反を入力の項目のパスに写すだけ。幅・高さの範囲は studio_rules（rules）の値
 func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Layout, error) {
 	invalid := input.Errors{}
@@ -313,20 +315,11 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 	for i, tile := range layoutInput.Tiles {
 		kind, err := board.NewTileKind(tile.Kind)
 		if err != nil {
-			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("tiles.%d.kind", i)})
-			// 種類の誤りとは別に、座標の誤りも示せるよう、仮の種類で検証を続ける。土地の仮の属性も入れ、属性が無い誤りを重ねない
-			kind = board.TileKindLand
-			if tile.Attribute == "" {
-				tile.Attribute = board.AttributeNeutral.String()
-			}
+			return board.Layout{}, err
 		}
 		attribute, err := optionalTileAttribute(tile.Attribute)
 		if err != nil {
-			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("tiles.%d.attribute", i)})
-			// 種類と同じく仮の値で検証を続ける。土地以外では仮の値を入れると別の誤りが重なるため、空のままにする
-			if kind == board.TileKindLand {
-				attribute = board.AttributeNeutral
-			}
+			return board.Layout{}, err
 		}
 		tiles[i] = board.Tile{Position: board.NewPosition(tile.X, tile.Y), Kind: kind, Attribute: attribute}
 	}
@@ -336,7 +329,11 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 	}
 
 	for _, violation := range board.ValidateLayout(size, tiles, connections) {
-		invalid = append(invalid, layoutViolationToInput(violation, size, layoutInput))
+		converted, err := layoutViolationToInput(violation, size, layoutInput)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		invalid = append(invalid, converted)
 	}
 	if len(invalid) > 0 {
 		return board.Layout{}, invalid
@@ -345,32 +342,33 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 	return board.NewLayout(size, tiles, connections)
 }
 
-func layoutViolationToInput(violation board.LayoutViolation, size board.Size, layoutInput BoardLayoutInput) input.Error {
+func layoutViolationToInput(violation board.LayoutViolation, size board.Size, layoutInput BoardLayoutInput) (input.Error, error) {
 	switch violation.Subject {
 	case board.SubjectTile:
 		field := fmt.Sprintf("tiles.%d", violation.Index)
 		switch violation.Reason {
 		case board.ReasonOutOfRange:
+			// 座標は、書いた種類の項目（land・base・checkpoint）の中にある
+			kindField := field + "." + layoutInput.Tiles[violation.Index].Kind
 			if violation.Part == board.PartX {
-				return &input.OutOfRange{Field: field + ".x", Min: 0, Max: size.Width() - 1}
+				return &input.OutOfRange{Field: kindField + ".x", Min: 0, Max: size.Width() - 1}, nil
 			}
-			return &input.OutOfRange{Field: field + ".y", Min: 0, Max: size.Height() - 1}
+			return &input.OutOfRange{Field: kindField + ".y", Min: 0, Max: size.Height() - 1}, nil
 		case board.ReasonDuplicatedTile:
-			return &input.Duplicated{Field: field}
-		case board.ReasonAttributeRequired:
-			return &input.Required{Field: field + ".attribute"}
-		case board.ReasonAttributeNotAllowed:
-			return &input.NotAllowed{Field: field + ".attribute"}
+			return &input.Duplicated{Field: field}, nil
+		case board.ReasonAttributeRequired, board.ReasonAttributeNotAllowed:
+			// 入力の形で起きないはずの違反（BoardTileInput の注釈）。入力の誤りにせず、コードの誤りとして返す
+			return nil, fmt.Errorf("command: tile attribute violation that the input shape rules out: %+v", violation)
 		}
 	case board.SubjectConnection:
 		field := fmt.Sprintf("connections.%d", violation.Index)
 		switch violation.Reason {
 		case board.ReasonTileNotFound:
-			return &input.NotFound{Field: field + "." + string(inputEnd(violation.Part, layoutInput.Connections[violation.Index]))}
+			return &input.NotFound{Field: field + "." + string(inputEnd(violation.Part, layoutInput.Connections[violation.Index]))}, nil
 		case board.ReasonNotAdjacent:
-			return &input.NotAdjacent{Field: field}
+			return &input.NotAdjacent{Field: field}, nil
 		case board.ReasonDuplicatedConnection:
-			return &input.Duplicated{Field: field}
+			return &input.Duplicated{Field: field}, nil
 		}
 	}
 	// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って別の誤りにしない）

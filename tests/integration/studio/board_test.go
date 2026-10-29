@@ -2,6 +2,7 @@ package studio_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,7 +14,7 @@ import (
 )
 
 const boardFields = `id name status width height revision registeredAt updatedAt
-	tiles { x y kind attribute }
+	tiles { __typename x y ... on LandTile { attribute } }
 	connections { a { x y } b { x y } }`
 
 const boardQuery = `query ($id: UUID!) {
@@ -102,16 +103,16 @@ func boardInput(board map[string]any, extra map[string]any) map[string]any {
 	return input
 }
 
-// 土地には火属性を付ける（属性を確かめないテストで、属性の誤りが出ないように）
+// 土地には火属性を付ける（属性を確かめないテストで使う）
 func boardTile(x, y int, kind string) map[string]any {
 	if kind == "LAND" {
 		return boardTileWithAttribute(x, y, kind, "FIRE")
 	}
-	return map[string]any{"x": x, "y": y, "kind": kind}
+	return map[string]any{strings.ToLower(kind): map[string]any{"x": x, "y": y}}
 }
 
 func boardTileWithAttribute(x, y int, kind, attribute string) map[string]any {
-	return map[string]any{"x": x, "y": y, "kind": kind, "attribute": attribute}
+	return map[string]any{strings.ToLower(kind): map[string]any{"x": x, "y": y, "attribute": attribute}}
 }
 
 func boardConnection(ax, ay, bx, by int) map[string]any {
@@ -220,9 +221,9 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	require.EqualValues(t, 3, detail["width"])
 	require.EqualValues(t, 2, detail["height"])
 	require.Equal(t, []any{
-		map[string]any{"x": float64(0), "y": float64(0), "kind": "BASE", "attribute": nil},
-		map[string]any{"x": float64(1), "y": float64(0), "kind": "CHECKPOINT", "attribute": nil},
-		map[string]any{"x": float64(2), "y": float64(1), "kind": "LAND", "attribute": "MULTI"},
+		map[string]any{"__typename": "BaseTile", "x": float64(0), "y": float64(0)},
+		map[string]any{"__typename": "CheckpointTile", "x": float64(1), "y": float64(0)},
+		map[string]any{"__typename": "LandTile", "x": float64(2), "y": float64(1), "attribute": "MULTI"},
 	}, detail["tiles"])
 	require.Equal(t, []any{map[string]any{
 		"a": map[string]any{"x": float64(0), "y": float64(0)}, "b": map[string]any{"x": float64(1), "y": float64(0)},
@@ -253,8 +254,8 @@ func TestChangeBoardLayout_ReturnsFieldErrorPerViolation(t *testing.T) {
 		map[string]any{"__typename": "FieldOutOfRange", "field": "height", "min": float64(1), "max": float64(32)},
 	}}, rangeErrors)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
-		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.1.x", "min": float64(0), "max": float64(2)},
-		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.1.y", "min": float64(0), "max": float64(1)},
+		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.1.land.x", "min": float64(0), "max": float64(2)},
+		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.1.land.y", "min": float64(0), "max": float64(1)},
 		map[string]any{"__typename": "FieldDuplicated", "field": "tiles.2"},
 		map[string]any{"__typename": "FieldNotAdjacent", "field": "connections.0"},
 		map[string]any{"__typename": "FieldNotFound", "field": "connections.1.b"},
@@ -264,22 +265,33 @@ func TestChangeBoardLayout_ReturnsFieldErrorPerViolation(t *testing.T) {
 	}}, layoutErrors)
 }
 
-func TestChangeBoardLayout_ReturnsFieldErrorForAttribute(t *testing.T) {
+func TestChangeBoardLayout_ReturnsFieldErrorWithWrittenKindInPath(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
 
-	invalid := changeBoardLayout(t, token, board, 3, 1,
-		[]map[string]any{
-			{"x": 0, "y": 0, "kind": "LAND"},
-			boardTileWithAttribute(1, 0, "BASE", "WATER"),
-			boardTileWithAttribute(2, 0, "CHECKPOINT", "MULTI"),
-		}, nil)
+	invalid := changeBoardLayout(t, token, board, 2, 1,
+		[]map[string]any{boardTile(2, 0, "BASE"), boardTile(0, 1, "CHECKPOINT")}, nil)
 
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
-		map[string]any{"__typename": "FieldRequired", "field": "tiles.0.attribute"},
-		map[string]any{"__typename": "FieldNotAllowed", "field": "tiles.1.attribute"},
-		map[string]any{"__typename": "FieldNotAllowed", "field": "tiles.2.attribute"},
+		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.0.base.x", "min": float64(0), "max": float64(1)},
+		map[string]any{"__typename": "FieldOutOfRange", "field": "tiles.1.checkpoint.y", "min": float64(0), "max": float64(0)},
+	}}, invalid)
+}
+
+// @oneOf の「ちょうど 1 つ」は、変数で送られた値だと GraphQL の層（gqlparser・gqlgen）が確かめず、presentation 層で確かめる
+func TestChangeBoardLayout_ReturnsFieldErrorForTileWithoutExactlyOneKind(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
+	position := map[string]any{"x": 0, "y": 0}
+
+	invalid := changeBoardLayout(t, token, board, 3, 1,
+		[]map[string]any{{}, {"base": position, "checkpoint": position}, boardTile(2, 0, "LAND")}, nil)
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldInvalidFormat", "field": "tiles.0"},
+		map[string]any{"__typename": "FieldInvalidFormat", "field": "tiles.1"},
 	}}, invalid)
 }
 
