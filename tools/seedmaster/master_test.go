@@ -14,8 +14,8 @@ func TestSampleMaster_IsValid(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// 見本のボードは、公開の条件を満たし、拠点 1・チェックポイント 2 以上・分かれ道（3 方向以上につながるマス）が 1 つ以上ある 8×8
-func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
+// すべての見本のボードが、公開の条件を満たす（始める前に確かめる流れが、見本で必ず通るように）
+func TestSampleMaster_BoardsArePublishable(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 	require.NotEmpty(t, m.Boards)
@@ -23,7 +23,19 @@ func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
 	for _, b := range m.Boards {
 		layout, err := b.layout()
 		require.NoError(t, err)
-		readiness := layout.Readiness()
+		require.Empty(t, layout.Readiness().Problems())
+	}
+}
+
+// 8×8・チェックポイント 2 以上・分かれ道（3 方向以上につながるマス）が、見本のどこかのボードにある（開発の画面で、それぞれを見て確かめられるように）
+func TestSampleMaster_HasLargeBoardWithCheckpointsAndFork(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	found := false
+	for _, b := range m.Boards {
+		layout, err := b.layout()
+		require.NoError(t, err)
 		degrees := map[masterBoardPosition]int{}
 		for _, c := range b.Connections {
 			degrees[c.A]++
@@ -33,24 +45,25 @@ func TestSampleMaster_HasPublishableLoopBoardWithFork(t *testing.T) {
 		for _, degree := range degrees {
 			fork = fork || degree >= 3
 		}
-		require.Equal(t, 8, b.Width)
-		require.Equal(t, 8, b.Height)
-		require.Equal(t, 1, readiness.BaseCount())
-		require.GreaterOrEqual(t, readiness.CheckpointCount, 2)
-		require.True(t, fork)
+		found = found || (b.Width == 8 && b.Height == 8 && layout.Readiness().CheckpointCount >= 2 && fork)
 	}
+	require.True(t, found)
 }
 
-// 登録の直後の既定の値と違う値を入れる（開発の画面で、既定のままか変えた値かを見分けられ、変える操作も流れるように）
+// 登録の直後の既定の値と違う値のボードが、見本のどこかにある（開発の画面で、既定のままか変えた値かを見分けられ、変える操作も流れるように）
 func TestSampleMaster_HasDefaultRulesDifferentFromInitialOnes(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
+	initial := board.InitialDefaultRules()
+	found := false
 	for _, b := range m.Boards {
-		initial := board.InitialDefaultRules()
-		require.NotEqual(t, []int{initial.TargetMagic(), initial.StartingMagic(), initial.LapBonus(), initial.CheckpointBonus()},
-			[]int{b.DefaultRules.TargetMagic, b.DefaultRules.StartingMagic, b.DefaultRules.LapBonus, b.DefaultRules.CheckpointBonus})
+		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic() ||
+			b.DefaultRules.StartingMagic != initial.StartingMagic() ||
+			b.DefaultRules.LapBonus != initial.LapBonus() ||
+			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus()
 	}
+	require.True(t, found)
 }
 
 // 6 つの属性が見本のどこかの土地に出てくる（studio・game の画面で、どの属性も見て確かめられるように）
@@ -70,23 +83,24 @@ func TestSampleMaster_HasEveryLandAttribute(t *testing.T) {
 	}
 }
 
-// 転送円の対 1 つ・橋の対 1 つ・施設 4 つがある（studio・game の画面で、どの特殊なマスも見て確かめられるように）
+// 転送円の対 1 つ・橋の対 1 つ・施設 4 つのボードが、見本のどこかにある（studio・game の画面で、どの特殊なマスも見て確かめられるように）
 func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
+	found := false
 	for _, b := range m.Boards {
 		kinds := map[string]int{}
 		for _, tile := range b.Tiles {
 			kinds[tile.Kind]++
 		}
-		require.Equal(t, 2, kinds["warp"])
-		require.Equal(t, 2, kinds["bridge"])
+		all := kinds["warp"] == 2 && kinds["bridge"] == 2 && len(b.Pairs) == 2
 		for _, facility := range []string{"sanctuary", "shrine", "prophecy_shop", "card_shop"} {
-			require.Equal(t, 1, kinds[facility])
+			all = all && kinds[facility] == 1
 		}
-		require.Len(t, b.Pairs, 2)
+		found = found || all
 	}
+	require.True(t, found)
 }
 
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
