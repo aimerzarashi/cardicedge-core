@@ -47,7 +47,11 @@ services:
       GAME_JWT_ISSUER: diecardomain-game
       GAME_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
-    # トレースとログを送る側の準備（core#74）。送る設定そのものは core#75。ネットワークに入れず、ホストの口へ届ける理由は otel-lgtm の注記
+      # トレースとログの送り先（OpenTelemetry の標準の環境変数。core#75）。受け手が止まっていても core は普通に動く
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: core
+    # ネットワークに入れず、ホストの口へ届ける理由は otel-lgtm の注記（core#74）
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -28,6 +28,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/telemetry"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 )
@@ -89,7 +90,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	mux := NewRouter(config.Version)
 	studioPrepared.studio.Mount(mux, config.StudioDB)
 	gamePrepared.game.Mount(mux, config.GameDB)
-	return &App{Handler: mux, hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
+	return &App{Handler: telemetry.HTTP(mux), hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
 }
 
 type prepared struct {

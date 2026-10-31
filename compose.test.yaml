@@ -20,7 +20,11 @@ services:
       GAME_JWT_ISSUER: diecardomain-game
       GAME_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
-    # トレース・ログの受け手（開発の core の compose.yaml の otel-lgtm）へ送る準備（core#74）。送る設定そのものは core#75
+      # トレースとログの送り先（開発の core の compose.yaml の otel-lgtm。core#75）。受け手が動いていなくても core は普通に動く
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: core
+    # 受け手へ届ける口（core#74）
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

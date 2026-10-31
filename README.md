@@ -42,7 +42,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## トレースとログの受け手（grafana/otel-lgtm）
 
-`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core・studio・game が実際に送る設定は core#75・studio#50・game#25 で入れる。
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
 
 | 用途 | 場所（既定のポート） | 変える環境変数 |
 |---|---|---|
@@ -52,6 +52,22 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+
+## core のトレースとログ（OpenTelemetry。core#75）
+
+core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
+
+| 環境変数 | 意味 |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | 送り先（開発・テストの compose は `http://host.docker.internal:4318`）。**無ければ送り出しを作らず、標準出力のログだけ**（何も送らず、何も待たない。結合テストは設定しないのでこの形で動く） |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` を設定する。送り出しは HTTP だけで、この値で gRPC には切り替わらない |
+| `OTEL_SERVICE_NAME` | サービス名（core は `core`）。`OTEL_RESOURCE_ATTRIBUTES`・信号ごとの送り先（`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` 等）も SDK が読む |
+
+- これらは platform/config の「環境変数はすべて必須」の例外（任意。config に読み込まず SDK が読む）。受け手が止まっていても core は普通に動き、届かない内部の誤りは WARN で 1 分に 1 回までしか出さない（ERROR にしない。結合テストは ERROR のログで全体を失敗にするため）
+- 引き継ぎは W3C の TraceContext（`traceparent`）だけ。受けた `traceparent` の子としてスパンを作る。`/health` はスパンにしない
+- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）
+- ログ: 標準出力の JSON に、スパンの中で出したログ（`slog.InfoContext(ctx, ...)` 等）へ `trace_id`・`span_id` を足し、同じログを OpenTelemetry のログとして Loki にも送る。`ctx` を渡さない `slog.Info` にはトレースの情報が付かない
+- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れなのでリクエストの `trace_id` を持たない（`event_id` で保存のログとつなぐ）
 
 ## 他プロジェクトとの統合
 
