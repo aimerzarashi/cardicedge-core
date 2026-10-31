@@ -20,6 +20,9 @@ services:
       GAME_JWT_ISSUER: diecardomain-game
       GAME_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
+    # トレース・ログの受け手（開発の core の compose.yaml の otel-lgtm）へ送る準備（core#74）。送る設定そのものは core#75
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "/app", "healthcheck"]
       start_period: 30s

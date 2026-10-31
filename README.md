@@ -40,6 +40,19 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
 
+## トレースとログの受け手（grafana/otel-lgtm）
+
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core・studio・game が実際に送る設定は core#75・studio#50・game#25 で入れる。
+
+| 用途 | 場所（既定のポート） | 変える環境変数 |
+|---|---|---|
+| Grafana の画面 | http://localhost:3002（127.0.0.1 にだけ公開。ログインなしで管理者として入れる） | `OTEL_GRAFANA_PORT` |
+| OTLP gRPC | `host.docker.internal:4317` | `OTEL_GRPC_PORT` |
+| OTLP HTTP | `host.docker.internal:4318`（ホストからは `localhost:4318`） | `OTEL_HTTP_PORT` |
+
+- 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
+- OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+
 ## 他プロジェクトとの統合
 
 `make up` すると共有ネットワーク `diecardomain-game`（game 用）と `diecardomain-studio`（studio 用）の両方に参加する（無ければ作成する）。
