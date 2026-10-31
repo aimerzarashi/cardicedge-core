@@ -37,7 +37,9 @@
 | internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）と、確定のあとに動かす処理（`AfterCommit`。取り消されたら動かさない。イベントを保存したログが使う）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
 | internal/platform/logtest | テストで slog の既定を差し替えてログを貯め、項目を確かめる道具（`Capture`・`Find`） |
 | internal/platform/idp | JWT の検証（発行元ごと）。`idptest` はテストで JWKS・JWT を作る道具 |
-| internal/platform/config | 環境変数（すべて必須） |
+| internal/platform/config | 環境変数（すべて必須。例外は OpenTelemetry の標準の環境変数（`OTEL_*`）で、任意にして config に読み込まず SDK が読む。core#75） |
+| internal/platform/telemetry | OpenTelemetry の送り出しの組み立て（`Setup`。トレース・ログ。`OTEL_EXPORTER_OTLP_ENDPOINT` が無ければ作らず標準出力だけ）、slog のハンドラー（標準出力に ctx のスパンの `trace_id`・`span_id` を足し、送り出しがあれば otelslog で OpenTelemetry のログにも出す）、HTTP のスパンのミドルウェア（`HTTP`。`/health` は除く）、内部の誤りを間引く `errorHandler`。cmd/app が初期化・終了し、wiring が `HTTP` を入口の外側に付ける |
+| internal/platform/gqltrace | gqlgen の拡張（操作のスパンとリゾルバー（`IsResolver`）のスパンだけ。単純なフィールドは作らない）。gqlgen に公式の OpenTelemetry の拡張が無いため自作。studio・game の handler が `srv.Use(gqltrace.New())` で使う基盤の部品で、サービスの層には属さない |
 | internal/platform/orm/sqlboiler | sqlboiler の設定と生成したモデル（`make gen-orm`） |
 | migrations | DB マイグレーション（`NNNN_name.sql` + `atlas.sum`）。Atlas で適用する |
 | local/migrate | マイグレーション用イメージ（Atlas Community + migrations。`atlas.hcl` で DATABASE_URL を読む） |
@@ -66,10 +68,11 @@
 
 # 実装上の約束
 
-- シャットダウン時間は `shutdownTimeout`（cmd/app） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
+- シャットダウン時間は `shutdownTimeout`（cmd/app。HTTP を止める時間とトレース・ログを送り切る時間 `telemetryFlushTimeout` の合計） < air の `--build.kill_delay`（compose.yaml） < compose の `stop_grace_period` の順に保つ
 - core は共有ネットワーク `diecardomain-game`（game 用）と `diecardomain-studio`（studio 用）の両方に参加する（compose.yaml。作るのは make up）。core-db は参加させない。分けるのは、game から studio に内部から届く経路そのものを無くすため（core#45）
 - compose.test.yaml は game が include する前提（studio は前提にする版のイメージを使う。ふだんはリリース済みの版、マイルストーンの途中は手元の core から作った local の版。studio#14・studio#23）。サービス名・ポート・DB 接続情報を変える場合は利用側への影響を確認する
 - トレース・ログの受け手 `otel-lgtm`（grafana/otel-lgtm。版は compose.yaml で固定）を compose.yaml に置く（core#74）。共有ネットワークには入れず（game から studio に内部から届く経路を作らないため）、OTLP の口（既定 4317・4318。`OTEL_GRPC_PORT`・`OTEL_HTTP_PORT`）をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` で `host.docker.internal` に送る（compose.yaml・compose.test.yaml の core に付けてある。studio・game の compose にもそれぞれ足す）。127.0.0.1 にだけの公開は、コンテナからブリッジのゲートウェイ経由で届かないため使えない。Grafana は http://localhost:3002（`OTEL_GRAFANA_PORT`。127.0.0.1 にだけ公開）
+- OpenTelemetry（core#75）: 送り先は標準の環境変数（`OTEL_EXPORTER_OTLP_ENDPOINT`・`OTEL_EXPORTER_OTLP_PROTOCOL`・`OTEL_SERVICE_NAME`。開発の compose.yaml と compose.test.yaml の core に設定済み）で決め、`OTEL_EXPORTER_OTLP_ENDPOINT` が無ければ送り出しを作らない（結合テストは設定しないのでこの形）。送り出しは HTTP（http/protobuf）だけ。受け手に届かない内部の誤りは WARN で 1 分に 1 回まで（ERROR にしない。結合テストが ERROR のログで失敗にするため）。ログにトレースの情報を付けるため、ログは `slog.InfoContext(ctx, ...)` のように ctx を渡して出す（`slog.Info` には付かない）。イベントを非同期で処理する流れ（投影・ポリシー）のログはリクエストの `trace_id` を持たない
 - distroless にはシェルが無いため、healthcheck は `/app healthcheck`（cmd/app/healthcheck.go）で行う
 - `/app schema <入口>`（cmd/app/schema.go）は、その入口の GraphQL のスキーマを SDL で標準出力に書く（設定・DB を使わない）。studio・game は、前提にする版のイメージから `docker run --rm diecardomain/core:<版> schema studio`（game は `schema game`）で取り出して型を生成する（core#22）。HTTP のイントロスペクションは有効にしない（すべての呼び出しで JWT を確かめる決まりに例外を作らないため）。入口を足したら、そのサービスのパッケージの `WriteSchema` を `schemaWriters` に足す（presentation の graphql パッケージはサービスどうしで名前が重なり、別名の import は禁止のため）。`make gen-api`・scripts/check-gen-api.sh・cmd/app のスキーマのテストにも足す
 - core は studio 用・game 用の 2 つの DB（`STUDIO_DB_DSN`・`GAME_DB_DSN`）を使う。開発・テストは同じサーバーの別の DB（core_studio・core_game）だが、別のサーバーにしても設定だけで動くようにする。表は DB どうしで共有せず、ほかのサービスの値は使う側が read model で持つ（持ち方は後で決める。core#33）
