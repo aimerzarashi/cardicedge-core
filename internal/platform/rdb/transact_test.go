@@ -97,3 +97,44 @@ func TestTransact_FailsWithoutDBInContext(t *testing.T) {
 	})
 	require.ErrorIs(t, err, rdb.ErrNoDBConnection)
 }
+
+func TestAfterCommit_RunsAfterCommitOfOutermostTransact(t *testing.T) {
+	ctx, db := openTestDB(t)
+	var committedAtRun int
+
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+			rdb.AfterCommit(ctx, func(context.Context) {
+				committedAtRun = count(t, db)
+			})
+			return struct{}{}, insert(ctx, "a")
+		})
+		require.Zero(t, committedAtRun)
+		return struct{}{}, err
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, committedAtRun)
+}
+
+func TestAfterCommit_SkipsWhenTransactionRollsBack(t *testing.T) {
+	ctx, _ := openTestDB(t)
+	ran := false
+
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		rdb.AfterCommit(ctx, func(context.Context) { ran = true })
+		return struct{}{}, errors.New("rollback")
+	})
+
+	require.Error(t, err)
+	require.False(t, ran)
+}
+
+func TestAfterCommit_RunsImmediatelyWithoutTransaction(t *testing.T) {
+	ctx, _ := openTestDB(t)
+	ran := false
+
+	rdb.AfterCommit(ctx, func(context.Context) { ran = true })
+
+	require.True(t, ran)
+}

@@ -34,7 +34,8 @@
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types・domain_quota_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
 | internal/eventdriven | イベントを受けて投影（Projection）とポリシー（Policy。イベントを 1 つずつ受けてコマンドを動かす。失敗の記録・間隔・上限・デッドレター）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表・失敗の記録・複数台で単位を分け合うアドバイザリーロック）。構成は README |
 | internal/platform/pagination | 前向きのカーソルによるページ分け（first・after）の部品 |
-| internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
+| internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）と、確定のあとに動かす処理（`AfterCommit`。取り消されたら動かさない。イベントを保存したログが使う）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
+| internal/platform/logtest | テストで slog の既定を差し替えてログを貯め、項目を確かめる道具（`Capture`・`Find`） |
 | internal/platform/idp | JWT の検証（発行元ごと）。`idptest` はテストで JWKS・JWT を作る道具 |
 | internal/platform/config | 環境変数（すべて必須） |
 | internal/platform/orm/sqlboiler | sqlboiler の設定と生成したモデル（`make gen-orm`） |
@@ -89,6 +90,14 @@
 - 同じパッケージのほかのテストファイルからも使うヘルパーは、`helper_test.go`（テスト関数を置かない）に置く（使う側から定義の場所がわかり、テストファイルを消してもほかが壊れないように）
 - 本体のある関数・メソッドは複数行で書く（書き方をそろえるため。core#15）。リンターでは検査しない（崩れてきたら検査を足すかを考え直す）。1 行でよいもの: 本体が空の関数（マーカーのメソッド）、無名関数（その場で小さな関数を渡す書き方）、gqlgen が生成するルートの入口（`Mutation()`・`Query()`、resolver を持たせた型の入口（`PresetDeck()` 等）。生成のたびに雛形の 1 行に戻るため）
 - 生成コードは、先頭の `Code generated ... DO NOT EDIT.` でリンターが自動で除く（除外の設定は要らない）。手で書くファイルにこの印を付けない
+
+# イベントのログ（追い方）
+
+- イベントのログは 2 つ。どちらも INFO で、1 イベント 1 行。`slog.InfoContext` で出す（OpenTelemetry の文脈を ctx に載せたとき、トレース ID が付くようにするため。イベントの payload・メタデータにはトレースの情報を入れない）
+  - `eventstore: event saved`（`eventstore.Save` の 1 か所。呼ぶ側のトランザクションが確定したあとに出す。取り消された保存は残さない）: `event_id`（domain_events.id）・`entity_type`・`entity_id`・`aggregate_version`・`event_type`・`occurred_at`
+  - `eventdriven: event processed`（Hub の 1 か所。投影もポリシーも通る）: `subscriber_kind`（projection・policy）・`subscriber_name`・`event_id`・`entity_type`・`entity_id`・`aggregate_version`・`event_type`・`result`（success・failure）・`duration_ms`（処理にかかった時間）・`lag_ms`（イベントの発生時刻から処理が終わるまで）
+- 追い方: `event_id` で保存のログと処理のログをつなぐ（同じ名前の項目で引ける）。`lag_ms` が大きければ投影の遅れ。投影は集約のイベントをすべて当てて作り直すが、処理のログは新しく反映した版のイベントだけに出し、`duration_ms` は作り直し全体の時間（同じ単位の行は同じ値）。失敗の理由は処理のログに重ねず、今の ERROR・WARN のログ（`eventdriven: subscriber failed` 等）を見る（処理のログの `result=failure` は、どのイベントが失敗したかを残す）
+- 結合テストの「ERROR のログで全体を失敗にする」仕組みは ERROR 以上だけを見るので、INFO のログは影響しない
 
 # イベントストアと GraphQL
 

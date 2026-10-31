@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
 
@@ -62,6 +64,17 @@ const versionExistsQuery = `
 	SELECT EXISTS (SELECT 1 FROM domain_events WHERE entity_type_id = $1 AND entity_id = $2 AND aggregate_version = $3)
 `
 
+// イベントを保存したログ（1 イベント 1 行）。項目の名前は eventdriven の処理のログとそろえ、event_id で保存と処理をつなぐ。
+// 確定のあとに出す（取り消された保存を記録に残さないため）。InfoContext にするのは、OpenTelemetry の文脈を ctx に載せたとき
+// トレース ID が付くようにするため
+func logSaved(ctx context.Context, eventID int64, entityType domain.EntityType, entityID, version int64, eventType domain.EventName, occurredAt time.Time) {
+	rdb.AfterCommit(ctx, func(ctx context.Context) {
+		slog.InfoContext(ctx, "eventstore: event saved",
+			"event_id", eventID, "entity_type", entityType.String(), "entity_id", entityID,
+			"aggregate_version", version, "event_type", eventType.String(), "occurred_at", occurredAt)
+	})
+}
+
 func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
@@ -101,6 +114,7 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 		if err != nil {
 			return err
 		}
+		logSaved(ctx, id, zeroID.EntityType(), meta.EntityID.Int64(), meta.AggregateVersion, event.EventType(), meta.OccurredAt)
 	}
 	return nil
 }
@@ -112,15 +126,21 @@ func (s *eventStore[I, E, S]) Load(ctx context.Context, entityID I) (S, error) {
 		return zero, err
 	}
 	state := s.initialState()
-	for _, event := range events {
-		if state, err = s.evolve(state, event); err != nil {
+	for _, loaded := range events {
+		if state, err = s.evolve(state, loaded.event); err != nil {
 			return zero, err
 		}
 	}
 	return state, nil
 }
 
-func (r *reader[I, E]) loadEvents(ctx context.Context, entityID I) ([]E, error) {
+// 復元したイベントと、元の行（処理のログが event_id 等を引くため）
+type decodedEvent[E any] struct {
+	event E
+	row   *models.DomainEvent
+}
+
+func (r *reader[I, E]) loadEvents(ctx context.Context, entityID I) ([]decodedEvent[E], error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
@@ -138,13 +158,13 @@ func (r *reader[I, E]) loadEvents(ctx context.Context, entityID I) ([]E, error) 
 	if err != nil {
 		return nil, err
 	}
-	events := make([]E, 0, len(rows))
+	events := make([]decodedEvent[E], 0, len(rows))
 	for _, row := range rows {
 		event, err := r.decode(row)
 		if err != nil {
 			return nil, err
 		}
-		events = append(events, event)
+		events = append(events, decodedEvent[E]{event: event, row: row})
 	}
 	return events, nil
 }

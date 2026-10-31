@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/logtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -237,6 +239,47 @@ func TestHub_ProjectsCommittedEventOfSubscribedAggregate(t *testing.T) {
 
 	require.Equal(t, countingReadModel{EntityID: id.Int64(), Applied: 1}, f.recorder.next(t))
 	f.waitCheckpoint(t, id, 1)
+}
+
+// 投影の処理のログは、新しく反映したイベントごとに 1 行。保存のログと同じ項目の名前で、event_id で引ける
+func TestHub_LogsProcessedEventOfProjection(t *testing.T) {
+	records := logtest.Capture(t)
+	f := newHubFixture(t, testOptions(2))
+	f.start(t)
+
+	id := f.register(t)
+
+	f.recorder.next(t)
+	rows := waitProcessedLogs(t, records, testProjectionName, id.Int64(), 1)
+	row := rows[0]
+	assert.Equal(t, slog.LevelInfo, row.Level)
+	assert.Equal(t, "projection", row.Attrs["subscriber_kind"])
+	assert.Equal(t, operator.Types().EntityType.String(), row.Attrs["entity_type"])
+	assert.Equal(t, int64(1), row.Attrs["aggregate_version"])
+	assert.Equal(t, "success", row.Attrs["result"])
+	assert.NotZero(t, row.Attrs["event_id"])
+	assert.NotEmpty(t, row.Attrs["event_type"])
+	assert.GreaterOrEqual(t, row.Attrs["duration_ms"], int64(0))
+	assert.GreaterOrEqual(t, row.Attrs["lag_ms"], int64(0))
+	saved := records.Find("eventstore: event saved")
+	require.NotEmpty(t, saved)
+	assert.Equal(t, saved[len(saved)-1].Attrs["event_id"], row.Attrs["event_id"])
+}
+
+// 作り直しで全イベントを当てても、処理のログは前に反映した版より後のイベントだけに出す
+func TestHub_LogsOnlyNewEventsOfReprojection(t *testing.T) {
+	records := logtest.Capture(t)
+	f := newHubFixture(t, testOptions(2))
+	f.start(t)
+	id := f.register(t)
+	f.recorder.next(t)
+	waitProcessedLogs(t, records, testProjectionName, id.Int64(), 1)
+
+	f.link(t, id)
+
+	f.recorder.next(t)
+	rows := waitProcessedLogs(t, records, testProjectionName, id.Int64(), 2)
+	assert.Equal(t, int64(2), rows[1].Attrs["aggregate_version"])
 }
 
 func TestHub_RemovesPendingAfterProjecting(t *testing.T) {
