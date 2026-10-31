@@ -72,6 +72,15 @@ type FieldNotGreaterThan implements FieldError {
   than: String!
 }
 
+# 下限が相手の項目の値で決まるので、FieldNotGreaterThan と同じく相手の項目の名前を返す。等しいのは誤りでない点が違う
+"入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）"
+type FieldLessThan implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "下回ってはいけない相手の入力の項目（例: diceMin）"
+  than: String!
+}
+
 "入力の形が正しくない（メールアドレスとして読めない、ページの位置（カーソル）が読めない等）"
 type FieldInvalidFormat implements FieldError {
   "誤りのある入力の項目"

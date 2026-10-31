@@ -15,13 +15,16 @@ var (
 	ErrAttributeUnknown = errors.New("board: unknown attribute")
 	// 幅・高さが 1 未満、または studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
-	// 既定のルールの決まり。目標の魔力は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
-	// 目標の魔力は開始時の魔力より大きい
+	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
+	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小以上
 	ErrTargetMagicTooSmall                    = errors.New("board: target magic is too small")
 	ErrStartingMagicTooSmall                  = errors.New("board: starting magic is too small")
 	ErrLapBonusTooSmall                       = errors.New("board: lap bonus is too small")
 	ErrCheckpointBonusTooSmall                = errors.New("board: checkpoint bonus is too small")
 	ErrTargetMagicNotGreaterThanStartingMagic = errors.New("board: target magic is not greater than starting magic")
+	ErrRoundLimitTooSmall                     = errors.New("board: round limit is too small")
+	ErrDiceMinTooSmall                        = errors.New("board: dice min is too small")
+	ErrDiceMaxLessThanDiceMin                 = errors.New("board: dice max is less than dice min")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")
 	// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした

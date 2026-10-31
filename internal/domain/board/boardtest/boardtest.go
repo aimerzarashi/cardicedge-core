@@ -32,9 +32,9 @@ func Size(t testing.TB, width, height int) board.Size {
 	return size
 }
 
-func DefaultRules(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus int) board.DefaultRules {
+func DefaultRules(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) board.DefaultRules {
 	t.Helper()
-	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus)
+	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax)
 	require.NoError(t, err)
 	return rules
 }

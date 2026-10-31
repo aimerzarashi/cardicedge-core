@@ -34,6 +34,7 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 	defaultRules := &model.BoardDefaultRules{
 		TargetMagic: board.DefaultRules.TargetMagic, StartingMagic: board.DefaultRules.StartingMagic,
 		LapBonus: board.DefaultRules.LapBonus, CheckpointBonus: board.DefaultRules.CheckpointBonus,
+		RoundLimit: board.DefaultRules.RoundLimit, DiceMin: board.DefaultRules.DiceMin, DiceMax: board.DefaultRules.DiceMax,
 	}
 	c := board.TileCounts
 	tileCounts := &model.BoardTileCounts{

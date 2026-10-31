@@ -303,6 +303,12 @@ type BoardDefaultRules struct {
 	LapBonus int `json:"lapBonus"`
 	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上。登録した直後は 100）
 	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（1 以上。上限に達したら、その時点で魔力の多い人が勝つ。登録した直後は 30）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上。登録した直後は 1）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上。登録した直後は 6）
+	DiceMax int `json:"diceMax"`
 }
 
 // ボードの一覧の絞り込み
@@ -564,7 +570,7 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
-// ボードの既定のルールを変える入力（変えた後の 4 つの値の全体）
+// ボードの既定のルールを変える入力（変えた後の 7 つの値の全体）
 type ChangeBoardDefaultRulesInput struct {
 	// ボードの公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -578,6 +584,12 @@ type ChangeBoardDefaultRulesInput struct {
 	LapBonus int `json:"lapBonus"`
 	// チェックポイントのボーナス（0 以上）
 	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（1 以上）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上でなければ入力の誤り）
+	DiceMax int `json:"diceMax"`
 }
 
 // ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）
@@ -777,6 +789,19 @@ func (FieldInvalidFormat) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）
+type FieldLessThan struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 下回ってはいけない相手の入力の項目（例: diceMin）
+	Than string `json:"than"`
+}
+
+func (FieldLessThan) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldLessThan) GetField() string { return this.Field }
 
 // つながりの両端が隣どうし（上下左右に 1 マス）でない（同じ座標を指すものを含む）
 type FieldNotAdjacent struct {

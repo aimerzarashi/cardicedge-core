@@ -75,7 +75,10 @@ type ComplexityRoot struct {
 
 	BoardDefaultRules struct {
 		CheckpointBonus func(childComplexity int) int
+		DiceMax         func(childComplexity int) int
+		DiceMin         func(childComplexity int) int
 		LapBonus        func(childComplexity int) int
+		RoundLimit      func(childComplexity int) int
 		StartingMagic   func(childComplexity int) int
 		TargetMagic     func(childComplexity int) int
 	}
@@ -219,6 +222,11 @@ type ComplexityRoot struct {
 
 	FieldInvalidFormat struct {
 		Field func(childComplexity int) int
+	}
+
+	FieldLessThan struct {
+		Field func(childComplexity int) int
+		Than  func(childComplexity int) int
 	}
 
 	FieldNotAdjacent struct {
@@ -768,12 +776,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.CheckpointBonus(childComplexity), true
+	case "BoardDefaultRules.diceMax":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMax == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMax(childComplexity), true
+	case "BoardDefaultRules.diceMin":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMin(childComplexity), true
 	case "BoardDefaultRules.lapBonus":
 		if e.ComplexityRoot.BoardDefaultRules.LapBonus == nil {
 			break
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.LapBonus(childComplexity), true
+	case "BoardDefaultRules.roundLimit":
+		if e.ComplexityRoot.BoardDefaultRules.RoundLimit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.RoundLimit(childComplexity), true
 	case "BoardDefaultRules.startingMagic":
 		if e.ComplexityRoot.BoardDefaultRules.StartingMagic == nil {
 			break
@@ -1173,6 +1199,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FieldInvalidFormat.Field(childComplexity), true
+
+	case "FieldLessThan.field":
+		if e.ComplexityRoot.FieldLessThan.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldLessThan.Field(childComplexity), true
+	case "FieldLessThan.than":
+		if e.ComplexityRoot.FieldLessThan.Than == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldLessThan.Than(childComplexity), true
 
 	case "FieldNotAdjacent.field":
 		if e.ComplexityRoot.FieldNotAdjacent.Field == nil {
@@ -2547,6 +2586,12 @@ func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, f
 		return ec.fieldContext_BoardDefaultRules_lapBonus(ctx, field)
 	case "checkpointBonus":
 		return ec.fieldContext_BoardDefaultRules_checkpointBonus(ctx, field)
+	case "roundLimit":
+		return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+	case "diceMin":
+		return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+	case "diceMax":
+		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
 }
@@ -4114,6 +4159,75 @@ func (ec *executionContext) fieldContext_BoardDefaultRules_checkpointBonus(_ con
 	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _BoardDefaultRules_roundLimit(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RoundLimit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_roundLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMin(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMin, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMax(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMax, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMax(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _BoardNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.BoardNameAlreadyInUseError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5591,6 +5705,52 @@ func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field
 }
 func (ec *executionContext) fieldContext_FieldInvalidFormat_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldInvalidFormat", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldLessThan_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldLessThan_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldLessThan_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldLessThan_than(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldLessThan_than(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Than, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldLessThan_than(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _FieldNotAdjacent_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotAdjacent) (ret graphql.Marshaler) {
@@ -11469,7 +11629,7 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus"}
+	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11518,6 +11678,27 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 				return it, err
 			}
 			it.CheckpointBonus = data
+		case "roundLimit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundLimit"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RoundLimit = data
+		case "diceMin":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("diceMin"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DiceMin = data
+		case "diceMax":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("diceMax"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DiceMax = data
 		}
 	}
 	return it, nil
@@ -13234,6 +13415,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldNotAdjacent(ctx, sel, obj)
+	case model.FieldLessThan:
+		return ec._FieldLessThan(ctx, sel, &obj)
+	case *model.FieldLessThan:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldLessThan(ctx, sel, obj)
 	case model.FieldInvalidFormat:
 		return ec._FieldInvalidFormat(ctx, sel, &obj)
 	case *model.FieldInvalidFormat:
@@ -14552,6 +14740,21 @@ func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.Sele
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "roundLimit":
+			out.Values[i] = ec._BoardDefaultRules_roundLimit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMin":
+			out.Values[i] = ec._BoardDefaultRules_diceMin(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMax":
+			out.Values[i] = ec._BoardDefaultRules_diceMax(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15740,6 +15943,49 @@ func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.Sel
 			out.Values[i] = graphql.MarshalString("FieldInvalidFormat")
 		case "field":
 			out.Values[i] = ec._FieldInvalidFormat_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldLessThanImplementors = []string{"FieldLessThan", "FieldError"}
+
+func (ec *executionContext) _FieldLessThan(ctx context.Context, sel ast.SelectionSet, obj *model.FieldLessThan) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldLessThanImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldLessThan")
+		case "field":
+			out.Values[i] = ec._FieldLessThan_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "than":
+			out.Values[i] = ec._FieldLessThan_than(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -97,10 +97,16 @@ type BoardDefaultRules struct {
 	StartingMagic   int
 	LapBonus        int
 	CheckpointBonus int
+	RoundLimit      int
+	DiceMin         int
+	DiceMax         int
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRules {
-	return BoardDefaultRules{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRules {
+	return BoardDefaultRules{
+		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+	}
 }
 
 // 写した boards.metadata の tile_counts。種類ごと・土地の属性ごとのマスの数

@@ -77,7 +77,10 @@ type ComplexityRoot struct {
 
 	BoardDefaultRules struct {
 		CheckpointBonus func(childComplexity int) int
+		DiceMax         func(childComplexity int) int
+		DiceMin         func(childComplexity int) int
 		LapBonus        func(childComplexity int) int
+		RoundLimit      func(childComplexity int) int
 		StartingMagic   func(childComplexity int) int
 		TargetMagic     func(childComplexity int) int
 	}
@@ -381,12 +384,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.CheckpointBonus(childComplexity), true
+	case "BoardDefaultRules.diceMax":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMax == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMax(childComplexity), true
+	case "BoardDefaultRules.diceMin":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMin(childComplexity), true
 	case "BoardDefaultRules.lapBonus":
 		if e.ComplexityRoot.BoardDefaultRules.LapBonus == nil {
 			break
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.LapBonus(childComplexity), true
+	case "BoardDefaultRules.roundLimit":
+		if e.ComplexityRoot.BoardDefaultRules.RoundLimit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.RoundLimit(childComplexity), true
 	case "BoardDefaultRules.startingMagic":
 		if e.ComplexityRoot.BoardDefaultRules.StartingMagic == nil {
 			break
@@ -986,6 +1007,12 @@ func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, f
 		return ec.fieldContext_BoardDefaultRules_lapBonus(ctx, field)
 	case "checkpointBonus":
 		return ec.fieldContext_BoardDefaultRules_checkpointBonus(ctx, field)
+	case "roundLimit":
+		return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+	case "diceMin":
+		return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+	case "diceMax":
+		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
 }
@@ -1888,6 +1915,75 @@ func (ec *executionContext) _BoardDefaultRules_checkpointBonus(ctx context.Conte
 	)
 }
 func (ec *executionContext) fieldContext_BoardDefaultRules_checkpointBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_roundLimit(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RoundLimit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_roundLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMin(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMin, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMax(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMax, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMax(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
@@ -5277,6 +5373,21 @@ func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.Sele
 			}
 		case "checkpointBonus":
 			out.Values[i] = ec._BoardDefaultRules_checkpointBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "roundLimit":
+			out.Values[i] = ec._BoardDefaultRules_roundLimit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMin":
+			out.Values[i] = ec._BoardDefaultRules_diceMin(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMax":
+			out.Values[i] = ec._BoardDefaultRules_diceMax(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

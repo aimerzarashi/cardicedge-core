@@ -86,15 +86,22 @@ type BoardDefaultRules struct {
 	StartingMagic   int `json:"starting_magic"`
 	LapBonus        int `json:"lap_bonus"`
 	CheckpointBonus int `json:"checkpoint_bonus"`
+	RoundLimit      int `json:"round_limit"`
+	DiceMin         int `json:"dice_min"`
+	DiceMax         int `json:"dice_max"`
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRules {
-	return BoardDefaultRules{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRules {
+	return BoardDefaultRules{
+		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+	}
 }
 
 func toBoardDefaultRules(rules board.DefaultRules) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: rules.TargetMagic(), StartingMagic: rules.StartingMagic(), LapBonus: rules.LapBonus(), CheckpointBonus: rules.CheckpointBonus(),
+		RoundLimit: rules.RoundLimit(), DiceMin: rules.DiceMin(), DiceMax: rules.DiceMax(),
 	}
 }
 

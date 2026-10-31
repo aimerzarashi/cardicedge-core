@@ -84,6 +84,12 @@ type BoardDefaultRules {
   lapBonus: Int!
   "チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上。登録した直後は 100）"
   checkpointBonus: Int!
+  "ラウンドの上限（1 以上。上限に達したら、その時点で魔力の多い人が勝つ。登録した直後は 30）"
+  roundLimit: Int!
+  "サイコロの目の最小（1 以上。登録した直後は 1）"
+  diceMin: Int!
+  "サイコロの目の最大（最小以上。登録した直後は 6）"
+  diceMax: Int!
 }
 
 # 準備中から使用不可へ直接は移れず、公開中から準備中へも戻れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、
@@ -540,7 +546,7 @@ union ChangeBoardLayoutResult =
   | RevisionConflictError
   | ForbiddenError
 
-"ボードの既定のルールを変える入力（変えた後の 4 つの値の全体）"
+"ボードの既定のルールを変える入力（変えた後の 7 つの値の全体）"
 input ChangeBoardDefaultRulesInput {
   "ボードの公開用の ID"
   id: UUID!
@@ -554,6 +560,12 @@ input ChangeBoardDefaultRulesInput {
   lapBonus: Int!
   "チェックポイントのボーナス（0 以上）"
   checkpointBonus: Int!
+  "ラウンドの上限（1 以上）"
+  roundLimit: Int!
+  "サイコロの目の最小（1 以上）"
+  diceMin: Int!
+  "サイコロの目の最大（最小以上でなければ入力の誤り）"
+  diceMax: Int!
 }
 
 "ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）"
@@ -565,7 +577,8 @@ type ChangeBoardDefaultRulesSuccess {
 }
 
 # 入力の誤りの項目: targetMagic（FieldTooSmall。開始時の魔力以下なら FieldNotGreaterThan で相手は startingMagic）、
-# startingMagic・lapBonus・checkpointBonus（FieldTooSmall）。上限は持たない
+# startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin（FieldTooSmall）、diceMax（最小より小さければ FieldLessThan で相手は diceMin。
+# 等しいのは誤りでないので FieldNotGreaterThan は使わない）。上限は持たない
 "ボードの既定のルールの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
 union ChangeBoardDefaultRulesResult =
     ChangeBoardDefaultRulesSuccess

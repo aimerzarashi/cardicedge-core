@@ -103,12 +103,15 @@ func (s Status) Retire() (Status, bool, error) {
 }
 
 // 登録の直後の既定のルール（対戦を始めるとき、ここから変えられる前提の値）。登録のイベントが値を明示して持つので、
-// 変えても過去のボードの値は変わらない
+// 変えても過去のボードの値は変わらない。ラウンドの上限（30）は仮の値
 const (
 	DefaultTargetMagic     = 8000
 	DefaultStartingMagic   = 600
 	DefaultLapBonus        = 300
 	DefaultCheckpointBonus = 100
+	DefaultRoundLimit      = 30
+	DefaultDiceMin         = 1
+	DefaultDiceMax         = 6
 )
 
 // 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
@@ -117,10 +120,13 @@ type DefaultRules struct {
 	startingMagic   int
 	lapBonus        int
 	checkpointBonus int
+	roundLimit      int
+	diceMin         int
+	diceMax         int
 }
 
 // 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) (DefaultRules, error) {
+func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) (DefaultRules, error) {
 	var errs []error
 	if targetMagic < 1 {
 		errs = append(errs, ErrTargetMagicTooSmall)
@@ -134,14 +140,26 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus int) 
 	if checkpointBonus < 0 {
 		errs = append(errs, ErrCheckpointBonusTooSmall)
 	}
-	// 下限を割った値と比べても意味がないので、開始時の魔力が下限を満たすときだけ比べる
+	if roundLimit < 1 {
+		errs = append(errs, ErrRoundLimitTooSmall)
+	}
+	if diceMin < 1 {
+		errs = append(errs, ErrDiceMinTooSmall)
+	}
+	// 下限を割った値と比べても意味がないので、下限を満たすときだけ比べる
 	if startingMagic >= 0 && targetMagic <= startingMagic {
 		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
+	}
+	if diceMin >= 1 && diceMax < diceMin {
+		errs = append(errs, ErrDiceMaxLessThanDiceMin)
 	}
 	if len(errs) > 0 {
 		return DefaultRules{}, errors.Join(errs...)
 	}
-	return DefaultRules{targetMagic: targetMagic, startingMagic: startingMagic, lapBonus: lapBonus, checkpointBonus: checkpointBonus}, nil
+	return DefaultRules{
+		targetMagic: targetMagic, startingMagic: startingMagic, lapBonus: lapBonus, checkpointBonus: checkpointBonus,
+		roundLimit: roundLimit, diceMin: diceMin, diceMax: diceMax,
+	}, nil
 }
 
 // 登録の直後の既定のルール。定数が決まりを満たすことはテストで確かめる
@@ -149,6 +167,7 @@ func InitialDefaultRules() DefaultRules {
 	return DefaultRules{
 		targetMagic: DefaultTargetMagic, startingMagic: DefaultStartingMagic,
 		lapBonus: DefaultLapBonus, checkpointBonus: DefaultCheckpointBonus,
+		roundLimit: DefaultRoundLimit, diceMin: DefaultDiceMin, diceMax: DefaultDiceMax,
 	}
 }
 
@@ -171,16 +190,35 @@ func (r DefaultRules) CheckpointBonus() int {
 	return r.checkpointBonus
 }
 
+// 上限に達したら、その時点で魔力の多い人が勝つ
+func (r DefaultRules) RoundLimit() int {
+	return r.roundLimit
+}
+
+// サイコロの目の最小
+func (r DefaultRules) DiceMin() int {
+	return r.diceMin
+}
+
+// サイコロの目の最大
+func (r DefaultRules) DiceMax() int {
+	return r.diceMax
+}
+
 type defaultRulesJSON struct {
 	TargetMagic     int `json:"target_magic"`
 	StartingMagic   int `json:"starting_magic"`
 	LapBonus        int `json:"lap_bonus"`
 	CheckpointBonus int `json:"checkpoint_bonus"`
+	RoundLimit      int `json:"round_limit"`
+	DiceMin         int `json:"dice_min"`
+	DiceMax         int `json:"dice_max"`
 }
 
 func (r DefaultRules) MarshalJSON() ([]byte, error) {
 	return json.Marshal(defaultRulesJSON{
 		TargetMagic: r.targetMagic, StartingMagic: r.startingMagic, LapBonus: r.lapBonus, CheckpointBonus: r.checkpointBonus,
+		RoundLimit: r.roundLimit, DiceMin: r.diceMin, DiceMax: r.diceMax,
 	})
 }
 
@@ -190,6 +228,9 @@ func (r *DefaultRules) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
-	*r = DefaultRules{targetMagic: v.TargetMagic, startingMagic: v.StartingMagic, lapBonus: v.LapBonus, checkpointBonus: v.CheckpointBonus}
+	*r = DefaultRules{
+		targetMagic: v.TargetMagic, startingMagic: v.StartingMagic, lapBonus: v.LapBonus, checkpointBonus: v.CheckpointBonus,
+		roundLimit: v.RoundLimit, diceMin: v.DiceMin, diceMax: v.DiceMax,
+	}
 	return nil
 }

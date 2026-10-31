@@ -224,7 +224,7 @@ func TestBoardHandler_RejectsStaleRevisionAndMissingBoard(t *testing.T) {
 			return err
 		}},
 		{name: "change_default_rules", call: func(id uuid.UUID, revision int64) error {
-			_, err := commands.ChangeDefaultRules(ctx, id, revision, command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
+			_, err := commands.ChangeDefaultRules(ctx, id, revision, command.NewBoardDefaultRulesInput(5000, 0, 200, 50, 12, 2, 8))
 			return err
 		}},
 		{name: "publish", call: func(id uuid.UUID, revision int64) error { _, err := commands.Publish(ctx, id, revision); return err }},
@@ -494,12 +494,12 @@ func TestChangeBoardDefaultRules_SavesAllValuesAndKeepsLayout(t *testing.T) {
 	changed := publishableBoard(t, ctx, commands)
 
 	rulesChanged, err := commands.ChangeDefaultRules(ctx, changed.ID, changed.Revision,
-		command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
+		command.NewBoardDefaultRulesInput(5000, 0, 200, 50, 12, 2, 8))
 
 	require.NoError(t, err)
 	require.Equal(t, changed.Revision+1, rulesChanged.Revision)
 	current := restoredBoard(t, ctx, changed.ID)
-	require.Equal(t, boardtest.DefaultRules(t, 5000, 0, 200, 50), current.DefaultRules)
+	require.Equal(t, boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8), current.DefaultRules)
 	require.Len(t, current.Layout.Tiles(), 3)
 }
 
@@ -509,7 +509,7 @@ func TestChangeBoardDefaultRules_SameValuesKeepRevision(t *testing.T) {
 	registered := registerBoard(t, ctx, commands, "草原")
 
 	same, err := commands.ChangeDefaultRules(ctx, registered.ID, registered.Revision,
-		command.NewBoardDefaultRulesInput(8000, 600, 300, 100))
+		command.NewBoardDefaultRulesInput(8000, 600, 300, 100, 30, 1, 6))
 
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision, same.Revision)
@@ -523,7 +523,7 @@ func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
 	}{
 		{
 			name:  "zero_target",
-			rules: command.NewBoardDefaultRulesInput(0, 0, 0, 0),
+			rules: command.NewBoardDefaultRulesInput(0, 0, 0, 0, 30, 1, 6),
 			want: []input.Error{
 				&input.TooSmall{Field: "targetMagic", Min: 1},
 				&input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"},
@@ -531,12 +531,12 @@ func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
 		},
 		{
 			name:  "negative_starting",
-			rules: command.NewBoardDefaultRulesInput(100, -1, 0, 0),
+			rules: command.NewBoardDefaultRulesInput(100, -1, 0, 0, 30, 1, 6),
 			want:  []input.Error{&input.TooSmall{Field: "startingMagic", Min: 0}},
 		},
 		{
 			name:  "negative_bonuses",
-			rules: command.NewBoardDefaultRulesInput(100, 0, -1, -2),
+			rules: command.NewBoardDefaultRulesInput(100, 0, -1, -2, 30, 1, 6),
 			want: []input.Error{
 				&input.TooSmall{Field: "lapBonus", Min: 0},
 				&input.TooSmall{Field: "checkpointBonus", Min: 0},
@@ -544,8 +544,21 @@ func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
 		},
 		{
 			name:  "target_equal_to_starting",
-			rules: command.NewBoardDefaultRulesInput(600, 600, 0, 0),
+			rules: command.NewBoardDefaultRulesInput(600, 600, 0, 0, 30, 1, 6),
 			want:  []input.Error{&input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"}},
+		},
+		{
+			name:  "zero_round_limit_and_dice_min",
+			rules: command.NewBoardDefaultRulesInput(8000, 600, 300, 100, 0, 0, 6),
+			want: []input.Error{
+				&input.TooSmall{Field: "roundLimit", Min: 1},
+				&input.TooSmall{Field: "diceMin", Min: 1},
+			},
+		},
+		{
+			name:  "dice_max_less_than_dice_min",
+			rules: command.NewBoardDefaultRulesInput(8000, 600, 300, 100, 30, 4, 3),
+			want:  []input.Error{&input.LessThan{Field: "diceMax", Than: "diceMin"}},
 		},
 	}
 	for _, tt := range tests {
@@ -652,7 +665,7 @@ func TestBoardHandler_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 	_, err = commands.ChangeLayout(ctx, published.ID, published.Revision, publishableLayoutInput())
 	require.ErrorIs(t, err, command.ErrBoardNotDraft)
 	_, err = commands.ChangeDefaultRules(ctx, published.ID, published.Revision,
-		command.NewBoardDefaultRulesInput(5000, 0, 200, 50))
+		command.NewBoardDefaultRulesInput(5000, 0, 200, 50, 12, 2, 8))
 	require.ErrorIs(t, err, command.ErrBoardNotDraft)
 	require.ErrorIs(t, commands.Delete(ctx, published.ID, published.Revision), command.ErrBoardNotDraft)
 }

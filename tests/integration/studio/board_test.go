@@ -14,7 +14,7 @@ import (
 )
 
 const boardFields = `id name status width height revision registeredAt updatedAt
-	defaultRules { targetMagic startingMagic lapBonus checkpointBonus }
+	defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax }
 	tileCounts { land base checkpoint fire earth water wind neutral multi warp bridge sanctuary shrine prophecyShop cardShop }
 	publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } ... on UnpairedTilesProblem { positions { x y } } }
 	tiles { __typename x y ... on LandTile { attribute } }
@@ -39,7 +39,7 @@ const boardsListQuery = `query ($filter: BoardFilter, $first: Int, $after: Strin
 	}
 }`
 
-const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTooSmall { min } ... on FieldNotGreaterThan { than } } }`
+const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTooSmall { min } ... on FieldNotGreaterThan { than } ... on FieldLessThan { than } } }`
 
 const registerBoardMutation = `mutation ($input: RegisterBoardInput!) {
 	registerBoard(input: $input) {
@@ -212,7 +212,7 @@ func TestRegisterBoard_ListsDraftBoardOfDefaultSize(t *testing.T) {
 	require.Empty(t, node["tiles"])
 	require.Empty(t, node["connections"])
 	require.Empty(t, node["pairs"])
-	require.Equal(t, map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100)}, node["defaultRules"])
+	require.Equal(t, map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100), "roundLimit": float64(30), "diceMin": float64(1), "diceMax": float64(6)}, node["defaultRules"])
 	require.Equal(t, map[string]any{"land": float64(0), "base": float64(0), "checkpoint": float64(0), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0), "warp": float64(0), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)}, node["tileCounts"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	detail := waitBoard(t, token, registered["id"], 1)
@@ -332,8 +332,11 @@ func TestChangeBoardLayout_ReturnsFieldErrorForTileWithoutExactlyOneKind(t *test
 	}}, invalid)
 }
 
-func defaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus int) map[string]any {
-	return map[string]any{"targetMagic": targetMagic, "startingMagic": startingMagic, "lapBonus": lapBonus, "checkpointBonus": checkpointBonus}
+func defaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) map[string]any {
+	return map[string]any{
+		"targetMagic": targetMagic, "startingMagic": startingMagic, "lapBonus": lapBonus, "checkpointBonus": checkpointBonus,
+		"roundLimit": roundLimit, "diceMin": diceMin, "diceMax": diceMax,
+	}
 }
 
 func TestChangeBoardDefaultRules_ShowsNewValuesAndKeepsLayout(t *testing.T) {
@@ -342,14 +345,14 @@ func TestChangeBoardDefaultRules_ShowsNewValuesAndKeepsLayout(t *testing.T) {
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
 	withLayout := changePublishableLayout(t, token, board)
 
-	changed := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(withLayout, defaultRulesInput(5000, 0, 200, 50)))
+	changed := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(withLayout, defaultRulesInput(5000, 0, 200, 50, 12, 2, 8)))
 
 	require.Equal(t, "ChangeBoardDefaultRulesSuccess", changed["__typename"])
 	require.EqualValues(t, 3, changed["revision"])
 	detail := waitBoard(t, token, changed["id"], 3)
-	require.Equal(t, map[string]any{"targetMagic": float64(5000), "startingMagic": float64(0), "lapBonus": float64(200), "checkpointBonus": float64(50)}, detail["defaultRules"])
+	require.Equal(t, map[string]any{"targetMagic": float64(5000), "startingMagic": float64(0), "lapBonus": float64(200), "checkpointBonus": float64(50), "roundLimit": float64(12), "diceMin": float64(2), "diceMax": float64(8)}, detail["defaultRules"])
 	require.Len(t, detail["tiles"], 3)
-	same := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(ref(changed), defaultRulesInput(5000, 0, 200, 50)))
+	same := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(ref(changed), defaultRulesInput(5000, 0, 200, 50, 12, 2, 8)))
 	require.EqualValues(t, 3, same["revision"])
 }
 
@@ -358,18 +361,24 @@ func TestChangeBoardDefaultRules_ReturnsFieldErrorPerViolation(t *testing.T) {
 	token := operators.Token(t)
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
 
-	tooSmall := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(0, -1, -2, -3)))
-	notGreater := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(600, 600, 0, 0)))
+	tooSmall := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(0, -1, -2, -3, 0, 0, 6)))
+	diceReversed := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(8000, 600, 300, 100, 30, 4, 3)))
+	notGreater := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(board, defaultRulesInput(600, 600, 0, 0, 30, 1, 6)))
 
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
 		map[string]any{"__typename": "FieldTooSmall", "field": "targetMagic", "min": float64(1)},
 		map[string]any{"__typename": "FieldTooSmall", "field": "startingMagic", "min": float64(0)},
 		map[string]any{"__typename": "FieldTooSmall", "field": "lapBonus", "min": float64(0)},
 		map[string]any{"__typename": "FieldTooSmall", "field": "checkpointBonus", "min": float64(0)},
+		map[string]any{"__typename": "FieldTooSmall", "field": "roundLimit", "min": float64(1)},
+		map[string]any{"__typename": "FieldTooSmall", "field": "diceMin", "min": float64(1)},
 	}}, tooSmall)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
 		map[string]any{"__typename": "FieldNotGreaterThan", "field": "targetMagic", "than": "startingMagic"},
 	}}, notGreater)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldLessThan", "field": "diceMax", "than": "diceMin"},
+	}}, diceReversed)
 }
 
 func problemBaseCount(positions ...map[string]any) map[string]any {
@@ -483,7 +492,7 @@ func TestBoardOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing.T) 
 	published := boardOperation(t, token, publishBoardMutation, "publishBoard", boardInput(changed, nil))
 	renamePublished := boardOperation(t, token, renameBoardMutation, "renameBoard", boardInput(published, map[string]any{"name": "湖-" + id}))
 	layoutPublished := changeBoardLayout(t, token, published, 1, 1, nil, nil)
-	rulesPublished := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(published, defaultRulesInput(5000, 0, 200, 50)))
+	rulesPublished := boardOperation(t, token, changeBoardDefaultRulesMutation, "changeBoardDefaultRules", boardInput(published, defaultRulesInput(5000, 0, 200, 50, 12, 2, 8)))
 	deletePublished := boardOperation(t, token, deleteBoardMutation, "deleteBoard", boardInput(published, nil))
 
 	require.Equal(t, "BoardNameAlreadyInUseError", used["__typename"])
@@ -519,7 +528,7 @@ func TestBoardOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.T)
 	t.Parallel()
 	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
 	unknown := map[string]any{"id": uuid.NewString(), "revision": 1}
-	rules := boardInput(unknown, defaultRulesInput(5000, 0, 200, 50))
+	rules := boardInput(unknown, defaultRulesInput(5000, 0, 200, 50, 12, 2, 8))
 	layout := boardInput(unknown, map[string]any{"width": 1, "height": 1, "tiles": []any{}, "connections": []any{}, "pairs": []any{}})
 	tests := []struct {
 		name      string

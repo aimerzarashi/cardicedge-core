@@ -61,7 +61,10 @@ func TestSampleMaster_HasDefaultRulesDifferentFromInitialOnes(t *testing.T) {
 		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic() ||
 			b.DefaultRules.StartingMagic != initial.StartingMagic() ||
 			b.DefaultRules.LapBonus != initial.LapBonus() ||
-			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus()
+			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus() ||
+			b.DefaultRules.RoundLimit != initial.RoundLimit() ||
+			b.DefaultRules.DiceMin != initial.DiceMin() ||
+			b.DefaultRules.DiceMax != initial.DiceMax()
 	}
 	require.True(t, found)
 }
@@ -114,8 +117,10 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "unknown_card_in_deck", json: `{"cards":[],"preset_decks":[{"name":"d","cards":[{"card":"x","count":4}]}]}`},
 		{name: "deck_total_not_forty", json: `{"cards":[{"type":"item","name":"a"}],"preset_decks":[{"name":"d","cards":[{"card":"a","count":4}]}]}`},
 		{name: "board_without_default_rules", json: boardWithRulesJSON(`{}`)},
-		{name: "board_with_target_magic_not_above_starting_magic", json: boardWithRulesJSON(`{"target_magic":600,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}`)},
-		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100}`)},
+		{name: "board_with_target_magic_not_above_starting_magic", json: boardWithRulesJSON(`{"target_magic":600,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
+		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
+		{name: "board_with_zero_round_limit", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":0,"dice_min":1,"dice_max":6}`)},
+		{name: "board_with_dice_max_below_dice_min", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":4,"dice_max":3}`)},
 		{name: "no_starter_decks", json: `{"cards":[],"starter_decks":[]}`},
 		{name: "unknown_preset_deck_for_starter_deck", json: `{"cards":[],"starter_decks":["x"]}`},
 		{name: "blank_board_name", json: boardJSON("", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
@@ -152,7 +157,7 @@ func boardBody(name string) string {
 }
 
 func boardBodyWith(name, tiles, connections string) string {
-	return boardBodyWithRules(name, tiles, connections, `{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}`)
+	return boardBodyWithRules(name, tiles, connections, `{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)
 }
 
 func boardBodyWithRules(name, tiles, connections, defaultRules string) string {

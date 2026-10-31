@@ -358,7 +358,7 @@
       "name": "見本の周回ボード",
       "width": 8,
       "height": 8,
-      "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100},
+      "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 20, "dice_min": 1, "dice_max": 8},
       "tiles": [
         {"x": 1, "y": 1, "kind": "base"},
         {"x": 2, "y": 1, "kind": "land", "attribute": "fire"},
@@ -437,7 +437,7 @@
       "name": "四角の周回ボード",
       "width": 5,
       "height": 6,
-      "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100},
+      "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6},
       "tiles": [
         {"x": 0, "y": 0, "kind": "base"},
         {"x": 1, "y": 0, "kind": "land", "attribute": "water"},
