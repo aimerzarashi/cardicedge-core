@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/logtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -184,6 +185,28 @@ func TestPolicy_HandlesEventsOneByOneInVersionOrder(t *testing.T) {
 	assert.Equal(t, attempt{entityID: id.Int64(), version: 2, checkpoint: 1}, withoutTime(policy.next(t)))
 	f.waitPolicyCheckpoint(t, id, 2)
 	f.waitPendingRemoved(t, id)
+}
+
+// ポリシーの処理のログは、イベントごとに 1 行。失敗したイベントには result が failure の行が出る
+func TestPolicy_LogsProcessedEventWithResult(t *testing.T) {
+	records := logtest.Capture(t)
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, policyOptions(time.Minute, 10), policy, nil)
+	f.sync(t)
+	id := f.register(t)
+	f.link(t, id)
+	policy.failAt(id, 2, failForever)
+
+	f.start(t)
+
+	rows := waitProcessedLogs(t, records, testPolicyName, id.Int64(), 2)
+	assert.Equal(t, "policy", rows[0].Attrs["subscriber_kind"])
+	assert.Equal(t, int64(1), rows[0].Attrs["aggregate_version"])
+	assert.Equal(t, "success", rows[0].Attrs["result"])
+	assert.Equal(t, int64(2), rows[1].Attrs["aggregate_version"])
+	assert.Equal(t, "failure", rows[1].Attrs["result"])
+	assert.GreaterOrEqual(t, rows[1].Attrs["duration_ms"], int64(0))
+	assert.GreaterOrEqual(t, rows[1].Attrs["lag_ms"], int64(0))
 }
 
 func withoutTime(a attempt) attempt {

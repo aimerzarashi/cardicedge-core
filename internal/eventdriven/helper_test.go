@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/logtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
@@ -95,4 +97,20 @@ func newHub(t *testing.T) (context.Context, *eventdriven.Hub) {
 	hub, err := eventdriven.NewHub(testSubscribers, registry, testOptions(1), eventstore.NewEventLoader(registry, operator.NewID, operator.NewEventType))
 	require.NoError(t, err)
 	return ctx, hub
+}
+
+// 処理のログのうち、指した集約・購読者のものが want 件出るのを待って、出た順に返す
+func waitProcessedLogs(t *testing.T, records *logtest.Records, subscriberName string, entityID int64, want int) []logtest.Record {
+	t.Helper()
+	var matched []logtest.Record
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		matched = nil
+		for _, row := range records.Find("eventdriven: event processed") {
+			if row.Attrs["subscriber_name"] == subscriberName && row.Attrs["entity_id"] == entityID {
+				matched = append(matched, row)
+			}
+		}
+		assert.Len(c, matched, want)
+	}, receiveTimeout, 10*time.Millisecond)
+	return matched
 }

@@ -1,6 +1,9 @@
 package eventstore_test
 
 import (
+	"context"
+	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -15,6 +18,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/logtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
@@ -34,6 +38,48 @@ func TestSaveAndLoad_RestoresStateFromEvents(t *testing.T) {
 		// created_at には DB の現在時刻ではなく発生時刻が残る
 		RegisteredAt: occurredAt,
 	}, normalize(state))
+}
+
+// 保存のログは、トランザクションが確定したあとに、イベントごとに 1 行出る
+func TestSave_LogsEventAfterCommit(t *testing.T) {
+	records := logtest.Capture(t)
+	ctx, registry := isolatedSetup(t)
+	occurredAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	id, _, events := register(t, ctx, registry, "operator@example.com", occurredAt)
+
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		err := operatorStore(registry).Save(ctx, events)
+		require.Empty(t, records.Find("eventstore: event saved"))
+		return struct{}{}, err
+	})
+
+	require.NoError(t, err)
+	rows := records.Find("eventstore: event saved")
+	require.Len(t, rows, 1)
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	var eventID int64
+	require.NoError(t, exec.QueryRowContext(ctx, `SELECT id FROM domain_events WHERE entity_id = $1`, id.Int64()).Scan(&eventID))
+	require.Equal(t, slog.LevelInfo, rows[0].Level)
+	require.Equal(t, map[string]any{
+		"event_id": eventID, "entity_type": operator.Types().EntityType.String(), "entity_id": id.Int64(),
+		"aggregate_version": int64(1), "event_type": events[0].EventType().String(), "occurred_at": occurredAt,
+	}, rows[0].Attrs)
+}
+
+// 取り消された保存は記録に残さない
+func TestSave_DoesNotLogEventWhenTransactionRollsBack(t *testing.T) {
+	records := logtest.Capture(t)
+	ctx, registry := isolatedSetup(t)
+	_, _, events := register(t, ctx, registry, "operator@example.com", time.Now().UTC())
+
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		require.NoError(t, operatorStore(registry).Save(ctx, events))
+		return struct{}{}, errors.New("rollback")
+	})
+
+	require.Error(t, err)
+	require.Empty(t, records.Find("eventstore: event saved"))
 }
 
 func TestSave_RejectsSameVersionTwice(t *testing.T) {

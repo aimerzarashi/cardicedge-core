@@ -259,7 +259,7 @@ func (h *Hub) process(ctx context.Context, key workKey) {
 	if registered.kind == KindPolicy {
 		err = h.runPolicy(ctx, key, registered)
 	} else {
-		err = h.project(ctx, key, registered.projection)
+		err = h.project(ctx, key, registered)
 	}
 	if err != nil && ctx.Err() == nil {
 		slog.ErrorContext(ctx, "eventdriven: subscriber failed",
@@ -267,24 +267,56 @@ func (h *Hub) process(ctx context.Context, key workKey) {
 	}
 }
 
-func (h *Hub) project(ctx context.Context, key workKey, p projection) error {
+func (h *Hub) project(ctx context.Context, key workKey, registered *registeredSubscriber) error {
 	events, err := h.loaders[key.entityTypeID].LoadEvents(ctx, key.entityID)
 	if err != nil || len(events) == 0 {
 		return err
 	}
 	version := events[len(events)-1].AggregateVersion
+	start := time.Now()
+	// 投影は集約のイベントをすべて当てて作り直すので、処理のログは前の版より後の（新しく反映した）イベントだけに出す
+	var previous int64
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		var err error
+		if previous, err = readCheckpoint(ctx, key); err != nil {
+			return struct{}{}, err
+		}
 		advanced, err := advanceCheckpoint(ctx, key, version)
 		if err != nil {
 			return struct{}{}, err
 		}
 		if advanced {
-			if err := p.project(ctx, events); err != nil {
+			if err := registered.projection.project(ctx, events); err != nil {
 				return struct{}{}, err
 			}
 		}
 		// 作り直さなかった（同じか新しい版で作ってある）ときも消す。残すと Poller が拾い続けるため
 		return struct{}{}, removePending(ctx, key, version)
 	})
+	if ctx.Err() != nil {
+		return err
+	}
+	// 失敗はトランザクション全体が戻るので、新しいイベントすべてが失敗。かかった時間は単位全体のもの
+	for _, event := range events {
+		if event.AggregateVersion > previous {
+			h.logProcessed(ctx, key, registered, event, start, err)
+		}
+	}
 	return err
+}
+
+// イベントを処理したログ（購読者ごと・イベントごとに 1 行）。保存のログ（eventstore）と項目の名前をそろえ、event_id でつなぐ。
+// lag_ms（発生から処理が終わるまで）で、投影の遅れを判断する。失敗の理由は、ここに error を重ねず今の ERROR・WARN のログに任せる
+// （二重に出さないため。この行の result で、どのイベントが失敗したかだけを残す）。取り消された ctx（停止中）では出さない
+func (h *Hub) logProcessed(ctx context.Context, key workKey, registered *registeredSubscriber, event eventstore.LoadedEvent, start time.Time, cause error) {
+	result := "success"
+	if cause != nil {
+		result = "failure"
+	}
+	now := time.Now()
+	slog.InfoContext(ctx, "eventdriven: event processed",
+		"subscriber_kind", registered.kind, "subscriber_name", registered.name,
+		"event_id", event.EventID, "entity_type", h.loaders[key.entityTypeID].EntityType().String(), "entity_id", key.entityID,
+		"aggregate_version", event.AggregateVersion, "event_type", event.EventType.String(),
+		"result", result, "duration_ms", now.Sub(start).Milliseconds(), "lag_ms", now.Sub(event.OccurredAt).Milliseconds())
 }

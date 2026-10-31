@@ -70,12 +70,15 @@ func (h *Hub) runPolicy(ctx context.Context, key workKey, registered *registered
 		if event.AggregateVersion <= lastVersion {
 			continue
 		}
+		start := time.Now()
 		if err := handlePolicyEvent(ctx, registered.policy, event); err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
+			h.logProcessed(ctx, key, registered, event, start, err)
 			return h.recordFailure(ctx, key, registered, event, err)
 		}
+		h.logProcessed(ctx, key, registered, event, start, nil)
 		// 成功のたびに進める。後のイベントで失敗しても、済んだ分をやり直さない
 		if _, err := advanceCheckpoint(ctx, key, event.AggregateVersion); err != nil {
 			return err

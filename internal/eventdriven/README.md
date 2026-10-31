@@ -86,6 +86,22 @@ sequenceDiagram
 - 失敗（panic を含む）はログに出す。トランザクションは rollback され、やることの行が残るため、Poller が間隔ごとに作り直す
 - Poller が読むのはやることの表だけなので、読む量は遅れている件数に比例する（イベントの総数によらない）
 
+## ログ
+
+投影もポリシーも、イベントを処理するたびに INFO のログ `eventdriven: event processed` を 1 イベント 1 行で出す（Hub の `logProcessed` の 1 か所）。
+
+| 項目 | 内容 |
+|---|---|
+| `subscriber_kind`・`subscriber_name` | 購読者の種類（projection・policy）と名前 |
+| `event_id`・`entity_type`・`entity_id`・`aggregate_version`・`event_type` | イベント。保存のログ（`eventstore: event saved`）と同じ名前の項目 |
+| `result` | success・failure。失敗の理由は ERROR・WARN のログに任せ、ここには重ねない |
+| `duration_ms` | 処理にかかった時間。ポリシーはイベントごと。投影は作り直し全体の時間で、同じ単位の行は同じ値 |
+| `lag_ms` | イベントの発生時刻から処理が終わるまで |
+
+- 投影は集約のイベントをすべて当てて作り直すが、ログは前のチェックポイントより後のイベント（新しく反映した分）だけに出す
+- 追い方: 保存のログと処理のログを `event_id` でつなぐ。テストが待ちきれなかっただけかは、投影の `lag_ms` で判断する（遅れが待つ上限に近い・超えていれば、投影が遅れていただけ）
+- 停止のために ctx が取り消されたときは出さない
+
 ## 表
 
 ```mermaid
