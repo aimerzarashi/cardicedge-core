@@ -46,7 +46,7 @@ func boardMetadata(name string, status readmodel.BoardStatus) readmodel.BoardMet
 		},
 		Connections:  []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}},
 		Pairs:        []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6),
 		TileCounts:   readmodel.NewBoardTileCounts(1, 1, 1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 1, 0, 0),
 	}
 }
@@ -65,7 +65,7 @@ func wantBoard(metadata readmodel.BoardMetadata) query.Board {
 		},
 		Connections:  []query.BoardConnection{connection},
 		Pairs:        []query.BoardPair{{A: query.NewBoardPosition(0, 1), B: query.NewBoardPosition(2, 1)}},
-		DefaultRules: query.NewBoardDefaultRules(8000, 600, 300, 100),
+		DefaultRules: query.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6),
 		TileCounts:   query.NewBoardTileCounts(1, 1, 1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 1, 0, 0),
 	}
 }
@@ -160,7 +160,7 @@ func TestBoardReader_GetFailsForUnknownTileKind(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"water"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"water"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 
@@ -171,7 +171,7 @@ func TestBoardReader_GetFailsForUnknownTileAttribute(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 
@@ -194,7 +194,7 @@ func TestBoardReader_GetFailsForBoardWithoutTileCounts(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 
@@ -206,7 +206,7 @@ func TestBoardReader_GetFailsForBoardWithoutSpecialTileCounts(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"pairs":[],"tile_counts":{"land":0,"base":0,"checkpoint":0,"fire":0,"earth":0,"water":0,"wind":0,"neutral":0,"multi":0},"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"pairs":[],"tile_counts":{"land":0,"base":0,"checkpoint":0,"fire":0,"earth":0,"water":0,"wind":0,"neutral":0,"multi":0},"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 
@@ -218,7 +218,7 @@ func TestBoardReader_GetFailsForBoardWithoutPairs(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[],"connections":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 

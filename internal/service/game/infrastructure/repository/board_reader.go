@@ -52,6 +52,10 @@ type boardMetadata struct {
 		StartingMagic   int `json:"starting_magic"`
 		LapBonus        int `json:"lap_bonus"`
 		CheckpointBonus int `json:"checkpoint_bonus"`
+		// ラウンドの上限とサイコロの目を写す前の行を、0 にせず読み出しの誤りにするため、ポインターで受ける
+		RoundLimit *int `json:"round_limit"`
+		DiceMin    *int `json:"dice_min"`
+		DiceMax    *int `json:"dice_max"`
 	} `json:"default_rules"`
 	// default_rules と同じ理由で、無い行は 0 にせず読み出しの誤りにする
 	TileCounts *struct {
@@ -147,6 +151,13 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	if metadata.DefaultRules == nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: default_rules is missing", id)
 	}
+	for name, value := range map[string]*int{
+		"round_limit": metadata.DefaultRules.RoundLimit, "dice_min": metadata.DefaultRules.DiceMin, "dice_max": metadata.DefaultRules.DiceMax,
+	} {
+		if value == nil {
+			return query.Board{}, fmt.Errorf("boards.metadata of %s: default_rules.%s is missing", id, name)
+		}
+	}
 	if metadata.TileCounts == nil {
 		return query.Board{}, fmt.Errorf("boards.metadata of %s: tile_counts is missing", id)
 	}
@@ -190,6 +201,7 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 	defaultRules := query.BoardDefaultRules{
 		TargetMagic: metadata.DefaultRules.TargetMagic, StartingMagic: metadata.DefaultRules.StartingMagic,
 		LapBonus: metadata.DefaultRules.LapBonus, CheckpointBonus: metadata.DefaultRules.CheckpointBonus,
+		RoundLimit: *metadata.DefaultRules.RoundLimit, DiceMin: *metadata.DefaultRules.DiceMin, DiceMax: *metadata.DefaultRules.DiceMax,
 	}
 	tileCounts := query.NewBoardTileCounts(c.Land, c.Base, c.Checkpoint, c.Fire, c.Earth, c.Water, c.Wind, c.Neutral, c.Multi,
 		*c.Warp, *c.Bridge, *c.Sanctuary, *c.Shrine, *c.ProphecyShop, *c.CardShop)

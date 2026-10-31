@@ -137,6 +137,12 @@ type BoardDefaultRules struct {
 	LapBonus int `json:"lapBonus"`
 	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力）
 	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（上限に達したら、その時点で魔力の多い人が勝つ）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大
+	DiceMax int `json:"diceMax"`
 }
 
 // 公開中のボードが無い（公開中でないものを含む）

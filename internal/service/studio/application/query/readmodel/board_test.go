@@ -68,7 +68,7 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 	require.Equal(t, readmodel.BoardMetadata{
 		ID: publicID, Name: "Ｆire 草原", Status: readmodel.BoardStatusDraft, Revision: 1, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 		PublishProblems: []readmodel.BoardPublishProblem{
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemBaseCount),
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
@@ -92,11 +92,11 @@ func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 
 func TestBoard_DefaultRulesChangeReplacesAllValues(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50), ChangedBy: operatortest.ID(t, 10)}, boardChangedAt)
+	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8), ChangedBy: operatortest.ID(t, 10)}, boardChangedAt)
 
 	state := h.project()
 
-	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50), state.Metadata.DefaultRules)
+	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8), state.Metadata.DefaultRules)
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
 }

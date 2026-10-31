@@ -87,10 +87,16 @@ type BoardDefaultRulesInput struct {
 	StartingMagic   int
 	LapBonus        int
 	CheckpointBonus int
+	RoundLimit      int
+	DiceMin         int
+	DiceMax         int
 }
 
-func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus int) BoardDefaultRulesInput {
-	return BoardDefaultRulesInput{TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus}
+func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRulesInput {
+	return BoardDefaultRulesInput{
+		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+	}
 }
 
 // 空のボード（準備中。四角形でマスもつながりも無い。大きさは 8×8 を studio_rules の範囲に収めた値）を作る。操作した人は context のオペレーター。
@@ -212,7 +218,7 @@ func (c *BoardHandler) CheckLayout(ctx context.Context, layoutInput BoardLayoutI
 	return boardPublishProblems(layout.Readiness()), nil
 }
 
-// 既定のルールの全体を変える。入力の誤りは input.Errors（項目は targetMagic・startingMagic・lapBonus・checkpointBonus）。
+// 既定のルールの全体を変える。入力の誤りは input.Errors（項目は targetMagic・startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin・diceMax）。
 // 同じ値なら変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
 func (c *BoardHandler) ChangeDefaultRules(ctx context.Context, id uuid.UUID, revision int64, rulesInput BoardDefaultRulesInput) (ChangedBoard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -413,7 +419,8 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 
 // 決まりは board.NewDefaultRules にあり、ここは違反を入力の項目のパスに写すだけ。誤りはまとめて input.Errors で返す
 func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules, error) {
-	rules, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus)
+	rules, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus,
+		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax)
 	if err == nil {
 		return rules, nil
 	}
@@ -432,6 +439,15 @@ func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules
 	}
 	if errors.Is(err, board.ErrTargetMagicNotGreaterThanStartingMagic) {
 		invalid = append(invalid, &input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"})
+	}
+	if errors.Is(err, board.ErrRoundLimitTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "roundLimit", Min: 1})
+	}
+	if errors.Is(err, board.ErrDiceMinTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "diceMin", Min: 1})
+	}
+	if errors.Is(err, board.ErrDiceMaxLessThanDiceMin) {
+		invalid = append(invalid, &input.LessThan{Field: "diceMax", Than: "diceMin"})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）
