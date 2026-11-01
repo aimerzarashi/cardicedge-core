@@ -228,7 +228,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 ## DB マイグレーション
 
-[Atlas Community Edition](https://atlasgo.io/community-edition)（`arigaio/atlas:1.3.6-community`）で、`migrations/NNNN_name.sql` のうち未適用のものだけを番号順に適用する。
+[Atlas Community Edition](https://atlasgo.io/community-edition)（`arigaio/atlas:1.3.5-community`）で、`migrations/NNNN_name.sql` のうち未適用のものだけを番号順に適用する。
 core・studio・game で同じ形式・同じ実行役にそろえている（方針は #5）。
 
 | ファイル | 内容 |
@@ -285,5 +285,5 @@ Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも�
 |---|---|
 | 開発（compose.yaml） | core-migrate-studio・core-migrate-game サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate`（種別の行も入れる） |
 | テスト用（compose.test.yaml） | core-migrate-studio・core-migrate-game サービス（マイグレーション用イメージ） |
-| CI | test ジョブで Atlas（v1.3.6）を取得し、適用してから go test |
+| CI | test ジョブで Atlas（v1.3.5）を取得し、適用してから go test |
 | リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に、studio 用・game 用の DB それぞれの `DATABASE_URL` を渡してジョブとして実行する |
