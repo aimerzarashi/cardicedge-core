@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
@@ -23,9 +24,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/telemetry"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 )
@@ -70,6 +73,9 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	if err := studioPrepared.studio.CreateInitialGameRules(ctx, config.StudioDB); err != nil {
 		return nil, err
 	}
+	if err := studioPrepared.studio.CreateInitialStudioRules(ctx, config.StudioDB); err != nil {
+		return nil, err
+	}
 	// 取り消されない ctx を渡す（シグナルで取り消される ctx だと、HTTP より先に止まり、止める途中のリクエストが
 	// commit したイベントの知らせを受け取れない）
 	if err := studioPrepared.hub.Start(rdb.WithDB(context.WithoutCancel(ctx), config.StudioDB), eventdriven.NewListener(config.StudioDSN)); err != nil {
@@ -84,7 +90,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	mux := NewRouter(config.Version)
 	studioPrepared.studio.Mount(mux, config.StudioDB)
 	gamePrepared.game.Mount(mux, config.GameDB)
-	return &App{Handler: mux, hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
+	return &App{Handler: telemetry.HTTP(mux), hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
 }
 
 type prepared struct {
@@ -153,7 +159,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, err
 	}
 	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
-	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types()}
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
@@ -164,7 +170,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
 		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes())...); err != nil {
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes())...); err != nil {

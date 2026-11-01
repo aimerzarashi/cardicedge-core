@@ -41,6 +41,113 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	BaseCountProblem struct {
+		Message   func(childComplexity int) int
+		Positions func(childComplexity int) int
+	}
+
+	BaseTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
+	Board struct {
+		Connections     func(childComplexity int) int
+		DefaultRules    func(childComplexity int) int
+		Height          func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Pairs           func(childComplexity int) int
+		PublishProblems func(childComplexity int) int
+		RegisteredAt    func(childComplexity int) int
+		Revision        func(childComplexity int) int
+		Status          func(childComplexity int) int
+		TileCounts      func(childComplexity int) int
+		Tiles           func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+		Width           func(childComplexity int) int
+	}
+
+	BoardConnection struct {
+		A func(childComplexity int) int
+		B func(childComplexity int) int
+	}
+
+	BoardDefaultRules struct {
+		CheckpointBonus func(childComplexity int) int
+		DiceMax         func(childComplexity int) int
+		DiceMin         func(childComplexity int) int
+		LapBonus        func(childComplexity int) int
+		RoundLimit      func(childComplexity int) int
+		StartingMagic   func(childComplexity int) int
+		TargetMagic     func(childComplexity int) int
+	}
+
+	BoardNameAlreadyInUseError struct {
+		Message func(childComplexity int) int
+	}
+
+	BoardNotDraftError struct {
+		Message func(childComplexity int) int
+	}
+
+	BoardNotFoundError struct {
+		Message func(childComplexity int) int
+	}
+
+	BoardNotPublishableError struct {
+		Message  func(childComplexity int) int
+		Problems func(childComplexity int) int
+	}
+
+	BoardPosition struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
+	BoardRules struct {
+		MaxSize func(childComplexity int) int
+		MinSize func(childComplexity int) int
+	}
+
+	BoardTileCounts struct {
+		Base         func(childComplexity int) int
+		Bridge       func(childComplexity int) int
+		CardShop     func(childComplexity int) int
+		Checkpoint   func(childComplexity int) int
+		Earth        func(childComplexity int) int
+		Fire         func(childComplexity int) int
+		Land         func(childComplexity int) int
+		Multi        func(childComplexity int) int
+		Neutral      func(childComplexity int) int
+		ProphecyShop func(childComplexity int) int
+		Sanctuary    func(childComplexity int) int
+		Shrine       func(childComplexity int) int
+		Warp         func(childComplexity int) int
+		Water        func(childComplexity int) int
+		Wind         func(childComplexity int) int
+	}
+
+	BoardTilePair struct {
+		A func(childComplexity int) int
+		B func(childComplexity int) int
+	}
+
+	BoardsConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	BoardsEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	BridgeTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
 	CardConnection struct {
 		Edges    func(childComplexity int) int
 		PageInfo func(childComplexity int) int
@@ -59,6 +166,30 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	CardShopTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
+	ChangeBoardDefaultRulesSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	ChangeBoardLayoutSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	CheckBoardLayoutSuccess struct {
+		PublishProblems func(childComplexity int) int
+	}
+
+	CheckpointTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
 	Creature struct {
 		ID           func(childComplexity int) int
 		Name         func(childComplexity int) int
@@ -71,6 +202,10 @@ type ComplexityRoot struct {
 	DeckCard struct {
 		Card  func(childComplexity int) int
 		Count func(childComplexity int) int
+	}
+
+	DeleteBoardSuccess struct {
+		ID func(childComplexity int) int
 	}
 
 	DeletePresetDeckSuccess struct {
@@ -89,7 +224,25 @@ type ComplexityRoot struct {
 		Field func(childComplexity int) int
 	}
 
+	FieldLessThan struct {
+		Field func(childComplexity int) int
+		Than  func(childComplexity int) int
+	}
+
+	FieldNotAdjacent struct {
+		Field func(childComplexity int) int
+	}
+
 	FieldNotFound struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldNotGreaterThan struct {
+		Field func(childComplexity int) int
+		Than  func(childComplexity int) int
+	}
+
+	FieldNotPairable struct {
 		Field func(childComplexity int) int
 	}
 
@@ -99,6 +252,14 @@ type ComplexityRoot struct {
 		Min   func(childComplexity int) int
 	}
 
+	FieldPairKindMismatch struct {
+		Field func(childComplexity int) int
+	}
+
+	FieldPairedWithSelf struct {
+		Field func(childComplexity int) int
+	}
+
 	FieldRequired struct {
 		Field func(childComplexity int) int
 	}
@@ -106,6 +267,11 @@ type ComplexityRoot struct {
 	FieldTooLong struct {
 		Field func(childComplexity int) int
 		Max   func(childComplexity int) int
+	}
+
+	FieldTooSmall struct {
+		Field func(childComplexity int) int
+		Min   func(childComplexity int) int
 	}
 
 	FieldTotalMismatch struct {
@@ -126,6 +292,10 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	InvalidBoardStatusTransitionError struct {
+		Message func(childComplexity int) int
+	}
+
 	InvalidCardStatusTransitionError struct {
 		Message func(childComplexity int) int
 	}
@@ -143,23 +313,40 @@ type ComplexityRoot struct {
 		UpdatedAt    func(childComplexity int) int
 	}
 
+	LandTile struct {
+		Attribute func(childComplexity int) int
+		X         func(childComplexity int) int
+		Y         func(childComplexity int) int
+	}
+
 	Mutation struct {
+		ChangeBoardDefaultRules           func(childComplexity int, input model.ChangeBoardDefaultRulesInput) int
+		ChangeBoardLayout                 func(childComplexity int, input model.ChangeBoardLayoutInput) int
+		DeleteBoard                       func(childComplexity int, input model.DeleteBoardInput) int
 		DeletePresetDeck                  func(childComplexity int, input model.DeletePresetDeckInput) int
 		DeleteStarterDeck                 func(childComplexity int, input model.DeleteStarterDeckInput) int
+		PublishBoard                      func(childComplexity int, input model.PublishBoardInput) int
 		PublishCard                       func(childComplexity int, input model.PublishCardInput) int
 		PublishStarterDeck                func(childComplexity int, input model.PublishStarterDeckInput) int
+		RegisterBoard                     func(childComplexity int, input model.RegisterBoardInput) int
 		RegisterCreature                  func(childComplexity int, input model.RegisterCreatureInput) int
 		RegisterItem                      func(childComplexity int, input model.RegisterItemInput) int
 		RegisterPresetDeck                func(childComplexity int, input model.RegisterPresetDeckInput) int
 		RegisterSpell                     func(childComplexity int, input model.RegisterSpellInput) int
 		RegisterStarterDeck               func(childComplexity int, input model.RegisterStarterDeckInput) int
 		RegisterStarterDeckFromPresetDeck func(childComplexity int, input model.RegisterStarterDeckFromPresetDeckInput) int
+		RenameBoard                       func(childComplexity int, input model.RenameBoardInput) int
 		RenamePresetDeck                  func(childComplexity int, input model.RenamePresetDeckInput) int
 		RenameStarterDeck                 func(childComplexity int, input model.RenameStarterDeckInput) int
+		RetireBoard                       func(childComplexity int, input model.RetireBoardInput) int
 		RetireCard                        func(childComplexity int, input model.RetireCardInput) int
 		RetireStarterDeck                 func(childComplexity int, input model.RetireStarterDeckInput) int
 		SetPresetDeckCardCounts           func(childComplexity int, input model.SetPresetDeckCardCountsInput) int
 		SetStarterDeckCardCounts          func(childComplexity int, input model.SetStarterDeckCardCountsInput) int
+	}
+
+	NoCheckpointProblem struct {
+		Message func(childComplexity int) int
 	}
 
 	PageInfo struct {
@@ -197,6 +384,16 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	ProphecyShopTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
+	PublishBoardSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	PublishCardSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
@@ -208,11 +405,20 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Cards        func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
-		PresetDeck   func(childComplexity int, id uuid.UUID) int
-		PresetDecks  func(childComplexity int, filter *model.PresetDeckFilter, first *int, after *string) int
-		StarterDeck  func(childComplexity int, id uuid.UUID) int
-		StarterDecks func(childComplexity int, filter *model.StarterDeckFilter, first *int, after *string) int
+		Board            func(childComplexity int, id uuid.UUID) int
+		Boards           func(childComplexity int, filter *model.BoardFilter, first *int, after *string) int
+		Cards            func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
+		CheckBoardLayout func(childComplexity int, input model.CheckBoardLayoutInput) int
+		PresetDeck       func(childComplexity int, id uuid.UUID) int
+		PresetDecks      func(childComplexity int, filter *model.PresetDeckFilter, first *int, after *string) int
+		StarterDeck      func(childComplexity int, id uuid.UUID) int
+		StarterDecks     func(childComplexity int, filter *model.StarterDeckFilter, first *int, after *string) int
+		StudioRules      func(childComplexity int) int
+	}
+
+	RegisterBoardSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
 	}
 
 	RegisterCreatureSuccess struct {
@@ -242,12 +448,22 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	RenameBoardSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	RenamePresetDeckSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
 	}
 
 	RenameStarterDeckSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	RetireBoardSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
 	}
@@ -266,6 +482,11 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	SanctuaryTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
+	}
+
 	SetPresetDeckCardCountsSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
@@ -274,6 +495,11 @@ type ComplexityRoot struct {
 	SetStarterDeckCardCountsSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
+	}
+
+	ShrineTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
 	}
 
 	Spell struct {
@@ -331,8 +557,27 @@ type ComplexityRoot struct {
 		Revision           func(childComplexity int) int
 	}
 
+	StudioRules struct {
+		Board func(childComplexity int) int
+	}
+
+	UnpairedTilesProblem struct {
+		Message   func(childComplexity int) int
+		Positions func(childComplexity int) int
+	}
+
+	UnreachableTilesProblem struct {
+		Message   func(childComplexity int) int
+		Positions func(childComplexity int) int
+	}
+
 	ValidationErrors struct {
 		Errors func(childComplexity int) int
+	}
+
+	WarpTile struct {
+		X func(childComplexity int) int
+		Y func(childComplexity int) int
 	}
 }
 
@@ -341,6 +586,13 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type MutationResolver interface {
+	RegisterBoard(ctx context.Context, input model.RegisterBoardInput) (model.RegisterBoardResult, error)
+	RenameBoard(ctx context.Context, input model.RenameBoardInput) (model.RenameBoardResult, error)
+	ChangeBoardLayout(ctx context.Context, input model.ChangeBoardLayoutInput) (model.ChangeBoardLayoutResult, error)
+	ChangeBoardDefaultRules(ctx context.Context, input model.ChangeBoardDefaultRulesInput) (model.ChangeBoardDefaultRulesResult, error)
+	DeleteBoard(ctx context.Context, input model.DeleteBoardInput) (model.DeleteBoardResult, error)
+	PublishBoard(ctx context.Context, input model.PublishBoardInput) (model.PublishBoardResult, error)
+	RetireBoard(ctx context.Context, input model.RetireBoardInput) (model.RetireBoardResult, error)
 	PublishCard(ctx context.Context, input model.PublishCardInput) (model.PublishCardResult, error)
 	RetireCard(ctx context.Context, input model.RetireCardInput) (model.RetireCardResult, error)
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
@@ -362,11 +614,15 @@ type PresetDeckResolver interface {
 	Cards(ctx context.Context, obj *model.PresetDeck) ([]*model.DeckCard, error)
 }
 type QueryResolver interface {
+	Boards(ctx context.Context, filter *model.BoardFilter, first *int, after *string) (model.BoardsResult, error)
+	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
+	CheckBoardLayout(ctx context.Context, input model.CheckBoardLayoutInput) (model.CheckBoardLayoutResult, error)
 	Cards(ctx context.Context, filter *model.CardFilter, first *int, after *string) (model.CardsResult, error)
 	PresetDecks(ctx context.Context, filter *model.PresetDeckFilter, first *int, after *string) (model.PresetDecksResult, error)
 	PresetDeck(ctx context.Context, id uuid.UUID) (model.PresetDeckResult, error)
 	StarterDecks(ctx context.Context, filter *model.StarterDeckFilter, first *int, after *string) (model.StarterDecksResult, error)
 	StarterDeck(ctx context.Context, id uuid.UUID) (model.StarterDeckResult, error)
+	StudioRules(ctx context.Context) (model.StudioRulesResult, error)
 }
 type StarterDeckResolver interface {
 	Cards(ctx context.Context, obj *model.StarterDeck) ([]*model.DeckCard, error)
@@ -389,6 +645,376 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "BaseCountProblem.message":
+		if e.ComplexityRoot.BaseCountProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseCountProblem.Message(childComplexity), true
+	case "BaseCountProblem.positions":
+		if e.ComplexityRoot.BaseCountProblem.Positions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseCountProblem.Positions(childComplexity), true
+
+	case "BaseTile.x":
+		if e.ComplexityRoot.BaseTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseTile.X(childComplexity), true
+	case "BaseTile.y":
+		if e.ComplexityRoot.BaseTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BaseTile.Y(childComplexity), true
+
+	case "Board.connections":
+		if e.ComplexityRoot.Board.Connections == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Connections(childComplexity), true
+	case "Board.defaultRules":
+		if e.ComplexityRoot.Board.DefaultRules == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.DefaultRules(childComplexity), true
+	case "Board.height":
+		if e.ComplexityRoot.Board.Height == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Height(childComplexity), true
+	case "Board.id":
+		if e.ComplexityRoot.Board.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.ID(childComplexity), true
+	case "Board.name":
+		if e.ComplexityRoot.Board.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Name(childComplexity), true
+	case "Board.pairs":
+		if e.ComplexityRoot.Board.Pairs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Pairs(childComplexity), true
+	case "Board.publishProblems":
+		if e.ComplexityRoot.Board.PublishProblems == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.PublishProblems(childComplexity), true
+	case "Board.registeredAt":
+		if e.ComplexityRoot.Board.RegisteredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.RegisteredAt(childComplexity), true
+	case "Board.revision":
+		if e.ComplexityRoot.Board.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Revision(childComplexity), true
+	case "Board.status":
+		if e.ComplexityRoot.Board.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Status(childComplexity), true
+	case "Board.tileCounts":
+		if e.ComplexityRoot.Board.TileCounts == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.TileCounts(childComplexity), true
+	case "Board.tiles":
+		if e.ComplexityRoot.Board.Tiles == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Tiles(childComplexity), true
+	case "Board.updatedAt":
+		if e.ComplexityRoot.Board.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.UpdatedAt(childComplexity), true
+	case "Board.width":
+		if e.ComplexityRoot.Board.Width == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Board.Width(childComplexity), true
+
+	case "BoardConnection.a":
+		if e.ComplexityRoot.BoardConnection.A == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardConnection.A(childComplexity), true
+	case "BoardConnection.b":
+		if e.ComplexityRoot.BoardConnection.B == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardConnection.B(childComplexity), true
+
+	case "BoardDefaultRules.checkpointBonus":
+		if e.ComplexityRoot.BoardDefaultRules.CheckpointBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.CheckpointBonus(childComplexity), true
+	case "BoardDefaultRules.diceMax":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMax == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMax(childComplexity), true
+	case "BoardDefaultRules.diceMin":
+		if e.ComplexityRoot.BoardDefaultRules.DiceMin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.DiceMin(childComplexity), true
+	case "BoardDefaultRules.lapBonus":
+		if e.ComplexityRoot.BoardDefaultRules.LapBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.LapBonus(childComplexity), true
+	case "BoardDefaultRules.roundLimit":
+		if e.ComplexityRoot.BoardDefaultRules.RoundLimit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.RoundLimit(childComplexity), true
+	case "BoardDefaultRules.startingMagic":
+		if e.ComplexityRoot.BoardDefaultRules.StartingMagic == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.StartingMagic(childComplexity), true
+	case "BoardDefaultRules.targetMagic":
+		if e.ComplexityRoot.BoardDefaultRules.TargetMagic == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.TargetMagic(childComplexity), true
+
+	case "BoardNameAlreadyInUseError.message":
+		if e.ComplexityRoot.BoardNameAlreadyInUseError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardNameAlreadyInUseError.Message(childComplexity), true
+
+	case "BoardNotDraftError.message":
+		if e.ComplexityRoot.BoardNotDraftError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardNotDraftError.Message(childComplexity), true
+
+	case "BoardNotFoundError.message":
+		if e.ComplexityRoot.BoardNotFoundError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardNotFoundError.Message(childComplexity), true
+
+	case "BoardNotPublishableError.message":
+		if e.ComplexityRoot.BoardNotPublishableError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardNotPublishableError.Message(childComplexity), true
+	case "BoardNotPublishableError.problems":
+		if e.ComplexityRoot.BoardNotPublishableError.Problems == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardNotPublishableError.Problems(childComplexity), true
+
+	case "BoardPosition.x":
+		if e.ComplexityRoot.BoardPosition.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardPosition.X(childComplexity), true
+	case "BoardPosition.y":
+		if e.ComplexityRoot.BoardPosition.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardPosition.Y(childComplexity), true
+
+	case "BoardRules.maxSize":
+		if e.ComplexityRoot.BoardRules.MaxSize == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardRules.MaxSize(childComplexity), true
+	case "BoardRules.minSize":
+		if e.ComplexityRoot.BoardRules.MinSize == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardRules.MinSize(childComplexity), true
+
+	case "BoardTileCounts.base":
+		if e.ComplexityRoot.BoardTileCounts.Base == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Base(childComplexity), true
+	case "BoardTileCounts.bridge":
+		if e.ComplexityRoot.BoardTileCounts.Bridge == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Bridge(childComplexity), true
+	case "BoardTileCounts.cardShop":
+		if e.ComplexityRoot.BoardTileCounts.CardShop == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.CardShop(childComplexity), true
+	case "BoardTileCounts.checkpoint":
+		if e.ComplexityRoot.BoardTileCounts.Checkpoint == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Checkpoint(childComplexity), true
+	case "BoardTileCounts.earth":
+		if e.ComplexityRoot.BoardTileCounts.Earth == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Earth(childComplexity), true
+	case "BoardTileCounts.fire":
+		if e.ComplexityRoot.BoardTileCounts.Fire == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Fire(childComplexity), true
+	case "BoardTileCounts.land":
+		if e.ComplexityRoot.BoardTileCounts.Land == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Land(childComplexity), true
+	case "BoardTileCounts.multi":
+		if e.ComplexityRoot.BoardTileCounts.Multi == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Multi(childComplexity), true
+	case "BoardTileCounts.neutral":
+		if e.ComplexityRoot.BoardTileCounts.Neutral == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Neutral(childComplexity), true
+	case "BoardTileCounts.prophecyShop":
+		if e.ComplexityRoot.BoardTileCounts.ProphecyShop == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.ProphecyShop(childComplexity), true
+	case "BoardTileCounts.sanctuary":
+		if e.ComplexityRoot.BoardTileCounts.Sanctuary == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Sanctuary(childComplexity), true
+	case "BoardTileCounts.shrine":
+		if e.ComplexityRoot.BoardTileCounts.Shrine == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Shrine(childComplexity), true
+	case "BoardTileCounts.warp":
+		if e.ComplexityRoot.BoardTileCounts.Warp == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Warp(childComplexity), true
+	case "BoardTileCounts.water":
+		if e.ComplexityRoot.BoardTileCounts.Water == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Water(childComplexity), true
+	case "BoardTileCounts.wind":
+		if e.ComplexityRoot.BoardTileCounts.Wind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTileCounts.Wind(childComplexity), true
+
+	case "BoardTilePair.a":
+		if e.ComplexityRoot.BoardTilePair.A == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTilePair.A(childComplexity), true
+	case "BoardTilePair.b":
+		if e.ComplexityRoot.BoardTilePair.B == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardTilePair.B(childComplexity), true
+
+	case "BoardsConnection.edges":
+		if e.ComplexityRoot.BoardsConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardsConnection.Edges(childComplexity), true
+	case "BoardsConnection.pageInfo":
+		if e.ComplexityRoot.BoardsConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardsConnection.PageInfo(childComplexity), true
+
+	case "BoardsEdge.cursor":
+		if e.ComplexityRoot.BoardsEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardsEdge.Cursor(childComplexity), true
+	case "BoardsEdge.node":
+		if e.ComplexityRoot.BoardsEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardsEdge.Node(childComplexity), true
+
+	case "BridgeTile.x":
+		if e.ComplexityRoot.BridgeTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BridgeTile.X(childComplexity), true
+	case "BridgeTile.y":
+		if e.ComplexityRoot.BridgeTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BridgeTile.Y(childComplexity), true
 
 	case "CardConnection.edges":
 		if e.ComplexityRoot.CardConnection.Edges == nil {
@@ -429,6 +1055,65 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CardNotFoundError.Message(childComplexity), true
+
+	case "CardShopTile.x":
+		if e.ComplexityRoot.CardShopTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CardShopTile.X(childComplexity), true
+	case "CardShopTile.y":
+		if e.ComplexityRoot.CardShopTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CardShopTile.Y(childComplexity), true
+
+	case "ChangeBoardDefaultRulesSuccess.id":
+		if e.ComplexityRoot.ChangeBoardDefaultRulesSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeBoardDefaultRulesSuccess.ID(childComplexity), true
+	case "ChangeBoardDefaultRulesSuccess.revision":
+		if e.ComplexityRoot.ChangeBoardDefaultRulesSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeBoardDefaultRulesSuccess.Revision(childComplexity), true
+
+	case "ChangeBoardLayoutSuccess.id":
+		if e.ComplexityRoot.ChangeBoardLayoutSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeBoardLayoutSuccess.ID(childComplexity), true
+	case "ChangeBoardLayoutSuccess.revision":
+		if e.ComplexityRoot.ChangeBoardLayoutSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeBoardLayoutSuccess.Revision(childComplexity), true
+
+	case "CheckBoardLayoutSuccess.publishProblems":
+		if e.ComplexityRoot.CheckBoardLayoutSuccess.PublishProblems == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckBoardLayoutSuccess.PublishProblems(childComplexity), true
+
+	case "CheckpointTile.x":
+		if e.ComplexityRoot.CheckpointTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckpointTile.X(childComplexity), true
+	case "CheckpointTile.y":
+		if e.ComplexityRoot.CheckpointTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckpointTile.Y(childComplexity), true
 
 	case "Creature.id":
 		if e.ComplexityRoot.Creature.ID == nil {
@@ -480,6 +1165,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.DeckCard.Count(childComplexity), true
 
+	case "DeleteBoardSuccess.id":
+		if e.ComplexityRoot.DeleteBoardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeleteBoardSuccess.ID(childComplexity), true
+
 	case "DeletePresetDeckSuccess.id":
 		if e.ComplexityRoot.DeletePresetDeckSuccess.ID == nil {
 			break
@@ -508,12 +1200,52 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FieldInvalidFormat.Field(childComplexity), true
 
+	case "FieldLessThan.field":
+		if e.ComplexityRoot.FieldLessThan.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldLessThan.Field(childComplexity), true
+	case "FieldLessThan.than":
+		if e.ComplexityRoot.FieldLessThan.Than == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldLessThan.Than(childComplexity), true
+
+	case "FieldNotAdjacent.field":
+		if e.ComplexityRoot.FieldNotAdjacent.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldNotAdjacent.Field(childComplexity), true
+
 	case "FieldNotFound.field":
 		if e.ComplexityRoot.FieldNotFound.Field == nil {
 			break
 		}
 
 		return e.ComplexityRoot.FieldNotFound.Field(childComplexity), true
+
+	case "FieldNotGreaterThan.field":
+		if e.ComplexityRoot.FieldNotGreaterThan.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldNotGreaterThan.Field(childComplexity), true
+	case "FieldNotGreaterThan.than":
+		if e.ComplexityRoot.FieldNotGreaterThan.Than == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldNotGreaterThan.Than(childComplexity), true
+
+	case "FieldNotPairable.field":
+		if e.ComplexityRoot.FieldNotPairable.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldNotPairable.Field(childComplexity), true
 
 	case "FieldOutOfRange.field":
 		if e.ComplexityRoot.FieldOutOfRange.Field == nil {
@@ -534,6 +1266,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FieldOutOfRange.Min(childComplexity), true
 
+	case "FieldPairKindMismatch.field":
+		if e.ComplexityRoot.FieldPairKindMismatch.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldPairKindMismatch.Field(childComplexity), true
+
+	case "FieldPairedWithSelf.field":
+		if e.ComplexityRoot.FieldPairedWithSelf.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldPairedWithSelf.Field(childComplexity), true
+
 	case "FieldRequired.field":
 		if e.ComplexityRoot.FieldRequired.Field == nil {
 			break
@@ -553,6 +1299,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
+
+	case "FieldTooSmall.field":
+		if e.ComplexityRoot.FieldTooSmall.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooSmall.Field(childComplexity), true
+	case "FieldTooSmall.min":
+		if e.ComplexityRoot.FieldTooSmall.Min == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooSmall.Min(childComplexity), true
 
 	case "FieldTotalMismatch.field":
 		if e.ComplexityRoot.FieldTotalMismatch.Field == nil {
@@ -593,6 +1352,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
+
+	case "InvalidBoardStatusTransitionError.message":
+		if e.ComplexityRoot.InvalidBoardStatusTransitionError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.InvalidBoardStatusTransitionError.Message(childComplexity), true
 
 	case "InvalidCardStatusTransitionError.message":
 		if e.ComplexityRoot.InvalidCardStatusTransitionError.Message == nil {
@@ -645,6 +1411,58 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Item.UpdatedAt(childComplexity), true
 
+	case "LandTile.attribute":
+		if e.ComplexityRoot.LandTile.Attribute == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.Attribute(childComplexity), true
+	case "LandTile.x":
+		if e.ComplexityRoot.LandTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.X(childComplexity), true
+	case "LandTile.y":
+		if e.ComplexityRoot.LandTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.Y(childComplexity), true
+
+	case "Mutation.changeBoardDefaultRules":
+		if e.ComplexityRoot.Mutation.ChangeBoardDefaultRules == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_changeBoardDefaultRules_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ChangeBoardDefaultRules(childComplexity, args["input"].(model.ChangeBoardDefaultRulesInput)), true
+	case "Mutation.changeBoardLayout":
+		if e.ComplexityRoot.Mutation.ChangeBoardLayout == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_changeBoardLayout_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ChangeBoardLayout(childComplexity, args["input"].(model.ChangeBoardLayoutInput)), true
+	case "Mutation.deleteBoard":
+		if e.ComplexityRoot.Mutation.DeleteBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteBoard(childComplexity, args["input"].(model.DeleteBoardInput)), true
 	case "Mutation.deletePresetDeck":
 		if e.ComplexityRoot.Mutation.DeletePresetDeck == nil {
 			break
@@ -667,6 +1485,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteStarterDeck(childComplexity, args["input"].(model.DeleteStarterDeckInput)), true
+	case "Mutation.publishBoard":
+		if e.ComplexityRoot.Mutation.PublishBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_publishBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PublishBoard(childComplexity, args["input"].(model.PublishBoardInput)), true
 	case "Mutation.publishCard":
 		if e.ComplexityRoot.Mutation.PublishCard == nil {
 			break
@@ -689,6 +1518,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.PublishStarterDeck(childComplexity, args["input"].(model.PublishStarterDeckInput)), true
+	case "Mutation.registerBoard":
+		if e.ComplexityRoot.Mutation.RegisterBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterBoard(childComplexity, args["input"].(model.RegisterBoardInput)), true
 	case "Mutation.registerCreature":
 		if e.ComplexityRoot.Mutation.RegisterCreature == nil {
 			break
@@ -755,6 +1595,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RegisterStarterDeckFromPresetDeck(childComplexity, args["input"].(model.RegisterStarterDeckFromPresetDeckInput)), true
+	case "Mutation.renameBoard":
+		if e.ComplexityRoot.Mutation.RenameBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_renameBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RenameBoard(childComplexity, args["input"].(model.RenameBoardInput)), true
 	case "Mutation.renamePresetDeck":
 		if e.ComplexityRoot.Mutation.RenamePresetDeck == nil {
 			break
@@ -777,6 +1628,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RenameStarterDeck(childComplexity, args["input"].(model.RenameStarterDeckInput)), true
+	case "Mutation.retireBoard":
+		if e.ComplexityRoot.Mutation.RetireBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_retireBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RetireBoard(childComplexity, args["input"].(model.RetireBoardInput)), true
 	case "Mutation.retireCard":
 		if e.ComplexityRoot.Mutation.RetireCard == nil {
 			break
@@ -821,6 +1683,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.SetStarterDeckCardCounts(childComplexity, args["input"].(model.SetStarterDeckCardCountsInput)), true
+
+	case "NoCheckpointProblem.message":
+		if e.ComplexityRoot.NoCheckpointProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NoCheckpointProblem.Message(childComplexity), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -930,6 +1799,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PresetDeckNotFoundError.Message(childComplexity), true
 
+	case "ProphecyShopTile.x":
+		if e.ComplexityRoot.ProphecyShopTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProphecyShopTile.X(childComplexity), true
+	case "ProphecyShopTile.y":
+		if e.ComplexityRoot.ProphecyShopTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProphecyShopTile.Y(childComplexity), true
+
+	case "PublishBoardSuccess.id":
+		if e.ComplexityRoot.PublishBoardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PublishBoardSuccess.ID(childComplexity), true
+	case "PublishBoardSuccess.revision":
+		if e.ComplexityRoot.PublishBoardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PublishBoardSuccess.Revision(childComplexity), true
+
 	case "PublishCardSuccess.id":
 		if e.ComplexityRoot.PublishCardSuccess.ID == nil {
 			break
@@ -956,6 +1851,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PublishStarterDeckSuccess.Revision(childComplexity), true
 
+	case "Query.board":
+		if e.ComplexityRoot.Query.Board == nil {
+			break
+		}
+
+		args, err := ec.field_Query_board_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Board(childComplexity, args["id"].(uuid.UUID)), true
+	case "Query.boards":
+		if e.ComplexityRoot.Query.Boards == nil {
+			break
+		}
+
+		args, err := ec.field_Query_boards_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Boards(childComplexity, args["filter"].(*model.BoardFilter), args["first"].(*int), args["after"].(*string)), true
 	case "Query.cards":
 		if e.ComplexityRoot.Query.Cards == nil {
 			break
@@ -967,6 +1884,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Cards(childComplexity, args["filter"].(*model.CardFilter), args["first"].(*int), args["after"].(*string)), true
+	case "Query.checkBoardLayout":
+		if e.ComplexityRoot.Query.CheckBoardLayout == nil {
+			break
+		}
+
+		args, err := ec.field_Query_checkBoardLayout_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.CheckBoardLayout(childComplexity, args["input"].(model.CheckBoardLayoutInput)), true
 
 	case "Query.presetDeck":
 		if e.ComplexityRoot.Query.PresetDeck == nil {
@@ -1012,6 +1940,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.StarterDecks(childComplexity, args["filter"].(*model.StarterDeckFilter), args["first"].(*int), args["after"].(*string)), true
+	case "Query.studioRules":
+		if e.ComplexityRoot.Query.StudioRules == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.StudioRules(childComplexity), true
+
+	case "RegisterBoardSuccess.id":
+		if e.ComplexityRoot.RegisterBoardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterBoardSuccess.ID(childComplexity), true
+	case "RegisterBoardSuccess.revision":
+		if e.ComplexityRoot.RegisterBoardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RegisterBoardSuccess.Revision(childComplexity), true
 
 	case "RegisterCreatureSuccess.creature":
 		if e.ComplexityRoot.RegisterCreatureSuccess.Creature == nil {
@@ -1073,6 +2020,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RegisterStarterDeckSuccess.Revision(childComplexity), true
 
+	case "RenameBoardSuccess.id":
+		if e.ComplexityRoot.RenameBoardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RenameBoardSuccess.ID(childComplexity), true
+	case "RenameBoardSuccess.revision":
+		if e.ComplexityRoot.RenameBoardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RenameBoardSuccess.Revision(childComplexity), true
+
 	case "RenamePresetDeckSuccess.id":
 		if e.ComplexityRoot.RenamePresetDeckSuccess.ID == nil {
 			break
@@ -1098,6 +2058,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RenameStarterDeckSuccess.Revision(childComplexity), true
+
+	case "RetireBoardSuccess.id":
+		if e.ComplexityRoot.RetireBoardSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RetireBoardSuccess.ID(childComplexity), true
+	case "RetireBoardSuccess.revision":
+		if e.ComplexityRoot.RetireBoardSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RetireBoardSuccess.Revision(childComplexity), true
 
 	case "RetireCardSuccess.id":
 		if e.ComplexityRoot.RetireCardSuccess.ID == nil {
@@ -1132,6 +2105,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RevisionConflictError.Message(childComplexity), true
 
+	case "SanctuaryTile.x":
+		if e.ComplexityRoot.SanctuaryTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SanctuaryTile.X(childComplexity), true
+	case "SanctuaryTile.y":
+		if e.ComplexityRoot.SanctuaryTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SanctuaryTile.Y(childComplexity), true
+
 	case "SetPresetDeckCardCountsSuccess.id":
 		if e.ComplexityRoot.SetPresetDeckCardCountsSuccess.ID == nil {
 			break
@@ -1157,6 +2143,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SetStarterDeckCardCountsSuccess.Revision(childComplexity), true
+
+	case "ShrineTile.x":
+		if e.ComplexityRoot.ShrineTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ShrineTile.X(childComplexity), true
+	case "ShrineTile.y":
+		if e.ComplexityRoot.ShrineTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ShrineTile.Y(childComplexity), true
 
 	case "Spell.id":
 		if e.ComplexityRoot.Spell.ID == nil {
@@ -1335,12 +2334,58 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StarterDeckSource.Revision(childComplexity), true
 
+	case "StudioRules.board":
+		if e.ComplexityRoot.StudioRules.Board == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StudioRules.Board(childComplexity), true
+
+	case "UnpairedTilesProblem.message":
+		if e.ComplexityRoot.UnpairedTilesProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnpairedTilesProblem.Message(childComplexity), true
+	case "UnpairedTilesProblem.positions":
+		if e.ComplexityRoot.UnpairedTilesProblem.Positions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnpairedTilesProblem.Positions(childComplexity), true
+
+	case "UnreachableTilesProblem.message":
+		if e.ComplexityRoot.UnreachableTilesProblem.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnreachableTilesProblem.Message(childComplexity), true
+	case "UnreachableTilesProblem.positions":
+		if e.ComplexityRoot.UnreachableTilesProblem.Positions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnreachableTilesProblem.Positions(childComplexity), true
+
 	case "ValidationErrors.errors":
 		if e.ComplexityRoot.ValidationErrors.Errors == nil {
 			break
 		}
 
 		return e.ComplexityRoot.ValidationErrors.Errors(childComplexity), true
+
+	case "WarpTile.x":
+		if e.ComplexityRoot.WarpTile.X == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WarpTile.X(childComplexity), true
+	case "WarpTile.y":
+		if e.ComplexityRoot.WarpTile.Y == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WarpTile.Y(childComplexity), true
 
 	}
 	return 0, false
@@ -1350,26 +2395,41 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputBoardConnectionInput,
+		ec.unmarshalInputBoardFilter,
+		ec.unmarshalInputBoardPositionInput,
+		ec.unmarshalInputBoardTileInput,
+		ec.unmarshalInputBoardTilePairInput,
 		ec.unmarshalInputCardFilter,
+		ec.unmarshalInputChangeBoardDefaultRulesInput,
+		ec.unmarshalInputChangeBoardLayoutInput,
+		ec.unmarshalInputCheckBoardLayoutInput,
 		ec.unmarshalInputDeckCardCountInput,
+		ec.unmarshalInputDeleteBoardInput,
 		ec.unmarshalInputDeletePresetDeckInput,
 		ec.unmarshalInputDeleteStarterDeckInput,
+		ec.unmarshalInputLandTileInput,
 		ec.unmarshalInputPresetDeckFilter,
+		ec.unmarshalInputPublishBoardInput,
 		ec.unmarshalInputPublishCardInput,
 		ec.unmarshalInputPublishStarterDeckInput,
+		ec.unmarshalInputRegisterBoardInput,
 		ec.unmarshalInputRegisterCreatureInput,
 		ec.unmarshalInputRegisterItemInput,
 		ec.unmarshalInputRegisterPresetDeckInput,
 		ec.unmarshalInputRegisterSpellInput,
 		ec.unmarshalInputRegisterStarterDeckFromPresetDeckInput,
 		ec.unmarshalInputRegisterStarterDeckInput,
+		ec.unmarshalInputRenameBoardInput,
 		ec.unmarshalInputRenamePresetDeckInput,
 		ec.unmarshalInputRenameStarterDeckInput,
+		ec.unmarshalInputRetireBoardInput,
 		ec.unmarshalInputRetireCardInput,
 		ec.unmarshalInputRetireStarterDeckInput,
 		ec.unmarshalInputSetPresetDeckCardCountsInput,
 		ec.unmarshalInputSetStarterDeckCardCountsInput,
 		ec.unmarshalInputStarterDeckFilter,
+		ec.unmarshalInputTilePositionInput,
 	)
 	first := true
 
@@ -1444,7 +2504,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_deck.graphqls"
+//go:embed "board.graphqls" "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_deck.graphqls" "studio_rules.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -1456,6 +2516,7 @@ func sourceData(filename string) string {
 }
 
 var sources = []*ast.Source{
+	{Name: "board.graphqls", Input: sourceData("board.graphqls"), BuiltIn: false},
 	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
@@ -1463,12 +2524,153 @@ var sources = []*ast.Source{
 	{Name: "preset_deck.graphqls", Input: sourceData("preset_deck.graphqls"), BuiltIn: false},
 	{Name: "spell.graphqls", Input: sourceData("spell.graphqls"), BuiltIn: false},
 	{Name: "starter_deck.graphqls", Input: sourceData("starter_deck.graphqls"), BuiltIn: false},
+	{Name: "studio_rules.graphqls", Input: sourceData("studio_rules.graphqls"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // childFields_* functions provide shared child field context lookups.
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
+
+func (ec *executionContext) childFields_Board(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Board_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Board_name(ctx, field)
+	case "status":
+		return ec.fieldContext_Board_status(ctx, field)
+	case "width":
+		return ec.fieldContext_Board_width(ctx, field)
+	case "height":
+		return ec.fieldContext_Board_height(ctx, field)
+	case "defaultRules":
+		return ec.fieldContext_Board_defaultRules(ctx, field)
+	case "tileCounts":
+		return ec.fieldContext_Board_tileCounts(ctx, field)
+	case "publishProblems":
+		return ec.fieldContext_Board_publishProblems(ctx, field)
+	case "tiles":
+		return ec.fieldContext_Board_tiles(ctx, field)
+	case "connections":
+		return ec.fieldContext_Board_connections(ctx, field)
+	case "pairs":
+		return ec.fieldContext_Board_pairs(ctx, field)
+	case "revision":
+		return ec.fieldContext_Board_revision(ctx, field)
+	case "registeredAt":
+		return ec.fieldContext_Board_registeredAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Board_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Board", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "a":
+		return ec.fieldContext_BoardConnection_a(ctx, field)
+	case "b":
+		return ec.fieldContext_BoardConnection_b(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "targetMagic":
+		return ec.fieldContext_BoardDefaultRules_targetMagic(ctx, field)
+	case "startingMagic":
+		return ec.fieldContext_BoardDefaultRules_startingMagic(ctx, field)
+	case "lapBonus":
+		return ec.fieldContext_BoardDefaultRules_lapBonus(ctx, field)
+	case "checkpointBonus":
+		return ec.fieldContext_BoardDefaultRules_checkpointBonus(ctx, field)
+	case "roundLimit":
+		return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+	case "diceMin":
+		return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+	case "diceMax":
+		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardPosition(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "x":
+		return ec.fieldContext_BoardPosition_x(ctx, field)
+	case "y":
+		return ec.fieldContext_BoardPosition_y(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardPosition", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardRules(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "minSize":
+		return ec.fieldContext_BoardRules_minSize(ctx, field)
+	case "maxSize":
+		return ec.fieldContext_BoardRules_maxSize(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardRules", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardTileCounts(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "land":
+		return ec.fieldContext_BoardTileCounts_land(ctx, field)
+	case "base":
+		return ec.fieldContext_BoardTileCounts_base(ctx, field)
+	case "checkpoint":
+		return ec.fieldContext_BoardTileCounts_checkpoint(ctx, field)
+	case "fire":
+		return ec.fieldContext_BoardTileCounts_fire(ctx, field)
+	case "earth":
+		return ec.fieldContext_BoardTileCounts_earth(ctx, field)
+	case "water":
+		return ec.fieldContext_BoardTileCounts_water(ctx, field)
+	case "wind":
+		return ec.fieldContext_BoardTileCounts_wind(ctx, field)
+	case "neutral":
+		return ec.fieldContext_BoardTileCounts_neutral(ctx, field)
+	case "multi":
+		return ec.fieldContext_BoardTileCounts_multi(ctx, field)
+	case "warp":
+		return ec.fieldContext_BoardTileCounts_warp(ctx, field)
+	case "bridge":
+		return ec.fieldContext_BoardTileCounts_bridge(ctx, field)
+	case "sanctuary":
+		return ec.fieldContext_BoardTileCounts_sanctuary(ctx, field)
+	case "shrine":
+		return ec.fieldContext_BoardTileCounts_shrine(ctx, field)
+	case "prophecyShop":
+		return ec.fieldContext_BoardTileCounts_prophecyShop(ctx, field)
+	case "cardShop":
+		return ec.fieldContext_BoardTileCounts_cardShop(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardTileCounts", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardTilePair(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "a":
+		return ec.fieldContext_BoardTilePair_a(ctx, field)
+	case "b":
+		return ec.fieldContext_BoardTilePair_b(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardTilePair", field.Name)
+}
+
+func (ec *executionContext) childFields_BoardsEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_BoardsEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_BoardsEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type BoardsEdge", field.Name)
+}
 
 func (ec *executionContext) childFields_CardEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
@@ -1752,6 +2954,48 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_changeBoardDefaultRules_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ChangeBoardDefaultRulesInput, error) {
+			return ec.unmarshalNChangeBoardDefaultRulesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardDefaultRulesInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_changeBoardLayout_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ChangeBoardLayoutInput, error) {
+			return ec.unmarshalNChangeBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardLayoutInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeleteBoardInput, error) {
+			return ec.unmarshalNDeleteBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeleteBoardInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deletePresetDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1780,6 +3024,20 @@ func (ec *executionContext) field_Mutation_deleteStarterDeck_args(ctx context.Co
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_publishBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.PublishBoardInput, error) {
+			return ec.unmarshalNPublishBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishBoardInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_publishCard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1800,6 +3058,20 @@ func (ec *executionContext) field_Mutation_publishStarterDeck_args(ctx context.C
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.PublishStarterDeckInput, error) {
 			return ec.unmarshalNPublishStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishStarterDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_registerBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RegisterBoardInput, error) {
+			return ec.unmarshalNRegisterBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterBoardInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1892,6 +3164,20 @@ func (ec *executionContext) field_Mutation_registerStarterDeck_args(ctx context.
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_renameBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RenameBoardInput, error) {
+			return ec.unmarshalNRenameBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenameBoardInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_renamePresetDeck_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1912,6 +3198,20 @@ func (ec *executionContext) field_Mutation_renameStarterDeck_args(ctx context.Co
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.RenameStarterDeckInput, error) {
 			return ec.unmarshalNRenameStarterDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenameStarterDeckInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_retireBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RetireBoardInput, error) {
+			return ec.unmarshalNRetireBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireBoardInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1990,6 +3290,50 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_board_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_boards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*model.BoardFilter, error) {
+			return ec.unmarshalOBoardFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_cards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2017,6 +3361,20 @@ func (ec *executionContext) field_Query_cards_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["after"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_checkBoardLayout_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CheckBoardLayoutInput, error) {
+			return ec.unmarshalNCheckBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -2167,6 +3525,1498 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ***************************** args.gotpl *****************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _BaseCountProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.BaseCountProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseCountProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseCountProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseCountProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BaseCountProblem_positions(ctx context.Context, field graphql.CollectedField, obj *model.BaseCountProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseCountProblem_positions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Positions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseCountProblem_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BaseCountProblem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BaseTile_x(ctx context.Context, field graphql.CollectedField, obj *model.BaseTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BaseTile_y(ctx context.Context, field graphql.CollectedField, obj *model.BaseTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BaseTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BaseTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BaseTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Board_id(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _Board_name(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Board_status(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardStatus) graphql.Marshaler {
+			return ec.marshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type BoardStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Board_width(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_width(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Width, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_width(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Board_height(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_height(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Height, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_height(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Board_defaultRules(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_defaultRules(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultRules, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardDefaultRules) graphql.Marshaler {
+			return ec.marshalNBoardDefaultRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardDefaultRules(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_defaultRules(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardDefaultRules(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_tileCounts(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_tileCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TileCounts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardTileCounts) graphql.Marshaler {
+			return ec.marshalNBoardTileCounts2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileCounts(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_tileCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardTileCounts(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_publishProblems(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_publishProblems(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PublishProblems, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_publishProblems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_tiles(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_tiles(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Tiles, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardTile) graphql.Marshaler {
+			return ec.marshalNBoardTile2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_tiles(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_connections(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_connections(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Connections, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardConnection) graphql.Marshaler {
+			return ec.marshalNBoardConnection2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_connections(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardConnection(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_pairs(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_pairs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Pairs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardTilePair) graphql.Marshaler {
+			return ec.marshalNBoardTilePair2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_pairs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Board",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardTilePair(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Board_revision(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Board_registeredAt(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_registeredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RegisteredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_registeredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Board_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Board) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Board_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Board_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _BoardConnection_a(ctx context.Context, field graphql.CollectedField, obj *model.BoardConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardConnection_a(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.A, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardConnection_a(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardConnection_b(ctx context.Context, field graphql.CollectedField, obj *model.BoardConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardConnection_b(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.B, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardConnection_b(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardDefaultRules_targetMagic(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_targetMagic(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TargetMagic, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_targetMagic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_startingMagic(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_startingMagic(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartingMagic, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_startingMagic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_lapBonus(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_lapBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_lapBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_checkpointBonus(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_checkpointBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CheckpointBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_checkpointBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_roundLimit(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_roundLimit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RoundLimit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_roundLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMin(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMin, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardDefaultRules_diceMax(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiceMax, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_diceMax(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardNameAlreadyInUseError_message(ctx context.Context, field graphql.CollectedField, obj *model.BoardNameAlreadyInUseError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardNameAlreadyInUseError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardNameAlreadyInUseError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardNameAlreadyInUseError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BoardNotDraftError_message(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotDraftError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardNotDraftError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardNotDraftError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardNotDraftError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BoardNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotFoundError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardNotFoundError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BoardNotPublishableError_message(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardNotPublishableError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardNotPublishableError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardNotPublishableError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BoardNotPublishableError_problems(ctx context.Context, field graphql.CollectedField, obj *model.BoardNotPublishableError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardNotPublishableError_problems(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Problems, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardNotPublishableError_problems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardNotPublishableError",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardPosition_x(ctx context.Context, field graphql.CollectedField, obj *model.BoardPosition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardPosition_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardPosition_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardPosition", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardPosition_y(ctx context.Context, field graphql.CollectedField, obj *model.BoardPosition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardPosition_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardPosition_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardPosition", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardRules_minSize(ctx context.Context, field graphql.CollectedField, obj *model.BoardRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardRules_minSize(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinSize, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardRules_minSize(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardRules_maxSize(ctx context.Context, field graphql.CollectedField, obj *model.BoardRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardRules_maxSize(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxSize, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardRules_maxSize(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardRules", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_land(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_land(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Land, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_land(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_base(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_base(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Base, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_base(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_checkpoint(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_checkpoint(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Checkpoint, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_checkpoint(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_fire(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_fire(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Fire, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_fire(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_earth(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_earth(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Earth, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_earth(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_water(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_water(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Water, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_water(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_wind(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_wind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Wind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_wind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_neutral(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_neutral(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Neutral, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_neutral(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_multi(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_multi(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Multi, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_multi(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_warp(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_warp(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Warp, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_warp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_bridge(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_bridge(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Bridge, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_bridge(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_sanctuary(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_sanctuary(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sanctuary, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_sanctuary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_shrine(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_shrine(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Shrine, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_shrine(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_prophecyShop(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_prophecyShop(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProphecyShop, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_prophecyShop(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTileCounts_cardShop(ctx context.Context, field graphql.CollectedField, obj *model.BoardTileCounts) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTileCounts_cardShop(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CardShop, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTileCounts_cardShop(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardTileCounts", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BoardTilePair_a(ctx context.Context, field graphql.CollectedField, obj *model.BoardTilePair) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTilePair_a(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.A, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTilePair_a(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardTilePair",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardTilePair_b(ctx context.Context, field graphql.CollectedField, obj *model.BoardTilePair) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardTilePair_b(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.B, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardTilePair_b(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardTilePair",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardsConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.BoardsConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardsConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardsEdge) graphql.Marshaler {
+			return ec.marshalNBoardsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardsConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardsConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardsEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardsConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.BoardsConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardsConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardsConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardsConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BoardsEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.BoardsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardsEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardsEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardsEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _BoardsEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.BoardsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardsEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Board) graphql.Marshaler {
+			return ec.marshalNBoard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoard(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardsEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "BoardsEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Board(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _BridgeTile_x(ctx context.Context, field graphql.CollectedField, obj *model.BridgeTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BridgeTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BridgeTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BridgeTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _BridgeTile_y(ctx context.Context, field graphql.CollectedField, obj *model.BridgeTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BridgeTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BridgeTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BridgeTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
 
 func (ec *executionContext) _CardConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.CardConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -2331,6 +5181,222 @@ func (ec *executionContext) _CardNotFoundError_message(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_CardNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CardNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CardShopTile_x(ctx context.Context, field graphql.CollectedField, obj *model.CardShopTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CardShopTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CardShopTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CardShopTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CardShopTile_y(ctx context.Context, field graphql.CollectedField, obj *model.CardShopTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CardShopTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CardShopTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CardShopTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ChangeBoardDefaultRulesSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeBoardDefaultRulesSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeBoardDefaultRulesSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeBoardDefaultRulesSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeBoardDefaultRulesSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _ChangeBoardDefaultRulesSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeBoardDefaultRulesSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeBoardDefaultRulesSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeBoardDefaultRulesSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeBoardDefaultRulesSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ChangeBoardLayoutSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeBoardLayoutSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeBoardLayoutSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeBoardLayoutSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeBoardLayoutSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _ChangeBoardLayoutSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeBoardLayoutSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeBoardLayoutSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeBoardLayoutSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeBoardLayoutSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CheckBoardLayoutSuccess_publishProblems(ctx context.Context, field graphql.CollectedField, obj *model.CheckBoardLayoutSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckBoardLayoutSuccess_publishProblems(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PublishProblems, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+			return ec.marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckBoardLayoutSuccess_publishProblems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckBoardLayoutSuccess",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckpointTile_x(ctx context.Context, field graphql.CollectedField, obj *model.CheckpointTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckpointTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckpointTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckpointTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _CheckpointTile_y(ctx context.Context, field graphql.CollectedField, obj *model.CheckpointTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckpointTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckpointTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckpointTile", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Creature_id(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
@@ -2526,6 +5592,29 @@ func (ec *executionContext) fieldContext_DeckCard_count(_ context.Context, field
 	return graphql.NewScalarFieldContext("DeckCard", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _DeleteBoardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.DeleteBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeleteBoardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeleteBoardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeleteBoardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _DeletePresetDeckSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.DeletePresetDeckSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2618,6 +5707,75 @@ func (ec *executionContext) fieldContext_FieldInvalidFormat_field(_ context.Cont
 	return graphql.NewScalarFieldContext("FieldInvalidFormat", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _FieldLessThan_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldLessThan_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldLessThan_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldLessThan_than(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldLessThan_than(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Than, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldLessThan_than(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldNotAdjacent_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotAdjacent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldNotAdjacent_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldNotAdjacent_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldNotAdjacent", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _FieldNotFound_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotFound) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2639,6 +5797,75 @@ func (ec *executionContext) _FieldNotFound_field(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_FieldNotFound_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldNotFound", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldNotGreaterThan_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotGreaterThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldNotGreaterThan_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldNotGreaterThan_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldNotGreaterThan", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldNotGreaterThan_than(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotGreaterThan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldNotGreaterThan_than(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Than, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldNotGreaterThan_than(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldNotGreaterThan", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldNotPairable_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotPairable) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldNotPairable_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldNotPairable_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldNotPairable", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _FieldOutOfRange_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldOutOfRange) (ret graphql.Marshaler) {
@@ -2710,6 +5937,52 @@ func (ec *executionContext) fieldContext_FieldOutOfRange_max(_ context.Context, 
 	return graphql.NewScalarFieldContext("FieldOutOfRange", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _FieldPairKindMismatch_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldPairKindMismatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldPairKindMismatch_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldPairKindMismatch_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldPairKindMismatch", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldPairedWithSelf_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldPairedWithSelf) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldPairedWithSelf_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldPairedWithSelf_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldPairedWithSelf", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _FieldRequired_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldRequired) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2777,6 +6050,52 @@ func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooSmall_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooSmall) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooSmall_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooSmall_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooSmall", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _FieldTooSmall_min(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooSmall) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooSmall_min(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Min, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooSmall_min(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooSmall", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _FieldTotalMismatch_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTotalMismatch) (ret graphql.Marshaler) {
@@ -2915,6 +6234,29 @@ func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _InvalidBoardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidBoardStatusTransitionError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_InvalidBoardStatusTransitionError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_InvalidBoardStatusTransitionError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("InvalidBoardStatusTransitionError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _InvalidCardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidCardStatusTransitionError) (ret graphql.Marshaler) {
@@ -3099,6 +6441,383 @@ func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_Item_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Item", field, false, false, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_x(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_y(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LandTile_attribute(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LandTile_attribute(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attribute, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
+			return ec.marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LandTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, errors.New("field of type BoardTileAttribute does not have child fields"))
+}
+
+func (ec *executionContext) _Mutation_registerBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerBoard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterBoard(ctx, fc.Args["input"].(model.RegisterBoardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RegisterBoardResult) graphql.Marshaler {
+			return ec.marshalNRegisterBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RegisterBoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_renameBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_renameBoard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RenameBoard(ctx, fc.Args["input"].(model.RenameBoardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RenameBoardResult) graphql.Marshaler {
+			return ec.marshalNRenameBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenameBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_renameBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RenameBoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_renameBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_changeBoardLayout(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_changeBoardLayout(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ChangeBoardLayout(ctx, fc.Args["input"].(model.ChangeBoardLayoutInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeBoardLayoutResult) graphql.Marshaler {
+			return ec.marshalNChangeBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardLayoutResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_changeBoardLayout(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ChangeBoardLayoutResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_changeBoardLayout_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_changeBoardDefaultRules(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_changeBoardDefaultRules(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ChangeBoardDefaultRules(ctx, fc.Args["input"].(model.ChangeBoardDefaultRulesInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeBoardDefaultRulesResult) graphql.Marshaler {
+			return ec.marshalNChangeBoardDefaultRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardDefaultRulesResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_changeBoardDefaultRules(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ChangeBoardDefaultRulesResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_changeBoardDefaultRules_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteBoard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteBoard(ctx, fc.Args["input"].(model.DeleteBoardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.DeleteBoardResult) graphql.Marshaler {
+			return ec.marshalNDeleteBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeleteBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DeleteBoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_publishBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_publishBoard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PublishBoard(ctx, fc.Args["input"].(model.PublishBoardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.PublishBoardResult) graphql.Marshaler {
+			return ec.marshalNPublishBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_publishBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type PublishBoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_publishBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_retireBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_retireBoard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RetireBoard(ctx, fc.Args["input"].(model.RetireBoardInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RetireBoardResult) graphql.Marshaler {
+			return ec.marshalNRetireBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_retireBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type RetireBoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_retireBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_publishCard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -3805,6 +7524,29 @@ func (ec *executionContext) fieldContext_Mutation_retireStarterDeck(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _NoCheckpointProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.NoCheckpointProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NoCheckpointProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NoCheckpointProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NoCheckpointProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4232,6 +7974,98 @@ func (ec *executionContext) fieldContext_PresetDeckNotFoundError_message(_ conte
 	return graphql.NewScalarFieldContext("PresetDeckNotFoundError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _ProphecyShopTile_x(ctx context.Context, field graphql.CollectedField, obj *model.ProphecyShopTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProphecyShopTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProphecyShopTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProphecyShopTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ProphecyShopTile_y(ctx context.Context, field graphql.CollectedField, obj *model.ProphecyShopTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProphecyShopTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProphecyShopTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProphecyShopTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _PublishBoardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.PublishBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PublishBoardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PublishBoardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PublishBoardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _PublishBoardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.PublishBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PublishBoardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PublishBoardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PublishBoardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _PublishCardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.PublishCardSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4322,6 +8156,138 @@ func (ec *executionContext) _PublishStarterDeckSuccess_revision(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_PublishStarterDeckSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("PublishStarterDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Query_boards(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_boards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Boards(ctx, fc.Args["filter"].(*model.BoardFilter), fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardsResult) graphql.Marshaler {
+			return ec.marshalNBoardsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_boards(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type BoardsResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_boards_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_board(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_board(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Board(ctx, fc.Args["id"].(uuid.UUID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardResult) graphql.Marshaler {
+			return ec.marshalNBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_board(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type BoardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_board_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_checkBoardLayout(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_checkBoardLayout(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().CheckBoardLayout(ctx, fc.Args["input"].(model.CheckBoardLayoutInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CheckBoardLayoutResult) graphql.Marshaler {
+			return ec.marshalNCheckBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_checkBoardLayout(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CheckBoardLayoutResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_checkBoardLayout_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Query_cards(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -4544,6 +8510,29 @@ func (ec *executionContext) fieldContext_Query_starterDeck(ctx context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_studioRules(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_studioRules(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().StudioRules(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.StudioRulesResult) graphql.Marshaler {
+			return ec.marshalNStudioRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐStudioRulesResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_studioRules(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Query", field, true, true, errors.New("field of type StudioRulesResult does not have child fields"))
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4618,6 +8607,52 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _RegisterBoardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RegisterBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterBoardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterBoardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RegisterBoardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RegisterBoardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RegisterBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RegisterBoardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RegisterBoardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RegisterBoardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _RegisterCreatureSuccess_creature(ctx context.Context, field graphql.CollectedField, obj *model.RegisterCreatureSuccess) (ret graphql.Marshaler) {
@@ -4854,6 +8889,52 @@ func (ec *executionContext) fieldContext_RegisterStarterDeckSuccess_revision(_ c
 	return graphql.NewScalarFieldContext("RegisterStarterDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _RenameBoardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RenameBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RenameBoardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RenameBoardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RenameBoardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RenameBoardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RenameBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RenameBoardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RenameBoardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RenameBoardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _RenamePresetDeckSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RenamePresetDeckSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4944,6 +9025,52 @@ func (ec *executionContext) _RenameStarterDeckSuccess_revision(ctx context.Conte
 }
 func (ec *executionContext) fieldContext_RenameStarterDeckSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RenameStarterDeckSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _RetireBoardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RetireBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RetireBoardSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RetireBoardSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RetireBoardSuccess", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _RetireBoardSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.RetireBoardSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RetireBoardSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RetireBoardSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RetireBoardSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _RetireCardSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.RetireCardSuccess) (ret graphql.Marshaler) {
@@ -5061,6 +9188,52 @@ func (ec *executionContext) fieldContext_RevisionConflictError_message(_ context
 	return graphql.NewScalarFieldContext("RevisionConflictError", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _SanctuaryTile_x(ctx context.Context, field graphql.CollectedField, obj *model.SanctuaryTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SanctuaryTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SanctuaryTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SanctuaryTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _SanctuaryTile_y(ctx context.Context, field graphql.CollectedField, obj *model.SanctuaryTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SanctuaryTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SanctuaryTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SanctuaryTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _SetPresetDeckCardCountsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.SetPresetDeckCardCountsSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5151,6 +9324,52 @@ func (ec *executionContext) _SetStarterDeckCardCountsSuccess_revision(ctx contex
 }
 func (ec *executionContext) fieldContext_SetStarterDeckCardCountsSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("SetStarterDeckCardCountsSuccess", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ShrineTile_x(ctx context.Context, field graphql.CollectedField, obj *model.ShrineTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ShrineTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ShrineTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ShrineTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ShrineTile_y(ctx context.Context, field graphql.CollectedField, obj *model.ShrineTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ShrineTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ShrineTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ShrineTile", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Spell_id(ctx context.Context, field graphql.CollectedField, obj *model.Spell) (ret graphql.Marshaler) {
@@ -5842,6 +10061,148 @@ func (ec *executionContext) fieldContext_StarterDeckSource_presetDeckDeleted(_ c
 	return graphql.NewScalarFieldContext("StarterDeckSource", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _StudioRules_board(ctx context.Context, field graphql.CollectedField, obj *model.StudioRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StudioRules_board(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Board, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardRules) graphql.Marshaler {
+			return ec.marshalNBoardRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardRules(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StudioRules_board(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StudioRules",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardRules(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UnpairedTilesProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.UnpairedTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnpairedTilesProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnpairedTilesProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UnpairedTilesProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UnpairedTilesProblem_positions(ctx context.Context, field graphql.CollectedField, obj *model.UnpairedTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnpairedTilesProblem_positions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Positions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnpairedTilesProblem_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UnpairedTilesProblem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _UnreachableTilesProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.UnreachableTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnreachableTilesProblem_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnreachableTilesProblem_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UnreachableTilesProblem", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UnreachableTilesProblem_positions(ctx context.Context, field graphql.CollectedField, obj *model.UnreachableTilesProblem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnreachableTilesProblem_positions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Positions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnreachableTilesProblem_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "UnreachableTilesProblem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ValidationErrors_errors(ctx context.Context, field graphql.CollectedField, obj *model.ValidationErrors) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5872,6 +10233,52 @@ func (ec *executionContext) fieldContext_ValidationErrors_errors(_ context.Conte
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _WarpTile_x(ctx context.Context, field graphql.CollectedField, obj *model.WarpTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WarpTile_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WarpTile_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WarpTile", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _WarpTile_y(ctx context.Context, field graphql.CollectedField, obj *model.WarpTile) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WarpTile_y(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WarpTile_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WarpTile", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -6933,6 +11340,240 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputBoardConnectionInput(ctx context.Context, obj any) (model.BoardConnectionInput, error) {
+	var it model.BoardConnectionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"a", "b"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "a":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("a"))
+			data, err := ec.unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.A = data
+		case "b":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("b"))
+			data, err := ec.unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.B = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputBoardFilter(ctx context.Context, obj any) (model.BoardFilter, error) {
+	var it model.BoardFilter
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"nameContains", "statuses"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "nameContains":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nameContains"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.NameContains = data
+		case "statuses":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statuses"))
+			data, err := ec.unmarshalOBoardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatusᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Statuses = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputBoardPositionInput(ctx context.Context, obj any) (model.BoardPositionInput, error) {
+	var it model.BoardPositionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"x", "y"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "x":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.X = data
+		case "y":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Y = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputBoardTileInput(ctx context.Context, obj any) (model.BoardTileInput, error) {
+	var it model.BoardTileInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"land", "base", "checkpoint", "warp", "bridge", "sanctuary", "shrine", "prophecyShop", "cardShop"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "land":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("land"))
+			data, err := ec.unmarshalOLandTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐLandTileInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Land = data
+		case "base":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("base"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Base = data
+		case "checkpoint":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkpoint"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Checkpoint = data
+		case "warp":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("warp"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Warp = data
+		case "bridge":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bridge"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Bridge = data
+		case "sanctuary":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sanctuary"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sanctuary = data
+		case "shrine":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("shrine"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Shrine = data
+		case "prophecyShop":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("prophecyShop"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ProphecyShop = data
+		case "cardShop":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("cardShop"))
+			data, err := ec.unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CardShop = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputBoardTilePairInput(ctx context.Context, obj any) (model.BoardTilePairInput, error) {
+	var it model.BoardTilePairInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"a", "b"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "a":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("a"))
+			data, err := ec.unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.A = data
+		case "b":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("b"))
+			data, err := ec.unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.B = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCardFilter(ctx context.Context, obj any) (model.CardFilter, error) {
 	var it model.CardFilter
 	if obj == nil {
@@ -6977,6 +11618,222 @@ func (ec *executionContext) unmarshalInputCardFilter(ctx context.Context, obj an
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx context.Context, obj any) (model.ChangeBoardDefaultRulesInput, error) {
+	var it model.ChangeBoardDefaultRulesInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "targetMagic":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targetMagic"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TargetMagic = data
+		case "startingMagic":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("startingMagic"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StartingMagic = data
+		case "lapBonus":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("lapBonus"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LapBonus = data
+		case "checkpointBonus":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkpointBonus"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CheckpointBonus = data
+		case "roundLimit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roundLimit"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RoundLimit = data
+		case "diceMin":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("diceMin"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DiceMin = data
+		case "diceMax":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("diceMax"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.DiceMax = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputChangeBoardLayoutInput(ctx context.Context, obj any) (model.ChangeBoardLayoutInput, error) {
+	var it model.ChangeBoardLayoutInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "width", "height", "tiles", "connections", "pairs"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "width":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("width"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Width = data
+		case "height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("height"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Height = data
+		case "tiles":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("tiles"))
+			data, err := ec.unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Tiles = data
+		case "connections":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("connections"))
+			data, err := ec.unmarshalNBoardConnectionInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Connections = data
+		case "pairs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pairs"))
+			data, err := ec.unmarshalNBoardTilePairInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pairs = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputCheckBoardLayoutInput(ctx context.Context, obj any) (model.CheckBoardLayoutInput, error) {
+	var it model.CheckBoardLayoutInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"width", "height", "tiles", "connections", "pairs"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "width":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("width"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Width = data
+		case "height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("height"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Height = data
+		case "tiles":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("tiles"))
+			data, err := ec.unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Tiles = data
+		case "connections":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("connections"))
+			data, err := ec.unmarshalNBoardConnectionInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Connections = data
+		case "pairs":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("pairs"))
+			data, err := ec.unmarshalNBoardTilePairInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Pairs = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputDeckCardCountInput(ctx context.Context, obj any) (model.DeckCardCountInput, error) {
 	var it model.DeckCardCountInput
 	if obj == nil {
@@ -7009,6 +11866,43 @@ func (ec *executionContext) unmarshalInputDeckCardCountInput(ctx context.Context
 				return it, err
 			}
 			it.Count = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputDeleteBoardInput(ctx context.Context, obj any) (model.DeleteBoardInput, error) {
+	var it model.DeleteBoardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
 		}
 	}
 	return it, nil
@@ -7088,6 +11982,50 @@ func (ec *executionContext) unmarshalInputDeleteStarterDeckInput(ctx context.Con
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputLandTileInput(ctx context.Context, obj any) (model.LandTileInput, error) {
+	var it model.LandTileInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"x", "y", "attribute"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "x":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.X = data
+		case "y":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Y = data
+		case "attribute":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attribute"))
+			data, err := ec.unmarshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Attribute = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputPresetDeckFilter(ctx context.Context, obj any) (model.PresetDeckFilter, error) {
 	var it model.PresetDeckFilter
 	if obj == nil {
@@ -7113,6 +12051,43 @@ func (ec *executionContext) unmarshalInputPresetDeckFilter(ctx context.Context, 
 				return it, err
 			}
 			it.NameContains = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputPublishBoardInput(ctx context.Context, obj any) (model.PublishBoardInput, error) {
+	var it model.PublishBoardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
 		}
 	}
 	return it, nil
@@ -7187,6 +12162,36 @@ func (ec *executionContext) unmarshalInputPublishStarterDeckInput(ctx context.Co
 				return it, err
 			}
 			it.Revision = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRegisterBoardInput(ctx context.Context, obj any) (model.RegisterBoardInput, error) {
+	var it model.RegisterBoardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
 		}
 	}
 	return it, nil
@@ -7372,6 +12377,50 @@ func (ec *executionContext) unmarshalInputRegisterStarterDeckInput(ctx context.C
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputRenameBoardInput(ctx context.Context, obj any) (model.RenameBoardInput, error) {
+	var it model.RenameBoardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputRenamePresetDeckInput(ctx context.Context, obj any) (model.RenamePresetDeckInput, error) {
 	var it model.RenamePresetDeckInput
 	if obj == nil {
@@ -7455,6 +12504,43 @@ func (ec *executionContext) unmarshalInputRenameStarterDeckInput(ctx context.Con
 				return it, err
 			}
 			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRetireBoardInput(ctx context.Context, obj any) (model.RetireBoardInput, error) {
+	var it model.RetireBoardInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
 		}
 	}
 	return it, nil
@@ -7659,9 +12745,231 @@ func (ec *executionContext) unmarshalInputStarterDeckFilter(ctx context.Context,
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputTilePositionInput(ctx context.Context, obj any) (model.TilePositionInput, error) {
+	var it model.TilePositionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"x", "y"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "x":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.X = data
+		case "y":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Y = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
+
+func (ec *executionContext) _BoardPublishProblem(ctx context.Context, sel ast.SelectionSet, obj model.BoardPublishProblem) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.UnreachableTilesProblem:
+		return ec._UnreachableTilesProblem(ctx, sel, &obj)
+	case *model.UnreachableTilesProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UnreachableTilesProblem(ctx, sel, obj)
+	case model.UnpairedTilesProblem:
+		return ec._UnpairedTilesProblem(ctx, sel, &obj)
+	case *model.UnpairedTilesProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UnpairedTilesProblem(ctx, sel, obj)
+	case model.NoCheckpointProblem:
+		return ec._NoCheckpointProblem(ctx, sel, &obj)
+	case *model.NoCheckpointProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NoCheckpointProblem(ctx, sel, obj)
+	case model.BaseCountProblem:
+		return ec._BaseCountProblem(ctx, sel, &obj)
+	case *model.BaseCountProblem:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BaseCountProblem(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardPublishProblem must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _BoardResult(ctx context.Context, sel ast.SelectionSet, obj model.BoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	case model.Board:
+		return ec._Board(ctx, sel, &obj)
+	case *model.Board:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Board(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _BoardTile(ctx context.Context, sel ast.SelectionSet, obj model.BoardTile) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.WarpTile:
+		return ec._WarpTile(ctx, sel, &obj)
+	case *model.WarpTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._WarpTile(ctx, sel, obj)
+	case model.ShrineTile:
+		return ec._ShrineTile(ctx, sel, &obj)
+	case *model.ShrineTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ShrineTile(ctx, sel, obj)
+	case model.SanctuaryTile:
+		return ec._SanctuaryTile(ctx, sel, &obj)
+	case *model.SanctuaryTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SanctuaryTile(ctx, sel, obj)
+	case model.ProphecyShopTile:
+		return ec._ProphecyShopTile(ctx, sel, &obj)
+	case *model.ProphecyShopTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ProphecyShopTile(ctx, sel, obj)
+	case model.LandTile:
+		return ec._LandTile(ctx, sel, &obj)
+	case *model.LandTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._LandTile(ctx, sel, obj)
+	case model.CheckpointTile:
+		return ec._CheckpointTile(ctx, sel, &obj)
+	case *model.CheckpointTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CheckpointTile(ctx, sel, obj)
+	case model.CardShopTile:
+		return ec._CardShopTile(ctx, sel, &obj)
+	case *model.CardShopTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardShopTile(ctx, sel, obj)
+	case model.BridgeTile:
+		return ec._BridgeTile(ctx, sel, &obj)
+	case *model.BridgeTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BridgeTile(ctx, sel, obj)
+	case model.BaseTile:
+		return ec._BaseTile(ctx, sel, &obj)
+	case *model.BaseTile:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BaseTile(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardTile must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _BoardsResult(ctx context.Context, sel ast.SelectionSet, obj model.BoardsResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardsConnection:
+		return ec._BoardsConnection(ctx, sel, &obj)
+	case *model.BoardsConnection:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardsConnection(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of BoardsResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
 
 func (ec *executionContext) _Card(ctx context.Context, sel ast.SelectionSet, obj model.Card) graphql.Marshaler {
 	switch obj := (obj).(type) {
@@ -7727,6 +13035,198 @@ func (ec *executionContext) _CardsResult(ctx context.Context, sel ast.SelectionS
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of CardsResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ChangeBoardDefaultRulesResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeBoardDefaultRulesResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.ChangeBoardDefaultRulesSuccess:
+		return ec._ChangeBoardDefaultRulesSuccess(ctx, sel, &obj)
+	case *model.ChangeBoardDefaultRulesSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ChangeBoardDefaultRulesSuccess(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	case model.BoardNotDraftError:
+		return ec._BoardNotDraftError(ctx, sel, &obj)
+	case *model.BoardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeBoardDefaultRulesResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ChangeBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeBoardLayoutResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.ChangeBoardLayoutSuccess:
+		return ec._ChangeBoardLayoutSuccess(ctx, sel, &obj)
+	case *model.ChangeBoardLayoutSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ChangeBoardLayoutSuccess(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	case model.BoardNotDraftError:
+		return ec._BoardNotDraftError(ctx, sel, &obj)
+	case *model.BoardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeBoardLayoutResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _CheckBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, obj model.CheckBoardLayoutResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.CheckBoardLayoutSuccess:
+		return ec._CheckBoardLayoutSuccess(ctx, sel, &obj)
+	case *model.CheckBoardLayoutSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CheckBoardLayoutSuccess(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CheckBoardLayoutResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _DeleteBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.DeleteBoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.DeleteBoardSuccess:
+		return ec._DeleteBoardSuccess(ctx, sel, &obj)
+	case *model.DeleteBoardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._DeleteBoardSuccess(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	case model.BoardNotDraftError:
+		return ec._BoardNotDraftError(ctx, sel, &obj)
+	case *model.BoardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of DeleteBoardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -7845,6 +13345,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldTotalMismatch(ctx, sel, obj)
+	case model.FieldTooSmall:
+		return ec._FieldTooSmall(ctx, sel, &obj)
+	case *model.FieldTooSmall:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTooSmall(ctx, sel, obj)
 	case model.FieldTooLong:
 		return ec._FieldTooLong(ctx, sel, &obj)
 	case *model.FieldTooLong:
@@ -7859,6 +13366,20 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldRequired(ctx, sel, obj)
+	case model.FieldPairedWithSelf:
+		return ec._FieldPairedWithSelf(ctx, sel, &obj)
+	case *model.FieldPairedWithSelf:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldPairedWithSelf(ctx, sel, obj)
+	case model.FieldPairKindMismatch:
+		return ec._FieldPairKindMismatch(ctx, sel, &obj)
+	case *model.FieldPairKindMismatch:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldPairKindMismatch(ctx, sel, obj)
 	case model.FieldOutOfRange:
 		return ec._FieldOutOfRange(ctx, sel, &obj)
 	case *model.FieldOutOfRange:
@@ -7866,6 +13387,20 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldOutOfRange(ctx, sel, obj)
+	case model.FieldNotPairable:
+		return ec._FieldNotPairable(ctx, sel, &obj)
+	case *model.FieldNotPairable:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldNotPairable(ctx, sel, obj)
+	case model.FieldNotGreaterThan:
+		return ec._FieldNotGreaterThan(ctx, sel, &obj)
+	case *model.FieldNotGreaterThan:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldNotGreaterThan(ctx, sel, obj)
 	case model.FieldNotFound:
 		return ec._FieldNotFound(ctx, sel, &obj)
 	case *model.FieldNotFound:
@@ -7873,6 +13408,20 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldNotFound(ctx, sel, obj)
+	case model.FieldNotAdjacent:
+		return ec._FieldNotAdjacent(ctx, sel, &obj)
+	case *model.FieldNotAdjacent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldNotAdjacent(ctx, sel, obj)
+	case model.FieldLessThan:
+		return ec._FieldLessThan(ctx, sel, &obj)
+	case *model.FieldLessThan:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldLessThan(ctx, sel, obj)
 	case model.FieldInvalidFormat:
 		return ec._FieldInvalidFormat(ctx, sel, &obj)
 	case *model.FieldInvalidFormat:
@@ -7960,6 +13509,54 @@ func (ec *executionContext) _PresetDecksResult(ctx context.Context, sel ast.Sele
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of PresetDecksResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _PublishBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.PublishBoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.PublishBoardSuccess:
+		return ec._PublishBoardSuccess(ctx, sel, &obj)
+	case *model.PublishBoardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PublishBoardSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardNotPublishableError:
+		return ec._BoardNotPublishableError(ctx, sel, &obj)
+	case *model.BoardNotPublishableError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotPublishableError(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of PublishBoardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -8063,6 +13660,47 @@ func (ec *executionContext) _PublishStarterDeckResult(ctx context.Context, sel a
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of PublishStarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RegisterBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterBoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RegisterBoardSuccess:
+		return ec._RegisterBoardSuccess(ctx, sel, &obj)
+	case *model.RegisterBoardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RegisterBoardSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardNameAlreadyInUseError:
+		return ec._BoardNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.BoardNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNameAlreadyInUseError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RegisterBoardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -8313,6 +13951,68 @@ func (ec *executionContext) _RegisterStarterDeckResult(ctx context.Context, sel 
 	}
 }
 
+func (ec *executionContext) _RenameBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.RenameBoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.RenameBoardSuccess:
+		return ec._RenameBoardSuccess(ctx, sel, &obj)
+	case *model.RenameBoardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RenameBoardSuccess(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	case model.BoardNotDraftError:
+		return ec._BoardNotDraftError(ctx, sel, &obj)
+	case *model.BoardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotDraftError(ctx, sel, obj)
+	case model.BoardNameAlreadyInUseError:
+		return ec._BoardNameAlreadyInUseError(ctx, sel, &obj)
+	case *model.BoardNameAlreadyInUseError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNameAlreadyInUseError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RenameBoardResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _RenamePresetDeckResult(ctx context.Context, sel ast.SelectionSet, obj model.RenamePresetDeckResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -8426,6 +14126,54 @@ func (ec *executionContext) _RenameStarterDeckResult(ctx context.Context, sel as
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of RenameStarterDeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _RetireBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.RetireBoardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.RetireBoardSuccess:
+		return ec._RetireBoardSuccess(ctx, sel, &obj)
+	case *model.RetireBoardSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RetireBoardSuccess(ctx, sel, obj)
+	case model.InvalidBoardStatusTransitionError:
+		return ec._InvalidBoardStatusTransitionError(ctx, sel, &obj)
+	case *model.InvalidBoardStatusTransitionError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._InvalidBoardStatusTransitionError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.BoardNotFoundError:
+		return ec._BoardNotFoundError(ctx, sel, &obj)
+	case *model.BoardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._BoardNotFoundError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of RetireBoardResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -8697,9 +14445,859 @@ func (ec *executionContext) _StarterDecksResult(ctx context.Context, sel ast.Sel
 	}
 }
 
+func (ec *executionContext) _StudioRulesResult(ctx context.Context, sel ast.SelectionSet, obj model.StudioRulesResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.StudioRules:
+		return ec._StudioRules(ctx, sel, &obj)
+	case *model.StudioRules:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StudioRules(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of StudioRulesResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var baseCountProblemImplementors = []string{"BaseCountProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _BaseCountProblem(ctx context.Context, sel ast.SelectionSet, obj *model.BaseCountProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, baseCountProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BaseCountProblem")
+		case "message":
+			out.Values[i] = ec._BaseCountProblem_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "positions":
+			out.Values[i] = ec._BaseCountProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var baseTileImplementors = []string{"BaseTile", "BoardTile"}
+
+func (ec *executionContext) _BaseTile(ctx context.Context, sel ast.SelectionSet, obj *model.BaseTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, baseTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BaseTile")
+		case "x":
+			out.Values[i] = ec._BaseTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._BaseTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardImplementors = []string{"Board", "BoardResult"}
+
+func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, obj *model.Board) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Board")
+		case "id":
+			out.Values[i] = ec._Board_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._Board_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Board_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "width":
+			out.Values[i] = ec._Board_width(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "height":
+			out.Values[i] = ec._Board_height(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "defaultRules":
+			out.Values[i] = ec._Board_defaultRules(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tileCounts":
+			out.Values[i] = ec._Board_tileCounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "publishProblems":
+			out.Values[i] = ec._Board_publishProblems(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tiles":
+			out.Values[i] = ec._Board_tiles(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "connections":
+			out.Values[i] = ec._Board_connections(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pairs":
+			out.Values[i] = ec._Board_pairs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._Board_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "registeredAt":
+			out.Values[i] = ec._Board_registeredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Board_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardConnectionImplementors = []string{"BoardConnection"}
+
+func (ec *executionContext) _BoardConnection(ctx context.Context, sel ast.SelectionSet, obj *model.BoardConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardConnection")
+		case "a":
+			out.Values[i] = ec._BoardConnection_a(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "b":
+			out.Values[i] = ec._BoardConnection_b(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardDefaultRulesImplementors = []string{"BoardDefaultRules"}
+
+func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.SelectionSet, obj *model.BoardDefaultRules) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardDefaultRulesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardDefaultRules")
+		case "targetMagic":
+			out.Values[i] = ec._BoardDefaultRules_targetMagic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "startingMagic":
+			out.Values[i] = ec._BoardDefaultRules_startingMagic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonus":
+			out.Values[i] = ec._BoardDefaultRules_lapBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "checkpointBonus":
+			out.Values[i] = ec._BoardDefaultRules_checkpointBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "roundLimit":
+			out.Values[i] = ec._BoardDefaultRules_roundLimit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMin":
+			out.Values[i] = ec._BoardDefaultRules_diceMin(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "diceMax":
+			out.Values[i] = ec._BoardDefaultRules_diceMax(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardNameAlreadyInUseErrorImplementors = []string{"BoardNameAlreadyInUseError", "RegisterBoardResult", "RenameBoardResult"}
+
+func (ec *executionContext) _BoardNameAlreadyInUseError(ctx context.Context, sel ast.SelectionSet, obj *model.BoardNameAlreadyInUseError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardNameAlreadyInUseErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardNameAlreadyInUseError")
+		case "message":
+			out.Values[i] = ec._BoardNameAlreadyInUseError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardNotDraftErrorImplementors = []string{"BoardNotDraftError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult"}
+
+func (ec *executionContext) _BoardNotDraftError(ctx context.Context, sel ast.SelectionSet, obj *model.BoardNotDraftError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardNotDraftErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardNotDraftError")
+		case "message":
+			out.Values[i] = ec._BoardNotDraftError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardNotFoundErrorImplementors = []string{"BoardNotFoundError", "BoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult"}
+
+func (ec *executionContext) _BoardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.BoardNotFoundError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardNotFoundErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardNotFoundError")
+		case "message":
+			out.Values[i] = ec._BoardNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardNotPublishableErrorImplementors = []string{"BoardNotPublishableError", "PublishBoardResult"}
+
+func (ec *executionContext) _BoardNotPublishableError(ctx context.Context, sel ast.SelectionSet, obj *model.BoardNotPublishableError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardNotPublishableErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardNotPublishableError")
+		case "message":
+			out.Values[i] = ec._BoardNotPublishableError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "problems":
+			out.Values[i] = ec._BoardNotPublishableError_problems(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardPositionImplementors = []string{"BoardPosition"}
+
+func (ec *executionContext) _BoardPosition(ctx context.Context, sel ast.SelectionSet, obj *model.BoardPosition) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardPositionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardPosition")
+		case "x":
+			out.Values[i] = ec._BoardPosition_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._BoardPosition_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardRulesImplementors = []string{"BoardRules"}
+
+func (ec *executionContext) _BoardRules(ctx context.Context, sel ast.SelectionSet, obj *model.BoardRules) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardRulesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardRules")
+		case "minSize":
+			out.Values[i] = ec._BoardRules_minSize(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxSize":
+			out.Values[i] = ec._BoardRules_maxSize(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardTileCountsImplementors = []string{"BoardTileCounts"}
+
+func (ec *executionContext) _BoardTileCounts(ctx context.Context, sel ast.SelectionSet, obj *model.BoardTileCounts) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardTileCountsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardTileCounts")
+		case "land":
+			out.Values[i] = ec._BoardTileCounts_land(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "base":
+			out.Values[i] = ec._BoardTileCounts_base(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "checkpoint":
+			out.Values[i] = ec._BoardTileCounts_checkpoint(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fire":
+			out.Values[i] = ec._BoardTileCounts_fire(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "earth":
+			out.Values[i] = ec._BoardTileCounts_earth(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "water":
+			out.Values[i] = ec._BoardTileCounts_water(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "wind":
+			out.Values[i] = ec._BoardTileCounts_wind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "neutral":
+			out.Values[i] = ec._BoardTileCounts_neutral(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "multi":
+			out.Values[i] = ec._BoardTileCounts_multi(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "warp":
+			out.Values[i] = ec._BoardTileCounts_warp(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bridge":
+			out.Values[i] = ec._BoardTileCounts_bridge(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sanctuary":
+			out.Values[i] = ec._BoardTileCounts_sanctuary(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "shrine":
+			out.Values[i] = ec._BoardTileCounts_shrine(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "prophecyShop":
+			out.Values[i] = ec._BoardTileCounts_prophecyShop(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cardShop":
+			out.Values[i] = ec._BoardTileCounts_cardShop(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardTilePairImplementors = []string{"BoardTilePair"}
+
+func (ec *executionContext) _BoardTilePair(ctx context.Context, sel ast.SelectionSet, obj *model.BoardTilePair) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardTilePairImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardTilePair")
+		case "a":
+			out.Values[i] = ec._BoardTilePair_a(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "b":
+			out.Values[i] = ec._BoardTilePair_b(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardsConnectionImplementors = []string{"BoardsConnection", "BoardsResult"}
+
+func (ec *executionContext) _BoardsConnection(ctx context.Context, sel ast.SelectionSet, obj *model.BoardsConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardsConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardsConnection")
+		case "edges":
+			out.Values[i] = ec._BoardsConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._BoardsConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var boardsEdgeImplementors = []string{"BoardsEdge"}
+
+func (ec *executionContext) _BoardsEdge(ctx context.Context, sel ast.SelectionSet, obj *model.BoardsEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, boardsEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BoardsEdge")
+		case "cursor":
+			out.Values[i] = ec._BoardsEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._BoardsEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var bridgeTileImplementors = []string{"BridgeTile", "BoardTile"}
+
+func (ec *executionContext) _BridgeTile(ctx context.Context, sel ast.SelectionSet, obj *model.BridgeTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, bridgeTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("BridgeTile")
+		case "x":
+			out.Values[i] = ec._BridgeTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._BridgeTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
 
 var cardConnectionImplementors = []string{"CardConnection", "CardsResult"}
 
@@ -8863,6 +15461,216 @@ func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var cardShopTileImplementors = []string{"CardShopTile", "BoardTile"}
+
+func (ec *executionContext) _CardShopTile(ctx context.Context, sel ast.SelectionSet, obj *model.CardShopTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cardShopTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CardShopTile")
+		case "x":
+			out.Values[i] = ec._CardShopTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._CardShopTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var changeBoardDefaultRulesSuccessImplementors = []string{"ChangeBoardDefaultRulesSuccess", "ChangeBoardDefaultRulesResult"}
+
+func (ec *executionContext) _ChangeBoardDefaultRulesSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeBoardDefaultRulesSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeBoardDefaultRulesSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChangeBoardDefaultRulesSuccess")
+		case "id":
+			out.Values[i] = ec._ChangeBoardDefaultRulesSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ChangeBoardDefaultRulesSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var changeBoardLayoutSuccessImplementors = []string{"ChangeBoardLayoutSuccess", "ChangeBoardLayoutResult"}
+
+func (ec *executionContext) _ChangeBoardLayoutSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeBoardLayoutSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeBoardLayoutSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChangeBoardLayoutSuccess")
+		case "id":
+			out.Values[i] = ec._ChangeBoardLayoutSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ChangeBoardLayoutSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var checkBoardLayoutSuccessImplementors = []string{"CheckBoardLayoutSuccess", "CheckBoardLayoutResult"}
+
+func (ec *executionContext) _CheckBoardLayoutSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.CheckBoardLayoutSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkBoardLayoutSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckBoardLayoutSuccess")
+		case "publishProblems":
+			out.Values[i] = ec._CheckBoardLayoutSuccess_publishProblems(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var checkpointTileImplementors = []string{"CheckpointTile", "BoardTile"}
+
+func (ec *executionContext) _CheckpointTile(ctx context.Context, sel ast.SelectionSet, obj *model.CheckpointTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkpointTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckpointTile")
+		case "x":
+			out.Values[i] = ec._CheckpointTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._CheckpointTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var creatureImplementors = []string{"Creature", "Card"}
 
 func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet, obj *model.Creature) graphql.Marshaler {
@@ -8945,6 +15753,44 @@ func (ec *executionContext) _DeckCard(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "count":
 			out.Values[i] = ec._DeckCard_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var deleteBoardSuccessImplementors = []string{"DeleteBoardSuccess", "DeleteBoardResult"}
+
+func (ec *executionContext) _DeleteBoardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.DeleteBoardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deleteBoardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeleteBoardSuccess")
+		case "id":
+			out.Values[i] = ec._DeleteBoardSuccess_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9121,6 +15967,87 @@ func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.Sel
 	return out
 }
 
+var fieldLessThanImplementors = []string{"FieldLessThan", "FieldError"}
+
+func (ec *executionContext) _FieldLessThan(ctx context.Context, sel ast.SelectionSet, obj *model.FieldLessThan) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldLessThanImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldLessThan")
+		case "field":
+			out.Values[i] = ec._FieldLessThan_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "than":
+			out.Values[i] = ec._FieldLessThan_than(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldNotAdjacentImplementors = []string{"FieldNotAdjacent", "FieldError"}
+
+func (ec *executionContext) _FieldNotAdjacent(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotAdjacent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldNotAdjacentImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldNotAdjacent")
+		case "field":
+			out.Values[i] = ec._FieldNotAdjacent_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var fieldNotFoundImplementors = []string{"FieldNotFound", "FieldError"}
 
 func (ec *executionContext) _FieldNotFound(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotFound) graphql.Marshaler {
@@ -9135,6 +16062,87 @@ func (ec *executionContext) _FieldNotFound(ctx context.Context, sel ast.Selectio
 			out.Values[i] = graphql.MarshalString("FieldNotFound")
 		case "field":
 			out.Values[i] = ec._FieldNotFound_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldNotGreaterThanImplementors = []string{"FieldNotGreaterThan", "FieldError"}
+
+func (ec *executionContext) _FieldNotGreaterThan(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotGreaterThan) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldNotGreaterThanImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldNotGreaterThan")
+		case "field":
+			out.Values[i] = ec._FieldNotGreaterThan_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "than":
+			out.Values[i] = ec._FieldNotGreaterThan_than(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldNotPairableImplementors = []string{"FieldNotPairable", "FieldError"}
+
+func (ec *executionContext) _FieldNotPairable(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotPairable) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldNotPairableImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldNotPairable")
+		case "field":
+			out.Values[i] = ec._FieldNotPairable_field(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9183,6 +16191,82 @@ func (ec *executionContext) _FieldOutOfRange(ctx context.Context, sel ast.Select
 			}
 		case "max":
 			out.Values[i] = ec._FieldOutOfRange_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldPairKindMismatchImplementors = []string{"FieldPairKindMismatch", "FieldError"}
+
+func (ec *executionContext) _FieldPairKindMismatch(ctx context.Context, sel ast.SelectionSet, obj *model.FieldPairKindMismatch) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldPairKindMismatchImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldPairKindMismatch")
+		case "field":
+			out.Values[i] = ec._FieldPairKindMismatch_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldPairedWithSelfImplementors = []string{"FieldPairedWithSelf", "FieldError"}
+
+func (ec *executionContext) _FieldPairedWithSelf(ctx context.Context, sel ast.SelectionSet, obj *model.FieldPairedWithSelf) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldPairedWithSelfImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldPairedWithSelf")
+		case "field":
+			out.Values[i] = ec._FieldPairedWithSelf_field(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9264,6 +16348,49 @@ func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.Selection
 			}
 		case "max":
 			out.Values[i] = ec._FieldTooLong_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var fieldTooSmallImplementors = []string{"FieldTooSmall", "FieldError"}
+
+func (ec *executionContext) _FieldTooSmall(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTooSmall) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTooSmallImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTooSmall")
+		case "field":
+			out.Values[i] = ec._FieldTooSmall_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "min":
+			out.Values[i] = ec._FieldTooSmall_min(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9412,7 +16539,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -9426,6 +16553,44 @@ func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("ForbiddenError")
 		case "message":
 			out.Values[i] = ec._ForbiddenError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var invalidBoardStatusTransitionErrorImplementors = []string{"InvalidBoardStatusTransitionError", "RetireBoardResult"}
+
+func (ec *executionContext) _InvalidBoardStatusTransitionError(ctx context.Context, sel ast.SelectionSet, obj *model.InvalidBoardStatusTransitionError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, invalidBoardStatusTransitionErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("InvalidBoardStatusTransitionError")
+		case "message":
+			out.Values[i] = ec._InvalidBoardStatusTransitionError_message(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9589,6 +16754,54 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
+var landTileImplementors = []string{"LandTile", "BoardTile"}
+
+func (ec *executionContext) _LandTile(ctx context.Context, sel ast.SelectionSet, obj *model.LandTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, landTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LandTile")
+		case "x":
+			out.Values[i] = ec._LandTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._LandTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attribute":
+			out.Values[i] = ec._LandTile_attribute(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var mutationImplementors = []string{"Mutation"}
 
 func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -9609,6 +16822,55 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "registerBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "renameBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_renameBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changeBoardLayout":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_changeBoardLayout(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changeBoardDefaultRules":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_changeBoardDefaultRules(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "publishBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_publishBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retireBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_retireBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "publishCard":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_publishCard(ctx, field)
@@ -9718,6 +16980,44 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_retireStarterDeck(ctx, field)
 			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var noCheckpointProblemImplementors = []string{"NoCheckpointProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _NoCheckpointProblem(ctx context.Context, sel ast.SelectionSet, obj *model.NoCheckpointProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, noCheckpointProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NoCheckpointProblem")
+		case "message":
+			out.Values[i] = ec._NoCheckpointProblem_message(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -10058,6 +17358,92 @@ func (ec *executionContext) _PresetDeckNotFoundError(ctx context.Context, sel as
 	return out
 }
 
+var prophecyShopTileImplementors = []string{"ProphecyShopTile", "BoardTile"}
+
+func (ec *executionContext) _ProphecyShopTile(ctx context.Context, sel ast.SelectionSet, obj *model.ProphecyShopTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, prophecyShopTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProphecyShopTile")
+		case "x":
+			out.Values[i] = ec._ProphecyShopTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._ProphecyShopTile_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var publishBoardSuccessImplementors = []string{"PublishBoardSuccess", "PublishBoardResult"}
+
+func (ec *executionContext) _PublishBoardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.PublishBoardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, publishBoardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PublishBoardSuccess")
+		case "id":
+			out.Values[i] = ec._PublishBoardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._PublishBoardSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var publishCardSuccessImplementors = []string{"PublishCardSuccess", "PublishCardResult"}
 
 func (ec *executionContext) _PublishCardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.PublishCardSuccess) graphql.Marshaler {
@@ -10164,6 +17550,72 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
+		case "boards":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_boards(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "board":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_board(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "checkBoardLayout":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_checkBoardLayout(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "cards":
 			field := field
 
@@ -10274,6 +17726,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "studioRules":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_studioRules(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -10287,6 +17761,49 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			})
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var registerBoardSuccessImplementors = []string{"RegisterBoardSuccess", "RegisterBoardResult"}
+
+func (ec *executionContext) _RegisterBoardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RegisterBoardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, registerBoardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RegisterBoardSuccess")
+		case "id":
+			out.Values[i] = ec._RegisterBoardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RegisterBoardSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -10552,6 +18069,49 @@ func (ec *executionContext) _RegisterStarterDeckSuccess(ctx context.Context, sel
 	return out
 }
 
+var renameBoardSuccessImplementors = []string{"RenameBoardSuccess", "RenameBoardResult"}
+
+func (ec *executionContext) _RenameBoardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RenameBoardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, renameBoardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RenameBoardSuccess")
+		case "id":
+			out.Values[i] = ec._RenameBoardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RenameBoardSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var renamePresetDeckSuccessImplementors = []string{"RenamePresetDeckSuccess", "RenamePresetDeckResult"}
 
 func (ec *executionContext) _RenamePresetDeckSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RenamePresetDeckSuccess) graphql.Marshaler {
@@ -10614,6 +18174,49 @@ func (ec *executionContext) _RenameStarterDeckSuccess(ctx context.Context, sel a
 			}
 		case "revision":
 			out.Values[i] = ec._RenameStarterDeckSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var retireBoardSuccessImplementors = []string{"RetireBoardSuccess", "RetireBoardResult"}
+
+func (ec *executionContext) _RetireBoardSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.RetireBoardSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, retireBoardSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RetireBoardSuccess")
+		case "id":
+			out.Values[i] = ec._RetireBoardSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._RetireBoardSuccess_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -10724,7 +18327,7 @@ func (ec *executionContext) _RetireStarterDeckSuccess(ctx context.Context, sel a
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "PublishCardResult", "RetireCardResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -10738,6 +18341,49 @@ func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.
 			out.Values[i] = graphql.MarshalString("RevisionConflictError")
 		case "message":
 			out.Values[i] = ec._RevisionConflictError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var sanctuaryTileImplementors = []string{"SanctuaryTile", "BoardTile"}
+
+func (ec *executionContext) _SanctuaryTile(ctx context.Context, sel ast.SelectionSet, obj *model.SanctuaryTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, sanctuaryTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SanctuaryTile")
+		case "x":
+			out.Values[i] = ec._SanctuaryTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._SanctuaryTile_y(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -10824,6 +18470,49 @@ func (ec *executionContext) _SetStarterDeckCardCountsSuccess(ctx context.Context
 			}
 		case "revision":
 			out.Values[i] = ec._SetStarterDeckCardCountsSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var shrineTileImplementors = []string{"ShrineTile", "BoardTile"}
+
+func (ec *executionContext) _ShrineTile(ctx context.Context, sel ast.SelectionSet, obj *model.ShrineTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, shrineTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ShrineTile")
+		case "x":
+			out.Values[i] = ec._ShrineTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._ShrineTile_y(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -11318,7 +19007,131 @@ func (ec *executionContext) _StarterDeckSource(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
+var studioRulesImplementors = []string{"StudioRules", "StudioRulesResult"}
+
+func (ec *executionContext) _StudioRules(ctx context.Context, sel ast.SelectionSet, obj *model.StudioRules) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, studioRulesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StudioRules")
+		case "board":
+			out.Values[i] = ec._StudioRules_board(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var unpairedTilesProblemImplementors = []string{"UnpairedTilesProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _UnpairedTilesProblem(ctx context.Context, sel ast.SelectionSet, obj *model.UnpairedTilesProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unpairedTilesProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnpairedTilesProblem")
+		case "message":
+			out.Values[i] = ec._UnpairedTilesProblem_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "positions":
+			out.Values[i] = ec._UnpairedTilesProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var unreachableTilesProblemImplementors = []string{"UnreachableTilesProblem", "BoardPublishProblem"}
+
+func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel ast.SelectionSet, obj *model.UnreachableTilesProblem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unreachableTilesProblemImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnreachableTilesProblem")
+		case "message":
+			out.Values[i] = ec._UnreachableTilesProblem_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "positions":
+			out.Values[i] = ec._UnreachableTilesProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -11332,6 +19145,49 @@ func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.Selec
 			out.Values[i] = graphql.MarshalString("ValidationErrors")
 		case "errors":
 			out.Values[i] = ec._ValidationErrors_errors(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var warpTileImplementors = []string{"WarpTile", "BoardTile"}
+
+func (ec *executionContext) _WarpTile(ctx context.Context, sel ast.SelectionSet, obj *model.WarpTile) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, warpTileImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WarpTile")
+		case "x":
+			out.Values[i] = ec._WarpTile_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._WarpTile_y(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -11748,6 +19604,304 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNBoard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoard(ctx context.Context, sel ast.SelectionSet, v *model.Board) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Board(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardConnection2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardConnection) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardConnection2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnection(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoardConnection2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnection(ctx context.Context, sel ast.SelectionSet, v *model.BoardConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardConnectionInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInputᚄ(ctx context.Context, v any) ([]*model.BoardConnectionInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.BoardConnectionInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNBoardConnectionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNBoardConnectionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardConnectionInput(ctx context.Context, v any) (*model.BoardConnectionInput, error) {
+	res, err := ec.unmarshalInputBoardConnectionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardDefaultRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardDefaultRules(ctx context.Context, sel ast.SelectionSet, v *model.BoardDefaultRules) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardDefaultRules(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardPosition2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardPosition) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx context.Context, sel ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardPosition(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx context.Context, v any) (*model.BoardPositionInput, error) {
+	res, err := ec.unmarshalInputBoardPositionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardPublishProblem2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblem(ctx context.Context, sel ast.SelectionSet, v model.BoardPublishProblem) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardPublishProblem(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardPublishProblem2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblemᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardPublishProblem) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardPublishProblem2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardPublishProblem(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardResult(ctx context.Context, sel ast.SelectionSet, v model.BoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardRules(ctx context.Context, sel ast.SelectionSet, v *model.BoardRules) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardRules(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatus(ctx context.Context, v any) (model.BoardStatus, error) {
+	var res model.BoardStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatus(ctx context.Context, sel ast.SelectionSet, v model.BoardStatus) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNBoardTile2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx context.Context, sel ast.SelectionSet, v model.BoardTile) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardTile(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardTile2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardTile) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardTile2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTile(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, v any) (model.BoardTileAttribute, error) {
+	var res model.BoardTileAttribute
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, sel ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNBoardTileCounts2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileCounts(ctx context.Context, sel ast.SelectionSet, v *model.BoardTileCounts) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardTileCounts(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx context.Context, v any) ([]*model.BoardTileInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.BoardTileInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNBoardTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNBoardTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInput(ctx context.Context, v any) (*model.BoardTileInput, error) {
+	res, err := ec.unmarshalInputBoardTileInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardTilePair2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardTilePair) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardTilePair2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePair(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoardTilePair2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePair(ctx context.Context, sel ast.SelectionSet, v *model.BoardTilePair) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardTilePair(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardTilePairInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairInputᚄ(ctx context.Context, v any) ([]*model.BoardTilePairInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.BoardTilePairInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNBoardTilePairInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNBoardTilePairInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairInput(ctx context.Context, v any) (*model.BoardTilePairInput, error) {
+	res, err := ec.unmarshalInputBoardTilePairInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardsEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoardsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsEdge(ctx context.Context, sel ast.SelectionSet, v *model.BoardsEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardsEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoardsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardsResult(ctx context.Context, sel ast.SelectionSet, v model.BoardsResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._BoardsResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -11830,6 +19984,51 @@ func (ec *executionContext) marshalNCardsResult2gitlabᚗcomᚋaimerzarashiᚋdi
 	return ec._CardsResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNChangeBoardDefaultRulesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardDefaultRulesInput(ctx context.Context, v any) (model.ChangeBoardDefaultRulesInput, error) {
+	res, err := ec.unmarshalInputChangeBoardDefaultRulesInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChangeBoardDefaultRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardDefaultRulesResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeBoardDefaultRulesResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ChangeBoardDefaultRulesResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNChangeBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardLayoutInput(ctx context.Context, v any) (model.ChangeBoardLayoutInput, error) {
+	res, err := ec.unmarshalInputChangeBoardLayoutInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChangeBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeBoardLayoutResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ChangeBoardLayoutResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCheckBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutInput(ctx context.Context, v any) (model.CheckBoardLayoutInput, error) {
+	res, err := ec.unmarshalInputCheckBoardLayoutInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCheckBoardLayoutResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutResult(ctx context.Context, sel ast.SelectionSet, v model.CheckBoardLayoutResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CheckBoardLayoutResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreature(ctx context.Context, sel ast.SelectionSet, v *model.Creature) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -11899,6 +20098,21 @@ func (ec *executionContext) unmarshalNDeckCardCountInput2ᚕᚖgitlabᚗcomᚋai
 func (ec *executionContext) unmarshalNDeckCardCountInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeckCardCountInput(ctx context.Context, v any) (*model.DeckCardCountInput, error) {
 	res, err := ec.unmarshalInputDeckCardCountInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDeleteBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeleteBoardInput(ctx context.Context, v any) (model.DeleteBoardInput, error) {
+	res, err := ec.unmarshalInputDeleteBoardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDeleteBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeleteBoardResult(ctx context.Context, sel ast.SelectionSet, v model.DeleteBoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeleteBoardResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNDeletePresetDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐDeletePresetDeckInput(ctx context.Context, v any) (model.DeletePresetDeckInput, error) {
@@ -12049,6 +20263,21 @@ func (ec *executionContext) marshalNPresetDecksResult2gitlabᚗcomᚋaimerzarash
 	return ec._PresetDecksResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNPublishBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishBoardInput(ctx context.Context, v any) (model.PublishBoardInput, error) {
+	res, err := ec.unmarshalInputPublishBoardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPublishBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishBoardResult(ctx context.Context, sel ast.SelectionSet, v model.PublishBoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PublishBoardResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNPublishCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPublishCardInput(ctx context.Context, v any) (model.PublishCardInput, error) {
 	res, err := ec.unmarshalInputPublishCardInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12077,6 +20306,21 @@ func (ec *executionContext) marshalNPublishStarterDeckResult2gitlabᚗcomᚋaime
 		return graphql.Null
 	}
 	return ec._PublishStarterDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRegisterBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterBoardInput(ctx context.Context, v any) (model.RegisterBoardInput, error) {
+	res, err := ec.unmarshalInputRegisterBoardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRegisterBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterBoardResult(ctx context.Context, sel ast.SelectionSet, v model.RegisterBoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RegisterBoardResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNRegisterCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRegisterCreatureInput(ctx context.Context, v any) (model.RegisterCreatureInput, error) {
@@ -12169,6 +20413,21 @@ func (ec *executionContext) marshalNRegisterStarterDeckResult2gitlabᚗcomᚋaim
 	return ec._RegisterStarterDeckResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNRenameBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenameBoardInput(ctx context.Context, v any) (model.RenameBoardInput, error) {
+	res, err := ec.unmarshalInputRenameBoardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRenameBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenameBoardResult(ctx context.Context, sel ast.SelectionSet, v model.RenameBoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RenameBoardResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNRenamePresetDeckInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRenamePresetDeckInput(ctx context.Context, v any) (model.RenamePresetDeckInput, error) {
 	res, err := ec.unmarshalInputRenamePresetDeckInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12197,6 +20456,21 @@ func (ec *executionContext) marshalNRenameStarterDeckResult2gitlabᚗcomᚋaimer
 		return graphql.Null
 	}
 	return ec._RenameStarterDeckResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRetireBoardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireBoardInput(ctx context.Context, v any) (model.RetireBoardInput, error) {
+	res, err := ec.unmarshalInputRetireBoardInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRetireBoardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireBoardResult(ctx context.Context, sel ast.SelectionSet, v model.RetireBoardResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RetireBoardResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNRetireCardInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐRetireCardInput(ctx context.Context, v any) (model.RetireCardInput, error) {
@@ -12349,6 +20623,16 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNStudioRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐStudioRulesResult(ctx context.Context, sel ast.SelectionSet, v model.StudioRulesResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StudioRulesResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (uuid.UUID, error) {
@@ -12507,6 +20791,50 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
+func (ec *executionContext) unmarshalOBoardFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardFilter(ctx context.Context, v any) (*model.BoardFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputBoardFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOBoardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatusᚄ(ctx context.Context, v any) ([]model.BoardStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.BoardStatus, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatus(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOBoardStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardStatus(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12635,6 +20963,14 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) unmarshalOLandTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐLandTileInput(ctx context.Context, v any) (*model.LandTileInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputLandTileInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalOPresetDeckFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐPresetDeckFilter(ctx context.Context, v any) (*model.PresetDeckFilter, error) {
 	if v == nil {
 		return nil, nil
@@ -12710,6 +21046,14 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOTilePositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐTilePositionInput(ctx context.Context, v any) (*model.TilePositionInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTilePositionInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

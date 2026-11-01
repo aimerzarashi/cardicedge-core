@@ -2,6 +2,7 @@ package eventstore
 
 import (
 	"context"
+	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -10,6 +11,10 @@ import (
 type LoadedEvent struct {
 	Event            any
 	AggregateVersion int64
+	// 以下は処理のログ（eventdriven）が、保存のログと同じ項目でイベントを引けるようにするためのもの
+	EventID    int64
+	EventType  domain.EventName
+	OccurredAt time.Time
 }
 
 // 投影（internal/eventdriven）は、集約の型を知らずに、知らせの entity_id から集約のイベントを読み直す。
@@ -48,8 +53,11 @@ func (l *eventLoader[I, E]) LoadEvents(ctx context.Context, entityID int64) ([]L
 		return nil, err
 	}
 	loaded := make([]LoadedEvent, 0, len(events))
-	for _, event := range events {
-		loaded = append(loaded, LoadedEvent{Event: event, AggregateVersion: event.GetMeta().AggregateVersion})
+	for _, decoded := range events {
+		loaded = append(loaded, LoadedEvent{
+			Event: decoded.event, AggregateVersion: decoded.event.GetMeta().AggregateVersion,
+			EventID: decoded.row.ID, EventType: decoded.event.EventType(), OccurredAt: decoded.event.GetMeta().OccurredAt,
+		})
 	}
 	return loaded, nil
 }

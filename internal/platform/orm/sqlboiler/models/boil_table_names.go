@@ -5,6 +5,7 @@ package models
 
 var TableNames = struct {
 	Avatars                    string
+	Boards                     string
 	Cards                      string
 	DomainEntities             string
 	DomainEntityTypes          string
@@ -25,8 +26,10 @@ var TableNames = struct {
 	Players                    string
 	PresetDecks                string
 	StarterDecks               string
+	StudioRules                string
 }{
 	Avatars:                    "avatars",
+	Boards:                     "boards",
 	Cards:                      "cards",
 	DomainEntities:             "domain_entities",
 	DomainEntityTypes:          "domain_entity_types",
@@ -47,4 +50,5 @@ var TableNames = struct {
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
 	StarterDecks:               "starter_decks",
+	StudioRules:                "studio_rules",
 }

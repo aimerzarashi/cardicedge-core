@@ -2,6 +2,7 @@ package idp_test
 
 import (
 	"crypto/ed25519"
+	"sync"
 	"testing"
 	"time"
 
@@ -114,4 +115,28 @@ func TestVerify_RefetchesJWKSForUnknownKid(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "user-1", claims.Subject)
 	require.Greater(t, server.RequestCount(), before)
+}
+
+// studio が最初の鍵を作った直後（core はまだ鍵を知らない）に、その鍵の JWT が同時に来ても、取り直しの枠を取れなかった方も受け付ける（core#51）
+func TestVerify_AcceptsConcurrentTokensWithNewKid(t *testing.T) {
+	verifier, server := newVerifier(t)
+	key := idptest.NewKey(t, "new")
+	server.SetKeys(key)
+	token := key.Sign(t, idptest.ValidClaims("user-1"))
+
+	const concurrency = 3
+	errs := make(chan error, concurrency)
+	var wg sync.WaitGroup
+	for range concurrency {
+		wg.Go(func() {
+			_, err := verifier.Verify(token)
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
 }

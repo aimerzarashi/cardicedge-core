@@ -11,6 +11,25 @@ import (
 	"github.com/google/uuid"
 )
 
+// ボードの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type BoardResult interface {
+	IsBoardResult()
+}
+
+// 置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る
+type BoardTile interface {
+	IsBoardTile()
+	// 列
+	GetX() int
+	// 行
+	GetY() int
+}
+
+// ボードの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type BoardsResult interface {
+	IsBoardsResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -59,6 +78,223 @@ type AvatarNameAlreadyInUseError struct {
 
 func (AvatarNameAlreadyInUseError) IsRegisterAvatarResult() {}
 
+// 拠点
+type BaseTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BaseTile) IsBoardTile() {}
+
+// 列
+func (this BaseTile) GetX() int { return this.X }
+
+// 行
+func (this BaseTile) GetY() int { return this.Y }
+
+// ボード（公開中のもの）
+type Board struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 幅（列の数）
+	Width int `json:"width"`
+	// 高さ（行の数）
+	Height int `json:"height"`
+	// 既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）
+	DefaultRules *BoardDefaultRules `json:"defaultRules"`
+	// マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）
+	TileCounts *BoardTileCounts `json:"tileCounts"`
+	// 置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）
+	Tiles []BoardTile `json:"tiles"`
+	// マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）
+	Connections []*BoardConnection `json:"connections"`
+	// 転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。公開中のボードのすべての転送円・橋に対の相手がいる
+	Pairs []*BoardTilePair `json:"pairs"`
+}
+
+func (Board) IsBoardResult() {}
+
+// マスどうしのつながり（向きは無い）
+type BoardConnection struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
+}
+
+// ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+// 効き方は対戦の決まりで、ここでは値の形だけを決める
+type BoardDefaultRules struct {
+	// 目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（対戦を始めるときの魔力）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（拠点に戻ったときに増える魔力）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力）
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（上限に達したら、その時点で魔力の多い人が勝つ）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大
+	DiceMax int `json:"diceMax"`
+}
+
+// 公開中のボードが無い（公開中でないものを含む）
+type BoardNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (BoardNotFoundError) IsBoardResult() {}
+
+// 格子の座標。x が列、y が行（どちらも 0 始まり）
+type BoardPosition struct {
+	// 列（0 以上、幅 − 1 以下）
+	X int `json:"x"`
+	// 行（0 以上、高さ − 1 以下）
+	Y int `json:"y"`
+}
+
+// ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+type BoardTileCounts struct {
+	// 土地の数（属性ごとの数の和）
+	Land int `json:"land"`
+	// 拠点の数
+	Base int `json:"base"`
+	// チェックポイントの数
+	Checkpoint int `json:"checkpoint"`
+	// 火属性の土地の数
+	Fire int `json:"fire"`
+	// 地属性の土地の数
+	Earth int `json:"earth"`
+	// 水属性の土地の数
+	Water int `json:"water"`
+	// 風属性の土地の数
+	Wind int `json:"wind"`
+	// 無属性の土地の数
+	Neutral int `json:"neutral"`
+	// 複属性の土地の数
+	Multi int `json:"multi"`
+	// 転送円の数
+	Warp int `json:"warp"`
+	// 橋の数
+	Bridge int `json:"bridge"`
+	// 聖堂の数
+	Sanctuary int `json:"sanctuary"`
+	// ほこらの数
+	Shrine int `json:"shrine"`
+	// 占い館の数
+	ProphecyShop int `json:"prophecyShop"`
+	// カード屋の数
+	CardShop int `json:"cardShop"`
+}
+
+// 転送円どうし・橋どうしの対（向きは無い。離れていてよい）
+type BoardTilePair struct {
+	// 片方の端（座標が小さい側。行 → 列の順に比べる）
+	A *BoardPosition `json:"a"`
+	// もう片方の端
+	B *BoardPosition `json:"b"`
+}
+
+// ボードの一覧の 1 ページ（名前の順）
+type BoardsConnection struct {
+	// このページのボード
+	Edges []*BoardsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (BoardsConnection) IsBoardsResult() {}
+
+// ボードの一覧の 1 件と、その位置
+type BoardsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// ボード
+	Node *Board `json:"node"`
+}
+
+// 橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない
+type BridgeTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (BridgeTile) IsBoardTile() {}
+
+// 列
+func (this BridgeTile) GetX() int { return this.X }
+
+// 行
+func (this BridgeTile) GetY() int { return this.Y }
+
+// カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
+type CardShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CardShopTile) IsBoardTile() {}
+
+// 列
+func (this CardShopTile) GetX() int { return this.X }
+
+// 行
+func (this CardShopTile) GetY() int { return this.Y }
+
+// チェックポイント
+type CheckpointTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (CheckpointTile) IsBoardTile() {}
+
+// 列
+func (this CheckpointTile) GetX() int { return this.X }
+
+// 行
+func (this CheckpointTile) GetY() int { return this.Y }
+
+// 入力の形が正しくない（ページの位置（カーソル）が読めない等）
+type FieldInvalidFormat struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldInvalidFormat) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が範囲の外
+type FieldOutOfRange struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 範囲の下限（この値を含む）
+	Min int `json:"min"`
+	// 範囲の上限（この値を含む）
+	Max int `json:"max"`
+}
+
+func (FieldOutOfRange) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldOutOfRange) GetField() string { return this.Field }
+
 // 入力が空（前後の空白だけの場合を含む）
 type FieldRequired struct {
 	// 誤りのある入力の項目
@@ -83,7 +319,37 @@ func (FieldTooLong) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
+// 土地（ふつうのマス）
+type LandTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+	// 属性
+	Attribute BoardTileAttribute `json:"attribute"`
+}
+
+func (LandTile) IsBoardTile() {}
+
+// 列
+func (this LandTile) GetX() int { return this.X }
+
+// 行
+func (this LandTile) GetY() int { return this.Y }
+
 type Mutation struct {
+}
+
+// ページの情報
+type PageInfo struct {
+	// 次のページがあるか
+	HasNextPage bool `json:"hasNextPage"`
+	// 前のページがあるか（after を指定したら true）
+	HasPreviousPage bool `json:"hasPreviousPage"`
+	// このページの最初の 1 件の位置
+	StartCursor *string `json:"startCursor,omitempty"`
+	// このページの最後の 1 件の位置（次のページは after にこれを渡す）
+	EndCursor *string `json:"endCursor,omitempty"`
 }
 
 // プレイヤー。JWT の (iss, sub) に 1 人だけ紐づく
@@ -106,7 +372,27 @@ type PlayerNotRegisteredError struct {
 
 func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
 
+func (PlayerNotRegisteredError) IsBoardsResult() {}
+
+func (PlayerNotRegisteredError) IsBoardResult() {}
+
 func (PlayerNotRegisteredError) IsMeResult() {}
+
+// 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
+type ProphecyShopTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ProphecyShopTile) IsBoardTile() {}
+
+// 列
+func (this ProphecyShopTile) GetX() int { return this.X }
+
+// 行
+func (this ProphecyShopTile) GetY() int { return this.Y }
 
 type Query struct {
 }
@@ -133,6 +419,38 @@ type RegisterPlayerSuccess struct {
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
 
+// 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
+type SanctuaryTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (SanctuaryTile) IsBoardTile() {}
+
+// 列
+func (this SanctuaryTile) GetX() int { return this.X }
+
+// 行
+func (this SanctuaryTile) GetY() int { return this.Y }
+
+// ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
+type ShrineTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (ShrineTile) IsBoardTile() {}
+
+// 列
+func (this ShrineTile) GetX() int { return this.X }
+
+// 行
+func (this ShrineTile) GetY() int { return this.Y }
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -140,6 +458,95 @@ type ValidationErrors struct {
 }
 
 func (ValidationErrors) IsRegisterAvatarResult() {}
+
+func (ValidationErrors) IsBoardsResult() {}
+
+// 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
+type WarpTile struct {
+	// 列
+	X int `json:"x"`
+	// 行
+	Y int `json:"y"`
+}
+
+func (WarpTile) IsBoardTile() {}
+
+// 列
+func (this WarpTile) GetX() int { return this.X }
+
+// 行
+func (this WarpTile) GetY() int { return this.Y }
+
+// 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
+// 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
+type BoardTileAttribute string
+
+const (
+	// 火（火属性）
+	BoardTileAttributeFire BoardTileAttribute = "FIRE"
+	// 地（地属性）
+	BoardTileAttributeEarth BoardTileAttribute = "EARTH"
+	// 水（水属性）
+	BoardTileAttributeWater BoardTileAttribute = "WATER"
+	// 風（風属性）
+	BoardTileAttributeWind BoardTileAttribute = "WIND"
+	// 無（無属性）
+	BoardTileAttributeNeutral BoardTileAttribute = "NEUTRAL"
+	// 複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）
+	BoardTileAttributeMulti BoardTileAttribute = "MULTI"
+)
+
+var AllBoardTileAttribute = []BoardTileAttribute{
+	BoardTileAttributeFire,
+	BoardTileAttributeEarth,
+	BoardTileAttributeWater,
+	BoardTileAttributeWind,
+	BoardTileAttributeNeutral,
+	BoardTileAttributeMulti,
+}
+
+func (e BoardTileAttribute) IsValid() bool {
+	switch e {
+	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+		return true
+	}
+	return false
+}
+
+func (e BoardTileAttribute) String() string {
+	return string(e)
+}
+
+func (e *BoardTileAttribute) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardTileAttribute(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardTileAttribute", str)
+	}
+	return nil
+}
+
+func (e BoardTileAttribute) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
 
 // スターターの配布の状態
 type StarterGrantStatus string

@@ -55,20 +55,24 @@ gen-api:
 seed-master:
 	docker compose exec core go run ./tools/seedmaster
 
-# マスタ（studio の read model の cards・starter_decks・game_rules）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
+# マスタ（studio の read model の cards・starter_decks・game_rules・boards）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
 # そのまま core_game の \copy に渡し、1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
 # cards は公開中・使用不可のカードだけを写す（準備中は studio の中の作りかけで、game に出さない。使用不可はプレイヤーが持っているので写す）。
 # pg_dump は行で絞れないため使わない。流し込む前に全体を一時ファイルに作るのは、読む側が途中で失敗しても、書く側が途中までの入力で
 # 空にして確定してしまわないため。
+# boards は cards と同じ選び方（公開中・使用不可だけ。準備中は写さない。使用不可は game が一覧にも詳細にも出さないが、後で対戦中のボードの元を
+# 表示したくなっても表を作り直さずに済むよう写す）
 # starter_decks は全行（準備中・使用不可も、状態つき）を写し、game は公開中だけを読む（後で配り済みのデッキの元を表示したくなっても、
 # 表を作り直さずに済むように）
-# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 3 つの表が公開用の ID だけで
+# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 4 つの表が公開用の ID だけで
 # 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
 .PHONY: publish-master
 publish-master:
 	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
-	  printf "%s\n" "TRUNCATE cards, starter_decks, game_rules;" "\\copy cards FROM STDIN"; \
+	  printf "%s\n" "TRUNCATE cards, boards, starter_decks, game_rules;" "\\copy cards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
+	  printf "%s\n" "\\." "\\copy boards FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM boards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
 	  printf "%s\n" "\\." "\\copy starter_decks FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_decks TO STDOUT"; \
 	  printf "%s\n" "\\." "\\copy game_rules FROM STDIN"; \

@@ -19,8 +19,8 @@ make migrate # 未適用の migrations だけを Atlas で適用（DB を作り�
 make migrate-hash # migrations を足したら atlas.sum を作り直す
 make gen-orm # migrations を足したら sqlboiler のモデル（internal/platform/orm/sqlboiler/models）を作り直す
 make gen-api # GraphQL のスキーマを変えたら gqlgen のコードを作り直す
-make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばす）
-make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
+make seed-master    # 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ・ボード）を studio のコマンドで登録（スターターデッキはプリセットデッキから写して作って公開する。ボードはレイアウトを入れて公開する。作成済みなら飛ばす）
+make publish-master # studio の cards（公開中・使用不可だけ）・starter_decks（全行を状態つきで）・boards（cards と同じく公開中・使用不可だけ）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
@@ -36,9 +36,38 @@ make down    # 停止して DB のデータも破棄
 
 PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db: studio 用は core_studio、game 用は core_game）で接続できる。
 
-開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
+開発で game のマスタ（配るスターターデッキ）を用意するときは、`make up` の後に `make seed-master`、続けて `make publish-master` を流す。seed-master は studio の DB に見本を登録し、投影が read model を書くまで待つ。publish-master はその read model（cards は公開中・使用不可のカードだけ。starter_decks は全行で、game は公開中だけを配る。boards は cards と同じ選び方で、game は公開中だけを見せる。game_rules）を core_game に写す（1 つのトランザクション。何度流しても同じ結果になる）。
 
 ポートが他と衝突する場合は `CORE_PORT=13333 CORE_DB_PORT=15432 make up` のように変更できる。
+
+## トレースとログの受け手（grafana/otel-lgtm）
+
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
+
+| 用途 | 場所（既定のポート） | 変える環境変数 |
+|---|---|---|
+| Grafana の画面 | http://localhost:3002（127.0.0.1 にだけ公開。ログインなしで管理者として入れる） | `OTEL_GRAFANA_PORT` |
+| OTLP gRPC | `host.docker.internal:4317` | `OTEL_GRPC_PORT` |
+| OTLP HTTP | `host.docker.internal:4318`（ホストからは `localhost:4318`） | `OTEL_HTTP_PORT` |
+
+- 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
+- OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+
+## core のトレースとログ（OpenTelemetry。core#75）
+
+core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
+
+| 環境変数 | 意味 |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | 送り先（開発・テストの compose は `http://host.docker.internal:4318`）。**無ければ送り出しを作らず、標準出力のログだけ**（何も送らず、何も待たない。結合テストは設定しないのでこの形で動く） |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` を設定する。送り出しは HTTP だけで、この値で gRPC には切り替わらない |
+| `OTEL_SERVICE_NAME` | サービス名（core は `core`）。`OTEL_RESOURCE_ATTRIBUTES`・信号ごとの送り先（`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` 等）も SDK が読む |
+
+- これらは platform/config の「環境変数はすべて必須」の例外（任意。config に読み込まず SDK が読む）。受け手が止まっていても core は普通に動き、届かない内部の誤りは WARN で 1 分に 1 回までしか出さない（ERROR にしない。結合テストは ERROR のログで全体を失敗にするため）
+- 引き継ぎは W3C の TraceContext（`traceparent`）だけ。受けた `traceparent` の子としてスパンを作る。`/health` はスパンにしない
+- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）
+- ログ: 標準出力の JSON に、スパンの中で出したログ（`slog.InfoContext(ctx, ...)` 等）へ `trace_id`・`span_id` を足し、同じログを OpenTelemetry のログとして Loki にも送る。`ctx` を渡さない `slog.Info` にはトレースの情報が付かない
+- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れなのでリクエストの `trace_id` を持たない（`event_id` で保存のログとつなぐ）
 
 ## 他プロジェクトとの統合
 
@@ -51,7 +80,7 @@ game / studio はそれぞれのネットワーク経由で `http://core:3333` �
 
 - **認証**: すべての呼び出しに、studio（better-auth の jwt プラグイン）の JWT を `Authorization: Bearer <JWT>` で付ける。無い・不正なら 401（`extensions.code: UNAUTHENTICATED`。理由は返さない）。ネットワークの位置（内部からの呼び出しか）は信じない（game からも core に直接届くため）
 - **検証**: 署名（EdDSA に固定。none・HMAC への差し替えを受け付けない）・`iss`・`aud`・期限。JWKS は studio-envoy を通して取る
-- **JWKS の取り直し**: 1 時間ごとと、知らない kid の JWT が来たとき（5 分に 1 回まで）。起動時に studio が動いていなくても core は起動する（最初の JWT が来たときに取り直す。そのときも studio が動いていなければ、次は 5 分後）
+- **JWKS の取り直し**: 1 時間ごとと、知らない kid の JWT が来たとき（1 秒に 1 回まで。同時に来た JWT は順に待って、それぞれ取り直す。keyfunc の既定の 5 分に 1 回では、新しい鍵の JWT が同時に来ると 1 つ以外が 401 になるため。core#51）。起動時に studio が動いていなくても core は起動する（最初の JWT が来たときに取り直す）
 - **studio の secret が漏れたとき**: studio の手順で jwks を作り直したら、core を再起動して古い鍵をすぐに捨てる（再起動しなくても 1 時間以内の取り直しで消える）
 - POST だけを受け付ける（ミューテーションを GET で実行させる CSRF を防ぐため）
 - **オペレーターの特定と紐づけ**: JWT の (iss, sub) に紐づいたオペレーターを、認可で使えるように context に載せる。まだ紐づいていなければ、JWT の確認済みのメールアドレス（`email`・`email_verified`。studio が JWT に入れる）で、登録済み・未紐づけのオペレーターを探して紐づける（初めてのログイン）。紐づけた後は (iss, sub) だけで識別し、メールアドレスは使わない。確認していないメールアドレスでは紐づけない（他人のメールアドレスでサインアップしても、オペレーターになれないように）
@@ -84,14 +113,27 @@ game / studio はそれぞれのネットワーク経由で `http://core:3333` �
 | `deleteStarterDeck` | 準備中のスターターデッキを削除する（名前はほかのスターターデッキが使えるようになる）。結果は `DeleteStarterDeckSuccess`（id）/ `StarterDeckNotFoundError` / `StarterDeckNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
 | `publishStarterDeck` | スターターデッキを公開中にする（準備中・使用不可から。すでに公開中なら変わらない）。合計がちょうど決まった枚数でない・入っているカードに公開中でないものがある場合は `ValidationErrors`（項目 `cards`）。結果は `PublishStarterDeckSuccess` / `ValidationErrors` / `StarterDeckNotFoundError` / `StarterDeckLimitReachedError`（公開中の数の上限。`max` を持つ）/ `RevisionConflictError` / `ForbiddenError` |
 | `retireStarterDeck` | スターターデッキを使用不可にする（公開中から。すでに使用不可なら変わらない。新しいプレイヤーには配らない）。結果は `RetireStarterDeckSuccess` / `StarterDeckNotFoundError` / `InvalidStarterDeckStatusTransitionError` / `RevisionConflictError` / `ForbiddenError` |
+| `studioRules`（クエリ） | studio でマスタを作るときの決まり（ボードの幅・高さの下限 `board.minSize`・上限 `board.maxSize`。画面が入力の時点で範囲の外を止めるために読む）。read model `studio_rules` を読み、まだ投影されていなければ既定の値に戻さず GraphQL の errors にする（待てば直る失敗）。結果は `StudioRules` / `ForbiddenError` |
+| `boards`（クエリ） | ボードの一覧（名前の順。`filter.nameContains`・`filter.statuses` で絞り込み、`first`・`after` でページ分け。各要素がマスとつながり・対も持つ）。結果は `BoardsConnection` / `ValidationErrors` / `ForbiddenError` |
+| `board`（クエリ） | ボードの詳細（公開用の ID で指す。名前・状態・形・幅と高さ・既定のルール `defaultRules`・マスの数 `tileCounts`（土地の合計・拠点・チェックポイント・属性ごとの土地の数・転送円・橋・聖堂・ほこら・占い館・カード屋の数。投影のときに数える）・公開できない理由 `publishProblems`（`BaseCountProblem`・`NoCheckpointProblem`・`UnreachableTilesProblem`・`UnpairedTilesProblem` を `__typename` で見分け、座標を持つ理由は `positions` を持つ。空なら公開できる。投影のときに計算するので、保存のたびに読んで分かる）・マス・つながり・対 `pairs`（転送円どうし・橋どうし。a → b の順）・revision 等）。結果は `Board` / `BoardNotFoundError` / `ForbiddenError` |
+| `checkBoardLayout`（クエリ） | ボードのレイアウト（幅・高さ・マス・つながり・対の全体。`changeBoardLayout` の入力から id・revision を除いたもの）を、保存せずに判定する。ボードを指さず、何も保存せず、イベントも作らない（revision も使わない）。入力の誤りは `changeBoardLayout` と同じ決まり・同じ項目のパスの `ValidationErrors`（`newLayout` を共有し、決まりを 2 か所に書かない）。誤りが無ければ、公開するときと同じ判定（`CheckReadiness`）の公開できない理由 `publishProblems`（`BoardNotPublishableError.problems` と同じ型・順。空なら公開できる）。権限は保存と同じ（紐づいたオペレーターだけ）。結果は `CheckBoardLayoutSuccess` / `ValidationErrors` / `ForbiddenError`。画面が保存の前に、公開できるかを見せるために使う |
+| `registerBoard` | ボードを名前だけで登録する（四角形で、大きさは 8×8 を `studio_rules` の範囲に収めた値。マスもつながりも無い準備中。既定のルールは登録の直後の値: 目標の魔力 8000・開始時の魔力 600・周回のボーナス 300・チェックポイントのボーナス 100・ラウンドの上限 30・サイコロの目 1〜6）。結果は `RegisterBoardSuccess`（id・revision）/ `ValidationErrors` / `BoardNameAlreadyInUseError` / `ForbiddenError` |
+| `renameBoard` | 準備中のボードの名前を変える。結果は `RenameBoardSuccess` / `ValidationErrors` / `BoardNotFoundError` / `BoardNameAlreadyInUseError` / `BoardNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `changeBoardLayout` | 準備中のボードのレイアウト（幅・高さ・マス・つながり・対の全体）を変える。前との差分は core が計算し、変わらなければ revision も進まない。幅・高さの範囲は `studio_rules`（`studioRules.board`）の値で、範囲の外は `FieldOutOfRange`（`min`・`max` も `studio_rules` の値）。マス（`tiles`）の各要素は `BoardTileInput`（`@oneOf`。`land { x y attribute }`・`base`・`checkpoint`・`warp`（転送円）・`bridge`（橋）・`sanctuary`（聖堂）・`shrine`（ほこら）・`prophecyShop`（占い館）・`cardShop`（カード屋）（土地以外は `{ x y }` だけ）のうちちょうど 1 つを書く。書いた項目が種類になり、土地の属性が無い・土地以外に属性がある組み合わせは入力の形として作れない。「ちょうど 1 つ」は変数で送られた値だと GraphQL の層が確かめないため、core が確かめて `tiles.N` の `FieldInvalidFormat` にする）。入力の誤りは `ValidationErrors`（項目 `width`・`height`・`tiles.N.land.x`・`tiles.N.land.y`（`land` は書いた種類の名前で、`base`・`warp`・`prophecyShop` 等もある）・`tiles.N`・`connections.N.a`・`connections.N.b`・`connections.N`・`pairs.N.a`・`pairs.N.b`・`pairs.N`。理由は `FieldOutOfRange`・`FieldDuplicated`・`FieldNotFound`・`FieldNotAdjacent`、対は端が転送円でも橋でもない `FieldNotPairable`・転送円と橋を組む `FieldPairKindMismatch`・自分自身と組む `FieldPairedWithSelf`・すでに別の対に入っているマスは `FieldDuplicated`（`pairs.N.a`・`pairs.N.b`）・同じ対は `FieldDuplicated`（`pairs.N`））。`pairs` は必須（対が無くても空のリストを送る）。対は転送円どうし・橋どうしで、離れていてよく、相手のいない転送円・橋も保存できる。結果は `ChangeBoardLayoutSuccess` / `ValidationErrors` / `BoardNotFoundError` / `BoardNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `changeBoardDefaultRules` | 準備中のボードの既定のルール（目標の魔力 `targetMagic`・開始時の魔力 `startingMagic`・周回のボーナス `lapBonus`・チェックポイントのボーナス `checkpointBonus`・ラウンドの上限 `roundLimit`・サイコロの目の最小 `diceMin`・最大 `diceMax` の 7 つの全体）を変える。レイアウトとは別の操作。同じ値なら revision も進まない。決まりは `board.NewDefaultRules` の 1 か所（目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・ボーナス 2 つは 0 以上の整数、目標の魔力は開始時の魔力より大きく、サイコロの目の最大は最小以上。上限は持たない）で、違反は入力の項目のパスの `ValidationErrors`（下限を割ったものは `FieldTooSmall{min}`、目標の魔力が開始時の魔力以下は `targetMagic` の `FieldNotGreaterThan{than: "startingMagic"}`、最大が最小より小さいのは `diceMax` の `FieldLessThan{than: "diceMin"}`。等しいのは誤りでないので `FieldNotGreaterThan` と型を分けた）。結果は `ChangeBoardDefaultRulesSuccess` / `ValidationErrors` / `BoardNotFoundError` / `BoardNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `deleteBoard` | 準備中のボードを削除する（名前はほかのボードが使えるようになる）。結果は `DeleteBoardSuccess`（id）/ `BoardNotFoundError` / `BoardNotDraftError` / `RevisionConflictError` / `ForbiddenError` |
+| `publishBoard` | ボードを公開中にする（準備中・使用不可から。すでに公開中なら変わらない）。公開の条件は、拠点がちょうど 1 つ・チェックポイントが 1 つ以上・すべてのマスに拠点からつながりと対をたどって行けること（対の 2 マスは隣どうしと同じに道として数える）・すべての転送円・橋に対の相手がいること。満たさなければ `BoardNotPublishableError`（`problems`。`Board.publishProblems` と同じ理由ごとの型と座標で、順は 拠点の数 → チェックポイント → 行けないマス → 相手のいない転送円・橋（`UnpairedTilesProblem`）。行けないマスは拠点がちょうど 1 つのときだけ判定し、相手のいない転送円・橋は拠点の数によらず判定する）。結果は `PublishBoardSuccess` / `BoardNotFoundError` / `BoardNotPublishableError` / `RevisionConflictError` / `ForbiddenError` |
+| `retireBoard` | ボードを使用不可にする（公開中から。すでに使用不可なら変わらない）。結果は `RetireBoardSuccess` / `BoardNotFoundError` / `InvalidBoardStatusTransitionError` / `RevisionConflictError` / `ForbiddenError` |
 
 カードは状態（`CardStatus`: 準備中 `DRAFT`・公開中 `PUBLISHED`・使用不可 `RETIRED`）を持ち、登録したときは準備中。準備中は自由に変えられ、プリセットデッキに入れられず、`make publish-master` で game に写さない。公開中はプリセットデッキに入れられ、game に写す。使用不可は新しくプリセットデッキに入れられないが、プレイヤーが持っているので game には写す。`cards` の一覧は `filter.statuses` で状態を絞り込め、`Card.status`・`Card.revision` を返す。プリセットデッキに新しく入れる・枚数を増やすカードが公開中でなければ、`setPresetDeckCardCounts` は `FieldUnavailable`（入力の誤り）を返す。すでに入っているカードは、使用不可になっても残せる。
 
 スキーマは共通部分（`common.graphqls`）と機能ごとのファイル（Query・Mutation を `extend` する）に分ける。操作の結果は `<操作>Result = 成功の型 | エラー型` の union で返し（成功の型は、ミューテーションは `<操作>Success` で包み、クエリは問い合わせたもの。1 件なら対象の型、一覧なら 1 ページの `XxxConnection`）、ドメインエラーは GraphQL の `errors` ではなく型で表す（呼び出し側が分岐を型で漏れなく書けるため。設計メモ）。未認証は操作の結果ではないため union に含めず、HTTP 401 で返す。
 
+- **ボード**: 1 ボード 1 集約 `board`（studio のサービス。core#48）。形は四角形の格子（`square` のみ）で、マスは座標（x が列、y が行。0 始まり）と種類（土地 `land`・拠点 `base`・チェックポイント `checkpoint`・転送円 `warp`・橋 `bridge`・聖堂 `sanctuary`・ほこら `shrine`・占い館 `prophecy_shop`・カード屋 `card_shop`。転送円から後ろの 6 つは属性を持たない特殊なマスで、動きは対戦を作るときに作る。施設の名前は仮）、土地だけは属性（火 `fire`・地 `earth`・水 `water`・風 `wind`・無 `neutral`・複 `multi` のどれか 1 つ。複は火・地・水・風の 4 色のマークが描かれた特殊な土地で、組み合わせは持たない。拠点・チェックポイントは持たない。効き方は対戦の決まりなので決めていない）、つながりは向きの無い、上下左右に隣り合うマスどうしだけ。対 `board.Pair` は転送円どうし・橋どうしを組む向きの無い座標の組（つながりと同じく並べ方の小さい方が a で、型は分ける）で、離れていてよい。対はマスに相手を持たせず Layout が集合で持つ（両端に同じ情報を書くと食い違いの検査が要るため）。大きさの範囲は `studio_rules` の `board.min_size`・`board.max_size`（既定は 1〜32。幅・高さに共通。範囲は書くとき（登録・レイアウトの変更）にだけ確かめ、保存済みのイベントを読み直すときは確かめないので、範囲を変えても既存のボードは読める。準備中のボードは、保存し直すときに新しい範囲で確かめる）で、登録の直後は 8×8（範囲の外なら範囲に収めた値。8 はドメインの定数）・マスもつながりも無い。対戦の既定のルール `board.DefaultRules`（目標の魔力 `target_magic`＝届いて拠点に戻ると勝ち・開始時の魔力 `starting_magic`・周回のボーナス `lap_bonus`＝拠点に戻ったとき・チェックポイントのボーナス `checkpoint_bonus`＝通ったとき・ラウンドの上限 `round_limit`＝達したらその時点で魔力の多い人が勝つ・サイコロの目の最小 `dice_min`・最大 `dice_max`。対戦を始めるときにここから変えられる前提の既定の値で、効き方は対戦の決まりなので決めていない。名前の「魔力」は、世界観で呼び方を変えても画面の文言だけで済むよう、core では `magic` と汎用的にした）は、登録のイベントが値を明示して持ち（既定の値 8000・600・300・100・30・1・6 はドメインの定数なので、変えても過去のボードは変わらない）、レイアウトとは別のイベント `DefaultRulesChangedEvent`（変えた後の 7 つの値）で準備中のときだけ変える（同じ値ならイベントを作らない）。値の決まり（目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、ほかは 0 以上の整数、目標の魔力は開始時の魔力より大きく、サイコロの目の最大は最小以上。上限は持たない）は書くときの `board.NewDefaultRules` が守り、保存済みのイベントを読み直すときは確かめない（大きさの範囲と同じ。ボードの名前の `board.min_size` のような `studio_rules` には入れていない）。studio_rules の `BoardRules`（大きさの範囲）と名前が重ならないよう、GraphQL の型は `BoardDefaultRules`。状態（準備中・公開中・使用不可）の移り方と、名前の変更・レイアウトの変更・削除が準備中だけなのはスターターデッキと同じ。名前はすべてのボードの中で一意（`board.name`）。レイアウトの決まり（マスは格子の中で 1 座標に 1 つ、土地には属性があり拠点・チェックポイントには無い、つながりの両端は置いてあるマスで隣どうし、同じつながりは 1 つ、対の両端は置いてある転送円どうしか橋どうしで自分自身とは組まず、同じマスは 1 つの対にだけ入り、同じ対は 1 つ）は準備中でも保存の時点で守り、違反は `board.ValidateLayout` の 1 か所で数えて、application 層が入力の項目のパスに写す。公開の条件（拠点 1・チェックポイント 1 以上・全マスに拠点からつながりと対をたどって行ける・全転送円と橋に相手がいる。行き止まりは認める）は公開するときの `Decide` で確かめる。レイアウトの変更は変えた後の全体を受け取り、`Decide` が前との差分を 1 つのイベントにする。read model は `boards`（購読者 1009）で、マスとつながりと対（`pairs`）と既定のルール（`default_rules`）は `metadata` に持つ。`make publish-master` は公開中・使用不可の行を core_game の `boards` に写し（準備中は写さない）、game が公開中だけを読む（`Query.boards`・`Query.board`）
+- **studio_rules**: studio でマスタを作るときの決まり（今はボードの幅・高さの範囲だけ）は、1 つの集約 `studio_rules`（studio のサービス。一意な key `studio_rules.singleton` で全体に 1 つ。core#52）が値オブジェクト `studiorules.Rules`（internal/domain/studiorules。何の決まりかで `board` に分け、JSON は `{"board": {"min_size": 1, "max_size": 32}}`）で持つ。値の形として確かめるのは、下限が 1 以上・上限が下限以上だけ。`game_rules` と同じく studio が起動時に既定の値で作り（あれば何もしない。複数台で先を越されても成功）、値の変更の操作はまだ無い（core#23 と一緒に作る）。ボードの操作は集約をイベントストアで読んで範囲を確かめ（`StudioRulesHandler.Get`）、ドメインの `Decide` は既定の値を直接読まず、コマンドを動かす側が渡した範囲を使う。read model は `studio_rules`（購読者 1010。表は 1 行）で、`Query.studioRules` が読む。game では使わないので `make publish-master` では写さない（マイグレーションは両方の DB に流すので、core_game にも空の表ができる）。名前の長さは game の画面にも響くため入れない
 - **層の分担**: presentation 層（GraphQL）は application 層の型だけを使い、ドメインの型（`operator.ID`・`card.Name`・集約の状態・ドメインのエラー）を知らない。application 層が窓口になり、素の値を受け取ってドメインの型に変え、application 層の結果の型とエラーを返す（ドメインを変えても presentation 層に及ばないように。参照の api は application 層が GraphQL の型を受け渡していたが、そうしない）
 - **認可**: オペレーターを要する操作は、resolver の最初に紐づいたオペレーターかを確かめ（`requireOperator`。application 層の `authentication.HasOperator`）、違えば `ForbiddenError` を返す（core#10 でパーミッションの判定に広げる）。操作した人は、application 層のコマンドが context から取り出す
-- **入力の誤り**: application 層が `input.Errors`（internal/service/studio/application/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
+- **入力の誤り**: application 層が `input.Errors`（internal/service/studio/application/input。理由ごとの型 `input.Required`・`input.TooLong{Max}`・`input.OutOfRange{Min, Max}`・`input.TooSmall{Min}`（上限の無い値の下限）・`input.NotGreaterThan{Than}`（別の項目より大きくない）・`input.InvalidFormat` の一覧）を返し、resolver が `ValidationErrors`（`FieldError` のインターフェースと、理由ごとの型 `FieldRequired`・`FieldTooLong{max}`・`FieldOutOfRange{min, max}`・`FieldTooSmall{min}`・`FieldNotGreaterThan{than}`・`FieldInvalidFormat`）に写す。理由によって null になる項目は作らない。文言は返さず、studio が `__typename` と値から作る（上限などの値も core から受け取り、studio に書き写さない）
 - **DB のエラーのログ**: 重複（一意性の表）や版の衝突（イベントストア）を、一意制約違反のエラーで受けない。PostgreSQL がふだんの重複のたびに ERROR のログを出し（重複は異常ではないのにログが埋まる）、トランザクションも中断されるため。一意性の表は参照の api と同じく `INSERT ... SELECT ... WHERE NOT EXISTS (ほかの ID が同じ値) ON CONFLICT (id) DO UPDATE ... RETURNING` で、登録にも変更にも使い、行が返らなければ重複とする（まれな同時の競合による一意制約違反も重複として返す）。イベントストアは `ON CONFLICT DO NOTHING RETURNING` で、行が返らなければ版の衝突とする
 - **カード名**: Creature・Item・Spell で共有し、前後の空白を除いて NFKC で正規化した値で、3 種類をまたいで重複させない（一意な key の種別 `card.name`。表示は入力どおり）。上限は 50 文字（正規化する前の値で数える）
 - **一意性の制約**: 制約ごとの専用の表ではなく、1 つの表 domain_unique_keys（key の種別の中で key が一意）で持つ。何を一意にするか（key の種別と key の作り方）はドメインが宣言し、インフラは確保の仕組みだけを持つ（制約を足すたびに表・SQL を足さないため。1 つの表で全集約のイベントを持つ domain_events と同じ考え方）。210 万件での計測では、専用の表と比べて引く・確保する速さの差は誤差の範囲で、容量は key の種別を数の ID にして抑えた（core#11）。中身は確認用の VIEW `domain_unique_key_view` で読める（列は unique_key_type_id・key・entity_id）
@@ -99,13 +141,15 @@ game / studio はそれぞれのネットワーク経由で `http://core:3333` �
 
 ## game 用の GraphQL（/game/graphql）
 
-スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`・`registerAvatar`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
+スキーマは `internal/service/game/presentation/graphql/*.graphqls`（game は `app schema game` の出力を参照する）。操作は `registerPlayer`・`me`・`registerAvatar`・`boards`・`board`（core の版は、GraphQL ではなく HTTP の `/version` で返す）。
 
 - **registerPlayer**（ミューテーション）: JWT の (iss, sub) のプレイヤーを登録し、公開 ID（`player { id }`）を返す。何度呼んでも、プレイヤーは (iss, sub) ごとに 1 人だけで、登録済みなら何も作らず同じ形（同じ id）で返す。同時に呼ばれても 1 人だけ
 - **me**（クエリ）: 自分のプレイヤーを返す。`starterGrant` は read model `players` から読み、行がまだ無い（投影の遅れ）・配布が始まっていないときも `IN_PROGRESS`（画面にとっては「まだ届いていない」と同じ）。`registerPlayer` の結果の `player` からも取れる。未登録なら `PlayerNotRegisteredError`。game は、これが返ったときに `registerPlayer` を呼び、`me` を呼び直す。`avatars` は自分のアバターを作った順に返す（read model `avatars` から読む。上限があるので、ページ分けしないリスト。作った直後は投影の遅れで、まだ出ないことがある）
 - **registerAvatar**（ミューテーション）: ログイン中のプレイヤーのアバターを名前（`input.name`）で作り、作ったアバター（`avatar { id name }`）を返す。結果は `RegisterAvatarSuccess` / `ValidationErrors`（名前が空 `FieldRequired`・20 文字を超える `FieldTooLong{max}`）/ `AvatarNameAlreadyInUseError`（同じプレイヤーの別のアバターが同じ名前。比べ方は `domain.NormalizeName`。ほかのプレイヤーとは同じ名前でよい）/ `AvatarLimitReachedError`（1 人 5 体まで。`max` に上限の値を持つ）/ `PlayerNotRegisteredError`（未登録）。上限は `game_rules` の `player.max_avatars`（種別 `avatar.per_player`）で、写されていなければ作れない。名前の変更・削除はまだ無い
-- **認可**: 登録済みのプレイヤーが要る操作（`registerAvatar` 等）は、resolver の最初に登録済みかを確かめ（`requirePlayer`）、未登録なら `PlayerNotRegisteredError` を返す
-- **入力の誤り**: studio 用と同じ形（application 層が `input.Errors`（internal/service/game/application/input）を返し、resolver が `ValidationErrors` に写す）。理由は game で要るもの（`Required`・`TooLong`）から足す
+- **boards**（クエリ）: 公開中のボードの一覧（`first`・`after` でページ分け。並びは名前の正規化 → 公開 ID で studio と同じ）。各要素が `id`・`name`・`width`・`height`・`tiles { __typename x y ... on LandTile { attribute } }`（`BoardTile` の interface で、`LandTile`・`BaseTile`・`CheckpointTile` を `__typename` で見分ける。`attribute` は `LandTile` だけが持ち、`FIRE`・`EARTH`・`WATER`・`WIND`・`NEUTRAL`・`MULTI`。行 → 列の順）・`connections { a { x y } b { x y } }`（向きは無い。a → b の順）・`defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax }`（対戦を始めるときの既定の値）・`tileCounts { land base checkpoint fire earth water wind neutral multi }`（マスの数）を持つ。状態・revision・日時は持たない。結果は `BoardsConnection` / `ValidationErrors`（`first` が範囲外 `FieldOutOfRange{min, max}`・`after` が読めない `FieldInvalidFormat`）/ `PlayerNotRegisteredError`
+- **board**（クエリ）: 公開中のボードの詳細（公開用の ID で指す）。結果は `Board` / `BoardNotFoundError`（無い・準備中・使用不可を区別せず同じ扱い）/ `PlayerNotRegisteredError`。ボードは `make publish-master` で写したもの（core_game の `boards`）を読む
+- **認可**: 登録済みのプレイヤーが要る操作（`registerAvatar`・`boards`・`board` 等）は、resolver の最初に登録済みかを確かめ（`requirePlayer`）、未登録なら `PlayerNotRegisteredError` を返す
+- **入力の誤り**: studio 用と同じ形（application 層が `input.Errors`（internal/service/game/application/input）を返し、resolver が `ValidationErrors` に写す）。理由は game で要るもの（`Required`・`TooLong`・`OutOfRange`・`InvalidFormat`）から足す
 
 - **認証**: studio 用と同じく、すべての呼び出しに game（better-auth の jwt プラグイン）の JWT を付ける。検証（署名・`iss`・`aud`・期限）、JWKS の取り直し、401 の返し方、POST だけを受け付けることも studio 用と同じ。JWKS は game-envoy を通して取る
 - **発行元の区別**: `aud` は studio 用と同じ `diecardomain-core` で、`iss`（`diecardomain-game`）で発行元を区別する。studio の JWT は game の入口では通らない（逆も同じ）

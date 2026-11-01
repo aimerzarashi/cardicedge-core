@@ -1,0 +1,8 @@
+{
+  "public_id": "11111111-2222-3333-4444-555555555555",
+  "name": "草原",
+  "width": 8,
+  "height": 8,
+  "default_rules": { "target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6 },
+  "registered_by": 10
+}

@@ -2,6 +2,10 @@
 
 集約のイベントを domain_events に保存し、版の順に読み直して状態を作る（`Save`・`Load`）。投影が読む `EventLoader` も置く。
 
+## ログ
+
+`Save` は、イベントごとに INFO のログ `eventstore: event saved`（`event_id`・`entity_type`・`entity_id`・`aggregate_version`・`event_type`・`occurred_at`）を出す。出すのは呼ぶ側の `rdb.Transact` が確定したあとで（`rdb.AfterCommit`）、取り消された保存は残さない。`eventdriven` の処理のログ（`eventdriven: event processed`）と項目の名前をそろえてあり、`event_id` で保存から処理までをたどれる（追い方は eventdriven の README）。
+
 ## 版と revision
 
 | 呼び方 | 何か | どこにあるか | 役割 |

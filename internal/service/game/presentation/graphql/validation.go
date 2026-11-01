@@ -21,6 +21,10 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldRequired{Field: e.Field}
 		case *input.TooLong:
 			fieldErrors[i] = &model.FieldTooLong{Field: e.Field, Max: e.Max}
+		case *input.OutOfRange:
+			fieldErrors[i] = &model.FieldOutOfRange{Field: e.Field, Min: e.Min, Max: e.Max}
+		case *input.InvalidFormat:
+			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
 		default:
 			// 理由を application 層に足したのに、ここに写し方を足し忘れた（GraphQL の型を足すのを忘れずに気づけるよう、黙って別の型にしない）
 			panic(fmt.Sprintf("unknown input error: %T", e))

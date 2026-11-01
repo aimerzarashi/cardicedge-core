@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/config"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/telemetry"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
@@ -22,8 +23,11 @@ import (
 
 const (
 	listenAddr = ":3333"
-	// docker compose の stop_grace_period・air の kill_delay より短くする
+	// docker compose の stop_grace_period・air の kill_delay より短くする。HTTP を止める時間と、トレース・ログを送り切る時間
+	// （telemetryFlushTimeout）の合計がこの中に収まるようにする
 	shutdownTimeout = 10 * time.Second
+	// 受け手が止まっていると、送り切れずにこの時間まで待つ。HTTP とは別の枠にして、HTTP の待ちが長引いても送る時間を残す
+	telemetryFlushTimeout = 3 * time.Second
 	// ①の規模（カードは数百件、操作するのはオペレーターだけ）で足りる本数。測ってから変える。
 	// DB の接続の上限を設けるときは、上限がこの本数を上回るかを確かめる（rdb.Open）
 	projectionWorkerCount = 4
@@ -39,7 +43,7 @@ var (
 )
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.SetDefault(slog.New(stdoutHandler()))
 
 	// `app healthcheck`: 起動中の自プロセスの /health を確認して終了する（compose の healthcheck 用）
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
@@ -81,6 +85,20 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	tel, err := telemetry.Setup(ctx, version, stdoutHandler())
+	if err != nil {
+		return err
+	}
+	slog.SetDefault(slog.New(tel.Handler))
+	// 最初に登録して最後に動かす: DB やイベントの処理を止める間のログも送り切る。
+	// ctx は取り消されている（シグナルで止まる）ので使わない
+	defer func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+		defer cancel()
+		if err := tel.Shutdown(flushCtx); err != nil {
+			slog.Warn("failed to flush telemetry", "error", err)
+		}
+	}()
 	studioDB, err := rdb.Open(ctx, cfg.StudioDBDSN)
 	if err != nil {
 		return err
@@ -128,5 +146,9 @@ func run(ctx context.Context) error {
 	server := &http.Server{Handler: app.Handler}
 	slog.Info("HTTP server started", "addr", ln.Addr().String(), "version", version)
 
-	return serve(ctx, server, ln, shutdownTimeout)
+	return serve(ctx, server, ln, shutdownTimeout-telemetryFlushTimeout)
+}
+
+func stdoutHandler() slog.Handler {
+	return slog.NewJSONHandler(os.Stdout, nil)
 }

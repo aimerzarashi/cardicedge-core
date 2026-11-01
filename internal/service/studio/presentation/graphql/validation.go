@@ -23,6 +23,12 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldTooLong{Field: e.Field, Max: e.Max}
 		case *input.OutOfRange:
 			fieldErrors[i] = &model.FieldOutOfRange{Field: e.Field, Min: e.Min, Max: e.Max}
+		case *input.TooSmall:
+			fieldErrors[i] = &model.FieldTooSmall{Field: e.Field, Min: e.Min}
+		case *input.NotGreaterThan:
+			fieldErrors[i] = &model.FieldNotGreaterThan{Field: e.Field, Than: e.Than}
+		case *input.LessThan:
+			fieldErrors[i] = &model.FieldLessThan{Field: e.Field, Than: e.Than}
 		case *input.InvalidFormat:
 			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
 		case *input.NotFound:
@@ -31,6 +37,14 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldUnavailable{Field: e.Field}
 		case *input.Duplicated:
 			fieldErrors[i] = &model.FieldDuplicated{Field: e.Field}
+		case *input.NotAdjacent:
+			fieldErrors[i] = &model.FieldNotAdjacent{Field: e.Field}
+		case *input.NotPairable:
+			fieldErrors[i] = &model.FieldNotPairable{Field: e.Field}
+		case *input.PairKindMismatch:
+			fieldErrors[i] = &model.FieldPairKindMismatch{Field: e.Field}
+		case *input.PairedWithSelf:
+			fieldErrors[i] = &model.FieldPairedWithSelf{Field: e.Field}
 		case *input.TotalTooLarge:
 			fieldErrors[i] = &model.FieldTotalTooLarge{Field: e.Field, Max: e.Max}
 		case *input.TotalMismatch:

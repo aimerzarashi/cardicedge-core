@@ -47,6 +47,13 @@ services:
       GAME_JWT_ISSUER: diecardomain-game
       GAME_JWT_AUDIENCE: diecardomain-core
       STUDIO_INITIAL_OPERATOR_EMAIL: operator@example.com
+      # トレースとログの送り先（OpenTelemetry の標準の環境変数。core#75）。受け手が止まっていても core は普通に動く
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: core
+    # ネットワークに入れず、ホストの口へ届ける理由は otel-lgtm の注記（core#74）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       core-migrate-studio:
         condition: service_completed_successfully
@@ -101,6 +108,34 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+
+  # トレース（Tempo）・ログ（Loki）の受け手と Grafana（開発中のトレースの調査用。core#74）。開発の環境の core は 1 つを共有するので、受け手もここに 1 つ置く。
+  # 共有ネットワーク（diecardomain-game・diecardomain-studio）には入れない: game から studio に内部から届く経路を作らない決まり（core#45・studio#30）を崩さないため。
+  # 代わりに OTLP の口をホストに公開し、送る側のコンテナは host.docker.internal（extra_hosts の host-gateway）で送る。
+  # 開発の環境も、テスト用の環境（studio・game の compose.test.yaml）も同じ形で届く。データは名前の無いボリュームで、core-db と同じく make down で消える。
+  # OTLP の口を 127.0.0.1 にだけ公開する案は採らなかった: コンテナから見たホストは docker のブリッジのゲートウェイ（172.17.0.1）で、
+  # ループバックだけで待つ口には届かないため（実際に接続が拒否された）。Grafana の画面はコンテナから使わないので 127.0.0.1 にだけ公開する
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.39.0
+    # Grafana にログインせずに入れるようにする。データは make down のたびに消え、初回のパスワードの変更も毎回やり直しになるため。
+    # 画面は 127.0.0.1 にだけ公開する開発の手元専用なので、匿名に管理者の権限を与えてよい
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    # 衝突する場合は OTEL_GRAFANA_PORT・OTEL_GRPC_PORT・OTEL_HTTP_PORT で変更する
+    ports:
+      - 127.0.0.1:${OTEL_GRAFANA_PORT:-3002}:3000
+      - ${OTEL_GRPC_PORT:-4317}:4317
+      - ${OTEL_HTTP_PORT:-4318}:4318
+    # イメージの healthcheck は 30 秒間隔で、make up (--wait) が最大 30 秒待つため、起動中だけ間隔を縮める
+    healthcheck:
+      test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
+      start_period: 60s
+      start_interval: 2s
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   go-mod:

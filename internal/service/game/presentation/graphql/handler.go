@@ -13,6 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/go-chi/chi/v5"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/gqltrace"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
@@ -32,6 +33,7 @@ func NewHandler(mux chi.Router, resolver *Resolver, db *sql.DB, verifier TokenVe
 	srv := handler.New(NewExecutableSchema(Config{Resolvers: resolver}))
 	// GET（クエリ文字列）は受け付けない（ミューテーションを GET で実行させる CSRF を防ぐため。game のサーバーは POST で呼ぶ）
 	srv.AddTransport(transport.POST{})
+	srv.Use(gqltrace.New())
 
 	mux.Route("/game/graphql", func(r chi.Router) {
 		r.Use(rdb.Middleware(db))

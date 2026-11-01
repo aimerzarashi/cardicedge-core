@@ -50,6 +50,50 @@ func (e *OutOfRange) InputField() string {
 	return e.Field
 }
 
+// 上限の無い値が下限より小さい（既定のルールの魔力等）。範囲の上限が決まっている値は OutOfRange
+type TooSmall struct {
+	Field string
+	Min   int
+}
+
+func (e *TooSmall) Error() string {
+	return fmt.Sprintf("%s is smaller than %d", e.Field, e.Min)
+}
+
+func (e *TooSmall) InputField() string {
+	return e.Field
+}
+
+// 別の入力の項目の値より大きくなければならない値が、大きくない（等しいのも含む）。Than はその項目の名前。
+// 下限の値は、相手の項目の値によって変わるので持たない
+type NotGreaterThan struct {
+	Field string
+	Than  string
+}
+
+func (e *NotGreaterThan) Error() string {
+	return fmt.Sprintf("%s is not greater than %s", e.Field, e.Than)
+}
+
+func (e *NotGreaterThan) InputField() string {
+	return e.Field
+}
+
+// 別の入力の項目の値以上でなければならない値が、それより小さい（等しいのは誤りでない。NotGreaterThan と境目が違うので型を分ける）。
+// Than はその項目の名前
+type LessThan struct {
+	Field string
+	Than  string
+}
+
+func (e *LessThan) Error() string {
+	return fmt.Sprintf("%s is less than %s", e.Field, e.Than)
+}
+
+func (e *LessThan) InputField() string {
+	return e.Field
+}
+
 type InvalidFormat struct{ Field string }
 
 func (e *InvalidFormat) Error() string {
@@ -120,6 +164,50 @@ func (e *TotalMismatch) Error() string {
 }
 
 func (e *TotalMismatch) InputField() string {
+	return e.Field
+}
+
+// つながりの両端が隣どうし（上下左右）でない（同じ座標を指すものを含む）
+type NotAdjacent struct{ Field string }
+
+func (e *NotAdjacent) Error() string {
+	return fmt.Sprintf("%s connects tiles that are not adjacent", e.Field)
+}
+
+func (e *NotAdjacent) InputField() string {
+	return e.Field
+}
+
+// 対の端のマスが、転送円でも橋でもない
+type NotPairable struct{ Field string }
+
+func (e *NotPairable) Error() string {
+	return fmt.Sprintf("%s is not a warp or a bridge", e.Field)
+}
+
+func (e *NotPairable) InputField() string {
+	return e.Field
+}
+
+// 対の両端が、転送円と橋（組めるのは同じ種類どうしだけ）
+type PairKindMismatch struct{ Field string }
+
+func (e *PairKindMismatch) Error() string {
+	return fmt.Sprintf("%s pairs tiles of different kinds", e.Field)
+}
+
+func (e *PairKindMismatch) InputField() string {
+	return e.Field
+}
+
+// 対の両端が同じ座標（自分自身と組んでいる）
+type PairedWithSelf struct{ Field string }
+
+func (e *PairedWithSelf) Error() string {
+	return fmt.Sprintf("%s pairs a tile with itself", e.Field)
+}
+
+func (e *PairedWithSelf) InputField() string {
 	return e.Field
 }
 

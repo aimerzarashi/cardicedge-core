@@ -1,0 +1,252 @@
+# ボード（四角形の格子のマスと、マスどうしのつながり・転送円と橋の対）。studio が決めて make publish-master で写したもののうち、公開中のものだけを読む
+# （準備中・使用不可は一覧にも詳細にも出さない）。状態・更新の番号・日時は game で使わないので持たない
+
+"ボード（公開中のもの）"
+type Board {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "幅（列の数）"
+  width: Int!
+  "高さ（行の数）"
+  height: Int!
+  "既定のルール（対戦を始めるときの既定の値。始めるときにここから変えられる前提）"
+  defaultRules: BoardDefaultRules!
+  "マスの数（種類ごと・土地の属性ごと。置いてあるマスから数えた値）"
+  tileCounts: BoardTileCounts!
+  "置いてあるマス（置いていない座標は含まない。行 → 列の順: y の小さい順、同じ y では x の小さい順）"
+  tiles: [BoardTile!]!
+  "マスどうしのつながり（向きは無い。a の座標が小さい側になり、a → b の順に並べる）"
+  connections: [BoardConnection!]!
+  "転送円どうし・橋どうしの対（向きは無い。a の座標が小さい側になり、a → b の順に並べる）。公開中のボードのすべての転送円・橋に対の相手がいる"
+  pairs: [BoardTilePair!]!
+}
+
+"""
+ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
+"""
+type BoardTileCounts {
+  "土地の数（属性ごとの数の和）"
+  land: Int!
+  "拠点の数"
+  base: Int!
+  "チェックポイントの数"
+  checkpoint: Int!
+  "火属性の土地の数"
+  fire: Int!
+  "地属性の土地の数"
+  earth: Int!
+  "水属性の土地の数"
+  water: Int!
+  "風属性の土地の数"
+  wind: Int!
+  "無属性の土地の数"
+  neutral: Int!
+  "複属性の土地の数"
+  multi: Int!
+  "転送円の数"
+  warp: Int!
+  "橋の数"
+  bridge: Int!
+  "聖堂の数"
+  sanctuary: Int!
+  "ほこらの数"
+  shrine: Int!
+  "占い館の数"
+  prophecyShop: Int!
+  "カード屋の数"
+  cardShop: Int!
+}
+
+"""
+ボードの既定のルール。対戦を始めるときはこの値から変えられる前提の、既定の値。
+効き方は対戦の決まりで、ここでは値の形だけを決める
+"""
+type BoardDefaultRules {
+  "目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち）"
+  targetMagic: Int!
+  "開始時の魔力（対戦を始めるときの魔力）"
+  startingMagic: Int!
+  "周回のボーナス（拠点に戻ったときに増える魔力）"
+  lapBonus: Int!
+  "チェックポイントのボーナス（チェックポイントを通ったときに増える魔力）"
+  checkpointBonus: Int!
+  "ラウンドの上限（上限に達したら、その時点で魔力の多い人が勝つ）"
+  roundLimit: Int!
+  "サイコロの目の最小"
+  diceMin: Int!
+  "サイコロの目の最大"
+  diceMax: Int!
+}
+
+"""
+土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
+効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
+"""
+enum BoardTileAttribute {
+  "火（火属性）"
+  FIRE
+  "地（地属性）"
+  EARTH
+  "水（水属性）"
+  WATER
+  "風（風属性）"
+  WIND
+  "無（無属性）"
+  NEUTRAL
+  "複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）"
+  MULTI
+}
+
+"格子の座標。x が列、y が行（どちらも 0 始まり）"
+type BoardPosition {
+  "列（0 以上、幅 − 1 以下）"
+  x: Int!
+  "行（0 以上、高さ − 1 以下）"
+  y: Int!
+}
+
+# 種類によって null になる項目を作らないため、種類ごとの型に分ける（studio と同じ形）
+"置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
+interface BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"土地（ふつうのマス）"
+type LandTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+  "属性"
+  attribute: BoardTileAttribute!
+}
+
+"拠点"
+type BaseTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"チェックポイント"
+type CheckpointTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+# 動きは対戦を作るときに作る（studio と同じ形。施設の名前は仮）
+"転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない"
+type WarpTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"橋（通ると、歩数を使わずに対の相手の橋から出る。2 つで 1 マスの両端で、止まるのは入った方と反対側の端）。属性は持たない"
+type BridgeTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない"
+type SanctuaryTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない"
+type ShrineTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない"
+type ProphecyShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない"
+type CardShopTile implements BoardTile {
+  "列"
+  x: Int!
+  "行"
+  y: Int!
+}
+
+"マスどうしのつながり（向きは無い）"
+type BoardConnection {
+  "片方の端（座標が小さい側。行 → 列の順に比べる）"
+  a: BoardPosition!
+  "もう片方の端"
+  b: BoardPosition!
+}
+
+"転送円どうし・橋どうしの対（向きは無い。離れていてよい）"
+type BoardTilePair {
+  "片方の端（座標が小さい側。行 → 列の順に比べる）"
+  a: BoardPosition!
+  "もう片方の端"
+  b: BoardPosition!
+}
+
+"公開中のボードが無い（公開中でないものを含む）"
+type BoardNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+# Relay の決まりの名前は BoardConnection だが、マスどうしのつながり（BoardConnection）と重なるため、一覧のほうを複数形にする（studio と同じ）
+"ボードの一覧の 1 件と、その位置"
+type BoardsEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "ボード"
+  node: Board!
+}
+
+"ボードの一覧の 1 ページ（名前の順）"
+type BoardsConnection {
+  "このページのボード"
+  edges: [BoardsEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"ボードの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union BoardsResult = BoardsConnection | ValidationErrors | PlayerNotRegisteredError
+
+"ボードの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union BoardResult = Board | BoardNotFoundError | PlayerNotRegisteredError
+
+extend type Query {
+  "公開中のボードの一覧（登録済みのプレイヤーだけ）"
+  boards(
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): BoardsResult!
+  "公開中のボードの詳細（登録済みのプレイヤーだけ）。公開中でなければ BoardNotFoundError"
+  board(
+    "ボードの公開用の ID"
+    id: UUID!
+  ): BoardResult!
+}
