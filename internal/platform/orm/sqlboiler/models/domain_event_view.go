@@ -31,7 +31,8 @@ type DomainEventView struct {
 	EventType        null.String `boil:"event_type" json:"event_type,omitempty" toml:"event_type" yaml:"event_type,omitempty"`
 	EventTypeVersion null.Int    `boil:"event_type_version" json:"event_type_version,omitempty" toml:"event_type_version" yaml:"event_type_version,omitempty"`
 	Payload          null.JSON   `boil:"payload" json:"payload,omitempty" toml:"payload" yaml:"payload,omitempty"`
-	CreatedAt        null.Time   `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	OccurredAt       null.Time   `boil:"occurred_at" json:"occurred_at,omitempty" toml:"occurred_at" yaml:"occurred_at,omitempty"`
+	Traceparent      null.String `boil:"traceparent" json:"traceparent,omitempty" toml:"traceparent" yaml:"traceparent,omitempty"`
 }
 
 var DomainEventViewColumns = struct {
@@ -42,7 +43,8 @@ var DomainEventViewColumns = struct {
 	EventType        string
 	EventTypeVersion string
 	Payload          string
-	CreatedAt        string
+	OccurredAt       string
+	Traceparent      string
 }{
 	ID:               "id",
 	EntityID:         "entity_id",
@@ -51,7 +53,8 @@ var DomainEventViewColumns = struct {
 	EventType:        "event_type",
 	EventTypeVersion: "event_type_version",
 	Payload:          "payload",
-	CreatedAt:        "created_at",
+	OccurredAt:       "occurred_at",
+	Traceparent:      "traceparent",
 }
 
 var DomainEventViewTableColumns = struct {
@@ -62,7 +65,8 @@ var DomainEventViewTableColumns = struct {
 	EventType        string
 	EventTypeVersion string
 	Payload          string
-	CreatedAt        string
+	OccurredAt       string
+	Traceparent      string
 }{
 	ID:               "domain_event_view.id",
 	EntityID:         "domain_event_view.entity_id",
@@ -71,7 +75,8 @@ var DomainEventViewTableColumns = struct {
 	EventType:        "domain_event_view.event_type",
 	EventTypeVersion: "domain_event_view.event_type_version",
 	Payload:          "domain_event_view.payload",
-	CreatedAt:        "domain_event_view.created_at",
+	OccurredAt:       "domain_event_view.occurred_at",
+	Traceparent:      "domain_event_view.traceparent",
 }
 
 // Generated where
@@ -146,7 +151,8 @@ var DomainEventViewWhere = struct {
 	EventType        whereHelpernull_String
 	EventTypeVersion whereHelpernull_Int
 	Payload          whereHelpernull_JSON
-	CreatedAt        whereHelpernull_Time
+	OccurredAt       whereHelpernull_Time
+	Traceparent      whereHelpernull_String
 }{
 	ID:               whereHelpernull_Int64{field: "\"domain_event_view\".\"id\""},
 	EntityID:         whereHelpernull_Int64{field: "\"domain_event_view\".\"entity_id\""},
@@ -155,13 +161,14 @@ var DomainEventViewWhere = struct {
 	EventType:        whereHelpernull_String{field: "\"domain_event_view\".\"event_type\""},
 	EventTypeVersion: whereHelpernull_Int{field: "\"domain_event_view\".\"event_type_version\""},
 	Payload:          whereHelpernull_JSON{field: "\"domain_event_view\".\"payload\""},
-	CreatedAt:        whereHelpernull_Time{field: "\"domain_event_view\".\"created_at\""},
+	OccurredAt:       whereHelpernull_Time{field: "\"domain_event_view\".\"occurred_at\""},
+	Traceparent:      whereHelpernull_String{field: "\"domain_event_view\".\"traceparent\""},
 }
 
 var (
-	domainEventViewAllColumns            = []string{"id", "entity_id", "entity_type", "aggregate_version", "event_type", "event_type_version", "payload", "created_at"}
+	domainEventViewAllColumns            = []string{"id", "entity_id", "entity_type", "aggregate_version", "event_type", "event_type_version", "payload", "occurred_at", "traceparent"}
 	domainEventViewColumnsWithoutDefault = []string{}
-	domainEventViewColumnsWithDefault    = []string{"id", "entity_id", "entity_type", "aggregate_version", "event_type", "event_type_version", "payload", "created_at"}
+	domainEventViewColumnsWithDefault    = []string{"id", "entity_id", "entity_type", "aggregate_version", "event_type", "event_type_version", "payload", "occurred_at", "traceparent"}
 	domainEventViewPrimaryKeyColumns     = []string{}
 	domainEventViewGeneratedColumns      = []string{}
 )

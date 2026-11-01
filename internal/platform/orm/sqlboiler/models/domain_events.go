@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aarondl/null/v8"
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/aarondl/sqlboiler/v4/queries"
 	"github.com/aarondl/sqlboiler/v4/queries/qm"
@@ -35,8 +36,10 @@ type DomainEvent struct {
 	EventTypeVersion int `boil:"event_type_version" json:"event_type_version" toml:"event_type_version" yaml:"event_type_version"`
 	// イベントの本体（EventMeta を除く）
 	Payload types.JSON `boil:"payload" json:"payload" toml:"payload" yaml:"payload"`
-	// イベントの発生時刻
-	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	// イベントの発生時刻（行を作った時刻ではない）
+	OccurredAt time.Time `boil:"occurred_at" json:"occurred_at" toml:"occurred_at" yaml:"occurred_at"`
+	// 保存したときのトレースの文脈（W3C の traceparent）。トレースが無ければ NULL
+	Traceparent null.String `boil:"traceparent" json:"traceparent,omitempty" toml:"traceparent" yaml:"traceparent,omitempty"`
 
 	R *domainEventR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L domainEventL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -50,7 +53,8 @@ var DomainEventColumns = struct {
 	EventTypeID      string
 	EventTypeVersion string
 	Payload          string
-	CreatedAt        string
+	OccurredAt       string
+	Traceparent      string
 }{
 	ID:               "id",
 	EntityTypeID:     "entity_type_id",
@@ -59,7 +63,8 @@ var DomainEventColumns = struct {
 	EventTypeID:      "event_type_id",
 	EventTypeVersion: "event_type_version",
 	Payload:          "payload",
-	CreatedAt:        "created_at",
+	OccurredAt:       "occurred_at",
+	Traceparent:      "traceparent",
 }
 
 var DomainEventTableColumns = struct {
@@ -70,7 +75,8 @@ var DomainEventTableColumns = struct {
 	EventTypeID      string
 	EventTypeVersion string
 	Payload          string
-	CreatedAt        string
+	OccurredAt       string
+	Traceparent      string
 }{
 	ID:               "domain_events.id",
 	EntityTypeID:     "domain_events.entity_type_id",
@@ -79,7 +85,8 @@ var DomainEventTableColumns = struct {
 	EventTypeID:      "domain_events.event_type_id",
 	EventTypeVersion: "domain_events.event_type_version",
 	Payload:          "domain_events.payload",
-	CreatedAt:        "domain_events.created_at",
+	OccurredAt:       "domain_events.occurred_at",
+	Traceparent:      "domain_events.traceparent",
 }
 
 // Generated where
@@ -107,6 +114,62 @@ func (w whereHelperint) NIN(slice []int) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
+type whereHelpernull_String struct{ field string }
+
+func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+func (w whereHelpernull_String) LIKE(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" LIKE ?", x)
+}
+func (w whereHelpernull_String) NLIKE(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" NOT LIKE ?", x)
+}
+func (w whereHelpernull_String) ILIKE(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" ILIKE ?", x)
+}
+func (w whereHelpernull_String) NILIKE(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" NOT ILIKE ?", x)
+}
+func (w whereHelpernull_String) SIMILAR(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" SIMILAR TO ?", x)
+}
+func (w whereHelpernull_String) NSIMILAR(x null.String) qm.QueryMod {
+	return qm.Where(w.field+" NOT SIMILAR TO ?", x)
+}
+func (w whereHelpernull_String) IN(slice []string) qm.QueryMod {
+	values := make([]any, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelpernull_String) NIN(slice []string) qm.QueryMod {
+	values := make([]any, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
+func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+
 var DomainEventWhere = struct {
 	ID               whereHelperint64
 	EntityTypeID     whereHelperint16
@@ -115,7 +178,8 @@ var DomainEventWhere = struct {
 	EventTypeID      whereHelperint16
 	EventTypeVersion whereHelperint
 	Payload          whereHelpertypes_JSON
-	CreatedAt        whereHelpertime_Time
+	OccurredAt       whereHelpertime_Time
+	Traceparent      whereHelpernull_String
 }{
 	ID:               whereHelperint64{field: "\"domain_events\".\"id\""},
 	EntityTypeID:     whereHelperint16{field: "\"domain_events\".\"entity_type_id\""},
@@ -124,7 +188,8 @@ var DomainEventWhere = struct {
 	EventTypeID:      whereHelperint16{field: "\"domain_events\".\"event_type_id\""},
 	EventTypeVersion: whereHelperint{field: "\"domain_events\".\"event_type_version\""},
 	Payload:          whereHelpertypes_JSON{field: "\"domain_events\".\"payload\""},
-	CreatedAt:        whereHelpertime_Time{field: "\"domain_events\".\"created_at\""},
+	OccurredAt:       whereHelpertime_Time{field: "\"domain_events\".\"occurred_at\""},
+	Traceparent:      whereHelpernull_String{field: "\"domain_events\".\"traceparent\""},
 }
 
 // DomainEventRels is where relationship names are stored.
@@ -183,9 +248,9 @@ func (r *domainEventR) GetEventType() *DomainEventType {
 type domainEventL struct{}
 
 var (
-	domainEventAllColumns            = []string{"id", "entity_type_id", "entity_id", "aggregate_version", "event_type_id", "event_type_version", "payload", "created_at"}
-	domainEventColumnsWithoutDefault = []string{"entity_type_id", "entity_id", "aggregate_version", "event_type_id", "event_type_version", "payload", "created_at"}
-	domainEventColumnsWithDefault    = []string{"id"}
+	domainEventAllColumns            = []string{"id", "entity_type_id", "entity_id", "aggregate_version", "event_type_id", "event_type_version", "payload", "occurred_at", "traceparent"}
+	domainEventColumnsWithoutDefault = []string{"entity_type_id", "entity_id", "aggregate_version", "event_type_id", "event_type_version", "payload", "occurred_at"}
+	domainEventColumnsWithDefault    = []string{"id", "traceparent"}
 	domainEventPrimaryKeyColumns     = []string{"id"}
 	domainEventGeneratedColumns      = []string{}
 )
@@ -900,13 +965,6 @@ func (o *DomainEvent) Insert(ctx context.Context, exec boil.ContextExecutor, col
 	}
 
 	var err error
-	if !boil.TimestampsAreSkipped(ctx) {
-		currTime := time.Now().In(boil.GetLocation())
-
-		if o.CreatedAt.IsZero() {
-			o.CreatedAt = currTime
-		}
-	}
 
 	if err := o.doBeforeInsertHooks(ctx, exec); err != nil {
 		return err
@@ -1111,13 +1169,6 @@ func (o DomainEventSlice) UpdateAll(ctx context.Context, exec boil.ContextExecut
 func (o *DomainEvent) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns, opts ...UpsertOptionFunc) error {
 	if o == nil {
 		return errors.New("models: no domain_events provided for upsert")
-	}
-	if !boil.TimestampsAreSkipped(ctx) {
-		currTime := time.Now().In(boil.GetLocation())
-
-		if o.CreatedAt.IsZero() {
-			o.CreatedAt = currTime
-		}
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {

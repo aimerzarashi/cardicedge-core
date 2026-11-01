@@ -9,6 +9,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -71,12 +73,19 @@ func (h *Hub) runPolicy(ctx context.Context, key workKey, registered *registered
 			continue
 		}
 		start := time.Now()
-		if err := handlePolicyEvent(ctx, registered.policy, event); err != nil {
+		// 保存したときのトレースを引き継ぎ、ポリシーがコマンドで保存するイベントの traceparent と失敗のログに同じ trace_id を付ける。
+		// 投影は同じ集約の複数のイベントをまとめて処理し親を 1 つに決められないため、ログだけにしている。スパンは作らない。
+		// 無効な SpanContext は何も変えないので、トレースが無いイベントは今の ctx のまま
+		eventCtx := ctx
+		if event.SpanContext.IsValid() {
+			eventCtx = trace.ContextWithRemoteSpanContext(ctx, event.SpanContext)
+		}
+		if err := handlePolicyEvent(eventCtx, registered.policy, event); err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
 			h.logProcessed(ctx, key, registered, event, start, err)
-			return h.recordFailure(ctx, key, registered, event, err)
+			return h.recordFailure(eventCtx, key, registered, event, err)
 		}
 		h.logProcessed(ctx, key, registered, event, start, nil)
 		// 成功のたびに進める。後のイベントで失敗しても、済んだ分をやり直さない

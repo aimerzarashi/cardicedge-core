@@ -6,6 +6,10 @@
 
 `Save` は、イベントごとに INFO のログ `eventstore: event saved`（`event_id`・`entity_type`・`entity_id`・`aggregate_version`・`event_type`・`occurred_at`）を出す。出すのは呼ぶ側の `rdb.Transact` が確定したあとで（`rdb.AfterCommit`）、取り消された保存は残さない。`eventdriven` の処理のログ（`eventdriven: event processed`）と項目の名前をそろえてあり、`event_id` で保存から処理までをたどれる（追い方は eventdriven の README）。
 
+## トレース
+
+`Save` は、ctx に有効なトレースがあれば、W3C の traceparent を `domain_events.traceparent` に書く（無ければ NULL）。payload（ドメインの事実）には入れない。`EventLoader` は読み出しで解釈し、`LoadedEvent.SpanContext` に持たせる（NULL・読めない文字列は無効な SpanContext）。`eventdriven` の hub が処理のログの ctx に載せ、保存したときの `trace_id` が付く。
+
 ## 版と revision
 
 | 呼び方 | 何か | どこにあるか | 役割 |

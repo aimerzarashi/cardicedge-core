@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Record は貯めたログの 1 行。Attrs は項目の名前から値
@@ -56,8 +58,13 @@ func (h *handler) Enabled(context.Context, slog.Level) bool {
 	return true
 }
 
-func (h *handler) Handle(_ context.Context, r slog.Record) error {
+func (h *handler) Handle(ctx context.Context, r slog.Record) error {
 	row := Record{Level: r.Level, Message: r.Message, Attrs: map[string]any{}}
+	// 本番のハンドラー（telemetry）と同じく、ctx に有効なトレースがあるときだけ trace_id・span_id を足す
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		row.Attrs["trace_id"] = sc.TraceID().String()
+		row.Attrs["span_id"] = sc.SpanID().String()
+	}
 	for _, a := range h.attrs {
 		row.Attrs[a.Key] = a.Value.Any()
 	}

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// domain_events の列（entity_id・aggregate_version・created_at）に入れるため、payload には含めない（json:"-"）
+// domain_events の列（entity_id・aggregate_version・occurred_at）に入れるため、payload には含めない（json:"-"）
 type EventMeta[I ID] struct {
 	EntityID         I         `json:"-"`
 	AggregateVersion int64     `json:"-"`

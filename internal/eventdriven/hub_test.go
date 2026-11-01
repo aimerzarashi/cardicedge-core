@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -174,7 +175,13 @@ func (f hubFixture) store() domain.EventStore[operator.ID, operator.Event, opera
 // オペレーターを登録して commit する（知らせが Hub に届く）
 func (f hubFixture) register(t *testing.T) operator.ID {
 	t.Helper()
-	id, err := rdb.Transact(f.ctx, func(ctx context.Context) (operator.ID, error) {
+	return f.registerIn(t, f.ctx)
+}
+
+// ctx は f.ctx から作ったもの（トレースを載せた保存を試すため）
+func (f hubFixture) registerIn(t *testing.T, ctx context.Context) operator.ID {
+	t.Helper()
+	id, err := rdb.Transact(ctx, func(ctx context.Context) (operator.ID, error) {
 		id, publicID, err := identifier.New(f.registry, operator.NewID).Issue(ctx)
 		if err != nil {
 			return 0, err
@@ -264,6 +271,38 @@ func TestHub_LogsProcessedEventOfProjection(t *testing.T) {
 	saved := records.Find("eventstore: event saved")
 	require.NotEmpty(t, saved)
 	assert.Equal(t, saved[len(saved)-1].Attrs["event_id"], row.Attrs["event_id"])
+}
+
+// 処理のログには、保存したときのトレースの trace_id・span_id が付く（スパンは作らず、保存したときの文脈をそのまま載せる）
+func TestHub_LogsTraceOfSavedEvent(t *testing.T) {
+	records := logtest.Capture(t)
+	f := newHubFixture(t, testOptions(2))
+	f.start(t)
+	saved := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, SpanID: trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, saved))
+
+	f.recorder.next(t)
+	row := waitProcessedLogs(t, records, testProjectionName, id.Int64(), 1)[0]
+	assert.Equal(t, saved.TraceID().String(), row.Attrs["trace_id"])
+	assert.Equal(t, saved.SpanID().String(), row.Attrs["span_id"])
+}
+
+// トレースを持たずに保存されたイベントの処理のログは、trace_id を持たない
+func TestHub_LogsNoTraceForEventSavedWithoutTrace(t *testing.T) {
+	records := logtest.Capture(t)
+	f := newHubFixture(t, testOptions(2))
+	f.start(t)
+
+	id := f.register(t)
+
+	f.recorder.next(t)
+	row := waitProcessedLogs(t, records, testProjectionName, id.Int64(), 1)[0]
+	assert.NotContains(t, row.Attrs, "trace_id")
+	assert.NotContains(t, row.Attrs, "span_id")
 }
 
 // 作り直しで全イベントを当てても、処理のログは前に反映した版より後のイベントだけに出す
