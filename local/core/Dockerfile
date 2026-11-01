@@ -1,4 +1,4 @@
-FROM golang:1.27.1-bookworm
+FROM golang:1.27.3-bookworm
 
 RUN go install github.com/air-verse/air@v1.67.4
 
