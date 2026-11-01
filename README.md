@@ -25,6 +25,7 @@ make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
 make down    # 停止して DB のデータも破棄
+make clean   # down に加えて、トレースとログ（otel-lgtm のデータ）も破棄
 ```
 
 | URL | 内容 |
@@ -42,7 +43,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## トレースとログの受け手（grafana/otel-lgtm）
 
-`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。消すときは `make clean`。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
 
 | 用途 | 場所（既定のポート） | 変える環境変数 |
 |---|---|---|

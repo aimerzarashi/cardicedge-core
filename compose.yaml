@@ -112,7 +112,8 @@ services:
   # トレース（Tempo）・ログ（Loki）の受け手と Grafana（開発中のトレースの調査用。core#74）。開発の環境の core は 1 つを共有するので、受け手もここに 1 つ置く。
   # 共有ネットワーク（diecardomain-game・diecardomain-studio）には入れない: game から studio に内部から届く経路を作らない決まり（core#45・studio#30）を崩さないため。
   # 代わりに OTLP の口をホストに公開し、送る側のコンテナは host.docker.internal（extra_hosts の host-gateway）で送る。
-  # 開発の環境も、テスト用の環境（studio・game の compose.test.yaml）も同じ形で届く。データは名前の無いボリュームで、core-db と同じく make down で消える。
+  # 開発の環境も、テスト用の環境（studio・game の compose.test.yaml）も同じ形で届く。データ（/data）は名前つきのボリュームに置き、PC の再起動・
+  # コンテナの作り直し・make down で消さない（前の日の調べたいトレースとログを残すため。core#82）。消すときは make clean
   # OTLP の口を 127.0.0.1 にだけ公開する案は採らなかった: コンテナから見たホストは docker のブリッジのゲートウェイ（172.17.0.1）で、
   # ループバックだけで待つ口には届かないため（実際に接続が拒否された）。Grafana の画面はコンテナから使わないので 127.0.0.1 にだけ公開する
   otel-lgtm:
@@ -129,6 +130,8 @@ services:
       - ${OTEL_GRPC_PORT:-4317}:4317
       - ${OTEL_HTTP_PORT:-4318}:4318
     # イメージの healthcheck は 30 秒間隔で、make up (--wait) が最大 30 秒待つため、起動中だけ間隔を縮める
+    volumes:
+      - otel-lgtm-data:/data
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
       start_period: 60s
@@ -140,6 +143,9 @@ services:
 volumes:
   go-mod:
   go-build:
+  # make clean で名前を指して消すため、決まった名前にする（既定ではプロジェクト名が前に付く）
+  otel-lgtm-data:
+    name: diecardomain-otel-lgtm-data
 
 # game・studio と共有するネットワーク。make up で無ければ作成する。game 用と studio 用に分けるのは、game が乗っ取られても
 # studio に内部から届く経路そのものを無くすため（多重の防御。core だけが両方に参加する。core#45）
