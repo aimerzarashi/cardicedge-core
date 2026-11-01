@@ -1,0 +1,30 @@
+# core-db の PostgreSQL（pg_stat_statements の集計を読む。core#83）。otel-lgtm は core-db と同じ compose のネットワークにいるので core-db:5432 で届く。
+# 開発の環境だけの接続情報（compose.yaml の core-db と同じ）
+apiVersion: 1
+
+datasources:
+  - name: core-db core_studio
+    type: grafana-postgresql-datasource
+    uid: core-db-studio
+    url: core-db:5432
+    user: core_user
+    editable: false
+    jsonData:
+      database: core_studio
+      sslmode: disable
+      postgresVersion: 1800
+    secureJsonData:
+      password: core_password
+
+  - name: core-db core_game
+    type: grafana-postgresql-datasource
+    uid: core-db-game
+    url: core-db:5432
+    user: core_user
+    editable: false
+    jsonData:
+      database: core_game
+      sslmode: disable
+      postgresVersion: 1800
+    secureJsonData:
+      password: core_password

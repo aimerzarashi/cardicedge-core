@@ -14,10 +14,10 @@ down:
 	docker compose rm -sfv core-db
 	docker compose down
 
-# down に加えて、トレースとログ（otel-lgtm の名前つきのボリューム）も消す。down では調べるために残している（core#82）
+# down に加えて、トレースとログ（otel-lgtm の名前つきのボリューム）と core-db のログのボリュームも消す。down では調べるために残している（core#82・core#83）
 .PHONY: clean
 clean: down
-	docker volume rm -f diecardomain-otel-lgtm-data
+	docker volume rm -f diecardomain-otel-lgtm-data diecardomain-core-db-log
 
 # 未適用のマイグレーションだけを Atlas で適用する（DB を作り直さずに、追加した migrations を反映する）。
 # 種別の行はマイグレーションで入れず、コードの一覧から入れる（core は起動時にも入れるが、テストが core を起動せずに使うため。core#33）

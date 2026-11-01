@@ -25,7 +25,7 @@ make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
 make down    # 停止して DB のデータも破棄
-make clean   # down に加えて、トレースとログ（otel-lgtm のデータ）も破棄
+make clean   # down に加えて、トレースとログ（otel-lgtm のデータ）と core-db のログも破棄
 ```
 
 | URL | 内容 |
@@ -53,6 +53,25 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+
+## 重い SQL・遅い SQL と実行計画（core#83）
+
+開発の core-db は PostgreSQL 自身に SQL の集計とログを取らせ、Grafana（上の otel-lgtm）で見る。アプリのコードは関係しない。開発の環境だけで、compose.test.yaml・リリース確認の環境には入れない。
+
+| 部品 | 役目 |
+|---|---|
+| core-db（compose.yaml の `command`・local/core-db/extensions.sql） | pg_stat_statements（SQL の形ごとの回数・時間の集計。core_studio・core_game それぞれ）、100ms 以上の SQL のログ（log_min_duration_statement）、その実行計画（auto_explain。JSON）を有効にする。ログは JSON の行で名前つきのボリューム（`diecardomain-core-db-log`）に書く |
+| otel-lgtm の中の Collector（足す設定は local/otel-lgtm/otelcol-core-db.yaml。compose.yaml の OTELCOL_EXTRA_ARGS で渡す） | ボリュームを読み取り専用で受け、JSON の行を読んで otel-lgtm の Loki に送る（`service_name="core-db"`。時間は `duration_ms`、種類は `kind`（`statement`・`plan` 等）、SQL は `sql`、実行計画は `plan`）。読んだ位置は otel-lgtm の /data に残し、作り直しても重ねて送らない |
+| otel-lgtm（local/grafana） | provisioning のディレクトリにファイルで足したデータソース（`core-db core_studio`・`core-db core_game`）とダッシュボード「core-db の SQL」 |
+
+見方: http://localhost:3002 のダッシュボード「core-db の SQL」（上の変数 DB で core_studio・core_game を選ぶ）。
+
+- 重い SQL: pg_stat_statements の表（合計時間・呼ばれた回数・平均・最大・行数。列の見出しで並べ替える）。起動してからの累計で、リセットは `SELECT pg_stat_statements_reset()`
+- 遅い SQL: Loki の `{service_name="core-db"} | duration_ms != "" | kind != "plan"`（時刻・時間・SQL）
+- 実行計画: Loki の `{service_name="core-db"} | kind = "plan"`（auto_explain。計画の JSON に `Query Text` が入る）
+- 閾値は compose.yaml の core-db の `log_min_duration_statement`・`auto_explain.log_min_duration`（100ms）。調べるときに下げる（反映は core-db の作り直し）
+- 起動の設定は、次の `make up` で core-db のコンテナが作り直されて効く（docker compose は名前の無いボリュームを引き継ぐので、データは消えない）。拡張を作る初期化の SQL（local/core-db/extensions.sql）は新しい DB でしか流れないので、すでにある DB には `docker exec core-core-db-1 psql -U core_user -d core_studio -f /docker-entrypoint-initdb.d/extensions.sql` で手で流す（`make down` で DB を作り直したときは自動で流れる。そのときは `make seed-master`・`make publish-master` で見本のマスタを入れ直す）。ログのボリュームは `make down` では残り、`make clean` で消える
+- PostgreSQL のログは標準エラーに出なくなるので、`docker logs core-core-db-1` には出ない（Grafana か、ボリュームのファイルで見る）
 
 ## core のトレースとログ（OpenTelemetry。core#75）
 
