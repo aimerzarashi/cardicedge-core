@@ -1,6 +1,6 @@
 # 本番用イメージ。air を使わず、ビルド済みのバイナリだけを distroless で動かす。
 # game / studio のテスト用環境（compose.test.yaml）でも使う
-FROM golang:1.27.1-bookworm AS build
+FROM golang:1.27.3-bookworm AS build
 
 WORKDIR /src
 COPY go.mod go.sum ./
