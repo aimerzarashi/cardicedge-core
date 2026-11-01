@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
@@ -33,6 +34,8 @@ type attempt struct {
 	checkpoint int64
 	at         time.Time
 	failed     bool
+	// Handle の ctx に載っていたトレース（無ければ無効な SpanContext）
+	span trace.SpanContext
 }
 
 // 受け取ったイベントを覚えるだけの、テストの中だけのポリシー（operator を購読する）。
@@ -73,7 +76,7 @@ func (p *fakePolicy) spec() eventdriven.PolicySpec {
 				return err
 			}
 			failed := p.failEntity.Load() == entityID && event.AggregateVersion >= p.failFrom.Load() && p.failRemaining.Add(-1) >= 0
-			p.attempts <- attempt{entityID: entityID, version: event.AggregateVersion, checkpoint: checkpoint, at: time.Now(), failed: failed}
+			p.attempts <- attempt{entityID: entityID, version: event.AggregateVersion, checkpoint: checkpoint, at: time.Now(), failed: failed, span: trace.SpanContextFromContext(ctx)}
 			if failed {
 				return errors.New("eventdriven test failure")
 			}
@@ -209,8 +212,59 @@ func TestPolicy_LogsProcessedEventWithResult(t *testing.T) {
 	assert.GreaterOrEqual(t, rows[1].Attrs["lag_ms"], int64(0))
 }
 
+func savedSpan() trace.SpanContext {
+	return trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, SpanID: trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+}
+
+// ポリシーのコマンドが保存するイベントにも同じ trace_id が入るよう、保存したときのトレースを ctx に載せて渡す
+func TestPolicy_CarriesTraceOfSavedEventToHandler(t *testing.T) {
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, policyOptions(time.Minute, 10), policy, nil)
+	f.sync(t)
+	saved := savedSpan()
+	f.registerIn(t, trace.ContextWithSpanContext(f.ctx, saved))
+
+	f.start(t)
+
+	assert.Equal(t, saved.TraceID(), policy.next(t).span.TraceID())
+}
+
+func TestPolicy_CarriesNoTraceForEventSavedWithoutTrace(t *testing.T) {
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, policyOptions(time.Minute, 10), policy, nil)
+	f.sync(t)
+	f.register(t)
+
+	f.start(t)
+
+	assert.False(t, policy.next(t).span.IsValid())
+}
+
+// 失敗のログにも保存したときの trace_id が付く
+func TestPolicy_LogsFailureWithTraceOfSavedEvent(t *testing.T) {
+	records := logtest.Capture(t)
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, policyOptions(time.Minute, 10), policy, nil)
+	f.sync(t)
+	saved := savedSpan()
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, saved))
+	policy.failAt(id, 1, failForever)
+
+	f.start(t)
+
+	require.True(t, policy.next(t).failed)
+	f.waitFailureCount(t, id, 1)
+	failed := records.Find("eventdriven: policy failed")
+	require.NotEmpty(t, failed)
+	assert.Equal(t, saved.TraceID().String(), failed[0].Attrs["trace_id"])
+}
+
 func withoutTime(a attempt) attempt {
 	a.at = time.Time{}
+	a.span = trace.SpanContext{}
 	return a
 }
 

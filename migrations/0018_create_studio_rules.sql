@@ -1,4 +1,4 @@
--- studio でマスタを作るときの決まりの read model（1 行だけ）。game_rules（0015）と同じ形。値の項目は metadata の rules に丸ごと持ち、
+-- studio でマスタを作るときの決まりの read model（1 行だけ）。game_rules（0014）と同じ形。値の項目は metadata の rules に丸ごと持ち、
 -- 項目を足しても表は変えない。game には写さない（game では使わない）が、マイグレーションは両方の DB に同じものを流す決まりなので、
 -- core_game にも空の表ができる（core#52）
 CREATE TABLE studio_rules (

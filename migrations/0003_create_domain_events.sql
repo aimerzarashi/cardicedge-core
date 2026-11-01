@@ -9,7 +9,10 @@ CREATE TABLE domain_events (
   event_type_version INT NOT NULL,
   payload JSONB NOT NULL,
   -- DB の DEFAULT ではなく、イベントの発生時刻（EventMeta.OccurredAt）を入れる
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  occurred_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  -- payload（ドメインの事実）には入れず、保存のときの操作のトレースだけをイベントストアが書く。
+  -- 投影・ポリシーの処理のログに、保存したときの trace_id を付けるため。トレースが無い保存は NULL
+  traceparent TEXT,
   -- 楽観的排他（同じ集約に同じ版のイベントを 2 つ保存させない）
   UNIQUE (entity_type_id, entity_id, aggregate_version)
 );
@@ -19,6 +22,7 @@ COMMENT ON COLUMN domain_events.entity_id IS '集約の内部の ID（domain_ent
 COMMENT ON COLUMN domain_events.aggregate_version IS '同じ集約の中で 1 から順に増える版';
 COMMENT ON COLUMN domain_events.event_type_version IS 'イベントのスキーマの版';
 COMMENT ON COLUMN domain_events.payload IS 'イベントの本体（EventMeta を除く）';
-COMMENT ON COLUMN domain_events.created_at IS 'イベントの発生時刻';
+COMMENT ON COLUMN domain_events.occurred_at IS 'イベントの発生時刻（行を作った時刻ではない）';
+COMMENT ON COLUMN domain_events.traceparent IS '保存したときのトレースの文脈（W3C の traceparent）。トレースが無ければ NULL';
 -- 集約のイベントの読み込み（entity_type_id, entity_id, aggregate_version 順）は UNIQUE 制約のインデックスで足りる。
--- created_at のインデックスは作らない（順序は aggregate_version で足りる。設計メモ 4 節）
+-- occurred_at のインデックスは作らない（順序は aggregate_version で足りる。設計メモ 4 節）

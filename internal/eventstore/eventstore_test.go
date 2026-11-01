@@ -35,7 +35,7 @@ func TestSaveAndLoad_RestoresStateFromEvents(t *testing.T) {
 	require.Equal(t, operator.Operator{
 		ID: id, Version: 1, PublicID: publicID,
 		Email: operatortest.Email(t, "operator@example.com"),
-		// created_at には DB の現在時刻ではなく発生時刻が残る
+		// occurred_at には DB の現在時刻ではなく発生時刻が残る
 		RegisteredAt: occurredAt,
 	}, normalize(state))
 }
@@ -184,7 +184,7 @@ func TestLoad_IgnoresEventsOfOtherEntityTypes(t *testing.T) {
 	_, err = exec.ExecContext(ctx, `INSERT INTO domain_event_types (id, entity_type_id, name) VALUES (1, 1, 'RegisteredEvent')`)
 	require.NoError(t, err)
 	_, err = exec.ExecContext(ctx, `
-		INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
+		INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, occurred_at)
 		VALUES (1, $1, 2, 1, 1, '{}', now())`, id.Int64())
 	require.NoError(t, err)
 

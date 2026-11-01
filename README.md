@@ -67,7 +67,7 @@ core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパ�
 - 引き継ぎは W3C の TraceContext（`traceparent`）だけ。受けた `traceparent` の子としてスパンを作る。`/health` はスパンにしない
 - スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）
 - ログ: 標準出力の JSON に、スパンの中で出したログ（`slog.InfoContext(ctx, ...)` 等）へ `trace_id`・`span_id` を足し、同じログを OpenTelemetry のログとして Loki にも送る。`ctx` を渡さない `slog.Info` にはトレースの情報が付かない
-- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れなのでリクエストの `trace_id` を持たない（`event_id` で保存のログとつなぐ）
+- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れだが、保存したときのトレースを `domain_events.traceparent`（W3C の traceparent。保存のときに ctx から書く。トレースが無ければ NULL。payload には入れない）に残しており、その `trace_id`（と保存のスパンの `span_id`）が付く。同じ `trace_id` で Loki から保存のログと処理のログが並ぶ。処理のスパンは作らない（hub は同じ集約の複数のイベントをまとめて処理し、イベントごとにトレースが違うため、親を 1 つに決められない）。投影を作り直すと、昔のイベントの `trace_id` の処理のログが出る。トレースが無いイベント（初期データ等）の処理のログは `trace_id` を持たず、`event_id` で保存のログとつなぐ
 
 ## 他プロジェクトとの統合
 

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -314,6 +316,12 @@ func (h *Hub) logProcessed(ctx context.Context, key workKey, registered *registe
 		result = "failure"
 	}
 	now := time.Now()
+	// 保存したときのトレースを載せ、trace_id（と保存のスパンの span_id）をログに付ける。スパンは作らない
+	// （hub は同じ集約の複数のイベントをまとめて処理し、イベントごとにトレースが違うため、親を 1 つに決められない）。
+	// 無効な SpanContext は何も変えないので、トレースが無いイベントは今のまま
+	if event.SpanContext.IsValid() {
+		ctx = trace.ContextWithRemoteSpanContext(ctx, event.SpanContext)
+	}
 	slog.InfoContext(ctx, "eventdriven: event processed",
 		"subscriber_kind", registered.kind, "subscriber_name", registered.name,
 		"event_id", event.EventID, "entity_type", h.loaders[key.entityTypeID].EntityType().String(), "entity_id", key.entityID,

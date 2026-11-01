@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 )
@@ -15,6 +17,9 @@ type LoadedEvent struct {
 	EventID    int64
 	EventType  domain.EventName
 	OccurredAt time.Time
+	// 保存したときのトレース（domain_events.traceparent）。無ければ無効な SpanContext。
+	// 文字列ではなく SpanContext にするのは、読み出しの 1 か所で解釈し、使う側（hub）が OpenTelemetry の形式を知らずに済むようにするため
+	SpanContext trace.SpanContext
 }
 
 // 投影（internal/eventdriven）は、集約の型を知らずに、知らせの entity_id から集約のイベントを読み直す。
@@ -57,6 +62,7 @@ func (l *eventLoader[I, E]) LoadEvents(ctx context.Context, entityID int64) ([]L
 		loaded = append(loaded, LoadedEvent{
 			Event: decoded.event, AggregateVersion: decoded.event.GetMeta().AggregateVersion,
 			EventID: decoded.row.ID, EventType: decoded.event.EventType(), OccurredAt: decoded.event.GetMeta().OccurredAt,
+			SpanContext: spanContextOf(decoded.row.Traceparent.String),
 		})
 	}
 	return loaded, nil

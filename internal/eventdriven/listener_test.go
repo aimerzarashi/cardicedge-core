@@ -75,7 +75,7 @@ func TestListener_DeliversCommittedDomainEvent(t *testing.T) {
 	var entityID, eventID int64
 	require.NoError(t, db.QueryRowContext(t.Context(), `INSERT INTO domain_entities (entity_type_id) VALUES (1100) RETURNING id`).Scan(&entityID))
 	require.NoError(t, db.QueryRowContext(t.Context(), `
-		INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
+		INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, occurred_at)
 		VALUES (1100, $1, 1, 1101, 1, '{}', now()) RETURNING id`, entityID).Scan(&eventID))
 
 	ref := handler.nextEvent(t)
