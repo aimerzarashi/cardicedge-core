@@ -174,15 +174,16 @@ services:
       - 127.0.0.1:${OTEL_GRAFANA_PORT:-3002}:3000
       - ${OTEL_GRPC_PORT:-4317}:4317
       - ${OTEL_HTTP_PORT:-4318}:4318
-    # core-db のデータソースとダッシュボード（重い SQL・遅い SQL・実行計画。core#83）を、Grafana の provisioning のディレクトリにファイルで足す。
+    # core-db のデータソースとダッシュボード（core#83 の重い SQL・遅い SQL・実行計画、core#84 の処理の遅れ・誤り・GraphQL の時間）を、Grafana の
+    # provisioning のディレクトリにファイルで足す。ダッシュボードは local/grafana/dashboards に JSON を置けば読み込まれる。
     # core-db のログは読み取り専用で受け、上の OTELCOL_EXTRA_ARGS の設定で読む
     volumes:
       - otel-lgtm-data:/data
       - ./local/otel-lgtm/otelcol-core-db.yaml:/otel-lgtm/extra/otelcol-core-db.yaml:ro
       - core-db-log:/var/log/postgresql:ro
       - ./local/grafana/provisioning/datasources/core-db.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/core-db.yaml:ro
-      - ./local/grafana/provisioning/dashboards/core-db.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/core-db.yaml:ro
-      - ./local/grafana/dashboards:/otel-lgtm/core-db-dashboards:ro
+      - ./local/grafana/provisioning/dashboards/diecardomain.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/diecardomain.yaml:ro
+      - ./local/grafana/dashboards:/otel-lgtm/diecardomain-dashboards:ro
     # イメージの healthcheck は 30 秒間隔で、make up (--wait) が最大 30 秒待つため、起動中だけ間隔を縮める
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
