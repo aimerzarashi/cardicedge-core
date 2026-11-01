@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -35,6 +36,8 @@ type recorder struct {
 	panicAt   int
 	panicOnce bool
 	panicked  atomic.Bool
+	// nil でなければ、Upsert がこのエラーを返す
+	failWith error
 }
 
 func (r *recorder) spec() eventdriven.ProjectionSpec[countingReadModel] {
@@ -44,6 +47,9 @@ func (r *recorder) spec() eventdriven.ProjectionSpec[countingReadModel] {
 		Upsert: func(_ context.Context, state countingReadModel) error {
 			if r.panicAt > 0 && state.Applied == r.panicAt && !(r.panicOnce && r.panicked.Swap(true)) {
 				panic("eventdriven test panic")
+			}
+			if r.failWith != nil {
+				return r.failWith
 			}
 			r.upserted <- state
 			return nil
@@ -200,7 +206,12 @@ func (f hubFixture) registerIn(t *testing.T, ctx context.Context) operator.ID {
 
 func (f hubFixture) link(t *testing.T, id operator.ID) {
 	t.Helper()
-	_, err := rdb.Transact(f.ctx, func(ctx context.Context) (struct{}, error) {
+	f.linkIn(t, f.ctx, id)
+}
+
+func (f hubFixture) linkIn(t *testing.T, ctx context.Context, id operator.ID) {
+	t.Helper()
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
 		state, err := f.store().Load(ctx, id)
 		if err != nil {
 			return struct{}{}, err
@@ -273,7 +284,7 @@ func TestHub_LogsProcessedEventOfProjection(t *testing.T) {
 	assert.Equal(t, saved[len(saved)-1].Attrs["event_id"], row.Attrs["event_id"])
 }
 
-// 処理のログには、保存したときのトレースの trace_id・span_id が付く（スパンは作らず、保存したときの文脈をそのまま載せる）
+// 処理のログには、保存したときのトレースの trace_id・span_id が付く（投影のスパンのトレースではなく、保存したときの文脈をそのまま載せる）
 func TestHub_LogsTraceOfSavedEvent(t *testing.T) {
 	records := logtest.Capture(t)
 	f := newHubFixture(t, testOptions(2))
@@ -545,4 +556,105 @@ func TestHub_ReprojectsAllAggregatesByRebuildProcedure(t *testing.T) {
 	}
 	assert.Equal(t, countingReadModel{EntityID: first.Int64(), Applied: 1}, rebuilt[first.Int64()])
 	assert.Equal(t, countingReadModel{EntityID: second.Int64(), Applied: 2}, rebuilt[second.Int64()])
+}
+
+func spanContextOf(traceByte byte) trace.SpanContext {
+	return trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: trace.TraceID{traceByte, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, SpanID: trace.SpanID{traceByte, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+}
+
+// 投影のスパンは、保存したときのトレースとは別の新しいトレースになり、そのトレースへリンクする
+func TestHub_ProjectionSpanIsNewTraceLinkedToSavedTrace(t *testing.T) {
+	options, spans := withSpanRecorder(testOptions(2))
+	f := newHubFixture(t, options)
+	f.start(t)
+	saved := savedSpan()
+
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, saved))
+
+	span := waitSpans(t, spans, "projection "+testProjectionName, 1)[0]
+	assert.False(t, span.Parent().IsValid())
+	assert.NotEqual(t, saved.TraceID(), span.SpanContext().TraceID())
+	assert.Equal(t, trace.SpanKindConsumer, span.SpanKind())
+	require.Len(t, span.Links(), 1)
+	assertSameSpan(t, saved, span.Links()[0].SpanContext)
+	attrs := spanAttributes(span)
+	assert.Equal(t, "projection", attrs["subscriber_kind"])
+	assert.Equal(t, testProjectionName, attrs["subscriber_name"])
+	assert.Equal(t, operator.Types().EntityType.String(), attrs["entity_type"])
+	assert.Equal(t, id.Int64(), attrs["entity_id"])
+	assert.Equal(t, int64(1), attrs["aggregate_version"])
+	assert.Len(t, attrs["event_ids"], 1)
+}
+
+// 1 回の処理で 2 つのイベントを反映すると、違うトレースで保存した両方へリンクする
+func TestHub_ProjectionSpanLinksEverySavedTraceOfNewEvents(t *testing.T) {
+	options, spans := withSpanRecorder(testOptions(1))
+	f := newHubFixture(t, options)
+	first, second := spanContextOf(1), spanContextOf(2)
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, first))
+	f.linkIn(t, trace.ContextWithSpanContext(f.ctx, second), id)
+
+	f.start(t)
+
+	span := waitSpans(t, spans, "projection "+testProjectionName, 1)[0]
+	require.Len(t, span.Links(), 2)
+	assertSameSpan(t, first, span.Links()[0].SpanContext)
+	assertSameSpan(t, second, span.Links()[1].SpanContext)
+	attrs := spanAttributes(span)
+	assert.Equal(t, int64(2), attrs["aggregate_version"])
+	assert.Len(t, attrs["event_ids"], 2)
+}
+
+// 作り直しのスパンのリンクは、新しく反映したイベントだけ（前に反映したイベントのトレースは含めない）
+func TestHub_ProjectionSpanLinksOnlyNewEventsOfReprojection(t *testing.T) {
+	options, spans := withSpanRecorder(testOptions(1))
+	f := newHubFixture(t, options)
+	f.start(t)
+	first, second := spanContextOf(1), spanContextOf(2)
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, first))
+	waitSpans(t, spans, "projection "+testProjectionName, 1)
+
+	f.linkIn(t, trace.ContextWithSpanContext(f.ctx, second), id)
+
+	reprojected := waitSpans(t, spans, "projection "+testProjectionName, 2)[1]
+	require.Len(t, reprojected.Links(), 1)
+	assertSameSpan(t, second, reprojected.Links()[0].SpanContext)
+	assert.Equal(t, int64(2), spanAttributes(reprojected)["aggregate_version"])
+}
+
+// 元のトレースが無いイベントの処理は、スパンにしない
+func TestHub_ProjectionCreatesNoSpanForEventSavedWithoutTrace(t *testing.T) {
+	records := logtest.Capture(t)
+	options, spans := withSpanRecorder(testOptions(2))
+	f := newHubFixture(t, options)
+	f.start(t)
+
+	id := f.register(t)
+
+	f.recorder.next(t)
+	waitProcessedLogs(t, records, testProjectionName, id.Int64(), 1)
+	assert.Empty(t, spans.Ended())
+}
+
+// 投影の失敗はスパンに誤りとして残る
+func TestHub_ProjectionSpanRecordsFailure(t *testing.T) {
+	options, spans := withSpanRecorder(testOptions(1))
+	f := newHubFixture(t, options)
+	f.recorder.failWith = errors.New("eventdriven test failure")
+	f.start(t)
+
+	f.registerIn(t, trace.ContextWithSpanContext(f.ctx, savedSpan()))
+
+	// 失敗は作り直しが繰り返されるため、何個目かによらず誤りの状態になる
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		ended := spans.Ended()
+		require.NotEmpty(c, ended)
+		assert.Equal(c, codes.Error, ended[0].Status().Code)
+	}, receiveTimeout, 10*time.Millisecond)
+	span := spans.Ended()[0]
+	assert.Equal(t, codes.Error, span.Status().Code)
+	assert.NotEmpty(t, span.Events())
 }
