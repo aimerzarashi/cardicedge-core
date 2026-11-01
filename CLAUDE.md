@@ -44,6 +44,7 @@
 | migrations | DB マイグレーション（`NNNN_name.sql` + `atlas.sum`）。Atlas で適用する |
 | local/migrate | マイグレーション用イメージ（Atlas Community + migrations。`atlas.hcl` で DATABASE_URL を読む） |
 | scripts/check-gen-api.sh | gqlgen の生成し忘れの検査（複製した木で `gqlgen generate` をやり直し、差分が出ないこと）。生成し忘れると、埋め込まれて動くスキーマ（`app schema` の出力を含む）と生成した実行のコードがずれるため |
+| .graphqlrc.yaml | VSCode の GraphQL の拡張の設定（core のフォルダーだけを開いたとき用。studio 用・game 用のスキーマを projects で分ける。同じ名前の型があり、1 つにまとめると重なるため。core#81） |
 | scripts/check-migrations.sh | Atlas が検出しない migrations の違反（番号の重複、適用済みファイルの変更、適用済みより小さい番号の追加、指示行の後の空行）の検査 |
 | tools/linter | カスタムリンター（検査の内容は README。対象の設定は main.go） |
 | tools/createdb | DB が無ければ作るコマンド（make test・CI が core_test とテンプレート core_template を作るのに使う） |
