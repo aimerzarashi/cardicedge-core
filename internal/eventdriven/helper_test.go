@@ -7,6 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -113,4 +116,42 @@ func waitProcessedLogs(t *testing.T, records *logtest.Records, subscriberName st
 		assert.Len(c, matched, want)
 	}, receiveTimeout, 10*time.Millisecond)
 	return matched
+}
+
+// 処理のスパンを記録するプロバイダーを、options に載せて返す
+func withSpanRecorder(options eventdriven.Options) (eventdriven.Options, *tracetest.SpanRecorder) {
+	recorder := tracetest.NewSpanRecorder()
+	options.TracerProvider = sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	return options, recorder
+}
+
+// 指した名前のスパンが want 個終わるのを待って返す
+func waitSpans(t *testing.T, recorder *tracetest.SpanRecorder, name string, want int) []sdktrace.ReadOnlySpan {
+	t.Helper()
+	var matched []sdktrace.ReadOnlySpan
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		matched = nil
+		for _, span := range recorder.Ended() {
+			if span.Name() == name {
+				matched = append(matched, span)
+			}
+		}
+		assert.Len(c, matched, want)
+	}, receiveTimeout, 10*time.Millisecond)
+	return matched
+}
+
+func spanAttributes(span sdktrace.ReadOnlySpan) map[string]any {
+	found := map[string]any{}
+	for _, kv := range span.Attributes() {
+		found[string(kv.Key)] = kv.Value.AsInterface()
+	}
+	return found
+}
+
+// 保存した traceparent から読み戻した SpanContext は remote が true になるため、trace id と span id で比べる
+func assertSameSpan(t *testing.T, want, got trace.SpanContext) {
+	t.Helper()
+	assert.Equal(t, want.TraceID(), got.TraceID())
+	assert.Equal(t, want.SpanID(), got.SpanID())
 }

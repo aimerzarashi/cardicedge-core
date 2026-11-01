@@ -9,6 +9,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -73,20 +75,24 @@ func (h *Hub) runPolicy(ctx context.Context, key workKey, registered *registered
 			continue
 		}
 		start := time.Now()
-		// 保存したときのトレースを引き継ぎ、ポリシーがコマンドで保存するイベントの traceparent と失敗のログに同じ trace_id を付ける。
-		// 投影は同じ集約の複数のイベントをまとめて処理し親を 1 つに決められないため、ログだけにしている。スパンは作らない。
-		// 無効な SpanContext は何も変えないので、トレースが無いイベントは今の ctx のまま
-		eventCtx := ctx
-		if event.SpanContext.IsValid() {
-			eventCtx = trace.ContextWithRemoteSpanContext(ctx, event.SpanContext)
-		}
+		// 保存したときのトレースの子にし、ポリシーがコマンドで保存するイベントの traceparent と失敗のログも、このスパンを指す。
+		// 投影と違いイベントを 1 つずつ処理するので、親を 1 つに決められる。トレースが無いイベントはスパンにしない
+		eventCtx, span := h.startPolicySpan(ctx, key, registered, event)
 		if err := handlePolicyEvent(eventCtx, registered.policy, event); err != nil {
 			if ctx.Err() != nil {
+				endSpan(span)
 				return nil
 			}
+			if span != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
 			h.logProcessed(ctx, key, registered, event, start, err)
-			return h.recordFailure(eventCtx, key, registered, event, err)
+			err = h.recordFailure(eventCtx, key, registered, event, err)
+			endSpan(span)
+			return err
 		}
+		endSpan(span)
 		h.logProcessed(ctx, key, registered, event, start, nil)
 		// 成功のたびに進める。後のイベントで失敗しても、済んだ分をやり直さない
 		if _, err := advanceCheckpoint(ctx, key, event.AggregateVersion); err != nil {
@@ -202,4 +208,22 @@ func readCheckpoint(ctx context.Context, key workKey) (int64, error) {
 		return 0, nil
 	}
 	return version, err
+}
+
+func (h *Hub) startPolicySpan(ctx context.Context, key workKey, registered *registeredSubscriber, event eventstore.LoadedEvent) (context.Context, trace.Span) {
+	if !event.SpanContext.IsValid() {
+		return ctx, nil
+	}
+	attrs := append(h.subscriberAttributes(key, registered),
+		attribute.Int64("event_id", event.EventID),
+		attribute.Int64("aggregate_version", event.AggregateVersion),
+		attribute.String("event_type", event.EventType.String()))
+	return h.tracer.Start(trace.ContextWithRemoteSpanContext(ctx, event.SpanContext), "policy "+registered.name,
+		trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
+}
+
+func endSpan(span trace.Span) {
+	if span != nil {
+		span.End()
+	}
 }

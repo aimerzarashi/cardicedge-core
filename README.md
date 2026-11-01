@@ -87,7 +87,7 @@ http://localhost:3002 のダッシュボード「core の処理（遅れ・誤�
 
 ## core のトレースとログ（OpenTelemetry。core#75）
 
-core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
+core は、HTTP の呼び出し・GraphQL の操作とリゾルバー・投影とポリシーの処理のスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
 
 | 環境変数 | 意味 |
 |---|---|
@@ -97,9 +97,13 @@ core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパ�
 
 - これらは platform/config の「環境変数はすべて必須」の例外（任意。config に読み込まず SDK が読む）。受け手が止まっていても core は普通に動き、届かない内部の誤りは WARN で 1 分に 1 回までしか出さない（ERROR にしない。結合テストは ERROR のログで全体を失敗にするため）
 - 引き継ぎは W3C の TraceContext（`traceparent`）だけ。受けた `traceparent` の子としてスパンを作る。`/health` はスパンにしない
-- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）
+- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）、投影とポリシーの処理（`internal/eventdriven`。下の「追い方」。core#85）
 - ログ: 標準出力の JSON に、スパンの中で出したログ（`slog.InfoContext(ctx, ...)` 等）へ `trace_id`・`span_id` を足し、同じログを OpenTelemetry のログとして Loki にも送る。`ctx` を渡さない `slog.Info` にはトレースの情報が付かない
-- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れだが、保存したときのトレースを `domain_events.traceparent`（W3C の traceparent。保存のときに ctx から書く。トレースが無ければ NULL。payload には入れない）に残しており、その `trace_id`（と保存のスパンの `span_id`）が付く。同じ `trace_id` で Loki から保存のログと処理のログが並ぶ。処理のスパンは作らない（hub は同じ集約の複数のイベントをまとめて処理し、イベントごとにトレースが違うため、親を 1 つに決められない）。投影を作り直すと、昔のイベントの `trace_id` の処理のログが出る。トレースが無いイベント（初期データ等）の処理のログは `trace_id` を持たず、`event_id` で保存のログとつなぐ
+- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れだが、保存したときのトレースを `domain_events.traceparent`（W3C の traceparent。保存のときに ctx から書く。トレースが無ければ NULL。payload には入れない）に残しており、その `trace_id`（と保存のスパンの `span_id`）が付く。同じ `trace_id` で Loki から保存のログと処理のログが並ぶ。処理のログの `trace_id` は、投影のスパンのトレースではなく、保存したときのトレースのまま（投影のトレースの `trace_id` にすると、Loki で元の `trace_id` 1 つで引けなくなるため）。投影を作り直すと、昔のイベントの `trace_id` の処理のログが出る。トレースが無いイベント（初期データ等）の処理のログは `trace_id` を持たず、`event_id` で保存のログとつなぐ
+- 処理のスパン（元のトレースがあるイベントの処理だけ。seed-master・起動時の作成など、トレースが無いイベントはスパンにしない）:
+  - ポリシー: `policy <購読者の名前>`。イベントごとに、保存したときのトレースの子（元のトレースを開くと、保存のスパンの下に並ぶ）。属性は `subscriber_kind`・`subscriber_name`・`entity_type`・`entity_id`・`event_id`・`aggregate_version`・`event_type`（処理のログと同じ名前）。失敗はスパンの誤りとして残る
+  - 投影: `projection <購読者の名前>`。いつも新しいトレース（件数で形を変えない）で、新しく反映したイベントの元のトレースすべてへリンクを張る。属性は `subscriber_kind`・`subscriber_name`・`entity_type`・`entity_id`・`aggregate_version`（作り直した後の版）・`event_ids`（新しく反映したイベントの `event_id` の一覧）
+  - 探し方（Grafana の Explore で Tempo）: 元のトレース → 投影は TraceQL の `{ link:traceID = "<trace id>" }`。投影 → 元は、投影のスパンの詳細に出るリンクをたどる。名前・属性でも探せる（`{ name = "projection boards" }`、`{ span.event_id = 95 }`、`{ span.entity_id = 12 && span.subscriber_kind = "policy" }`。属性の名前は処理のログと同じなので、ログの値をそのまま使える）。送った直後の検索では、数十秒は出ないことがある
 
 ## 他プロジェクトとの統合
 
