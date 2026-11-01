@@ -19,6 +19,8 @@ variables:
   # local/migrate/Dockerfile の FROM と揃える。test ジョブは community 版のバイナリを release.ariga.io から取るので、上げるときは
   # イメージ（Docker Hub）だけでなくバイナリが置かれているかも確かめる（1.3.6 はイメージだけあり、バイナリは 403 だった。core#60）
   ATLAS_VERSION: "1.3.5"
+  # go.mod の go・local/core と .build の Dockerfile の golang と揃える。Go の cache の鍵にも使う（Go を上げたら作り直すため）
+  GO_VERSION: "1.27.3"
 
 # lint / test は main に向かう MR（マイルストーンの MR）で実行する。main への push では実行しない（直前の MR で同じ中身を
 # 確かめているため。マイルストーンのブランチは main に rebase してから MR にする。core#30）。
@@ -34,6 +36,22 @@ variables:
       when: manual
       allow_failure: true
 
+# Go のモジュールとビルドの結果を、ジョブをまたいで GitLab の cache に持つ（毎回のダウンロードとコンパイルを省き、共有 Runner の
+# 時間を減らす。core#78）。置き場所は GitLab の決まりでプロジェクトの中にし、1 つのディレクトリ（.cache-ci）にまとめて、lint の
+# gofmt と check-gen-api の写しから外す。鍵は go.sum と Go の版（GO_VERSION）で、依存か Go を上げたら作り直す。lint と test で同じ
+# 鍵を使い、どちらも読み書きする（片方だけが書く形にすると、書く側のジョブが先に落ちたときに作られないため）
+.go-cache:
+  variables:
+    GOMODCACHE: $CI_PROJECT_DIR/.cache-ci/go-mod
+    GOCACHE: $CI_PROJECT_DIR/.cache-ci/go-build
+  cache:
+    key:
+      prefix: go-${GO_VERSION}
+      files:
+        - go.sum
+    paths:
+      - .cache-ci/
+
 # イメージのビルドに使う Docker in Docker
 .docker:
   image: docker:${DOCKER_VERSION}
@@ -45,13 +63,14 @@ variables:
 # make lint と同じ（gofmt の違反検出、go vet、staticcheck、カスタムリンター、gqlgen の生成し忘れの検査、migrations の検査）
 lint:
   stage: test
-  extends: .on-mr
-  image: golang:1.27.3-bookworm
+  extends: [.on-mr, .go-cache]
+  image: golang:${GO_VERSION}-bookworm
   variables:
     # 分岐点のコミットとの差分をとるため、全履歴を取得する（浅い clone だと分岐点が無いことがある）
     GIT_DEPTH: 0
   script:
-    - files=$(gofmt -l .); if [ -n "$files" ]; then echo "gofmt:"; echo "$files"; exit 1; fi
+    # cache（.cache-ci）に入った外のモジュールのソースを調べないよう、リポジトリの .go だけを渡す
+    - files=$(git ls-files -z '*.go' | xargs -0 gofmt -l); if [ -n "$files" ]; then echo "gofmt:"; echo "$files"; exit 1; fi
     - go vet ./...
     - go tool staticcheck ./...
     - go run ./tools/linter ./...
@@ -62,8 +81,8 @@ lint:
 # make test と同じ。DB は CI のサービスで起動し、go test の前に Atlas で migrations を適用する（テストが使う core_test と、複製するテンプレートの core_template）
 test:
   stage: test
-  extends: .on-mr
-  image: golang:1.27.3-bookworm
+  extends: [.on-mr, .go-cache]
+  image: golang:${GO_VERSION}-bookworm
   services:
     - name: postgres:18.6
       alias: core-db

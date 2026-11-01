@@ -82,6 +82,7 @@
 - 新しいマイグレーションは、その時点の最大の番号 + 1 で作り、`make migrate-hash` で atlas.sum を作り直して SQL と一緒にコミットする（番号の抜け・atlas.sum の食い違いは Atlas がエラーにする）
 - リリース前に限り、並びを作り直してよい（適用済みの DB をすべて作り直すことになるため）。作り直したら migrations/BASELINE の 1 行目を書き換える（check-migrations.sh が比較元との比べ合わせを飛ばす。同じ並びの中では今までどおり止める。core#33）
 - Atlas のバージョンは local/migrate/Dockerfile の FROM と .gitlab-ci.yml の ATLAS_VERSION を揃える（studio / game とも揃える）
+- Go のバージョンは go.mod の `go`・local/core と .build の Dockerfile の golang・.gitlab-ci.yml の GO_VERSION を揃える。GO_VERSION は CI の Go の cache の鍵にも使う（Go を上げたら cache を作り直すため。core#78）
 
 # テストとカスタムリンター
 

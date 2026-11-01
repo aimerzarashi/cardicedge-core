@@ -8,7 +8,8 @@ set -eu
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-tar --exclude=.git -cf - . | tar -xf - -C "$tmp"
+# CI の cache（.cache-ci。core#78）は写さない（大きく、生成には要らないため）
+tar --exclude=.git --exclude=./.cache-ci -cf - . | tar -xf - -C "$tmp"
 
 status=0
 for dir in internal/service/studio/presentation/graphql internal/service/game/presentation/graphql; do
