@@ -50,8 +50,8 @@ func New[I domain.ID, E domain.Event[I], S any](
 // 版が続いていること（版 1 か、直前の版が既にある）も条件にし、どこから呼ばれても版が飛ばないことをここで守る
 // （各集約の Decide が「今の版 + 1」で作るのに任せず、保存する場所で保証する。core#24）
 const saveEventQuery = `
-	INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, created_at)
-	SELECT $1::smallint, $2::bigint, $3::bigint, $4::smallint, $5::int, $6::jsonb, $7::timestamptz
+	INSERT INTO domain_events (entity_type_id, entity_id, aggregate_version, event_type_id, event_type_version, payload, occurred_at, traceparent)
+	SELECT $1::smallint, $2::bigint, $3::bigint, $4::smallint, $5::int, $6::jsonb, $7::timestamptz, $8::text
 	WHERE $3::bigint = 1 OR EXISTS (
 	  SELECT 1 FROM domain_events WHERE entity_type_id = $1::smallint AND entity_id = $2::bigint AND aggregate_version = $3::bigint - 1
 	)
@@ -85,6 +85,7 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 	if err != nil {
 		return err
 	}
+	traceparent := traceparentOf(ctx)
 	for _, event := range events {
 		meta := event.GetMeta()
 		eventTypeID, err := s.registry.EventTypeID(entityTypeID, event.EventType())
@@ -100,6 +101,8 @@ func (s *eventStore[I, E, S]) Save(ctx context.Context, events []E) error {
 			entityTypeID.Int16(), meta.EntityID.Int64(), meta.AggregateVersion, eventTypeID.Int16(), event.SchemaVersion(), payload,
 			// DB の現在時刻ではなく、イベントの発生時刻を残す（設計メモ 6 節の 4）
 			meta.OccurredAt,
+			// 保存したときのトレース。payload（ドメインの事実）には入れない。無ければ NULL
+			sql.NullString{String: traceparent, Valid: traceparent != ""},
 		).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {
 			var exists bool
@@ -179,6 +182,6 @@ func (r *reader[I, E]) decode(row *models.DomainEvent) (E, error) {
 	if err != nil {
 		return zero, err
 	}
-	meta := domain.EventMeta[I]{EntityID: id, AggregateVersion: row.AggregateVersion, OccurredAt: row.CreatedAt}
+	meta := domain.EventMeta[I]{EntityID: id, AggregateVersion: row.AggregateVersion, OccurredAt: row.OccurredAt}
 	return r.newEventType(name).Unmarshal(meta, row.EventTypeVersion, row.Payload)
 }

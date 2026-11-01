@@ -22,7 +22,8 @@ SELECT
     evt.name AS event_type,
     dev.event_type_version,
     dev.payload,
-    dev.created_at
+    dev.occurred_at,
+    dev.traceparent
 FROM domain_events dev
 JOIN domain_entity_types ent ON ent.id = dev.entity_type_id
 JOIN domain_event_types evt ON evt.id = dev.event_type_id
