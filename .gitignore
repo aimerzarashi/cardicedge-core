@@ -14,3 +14,5 @@ build-errors.log
 /linter
 /seedmaster
 /synctypes
+# CI の cache の置き場所（core#78）
+/.cache-ci/
