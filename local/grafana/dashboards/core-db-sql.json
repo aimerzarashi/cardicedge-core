@@ -2,6 +2,7 @@
   "uid": "core-db-sql",
   "title": "core-db の SQL",
   "tags": [
+    "diecardomain",
     "core-db"
   ],
   "schemaVersion": 39,

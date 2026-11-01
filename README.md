@@ -73,6 +73,18 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 - 起動の設定は、次の `make up` で core-db のコンテナが作り直されて効く（docker compose は名前の無いボリュームを引き継ぐので、データは消えない）。拡張を作る初期化の SQL（local/core-db/extensions.sql）は新しい DB でしか流れないので、すでにある DB には `docker exec core-core-db-1 psql -U core_user -d core_studio -f /docker-entrypoint-initdb.d/extensions.sql` で手で流す（`make down` で DB を作り直したときは自動で流れる。そのときは `make seed-master`・`make publish-master` で見本のマスタを入れ直す）。ログのボリュームは `make down` では残り、`make clean` で消える
 - PostgreSQL のログは標準エラーに出なくなるので、`docker logs core-core-db-1` には出ない（Grafana か、ボリュームのファイルで見る）
 
+## 処理の遅れ・誤り・GraphQL の時間（core#84）
+
+http://localhost:3002 のダッシュボード「core の処理（遅れ・誤り・GraphQL の時間）」。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。タグに `diecardomain` を付け（Grafana の一覧で、otel-lgtm に最初から入っている見本のダッシュボードと分けて絞り込むため）、中身を表すタグ（`core`・`core-db` 等）を添える。
+
+| 欄 | 元のデータ | 見ること |
+|---|---|---|
+| 投影・ポリシーの遅れ | core の処理のログの `lag_ms`（Loki）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる |
+| 投影・ポリシーの処理の時間 | 同じログの `duration_ms` | 処理そのものが遅いか（遅れが大きく処理の時間が短ければ、待ちが原因） |
+| 投影・ポリシーの失敗の数 | 同じログの `result="failure"` | 失敗の理由は、同じ時刻の ERROR・WARN のログで見る |
+| ERROR・WARN のログの数 | core・studio・game のログ（Loki）の `detected_level` | 中身は Explore で `{service_name="core"} \| detected_level="error"` のように引く |
+| GraphQL の操作ごとの時間・呼び出しの数 | トレースから otel-lgtm が作る指標（Prometheus の `traces_spanmetrics_*`） | 遅い操作は、Tempo で個々のトレースを見る |
+
 ## core のトレースとログ（OpenTelemetry。core#75）
 
 core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
