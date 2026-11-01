@@ -198,7 +198,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 | パイプライン | ジョブ | 内容 |
 |---|---|---|
 | マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr（手動。実行しない） | 何もしない。パイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる |
-| main に向かう MR（マイルストーンの MR） | lint / test | `make lint` / `make test` 相当。Go のモジュールとビルドの結果を GitLab の cache（`.cache-ci`。鍵は go.sum と GO_VERSION）に持ち、毎回のダウンロードとコンパイルを省く（core#78） |
+| main に向かう MR（マイルストーンの MR） | check | `make lint` → `make test` 相当を 1 つのジョブで順に流す（GitLab のコンピューティング時間を短縮するため、ジョブごとの準備を 1 回にする。lint で落ちたら test は流さない。core#79）。Go のモジュールとビルドの結果を GitLab の cache（`.cache-ci`。鍵は go.sum と GO_VERSION）に持ち、毎回のダウンロードとコンパイルを省く（core#78） |
 | main に向かう MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
 | main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない。入った MR・Issue へのコメント（どの版で入ったか）は書かない（`.releaserc.json` の `successCommentCondition: false`。書くと GitLab の回数の制限にかかることがあるため。core#77） |
 | タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>`・`:latest` と `diecardomain/core-migrate:<タグ>`・`:latest` に push |
@@ -270,7 +270,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 
 ### Atlas が検出しないこと（`scripts/check-migrations.sh` で補う）
 
-Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の lint ジョブで検査する。
+Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の check のジョブ（lint の手順）で検査する。
 適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は main に向かう MR の対象ブランチとの分岐点）。main は直接 push できない設定のため、MR を経ない変更は無い。lint が通らなければ build-mr も動かない。
 
 | 検査 | Atlas に任せた場合 |
@@ -285,5 +285,5 @@ Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも�
 |---|---|
 | 開発（compose.yaml） | core-migrate-studio・core-migrate-game サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate`（種別の行も入れる） |
 | テスト用（compose.test.yaml） | core-migrate-studio・core-migrate-game サービス（マイグレーション用イメージ） |
-| CI | test ジョブで Atlas（v1.3.5）を取得し、適用してから go test |
+| CI | check のジョブ（test の手順）で Atlas（v1.3.5）を取得し、適用してから go test |
 | リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に、studio 用・game 用の DB それぞれの `DATABASE_URL` を渡してジョブとして実行する |
