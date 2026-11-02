@@ -21,6 +21,20 @@ type Master struct {
 	CardA, CardB, CardC uuid.UUID
 	// PublishMaster だけが写す
 	Boards Boards
+	// PublishMaster だけが写す
+	NPCAvatars NPCAvatars
+}
+
+// 見本のマスタの NPC のアバターと NPC のデッキ。公開中のアバターが 2 つ（名前の順に A・B）、公開中でないものが 2 つ。
+// 公開中の A は、割り当てた順に 公開中のデッキ 2・準備中・公開中のデッキ 1・使用不可 を使う（公開中でないデッキは出ない）。
+// B は公開中のデッキ 1 だけを使う（同じデッキを複数のアバターが使える）。
+// make publish-master は割り当てられていないデッキを写さないが、写されても出ないことを確かめるために、どのアバターにも使われない公開中のデッキを入れる
+type NPCAvatars struct {
+	PublishedA, PublishedB, Draft, Retired uuid.UUID
+	DeckPublished1, DeckPublished2         uuid.UUID
+	DeckDraft, DeckRetired, DeckUnassigned uuid.UUID
+	// 公開中のデッキ 1 に入れたカード（種類は順に Creature・Item・Spell。名前の順は Item のほうが先だが、種類が優先される）
+	Creature, Item, Spell uuid.UUID
 }
 
 // 見本のマスタのボード。公開中が 2 つ（名前の順に A・B）、公開中でないものが 2 つ。
@@ -41,6 +55,10 @@ func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
 		return Master{}, err
 	}
 	master.Boards, err = PublishBoards(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	master.NPCAvatars, err = PublishNPCAvatars(ctx, gameDB)
 	return master, err
 }
 
@@ -188,4 +206,81 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 		}
 	}
 	return boards, nil
+}
+
+// npc_avatars・npc_decks と、デッキが入れるカードの行を写す。カードは公開中のデッキ 1 が入れる 3 種類（種類が違う）。
+// デッキ 1 は書き手の並びを Spell・Creature・Item にして、読み手が種類の順に並べ直すことを確かめる
+func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) {
+	n := NPCAvatars{
+		PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New(),
+		DeckPublished1: uuid.New(), DeckPublished2: uuid.New(), DeckDraft: uuid.New(), DeckRetired: uuid.New(), DeckUnassigned: uuid.New(),
+		Creature: uuid.New(), Item: uuid.New(), Spell: uuid.New(),
+	}
+	cards := []struct {
+		id       uuid.UUID
+		cardType readmodel.CardType
+		name     string
+	}{
+		{n.Creature, readmodel.CardTypeCreature, "ゴブリン"},
+		{n.Item, readmodel.CardTypeItem, "あいてむ"},
+		{n.Spell, readmodel.CardTypeSpell, "ファイア"},
+	}
+	for _, c := range cards {
+		metadata, err := json.Marshal(readmodel.CardMetadata{ID: c.id, Name: c.name, Status: readmodel.CardStatusPublished})
+		if err != nil {
+			return NPCAvatars{}, err
+		}
+		row := models.Card{CardID: c.id.String(), CardType: int16(c.cardType), SortName: c.name, Status: string(readmodel.CardStatusPublished), Metadata: metadata}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return NPCAvatars{}, err
+		}
+	}
+	// sort_name は並びを決めるだけの値（読み手は sort_name の順に返す）
+	deck1 := npcDeckMetadata(n.DeckPublished1, "公開中デッキ1", readmodel.NPCDeckStatusPublished, []readmodel.DeckCard{
+		{CardID: n.Spell, Count: 1}, {CardID: n.Creature, Count: 3}, {CardID: n.Item, Count: 2},
+	})
+	one := []readmodel.DeckCard{{CardID: n.Creature, Count: 1}}
+	decks := []readmodel.NPCDeckMetadata{
+		deck1,
+		npcDeckMetadata(n.DeckPublished2, "公開中デッキ2", readmodel.NPCDeckStatusPublished, []readmodel.DeckCard{{CardID: n.Creature, Count: 4}}),
+		npcDeckMetadata(n.DeckDraft, "準備中デッキ", readmodel.NPCDeckStatusDraft, one),
+		npcDeckMetadata(n.DeckRetired, "使用不可デッキ", readmodel.NPCDeckStatusRetired, one),
+		npcDeckMetadata(n.DeckUnassigned, "割り当てなしデッキ", readmodel.NPCDeckStatusPublished, one),
+	}
+	for i, metadata := range decks {
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return NPCAvatars{}, err
+		}
+		row := models.NPCDeck{NPCDeckID: metadata.ID.String(), SortName: fmt.Sprint(i + 1), Status: string(metadata.Status), Metadata: raw}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return NPCAvatars{}, err
+		}
+	}
+	avatars := []readmodel.NPCAvatarMetadata{
+		npcAvatarMetadata(n.PublishedA, "公開中A", readmodel.NPCAvatarStatusPublished, n.DeckPublished2, n.DeckDraft, n.DeckPublished1, n.DeckRetired),
+		npcAvatarMetadata(n.PublishedB, "公開中B", readmodel.NPCAvatarStatusPublished, n.DeckPublished1),
+		// 公開中でなければ出ないことだけを確かめるので、使うデッキは公開中のものにする
+		npcAvatarMetadata(n.Draft, "準備中", readmodel.NPCAvatarStatusDraft, n.DeckPublished1),
+		npcAvatarMetadata(n.Retired, "使用不可", readmodel.NPCAvatarStatusRetired, n.DeckPublished1),
+	}
+	for i, metadata := range avatars {
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return NPCAvatars{}, err
+		}
+		row := models.NPCAvatar{NPCAvatarID: metadata.ID.String(), SortName: fmt.Sprint(i + 1), Status: string(metadata.Status), Metadata: raw}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return NPCAvatars{}, err
+		}
+	}
+	return n, nil
+}
+
+func npcDeckMetadata(id uuid.UUID, name string, status readmodel.NPCDeckStatus, cards []readmodel.DeckCard) readmodel.NPCDeckMetadata {
+	return readmodel.NPCDeckMetadata{ID: id, Name: name, Status: status, Cards: cards}
+}
+
+func npcAvatarMetadata(id uuid.UUID, name string, status readmodel.NPCAvatarStatus, decks ...uuid.UUID) readmodel.NPCAvatarMetadata {
+	return readmodel.NPCAvatarMetadata{ID: id, Name: name, Status: status, Decks: decks}
 }
