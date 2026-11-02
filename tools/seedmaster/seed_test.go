@@ -89,6 +89,15 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	for _, name := range m.NPCAvatars {
 		require.Equal(t, readmodel.NPCAvatarStatusPublished, npcAvatars[domain.NormalizeName(name)].Status)
 	}
+	npcDecks, err := s.listNPCDecks(ctx)
+	require.NoError(t, err)
+	require.Len(t, npcDecks, len(m.NPCDecks))
+	for _, name := range m.NPCDecks {
+		npcDeck := npcDecks[domain.NormalizeName(name)]
+		require.Equal(t, readmodel.NPCDeckStatusPublished, npcDeck.Status)
+		require.Equal(t, deckTotalCount, npcDeck.TotalCount)
+		require.NotNil(t, npcDeck.Source)
+	}
 }
 
 // 途中で止まった（一部だけ入っている）状態から流し直しても、足りない分だけを入れ、見本どおりにそろう
@@ -171,6 +180,14 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 		}},
 		{name: "npc_avatar_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			_, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0])
+			require.NoError(t, err)
+		}},
+		{name: "npc_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			_, err = s.npcDecks.RegisterFromPresetDeck(ctx, deckIDs[m.NPCDecks[0]])
 			require.NoError(t, err)
 		}},
 	}

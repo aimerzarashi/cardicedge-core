@@ -1,0 +1,329 @@
+# NPC のデッキ（対戦の相手になる NPC が使うデッキ。1 デッキ 1 集約。core#62）。空から作るか、プリセットデッキから写して作る。
+# 写した後に元のプリセットデッキを直しても変わらない（反映するには作り直す）。NPC のアバターとは結びつけない
+
+"NPC のデッキ"
+type NpcDeck {
+  "公開用の ID"
+  id: UUID!
+  "名前（登録・変更したときの表記。前後の空白は除く。状態によらず、すべての NPC のデッキの中で一意。スターターデッキ・プリセットデッキと同じ名前でもよい）"
+  name: String!
+  "状態（準備中・公開中・使用不可）"
+  status: NpcDeckStatus!
+  # 名前・種類は read model に書き写さず、データローダーで引いてから並べる（プリセットデッキと同じ）
+  "入れたカードと枚数（カードの一覧と同じ並び: 種類の順（Creature → Item → Spell）、同じ種類の中は名前の順）"
+  cards: [DeckCard!]!
+  "カードの枚数の合計"
+  totalCount: Int!
+  "プリセットデッキから写して作ったときの写し元（空から作ったときは null）"
+  source: NpcDeckSource
+  "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
+  revision: Int!
+  "登録した日時"
+  registeredAt: DateTime!
+  "最後に変更した日時（変更していなければ登録した日時）"
+  updatedAt: DateTime!
+}
+
+# 準備中から使用不可へ直接は移れず、公開中から準備中へも戻れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、
+# 変わらない操作として成功する（カードの状態と同じ）
+"""
+NPC のデッキの状態。準備中は名前・カードを自由に変えられ、決まり（40 枚等）を満たさなくてよい。公開中は決まりを満たす。
+公開中の数に上限は無い。使用不可は新しい対戦に使わない
+"""
+enum NpcDeckStatus {
+  "準備中（登録したときの状態）"
+  DRAFT
+  "公開中"
+  PUBLISHED
+  "使用不可"
+  RETIRED
+}
+
+# 元は参照（消せない制約）にしないため、消されていることもある。そのときは presetDeckDeleted が true になり、changedSinceCopied は
+# false（比べる相手が無い）
+"写した元"
+type NpcDeckSource {
+  "元のプリセットデッキの公開用の ID（消されていることもある）"
+  presetDeckId: UUID!
+  "写したときの、元のプリセットデッキの revision"
+  revision: Int!
+  "写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）"
+  changedSinceCopied: Boolean!
+  "元のプリセットデッキが削除されている"
+  presetDeckDeleted: Boolean!
+}
+
+"名前が、ほかの NPC のデッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）"
+type NpcDeckNameAlreadyInUseError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"NPC のデッキが無い（削除したものを含む）"
+type NpcDeckNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"準備中の NPC のデッキを使用不可にしようとした（準備中から移れるのは公開中だけ）"
+type InvalidNpcDeckStatusTransitionError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"準備中でない NPC のデッキの名前・枚数を変える、または削除しようとした（準備中のものだけ変えられる）"
+type NpcDeckNotDraftError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"NPC のデッキの一覧の絞り込み"
+input NpcDeckFilter {
+  "名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）"
+  nameContains: String
+  "状態（指定が無ければすべて。空のリストは入力の誤り）"
+  statuses: [NpcDeckStatus!]
+}
+
+"NPC のデッキの一覧の 1 件と、その位置"
+type NpcDeckEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "NPC のデッキ"
+  node: NpcDeck!
+}
+
+"NPC のデッキの一覧の 1 ページ（名前の順）"
+type NpcDeckConnection {
+  "このページの NPC のデッキ"
+  edges: [NpcDeckEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"NPC のデッキの一覧の結果"
+union NpcDecksResult = NpcDeckConnection | ValidationErrors | ForbiddenError
+
+"NPC のデッキの詳細の結果"
+union NpcDeckResult = NpcDeck | NpcDeckNotFoundError | ForbiddenError
+
+extend type Query {
+  "NPC のデッキの一覧（紐づいたオペレーターだけ）"
+  npcDecks(
+    "絞り込み"
+    filter: NpcDeckFilter
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): NpcDecksResult!
+  "NPC のデッキの詳細（紐づいたオペレーターだけ）"
+  npcDeck(
+    "NPC のデッキの公開用の ID"
+    id: UUID!
+  ): NpcDeckResult!
+}
+
+"NPC のデッキを空から登録する入力"
+input RegisterNpcDeckInput {
+  "名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+# 変える操作の結果は、公開 ID と新しい revision だけにする（PresetDeck と同じ）
+"NPC のデッキを登録した（準備中）"
+type RegisterNpcDeckSuccess {
+  "登録した NPC のデッキの公開用の ID"
+  id: UUID!
+  "登録した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"NPC のデッキの登録の結果"
+union RegisterNpcDeckResult = RegisterNpcDeckSuccess | ValidationErrors | NpcDeckNameAlreadyInUseError | ForbiddenError
+
+"NPC のデッキをプリセットデッキから写して登録する入力"
+input RegisterNpcDeckFromPresetDeckInput {
+  "写す元のプリセットデッキの公開用の ID（名前・カードと枚数を写す。合計が 40 枚でなくてもよい）"
+  presetDeckId: UUID!
+}
+
+"プリセットデッキから写して NPC のデッキを登録した（準備中。写した元の公開 ID と revision を記録する）"
+type RegisterNpcDeckFromPresetDeckSuccess {
+  "登録した NPC のデッキの公開用の ID"
+  id: UUID!
+  "登録した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"プリセットデッキから写した NPC のデッキの登録の結果"
+union RegisterNpcDeckFromPresetDeckResult =
+    RegisterNpcDeckFromPresetDeckSuccess
+  | PresetDeckNotFoundError
+  | NpcDeckNameAlreadyInUseError
+  | ForbiddenError
+
+"NPC のデッキの名前を変える入力"
+input RenameNpcDeckInput {
+  "NPC のデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のデッキの revision"
+  revision: Int!
+  "新しい名前（1〜50 文字。前後の空白は除いて保存する）"
+  name: String!
+}
+
+"NPC のデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）"
+type RenameNpcDeckSuccess {
+  "変えた NPC のデッキの公開用の ID"
+  id: UUID!
+  "変えた NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"NPC のデッキの名前の変更の結果（準備中のものだけ変えられる）"
+union RenameNpcDeckResult =
+    RenameNpcDeckSuccess
+  | ValidationErrors
+  | NpcDeckNotFoundError
+  | NpcDeckNameAlreadyInUseError
+  | NpcDeckNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
+"NPC のデッキのカードの枚数を変える入力"
+input SetNpcDeckCardCountsInput {
+  "NPC のデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のデッキの revision"
+  revision: Int!
+  "変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り。新しく入れる・増やすカードは公開中だけ）"
+  cards: [DeckCardCountInput!]!
+}
+
+"NPC のデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）"
+type SetNpcDeckCardCountsSuccess {
+  "変えた NPC のデッキの公開用の ID"
+  id: UUID!
+  "変えた NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"NPC のデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）"
+union SetNpcDeckCardCountsResult =
+    SetNpcDeckCardCountsSuccess
+  | ValidationErrors
+  | NpcDeckNotFoundError
+  | NpcDeckNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
+"NPC のデッキを削除する入力"
+input DeleteNpcDeckInput {
+  "NPC のデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のデッキの revision"
+  revision: Int!
+}
+
+"NPC のデッキを削除した（名前はほかの NPC のデッキが使えるようになる）"
+type DeleteNpcDeckSuccess {
+  "削除した NPC のデッキの公開用の ID"
+  id: UUID!
+}
+
+"NPC のデッキの削除の結果（準備中のものだけ消せる）"
+union DeleteNpcDeckResult =
+    DeleteNpcDeckSuccess
+  | NpcDeckNotFoundError
+  | NpcDeckNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
+"NPC のデッキを公開する入力"
+input PublishNpcDeckInput {
+  "NPC のデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のデッキの revision"
+  revision: Int!
+}
+
+"NPC のデッキを公開中にした（すでに公開中なら何も変えず、revision も進まない）"
+type PublishNpcDeckSuccess {
+  "公開した NPC のデッキの公開用の ID"
+  id: UUID!
+  "公開した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+# 公開するときの誤りは ValidationErrors の項目 cards に付ける: 合計がちょうど 40 枚でない（FieldTotalMismatch）、
+# 入っているカードに公開中でないものがある（FieldUnavailable）
+"NPC のデッキの公開の結果（準備中・使用不可から公開中にできる）"
+union PublishNpcDeckResult =
+    PublishNpcDeckSuccess
+  | ValidationErrors
+  | NpcDeckNotFoundError
+  | RevisionConflictError
+  | ForbiddenError
+
+"NPC のデッキを使用不可にする入力"
+input RetireNpcDeckInput {
+  "NPC のデッキの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のデッキの revision"
+  revision: Int!
+}
+
+"NPC のデッキを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）"
+type RetireNpcDeckSuccess {
+  "使用不可にした NPC のデッキの公開用の ID"
+  id: UUID!
+  "使用不可にした NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"NPC のデッキの使用不可の結果"
+union RetireNpcDeckResult =
+    RetireNpcDeckSuccess
+  | NpcDeckNotFoundError
+  | InvalidNpcDeckStatusTransitionError
+  | RevisionConflictError
+  | ForbiddenError
+
+extend type Mutation {
+  "NPC のデッキを空から登録する（準備中。紐づいたオペレーターだけ）"
+  registerNpcDeck(
+    "登録する NPC のデッキ"
+    input: RegisterNpcDeckInput!
+  ): RegisterNpcDeckResult!
+  "プリセットデッキから写して NPC のデッキを登録する（準備中。紐づいたオペレーターだけ）"
+  registerNpcDeckFromPresetDeck(
+    "写す元"
+    input: RegisterNpcDeckFromPresetDeckInput!
+  ): RegisterNpcDeckFromPresetDeckResult!
+  "NPC のデッキの名前を変える（準備中のものだけ。紐づいたオペレーターだけ）"
+  renameNpcDeck(
+    "変える内容"
+    input: RenameNpcDeckInput!
+  ): RenameNpcDeckResult!
+  "NPC のデッキのカードの枚数を変える（準備中のものだけ。紐づいたオペレーターだけ）"
+  setNpcDeckCardCounts(
+    "変える内容"
+    input: SetNpcDeckCardCountsInput!
+  ): SetNpcDeckCardCountsResult!
+  "NPC のデッキを削除する（準備中のものだけ。紐づいたオペレーターだけ）"
+  deleteNpcDeck(
+    "削除する NPC のデッキ"
+    input: DeleteNpcDeckInput!
+  ): DeleteNpcDeckResult!
+  "NPC のデッキを公開中にする（紐づいたオペレーターだけ）"
+  publishNpcDeck(
+    "公開する NPC のデッキ"
+    input: PublishNpcDeckInput!
+  ): PublishNpcDeckResult!
+  "NPC のデッキを使用不可にする（紐づいたオペレーターだけ）"
+  retireNpcDeck(
+    "使用不可にする NPC のデッキ"
+    input: RetireNpcDeckInput!
+  ): RetireNpcDeckResult!
+}

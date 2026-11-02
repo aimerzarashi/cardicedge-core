@@ -20,6 +20,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -99,11 +100,13 @@ type seeder struct {
 	starterDecks    *command.StarterDeckHandler
 	boards          *command.BoardHandler
 	npcAvatars      *command.NPCAvatarHandler
+	npcDecks        *command.NPCDeckHandler
 	cards           *query.CardHandler
 	presetDeckList  *query.PresetDeckHandler
 	starterDeckList *query.StarterDeckHandler
 	boardList       *query.BoardHandler
 	npcAvatarList   *query.NPCAvatarHandler
+	npcDeckList     *query.NPCDeckHandler
 }
 
 func newSeeder(registry *domaindef.Registry) *seeder {
@@ -116,6 +119,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	starterDeckReader := repository.NewStarterDeckReader()
 	boardReader := repository.NewBoardReader()
 	npcAvatarReader := repository.NewNPCAvatarReader()
+	npcDeckReader := repository.NewNPCDeckReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -183,11 +187,24 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			constraint.UpdateNPCAvatarName,
 			now,
 		),
+		npcDecks: command.NewNPCDeckHandler(
+			eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve),
+			identifier.New(registry, npcdeck.NewID),
+			entityRefs,
+			constraint.UpdateNPCDeckName,
+			constraint.UpdateNPCDeckCardReferences,
+			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
+			presetDeckStore,
+			presetDeckIdentifier,
+			gameRules.Get,
+			now,
+		),
 		cards:           query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList:  query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
 		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
 		boardList:       query.NewBoardHandler(boardReader.List, boardReader.Get),
 		npcAvatarList:   query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
+		npcDeckList:     query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
 	}
 }
 
@@ -212,7 +229,10 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err := s.seedBoards(ctx, m.Boards); err != nil {
 		return err
 	}
-	return s.seedNPCAvatars(ctx, m.NPCAvatars)
+	if err := s.seedNPCAvatars(ctx, m.NPCAvatars); err != nil {
+		return err
+	}
+	return s.seedNPCDecks(ctx, m.NPCDecks, deckIDs)
 }
 
 // 登録してレイアウトと既定のルールを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
@@ -406,6 +426,101 @@ func (s *seeder) listNPCAvatars(ctx context.Context) (map[string]query.NPCAvatar
 		}
 		if !page.PageInfo.HasNextPage {
 			return npcAvatars, nil
+		}
+		after = page.PageInfo.EndCursor
+	}
+}
+
+// プリセットデッキから同じ名前で写して NPC のデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のデッキが
+// あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
+// NPC のデッキはスターターデッキと別の集まりなので、同じ名前でも重ならない
+func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
+	existing, err := s.listNPCDecks(ctx)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		key := domain.NormalizeName(name)
+		current, ok := existing[key]
+		if !ok {
+			copied, err := s.npcDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name])
+			if errors.Is(err, command.ErrNPCDeckNameAlreadyInUse) {
+				// 作成済みだが read model にまだ無い（投影の遅れ）
+				err = waitFor(ctx, "npc_decks", func() (bool, error) {
+					existing, err = s.listNPCDecks(ctx)
+					_, ok := existing[key]
+					return ok, err
+				})
+				current = existing[key]
+			} else if err == nil {
+				current = query.NPCDeck{ID: copied.ID, Status: readmodel.NPCDeckStatusDraft, Revision: copied.Revision}
+				slog.InfoContext(ctx, "registered npc deck", "name", name)
+			}
+			if err != nil {
+				return fmt.Errorf("register npc deck %q: %w", name, err)
+			}
+		}
+		if current.Status != readmodel.NPCDeckStatusDraft {
+			continue
+		}
+		if err := s.publishNPCDeck(ctx, name, current); err != nil {
+			return fmt.Errorf("publish npc deck %q: %w", name, err)
+		}
+	}
+	return waitFor(ctx, "npc_decks", func() (bool, error) {
+		existing, err := s.listNPCDecks(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, name := range names {
+			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
+			npcDeck, ok := existing[domain.NormalizeName(name)]
+			if !ok || npcDeck.Status == readmodel.NPCDeckStatusDraft {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+// read model は投影の遅れで古いことがある（作った直後・止まった直後）。その revision で公開すると先に変えられたになるため、
+// 追いつくのを待って読み直す（publishCard と同じ）
+func (s *seeder) publishNPCDeck(ctx context.Context, name string, current query.NPCDeck) error {
+	key := domain.NormalizeName(name)
+	for {
+		_, err := s.npcDecks.Publish(ctx, current.ID, current.Revision)
+		if !errors.Is(err, command.ErrRevisionConflict) {
+			if err == nil {
+				slog.InfoContext(ctx, "published npc deck", "name", name)
+			}
+			return err
+		}
+		stale := current.Revision
+		if err := waitFor(ctx, "npc_decks", func() (bool, error) {
+			existing, err := s.listNPCDecks(ctx)
+			current = existing[key]
+			return current.Revision > stale, err
+		}); err != nil {
+			return err
+		}
+	}
+}
+
+// 正規化した名前（重複の判定と同じ）から NPC のデッキを引く表
+func (s *seeder) listNPCDecks(ctx context.Context) (map[string]query.NPCDeck, error) {
+	npcDecks := map[string]query.NPCDeck{}
+	var after *string
+	for {
+		first := pagination.MaxFirst
+		page, err := s.npcDeckList.List(ctx, query.NPCDeckFilter{}, &first, after)
+		if err != nil {
+			return nil, err
+		}
+		for _, edge := range page.Edges {
+			npcDecks[domain.NormalizeName(edge.Node.Name)] = edge.Node
+		}
+		if !page.PageInfo.HasNextPage {
+			return npcDecks, nil
 		}
 		after = page.PageInfo.EndCursor
 	}

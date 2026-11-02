@@ -86,6 +86,11 @@ type DeleteNpcAvatarResult interface {
 	IsDeleteNpcAvatarResult()
 }
 
+// NPC のデッキの削除の結果（準備中のものだけ消せる）
+type DeleteNpcDeckResult interface {
+	IsDeleteNpcDeckResult()
+}
+
 // プリセットデッキの削除の結果
 type DeletePresetDeckResult interface {
 	IsDeletePresetDeckResult()
@@ -113,6 +118,16 @@ type NpcAvatarsResult interface {
 	IsNpcAvatarsResult()
 }
 
+// NPC のデッキの詳細の結果
+type NpcDeckResult interface {
+	IsNpcDeckResult()
+}
+
+// NPC のデッキの一覧の結果
+type NpcDecksResult interface {
+	IsNpcDecksResult()
+}
+
 // プリセットデッキの詳細の結果
 type PresetDeckResult interface {
 	IsPresetDeckResult()
@@ -138,6 +153,11 @@ type PublishNpcAvatarResult interface {
 	IsPublishNpcAvatarResult()
 }
 
+// NPC のデッキの公開の結果（準備中・使用不可から公開中にできる）
+type PublishNpcDeckResult interface {
+	IsPublishNpcDeckResult()
+}
+
 // スターターデッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
 type PublishStarterDeckResult interface {
 	IsPublishStarterDeckResult()
@@ -161,6 +181,16 @@ type RegisterItemResult interface {
 // NPC のアバターの登録の結果
 type RegisterNpcAvatarResult interface {
 	IsRegisterNpcAvatarResult()
+}
+
+// プリセットデッキから写した NPC のデッキの登録の結果
+type RegisterNpcDeckFromPresetDeckResult interface {
+	IsRegisterNpcDeckFromPresetDeckResult()
+}
+
+// NPC のデッキの登録の結果
+type RegisterNpcDeckResult interface {
+	IsRegisterNpcDeckResult()
 }
 
 // プリセットデッキの登録の結果
@@ -193,6 +223,11 @@ type RenameNpcAvatarResult interface {
 	IsRenameNpcAvatarResult()
 }
 
+// NPC のデッキの名前の変更の結果（準備中のものだけ変えられる）
+type RenameNpcDeckResult interface {
+	IsRenameNpcDeckResult()
+}
+
 // プリセットデッキの名前の変更の結果
 type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
@@ -218,9 +253,19 @@ type RetireNpcAvatarResult interface {
 	IsRetireNpcAvatarResult()
 }
 
+// NPC のデッキの使用不可の結果
+type RetireNpcDeckResult interface {
+	IsRetireNpcDeckResult()
+}
+
 // スターターデッキの使用不可の結果
 type RetireStarterDeckResult interface {
 	IsRetireStarterDeckResult()
+}
+
+// NPC のデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
+type SetNpcDeckCardCountsResult interface {
+	IsSetNpcDeckCardCountsResult()
 }
 
 // プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
@@ -787,6 +832,22 @@ type DeleteNpcAvatarSuccess struct {
 
 func (DeleteNpcAvatarSuccess) IsDeleteNpcAvatarResult() {}
 
+// NPC のデッキを削除する入力
+type DeleteNpcDeckInput struct {
+	// NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のデッキの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のデッキを削除した（名前はほかの NPC のデッキが使えるようになる）
+type DeleteNpcDeckSuccess struct {
+	// 削除した NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteNpcDeckSuccess) IsDeleteNpcDeckResult() {}
+
 // プリセットデッキを削除する入力
 type DeletePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -1061,6 +1122,24 @@ func (ForbiddenError) IsPublishNpcAvatarResult() {}
 
 func (ForbiddenError) IsRetireNpcAvatarResult() {}
 
+func (ForbiddenError) IsNpcDecksResult() {}
+
+func (ForbiddenError) IsNpcDeckResult() {}
+
+func (ForbiddenError) IsRegisterNpcDeckResult() {}
+
+func (ForbiddenError) IsRegisterNpcDeckFromPresetDeckResult() {}
+
+func (ForbiddenError) IsRenameNpcDeckResult() {}
+
+func (ForbiddenError) IsSetNpcDeckCardCountsResult() {}
+
+func (ForbiddenError) IsDeleteNpcDeckResult() {}
+
+func (ForbiddenError) IsPublishNpcDeckResult() {}
+
+func (ForbiddenError) IsRetireNpcDeckResult() {}
+
 func (ForbiddenError) IsPresetDecksResult() {}
 
 func (ForbiddenError) IsPresetDeckResult() {}
@@ -1120,6 +1199,14 @@ type InvalidNpcAvatarStatusTransitionError struct {
 }
 
 func (InvalidNpcAvatarStatusTransitionError) IsRetireNpcAvatarResult() {}
+
+// 準備中の NPC のデッキを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidNpcDeckStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidNpcDeckStatusTransitionError) IsRetireNpcDeckResult() {}
 
 // 準備中のスターターデッキを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidStarterDeckStatusTransitionError struct {
@@ -1287,6 +1374,86 @@ func (NpcAvatarNotFoundError) IsPublishNpcAvatarResult() {}
 
 func (NpcAvatarNotFoundError) IsRetireNpcAvatarResult() {}
 
+// NPC のデッキの一覧の 1 ページ（名前の順）
+type NpcDeckConnection struct {
+	// このページの NPC のデッキ
+	Edges []*NpcDeckEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (NpcDeckConnection) IsNpcDecksResult() {}
+
+// NPC のデッキの一覧の 1 件と、その位置
+type NpcDeckEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// NPC のデッキ
+	Node *NpcDeck `json:"node"`
+}
+
+// NPC のデッキの一覧の絞り込み
+type NpcDeckFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []NpcDeckStatus `json:"statuses,omitempty"`
+}
+
+// 名前が、ほかの NPC のデッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type NpcDeckNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcDeckNameAlreadyInUseError) IsRegisterNpcDeckResult() {}
+
+func (NpcDeckNameAlreadyInUseError) IsRegisterNpcDeckFromPresetDeckResult() {}
+
+func (NpcDeckNameAlreadyInUseError) IsRenameNpcDeckResult() {}
+
+// 準備中でない NPC のデッキの名前・枚数を変える、または削除しようとした（準備中のものだけ変えられる）
+type NpcDeckNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcDeckNotDraftError) IsRenameNpcDeckResult() {}
+
+func (NpcDeckNotDraftError) IsSetNpcDeckCardCountsResult() {}
+
+func (NpcDeckNotDraftError) IsDeleteNpcDeckResult() {}
+
+// NPC のデッキが無い（削除したものを含む）
+type NpcDeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcDeckNotFoundError) IsNpcDeckResult() {}
+
+func (NpcDeckNotFoundError) IsRenameNpcDeckResult() {}
+
+func (NpcDeckNotFoundError) IsSetNpcDeckCardCountsResult() {}
+
+func (NpcDeckNotFoundError) IsDeleteNpcDeckResult() {}
+
+func (NpcDeckNotFoundError) IsPublishNpcDeckResult() {}
+
+func (NpcDeckNotFoundError) IsRetireNpcDeckResult() {}
+
+// 写した元
+type NpcDeckSource struct {
+	// 元のプリセットデッキの公開用の ID（消されていることもある）
+	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 写したときの、元のプリセットデッキの revision
+	Revision int `json:"revision"`
+	// 写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）
+	ChangedSinceCopied bool `json:"changedSinceCopied"`
+	// 元のプリセットデッキが削除されている
+	PresetDeckDeleted bool `json:"presetDeckDeleted"`
+}
+
 // ページの情報
 type PageInfo struct {
 	// 次のページがあるか
@@ -1338,6 +1505,8 @@ type PresetDeckNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
+
+func (PresetDeckNotFoundError) IsRegisterNpcDeckFromPresetDeckResult() {}
 
 func (PresetDeckNotFoundError) IsPresetDeckResult() {}
 
@@ -1419,6 +1588,24 @@ type PublishNpcAvatarSuccess struct {
 
 func (PublishNpcAvatarSuccess) IsPublishNpcAvatarResult() {}
 
+// NPC のデッキを公開する入力
+type PublishNpcDeckInput struct {
+	// NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のデッキの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のデッキを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishNpcDeckSuccess struct {
+	// 公開した NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishNpcDeckSuccess) IsPublishNpcDeckResult() {}
+
 // スターターデッキを公開する入力
 type PublishStarterDeckInput struct {
 	// スターターデッキの公開用の ID
@@ -1499,6 +1686,38 @@ type RegisterNpcAvatarSuccess struct {
 }
 
 func (RegisterNpcAvatarSuccess) IsRegisterNpcAvatarResult() {}
+
+// NPC のデッキをプリセットデッキから写して登録する入力
+type RegisterNpcDeckFromPresetDeckInput struct {
+	// 写す元のプリセットデッキの公開用の ID（名前・カードと枚数を写す。合計が 40 枚でなくてもよい）
+	PresetDeckID uuid.UUID `json:"presetDeckId"`
+}
+
+// プリセットデッキから写して NPC のデッキを登録した（準備中。写した元の公開 ID と revision を記録する）
+type RegisterNpcDeckFromPresetDeckSuccess struct {
+	// 登録した NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterNpcDeckFromPresetDeckSuccess) IsRegisterNpcDeckFromPresetDeckResult() {}
+
+// NPC のデッキを空から登録する入力
+type RegisterNpcDeckInput struct {
+	// 名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC のデッキを登録した（準備中）
+type RegisterNpcDeckSuccess struct {
+	// 登録した NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterNpcDeckSuccess) IsRegisterNpcDeckResult() {}
 
 // プリセットデッキを登録する入力
 type RegisterPresetDeckInput struct {
@@ -1602,6 +1821,26 @@ type RenameNpcAvatarSuccess struct {
 
 func (RenameNpcAvatarSuccess) IsRenameNpcAvatarResult() {}
 
+// NPC のデッキの名前を変える入力
+type RenameNpcDeckInput struct {
+	// NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のデッキの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC のデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameNpcDeckSuccess struct {
+	// 変えた NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameNpcDeckSuccess) IsRenameNpcDeckResult() {}
+
 // プリセットデッキの名前を変える入力
 type RenamePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -1696,6 +1935,24 @@ type RetireNpcAvatarSuccess struct {
 
 func (RetireNpcAvatarSuccess) IsRetireNpcAvatarResult() {}
 
+// NPC のデッキを使用不可にする入力
+type RetireNpcDeckInput struct {
+	// NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のデッキの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のデッキを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireNpcDeckSuccess struct {
+	// 使用不可にした NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にした NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireNpcDeckSuccess) IsRetireNpcDeckResult() {}
+
 // スターターデッキを使用不可にする入力
 type RetireStarterDeckInput struct {
 	// スターターデッキの公開用の ID
@@ -1744,6 +2001,16 @@ func (RevisionConflictError) IsPublishNpcAvatarResult() {}
 
 func (RevisionConflictError) IsRetireNpcAvatarResult() {}
 
+func (RevisionConflictError) IsRenameNpcDeckResult() {}
+
+func (RevisionConflictError) IsSetNpcDeckCardCountsResult() {}
+
+func (RevisionConflictError) IsDeleteNpcDeckResult() {}
+
+func (RevisionConflictError) IsPublishNpcDeckResult() {}
+
+func (RevisionConflictError) IsRetireNpcDeckResult() {}
+
 func (RevisionConflictError) IsRenamePresetDeckResult() {}
 
 func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
@@ -1775,6 +2042,26 @@ func (this SanctuaryTile) GetX() int { return this.X }
 
 // 行
 func (this SanctuaryTile) GetY() int { return this.Y }
+
+// NPC のデッキのカードの枚数を変える入力
+type SetNpcDeckCardCountsInput struct {
+	// NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のデッキの revision
+	Revision int `json:"revision"`
+	// 変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り。新しく入れる・増やすカードは公開中だけ）
+	Cards []*DeckCardCountInput `json:"cards"`
+}
+
+// NPC のデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
+type SetNpcDeckCardCountsSuccess struct {
+	// 変えた NPC のデッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC のデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetNpcDeckCardCountsSuccess) IsSetNpcDeckCardCountsResult() {}
 
 // プリセットデッキのカードの枚数を変える入力
 type SetPresetDeckCardCountsInput struct {
@@ -2029,6 +2316,16 @@ func (ValidationErrors) IsNpcAvatarsResult() {}
 func (ValidationErrors) IsRegisterNpcAvatarResult() {}
 
 func (ValidationErrors) IsRenameNpcAvatarResult() {}
+
+func (ValidationErrors) IsNpcDecksResult() {}
+
+func (ValidationErrors) IsRegisterNpcDeckResult() {}
+
+func (ValidationErrors) IsRenameNpcDeckResult() {}
+
+func (ValidationErrors) IsSetNpcDeckCardCountsResult() {}
+
+func (ValidationErrors) IsPublishNpcDeckResult() {}
 
 func (ValidationErrors) IsPresetDecksResult() {}
 
@@ -2377,6 +2674,68 @@ func (e *NpcAvatarStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e NpcAvatarStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// NPC のデッキの状態。準備中は名前・カードを自由に変えられ、決まり（40 枚等）を満たさなくてよい。公開中は決まりを満たす。
+// 公開中の数に上限は無い。使用不可は新しい対戦に使わない
+type NpcDeckStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	NpcDeckStatusDraft NpcDeckStatus = "DRAFT"
+	// 公開中
+	NpcDeckStatusPublished NpcDeckStatus = "PUBLISHED"
+	// 使用不可
+	NpcDeckStatusRetired NpcDeckStatus = "RETIRED"
+)
+
+var AllNpcDeckStatus = []NpcDeckStatus{
+	NpcDeckStatusDraft,
+	NpcDeckStatusPublished,
+	NpcDeckStatusRetired,
+}
+
+func (e NpcDeckStatus) IsValid() bool {
+	switch e {
+	case NpcDeckStatusDraft, NpcDeckStatusPublished, NpcDeckStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e NpcDeckStatus) String() string {
+	return string(e)
+}
+
+func (e *NpcDeckStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = NpcDeckStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid NpcDeckStatus", str)
+	}
+	return nil
+}
+
+func (e NpcDeckStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *NpcDeckStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e NpcDeckStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

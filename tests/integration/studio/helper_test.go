@@ -171,3 +171,8 @@ func waitPresetDeck(t *testing.T, token string, id any, revision int) map[string
 	})
 	return deck
 }
+
+// 次の操作の入力に渡せるよう、{id, revision} に直す
+func ref(result map[string]any) map[string]any {
+	return map[string]any{"id": result["id"], "revision": result["revision"]}
+}

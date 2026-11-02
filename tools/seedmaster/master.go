@@ -27,6 +27,8 @@ type master struct {
 	Boards []masterBoard `json:"boards"`
 	// 登録して公開する NPC のアバターの名前
 	NPCAvatars []string `json:"npc_avatars"`
+	// プリセットデッキから同じ名前で写して、公開する NPC のデッキ。プリセットデッキの名前で書く
+	NPCDecks []string `json:"npc_decks"`
 }
 
 type masterCard struct {
@@ -156,7 +158,10 @@ func (m master) validate() error {
 	if err := m.validateBoards(); err != nil {
 		return err
 	}
-	return m.validateNPCAvatars()
+	if err := m.validateNPCAvatars(); err != nil {
+		return err
+	}
+	return m.validateNPCDecks(deckNames)
 }
 
 // レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に
@@ -200,6 +205,20 @@ func (m master) validateNPCAvatars() error {
 			return fmt.Errorf("npc avatar %q: duplicated", name)
 		}
 		names[key] = true
+	}
+	return nil
+}
+
+func (m master) validateNPCDecks(presetDeckNames map[string]bool) error {
+	names := map[string]bool{}
+	for _, name := range m.NPCDecks {
+		if !presetDeckNames[name] {
+			return fmt.Errorf("npc decks: unknown preset deck %q", name)
+		}
+		if names[name] {
+			return fmt.Errorf("npc decks: %q is duplicated", name)
+		}
+		names[name] = true
 	}
 	return nil
 }

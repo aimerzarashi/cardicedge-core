@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -45,6 +46,14 @@ func newPresetDeckFixture(t *testing.T) presetDeckFixture {
 		registry: registry,
 		writer:   repository.NewPresetDeckWriter(identifier.NewEntityRefResolver(registry)),
 	}
+}
+
+// read model はオペレーターを内部 ID で持つため、識別子を発行して、内部 ID と公開 ID の組を作る
+func (f presetDeckFixture) issueOperator(t *testing.T) (operator.ID, uuid.UUID) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, operator.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id, publicID
 }
 
 // read model はカードを内部 ID で持つため、識別子を発行して、内部 ID と公開 ID の組を作る

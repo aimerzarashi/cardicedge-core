@@ -83,6 +83,14 @@ var Types = Catalog{
 			{ID: 2504, Name: "PublishedEvent"},
 			{ID: 2505, Name: "RetiredEvent"},
 		}},
+		{ID: 2600, Name: "npc_deck", Events: []EventTypeDef{
+			{ID: 2601, Name: "RegisteredEvent"},
+			{ID: 2602, Name: "RenamedEvent"},
+			{ID: 2603, Name: "CardCountsChangedEvent"},
+			{ID: 2604, Name: "PublishedEvent"},
+			{ID: 2605, Name: "RetiredEvent"},
+			{ID: 2606, Name: "DeletedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
@@ -100,10 +108,12 @@ var Types = Catalog{
 		{ID: 1013, Name: "board.name"},
 		{ID: 1014, Name: "studio_rules.singleton"},
 		{ID: 1015, Name: "npc_avatar.name"},
+		{ID: 1016, Name: "npc_deck.name"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
 		{ID: 1002, Name: "starter_deck.card"},
+		{ID: 1003, Name: "npc_deck.card"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},

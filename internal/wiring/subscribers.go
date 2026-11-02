@@ -17,6 +17,7 @@ var subscribers = []serviceSubscriber{
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1009, "boards")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1010, "studio_rules")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1011, "npc_avatars")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1012, "npc_decks")},
 }
 
 const (

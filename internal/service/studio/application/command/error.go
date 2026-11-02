@@ -47,6 +47,14 @@ var (
 	ErrInvalidNPCAvatarStatusTransition = errors.New("command: invalid npc avatar status transition")
 	// 準備中でない NPC のアバターの名前を変える、または削除しようとした
 	ErrNPCAvatarNotDraft = errors.New("command: npc avatar is not draft")
+	// ほかの NPC のデッキが同じ名前を使っている（状態によらない）
+	ErrNPCDeckNameAlreadyInUse = errors.New("command: npc deck name already in use")
+	// 公開 ID に当たる NPC のデッキが無い（削除したものを含む）
+	ErrNPCDeckNotFound = errors.New("command: npc deck not found")
+	// 準備中の NPC のデッキを使用不可にしようとした
+	ErrInvalidNPCDeckStatusTransition = errors.New("command: invalid npc deck status transition")
+	// 準備中でない NPC のデッキの名前・枚数を変える、または削除しようとした
+	ErrNPCDeckNotDraft = errors.New("command: npc deck is not draft")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした
