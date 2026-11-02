@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -60,6 +61,8 @@ type Studio struct {
 	gameRules       *command.GameRulesHandler
 	studioRules     *command.StudioRulesHandler
 	studioRulesList *query.StudioRulesHandler
+	npcAvatars      *command.NPCAvatarHandler
+	npcAvatarList   *query.NPCAvatarHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -73,6 +76,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	presetDeckReader := repository.NewPresetDeckReader()
 	starterDeckReader := repository.NewStarterDeckReader()
 	boardReader := repository.NewBoardReader()
+	npcAvatarReader := repository.NewNPCAvatarReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -149,6 +153,13 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			now,
 		),
 		boardList: query.NewBoardHandler(boardReader.List, boardReader.Get),
+		npcAvatars: command.NewNPCAvatarHandler(
+			eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve),
+			identifier.New(registry, npcavatar.NewID),
+			constraint.UpdateNPCAvatarName,
+			now,
+		),
+		npcAvatarList: query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
 	}
 }
 
@@ -249,18 +260,29 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	studioRules := repository.NewStudioRulesWriter()
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StudioRules]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StudioRules]{
 		Name: "studio_rules",
 		Subscriptions: []domain.EntityType{
 			studiorules.Types().EntityType,
 		},
 		Upsert: studioRules.Upsert,
 		Delete: studioRules.Delete,
+	}); err != nil {
+		return err
+	}
+	npcAvatars := repository.NewNPCAvatarWriter(c.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.NPCAvatar]{
+		Name: "npc_avatars",
+		Subscriptions: []domain.EntityType{
+			npcavatar.Types().EntityType,
+		},
+		Upsert: npcAvatars.Upsert,
+		Delete: npcAvatars.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList, c.npcAvatars, c.npcAvatarList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

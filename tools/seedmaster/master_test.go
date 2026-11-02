@@ -1,11 +1,13 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 )
 
 func TestSampleMaster_IsValid(t *testing.T) {
@@ -104,6 +106,35 @@ func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
 		found = found || all
 	}
 	require.True(t, found)
+}
+
+// 見本のファイルに NPC のアバターが 3 つあり、どれも名前の決まりを満たす（始める前に確かめる流れが、見本で必ず通るように）
+func TestSampleMaster_HasThreeNPCAvatars(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"見習いの魔術師", "森の番人", "炎の剣士"}, m.NPCAvatars)
+}
+
+func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
+	tests := []struct {
+		name       string
+		npcAvatars []string
+	}{
+		{name: "blank_name", npcAvatars: []string{" "}},
+		{name: "too_long_name", npcAvatars: []string{strings.Repeat("あ", npcavatar.MaxNameLength+1)}},
+		{name: "duplicated_name", npcAvatars: []string{"森の番人", "森の番人"}},
+		{name: "duplicated_after_normalization", npcAvatars: []string{"ＡＢＣ", " abc"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.NPCAvatars = tt.npcAvatars
+
+			require.Error(t, m.validate())
+		})
+	}
 }
 
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {

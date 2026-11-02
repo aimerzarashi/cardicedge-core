@@ -39,6 +39,14 @@ var (
 	ErrBoardNotDraft = errors.New("command: board is not draft")
 	// 公開の条件（拠点・チェックポイント・拠点から行けること）を満たしていない。理由は BoardNotPublishableError で受け取る
 	ErrBoardNotPublishable = errors.New("command: board is not publishable")
+	// ほかの NPC のアバターが同じ名前を使っている（状態によらない）
+	ErrNPCAvatarNameAlreadyInUse = errors.New("command: npc avatar name already in use")
+	// 公開 ID に当たる NPC のアバターが無い（削除したものを含む）
+	ErrNPCAvatarNotFound = errors.New("command: npc avatar not found")
+	// 準備中の NPC のアバターを使用不可にしようとした
+	ErrInvalidNPCAvatarStatusTransition = errors.New("command: invalid npc avatar status transition")
+	// 準備中でない NPC のアバターの名前を変える、または削除しようとした
+	ErrNPCAvatarNotDraft = errors.New("command: npc avatar is not draft")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした

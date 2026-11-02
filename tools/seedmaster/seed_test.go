@@ -83,6 +83,12 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax,
 		}, board.DefaultRules)
 	}
+	npcAvatars, err := s.listNPCAvatars(ctx)
+	require.NoError(t, err)
+	require.Len(t, npcAvatars, len(m.NPCAvatars))
+	for _, name := range m.NPCAvatars {
+		require.Equal(t, readmodel.NPCAvatarStatusPublished, npcAvatars[domain.NormalizeName(name)].Status)
+	}
 }
 
 // 途中で止まった（一部だけ入っている）状態から流し直しても、足りない分だけを入れ、見本どおりにそろう
@@ -161,6 +167,10 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			changed, err := s.boards.ChangeLayout(ctx, registered.ID, registered.Revision, m.Boards[0].layoutInput())
 			require.NoError(t, err)
 			_, err = s.boards.ChangeDefaultRules(ctx, registered.ID, changed.Revision, m.Boards[0].defaultRulesInput())
+			require.NoError(t, err)
+		}},
+		{name: "npc_avatar_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0])
 			require.NoError(t, err)
 		}},
 	}

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
@@ -23,6 +25,8 @@ type master struct {
 	StarterDecks []string `json:"starter_decks"`
 	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
 	Boards []masterBoard `json:"boards"`
+	// 登録して公開する NPC のアバターの名前
+	NPCAvatars []string `json:"npc_avatars"`
 }
 
 type masterCard struct {
@@ -149,7 +153,10 @@ func (m master) validate() error {
 		}
 		starterNames[name] = true
 	}
-	return m.validateBoards()
+	if err := m.validateBoards(); err != nil {
+		return err
+	}
+	return m.validateNPCAvatars()
 }
 
 // レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に
@@ -176,6 +183,23 @@ func (m master) validateBoards() error {
 		if readiness := layout.Readiness(); !readiness.Publishable() {
 			return fmt.Errorf("board %q: not publishable: %+v", b.Name, readiness)
 		}
+	}
+	return nil
+}
+
+// 名前の決まりは domain の npcavatar.NewName で確かめる（ここに長さを書き写さない）。重なりは登録の入口と同じ比べ方で見つける
+func (m master) validateNPCAvatars() error {
+	names := map[string]bool{}
+	for _, name := range m.NPCAvatars {
+		validName, err := npcavatar.NewName(name)
+		if err != nil {
+			return fmt.Errorf("npc avatar %q: %w", name, err)
+		}
+		key := domain.NormalizeName(validName.String())
+		if names[key] {
+			return fmt.Errorf("npc avatar %q: duplicated", name)
+		}
+		names[key] = true
 	}
 	return nil
 }

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -97,10 +98,12 @@ type seeder struct {
 	presetDecks     *command.PresetDeckHandler
 	starterDecks    *command.StarterDeckHandler
 	boards          *command.BoardHandler
+	npcAvatars      *command.NPCAvatarHandler
 	cards           *query.CardHandler
 	presetDeckList  *query.PresetDeckHandler
 	starterDeckList *query.StarterDeckHandler
 	boardList       *query.BoardHandler
+	npcAvatarList   *query.NPCAvatarHandler
 }
 
 func newSeeder(registry *domaindef.Registry) *seeder {
@@ -112,6 +115,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	presetDeckReader := repository.NewPresetDeckReader()
 	starterDeckReader := repository.NewStarterDeckReader()
 	boardReader := repository.NewBoardReader()
+	npcAvatarReader := repository.NewNPCAvatarReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -173,10 +177,17 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			studioRules.Get,
 			now,
 		),
+		npcAvatars: command.NewNPCAvatarHandler(
+			eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve),
+			identifier.New(registry, npcavatar.NewID),
+			constraint.UpdateNPCAvatarName,
+			now,
+		),
 		cards:           query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList:  query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
 		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
 		boardList:       query.NewBoardHandler(boardReader.List, boardReader.Get),
+		npcAvatarList:   query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
 	}
 }
 
@@ -198,7 +209,10 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err := s.seedStarterDecks(ctx, m.StarterDecks, deckIDs); err != nil {
 		return err
 	}
-	return s.seedBoards(ctx, m.Boards)
+	if err := s.seedBoards(ctx, m.Boards); err != nil {
+		return err
+	}
+	return s.seedNPCAvatars(ctx, m.NPCAvatars)
 }
 
 // 登録してレイアウトと既定のルールを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
@@ -298,6 +312,100 @@ func (s *seeder) listBoards(ctx context.Context) (map[string]query.Board, error)
 		}
 		if !page.PageInfo.HasNextPage {
 			return boards, nil
+		}
+		after = page.PageInfo.EndCursor
+	}
+}
+
+// 登録して公開する。何度流しても同じ結果になるよう、同じ名前の NPC のアバターがあれば登録しない。
+// 公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）
+func (s *seeder) seedNPCAvatars(ctx context.Context, names []string) error {
+	existing, err := s.listNPCAvatars(ctx)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		key := domain.NormalizeName(name)
+		current, ok := existing[key]
+		if !ok {
+			registered, err := s.npcAvatars.Register(ctx, name)
+			if errors.Is(err, command.ErrNPCAvatarNameAlreadyInUse) {
+				// 登録済みだが read model にまだ無い（投影の遅れ）
+				err = waitFor(ctx, "npc_avatars", func() (bool, error) {
+					existing, err = s.listNPCAvatars(ctx)
+					_, ok := existing[key]
+					return ok, err
+				})
+				current = existing[key]
+			} else if err == nil {
+				current = query.NPCAvatar{ID: registered.ID, Status: readmodel.NPCAvatarStatusDraft, Revision: registered.Revision}
+				slog.InfoContext(ctx, "registered npc avatar", "name", name)
+			}
+			if err != nil {
+				return fmt.Errorf("register npc avatar %q: %w", name, err)
+			}
+		}
+		if current.Status != readmodel.NPCAvatarStatusDraft {
+			continue
+		}
+		if err := s.publishNPCAvatar(ctx, name, current); err != nil {
+			return fmt.Errorf("publish npc avatar %q: %w", name, err)
+		}
+	}
+	return waitFor(ctx, "npc_avatars", func() (bool, error) {
+		existing, err := s.listNPCAvatars(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, name := range names {
+			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
+			published, ok := existing[domain.NormalizeName(name)]
+			if !ok || published.Status == readmodel.NPCAvatarStatusDraft {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+// read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って
+// 読み直す（publishBoard と同じ）
+func (s *seeder) publishNPCAvatar(ctx context.Context, name string, current query.NPCAvatar) error {
+	key := domain.NormalizeName(name)
+	for {
+		_, err := s.npcAvatars.Publish(ctx, current.ID, current.Revision)
+		if !errors.Is(err, command.ErrRevisionConflict) {
+			if err == nil {
+				slog.InfoContext(ctx, "published npc avatar", "name", name)
+			}
+			return err
+		}
+		stale := current.Revision
+		if err := waitFor(ctx, "npc_avatars", func() (bool, error) {
+			existing, err := s.listNPCAvatars(ctx)
+			current = existing[key]
+			return current.Revision > stale, err
+		}); err != nil {
+			return err
+		}
+	}
+}
+
+// 正規化した名前（重複の判定と同じ）から NPC のアバターを引く表
+func (s *seeder) listNPCAvatars(ctx context.Context) (map[string]query.NPCAvatar, error) {
+	npcAvatars := map[string]query.NPCAvatar{}
+	var after *string
+	for {
+		first := pagination.MaxFirst
+		page, err := s.npcAvatarList.List(ctx, query.NPCAvatarFilter{}, &first, after)
+		if err != nil {
+			return nil, err
+		}
+		for _, edge := range page.Edges {
+			npcAvatars[domain.NormalizeName(edge.Node.Name)] = edge.Node
+		}
+		if !page.PageInfo.HasNextPage {
+			return npcAvatars, nil
 		}
 		after = page.PageInfo.EndCursor
 	}
