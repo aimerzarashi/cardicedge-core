@@ -1,0 +1,58 @@
+# otel-lgtm の中の Collector に重ねる設定（core#83）。compose.yaml の OTELCOL_EXTRA_ARGS で --config に足す。
+# core-db の JSON のログ（遅い SQL・auto_explain の実行計画）を読み、otel-lgtm の中の Loki に送る。
+# 元の設定（otel-lgtm の /otel-lgtm/otelcol-config.yaml）の logs の流れは書き換えず、別の流れ（logs/core_db）を足す（元の受け口の並びを
+# 書き直すと、otel-lgtm の版を上げたときに合わせる手間が増えるため）。
+# 元の設定の名前に頼るところ: 拡張 health_check（service.extensions は配列で、重ねると置き換わるため、元のものも並べる）、
+# processor の batch、exporter の otlp_http/logs（Loki）。otel-lgtm の版を上げたら、元の設定でこの名前が変わっていないかを確かめる
+
+extensions:
+  # 読んだ位置を残す。/data は otel-lgtm の名前つきのボリューム（core#82）なので、作り直しても残る
+  file_storage/core_db:
+    directory: /data/otelcol-storage/core-db
+    create_directory: true
+
+receivers:
+  file_log/core_db:
+    include: [/var/log/postgresql/*.json]
+    # 初めて読むファイルは最初から読む。読んだ位置は storage（/data の名前つきのボリューム）に残すので、otel-lgtm を作り直しても
+    # 同じログを Loki に重ねて送らない
+    start_at: beginning
+    storage: file_storage/core_db
+    resource:
+      service.name: core-db
+    operators:
+      - type: json_parser
+        timestamp:
+          parse_from: attributes.timestamp
+          layout: "%Y-%m-%d %H:%M:%S.%L %Z"
+        severity:
+          parse_from: attributes.error_severity
+          mapping:
+            debug: [DEBUG1, DEBUG2, DEBUG3, DEBUG4, DEBUG5]
+            info: [LOG, INFO, NOTICE]
+            warn: WARNING
+            error: ERROR
+            fatal: [FATAL, PANIC]
+      # log_min_duration_statement は「duration: 200.1 ms  statement: <SQL>」（拡張問い合わせは execute <名前>: <SQL>）、auto_explain は
+      # 「duration: 200.1 ms  plan:\n<JSON>」。時間・種類・本文を項目に分け、Loki で時間の絞り込みや SQL の表示ができるようにする
+      - type: regex_parser
+        # duration で始まる行だけ分ける。ほかの行（接続・エラー等）に当てると、合わない行ごとにエラーのログが出て、取り込みも止まる
+        if: 'attributes.message != nil and attributes.message matches "^duration: "'
+        parse_from: attributes.message
+        regex: '^duration: (?P<duration_ms>[0-9.]+) ms\s+(?P<kind>[^:]+):\s*(?P<text>[\s\S]*)$'
+      - type: move
+        if: 'attributes.kind == "plan"'
+        from: attributes.text
+        to: attributes.plan
+      - type: move
+        if: 'attributes.text != nil'
+        from: attributes.text
+        to: attributes.sql
+
+service:
+  extensions: [health_check, file_storage/core_db]
+  pipelines:
+    logs/core_db:
+      receivers: [file_log/core_db]
+      processors: [batch]
+      exporters: [otlp_http/logs]

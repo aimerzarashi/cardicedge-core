@@ -101,8 +101,49 @@ services:
       POSTGRES_USER: core_user
       POSTGRES_PASSWORD: core_password
       POSTGRES_DB: core_studio
+    # 重い SQL・遅い SQL とその実行計画を調べるための設定（開発の環境だけ。compose.test.yaml・リリース確認の環境には入れない。core#83）。
+    # 起動の設定は次の make up でコンテナが作り直されて効く（名前の無いボリュームは引き継がれ、データは消えない）。拡張を作る初期化の SQL は
+    # 新しい DB でしか流れないので、すでにある DB には手で流す（README）。アプリのコードには手を入れず、PostgreSQL 自身に集計・記録させる
+    # - shared_preload_libraries: pg_stat_statements（SQL の形ごとの回数・時間の集計）と auto_explain（遅い SQL の実行計画をログへ）
+    # - pg_stat_statements.track=all: 関数の中から呼ばれる SQL も数える（既定は top で、関数の中が見えない）
+    # - log_min_duration_statement / auto_explain.log_min_duration: 100ms 以上かかった SQL とその実行計画だけ残す（全部は多すぎる）。調べるときに下げる
+    # - auto_explain.log_analyze=on: 実際の行数・時間つきの計画を残す（見積もりだけでは遅い原因が分からない）。計測の分だけ遅くなるが、開発の環境のため許す
+    # - auto_explain.log_format=json: 計画を 1 つの JSON にして、Loki で扱いやすくする
+    # - log_destination=jsonlog + logging_collector: 1 行 1 JSON のログを名前つきのボリュームに書き、otel-lgtm の中の Collector が読む。
+    #   代わりに docker logs（標準エラー）には PostgreSQL のログが出なくなる（ファイルか Grafana で見る）
+    # - log_filename=postgresql-%u.log + log_truncate_on_rotation: 曜日の番号の 7 ファイルを 1 日ごとに使い回し、増え続けない
+    # - log_file_mode=0644: 別のコンテナ（otel-lgtm）が読むため
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,auto_explain
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - log_min_duration_statement=100
+      - -c
+      - auto_explain.log_min_duration=100
+      - -c
+      - auto_explain.log_analyze=on
+      - -c
+      - auto_explain.log_format=json
+      - -c
+      - log_destination=jsonlog
+      - -c
+      - logging_collector=on
+      - -c
+      - log_directory=/var/log/postgresql
+      - -c
+      - log_filename=postgresql-%u.log
+      - -c
+      - log_rotation_age=1d
+      - -c
+      - log_truncate_on_rotation=on
+      - -c
+      - log_file_mode=0644
     volumes:
       - ./local/core-db:/docker-entrypoint-initdb.d:ro
+      - core-db-log:/var/log/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U core_user -d core_studio"]
       interval: 2s
@@ -112,7 +153,8 @@ services:
   # トレース（Tempo）・ログ（Loki）の受け手と Grafana（開発中のトレースの調査用。core#74）。開発の環境の core は 1 つを共有するので、受け手もここに 1 つ置く。
   # 共有ネットワーク（diecardomain-game・diecardomain-studio）には入れない: game から studio に内部から届く経路を作らない決まり（core#45・studio#30）を崩さないため。
   # 代わりに OTLP の口をホストに公開し、送る側のコンテナは host.docker.internal（extra_hosts の host-gateway）で送る。
-  # 開発の環境も、テスト用の環境（studio・game の compose.test.yaml）も同じ形で届く。データは名前の無いボリュームで、core-db と同じく make down で消える。
+  # 開発の環境も、テスト用の環境（studio・game の compose.test.yaml）も同じ形で届く。データ（/data）は名前つきのボリュームに置き、PC の再起動・
+  # コンテナの作り直し・make down で消さない（前の日の調べたいトレースとログを残すため。core#82）。消すときは make clean
   # OTLP の口を 127.0.0.1 にだけ公開する案は採らなかった: コンテナから見たホストは docker のブリッジのゲートウェイ（172.17.0.1）で、
   # ループバックだけで待つ口には届かないため（実際に接続が拒否された）。Grafana の画面はコンテナから使わないので 127.0.0.1 にだけ公開する
   otel-lgtm:
@@ -123,11 +165,25 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      # core-db のログ（遅い SQL・実行計画）を読む設定を、otel-lgtm の中の Collector に足す（core#83）。イメージの起動の手順（run-otelcol.sh）が
+      # この変数を Collector の引数に足し、Collector は --config を複数渡すと重ね合わせる。別の Collector のコンテナを置く案は、コンテナと版が
+      # 1 つ増えるため採らなかった。元の設定（otelcol-config.yaml）は書き換えない
+      OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml
     # 衝突する場合は OTEL_GRAFANA_PORT・OTEL_GRPC_PORT・OTEL_HTTP_PORT で変更する
     ports:
       - 127.0.0.1:${OTEL_GRAFANA_PORT:-3002}:3000
       - ${OTEL_GRPC_PORT:-4317}:4317
       - ${OTEL_HTTP_PORT:-4318}:4318
+    # core-db のデータソースとダッシュボード（core#83 の重い SQL・遅い SQL・実行計画、core#84 の処理の遅れ・誤り・GraphQL の時間）を、Grafana の
+    # provisioning のディレクトリにファイルで足す。ダッシュボードは local/grafana/dashboards に JSON を置けば読み込まれる。
+    # core-db のログは読み取り専用で受け、上の OTELCOL_EXTRA_ARGS の設定で読む
+    volumes:
+      - otel-lgtm-data:/data
+      - ./local/otel-lgtm/otelcol-core-db.yaml:/otel-lgtm/extra/otelcol-core-db.yaml:ro
+      - core-db-log:/var/log/postgresql:ro
+      - ./local/grafana/provisioning/datasources/core-db.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/core-db.yaml:ro
+      - ./local/grafana/provisioning/dashboards/diecardomain.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/diecardomain.yaml:ro
+      - ./local/grafana/dashboards:/otel-lgtm/diecardomain-dashboards:ro
     # イメージの healthcheck は 30 秒間隔で、make up (--wait) が最大 30 秒待つため、起動中だけ間隔を縮める
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
@@ -140,6 +196,12 @@ services:
 volumes:
   go-mod:
   go-build:
+  # make clean で名前を指して消すため、決まった名前にする（既定ではプロジェクト名が前に付く）
+  otel-lgtm-data:
+    name: diecardomain-otel-lgtm-data
+  # core-db の JSON のログ。make clean で消す。make down では、core-db のデータを消しても残す（Loki のデータと同じく調べるために残す）
+  core-db-log:
+    name: diecardomain-core-db-log
 
 # game・studio と共有するネットワーク。make up で無ければ作成する。game 用と studio 用に分けるのは、game が乗っ取られても
 # studio に内部から届く経路そのものを無くすため（多重の防御。core だけが両方に参加する。core#45）

@@ -25,6 +25,7 @@ make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
 make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
 make down    # 停止して DB のデータも破棄
+make clean   # down に加えて、トレースとログ（otel-lgtm のデータ）と core-db のログも破棄
 ```
 
 | URL | 内容 |
@@ -42,7 +43,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## トレースとログの受け手（grafana/otel-lgtm）
 
-`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。`make down` で消える（データは名前の無いボリュームで、core-db と同じく開発の間だけ残す）。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。消すときは `make clean`。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
 
 | 用途 | 場所（既定のポート） | 変える環境変数 |
 |---|---|---|
@@ -53,9 +54,40 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
 
+## 重い SQL・遅い SQL と実行計画（core#83）
+
+開発の core-db は PostgreSQL 自身に SQL の集計とログを取らせ、Grafana（上の otel-lgtm）で見る。アプリのコードは関係しない。開発の環境だけで、compose.test.yaml・リリース確認の環境には入れない。
+
+| 部品 | 役目 |
+|---|---|
+| core-db（compose.yaml の `command`・local/core-db/extensions.sql） | pg_stat_statements（SQL の形ごとの回数・時間の集計。core_studio・core_game それぞれ）、100ms 以上の SQL のログ（log_min_duration_statement）、その実行計画（auto_explain。JSON）を有効にする。ログは JSON の行で名前つきのボリューム（`diecardomain-core-db-log`）に書く |
+| otel-lgtm の中の Collector（足す設定は local/otel-lgtm/otelcol-core-db.yaml。compose.yaml の OTELCOL_EXTRA_ARGS で渡す） | ボリュームを読み取り専用で受け、JSON の行を読んで otel-lgtm の Loki に送る（`service_name="core-db"`。時間は `duration_ms`、種類は `kind`（`statement`・`plan` 等）、SQL は `sql`、実行計画は `plan`）。読んだ位置は otel-lgtm の /data に残し、作り直しても重ねて送らない |
+| otel-lgtm（local/grafana） | provisioning のディレクトリにファイルで足したデータソース（`core-db core_studio`・`core-db core_game`）とダッシュボード「core-db の SQL」 |
+
+見方: http://localhost:3002 のダッシュボード「core-db の SQL」（上の変数 DB で core_studio・core_game を選ぶ）。
+
+- 重い SQL: pg_stat_statements の表（合計時間・呼ばれた回数・平均・最大・行数。列の見出しで並べ替える）。起動してからの累計で、リセットは `SELECT pg_stat_statements_reset()`
+- 遅い SQL: Loki の `{service_name="core-db"} | duration_ms != "" | kind != "plan"`（時刻・時間・SQL）
+- 実行計画: Loki の `{service_name="core-db"} | kind = "plan"`（auto_explain。計画の JSON に `Query Text` が入る）
+- 閾値は compose.yaml の core-db の `log_min_duration_statement`・`auto_explain.log_min_duration`（100ms）。調べるときに下げる（反映は core-db の作り直し）
+- 起動の設定は、次の `make up` で core-db のコンテナが作り直されて効く（docker compose は名前の無いボリュームを引き継ぐので、データは消えない）。拡張を作る初期化の SQL（local/core-db/extensions.sql）は新しい DB でしか流れないので、すでにある DB には `docker exec core-core-db-1 psql -U core_user -d core_studio -f /docker-entrypoint-initdb.d/extensions.sql` で手で流す（`make down` で DB を作り直したときは自動で流れる。そのときは `make seed-master`・`make publish-master` で見本のマスタを入れ直す）。ログのボリュームは `make down` では残り、`make clean` で消える
+- PostgreSQL のログは標準エラーに出なくなるので、`docker logs core-core-db-1` には出ない（Grafana か、ボリュームのファイルで見る）
+
+## 処理の遅れ・誤り・GraphQL の時間（core#84）
+
+http://localhost:3002 のダッシュボード「core の処理（遅れ・誤り・GraphQL の時間）」。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。タグに `diecardomain` を付け（Grafana の一覧で、otel-lgtm に最初から入っている見本のダッシュボードと分けて絞り込むため）、中身を表すタグ（`core`・`core-db` 等）を添える。
+
+| 欄 | 元のデータ | 見ること |
+|---|---|---|
+| 投影・ポリシーの遅れ | core の処理のログの `lag_ms`（Loki）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる |
+| 投影・ポリシーの処理の時間 | 同じログの `duration_ms` | 処理そのものが遅いか（遅れが大きく処理の時間が短ければ、待ちが原因） |
+| 投影・ポリシーの失敗の数 | 同じログの `result="failure"` | 失敗の理由は、同じ時刻の ERROR・WARN のログで見る |
+| ERROR・WARN のログの数 | core・studio・game のログ（Loki）の `detected_level` | 中身は Explore で `{service_name="core"} \| detected_level="error"` のように引く |
+| GraphQL の操作ごとの時間・呼び出しの数 | トレースから otel-lgtm が作る指標（Prometheus の `traces_spanmetrics_*`） | 遅い操作は、Tempo で個々のトレースを見る |
+
 ## core のトレースとログ（OpenTelemetry。core#75）
 
-core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
+core は、HTTP の呼び出し・GraphQL の操作とリゾルバー・投影とポリシーの処理のスパンと、ログを、上の受け手へ送る。初期化は cmd/app の `run`（`internal/platform/telemetry` の `Setup`）、終了は `serve` のあとに送り切る（`shutdownTimeout` の中の `telemetryFlushTimeout`）。
 
 | 環境変数 | 意味 |
 |---|---|
@@ -65,9 +97,13 @@ core は、HTTP の呼び出し・GraphQL の操作とリゾルバーのスパ�
 
 - これらは platform/config の「環境変数はすべて必須」の例外（任意。config に読み込まず SDK が読む）。受け手が止まっていても core は普通に動き、届かない内部の誤りは WARN で 1 分に 1 回までしか出さない（ERROR にしない。結合テストは ERROR のログで全体を失敗にするため）
 - 引き継ぎは W3C の TraceContext（`traceparent`）だけ。受けた `traceparent` の子としてスパンを作る。`/health` はスパンにしない
-- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）
+- スパン: HTTP（`internal/platform/telemetry` の `HTTP`。`wiring.Start` が返す入口の外側）、GraphQL の操作とリゾルバー（`internal/platform/gqltrace`。studio・game の handler が `srv.Use` する。単純なフィールドは作らない）、投影とポリシーの処理（`internal/eventdriven`。下の「追い方」。core#85）
 - ログ: 標準出力の JSON に、スパンの中で出したログ（`slog.InfoContext(ctx, ...)` 等）へ `trace_id`・`span_id` を足し、同じログを OpenTelemetry のログとして Loki にも送る。`ctx` を渡さない `slog.Info` にはトレースの情報が付かない
-- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れだが、保存したときのトレースを `domain_events.traceparent`（W3C の traceparent。保存のときに ctx から書く。トレースが無ければ NULL。payload には入れない）に残しており、その `trace_id`（と保存のスパンの `span_id`）が付く。同じ `trace_id` で Loki から保存のログと処理のログが並ぶ。処理のスパンは作らない（hub は同じ集約の複数のイベントをまとめて処理し、イベントごとにトレースが違うため、親を 1 つに決められない）。投影を作り直すと、昔のイベントの `trace_id` の処理のログが出る。トレースが無いイベント（初期データ等）の処理のログは `trace_id` を持たず、`event_id` で保存のログとつなぐ
+- 追い方: Grafana の Explore で Loki から `{service_name="core"} |= "event saved"` のように探し、ログの `trace_id` で Tempo のトレースを開く。投影・ポリシーの処理のログ（`eventdriven: event processed`）は、イベントを受け取った別の流れだが、保存したときのトレースを `domain_events.traceparent`（W3C の traceparent。保存のときに ctx から書く。トレースが無ければ NULL。payload には入れない）に残しており、その `trace_id`（と保存のスパンの `span_id`）が付く。同じ `trace_id` で Loki から保存のログと処理のログが並ぶ。処理のログの `trace_id` は、投影のスパンのトレースではなく、保存したときのトレースのまま（投影のトレースの `trace_id` にすると、Loki で元の `trace_id` 1 つで引けなくなるため）。投影を作り直すと、昔のイベントの `trace_id` の処理のログが出る。トレースが無いイベント（初期データ等）の処理のログは `trace_id` を持たず、`event_id` で保存のログとつなぐ
+- 処理のスパン（元のトレースがあるイベントの処理だけ。seed-master・起動時の作成など、トレースが無いイベントはスパンにしない）:
+  - ポリシー: `policy <購読者の名前>`。イベントごとに、保存したときのトレースの子（元のトレースを開くと、保存のスパンの下に並ぶ）。属性は `subscriber_kind`・`subscriber_name`・`entity_type`・`entity_id`・`event_id`・`aggregate_version`・`event_type`（処理のログと同じ名前）。失敗はスパンの誤りとして残る
+  - 投影: `projection <購読者の名前>`。いつも新しいトレース（件数で形を変えない）で、新しく反映したイベントの元のトレースすべてへリンクを張る。属性は `subscriber_kind`・`subscriber_name`・`entity_type`・`entity_id`・`aggregate_version`（作り直した後の版）・`event_ids`（新しく反映したイベントの `event_id` の一覧）
+  - 探し方（Grafana の Explore で Tempo）: 元のトレース → 投影は TraceQL の `{ link:traceID = "<trace id>" }`。投影 → 元は、投影のスパンの詳細に出るリンクをたどる。名前・属性でも探せる（`{ name = "projection boards" }`、`{ span.event_id = 95 }`、`{ span.entity_id = 12 && span.subscriber_kind = "policy" }`。属性の名前は処理のログと同じなので、ログの値をそのまま使える）。送った直後の検索では、数十秒は出ないことがある
 
 ## 他プロジェクトとの統合
 
@@ -197,19 +233,19 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 | パイプライン | ジョブ | 内容 |
 |---|---|---|
-| マイルストーンのブランチに向かう MR（Issue の MR） | issue-mr（手動。実行しない） | 何もしない。パイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる |
-| main に向かう MR（マイルストーンの MR） | lint / test | `make lint` / `make test` 相当 |
+| マイルストーンのブランチに向かう MR（Issue の MR） | check（手動） | ふだんは実行せず、手元の `make lint`・`make test` で確かめる。パイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる。CI の手順を変えたとき等、CI で確かめたいときだけ手で動かす（失敗するとマージできなくなる） |
+| main に向かう MR（マイルストーンの MR） | check | `make lint` → `make test` 相当を 1 つのジョブで順に流す（GitLab のコンピューティング時間を短縮するため、ジョブごとの準備を 1 回にする。lint で落ちたら test は流さない。core#79）。Go のモジュールとビルドの結果を GitLab の cache（`.cache-ci`。鍵は go.sum と GO_VERSION）に持ち、毎回のダウンロードとコンパイルを省く（core#78） |
 | main に向かう MR | build-mr（手動） | `registry.gitlab.com/aimerzarashi/diecardomain/core:mr-<MR番号>` と `.../core/migrate:mr-<MR番号>` に push |
-| main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない |
+| main | release | semantic-release がコミットからバージョンを決め、タグ（`v1.2.0`）と GitLab リリースを作る。リリース対象のコミットが無ければ何もしない。入った MR・Issue へのコメント（どの版で入ったか）は書かない（`.releaserc.json` の `successCommentCondition: false`。書くと GitLab の回数の制限にかかることがあるため。core#77） |
 | タグ（`v*`） | deploy | Docker Hub の `diecardomain/core:<タグ>`・`:latest` と `diecardomain/core-migrate:<タグ>`・`:latest` に push |
 
 バージョンは Conventional Commits で決まる（`feat:` → マイナー、`fix:` / `perf:` → パッチ、`BREAKING CHANGE` → メジャー）。
 
-マイルストーンのブランチに向かう Issue の MR では、何もしない手動のジョブだけを置いて実行しない（lint・test は手元の `make lint`・`make test` で確かめる。パイプラインを作らないと「パイプラインが成功する必要がある」の設定でマージできず、その設定は main に向かう MR の歯止めとして残すため）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が MR の lint・test を通るようにしている。共有 Runner の時間を減らすため（core#30）。
+マイルストーンのブランチに向かう Issue の MR では check のジョブを手動にして、ふだんは実行しない（手元の `make lint`・`make test` で確かめる。GitLab のコンピューティング時間を Issue ごとに使わないため）。手動のジョブだけのパイプラインは skipped になり、「スキップされたパイプラインを成功とみなす」の設定でマージできる（「パイプラインが成功する必要がある」の設定は、main に向かう MR の歯止めとして残す）。main への push では lint・test を流さない（直前の main に向かう MR で同じ中身を確かめているため）。main は直接 push できない設定（保護ブランチの push は No one）にして、すべての変更が main に向かう MR の check を通るようにしている（core#30・core#33）。
 
 ## カスタムリンター（tools/linter）
 
-参照プロジェクトの api のカスタムリンターを移植したもの（#8）。`make lint` と CI の lint で `go run ./tools/linter ./...` を実行する。対象の設定は `tools/linter/main.go` に書く（`make lint` と CI で同じ設定にするため）。
+参照プロジェクトの api のカスタムリンターを移植したもの（#8）。`make lint` と CI の check のジョブ（lint の手順）で `go run ./tools/linter ./...` を実行する。対象の設定は `tools/linter/main.go` に書く（`make lint` と CI で同じ設定にするため）。
 
 | 検査 | 内容 |
 |---|---|
@@ -228,7 +264,7 @@ docker compose -p core-test -f compose.test.yaml down -v
 
 ## DB マイグレーション
 
-[Atlas Community Edition](https://atlasgo.io/community-edition)（`arigaio/atlas:1.3.3-community`）で、`migrations/NNNN_name.sql` のうち未適用のものだけを番号順に適用する。
+[Atlas Community Edition](https://atlasgo.io/community-edition)（`arigaio/atlas:1.3.5-community`）で、`migrations/NNNN_name.sql` のうち未適用のものだけを番号順に適用する。
 core・studio・game で同じ形式・同じ実行役にそろえている（方針は #5）。
 
 | ファイル | 内容 |
@@ -270,7 +306,7 @@ core・studio・game で同じ形式・同じ実行役にそろえている（�
 
 ### Atlas が検出しないこと（`scripts/check-migrations.sh` で補う）
 
-Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の lint ジョブで検査する。
+Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも検出しない）ため、`make lint` と CI の check のジョブ（lint の手順）で検査する。
 適用済みファイルの変更は、比較元からの差分で見る（`make lint` は origin/main との分岐点、CI は main に向かう MR の対象ブランチとの分岐点）。main は直接 push できない設定のため、MR を経ない変更は無い。lint が通らなければ build-mr も動かない。
 
 | 検査 | Atlas に任せた場合 |
@@ -285,5 +321,5 @@ Atlas は以下を黙って通す（`migrate validate` / `migrate lint` でも�
 |---|---|
 | 開発（compose.yaml） | core-migrate-studio・core-migrate-game サービス（migrations をマウント）が core の起動前に 1 回実行。`make migrate`（種別の行も入れる） |
 | テスト用（compose.test.yaml） | core-migrate-studio・core-migrate-game サービス（マイグレーション用イメージ） |
-| CI | test ジョブで Atlas（v1.3.3）を取得し、適用してから go test |
+| CI | check のジョブ（test の手順）で Atlas（v1.3.5）を取得し、適用してから go test |
 | リリース・本番 | タグのパイプラインで `diecardomain/core-migrate:<タグ>` を Docker Hub に push。本番では core より先に、studio 用・game 用の DB それぞれの `DATABASE_URL` を渡してジョブとして実行する |

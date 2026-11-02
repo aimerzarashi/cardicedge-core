@@ -10,6 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -29,7 +32,12 @@ type Options struct {
 	RetryInterval time.Duration
 	// ポリシーが 1 つの集約で失敗できる回数。この回数に達すると、デッドレターとしてやり直さなくなる
 	MaxFailures int
+	// 処理のスパンを記録するプロバイダー。nil ならグローバル。gqltrace と同じく、テストが記録用のものを渡せるようにする
+	// （グローバルを差し替えると、並行して動くほかのテストに影響するため）
+	TracerProvider trace.TracerProvider
 }
+
+const tracerName = "gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 
 type Hub struct {
 	// この Hub が動くサービスの購読者（コードの一覧から渡す）と、その (kind, name) から id を引く表
@@ -37,6 +45,7 @@ type Hub struct {
 	subscriberIDs  map[subscriberKey]int16
 	registry       *domaindef.Registry
 	options        Options
+	tracer         trace.Tracer
 	loaders        map[domaindef.EntityTypeID]eventstore.EventLoader
 	registered     map[int16]*registeredSubscriber
 	// 集約の種別 → その種別を購読する購読者（投影・ポリシー）の id
@@ -75,7 +84,12 @@ func NewHub(subscribers []SubscriberDef, registry *domaindef.Registry, options O
 	if options.MaxFailures < 1 {
 		return nil, fmt.Errorf("eventdriven: MaxFailures must be at least 1: %d", options.MaxFailures)
 	}
+	provider := options.TracerProvider
+	if provider == nil {
+		provider = otel.GetTracerProvider()
+	}
 	hub := &Hub{
+		tracer:         provider.Tracer(tracerName),
 		subscriberDefs: subscribers,
 		subscriberIDs:  make(map[subscriberKey]int16, len(subscribers)),
 		registry:       registry,
@@ -278,11 +292,21 @@ func (h *Hub) project(ctx context.Context, key workKey, registered *registeredSu
 	start := time.Now()
 	// 投影は集約のイベントをすべて当てて作り直すので、処理のログは前の版より後の（新しく反映した）イベントだけに出す
 	var previous int64
+	var span trace.Span
+	// panic でも閉じ忘れない（End は 2 回目以降を無視する）
+	defer func() {
+		if span != nil {
+			span.End()
+		}
+	}()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
 		var err error
 		if previous, err = readCheckpoint(ctx, key); err != nil {
 			return struct{}{}, err
 		}
+		// どのイベントが新しいかはチェックポイントを読むまでわからないため、読み込みの前には始められない。
+		// Transact は中の関数を試し直さない（1 回だけ呼ぶ）ので、スパンは 1 つだけ始まる
+		ctx, span = h.startProjectionSpan(ctx, key, registered, events, previous)
 		advanced, err := advanceCheckpoint(ctx, key, version)
 		if err != nil {
 			return struct{}{}, err
@@ -295,6 +319,14 @@ func (h *Hub) project(ctx context.Context, key workKey, registered *registeredSu
 		// 作り直さなかった（同じか新しい版で作ってある）ときも消す。残すと Poller が拾い続けるため
 		return struct{}{}, removePending(ctx, key, version)
 	})
+	// 確定（commit）の結果までスパンに含める
+	if span != nil {
+		if err != nil && ctx.Err() == nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		}
+		span.End()
+	}
 	if ctx.Err() != nil {
 		return err
 	}
@@ -316,8 +348,8 @@ func (h *Hub) logProcessed(ctx context.Context, key workKey, registered *registe
 		result = "failure"
 	}
 	now := time.Now()
-	// 保存したときのトレースを載せ、trace_id（と保存のスパンの span_id）をログに付ける。スパンは作らない
-	// （hub は同じ集約の複数のイベントをまとめて処理し、イベントごとにトレースが違うため、親を 1 つに決められない）。
+	// 処理のスパンの ctx ではなく、保存したときのトレースを載せ、trace_id（と保存のスパンの span_id）をログに付ける。
+	// 投影のスパンは別のトレースのため、その trace_id にすると、Loki で元の trace id 1 つで引けなくなる。
 	// 無効な SpanContext は何も変えないので、トレースが無いイベントは今のまま
 	if event.SpanContext.IsValid() {
 		ctx = trace.ContextWithRemoteSpanContext(ctx, event.SpanContext)
@@ -327,4 +359,38 @@ func (h *Hub) logProcessed(ctx context.Context, key workKey, registered *registe
 		"event_id", event.EventID, "entity_type", h.loaders[key.entityTypeID].EntityType().String(), "entity_id", key.entityID,
 		"aggregate_version", event.AggregateVersion, "event_type", event.EventType.String(),
 		"result", result, "duration_ms", now.Sub(start).Milliseconds(), "lag_ms", now.Sub(event.OccurredAt).Milliseconds())
+}
+
+func (h *Hub) subscriberAttributes(key workKey, registered *registeredSubscriber) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.String("subscriber_kind", registered.kind),
+		attribute.String("subscriber_name", registered.name),
+		attribute.String("entity_type", h.loaders[key.entityTypeID].EntityType().String()),
+		attribute.Int64("entity_id", key.entityID),
+	}
+}
+
+// 新しく反映するイベントに元のトレースがあれば、新しいトレースのスパンをそのトレースすべてへのリンクつきで始める。
+// 件数で親子とリンクを使い分けないのは、どれが新しいイベントかがトランザクションの中でしかわからず、見え方が件数で変わるため。
+// 元のトレースが無いイベントだけなら、スパンを作らず nil を返す（seed-master 等で Tempo の一覧が埋まるため）
+func (h *Hub) startProjectionSpan(ctx context.Context, key workKey, registered *registeredSubscriber, events []eventstore.LoadedEvent, previous int64) (context.Context, trace.Span) {
+	var links []trace.Link
+	var eventIDs []int64
+	for _, event := range events {
+		if event.AggregateVersion <= previous {
+			continue
+		}
+		eventIDs = append(eventIDs, event.EventID)
+		if event.SpanContext.IsValid() {
+			links = append(links, trace.Link{SpanContext: event.SpanContext})
+		}
+	}
+	if len(links) == 0 {
+		return ctx, nil
+	}
+	attrs := append(h.subscriberAttributes(key, registered),
+		attribute.Int64("aggregate_version", events[len(events)-1].AggregateVersion),
+		attribute.Int64Slice("event_ids", eventIDs))
+	return h.tracer.Start(ctx, "projection "+registered.name,
+		trace.WithNewRoot(), trace.WithLinks(links...), trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -457,4 +458,62 @@ func TestPolicy_ResumesAfterRestartWithoutDuplicatesOrGaps(t *testing.T) {
 		t.Fatalf("handled more than once: %+v", extra)
 	default:
 	}
+}
+
+// ポリシーのスパンは保存したときのトレースの子になり、Handle の ctx のスパンはそのスパンになる
+func TestPolicy_SpanIsChildOfSavedTrace(t *testing.T) {
+	options, spans := withSpanRecorder(policyOptions(time.Minute, 10))
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, options, policy, nil)
+	f.sync(t)
+	saved := savedSpan()
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, saved))
+
+	f.start(t)
+
+	handled := policy.next(t).span
+	span := waitSpans(t, spans, "policy "+testPolicyName, 1)[0]
+	assertSameSpan(t, saved, span.Parent())
+	assert.Equal(t, saved.TraceID(), span.SpanContext().TraceID())
+	assertSameSpan(t, span.SpanContext(), handled)
+	assert.Equal(t, trace.SpanKindConsumer, span.SpanKind())
+	attrs := spanAttributes(span)
+	assert.Equal(t, "policy", attrs["subscriber_kind"])
+	assert.Equal(t, testPolicyName, attrs["subscriber_name"])
+	assert.Equal(t, operator.Types().EntityType.String(), attrs["entity_type"])
+	assert.Equal(t, id.Int64(), attrs["entity_id"])
+	assert.Equal(t, int64(1), attrs["aggregate_version"])
+	assert.NotEmpty(t, attrs["event_type"])
+	assert.NotZero(t, attrs["event_id"])
+}
+
+// 失敗したイベントのスパンは、誤りの状態になり、誤りを記録する
+func TestPolicy_SpanRecordsFailure(t *testing.T) {
+	options, spans := withSpanRecorder(policyOptions(time.Minute, 10))
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, options, policy, nil)
+	f.sync(t)
+	id := f.registerIn(t, trace.ContextWithSpanContext(f.ctx, savedSpan()))
+	policy.failAt(id, 1, failForever)
+
+	f.start(t)
+
+	span := waitSpans(t, spans, "policy "+testPolicyName, 1)[0]
+	assert.Equal(t, codes.Error, span.Status().Code)
+	assert.NotEmpty(t, span.Events())
+}
+
+// 元のトレースが無いイベントの処理は、スパンにしない
+func TestPolicy_CreatesNoSpanForEventSavedWithoutTrace(t *testing.T) {
+	options, spans := withSpanRecorder(policyOptions(time.Minute, 10))
+	policy := newFakePolicy()
+	f := newPolicyFixture(t, options, policy, nil)
+	f.sync(t)
+	id := f.register(t)
+
+	f.start(t)
+
+	policy.next(t)
+	f.waitPolicyCheckpoint(t, id, 1)
+	assert.Empty(t, spans.Ended())
 }

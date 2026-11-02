@@ -1,0 +1,8 @@
+# VSCode の GraphQL の拡張が読む設定（.graphqls の補完・定義への移動）。core のフォルダーだけを開いたとき用（ルートで開いたときは、
+# ルートの .graphqlrc.yaml が使われる）。studio 用と game 用はスキーマが別なので、projects で分ける（同じ名前の型が両方にあるため、
+# 1 つにまとめると重なる）
+projects:
+  studio:
+    schema: internal/service/studio/presentation/graphql/*.graphqls
+  game:
+    schema: internal/service/game/presentation/graphql/*.graphqls
