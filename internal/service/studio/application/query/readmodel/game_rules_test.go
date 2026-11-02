@@ -24,7 +24,7 @@ func TestGameRules_EvolvesFromCreated(t *testing.T) {
 
 	state := readmodel.GameRules{}.Evolve(event)
 
-	require.Equal(t, readmodel.GameRules{GameRulesID: publicID, Revision: 1, UpdatedAt: at, Rules: rules}, state)
+	require.Equal(t, readmodel.GameRules{GameRulesID: publicID, Revision: 1, RegisteredAt: at, UpdatedAt: at, Rules: rules}, state)
 	require.False(t, state.IsTerminal())
 }
 

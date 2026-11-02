@@ -19,16 +19,12 @@ func Evolve(state State, event Event) (State, error) {
 			cards[entry.Card] = entry.Count
 		}
 		return StarterDeck{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Name:         e.Name,
-			Status:       StatusDraft,
-			Source:       e.Source,
-			Cards:        cards,
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
-			UpdatedAt:    meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
+			Name:     e.Name,
+			Status:   StatusDraft,
+			Cards:    cards,
 		}, nil
 	case *RenamedEvent:
 		deck, ok := state.(StarterDeck)
@@ -91,6 +87,5 @@ func Evolve(state State, event Event) (State, error) {
 
 func touched(deck StarterDeck, meta EventMeta) StarterDeck {
 	deck.Version = meta.AggregateVersion
-	deck.UpdatedAt = meta.OccurredAt
 	return deck
 }

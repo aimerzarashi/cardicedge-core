@@ -112,5 +112,6 @@ func toStarterDeck(id uuid.UUID, totalCount int, raw []byte) (query.StarterDeck,
 	return query.StarterDeck{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Cards: cards, TotalCount: totalCount, Source: source,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
+		RegisteredBy: metadata.RegisteredBy, UpdatedBy: metadata.UpdatedBy,
 	}, nil
 }

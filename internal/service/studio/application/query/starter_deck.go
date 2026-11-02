@@ -29,6 +29,10 @@ type StarterDeck struct {
 	Revision     int64
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
+	// 操作したオペレーターの公開 ID。GraphQL にはまだ出さない（オペレーターの read model と、何を見せるかが決まっていないため）。
+	// この変更の前に投影した行は、次のイベントで投影し直すまでゼロ値
+	RegisteredBy uuid.UUID
+	UpdatedBy    uuid.UUID
 }
 
 type StarterDeckSource struct {

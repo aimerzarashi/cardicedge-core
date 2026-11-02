@@ -20,9 +20,6 @@ func Evolve(state State, event Event) (State, error) {
 			Status:       StatusDraft,
 			Layout:       EmptyLayout(size),
 			DefaultRules: e.DefaultRules,
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
-			UpdatedAt:    meta.OccurredAt,
 		}, nil
 	case *RenamedEvent:
 		board, ok := state.(Board)
@@ -141,6 +138,5 @@ func pairsOf(pairs map[Pair]struct{}) []Pair {
 
 func touched(board Board, meta EventMeta) Board {
 	board.Version = meta.AggregateVersion
-	board.UpdatedAt = meta.OccurredAt
 	return board
 }

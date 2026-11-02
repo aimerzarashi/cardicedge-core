@@ -8,7 +8,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		meta := e.GetMeta()
-		return Collection{ID: meta.EntityID, Version: meta.AggregateVersion, Player: e.Player, Cards: e.Cards, StarterGrant: e.StarterGrant}, nil
+		return Collection{ID: meta.EntityID, Version: meta.AggregateVersion}, nil
 	default:
 		return state, ErrInvalidState
 	}

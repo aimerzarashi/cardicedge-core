@@ -120,12 +120,12 @@ func TestEvolve_RegisteredAndLinkedEventsMakeLinkedOperator(t *testing.T) {
 	linked, _ := f.apply(t, f.registerCommand(), f.linkCommand())
 
 	require.Equal(t, operator.Operator{
-		ID: f.id, Version: 1, PublicID: publicID, Email: f.email, RegisteredAt: registeredAt,
+		ID: f.id, Version: 1, PublicID: publicID,
 	}, registered)
 	require.False(t, registered.(operator.Operator).Linked())
 	require.Equal(t, operator.Operator{
-		ID: f.id, Version: 2, PublicID: publicID, Email: f.email, RegisteredAt: registeredAt,
-		Issuer: f.issuer, Subject: f.subject, LinkedAt: linkedAt,
+		ID: f.id, Version: 2, PublicID: publicID,
+		Subject: f.subject,
 	}, linked)
 	require.True(t, linked.(operator.Operator).Linked())
 }

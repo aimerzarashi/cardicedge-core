@@ -37,7 +37,7 @@ func Evolve(state State, event Event) (State, error) {
 		if !ok {
 			return state, ErrInvalidState
 		}
-		return CompletedStarterGrant{ID: progress.ID, Version: meta.AggregateVersion, Player: progress.Player}, nil
+		return CompletedStarterGrant{ID: progress.ID, Version: meta.AggregateVersion}, nil
 	default:
 		return state, ErrInvalidState
 	}

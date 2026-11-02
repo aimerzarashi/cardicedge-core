@@ -161,7 +161,7 @@ func TestDecide_LastRecordEmitsRecordedAndCompletedEvents(t *testing.T) {
 	require.IsType(t, &startergrant.DeckRecordedEvent{}, events[0])
 	require.IsType(t, &startergrant.CompletedEvent{}, events[1])
 	require.Equal(t, int64(5), events[1].GetMeta().AggregateVersion)
-	require.Equal(t, startergrant.CompletedStarterGrant{ID: startergranttest.ID(t, 20), Version: 5, Player: playertest.ID(t, 10)}, state)
+	require.Equal(t, startergrant.CompletedStarterGrant{ID: startergranttest.ID(t, 20), Version: 5}, state)
 }
 
 func TestDecide_RecordAfterCompletedEmitsNoEvent(t *testing.T) {

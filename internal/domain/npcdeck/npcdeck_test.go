@@ -150,7 +150,7 @@ func TestDecide_RegisterCopyKeepsSourceAndCardsInOrder(t *testing.T) {
 		{Card: f.potion, Count: presetdecktest.CardCount(t, 3)},
 	}, events[0].(*npcdeck.RegisteredEvent).Cards)
 	deck := state.(npcdeck.NPCDeck)
-	require.Equal(t, &source, deck.Source)
+	require.Equal(t, &source, events[0].(*npcdeck.RegisteredEvent).Source)
 	require.Equal(t, 5, deck.TotalCount())
 	require.Equal(t, npcdeck.StatusDraft, deck.Status)
 }

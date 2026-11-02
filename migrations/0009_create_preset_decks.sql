@@ -14,6 +14,6 @@ COMMENT ON TABLE preset_decks IS 'プリセットデッキの一覧と詳細の 
 COMMENT ON COLUMN preset_decks.preset_deck_id IS 'プリセットデッキの公開 ID（domain_entities.public_id）';
 COMMENT ON COLUMN preset_decks.sort_name IS '並べ替え・名前の部分一致に使う、正規化した名前';
 COMMENT ON COLUMN preset_decks.total_count IS 'カードの枚数の合計';
-COMMENT ON COLUMN preset_decks.metadata IS '表示に使う値（イベントの値。名前・更新の番号（集約の版）・日時、入れたカードの公開 ID と枚数の一覧（cards: [{card_id, count}]。枚数が 0 のカードは持たない））';
+COMMENT ON COLUMN preset_decks.metadata IS '値（JSON）。項目と形は studio の readmodel.PresetDeckMetadata の json のタグが決める（項目を足しても表は変えない）';
 
 CREATE INDEX idx_preset_decks_sort_name_preset_deck_id ON preset_decks (sort_name, preset_deck_id);

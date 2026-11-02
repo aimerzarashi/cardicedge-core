@@ -25,16 +25,19 @@ func newStarterDeckFixture(t *testing.T) starterDeckFixture {
 	return starterDeckFixture{presetDeckFixture: f, starterWriter: repository.NewStarterDeckWriter(identifier.NewEntityRefResolver(f.registry))}
 }
 
-func starterDeckState(sortName, name string, status readmodel.StarterDeckStatus, cards map[presetdeck.CardRef]int) readmodel.StarterDeck {
+func (f starterDeckFixture) starterDeckState(sortName, name string, status readmodel.StarterDeckStatus, cards map[presetdeck.CardRef]int) readmodel.StarterDeck {
 	id := uuid.New()
 	at := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	metadata := readmodel.StarterDeckMetadata{ID: id, Name: name, Status: status, Revision: 3, RegisteredAt: at, UpdatedAt: at}
-	return readmodel.StarterDeck{StarterDeckID: id, SortName: sortName, Status: status, Metadata: metadata, Cards: cards}
+	return readmodel.StarterDeck{
+		StarterDeckID: id, SortName: sortName, Status: status, Metadata: metadata, Cards: cards,
+		RegisteredBy: f.registeredBy, UpdatedBy: f.updatedBy,
+	}
 }
 
 func (f starterDeckFixture) put(t *testing.T, sortName, name string, status readmodel.StarterDeckStatus) readmodel.StarterDeck {
 	t.Helper()
-	deck := starterDeckState(sortName, name, status, map[presetdeck.CardRef]int{})
+	deck := f.starterDeckState(sortName, name, status, map[presetdeck.CardRef]int{})
 	require.NoError(t, f.starterWriter.Upsert(f.ctx, deck))
 	return deck
 }
@@ -64,7 +67,7 @@ func TestStarterDeck_GetsUpsertedStarterDeckWithCardPublicIDsAndSource(t *testin
 	f := newStarterDeckFixture(t)
 	dragon, dragonID := f.issueCreature(t)
 	potion, potionID := f.issueItem(t)
-	deck := starterDeckState("fire", "Ｆire", readmodel.StarterDeckStatusPublished, map[presetdeck.CardRef]int{dragon: 3, potion: 1})
+	deck := f.starterDeckState("fire", "Ｆire", readmodel.StarterDeckStatusPublished, map[presetdeck.CardRef]int{dragon: 3, potion: 1})
 	deck.Metadata.Source = &readmodel.StarterDeckSource{PresetDeckID: uuid.New(), Revision: 7}
 
 	require.NoError(t, f.starterWriter.Upsert(f.ctx, deck))
@@ -80,6 +83,8 @@ func TestStarterDeck_GetsUpsertedStarterDeckWithCardPublicIDsAndSource(t *testin
 	require.Equal(t, int64(3), got.Revision)
 	require.Equal(t, deck.Metadata.RegisteredAt, got.RegisteredAt.UTC())
 	require.Equal(t, deck.Metadata.UpdatedAt, got.UpdatedAt.UTC())
+	require.Equal(t, f.registeredByPublicID, got.RegisteredBy)
+	require.Equal(t, f.updatedByPublicID, got.UpdatedBy)
 }
 
 func TestStarterDeck_GetsNoSourceForStarterDeckMadeFromScratch(t *testing.T) {

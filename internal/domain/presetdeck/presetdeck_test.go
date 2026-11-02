@@ -104,7 +104,6 @@ func TestEvolve_RegisteredEventMakesEmptyPresetDeck(t *testing.T) {
 
 	require.Equal(t, presetdeck.PresetDeck{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Cards: map[presetdeck.CardRef]presetdeck.CardCount{},
-		RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
 	}, state)
 }
 
@@ -130,7 +129,6 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	deck := state.(presetdeck.PresetDeck)
 	require.Equal(t, newName, deck.Name)
 	require.Equal(t, int64(2), deck.Version)
-	require.Equal(t, changedAt, deck.UpdatedAt)
 }
 
 // 版を進めないため（画面で見た版を古くしないため）

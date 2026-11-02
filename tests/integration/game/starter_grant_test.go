@@ -3,6 +3,7 @@ package game_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strconv"
 	"testing"
 
@@ -73,22 +74,24 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 
 	collectionID, err := collection.NewID(constrainttest.Owner(t, ctx, collection.PlayerKey(playerID)))
 	require.NoError(t, err)
-	owned, err := eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve).Load(ctx, collectionID)
-	require.NoError(t, err)
+	var raw []byte
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, collectionID.Int64()).Scan(&raw))
+	var owned collection.CreatedEvent
+	require.NoError(t, json.Unmarshal(raw, &owned))
 	// 並びはカードの ID の順（ランダムな ID のため、テストでは順を問わない）
 	require.ElementsMatch(t, []startergrant.CardCount{
 		startergranttest.CardCount(t, m.CardA, 4),
 		startergranttest.CardCount(t, m.CardB, 3),
 		startergranttest.CardCount(t, m.CardC, 2),
-	}, owned.(collection.Collection).Cards)
+	}, owned.Cards)
 
 	var deckCount int
 	require.NoError(t, db.QueryRowContext(ctx, `
 		SELECT count(*) FROM domain_unique_keys u JOIN domain_unique_key_types t ON t.id = u.unique_key_type_id
 		WHERE t.name = 'deck.starter' AND u.key LIKE $1`, strconv.FormatInt(grantID.Int64(), 10)+":%").Scan(&deckCount))
 	require.Equal(t, 2, deckCount)
-	first := loadDeck(t, ctx, registry, grantID, 1)
-	second := loadDeck(t, ctx, registry, grantID, 2)
+	first := loadDeck(t, ctx, grantID, 1)
+	second := loadDeck(t, ctx, grantID, 2)
 	require.Equal(t, "火", first.Name.String())
 	require.Equal(t, []startergrant.CardCount{startergranttest.CardCount(t, m.CardA, 4), startergranttest.CardCount(t, m.CardB, 1)}, first.Cards)
 	require.Equal(t, "水", second.Name.String())
@@ -97,13 +100,18 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	}, second.Cards)
 }
 
-func loadDeck(t *testing.T, ctx context.Context, registry *domaindef.Registry, grantID startergrant.ID, number int) deck.Deck {
+// State は名前・カードを持たない（Decide が使わないため）ので、作成のイベントの payload から読む
+func loadDeck(t *testing.T, ctx context.Context, grantID startergrant.ID, number int) deck.CreatedEvent {
 	t.Helper()
 	id, err := deck.NewID(constrainttest.Owner(t, ctx, deck.StarterKey(grantID, startergranttest.DeckNumber(t, number))))
 	require.NoError(t, err)
-	state, err := eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve).Load(ctx, id)
+	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	return state.(deck.Deck)
+	var raw []byte
+	require.NoError(t, exec.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, id.Int64()).Scan(&raw))
+	var created deck.CreatedEvent
+	require.NoError(t, json.Unmarshal(raw, &created))
+	return created
 }
 
 func TestRegisterPlayer_GrantsStarterCollectionAndDecks(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -15,6 +16,9 @@ type PresetDeck struct {
 	PresetDeckID uuid.UUID
 	SortName     string
 	Metadata     PresetDeckMetadata
+	// イベントはオペレーターを内部 ID で持つため、内部 ID で持ち、書くときに公開 ID に引き直す（NPCAvatar と同じ）
+	RegisteredBy operator.ID
+	UpdatedBy    operator.ID
 	// 入れたカードと枚数（0 のカードは持たない）。イベントはカードを内部 ID で持ち、Evolve は DB を読めないため、
 	// 書くときに repository が公開 ID に引き直して Metadata.Cards にする
 	Cards map[presetdeck.CardRef]int
@@ -31,6 +35,9 @@ type PresetDeckMetadata struct {
 	Cards        []DeckCard `json:"cards"`
 	RegisteredAt time.Time  `json:"registered_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
+	RegisteredBy uuid.UUID `json:"registered_by"`
+	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
 type DeckCard struct {
@@ -57,11 +64,13 @@ func (state PresetDeck) Evolve(event any) PresetDeck {
 			ID: e.PublicID, Name: e.Name.String(), Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 		state.Cards = map[presetdeck.CardRef]int{}
 	case *presetdeck.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata.Name = e.Name.String()
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RenamedBy)
 	case *presetdeck.CardCountsChangedEvent:
 		cards := maps.Clone(state.Cards)
 		for _, change := range e.Changes {
@@ -72,16 +81,17 @@ func (state PresetDeck) Evolve(event any) PresetDeck {
 			}
 		}
 		state.Cards = cards
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *presetdeck.DeletedEvent:
 		state.IsDeleted = true
 	}
 	return state
 }
 
-func (state PresetDeck) touched(revision int64, at time.Time) PresetDeck {
+func (state PresetDeck) touched(revision int64, at time.Time, by operator.ID) PresetDeck {
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = at
+	state.UpdatedBy = by
 	return state
 }
 

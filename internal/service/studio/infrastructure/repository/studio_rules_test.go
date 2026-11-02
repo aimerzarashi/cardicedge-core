@@ -24,8 +24,8 @@ func TestStudioRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 	rules := studiorules.Defaults()
 	rules.Board.MaxSize = 16
 
-	require.NoError(t, repository.NewStudioRulesWriter().Upsert(ctx, readmodel.StudioRules{StudioRulesID: publicID, Revision: 1, UpdatedAt: at, Rules: rules}))
-	require.NoError(t, repository.NewStudioRulesWriter().Upsert(ctx, readmodel.StudioRules{StudioRulesID: publicID, Revision: 2, UpdatedAt: at, Rules: rules}))
+	require.NoError(t, repository.NewStudioRulesWriter().Upsert(ctx, readmodel.StudioRules{StudioRulesID: publicID, Revision: 1, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
+	require.NoError(t, repository.NewStudioRulesWriter().Upsert(ctx, readmodel.StudioRules{StudioRulesID: publicID, Revision: 2, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
 
 	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestStudioRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 	require.Equal(t, publicID.String(), rows[0].StudioRulesID)
 	var metadata readmodel.StudioRulesMetadata
 	require.NoError(t, json.Unmarshal(rows[0].Metadata, &metadata))
-	require.Equal(t, readmodel.StudioRulesMetadata{ID: publicID, Revision: 2, UpdatedAt: at, Rules: rules}, metadata)
+	require.Equal(t, readmodel.StudioRulesMetadata{ID: publicID, Revision: 2, RegisteredAt: at, UpdatedAt: at, Rules: rules}, metadata)
 }
 
 func TestStudioRulesReader_ReadsProjectedRules(t *testing.T) {

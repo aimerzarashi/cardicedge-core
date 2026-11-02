@@ -54,7 +54,7 @@ func (h *presetDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
 	for card, count := range counts {
 		cardCounts[card] = presetdecktest.CardCount(h.t, count)
 	}
-	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 10)}, deckChangedAt)
+	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 12)}, deckChangedAt)
 }
 
 func (h *presetDeckHistory) project() readmodel.PresetDeck {
@@ -83,13 +83,15 @@ func TestPresetDeck_EvolvesFromRegistered(t *testing.T) {
 		SortName: "fire デッキ",
 		Metadata: metadata,
 		Cards:    map[presetdeck.CardRef]int{},
+		// 登録の直後は、更新した人も登録した人
+		RegisteredBy: operatortest.ID(t, 10), UpdatedBy: operatortest.ID(t, 10),
 	}, state)
 	require.False(t, state.IsTerminal())
 }
 
 func TestPresetDeck_EvolvesFromRenamed(t *testing.T) {
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
-	history.apply(&presetdeck.RenameCommand{Name: presetdecktest.Name(t, "Water デッキ"), RenamedBy: operatortest.ID(t, 10)}, deckChangedAt)
+	history.apply(&presetdeck.RenameCommand{Name: presetdecktest.Name(t, "Water デッキ"), RenamedBy: operatortest.ID(t, 11)}, deckChangedAt)
 
 	state := history.project()
 
@@ -98,6 +100,8 @@ func TestPresetDeck_EvolvesFromRenamed(t *testing.T) {
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, deckRegisteredAt, state.Metadata.RegisteredAt)
 	require.Equal(t, deckChangedAt, state.Metadata.UpdatedAt)
+	require.Equal(t, operatortest.ID(t, 10), state.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 11), state.UpdatedBy)
 }
 
 // 差分を足して枚数を作り、0 になったカードは持たない
@@ -114,6 +118,8 @@ func TestPresetDeck_EvolvesFromCardCountsChanged(t *testing.T) {
 	require.Equal(t, 4, state.TotalCount())
 	require.Equal(t, int64(3), state.Metadata.Revision)
 	require.Equal(t, deckChangedAt, state.Metadata.UpdatedAt)
+	require.Equal(t, operatortest.ID(t, 10), state.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 12), state.UpdatedBy)
 }
 
 func TestPresetDeck_DoesNotChangeTheGivenState(t *testing.T) {

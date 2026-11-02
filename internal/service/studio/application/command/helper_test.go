@@ -2,6 +2,7 @@ package command_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -319,4 +320,25 @@ func newNPCDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerul
 func newNPCDeckHandler(t *testing.T, ctx context.Context) *command.NPCDeckHandler {
 	t.Helper()
 	return newNPCDeckHandlerWithRules(t, ctx, gamerules.Defaults())
+}
+
+// State は写し元を持たない（Decide が使わないため）ので、登録のイベントの payload から読む。写して作らなければ nil
+func registeredSource(t *testing.T, ctx context.Context, publicID uuid.UUID) *struct {
+	PresetDeckID uuid.UUID `json:"preset_deck_id"`
+	Revision     int64     `json:"revision"`
+} {
+	t.Helper()
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	var raw []byte
+	require.NoError(t, exec.QueryRowContext(ctx,
+		`SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, internalID(t, ctx, publicID)).Scan(&raw))
+	var payload struct {
+		Source *struct {
+			PresetDeckID uuid.UUID `json:"preset_deck_id"`
+			Revision     int64     `json:"revision"`
+		} `json:"source"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &payload))
+	return payload.Source
 }

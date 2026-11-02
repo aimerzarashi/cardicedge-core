@@ -138,5 +138,7 @@ func toCard(cardType readmodel.CardType, metadata readmodel.CardMetadata) query.
 		Revision:     metadata.Revision,
 		RegisteredAt: metadata.RegisteredAt,
 		UpdatedAt:    metadata.UpdatedAt,
+		RegisteredBy: metadata.RegisteredBy,
+		UpdatedBy:    metadata.UpdatedBy,
 	}
 }

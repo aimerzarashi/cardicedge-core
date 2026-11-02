@@ -23,7 +23,7 @@ func (w *StudioRulesWriter) Upsert(ctx context.Context, studioRules readmodel.St
 		return err
 	}
 	raw, err := json.Marshal(readmodel.StudioRulesMetadata{
-		ID: studioRules.StudioRulesID, Revision: studioRules.Revision, UpdatedAt: studioRules.UpdatedAt, Rules: studioRules.Rules,
+		ID: studioRules.StudioRulesID, Revision: studioRules.Revision, RegisteredAt: studioRules.RegisteredAt, UpdatedAt: studioRules.UpdatedAt, Rules: studioRules.Rules,
 	})
 	if err != nil {
 		return err

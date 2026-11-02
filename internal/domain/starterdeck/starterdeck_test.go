@@ -129,7 +129,7 @@ func TestDecide_RegisterEmptyMakesDraftWithoutSource(t *testing.T) {
 	}}, events)
 	require.Equal(t, starterdeck.StarterDeck{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Status: starterdeck.StatusDraft,
-		Cards: map[presetdeck.CardRef]presetdeck.CardCount{}, RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
+		Cards: map[presetdeck.CardRef]presetdeck.CardCount{},
 	}, f.register(t))
 }
 
@@ -150,7 +150,7 @@ func TestDecide_RegisterCopyKeepsSourceAndCardsInOrder(t *testing.T) {
 		{Card: f.potion, Count: presetdecktest.CardCount(t, 3)},
 	}, events[0].(*starterdeck.RegisteredEvent).Cards)
 	deck := state.(starterdeck.StarterDeck)
-	require.Equal(t, &source, deck.Source)
+	require.Equal(t, &source, events[0].(*starterdeck.RegisteredEvent).Source)
 	require.Equal(t, 5, deck.TotalCount())
 	require.Equal(t, starterdeck.StatusDraft, deck.Status)
 }
@@ -177,7 +177,6 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	deck := state.(starterdeck.StarterDeck)
 	require.Equal(t, newName, deck.Name)
 	require.Equal(t, int64(2), deck.Version)
-	require.Equal(t, changedAt, deck.UpdatedAt)
 }
 
 // 版を進めないため（画面で見た版を古くしないため）

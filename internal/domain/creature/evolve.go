@@ -10,13 +10,10 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		return Creature{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Name:         e.Name,
-			Status:       card.StatusDraft,
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
+			Status:   card.StatusDraft,
 		}, nil
 	case *PublishedEvent:
 		creature, ok := state.(Creature)

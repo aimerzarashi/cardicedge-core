@@ -16,8 +16,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -102,12 +100,13 @@ func TestRegisterCreature_RecordsOperatorInEvent(t *testing.T) {
 	_, err := newCreatureHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
 	id := creatureIDByName(t, ctx, name)
-	restored, err := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve).Load(ctx, id)
+	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	require.Equal(t, by, restored.(creature.Creature).RegisteredBy)
+	var registeredBy int64
+	require.NoError(t, exec.QueryRowContext(ctx,
+		`SELECT (payload->>'registered_by')::bigint FROM domain_events WHERE entity_type_id = 1100 AND entity_id = $1`, id.Int64()).Scan(&registeredBy))
+	require.Equal(t, by.Int64(), registeredBy)
 	require.Equal(t, 1, countCreatureEvents(t, ctx, id))
 }
 

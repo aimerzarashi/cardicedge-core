@@ -73,7 +73,7 @@ func TestEvolve_CreatedEventMakesDeck(t *testing.T) {
 
 	state, _ := create(t)
 
-	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1, Player: cmd.Player, Name: cmd.Name, Cards: cmd.Cards, StarterGrant: cmd.StarterGrant, Number: cmd.Number}, state)
+	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1}, state)
 }
 
 func TestEvolve_RejectsCreatedEventWhenAlreadyCreated(t *testing.T) {
