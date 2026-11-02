@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/infrastructure/repository"
@@ -19,10 +21,11 @@ type boardFixture struct {
 
 func newBoardFixture(t *testing.T) boardFixture {
 	t.Helper()
-	return boardFixture{presetDeckFixture: newPresetDeckFixture(t), writer: repository.NewBoardWriter()}
+	base := newPresetDeckFixture(t)
+	return boardFixture{presetDeckFixture: base, writer: repository.NewBoardWriter(identifier.NewEntityRefResolver(base.registry))}
 }
 
-func boardState(sortName, name string, status readmodel.BoardStatus) readmodel.Board {
+func (f boardFixture) boardState(sortName, name string, status readmodel.BoardStatus) readmodel.Board {
 	id := uuid.New()
 	at := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 	metadata := readmodel.BoardMetadata{
@@ -30,12 +33,15 @@ func boardState(sortName, name string, status readmodel.BoardStatus) readmodel.B
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{}, RegisteredAt: at, UpdatedAt: at,
 		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6), PublishProblems: []readmodel.BoardPublishProblem{},
 	}
-	return readmodel.Board{BoardID: id, SortName: sortName, Status: status, Metadata: metadata}
+	return readmodel.Board{
+		BoardID: id, SortName: sortName, Status: status, Metadata: metadata,
+		RegisteredBy: f.registeredBy, UpdatedBy: f.updatedBy,
+	}
 }
 
 func (f boardFixture) put(t *testing.T, sortName, name string, status readmodel.BoardStatus) readmodel.Board {
 	t.Helper()
-	board := boardState(sortName, name, status)
+	board := f.boardState(sortName, name, status)
 	require.NoError(t, f.writer.Upsert(f.ctx, board))
 	return board
 }
@@ -63,7 +69,7 @@ func boardNames(rows []query.BoardListRow) []string {
 // 大きさ・マス・つながりは metadata に入れ、読むときに並びも含めてそのまま返る
 func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	f := newBoardFixture(t)
-	board := boardState("fire", "Ｆire", readmodel.BoardStatusPublished)
+	board := f.boardState("fire", "Ｆire", readmodel.BoardStatusPublished)
 	board.Metadata.Width, board.Metadata.Height = 4, 3
 	board.Metadata.Tiles = []readmodel.BoardTile{{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase}, {X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint}}
 	board.Metadata.Connections = []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}}
@@ -93,13 +99,15 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	require.Equal(t, int64(3), got.Revision)
 	require.Equal(t, board.Metadata.RegisteredAt, got.RegisteredAt.UTC())
 	require.Equal(t, board.Metadata.UpdatedAt, got.UpdatedAt.UTC())
+	require.Equal(t, f.registeredByPublicID, got.RegisteredBy)
+	require.Equal(t, f.updatedByPublicID, got.UpdatedBy)
 }
 
 // 理由を足す前に投影した行を、公開できるもの（理由が空）として返さない
 // 対を持たない行（対を足す前に投影した行）を、対の無いボードとして返さない。投影を作り直せば入る
 func TestBoard_GetFailsWhenPairsAreMissing(t *testing.T) {
 	f := newBoardFixture(t)
-	board := boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
+	board := f.boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
 	board.Metadata.Pairs = nil
 	require.NoError(t, f.writer.Upsert(f.ctx, board))
 
@@ -110,7 +118,7 @@ func TestBoard_GetFailsWhenPairsAreMissing(t *testing.T) {
 
 func TestBoard_GetFailsWhenPublishProblemsAreMissing(t *testing.T) {
 	f := newBoardFixture(t)
-	board := boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
+	board := f.boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
 	board.Metadata.PublishProblems = nil
 	require.NoError(t, f.writer.Upsert(f.ctx, board))
 
@@ -192,4 +200,12 @@ func TestBoard_FiltersByNameContainsLiterally(t *testing.T) {
 	rows := f.list(t, query.ListBoardsCondition{NameContains: "50%", Limit: 10})
 
 	require.Equal(t, []string{"50%off"}, boardNames(rows))
+}
+
+func TestBoard_UpsertFailsForOperatorWithoutPublicID(t *testing.T) {
+	f := newBoardFixture(t)
+	board := f.boardState("fire", "Ｆire", readmodel.BoardStatusDraft)
+	board.UpdatedBy = operatortest.ID(t, 999999)
+
+	require.Error(t, f.writer.Upsert(f.ctx, board))
 }

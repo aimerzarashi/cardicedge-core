@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
 // boards.status の値（準備中・公開中・使用不可）。domain の board.Status を使わない理由は CardStatus と同じ
@@ -256,6 +257,9 @@ type Board struct {
 	SortName string
 	Status   BoardStatus
 	Metadata BoardMetadata
+	// イベントはオペレーターを内部 ID で持つため、内部 ID で持ち、書くときに公開 ID に引き直す（NPCAvatar と同じ）
+	RegisteredBy operator.ID
+	UpdatedBy    operator.ID
 	// マスとつながりと対の今の集合。イベントの差分を当てるための作業用で、DB には持たない（Metadata.Tiles・Connections・Pairs に並べて持つ）
 	tiles       map[board.Position]BoardTile
 	connections map[board.Connection]struct{}
@@ -282,6 +286,9 @@ type BoardMetadata struct {
 	PublishProblems []BoardPublishProblem `json:"publish_problems"`
 	RegisteredAt    time.Time             `json:"registered_at"`
 	UpdatedAt       time.Time             `json:"updated_at"`
+	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
+	RegisteredBy uuid.UUID `json:"registered_by"`
+	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
 // ボードのイベントだけを扱い、ほかは状態をそのまま返す。状態を書き換えないよう、マスとつながりと対は写してから変える
@@ -302,20 +309,22 @@ func (state Board) Evolve(event any) Board {
 			PublishProblems: publishProblems(state.tiles, state.connections, state.pairs),
 			RegisteredAt:    occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 	case *board.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata.Name = e.Name.String()
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RenamedBy)
 	case *board.LayoutChangedEvent:
 		state = state.changeLayout(e)
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *board.DefaultRulesChangedEvent:
 		state.Metadata.DefaultRules = toBoardDefaultRules(e.DefaultRules)
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *board.PublishedEvent:
-		state = state.changeStatus(BoardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(BoardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *board.RetiredEvent:
-		state = state.changeStatus(BoardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(BoardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
 	case *board.DeletedEvent:
 		state.IsDeleted = true
 	}
@@ -383,15 +392,16 @@ func toBoardTile(tile board.Tile) BoardTile {
 	return BoardTile{X: tile.Position.X, Y: tile.Position.Y, Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
 }
 
-func (state Board) changeStatus(status BoardStatus, revision int64, at time.Time) Board {
+func (state Board) changeStatus(status BoardStatus, revision int64, at time.Time, by operator.ID) Board {
 	state.Status = status
 	state.Metadata.Status = status
-	return state.touched(revision, at)
+	return state.touched(revision, at, by)
 }
 
-func (state Board) touched(revision int64, at time.Time) Board {
+func (state Board) touched(revision int64, at time.Time, by operator.ID) Board {
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = at
+	state.UpdatedBy = by
 	return state
 }
 

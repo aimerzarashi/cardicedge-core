@@ -56,7 +56,7 @@ func TestRegisterStarterDeck_ReturnsPublicIDAndMakesDraftWithoutSource(t *testin
 	deck := restoredStarterDeck(t, ctx, registered.ID)
 	require.Equal(t, "初心者デッキ", deck.Name.String())
 	require.Equal(t, starterdeck.StatusDraft, deck.Status)
-	require.Nil(t, deck.Source)
+	require.Nil(t, registeredSource(t, ctx, registered.ID))
 	require.Empty(t, deck.Cards)
 }
 
@@ -165,9 +165,10 @@ func TestRegisterStarterDeckFromPresetDeck_UsesGivenNameAndCopiesCardsAndSource(
 	require.Equal(t, "炎のデッキ", deck.Name.String())
 	require.Equal(t, starterdeck.StatusDraft, deck.Status)
 	require.Equal(t, 5, deck.TotalCount())
-	require.NotNil(t, deck.Source)
-	require.Equal(t, preset.ID, deck.Source.PresetDeckID())
-	require.Equal(t, filled.Revision, deck.Source.Revision())
+	source := registeredSource(t, ctx, copied.ID)
+	require.NotNil(t, source)
+	require.Equal(t, preset.ID, source.PresetDeckID)
+	require.Equal(t, filled.Revision, source.Revision)
 	require.ElementsMatch(t, []int64{internalID(t, ctx, dragon), internalID(t, ctx, potion)}, constrainttest.Referenced(t, ctx, starterdeck.CardReferenceType(), internalID(t, ctx, copied.ID)))
 	_, err = presets.SetCardCounts(ctx, filled.ID, filled.Revision, []command.CardCountInput{{CardID: dragon, Count: 0}})
 	require.NoError(t, err)

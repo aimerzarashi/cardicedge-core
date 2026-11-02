@@ -112,5 +112,6 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Width: metadata.Width, Height: metadata.Height,
 		Tiles: metadata.Tiles, Connections: metadata.Connections, Pairs: metadata.Pairs, DefaultRules: metadata.DefaultRules, TileCounts: metadata.TileCounts, PublishProblems: metadata.PublishProblems,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
+		RegisteredBy: metadata.RegisteredBy, UpdatedBy: metadata.UpdatedBy,
 	}, nil
 }

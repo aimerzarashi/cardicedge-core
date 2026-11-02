@@ -1,11 +1,7 @@
 package board
 
 import (
-	"time"
-
 	"github.com/google/uuid"
-
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
 type State interface {
@@ -16,6 +12,7 @@ type UnregisteredBoard struct{}
 
 func (UnregisteredBoard) isBoardState() {}
 
+// 登録した人・日時は持たない（Decide が使わず、画面に出す値は read model がイベントから作るため）
 type Board struct {
 	ID           ID
 	Version      int64
@@ -24,9 +21,6 @@ type Board struct {
 	Status       Status
 	Layout       Layout
 	DefaultRules DefaultRules
-	RegisteredBy operator.ID
-	RegisteredAt time.Time
-	UpdatedAt    time.Time
 }
 
 func (Board) isBoardState() {}

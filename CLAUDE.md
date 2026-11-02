@@ -80,6 +80,7 @@
 - core は studio 用・game 用の 2 つの DB（`STUDIO_DB_DSN`・`GAME_DB_DSN`）を使う。開発・テストは同じサーバーの別の DB（core_studio・core_game）だが、別のサーバーにしても設定だけで動くようにする。表は DB どうしで共有せず、ほかのサービスの値は使う側が read model で持つ（持ち方は後で決める。core#33）
 - マイグレーションは表の作り（DDL）だけを書き、両方の DB に同じものを流す（サービスごとに分けて二重に保たない）。種別・購読者の行は入れない（コードの一覧から起動時に入れる）
 - マイグレーションは追加のみ。適用済みのファイルは書き換えない・消さない・改名しない。down は作らない（atlas.sum を作り直すと Atlas は検出しないため、check-migrations.sh で検査する）
+- read model の `metadata`（JSONB）の列のコメントは、役割と、項目と形を決めているコードの型（`readmodel.CardMetadata` 等の json のタグ）の名前だけを書き、項目を並べない（項目を足すたびに、コメントを直すだけのマイグレーションが増えるため。項目の説明は型の側に書く。2026-11-02 オーナー。core#86 で並びを作り直して直した）
 - ファイル名は `NNNN_name.sql`（番号は数字のみ）。`-- atlas:txmode none` 等の指示行の直後には空行を入れる
 - 新しいマイグレーションは、その時点の最大の番号 + 1 で作り、`make migrate-hash` で atlas.sum を作り直して SQL と一緒にコミットする（番号の抜け・atlas.sum の食い違いは Atlas がエラーにする）
 - リリース前に限り、並びを作り直してよい（適用済みの DB をすべて作り直すことになるため）。作り直したら migrations/BASELINE の 1 行目を書き換える（check-migrations.sh が比較元との比べ合わせを飛ばす。同じ並びの中では今までどおり止める。core#33）
@@ -112,8 +113,8 @@
 - 言葉の使い分け: ID と種類は entity（domain_entities・domain_entity_types・`entity_type_id`・`entity_id`・`domain.EntityType`・`EntityRef`。集約の根と、公開する子の entity（伝票の明細等）を含む）。版とイベントの宣言は aggregate（`aggregate_version`・`domain.AggregateTypes`。イベントを持つのは集約の根だけ）。ID を発行する・引く・消す操作は identifier（`internal/identifier`・`domain.Identifier`）（core#27）
 - read model の名前は、表すものの複数形の表（`cards`・`preset_decks`）を軸にそろえる: 投影の名前は表と同じ、型は表の単数形（`readmodel.Card`）、書くもの・読むものは `repository.CardWriter`・`CardReader`、問い合わせは `query.CardHandler`。コマンドは集約ごとの `command.XxxHandler`（パッケージ名と重ねない。core#27）
 - read model の表は、鍵と、検索・絞り込み・並べ替えに使う値を個別の列にし、表示に使う値は `metadata`（JSONB）に持つ（同じ項目が両方に要れば両方に持つ。migrations/0008 の決まり）。1 つの表を複数の投影が書くとき（`players`）は、それぞれが `metadata` の自分の項目だけを重ねて書く（core#38）
-- read model は、登録・更新の誰といつ（`registered_by`・`registered_at`・`updated_by`・`updated_at`）を `metadata` に必ず持つ。人はオペレーターの公開 ID で、read model の型は内部 ID で持ち、書くときに repository が公開 ID に引き直す（`NPCAvatarWriter`）。登録の直後は `updated_*` を登録と同じにする。起動時に作る集約（`game_rules`・`studio_rules`）は人を持たず、game のアバターは持ち主のプレイヤーが操作した人。GraphQL にはまだ出さない（オペレーターの read model と、何を見せるかが決まっていないため）。今ある read model は core#86 でそろえる
-- 集約の State には、Decide とコマンドが使う値（ID・Version・PublicID と、決まりの判断に要る値）だけを持たせる。登録した人・日時などの表示・記録の値は持たない（イベントと read model が持ち、同じ値を作る場所を 2 つにしないため）。今ある集約は core#86 でそろえる
+- read model は、登録・更新の誰といつ（`registered_by`・`registered_at`・`updated_by`・`updated_at`）を `metadata` に必ず持つ。人はオペレーターの公開 ID で、read model の型は内部 ID で持ち、書くときに repository が公開 ID に引き直す（`NPCAvatarWriter`）。登録の直後は `updated_*` を登録と同じにする。起動時に作る集約（`game_rules`・`studio_rules`）は人を持たず（`registered_by`・`updated_by` は書かない）、`registered_at`・`updated_at` だけ持ち、game のアバターは持ち主のプレイヤーが操作した人。GraphQL にはまだ出さない（オペレーターの read model と、何を見せるかが決まっていないため）（core#86 でそろえた）
+- 集約の State には、Decide とコマンドが使う値（ID・Version・PublicID と、決まりの判断に要る値）だけを持たせる。登録した人・日時などの表示・記録の値は持たない（イベントと read model が持ち、同じ値を作る場所を 2 つにしないため）（core#86 でそろえた。操作した人・日時は Evolve でも作らず、コマンドの結果に要る日時は Decide に渡した now を使う）
 - 種別（集約・イベント・一意な key・参照）の id と名前は、コードの一覧（internal/domaindef/catalog.go の `Types`）で決める。id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた id と名前は変えない・消さない（main に入る前（リリース前）は除く。core#42 でスターターデッキセットの種別を、開発の DB を作り直す前提で消した）。振り方は catalog.go のコメント（集約は 1000 から 100 刻み、イベントは集約の id ＋ 1 から、key・参照・上限は 1000 から順に）
 - 起動時に、DB ごとのトランザクション（advisory lock で core どうしを順にする）で、一覧のうち DB に無い種別を足し、DB の行が一覧とちょうど一致するかを確かめる（`domaindef.Sync`）。続けて、ドメインの宣言と DB を両方向に照合する（`Verify...`）。食い違えば起動を止める（行は消さない。core#20・core#33）
 - 集約を足したら、表のマイグレーションが要れば足して `make gen-orm` し、種別の一覧（`Types`）にその集約とイベントを足し、起動時の照合（internal/wiring の `syncTypes` の集約の一覧）と domaindef のテストの `aggregates()` にその集約の `Types()` を足す

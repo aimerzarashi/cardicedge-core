@@ -24,7 +24,6 @@ func Evolve(state State, event Event) (State, error) {
 			PublicID: e.PublicID,
 			Name:     e.Name,
 			Status:   StatusDraft,
-			Source:   e.Source,
 			Cards:    cards,
 		}, nil
 	case *RenamedEvent:

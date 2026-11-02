@@ -69,7 +69,7 @@ func TestEvolve_CreatedEventMakesCollection(t *testing.T) {
 
 	state, _ := create(t)
 
-	require.Equal(t, collection.Collection{ID: cmd.ID, Version: 1, Player: cmd.Player, Cards: cmd.Cards, StarterGrant: cmd.StarterGrant}, state)
+	require.Equal(t, collection.Collection{ID: cmd.ID, Version: 1}, state)
 }
 
 func TestEvolve_RejectsCreatedEventWhenAlreadyCreated(t *testing.T) {

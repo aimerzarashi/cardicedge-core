@@ -9,11 +9,9 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		return Operator{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Email:        e.Email,
-			RegisteredAt: meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
 		}, nil
 	case *LinkedEvent:
 		s, ok := state.(Operator)
@@ -22,9 +20,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		s.Version = meta.AggregateVersion
-		s.Issuer = e.Issuer
 		s.Subject = e.Subject
-		s.LinkedAt = meta.OccurredAt
 		return s, nil
 	default:
 		return state, ErrInvalidState

@@ -222,7 +222,7 @@ func (c *Studio) CreateInitialStudioRules(ctx context.Context, db *sql.DB) error
 
 // 名前と購読は migrations の event_subscribers・event_subscriptions と照合される
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
-	cards := repository.NewCardWriter()
+	cards := repository.NewCardWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Card]{
 		Name: "cards",
 		Subscriptions: []domain.EntityType{
@@ -257,7 +257,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	}); err != nil {
 		return err
 	}
-	boards := repository.NewBoardWriter()
+	boards := repository.NewBoardWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Board]{
 		Name: "boards",
 		Subscriptions: []domain.EntityType{

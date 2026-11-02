@@ -7,16 +7,19 @@ import (
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
-// cards を書く（投影が使う）
-type CardWriter struct{}
+// cards を書く（投影が使う）。書くときに操作したオペレーターの内部 ID を公開 ID に引き直すため、引き方を持つ（NPCAvatarWriter と同じ）
+type CardWriter struct {
+	entityRefs domain.EntityRefResolver
+}
 
-func NewCardWriter() *CardWriter {
-	return &CardWriter{}
+func NewCardWriter(entityRefs domain.EntityRefResolver) *CardWriter {
+	return &CardWriter{entityRefs: entityRefs}
 }
 
 // すべての列をイベントから作った値で書く
@@ -25,7 +28,13 @@ func (w *CardWriter) Upsert(ctx context.Context, card readmodel.Card) error {
 	if err != nil {
 		return err
 	}
-	metadata, err := json.Marshal(card.Metadata)
+	registeredBy, updatedBy, _, err := operatorPublicIDs(ctx, w.entityRefs, card.RegisteredBy, card.UpdatedBy)
+	if err != nil {
+		return err
+	}
+	metadata := card.Metadata
+	metadata.RegisteredBy, metadata.UpdatedBy = registeredBy, updatedBy
+	raw, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}
@@ -34,7 +43,7 @@ func (w *CardWriter) Upsert(ctx context.Context, card readmodel.Card) error {
 		CardType: int16(card.CardType),
 		Status:   string(card.Status),
 		SortName: card.SortName,
-		Metadata: metadata,
+		Metadata: raw,
 	}
 	return row.Upsert(ctx, exec, true,
 		[]string{models.CardColumns.CardID},

@@ -61,8 +61,6 @@ func restoredCardCounts(t *testing.T, ctx context.Context, publicID uuid.UUID) m
 
 func TestRegisterPresetDeck_ReturnsPublicIDAndFirstRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	before := time.Now().UTC().Truncate(time.Microsecond)
-
 	registered, err := newPresetDeckHandler(t, ctx).Register(ctx, "  初心者デッキ ")
 
 	require.NoError(t, err)
@@ -71,8 +69,6 @@ func TestRegisterPresetDeck_ReturnsPublicIDAndFirstRevision(t *testing.T) {
 	deck := restoredPresetDeck(t, ctx, registered.ID)
 	require.Equal(t, "初心者デッキ", deck.Name.String())
 	require.Empty(t, deck.Cards)
-	require.WithinRange(t, deck.RegisteredAt, before, time.Now().UTC())
-	require.Equal(t, deck.RegisteredAt, deck.UpdatedAt)
 }
 
 func TestRegisterPresetDeck_RejectsNameAlreadyInUse(t *testing.T) {

@@ -36,10 +36,10 @@ func (s InProgressStarterGrant) allRecorded() bool {
 	return true
 }
 
+// 済んだ後は何も配らないので、持ち主・中身は持たない（Distribute は Completed なら何もしない）
 type CompletedStarterGrant struct {
 	ID      ID
 	Version int64
-	Player  player.ID
 }
 
 func (CompletedStarterGrant) isStarterGrantState() {}

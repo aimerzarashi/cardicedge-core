@@ -52,6 +52,8 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	if invalid != nil {
 		return RegisteredItem{}, input.Errors{invalid}
 	}
+	// 結果の日時は Decide に渡す時刻と同じ（イベントの発生時刻。State は登録した日時を持たないため、State から読まない）
+	now := c.now()
 	registered, err := rdb.Transact(ctx, func(ctx context.Context) (item.Item, error) {
 		id, publicID, err := c.identifier.Issue(ctx)
 		if err != nil {
@@ -61,7 +63,7 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 			return item.Item{}, err
 		}
 		cmd := &item.RegisterCommand{ID: id, PublicID: publicID, Name: cardName, RegisteredBy: registeredBy}
-		events, err := item.Decide(item.InitialState(), cmd, c.now())
+		events, err := item.Decide(item.InitialState(), cmd, now)
 		if err != nil {
 			return item.Item{}, err
 		}
@@ -84,8 +86,8 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	}
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredItem{
-		ID: registered.PublicID, Name: registered.Name.String(),
-		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.RegisteredAt, Revision: registered.Version,
+		ID: registered.PublicID, Name: cardName.String(),
+		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
 

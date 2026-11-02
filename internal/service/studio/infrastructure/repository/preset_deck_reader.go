@@ -101,6 +101,7 @@ func toPresetDeck(id uuid.UUID, totalCount int, raw []byte) (query.PresetDeck, e
 	return query.PresetDeck{
 		ID: metadata.ID, Name: metadata.Name, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
+		RegisteredBy: metadata.RegisteredBy, UpdatedBy: metadata.UpdatedBy,
 	}, nil
 }
 

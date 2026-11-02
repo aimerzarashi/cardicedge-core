@@ -11,14 +11,11 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		return PresetDeck{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Name:         e.Name,
-			Cards:        map[CardRef]CardCount{},
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
-			UpdatedAt:    meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
+			Name:     e.Name,
+			Cards:    map[CardRef]CardCount{},
 		}, nil
 	case *RenamedEvent:
 		deck, ok := state.(PresetDeck)
@@ -59,6 +56,5 @@ func Evolve(state State, event Event) (State, error) {
 
 func touched(deck PresetDeck, meta EventMeta) PresetDeck {
 	deck.Version = meta.AggregateVersion
-	deck.UpdatedAt = meta.OccurredAt
 	return deck
 }

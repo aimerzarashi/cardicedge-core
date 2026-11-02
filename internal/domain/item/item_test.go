@@ -81,7 +81,7 @@ func TestEvolve_RegisteredEventMakesItem(t *testing.T) {
 	registered, _ := f.register(t)
 
 	require.Equal(t, item.Item{
-		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Status: card.StatusDraft, RegisteredBy: f.registeredBy, RegisteredAt: registeredAt,
+		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
 	}, registered)
 }
 

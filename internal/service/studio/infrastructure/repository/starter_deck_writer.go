@@ -34,7 +34,7 @@ func (w *StarterDeckWriter) Upsert(ctx context.Context, deck readmodel.StarterDe
 	for card := range deck.Cards {
 		refs = append(refs, domain.NewEntityRef(card.EntityType(), card.ID()))
 	}
-	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
+	registeredBy, updatedBy, publicIDs, err := operatorPublicIDs(ctx, w.entityRefs, deck.RegisteredBy, deck.UpdatedBy, refs...)
 	if err != nil {
 		return err
 	}
@@ -51,6 +51,7 @@ func (w *StarterDeckWriter) Upsert(ctx context.Context, deck readmodel.StarterDe
 	})
 	metadata := deck.Metadata
 	metadata.Cards = cards
+	metadata.RegisteredBy, metadata.UpdatedBy = registeredBy, updatedBy
 	raw, err := json.Marshal(metadata)
 	if err != nil {
 		return err

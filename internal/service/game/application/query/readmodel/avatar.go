@@ -22,10 +22,15 @@ type AvatarMetadata struct {
 	ID           uuid.UUID `json:"id"`
 	Name         string    `json:"name"`
 	RegisteredAt time.Time `json:"registered_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	// 操作した人は持ち主のプレイヤー（アバターを作る操作だけで、名前の変更などの更新は無いため、更新も登録と同じ）。
+	// イベントは持ち主を内部 ID で持つため、Metadata() では空のまま。書くときに repository が公開 ID を入れる
+	RegisteredBy uuid.UUID `json:"registered_by"`
+	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
 func (state Avatar) Metadata() AvatarMetadata {
-	return AvatarMetadata{ID: state.AvatarID, Name: state.Name, RegisteredAt: state.RegisteredAt}
+	return AvatarMetadata{ID: state.AvatarID, Name: state.Name, RegisteredAt: state.RegisteredAt, UpdatedAt: state.RegisteredAt}
 }
 
 // アバターのイベントだけを扱い、ほかは状態をそのまま返す

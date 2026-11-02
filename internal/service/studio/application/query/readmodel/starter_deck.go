@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 )
@@ -38,6 +39,9 @@ type StarterDeck struct {
 	SortName      string
 	Status        StarterDeckStatus
 	Metadata      StarterDeckMetadata
+	// イベントはオペレーターを内部 ID で持つため、内部 ID で持ち、書くときに公開 ID に引き直す（NPCAvatar と同じ）
+	RegisteredBy operator.ID
+	UpdatedBy    operator.ID
 	// 入れたカードと枚数（0 のカードは持たない）。書くときに repository が公開 ID に引き直して Metadata.Cards にする（PresetDeck と同じ）
 	Cards map[presetdeck.CardRef]int
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
@@ -56,6 +60,9 @@ type StarterDeckMetadata struct {
 	Source       *StarterDeckSource `json:"source,omitempty"`
 	RegisteredAt time.Time          `json:"registered_at"`
 	UpdatedAt    time.Time          `json:"updated_at"`
+	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
+	RegisteredBy uuid.UUID `json:"registered_by"`
+	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
 type StarterDeckSource struct {
@@ -83,6 +90,8 @@ func (state StarterDeck) Evolve(event any) StarterDeck {
 			ID: e.PublicID, Name: e.Name.String(), Status: StarterDeckStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 		if e.Source != nil {
 			state.Metadata.Source = &StarterDeckSource{PresetDeckID: e.Source.PresetDeckID(), Revision: e.Source.Revision()}
 		}
@@ -93,7 +102,7 @@ func (state StarterDeck) Evolve(event any) StarterDeck {
 	case *starterdeck.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata.Name = e.Name.String()
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RenamedBy)
 	case *starterdeck.CardCountsChangedEvent:
 		cards := maps.Clone(state.Cards)
 		for _, change := range e.Changes {
@@ -104,26 +113,27 @@ func (state StarterDeck) Evolve(event any) StarterDeck {
 			}
 		}
 		state.Cards = cards
-		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *starterdeck.PublishedEvent:
-		state = state.changeStatus(StarterDeckStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(StarterDeckStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *starterdeck.RetiredEvent:
-		state = state.changeStatus(StarterDeckStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(StarterDeckStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
 	case *starterdeck.DeletedEvent:
 		state.IsDeleted = true
 	}
 	return state
 }
 
-func (state StarterDeck) changeStatus(status StarterDeckStatus, revision int64, at time.Time) StarterDeck {
+func (state StarterDeck) changeStatus(status StarterDeckStatus, revision int64, at time.Time, by operator.ID) StarterDeck {
 	state.Status = status
 	state.Metadata.Status = status
-	return state.touched(revision, at)
+	return state.touched(revision, at, by)
 }
 
-func (state StarterDeck) touched(revision int64, at time.Time) StarterDeck {
+func (state StarterDeck) touched(revision int64, at time.Time, by operator.ID) StarterDeck {
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = at
+	state.UpdatedBy = by
 	return state
 }
 

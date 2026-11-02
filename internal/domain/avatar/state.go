@@ -1,11 +1,7 @@
 package avatar
 
 import (
-	"time"
-
 	"github.com/google/uuid"
-
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
 type State interface {
@@ -16,13 +12,11 @@ type UnregisteredAvatar struct{}
 
 func (UnregisteredAvatar) isAvatarState() {}
 
+// 登録した日時・名前・持ち主は持たない（Decide もコマンドも読まず、画面に出す値は read model がイベントから作るため）
 type Avatar struct {
-	ID           ID
-	Version      int64
-	PublicID     uuid.UUID
-	Player       player.ID
-	Name         Name
-	RegisteredAt time.Time
+	ID       ID
+	Version  int64
+	PublicID uuid.UUID
 }
 
 func (Avatar) isAvatarState() {}

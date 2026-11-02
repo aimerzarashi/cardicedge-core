@@ -2,6 +2,7 @@ package command_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,8 +15,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
@@ -29,14 +28,15 @@ func TestCreateDeck_CreatesDeckOfOwnerWithNameAndCardsOfSource(t *testing.T) {
 
 	require.NoError(t, newDeckHandler(t, ctx).Create(ctx, playerID, starterGrantID, number, source))
 
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
+	// State は持ち主・名前・カードなどを持たない（Decide が使わないため）ので、作成のイベントの payload から読む
 	id, err := deck.NewID(constrainttest.Owner(t, ctx, deck.StarterKey(starterGrantID, number)))
 	require.NoError(t, err)
-	state, err := eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve).Load(ctx, id)
+	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	created, ok := state.(deck.Deck)
-	require.True(t, ok)
+	var raw []byte
+	require.NoError(t, exec.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, id.Int64()).Scan(&raw))
+	var created deck.CreatedEvent
+	require.NoError(t, json.Unmarshal(raw, &created))
 	require.Equal(t, playerID, created.Player)
 	require.Equal(t, decktest.Name(t, "水"), created.Name)
 	require.Equal(t, source.Cards, created.Cards)

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar/avatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -51,7 +50,6 @@ func TestRegisterAvatar_CreatesAvatarOfPlayerWithName(t *testing.T) {
 	require.NoError(t, err)
 	created, ok := state.(avatar.Avatar)
 	require.True(t, ok)
-	require.Equal(t, avatartest.Name(t, "アリス"), created.Name)
 	require.Equal(t, registered.ID, created.PublicID)
 	require.Equal(t, 1, countEventsOf(t, ctx, avatarTypeID))
 	require.Equal(t, 1, reservedAvatars(t, ctx))

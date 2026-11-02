@@ -149,12 +149,13 @@ func TestRegisterSpell_RecordsOperatorInEvent(t *testing.T) {
 	_, err := newSpellHandler(t, ctx).Register(ctx, name)
 	require.NoError(t, err)
 
-	registry, err := domaindef.Load(ctx)
-	require.NoError(t, err)
 	id := spellIDByName(t, ctx, name)
-	restored, err := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve).Load(ctx, id)
+	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	require.Equal(t, by, restored.(spell.Spell).RegisteredBy)
+	var registeredBy int64
+	require.NoError(t, exec.QueryRowContext(ctx,
+		`SELECT (payload->>'registered_by')::bigint FROM domain_events WHERE entity_type_id = 1300 AND entity_id = $1`, id.Int64()).Scan(&registeredBy))
+	require.Equal(t, by.Int64(), registeredBy)
 	require.Equal(t, 1, countSpellEvents(t, ctx, id))
 }
 

@@ -9,4 +9,4 @@ CREATE TABLE studio_rules (
 
 COMMENT ON TABLE studio_rules IS 'studio でマスタを作るときの決まりの read model（全体で 1 行）。studio が起動時に作るまでは行が無い。game には写さない';
 COMMENT ON COLUMN studio_rules.studio_rules_id IS 'studio_rules の公開 ID（domain_entities.public_id）';
-COMMENT ON COLUMN studio_rules.metadata IS '値（イベントの値。更新の番号（集約の版）・日時、ルール rules（ボードの幅・高さの範囲など）。項目はスネークケース）';
+COMMENT ON COLUMN studio_rules.metadata IS '値（JSON）。項目と形は studio の readmodel.StudioRulesMetadata の json のタグが決める（項目を足しても表は変えない）';

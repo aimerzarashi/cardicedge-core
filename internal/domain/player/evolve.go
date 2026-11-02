@@ -9,12 +9,9 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		return Player{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Issuer:       e.Issuer,
-			Subject:      e.Subject,
-			RegisteredAt: meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
 		}, nil
 	default:
 		return state, ErrInvalidState

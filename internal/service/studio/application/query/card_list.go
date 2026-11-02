@@ -28,6 +28,10 @@ type Card struct {
 	Revision     int64
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
+	// 操作したオペレーターの公開 ID。GraphQL にはまだ出さない（オペレーターの read model と、何を見せるかが決まっていないため）。
+	// この変更の前に投影した行は、次のイベントで投影し直すまでゼロ値
+	RegisteredBy uuid.UUID
+	UpdatedBy    uuid.UUID
 }
 
 // Types・Statuses が nil なら絞り込まない。空のリストは入力の誤り（何も選ばないのは、0 件を返すより選び忘れと考える）

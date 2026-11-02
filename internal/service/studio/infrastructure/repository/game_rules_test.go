@@ -23,8 +23,8 @@ func TestGameRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 	rules := gamerules.Defaults()
 	rules.Player.MaxDecks = 3
 
-	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 1, UpdatedAt: at, Rules: rules}))
-	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 2, UpdatedAt: at, Rules: rules}))
+	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 1, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
+	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 2, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
 
 	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
@@ -34,5 +34,5 @@ func TestGameRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 	require.Equal(t, publicID.String(), rows[0].GameRulesID)
 	var metadata readmodel.GameRulesMetadata
 	require.NoError(t, json.Unmarshal(rows[0].Metadata, &metadata))
-	require.Equal(t, readmodel.GameRulesMetadata{ID: publicID, Revision: 2, UpdatedAt: at, Rules: rules}, metadata)
+	require.Equal(t, readmodel.GameRulesMetadata{ID: publicID, Revision: 2, RegisteredAt: at, UpdatedAt: at, Rules: rules}, metadata)
 }

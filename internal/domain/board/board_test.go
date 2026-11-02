@@ -136,7 +136,7 @@ func TestDecide_RegisterMakesEmptyDraftOfDefaultSize(t *testing.T) {
 	}}, events)
 	require.Equal(t, board.Board{
 		ID: f.id, Version: 1, PublicID: publicID, Name: f.name, Status: board.StatusDraft,
-		Layout: board.EmptyLayout(boardtest.Size(t, 8, 8)), DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID, RegisteredAt: registeredAt, UpdatedAt: registeredAt,
+		Layout: board.EmptyLayout(boardtest.Size(t, 8, 8)), DefaultRules: initialDefaultRules(t),
 	}, f.register(t))
 }
 
@@ -201,7 +201,6 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	b := state.(board.Board)
 	require.Equal(t, newName, b.Name)
 	require.Equal(t, int64(2), b.Version)
-	require.Equal(t, changedAt, b.UpdatedAt)
 }
 
 func TestDecide_ChangeDefaultRulesReplacesAllValues(t *testing.T) {
@@ -218,7 +217,6 @@ func TestDecide_ChangeDefaultRulesReplacesAllValues(t *testing.T) {
 	b := state.(board.Board)
 	require.Equal(t, rules, b.DefaultRules)
 	require.Equal(t, int64(2), b.Version)
-	require.Equal(t, changedAt, b.UpdatedAt)
 }
 
 // 値を決めたのは登録のときで、定数を変えても過去のボードの値が変わらないことを、登録のイベントの値で確かめる

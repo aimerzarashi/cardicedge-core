@@ -18,7 +18,7 @@ COMMENT ON COLUMN starter_decks.starter_deck_id IS 'スターターデッキの�
 COMMENT ON COLUMN starter_decks.sort_name IS '並べ替え・名前の部分一致に使う、正規化した名前';
 COMMENT ON COLUMN starter_decks.status IS 'スターターデッキの状態（draft: 準備中、published: 公開中、retired: 使用不可）。game は公開中だけを新しいプレイヤーに配る';
 COMMENT ON COLUMN starter_decks.total_count IS 'カードの枚数の合計';
-COMMENT ON COLUMN starter_decks.metadata IS '表示に使う値（イベントの値。名前・状態・更新の番号（集約の版）・日時、入れたカードの公開 ID と枚数の一覧（cards: [{card_id, count}]。枚数が 0 のカードは持たない）、写した元（source: {preset_deck_id, revision}。写したときだけ））';
+COMMENT ON COLUMN starter_decks.metadata IS '値（JSON）。項目と形は studio の readmodel.StarterDeckMetadata の json のタグが決める（項目を足しても表は変えない）';
 
 -- 一覧の並び（名前 → 公開 ID）と、カーソルで続きを取る位置。状態は 3 値で絞る効果が小さい（デッキの数も少ない）ため索引に入れない（0008 と同じ）
 CREATE INDEX idx_starter_decks_sort_name_starter_deck_id ON starter_decks (sort_name, starter_deck_id);

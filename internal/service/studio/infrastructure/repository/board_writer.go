@@ -6,15 +6,19 @@ import (
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
-type BoardWriter struct{}
+// 書くときに操作したオペレーターの内部 ID を公開 ID に引き直すため、引き方を持つ（NPCAvatarWriter と同じ）
+type BoardWriter struct {
+	entityRefs domain.EntityRefResolver
+}
 
-func NewBoardWriter() *BoardWriter {
-	return &BoardWriter{}
+func NewBoardWriter(entityRefs domain.EntityRefResolver) *BoardWriter {
+	return &BoardWriter{entityRefs: entityRefs}
 }
 
 // すべての列をイベントから作った値で書く
@@ -23,7 +27,13 @@ func (w *BoardWriter) Upsert(ctx context.Context, board readmodel.Board) error {
 	if err != nil {
 		return err
 	}
-	raw, err := json.Marshal(board.Metadata)
+	registeredBy, updatedBy, _, err := operatorPublicIDs(ctx, w.entityRefs, board.RegisteredBy, board.UpdatedBy)
+	if err != nil {
+		return err
+	}
+	metadata := board.Metadata
+	metadata.RegisteredBy, metadata.UpdatedBy = registeredBy, updatedBy
+	raw, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}

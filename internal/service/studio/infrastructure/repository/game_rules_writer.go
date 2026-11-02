@@ -23,7 +23,7 @@ func (w *GameRulesWriter) Upsert(ctx context.Context, gameRules readmodel.GameRu
 		return err
 	}
 	raw, err := json.Marshal(readmodel.GameRulesMetadata{
-		ID: gameRules.GameRulesID, Revision: gameRules.Revision, UpdatedAt: gameRules.UpdatedAt, Rules: gameRules.Rules,
+		ID: gameRules.GameRulesID, Revision: gameRules.Revision, RegisteredAt: gameRules.RegisteredAt, UpdatedAt: gameRules.UpdatedAt, Rules: gameRules.Rules,
 	})
 	if err != nil {
 		return err
