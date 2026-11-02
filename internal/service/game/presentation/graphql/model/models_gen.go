@@ -42,6 +42,16 @@ type MeResult interface {
 	IsMeResult()
 }
 
+// NPC のアバターの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type NpcAvatarResult interface {
+	IsNpcAvatarResult()
+}
+
+// NPC のアバターの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type NpcAvatarsResult interface {
+	IsNpcAvatarsResult()
+}
+
 // registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type RegisterAvatarResult interface {
 	IsRegisterAvatarResult()
@@ -340,6 +350,74 @@ func (this LandTile) GetY() int { return this.Y }
 type Mutation struct {
 }
 
+// NPC のアバター（公開中のもの）
+type NpcAvatar struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 使うデッキ（割り当てた順。公開中のものだけ）
+	Decks []*NpcDeck `json:"decks"`
+}
+
+func (NpcAvatar) IsNpcAvatarResult() {}
+
+// 公開中の NPC のアバターが無い（公開中でないものを含む）
+type NpcAvatarNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
+
+// NPC のアバターの一覧の 1 ページ（名前の順）
+type NpcAvatarsConnection struct {
+	// このページの NPC のアバター
+	Edges []*NpcAvatarsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (NpcAvatarsConnection) IsNpcAvatarsResult() {}
+
+// NPC のアバターの一覧の 1 件と、その位置
+type NpcAvatarsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// NPC のアバター
+	Node *NpcAvatar `json:"node"`
+}
+
+// NPC のデッキ（公開中のもの）。NPC のアバターを通してだけ出る
+type NpcDeck struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない
+	Cards []*NpcDeckCard `json:"cards"`
+	// カードの枚数の合計
+	TotalCount int `json:"totalCount"`
+}
+
+// NPC のデッキに入っているカードと、その枚数
+type NpcDeckCard struct {
+	// カード
+	Card *NpcDeckCardInfo `json:"card"`
+	// 枚数
+	Count int `json:"count"`
+}
+
+// NPC のデッキに入っているカードの、見せるのに要る項目
+type NpcDeckCardInfo struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 種類
+	Type CardType `json:"type"`
+}
+
 // ページの情報
 type PageInfo struct {
 	// 次のページがあるか
@@ -375,6 +453,10 @@ func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
 func (PlayerNotRegisteredError) IsBoardsResult() {}
 
 func (PlayerNotRegisteredError) IsBoardResult() {}
+
+func (PlayerNotRegisteredError) IsNpcAvatarsResult() {}
+
+func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
 
 func (PlayerNotRegisteredError) IsMeResult() {}
 
@@ -461,6 +543,8 @@ func (ValidationErrors) IsRegisterAvatarResult() {}
 
 func (ValidationErrors) IsBoardsResult() {}
 
+func (ValidationErrors) IsNpcAvatarsResult() {}
+
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
 type WarpTile struct {
 	// 列
@@ -543,6 +627,64 @@ func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
 }
 
 func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// カードの種類
+type CardType string
+
+const (
+	CardTypeCreature CardType = "CREATURE"
+	CardTypeItem     CardType = "ITEM"
+	CardTypeSpell    CardType = "SPELL"
+)
+
+var AllCardType = []CardType{
+	CardTypeCreature,
+	CardTypeItem,
+	CardTypeSpell,
+}
+
+func (e CardType) IsValid() bool {
+	switch e {
+	case CardTypeCreature, CardTypeItem, CardTypeSpell:
+		return true
+	}
+	return false
+}
+
+func (e CardType) String() string {
+	return string(e)
+}
+
+func (e *CardType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardType", str)
+	}
+	return nil
+}
+
+func (e CardType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardType) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

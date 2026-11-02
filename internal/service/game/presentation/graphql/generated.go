@@ -172,6 +172,44 @@ type ComplexityRoot struct {
 		RegisterPlayer func(childComplexity int) int
 	}
 
+	NpcAvatar struct {
+		Decks func(childComplexity int) int
+		ID    func(childComplexity int) int
+		Name  func(childComplexity int) int
+	}
+
+	NpcAvatarNotFoundError struct {
+		Message func(childComplexity int) int
+	}
+
+	NpcAvatarsConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	NpcAvatarsEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	NpcDeck struct {
+		Cards      func(childComplexity int) int
+		ID         func(childComplexity int) int
+		Name       func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	NpcDeckCard struct {
+		Card  func(childComplexity int) int
+		Count func(childComplexity int) int
+	}
+
+	NpcDeckCardInfo struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
+		Type func(childComplexity int) int
+	}
+
 	PageInfo struct {
 		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
@@ -195,9 +233,11 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Board  func(childComplexity int, id uuid.UUID) int
-		Boards func(childComplexity int, first *int, after *string) int
-		Me     func(childComplexity int) int
+		Board      func(childComplexity int, id uuid.UUID) int
+		Boards     func(childComplexity int, first *int, after *string) int
+		Me         func(childComplexity int) int
+		NpcAvatar  func(childComplexity int, id uuid.UUID) int
+		NpcAvatars func(childComplexity int, first *int, after *string) int
 	}
 
 	RegisterAvatarSuccess struct {
@@ -243,6 +283,8 @@ type PlayerResolver interface {
 type QueryResolver interface {
 	Boards(ctx context.Context, first *int, after *string) (model.BoardsResult, error)
 	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
+	NpcAvatars(ctx context.Context, first *int, after *string) (model.NpcAvatarsResult, error)
+	NpcAvatar(ctx context.Context, id uuid.UUID) (model.NpcAvatarResult, error)
 	Me(ctx context.Context) (model.MeResult, error)
 }
 
@@ -693,6 +735,115 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.RegisterPlayer(childComplexity), true
 
+	case "NpcAvatar.decks":
+		if e.ComplexityRoot.NpcAvatar.Decks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatar.Decks(childComplexity), true
+	case "NpcAvatar.id":
+		if e.ComplexityRoot.NpcAvatar.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatar.ID(childComplexity), true
+	case "NpcAvatar.name":
+		if e.ComplexityRoot.NpcAvatar.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatar.Name(childComplexity), true
+
+	case "NpcAvatarNotFoundError.message":
+		if e.ComplexityRoot.NpcAvatarNotFoundError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatarNotFoundError.Message(childComplexity), true
+
+	case "NpcAvatarsConnection.edges":
+		if e.ComplexityRoot.NpcAvatarsConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatarsConnection.Edges(childComplexity), true
+	case "NpcAvatarsConnection.pageInfo":
+		if e.ComplexityRoot.NpcAvatarsConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatarsConnection.PageInfo(childComplexity), true
+
+	case "NpcAvatarsEdge.cursor":
+		if e.ComplexityRoot.NpcAvatarsEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatarsEdge.Cursor(childComplexity), true
+	case "NpcAvatarsEdge.node":
+		if e.ComplexityRoot.NpcAvatarsEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatarsEdge.Node(childComplexity), true
+
+	case "NpcDeck.cards":
+		if e.ComplexityRoot.NpcDeck.Cards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeck.Cards(childComplexity), true
+	case "NpcDeck.id":
+		if e.ComplexityRoot.NpcDeck.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeck.ID(childComplexity), true
+	case "NpcDeck.name":
+		if e.ComplexityRoot.NpcDeck.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeck.Name(childComplexity), true
+	case "NpcDeck.totalCount":
+		if e.ComplexityRoot.NpcDeck.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeck.TotalCount(childComplexity), true
+
+	case "NpcDeckCard.card":
+		if e.ComplexityRoot.NpcDeckCard.Card == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeckCard.Card(childComplexity), true
+	case "NpcDeckCard.count":
+		if e.ComplexityRoot.NpcDeckCard.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeckCard.Count(childComplexity), true
+
+	case "NpcDeckCardInfo.id":
+		if e.ComplexityRoot.NpcDeckCardInfo.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeckCardInfo.ID(childComplexity), true
+	case "NpcDeckCardInfo.name":
+		if e.ComplexityRoot.NpcDeckCardInfo.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeckCardInfo.Name(childComplexity), true
+	case "NpcDeckCardInfo.type":
+		if e.ComplexityRoot.NpcDeckCardInfo.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcDeckCardInfo.Type(childComplexity), true
+
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
 			break
@@ -786,6 +937,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Me(childComplexity), true
+	case "Query.npcAvatar":
+		if e.ComplexityRoot.Query.NpcAvatar == nil {
+			break
+		}
+
+		args, err := ec.field_Query_npcAvatar_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.NpcAvatar(childComplexity, args["id"].(uuid.UUID)), true
+	case "Query.npcAvatars":
+		if e.ComplexityRoot.Query.NpcAvatars == nil {
+			break
+		}
+
+		args, err := ec.field_Query_npcAvatars_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.NpcAvatars(childComplexity, args["first"].(*int), args["after"].(*string)), true
 
 	case "RegisterAvatarSuccess.avatar":
 		if e.ComplexityRoot.RegisterAvatarSuccess.Avatar == nil {
@@ -932,7 +1105,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "avatar.graphqls" "board.graphqls" "common.graphqls" "player.graphqls"
+//go:embed "avatar.graphqls" "board.graphqls" "common.graphqls" "npc_avatar.graphqls" "player.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -947,6 +1120,7 @@ var sources = []*ast.Source{
 	{Name: "avatar.graphqls", Input: sourceData("avatar.graphqls"), BuiltIn: false},
 	{Name: "board.graphqls", Input: sourceData("board.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
+	{Name: "npc_avatar.graphqls", Input: sourceData("npc_avatar.graphqls"), BuiltIn: false},
 	{Name: "player.graphqls", Input: sourceData("player.graphqls"), BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -1083,6 +1257,64 @@ func (ec *executionContext) childFields_BoardsEdge(ctx context.Context, field gr
 		return ec.fieldContext_BoardsEdge_node(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardsEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcAvatar(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_NpcAvatar_id(ctx, field)
+	case "name":
+		return ec.fieldContext_NpcAvatar_name(ctx, field)
+	case "decks":
+		return ec.fieldContext_NpcAvatar_decks(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcAvatar", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcAvatarsEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_NpcAvatarsEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_NpcAvatarsEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcAvatarsEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcDeck(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_NpcDeck_id(ctx, field)
+	case "name":
+		return ec.fieldContext_NpcDeck_name(ctx, field)
+	case "cards":
+		return ec.fieldContext_NpcDeck_cards(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_NpcDeck_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcDeck", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcDeckCard(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "card":
+		return ec.fieldContext_NpcDeckCard_card(ctx, field)
+	case "count":
+		return ec.fieldContext_NpcDeckCard_count(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcDeckCard", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcDeckCardInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_NpcDeckCardInfo_id(ctx, field)
+	case "name":
+		return ec.fieldContext_NpcDeckCardInfo_name(ctx, field)
+	case "type":
+		return ec.fieldContext_NpcDeckCardInfo_type(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcDeckCardInfo", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1270,6 +1502,42 @@ func (ec *executionContext) field_Query_board_args(ctx context.Context, rawArgs 
 }
 
 func (ec *executionContext) field_Query_boards_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_npcAvatar_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_npcAvatars_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
@@ -3035,6 +3303,451 @@ func (ec *executionContext) fieldContext_Mutation_registerPlayer(_ context.Conte
 	return graphql.NewScalarFieldContext("Mutation", field, true, true, "RegisterPlayerResult")
 }
 
+func (ec *executionContext) _NpcAvatar_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatar_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatar_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcAvatar", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _NpcAvatar_name(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatar_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatar_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcAvatar", field, false, false, "String")
+}
+
+func (ec *executionContext) _NpcAvatar_decks(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatar_decks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Decks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcDeck) graphql.Marshaler {
+			return ec.marshalNNpcDeck2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatar_decks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcAvatar",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcDeck(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcAvatarNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarNotFoundError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatarNotFoundError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatarNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcAvatarNotFoundError", field, false, false, "String")
+}
+
+func (ec *executionContext) _NpcAvatarsConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatarsConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcAvatarsEdge) graphql.Marshaler {
+			return ec.marshalNNpcAvatarsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatarsConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcAvatarsConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcAvatarsEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcAvatarsConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatarsConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatarsConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcAvatarsConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcAvatarsEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatarsEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatarsEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcAvatarsEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _NpcAvatarsEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatarsEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.NpcAvatar) graphql.Marshaler {
+			return ec.marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatarsEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcAvatarsEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcAvatar(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcDeck_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeck_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeck_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeck", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _NpcDeck_name(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeck_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeck_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeck", field, false, false, "String")
+}
+
+func (ec *executionContext) _NpcDeck_cards(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeck_cards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cards, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcDeckCard) graphql.Marshaler {
+			return ec.marshalNNpcDeckCard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeck_cards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcDeck",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcDeckCard(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcDeck_totalCount(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeck_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeck_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeck", field, false, false, "Int")
+}
+
+func (ec *executionContext) _NpcDeckCard_card(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeckCard_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Card, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.NpcDeckCardInfo) graphql.Marshaler {
+			return ec.marshalNNpcDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeckCard_card(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcDeckCard",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcDeckCardInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _NpcDeckCard_count(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeckCard_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeckCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeckCard", field, false, false, "Int")
+}
+
+func (ec *executionContext) _NpcDeckCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeckCardInfo_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeckCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _NpcDeckCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeckCardInfo_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeckCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "String")
+}
+
+func (ec *executionContext) _NpcDeckCardInfo_type(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcDeckCardInfo_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardType) graphql.Marshaler {
+			return ec.marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcDeckCardInfo_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "CardType")
+}
+
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3356,6 +4069,94 @@ func (ec *executionContext) fieldContext_Query_board(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_board_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_npcAvatars(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_npcAvatars(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().NpcAvatars(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.NpcAvatarsResult) graphql.Marshaler {
+			return ec.marshalNNpcAvatarsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_npcAvatars(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type NpcAvatarsResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_npcAvatars_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_npcAvatar(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_npcAvatar(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().NpcAvatar(ctx, fc.Args["id"].(uuid.UUID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.NpcAvatarResult) graphql.Marshaler {
+			return ec.marshalNNpcAvatarResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_npcAvatar(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type NpcAvatarResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_npcAvatar_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5026,6 +5827,74 @@ func (ec *executionContext) _MeResult(ctx context.Context, sel ast.SelectionSet,
 	}
 }
 
+func (ec *executionContext) _NpcAvatarResult(ctx context.Context, sel ast.SelectionSet, obj model.NpcAvatarResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.NpcAvatarNotFoundError:
+		return ec._NpcAvatarNotFoundError(ctx, sel, &obj)
+	case *model.NpcAvatarNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NpcAvatarNotFoundError(ctx, sel, obj)
+	case model.NpcAvatar:
+		return ec._NpcAvatar(ctx, sel, &obj)
+	case *model.NpcAvatar:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NpcAvatar(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of NpcAvatarResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _NpcAvatarsResult(ctx context.Context, sel ast.SelectionSet, obj model.NpcAvatarsResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.NpcAvatarsConnection:
+		return ec._NpcAvatarsConnection(ctx, sel, &obj)
+	case *model.NpcAvatarsConnection:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NpcAvatarsConnection(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of NpcAvatarsResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _RegisterAvatarResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterAvatarResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -6061,6 +6930,287 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 	return out
 }
 
+var npcAvatarImplementors = []string{"NpcAvatar", "NpcAvatarResult"}
+
+func (ec *executionContext) _NpcAvatar(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatar) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcAvatar")
+		case "id":
+			out.Values[i] = ec._NpcAvatar_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._NpcAvatar_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "decks":
+			out.Values[i] = ec._NpcAvatar_decks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcAvatarNotFoundErrorImplementors = []string{"NpcAvatarNotFoundError", "NpcAvatarResult"}
+
+func (ec *executionContext) _NpcAvatarNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatarNotFoundError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarNotFoundErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcAvatarNotFoundError")
+		case "message":
+			out.Values[i] = ec._NpcAvatarNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcAvatarsConnectionImplementors = []string{"NpcAvatarsConnection", "NpcAvatarsResult"}
+
+func (ec *executionContext) _NpcAvatarsConnection(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatarsConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarsConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcAvatarsConnection")
+		case "edges":
+			out.Values[i] = ec._NpcAvatarsConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._NpcAvatarsConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcAvatarsEdgeImplementors = []string{"NpcAvatarsEdge"}
+
+func (ec *executionContext) _NpcAvatarsEdge(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatarsEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarsEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcAvatarsEdge")
+		case "cursor":
+			out.Values[i] = ec._NpcAvatarsEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._NpcAvatarsEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcDeckImplementors = []string{"NpcDeck"}
+
+func (ec *executionContext) _NpcDeck(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeck) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcDeckImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcDeck")
+		case "id":
+			out.Values[i] = ec._NpcDeck_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._NpcDeck_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cards":
+			out.Values[i] = ec._NpcDeck_cards(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._NpcDeck_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcDeckCardImplementors = []string{"NpcDeckCard"}
+
+func (ec *executionContext) _NpcDeckCard(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeckCard) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcDeckCardImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcDeckCard")
+		case "card":
+			out.Values[i] = ec._NpcDeckCard_card(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "count":
+			out.Values[i] = ec._NpcDeckCard_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcDeckCardInfoImplementors = []string{"NpcDeckCardInfo"}
+
+func (ec *executionContext) _NpcDeckCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeckCardInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcDeckCardInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcDeckCardInfo")
+		case "id":
+			out.Values[i] = ec._NpcDeckCardInfo_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._NpcDeckCardInfo_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "type":
+			out.Values[i] = ec._NpcDeckCardInfo_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var pageInfoImplementors = []string{"PageInfo"}
 
 func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.PageInfo) graphql.Marshaler {
@@ -6154,7 +7304,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "MeResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "NpcAvatarsResult", "NpcAvatarResult", "MeResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -6255,6 +7405,18 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_board(ctx, field)
+				})
+		case "npcAvatars":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_npcAvatars(ctx, field)
+				})
+		case "npcAvatar":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_npcAvatar(ctx, field)
 				})
 		case "me":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
@@ -6435,7 +7597,7 @@ func (ec *executionContext) _ShrineTile(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "NpcAvatarsResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -7060,6 +8222,16 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) unmarshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx context.Context, v any) (model.CardType, error) {
+	var res model.CardType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx context.Context, sel ast.SelectionSet, v model.CardType) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "FieldError!")
@@ -7104,6 +8276,110 @@ func (ec *executionContext) marshalNMeResult2gitlabᚗcomᚋaimerzarashiᚋdieca
 		return graphql.Null
 	}
 	return ec._MeResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx context.Context, sel ast.SelectionSet, v *model.NpcAvatar) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcAvatar!")
+		return graphql.Null
+	}
+	return ec._NpcAvatar(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcAvatarResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarResult(ctx context.Context, sel ast.SelectionSet, v model.NpcAvatarResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcAvatarResult!")
+		return graphql.Null
+	}
+	return ec._NpcAvatarResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcAvatarsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcAvatarsEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNNpcAvatarsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNNpcAvatarsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdge(ctx context.Context, sel ast.SelectionSet, v *model.NpcAvatarsEdge) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcAvatarsEdge!")
+		return graphql.Null
+	}
+	return ec._NpcAvatarsEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcAvatarsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsResult(ctx context.Context, sel ast.SelectionSet, v model.NpcAvatarsResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcAvatarsResult!")
+		return graphql.Null
+	}
+	return ec._NpcAvatarsResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcDeck2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcDeck) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNNpcDeck2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeck(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNNpcDeck2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeck(ctx context.Context, sel ast.SelectionSet, v *model.NpcDeck) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcDeck!")
+		return graphql.Null
+	}
+	return ec._NpcDeck(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcDeckCard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcDeckCard) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNNpcDeckCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCard(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNNpcDeckCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCard(ctx context.Context, sel ast.SelectionSet, v *model.NpcDeckCard) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcDeckCard!")
+		return graphql.Null
+	}
+	return ec._NpcDeckCard(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardInfo(ctx context.Context, sel ast.SelectionSet, v *model.NpcDeckCardInfo) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcDeckCardInfo!")
+		return graphql.Null
+	}
+	return ec._NpcDeckCardInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {

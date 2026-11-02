@@ -37,14 +37,21 @@ type BoardQueries interface {
 	Get(ctx context.Context, id uuid.UUID) (query.Board, error)
 }
 
-type Resolver struct {
-	players     Players
-	playerQuery PlayerQueries
-	avatars     Avatars
-	avatarQuery AvatarQueries
-	boardQuery  BoardQueries
+// 実装は query.NPCAvatarHandler
+type NPCAvatarQueries interface {
+	List(ctx context.Context, first *int, after *string) (pagination.Connection[query.NPCAvatar], error)
+	Get(ctx context.Context, id uuid.UUID) (query.NPCAvatar, error)
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, boardQuery BoardQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, boardQuery: boardQuery}
+type Resolver struct {
+	players        Players
+	playerQuery    PlayerQueries
+	avatars        Avatars
+	avatarQuery    AvatarQueries
+	boardQuery     BoardQueries
+	npcAvatarQuery NPCAvatarQueries
+}
+
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery}
 }
