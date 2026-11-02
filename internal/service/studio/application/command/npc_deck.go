@@ -81,13 +81,18 @@ func (c *NPCDeckHandler) Register(ctx context.Context, name string) (ChangedNPCD
 	return c.register(ctx, &npcdeck.RegisterCommand{Name: npcDeckName, RegisteredBy: registeredBy})
 }
 
-// プリセットデッキの名前・カードと枚数を写して、NPC のデッキ（準備中）を作る。写した元の公開 ID と、写したときの
+// プリセットデッキのカードと枚数を写して、名前 name のNPC のデッキ（準備中）を作る。写した元の公開 ID と、写したときの
 // revision を記録する。元のプリセットデッキが無い（削除したものを含む）なら ErrPresetDeckNotFound。
+// 名前を元から写さないのは、同じプリセットデッキから 2 つ目を作ると必ず名前の重複になり、1 つしか作れなくなるため。
 // 準備中は決まり（合計の枚数等）を満たさなくてよいため、元がルールを満たすかは確かめない。ほかのエラーは Register と同じ
-func (c *NPCDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID) (ChangedNPCDeck, error) {
+func (c *NPCDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID, name string) (ChangedNPCDeck, error) {
 	registeredBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedNPCDeck{}, ErrNotOperator
+	}
+	deckName, invalid := newPresetDeckName("name", name)
+	if invalid != nil {
+		return ChangedNPCDeck{}, input.Errors{invalid}
 	}
 	preset, err := c.loadPresetDeck(ctx, presetDeckID)
 	if err != nil {
@@ -97,7 +102,7 @@ func (c *NPCDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDeckI
 	if err != nil {
 		return ChangedNPCDeck{}, err
 	}
-	return c.register(ctx, &npcdeck.RegisterCommand{Name: preset.Name, Source: &source, Cards: preset.Cards, RegisteredBy: registeredBy})
+	return c.register(ctx, &npcdeck.RegisterCommand{Name: deckName, Source: &source, Cards: preset.Cards, RegisteredBy: registeredBy})
 }
 
 func (c *NPCDeckHandler) register(ctx context.Context, cmd *npcdeck.RegisterCommand) (ChangedNPCDeck, error) {

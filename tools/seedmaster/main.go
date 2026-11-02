@@ -431,7 +431,7 @@ func (s *seeder) listNPCAvatars(ctx context.Context) (map[string]query.NPCAvatar
 	}
 }
 
-// プリセットデッキから同じ名前で写して NPC のデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のデッキが
+// プリセットデッキから、元と同じ名前を指定して写して NPC のデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のデッキが
 // あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
 // NPC のデッキはスターターデッキと別の集まりなので、同じ名前でも重ならない
 func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
@@ -443,7 +443,7 @@ func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs
 		key := domain.NormalizeName(name)
 		current, ok := existing[key]
 		if !ok {
-			copied, err := s.npcDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name])
+			copied, err := s.npcDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name], name)
 			if errors.Is(err, command.ErrNPCDeckNameAlreadyInUse) {
 				// 作成済みだが read model にまだ無い（投影の遅れ）
 				err = waitFor(ctx, "npc_decks", func() (bool, error) {
@@ -526,7 +526,7 @@ func (s *seeder) listNPCDecks(ctx context.Context) (map[string]query.NPCDeck, er
 	}
 }
 
-// プリセットデッキから写してスターターデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前のスターターデッキが
+// プリセットデッキから、元と同じ名前を指定して写してスターターデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前のスターターデッキが
 // あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
 // 続けて make publish-master を流せるよう、core の投影が公開中を書くまで待つ
 func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
@@ -538,7 +538,7 @@ func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDec
 		key := domain.NormalizeName(name)
 		current, ok := existing[key]
 		if !ok {
-			copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name])
+			copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name], name)
 			if errors.Is(err, command.ErrStarterDeckNameAlreadyInUse) {
 				// 作成済みだが read model にまだ無い（投影の遅れ）
 				err = waitFor(ctx, "starter_decks", func() (bool, error) {

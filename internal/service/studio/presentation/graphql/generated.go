@@ -16040,7 +16040,7 @@ func (ec *executionContext) unmarshalInputRegisterNpcDeckFromPresetDeckInput(ctx
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"presetDeckId"}
+	fieldsInOrder := [...]string{"presetDeckId", "name"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -16054,6 +16054,13 @@ func (ec *executionContext) unmarshalInputRegisterNpcDeckFromPresetDeckInput(ctx
 				return it, err
 			}
 			it.PresetDeckID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
 		}
 	}
 	return it, nil
@@ -16208,7 +16215,7 @@ func (ec *executionContext) unmarshalInputRegisterStarterDeckFromPresetDeckInput
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"presetDeckId"}
+	fieldsInOrder := [...]string{"presetDeckId", "name"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -16222,6 +16229,13 @@ func (ec *executionContext) unmarshalInputRegisterStarterDeckFromPresetDeckInput
 				return it, err
 			}
 			it.PresetDeckID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
 		}
 	}
 	return it, nil
@@ -18443,6 +18457,13 @@ func (ec *executionContext) _RegisterNpcDeckFromPresetDeckResult(ctx context.Con
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
 	case model.RegisterNpcDeckFromPresetDeckSuccess:
 		return ec._RegisterNpcDeckFromPresetDeckSuccess(ctx, sel, &obj)
 	case *model.RegisterNpcDeckFromPresetDeckSuccess:
@@ -18607,6 +18628,13 @@ func (ec *executionContext) _RegisterStarterDeckFromPresetDeckResult(ctx context
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
 	case model.StarterDeckNameAlreadyInUseError:
 		return ec._StarterDeckNameAlreadyInUseError(ctx, sel, &obj)
 	case *model.StarterDeckNameAlreadyInUseError:
@@ -24607,7 +24635,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "RegisterCreatureResult", "RegisterItemResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterDecksResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "PublishStarterDeckResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)

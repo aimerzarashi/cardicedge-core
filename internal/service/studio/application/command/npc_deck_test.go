@@ -120,7 +120,7 @@ func TestNPCDeckCommands_RejectWithoutOperator(t *testing.T) {
 			return err
 		}},
 		{name: "register_from_preset_deck", call: func(_ *testing.T, ctx context.Context, commands *command.NPCDeckHandler, _ command.ChangedNPCDeck) error {
-			_, err := commands.RegisterFromPresetDeck(ctx, uuid.New())
+			_, err := commands.RegisterFromPresetDeck(ctx, uuid.New(), "中級者デッキ")
 			return err
 		}},
 		{name: "rename", call: func(_ *testing.T, ctx context.Context, commands *command.NPCDeckHandler, npcDeck command.ChangedNPCDeck) error {
@@ -156,8 +156,8 @@ func TestNPCDeckCommands_RejectWithoutOperator(t *testing.T) {
 	}
 }
 
-// 名前・カード・枚数を写し、写した元の公開 ID と revision を記録する。写した後に元を直しても、 NPC のデッキは変わらない
-func TestRegisterNPCDeckFromPresetDeck_CopiesNameCardsAndSource(t *testing.T) {
+// カード・枚数を写して指定した名前で作り、写した元の公開 ID と revision を記録する。写した後に元を直しても、NPC のデッキは変わらない
+func TestRegisterNPCDeckFromPresetDeck_UsesGivenNameAndCopiesCardsAndSource(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	presets := newPresetDeckHandler(t, ctx)
 	dragon, potion := publishedCreature(t, ctx), publishedItem(t, ctx)
@@ -166,12 +166,12 @@ func TestRegisterNPCDeckFromPresetDeck_CopiesNameCardsAndSource(t *testing.T) {
 	require.NoError(t, err)
 	commands := newNPCDeckHandler(t, ctx)
 
-	copied, err := commands.RegisterFromPresetDeck(ctx, preset.ID)
+	copied, err := commands.RegisterFromPresetDeck(ctx, preset.ID, "炎のデッキ")
 
 	require.NoError(t, err)
 	require.Equal(t, int64(1), copied.Revision)
 	npcDeck := restoredNPCDeck(t, ctx, copied.ID)
-	require.Equal(t, "火のデッキ", npcDeck.Name.String())
+	require.Equal(t, "炎のデッキ", npcDeck.Name.String())
 	require.Equal(t, npcdeck.StatusDraft, npcDeck.Status)
 	require.Equal(t, 5, npcDeck.TotalCount())
 	require.NotNil(t, npcDeck.Source)
@@ -189,16 +189,52 @@ func TestRegisterNPCDeckFromPresetDeck_RejectsUnknownPresetDeckAndNameInUse(t *t
 	preset := registerPresetDeck(t, ctx, "火のデッキ")
 	deleted := registerPresetDeck(t, ctx, "水のデッキ")
 	require.NoError(t, newPresetDeckHandler(t, ctx).Delete(ctx, deleted.ID, deleted.Revision))
-	_, err := commands.RegisterFromPresetDeck(ctx, preset.ID)
+	_, err := commands.RegisterFromPresetDeck(ctx, preset.ID, "火のデッキ")
 	require.NoError(t, err)
 
-	_, sameName := commands.RegisterFromPresetDeck(ctx, preset.ID)
-	_, unknown := commands.RegisterFromPresetDeck(ctx, uuid.New())
-	_, deletedPreset := commands.RegisterFromPresetDeck(ctx, deleted.ID)
+	_, sameName := commands.RegisterFromPresetDeck(ctx, preset.ID, "火のデッキ")
+	_, unknown := commands.RegisterFromPresetDeck(ctx, uuid.New(), "炎のデッキ")
+	_, deletedPreset := commands.RegisterFromPresetDeck(ctx, deleted.ID, "炎のデッキ")
 
 	require.ErrorIs(t, sameName, command.ErrNPCDeckNameAlreadyInUse)
 	require.ErrorIs(t, unknown, command.ErrPresetDeckNotFound)
 	require.ErrorIs(t, deletedPreset, command.ErrPresetDeckNotFound)
+}
+
+// 名前を元から写さないので、同じプリセットデッキから名前を変えて何度でも作れる
+func TestRegisterNPCDeckFromPresetDeck_AllowsSamePresetDeckWithDifferentNames(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newNPCDeckHandler(t, ctx)
+	preset := registerPresetDeck(t, ctx, "火のデッキ")
+	_, err := commands.RegisterFromPresetDeck(ctx, preset.ID, "火のデッキ")
+	require.NoError(t, err)
+
+	_, err = commands.RegisterFromPresetDeck(ctx, preset.ID, "火のデッキ 2")
+
+	require.NoError(t, err)
+}
+
+func TestRegisterNPCDeckFromPresetDeck_RejectsInvalidName(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  input.Error
+	}{
+		{name: "blank", value: " ", want: &input.Required{Field: "name"}},
+		{name: "too_long", value: strings.Repeat("あ", presetdeck.MaxNameLength+1), want: &input.TooLong{Field: "name", Max: presetdeck.MaxNameLength}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			preset := registerPresetDeck(t, ctx, "火のデッキ")
+
+			_, err := newNPCDeckHandler(t, ctx).RegisterFromPresetDeck(ctx, preset.ID, tt.value)
+
+			invalid, ok := input.AsErrors(err)
+			require.True(t, ok)
+			require.Equal(t, input.Errors{tt.want}, invalid)
+		})
+	}
 }
 
 // 準備中は決まり（合計の枚数）を満たさなくてよいので、40 枚でないプリセットデッキも写せる
@@ -206,7 +242,7 @@ func TestRegisterNPCDeckFromPresetDeck_AllowsPresetDeckThatDoesNotMeetRules(t *t
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	preset := registerPresetDeck(t, ctx, "空のデッキ")
 
-	copied, err := newNPCDeckHandler(t, ctx).RegisterFromPresetDeck(ctx, preset.ID)
+	copied, err := newNPCDeckHandler(t, ctx).RegisterFromPresetDeck(ctx, preset.ID, "空のデッキ")
 
 	require.NoError(t, err)
 	require.Equal(t, 0, restoredNPCDeck(t, ctx, copied.ID).TotalCount())

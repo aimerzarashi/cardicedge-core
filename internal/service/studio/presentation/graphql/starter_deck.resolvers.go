@@ -38,7 +38,10 @@ func (r *mutationResolver) RegisterStarterDeckFromPresetDeck(ctx context.Context
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	registered, err := r.starterDecks.RegisterFromPresetDeck(ctx, input.PresetDeckID)
+	registered, err := r.starterDecks.RegisterFromPresetDeck(ctx, input.PresetDeckID, input.Name)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
 	switch {
 	case errors.Is(err, command.ErrPresetDeckNotFound):
 		return &model.PresetDeckNotFoundError{Message: "preset deck not found"}, nil

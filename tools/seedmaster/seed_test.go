@@ -145,7 +145,7 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			_, err = s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[m.StarterDecks[0]])
+			_, err = s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[m.StarterDecks[0]], m.StarterDecks[0])
 			require.NoError(t, err)
 		}},
 		{name: "starter_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
@@ -154,7 +154,7 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
 			for _, name := range m.StarterDecks {
-				copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[name])
+				copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[name], name)
 				require.NoError(t, err)
 				_, err = s.starterDecks.Publish(ctx, copied.ID, copied.Revision)
 				require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			_, err = s.npcDecks.RegisterFromPresetDeck(ctx, deckIDs[m.NPCDecks[0]])
+			_, err = s.npcDecks.RegisterFromPresetDeck(ctx, deckIDs[m.NPCDecks[0]], m.NPCDecks[0])
 			require.NoError(t, err)
 		}},
 	}
