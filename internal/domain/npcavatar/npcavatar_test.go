@@ -14,6 +14,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 )
@@ -63,6 +65,20 @@ func (f fixture) register(t *testing.T) npcavatar.State {
 func (f fixture) renameCommand(t *testing.T, name string) *npcavatar.RenameCommand {
 	t.Helper()
 	return &npcavatar.RenameCommand{Name: npcavatartest.Name(t, name), RenamedBy: f.operatorID}
+}
+
+func (f fixture) setDecksCommand(t *testing.T, decks ...int64) *npcavatar.SetDecksCommand {
+	t.Helper()
+	return &npcavatar.SetDecksCommand{Decks: deckIDs(t, decks...), ChangedBy: f.operatorID}
+}
+
+func deckIDs(t *testing.T, values ...int64) []npcdeck.ID {
+	t.Helper()
+	ids := make([]npcdeck.ID, 0, len(values))
+	for _, value := range values {
+		ids = append(ids, npcdecktest.ID(t, value))
+	}
+	return ids
 }
 
 func (f fixture) publishCommand() *npcavatar.PublishCommand {
@@ -135,6 +151,9 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		cmd   npcavatar.Command
 	}{
 		{name: "same_name", state: f.register(t), cmd: &npcavatar.RenameCommand{Name: f.name, RenamedBy: f.operatorID}},
+		{name: "same_decks", state: withDecks(t, f, 40, 41), cmd: f.setDecksCommand(t, 40, 41)},
+		{name: "same_decks_in_other_order", state: withDecks(t, f, 40, 41), cmd: f.setDecksCommand(t, 41, 40)},
+		{name: "no_decks_to_no_decks", state: f.register(t), cmd: f.setDecksCommand(t)},
 		{name: "publish_published", state: f.published(t), cmd: f.publishCommand()},
 		{name: "retire_retired", state: f.retired(t), cmd: f.retireCommand()},
 	}
@@ -146,6 +165,62 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 			require.Empty(t, events)
 		})
 	}
+}
+
+func withDecks(t *testing.T, f fixture, decks ...int64) npcavatar.State {
+	t.Helper()
+	state, _ := apply(t, f.register(t), f.setDecksCommand(t, decks...), changedAt)
+	return state
+}
+
+// 今の一覧に無いものを割り当て、渡した一覧に無いものを外す。外す → 割り当てるの順に出し、版はイベントの数だけ進む。
+// 一覧の順は割り当てた順（残したものの後ろに、新しく割り当てたものが付く）
+func TestDecide_SetDecksUnassignsMissingAndAssignsNewDecks(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withDecks(t, f, 40, 41), f.setDecksCommand(t, 42, 40), changedAt)
+
+	require.Equal(t, []npcavatar.Event{
+		&npcavatar.DecksUnassignedEvent{
+			EventMeta:    npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+			Decks:        deckIDs(t, 41),
+			UnassignedBy: f.operatorID,
+		},
+		&npcavatar.DecksAssignedEvent{
+			EventMeta:  npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
+			Decks:      deckIDs(t, 42),
+			AssignedBy: f.operatorID,
+		},
+	}, events)
+	npcAvatar := state.(npcavatar.NPCAvatar)
+	require.Equal(t, deckIDs(t, 40, 42), npcAvatar.Decks)
+	require.Equal(t, int64(4), npcAvatar.Version)
+}
+
+func TestDecide_SetDecksOnlyAssignsWhenNothingIsRemoved(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withDecks(t, f, 40), f.setDecksCommand(t, 40, 41), changedAt)
+
+	require.Equal(t, []npcavatar.Event{&npcavatar.DecksAssignedEvent{
+		EventMeta:  npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Decks:      deckIDs(t, 41),
+		AssignedBy: f.operatorID,
+	}}, events)
+	require.Equal(t, deckIDs(t, 40, 41), state.(npcavatar.NPCAvatar).Decks)
+}
+
+func TestDecide_SetDecksCanClearList(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withDecks(t, f, 40, 41), f.setDecksCommand(t), changedAt)
+
+	require.Equal(t, []npcavatar.Event{&npcavatar.DecksUnassignedEvent{
+		EventMeta:    npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Decks:        deckIDs(t, 40, 41),
+		UnassignedBy: f.operatorID,
+	}}, events)
+	require.Empty(t, state.(npcavatar.NPCAvatar).Decks)
 }
 
 func TestDecide_PublishMakesPublished(t *testing.T) {
@@ -184,7 +259,7 @@ func TestDecide_RetireMakesRetiredOnlyFromPublished(t *testing.T) {
 	require.ErrorIs(t, err, npcavatar.ErrInvalidStatusTransition)
 }
 
-// 使われている間に名前が変わらないよう、準備中以外では名前を変えられず、消せない。準備中に戻す操作も無い
+// 使われている間に名前・使うデッキが変わらないよう、準備中以外では変えられず、消せない。準備中に戻す操作も無い
 func TestDecide_RejectsRenameAndDeleteUnlessDraft(t *testing.T) {
 	f := newFixture(t)
 	commands := []struct {
@@ -192,6 +267,7 @@ func TestDecide_RejectsRenameAndDeleteUnlessDraft(t *testing.T) {
 		cmd  npcavatar.Command
 	}{
 		{name: "rename", cmd: f.renameCommand(t, "森の番人")},
+		{name: "set_decks", cmd: f.setDecksCommand(t, 40)},
 		{name: "delete", cmd: f.deleteCommand()},
 	}
 	states := []struct {
@@ -232,6 +308,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 		cmd  npcavatar.Command
 	}{
 		{name: "rename", cmd: f.renameCommand(t, "森の番人")},
+		{name: "set_decks", cmd: f.setDecksCommand(t, 40)},
 		{name: "publish", cmd: f.publishCommand()},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: f.deleteCommand()},
@@ -316,6 +393,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	events := []npcavatar.Event{
 		&npcavatar.RegisteredEvent{EventMeta: meta, PublicID: publicID, Name: f.name, RegisteredBy: f.operatorID},
 		&npcavatar.RenamedEvent{EventMeta: meta, Name: npcavatartest.Name(t, "森の番人"), RenamedBy: f.operatorID},
+		&npcavatar.DecksAssignedEvent{EventMeta: meta, Decks: deckIDs(t, 40, 41), AssignedBy: f.operatorID},
+		&npcavatar.DecksUnassignedEvent{EventMeta: meta, Decks: deckIDs(t, 40), UnassignedBy: f.operatorID},
 		&npcavatar.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
 		&npcavatar.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
 		&npcavatar.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},

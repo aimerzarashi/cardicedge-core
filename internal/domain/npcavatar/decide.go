@@ -1,9 +1,14 @@
 package npcavatar
 
-import "time"
+import (
+	"slices"
+	"time"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+)
 
 // 変えても同じになる操作（同じ名前・公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）。
-// 名前の変更と削除は準備中だけ。同じ状態への公開・使用不可も、準備中でなくてよい
+// 名前の変更・使うデッキの変更・削除は準備中だけ。同じ状態への公開・使用不可も、準備中でなくてよい
 func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	switch c := cmd.(type) {
 	case *RegisterCommand:
@@ -25,6 +30,23 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, nil
 		}
 		return []Event{&RenamedEvent{EventMeta: nextMeta(npcAvatar, now), Name: c.Name, RenamedBy: c.RenamedBy}}, nil
+	case *SetDecksCommand:
+		npcAvatar, err := draft(state)
+		if err != nil {
+			return nil, err
+		}
+		// 外す → 割り当てるの順に出す（版は出したイベントの数だけ進む）。差が無ければイベントを作らない
+		var events []Event
+		version := npcAvatar.Version
+		if unassigned := missingFrom(c.Decks, npcAvatar.Decks); len(unassigned) > 0 {
+			version++
+			events = append(events, &DecksUnassignedEvent{EventMeta: metaAt(npcAvatar, version, now), Decks: unassigned, UnassignedBy: c.ChangedBy})
+		}
+		if assigned := missingFrom(npcAvatar.Decks, c.Decks); len(assigned) > 0 {
+			version++
+			events = append(events, &DecksAssignedEvent{EventMeta: metaAt(npcAvatar, version, now), Decks: assigned, AssignedBy: c.ChangedBy})
+		}
+		return events, nil
 	case *PublishCommand:
 		npcAvatar, ok := state.(NPCAvatar)
 		if !ok {
@@ -68,6 +90,21 @@ func draft(state State) (NPCAvatar, error) {
 	return npcAvatar, nil
 }
 
+// decks のうち base に無いものを、decks の順で返す（並べ替えだけでは差が出ない。一覧の順は割り当てた順のまま）
+func missingFrom(base, decks []npcdeck.ID) []npcdeck.ID {
+	var missing []npcdeck.ID
+	for _, deck := range decks {
+		if !slices.Contains(base, deck) {
+			missing = append(missing, deck)
+		}
+	}
+	return missing
+}
+
 func nextMeta(npcAvatar NPCAvatar, now time.Time) EventMeta {
-	return EventMeta{EntityID: npcAvatar.ID, AggregateVersion: npcAvatar.Version + 1, OccurredAt: now}
+	return metaAt(npcAvatar, npcAvatar.Version+1, now)
+}
+
+func metaAt(npcAvatar NPCAvatar, version int64, now time.Time) EventMeta {
+	return EventMeta{EntityID: npcAvatar.ID, AggregateVersion: version, OccurredAt: now}
 }

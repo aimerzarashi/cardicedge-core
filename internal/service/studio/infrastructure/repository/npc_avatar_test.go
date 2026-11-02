@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
@@ -29,6 +31,13 @@ func newNPCAvatarFixture(t *testing.T) npcAvatarFixture {
 	f.registeredBy, f.registeredByPublicID = f.issueOperator(t)
 	f.updatedBy, f.updatedByPublicID = f.issueOperator(t)
 	return f
+}
+
+func (f npcAvatarFixture) issueNPCDeck(t *testing.T) (npcdeck.ID, uuid.UUID) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, npcdeck.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id, publicID
 }
 
 func (f npcAvatarFixture) npcAvatarState(sortName, name string, status readmodel.NPCAvatarStatus) readmodel.NPCAvatar {
@@ -84,6 +93,33 @@ func TestNPCAvatar_GetsUpsertedNPCAvatarWithOperatorPublicIDs(t *testing.T) {
 	require.Equal(t, npcAvatar.Metadata.UpdatedAt, got.UpdatedAt.UTC())
 	require.Equal(t, f.registeredByPublicID, got.RegisteredBy)
 	require.Equal(t, f.updatedByPublicID, got.UpdatedBy)
+}
+
+// 使うデッキは内部 ID で持ち、公開 ID に引き直して、持つ順のまま返す。デッキを使わないものは空
+func TestNPCAvatar_GetsDeckPublicIDsInGivenOrder(t *testing.T) {
+	f := newNPCAvatarFixture(t)
+	first, firstPublicID := f.issueNPCDeck(t)
+	second, secondPublicID := f.issueNPCDeck(t)
+	npcAvatar := f.npcAvatarState("fire", "Ｆire", readmodel.NPCAvatarStatusDraft)
+	npcAvatar.Decks = []npcdeck.ID{second, first}
+	empty := f.put(t, "water", "Water", readmodel.NPCAvatarStatusDraft)
+
+	require.NoError(t, f.writer.Upsert(f.ctx, npcAvatar))
+	got, err := repository.NewNPCAvatarReader().Get(f.ctx, npcAvatar.NPCAvatarID)
+	gotEmpty, emptyErr := repository.NewNPCAvatarReader().Get(f.ctx, empty.NPCAvatarID)
+
+	require.NoError(t, err)
+	require.Equal(t, []uuid.UUID{secondPublicID, firstPublicID}, got.Decks)
+	require.NoError(t, emptyErr)
+	require.Empty(t, gotEmpty.Decks)
+}
+
+func TestNPCAvatar_UpsertFailsForDeckWithoutPublicID(t *testing.T) {
+	f := newNPCAvatarFixture(t)
+	npcAvatar := f.npcAvatarState("fire", "Ｆire", readmodel.NPCAvatarStatusDraft)
+	npcAvatar.Decks = []npcdeck.ID{npcdecktest.ID(t, 999999)}
+
+	require.Error(t, f.writer.Upsert(f.ctx, npcAvatar))
 }
 
 func TestNPCAvatar_GetFailsForMissingNPCAvatar(t *testing.T) {

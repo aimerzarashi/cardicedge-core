@@ -108,23 +108,31 @@ func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
 	require.True(t, found)
 }
 
-// 見本のファイルに NPC のアバターが 3 つあり、どれも名前の決まりを満たす（始める前に確かめる流れが、見本で必ず通るように）
-func TestSampleMaster_HasThreeNPCAvatars(t *testing.T) {
+// 見本のファイルに NPC のアバターが 3 つあり、どれも名前の決まりを満たし、見本の NPC のデッキを使う（始める前に確かめる流れが、見本で必ず通るように）
+func TestSampleMaster_HasThreeNPCAvatarsUsingNPCDecks(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
-	require.Equal(t, []string{"見習いの魔術師", "森の番人", "炎の剣士"}, m.NPCAvatars)
+	require.Equal(t, []masterNPCAvatar{
+		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}},
+		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}},
+		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}},
+	}, m.NPCAvatars)
 }
 
 func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
+	fireDeck := []string{"火・地属性デッキ"}
 	tests := []struct {
 		name       string
-		npcAvatars []string
+		npcAvatars []masterNPCAvatar
 	}{
-		{name: "blank_name", npcAvatars: []string{" "}},
-		{name: "too_long_name", npcAvatars: []string{strings.Repeat("あ", npcavatar.MaxNameLength+1)}},
-		{name: "duplicated_name", npcAvatars: []string{"森の番人", "森の番人"}},
-		{name: "duplicated_after_normalization", npcAvatars: []string{"ＡＢＣ", " abc"}},
+		{name: "blank_name", npcAvatars: []masterNPCAvatar{{Name: " ", Decks: fireDeck}}},
+		{name: "too_long_name", npcAvatars: []masterNPCAvatar{{Name: strings.Repeat("あ", npcavatar.MaxNameLength+1), Decks: fireDeck}}},
+		{name: "duplicated_name", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: fireDeck}, {Name: "森の番人", Decks: fireDeck}}},
+		{name: "duplicated_after_normalization", npcAvatars: []masterNPCAvatar{{Name: "ＡＢＣ", Decks: fireDeck}, {Name: " abc", Decks: fireDeck}}},
+		{name: "no_decks", npcAvatars: []masterNPCAvatar{{Name: "森の番人"}}},
+		{name: "unknown_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{"x"}}}},
+		{name: "duplicated_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{fireDeck[0], fireDeck[0]}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

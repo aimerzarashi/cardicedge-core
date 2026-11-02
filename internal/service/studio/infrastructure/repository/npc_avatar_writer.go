@@ -6,15 +6,17 @@ import (
 	"errors"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
-// 書くときに操作したオペレーターの内部 ID を公開用の ID に引き直すため、引き方を持つ（AvatarWriter と同じ）
+// 書くときに操作したオペレーターと使うデッキの内部 ID を公開用の ID に引き直すため、引き方を持つ（AvatarWriter と同じ）
 type NPCAvatarWriter struct {
 	entityRefs domain.EntityRefResolver
 }
@@ -31,11 +33,24 @@ func (w *NPCAvatarWriter) Upsert(ctx context.Context, npcAvatar readmodel.NPCAva
 	}
 	registeredByRef := domain.NewEntityRef(operator.Types().EntityType, npcAvatar.RegisteredBy.Int64())
 	updatedByRef := domain.NewEntityRef(operator.Types().EntityType, npcAvatar.UpdatedBy.Int64())
-	publicIDs, err := w.entityRefs.PublicIDs(ctx, []domain.EntityRef{registeredByRef, updatedByRef})
+	refs := make([]domain.EntityRef, 0, len(npcAvatar.Decks)+2)
+	refs = append(refs, registeredByRef, updatedByRef)
+	for _, deck := range npcAvatar.Decks {
+		refs = append(refs, domain.NewEntityRef(npcdeck.Types().EntityType, deck.Int64()))
+	}
+	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
 		return err
 	}
 	metadata := npcAvatar.Metadata
+	metadata.Decks = make([]uuid.UUID, 0, len(npcAvatar.Decks))
+	for _, deck := range npcAvatar.Decks {
+		publicID, ok := publicIDs[domain.NewEntityRef(npcdeck.Types().EntityType, deck.Int64())]
+		if !ok {
+			return errors.New("repository: deck of npc avatar has no public id")
+		}
+		metadata.Decks = append(metadata.Decks, publicID)
+	}
 	var registeredOK, updatedOK bool
 	metadata.RegisteredBy, registeredOK = publicIDs[registeredByRef]
 	metadata.UpdatedBy, updatedOK = publicIDs[updatedByRef]

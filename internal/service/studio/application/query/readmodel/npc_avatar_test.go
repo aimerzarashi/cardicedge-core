@@ -9,6 +9,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -108,6 +110,23 @@ func TestNPCAvatar_StatusEventsChangeStatusRevisionAndUpdater(t *testing.T) {
 	require.Equal(t, readmodel.NPCAvatarStatusRetired, retired.Metadata.Status)
 	require.Equal(t, int64(3), retired.Metadata.Revision)
 	require.Equal(t, operatortest.ID(t, 12), retired.UpdatedBy)
+}
+
+// 割り当てると割り当てた順に後ろへ足し、割り当てを外すと除く。どちらも版と更新した人・日時を変える
+func TestNPCAvatar_DecksAssignedAndUnassignedChangeDecksRevisionAndUpdater(t *testing.T) {
+	h := newNPCAvatarHistory(t, uuid.New(), "森の番人")
+	h.apply(&npcavatar.SetDecksCommand{Decks: []npcdeck.ID{npcdecktest.ID(t, 41), npcdecktest.ID(t, 40)}, ChangedBy: operatortest.ID(t, 11)}, npcAvatarChangedAt)
+	assigned := h.project()
+	h.apply(&npcavatar.SetDecksCommand{Decks: []npcdeck.ID{npcdecktest.ID(t, 42)}, ChangedBy: operatortest.ID(t, 12)}, npcAvatarChangedAt)
+	replaced := h.project()
+
+	require.Equal(t, []npcdeck.ID{npcdecktest.ID(t, 41), npcdecktest.ID(t, 40)}, assigned.Decks)
+	require.Equal(t, []npcdeck.ID{npcdecktest.ID(t, 42)}, replaced.Decks)
+	// 外す（版 3）→ 割り当てる（版 4）の 2 つのイベント
+	require.Equal(t, int64(4), replaced.Metadata.Revision)
+	require.Equal(t, npcAvatarChangedAt, replaced.Metadata.UpdatedAt)
+	require.Equal(t, operatortest.ID(t, 12), replaced.UpdatedBy)
+	require.Equal(t, operatortest.ID(t, 10), replaced.RegisteredBy)
 }
 
 func TestNPCAvatar_DeletedEventMakesTerminal(t *testing.T) {

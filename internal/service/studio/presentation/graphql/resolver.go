@@ -90,6 +90,7 @@ type BoardLister interface {
 type NPCAvatarHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedNPCAvatar, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedNPCAvatar, error)
+	SetDecks(ctx context.Context, id uuid.UUID, revision int64, deckIDs []uuid.UUID) (command.ChangedNPCAvatar, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCAvatar, error)
 	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCAvatar, error)

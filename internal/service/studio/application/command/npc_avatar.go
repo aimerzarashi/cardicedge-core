@@ -3,12 +3,15 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -17,17 +20,54 @@ import (
 type NPCAvatarHandler struct {
 	eventStore domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State]
 	identifier domain.Identifier[npcavatar.ID]
+	entityRefs domain.EntityRefResolver
 	updateName npcavatar.UpdateNameFunc
-	now        func() time.Time
+	// 使うデッキを参照する（参照されている間はデッキの識別子を消せない）
+	updateDeckReferences npcavatar.UpdateDeckReferencesFunc
+	deckStatuses         NPCDeckStatusesFunc
+	now                  func() time.Time
 }
 
 func NewNPCAvatarHandler(
 	eventStore domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State],
 	identifier domain.Identifier[npcavatar.ID],
+	entityRefs domain.EntityRefResolver,
 	updateName npcavatar.UpdateNameFunc,
+	updateDeckReferences npcavatar.UpdateDeckReferencesFunc,
+	deckStatuses NPCDeckStatusesFunc,
 	now func() time.Time,
 ) *NPCAvatarHandler {
-	return &NPCAvatarHandler{eventStore: eventStore, identifier: identifier, updateName: updateName, now: now}
+	return &NPCAvatarHandler{
+		eventStore: eventStore, identifier: identifier, entityRefs: entityRefs, updateName: updateName,
+		updateDeckReferences: updateDeckReferences, deckStatuses: deckStatuses, now: now,
+	}
+}
+
+// NPC のデッキの状態を返す。無い（削除したものを含む）デッキは結果に含めない
+type NPCDeckStatusesFunc func(ctx context.Context, ids []npcdeck.ID) (map[npcdeck.ID]npcdeck.Status, error)
+
+// NPC のデッキの状態を、集約をイベントストアで読んで確かめる。read model（npc_decks）を読まないのは、投影が遅れている間に
+// 古い状態で判断しないため（CardStatusReader と同じ）。読むだけで書かない
+type NPCDeckStatusReader struct {
+	eventStore domain.EventStore[npcdeck.ID, npcdeck.Event, npcdeck.State]
+}
+
+func NewNPCDeckStatusReader(eventStore domain.EventStore[npcdeck.ID, npcdeck.Event, npcdeck.State]) *NPCDeckStatusReader {
+	return &NPCDeckStatusReader{eventStore: eventStore}
+}
+
+func (r *NPCDeckStatusReader) Statuses(ctx context.Context, ids []npcdeck.ID) (map[npcdeck.ID]npcdeck.Status, error) {
+	statuses := make(map[npcdeck.ID]npcdeck.Status, len(ids))
+	for _, id := range ids {
+		state, err := r.eventStore.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if loaded, ok := state.(npcdeck.NPCDeck); ok {
+			statuses[id] = loaded.Status
+		}
+	}
+	return statuses, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（理由は ChangedPresetDeck と同じ）
@@ -101,8 +141,101 @@ func (c *NPCAvatarHandler) Rename(ctx context.Context, id uuid.UUID, revision in
 	return renamed, mapNPCAvatarError(err)
 }
 
-// 公開中にする（使用不可からの公開に戻すのも同じ）。すでに公開中なら変えずに成功する（revision が古ければ ErrRevisionConflict）。
+// 使うデッキの一覧を deckIDs（NPC のデッキの公開 ID）に置き換える。使えるのは公開中のデッキだけで、一覧は 0 件でもよい（準備中のあいだ）。
+// 入力の誤りは、まとめて input.Errors で返す。項目名は deckIds.<番号>。同じデッキの 2 つ目以降は input.Duplicated、
+// 無い・削除した・NPC のデッキでないものは input.NotFound、新しく入れるもので公開中でないものは input.Unavailable。
+// 件数の上限は持たない（カードの枚数のような、決まりから導ける値が無く、新しい決まりをここで作らないため）。
+// 準備中でなければ、公開中かの確かめより先に ErrNPCAvatarNotDraft。同じデッキの集まりなら（順番だけ違っても）変えずに成功する。
 // ほかのエラーは Rename と同じ
+func (c *NPCAvatarHandler) SetDecks(ctx context.Context, id uuid.UUID, revision int64, deckIDs []uuid.UUID) (ChangedNPCAvatar, error) {
+	assignedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedNPCAvatar{}, ErrNotOperator
+	}
+	decks, err := c.parseDecks(ctx, deckIDs)
+	if err != nil {
+		return ChangedNPCAvatar{}, err
+	}
+	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedNPCAvatar, error) {
+		current, err := c.load(ctx, id, revision)
+		if err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		if current.Status != npcavatar.StatusDraft {
+			return ChangedNPCAvatar{}, npcavatar.ErrNotDraft
+		}
+		if err := c.requirePublished(ctx, current.Decks, decks); err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		changed, err := c.decideAndSave(ctx, current, &npcavatar.SetDecksCommand{Decks: decks, ChangedBy: assignedBy})
+		if err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		if err := c.updateDeckReferences(ctx, changed.ID, changed.Decks); err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		return changedNPCAvatar(changed), nil
+	})
+	return changed, mapNPCAvatarError(err)
+}
+
+// 公開 ID を内部 ID にする。誤りは最初の 1 つで止めず、まとめて返す（SetCardCounts と同じ）
+func (c *NPCAvatarHandler) parseDecks(ctx context.Context, deckIDs []uuid.UUID) ([]npcdeck.ID, error) {
+	refs, err := c.entityRefs.ResolveAll(ctx, deckIDs)
+	if err != nil {
+		return nil, err
+	}
+	invalid := input.Errors{}
+	decks := make([]npcdeck.ID, 0, len(deckIDs))
+	seen := make(map[uuid.UUID]bool, len(deckIDs))
+	for i, deckID := range deckIDs {
+		field := fmt.Sprintf("deckIds.%d", i)
+		if seen[deckID] {
+			invalid = append(invalid, &input.Duplicated{Field: field})
+		}
+		seen[deckID] = true
+		// 行が無い・NPC のデッキでない、はどちらも、指したデッキが無いとして扱う
+		ref, found := refs[deckID]
+		if !found || ref.EntityType() != npcdeck.Types().EntityType {
+			invalid = append(invalid, &input.NotFound{Field: field})
+			continue
+		}
+		deck, err := npcdeck.NewID(ref.ID())
+		if err != nil {
+			return nil, err
+		}
+		decks = append(decks, deck)
+	}
+	if len(invalid) > 0 {
+		return nil, invalid
+	}
+	return decks, nil
+}
+
+// 新しく入れるデッキ（今の一覧に無いもの）が公開中か確かめる。位置は requested の並び（deckIds の番号）と同じ。
+// 今ある（その後に使用不可にした）デッキは確かめない（外さずに、ほかのデッキだけを変えられるように。公開のときに確かめるため）。
+// デッキの状態を読むのと保存の間に使用不可にされる競合は許す（公開のときにもう一度確かめるため）
+func (c *NPCAvatarHandler) requirePublished(ctx context.Context, current, requested []npcdeck.ID) error {
+	statuses, err := c.deckStatuses(ctx, requested)
+	if err != nil {
+		return err
+	}
+	invalid := input.Errors{}
+	for i, deck := range requested {
+		if statuses[deck] != npcdeck.StatusPublished && !slices.Contains(current, deck) {
+			invalid = append(invalid, &input.Unavailable{Field: fmt.Sprintf("deckIds.%d", i)})
+		}
+	}
+	if len(invalid) > 0 {
+		return invalid
+	}
+	return nil
+}
+
+// 公開中にする（使用不可からの公開に戻すのも同じ）。公開するとき確かめるのは、使うデッキが 1 つ以上あること
+// （無ければ input.Required。項目名は decks）と、そのうち 1 つ以上が今も公開中であること（無ければ input.Unavailable）。
+// 公開中でないデッキが混ざっていてもよい（使用不可にしたデッキは外さなくてよく、公開中のデッキが残っていればよいため）。
+// すでに公開中なら、何も確かめず変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
 func (c *NPCAvatarHandler) Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedNPCAvatar, error) {
 	publishedBy, ok := authentication.Operator(ctx)
 	if !ok {
@@ -113,6 +246,16 @@ func (c *NPCAvatarHandler) Publish(ctx context.Context, id uuid.UUID, revision i
 		if err != nil {
 			return ChangedNPCAvatar{}, err
 		}
+		_, changing, err := current.Status.Publish()
+		if err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		if !changing {
+			return changedNPCAvatar(current), nil
+		}
+		if err := c.checkPublishable(ctx, current); err != nil {
+			return ChangedNPCAvatar{}, err
+		}
 		published, err := c.decideAndSave(ctx, current, &npcavatar.PublishCommand{PublishedBy: publishedBy})
 		if err != nil {
 			return ChangedNPCAvatar{}, err
@@ -120,6 +263,23 @@ func (c *NPCAvatarHandler) Publish(ctx context.Context, id uuid.UUID, revision i
 		return changedNPCAvatar(published), nil
 	})
 	return published, mapNPCAvatarError(err)
+}
+
+// デッキの状態を読むのと保存の間の競合を許す理由は requirePublished と同じ
+func (c *NPCAvatarHandler) checkPublishable(ctx context.Context, current npcavatar.NPCAvatar) error {
+	if len(current.Decks) == 0 {
+		return input.Errors{&input.Required{Field: "decks"}}
+	}
+	statuses, err := c.deckStatuses(ctx, current.Decks)
+	if err != nil {
+		return err
+	}
+	for _, deck := range current.Decks {
+		if statuses[deck] == npcdeck.StatusPublished {
+			return nil
+		}
+	}
+	return input.Errors{&input.Unavailable{Field: "decks"}}
 }
 
 // 使用不可にする。すでに使用不可なら変えずに成功する。準備中なら ErrInvalidNPCAvatarStatusTransition。ほかのエラーは Rename と同じ

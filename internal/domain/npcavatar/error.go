@@ -10,6 +10,6 @@ var (
 	ErrStatusUnknown    = errors.New("npcavatar: unknown status")
 	// 準備中の NPC のアバターを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("npcavatar: invalid status transition")
-	// 準備中でない NPC のアバターの名前を変える、または削除しようとした
+	// 準備中でない NPC のアバターの名前・使うデッキを変える、または削除しようとした
 	ErrNotDraft = errors.New("npcavatar: not draft")
 )

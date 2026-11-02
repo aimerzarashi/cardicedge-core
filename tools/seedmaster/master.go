@@ -25,10 +25,16 @@ type master struct {
 	StarterDecks []string `json:"starter_decks"`
 	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
 	Boards []masterBoard `json:"boards"`
-	// 登録して公開する NPC のアバターの名前
-	NPCAvatars []string `json:"npc_avatars"`
+	// 登録して使う NPC のデッキを割り当て、公開する NPC のアバター
+	NPCAvatars []masterNPCAvatar `json:"npc_avatars"`
 	// プリセットデッキから、元と同じ名前を指定して写して、公開する NPC のデッキ。プリセットデッキの名前で書く
 	NPCDecks []string `json:"npc_decks"`
+}
+
+// 公開するには公開中のデッキが 1 つ以上要るため、デッキは 1 つ以上書く。NPC のデッキの名前（npc_decks に書いたもの）で指す
+type masterNPCAvatar struct {
+	Name  string   `json:"name"`
+	Decks []string `json:"decks"`
 }
 
 type masterCard struct {
@@ -158,10 +164,11 @@ func (m master) validate() error {
 	if err := m.validateBoards(); err != nil {
 		return err
 	}
-	if err := m.validateNPCAvatars(); err != nil {
+	npcDeckNames, err := m.validateNPCDecks(deckNames)
+	if err != nil {
 		return err
 	}
-	return m.validateNPCDecks(deckNames)
+	return m.validateNPCAvatars(npcDeckNames)
 }
 
 // レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に
@@ -193,34 +200,48 @@ func (m master) validateBoards() error {
 }
 
 // 名前の決まりは domain の npcavatar.NewName で確かめる（ここに長さを書き写さない）。重なりは登録の入口と同じ比べ方で見つける
-func (m master) validateNPCAvatars() error {
+func (m master) validateNPCAvatars(npcDeckNames map[string]bool) error {
 	names := map[string]bool{}
-	for _, name := range m.NPCAvatars {
-		validName, err := npcavatar.NewName(name)
+	for _, a := range m.NPCAvatars {
+		validName, err := npcavatar.NewName(a.Name)
 		if err != nil {
-			return fmt.Errorf("npc avatar %q: %w", name, err)
+			return fmt.Errorf("npc avatar %q: %w", a.Name, err)
 		}
 		key := domain.NormalizeName(validName.String())
 		if names[key] {
-			return fmt.Errorf("npc avatar %q: duplicated", name)
+			return fmt.Errorf("npc avatar %q: duplicated", a.Name)
 		}
 		names[key] = true
+		if len(a.Decks) == 0 {
+			return fmt.Errorf("npc avatar %q: at least one deck is required", a.Name)
+		}
+		decks := map[string]bool{}
+		for _, deck := range a.Decks {
+			if !npcDeckNames[deck] {
+				return fmt.Errorf("npc avatar %q: unknown npc deck %q", a.Name, deck)
+			}
+			if decks[deck] {
+				return fmt.Errorf("npc avatar %q: deck %q is duplicated", a.Name, deck)
+			}
+			decks[deck] = true
+		}
 	}
 	return nil
 }
 
-func (m master) validateNPCDecks(presetDeckNames map[string]bool) error {
+// 確かめた NPC のデッキの名前の集まりを返す（NPC のアバターが指すため）
+func (m master) validateNPCDecks(presetDeckNames map[string]bool) (map[string]bool, error) {
 	names := map[string]bool{}
 	for _, name := range m.NPCDecks {
 		if !presetDeckNames[name] {
-			return fmt.Errorf("npc decks: unknown preset deck %q", name)
+			return nil, fmt.Errorf("npc decks: unknown preset deck %q", name)
 		}
 		if names[name] {
-			return fmt.Errorf("npc decks: %q is duplicated", name)
+			return nil, fmt.Errorf("npc decks: %q is duplicated", name)
 		}
 		names[name] = true
 	}
-	return nil
+	return names, nil
 }
 
 func (b masterBoard) layout() (board.Layout, error) {

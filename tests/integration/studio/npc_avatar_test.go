@@ -13,7 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const npcAvatarFields = `id name status revision registeredAt updatedAt`
+const npcAvatarFields = `id name status revision registeredAt updatedAt decks { id name status }`
 
 const npcAvatarQuery = `query ($id: UUID!) {
 	npcAvatar(id: $id) {
@@ -34,6 +34,14 @@ const npcAvatarsListQuery = `query ($filter: NpcAvatarFilter, $first: Int, $afte
 }`
 
 const npcAvatarErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }`
+
+const setNpcAvatarDecksMutation = `mutation ($input: SetNpcAvatarDecksInput!) {
+	setNpcAvatarDecks(input: $input) {
+		__typename
+		... on SetNpcAvatarDecksSuccess { id revision }
+		` + npcAvatarErrorFields + `
+	}
+}`
 
 const registerNpcAvatarMutation = `mutation ($input: RegisterNpcAvatarInput!) {
 	registerNpcAvatar(input: $input) {
@@ -62,6 +70,7 @@ const publishNpcAvatarMutation = `mutation ($input: PublishNpcAvatarInput!) {
 	publishNpcAvatar(input: $input) {
 		__typename
 		... on PublishNpcAvatarSuccess { id revision }
+		` + npcAvatarErrorFields + `
 	}
 }`
 
@@ -88,6 +97,31 @@ func registerNpcAvatar(t *testing.T, token, name string) map[string]any {
 	result := npcAvatarOperation(t, token, registerNpcAvatarMutation, "registerNpcAvatar", map[string]any{"name": name})
 	require.Equal(t, "RegisterNpcAvatarSuccess", result["__typename"])
 	return result
+}
+
+// 公開中の NPC のデッキ（40 枚）を作り、投影されるまで待つ
+func publishedNpcDeck(t *testing.T, token, name string) map[string]any {
+	t.Helper()
+	deck := fullNpcDeck(t, token, name)
+	published := publishNpcDeck(t, token, deck)
+	require.Equal(t, "PublishNpcDeckSuccess", published["__typename"])
+	return waitNpcDeck(t, token, published["id"], 3)
+}
+
+func setNpcAvatarDecks(t *testing.T, token string, npcAvatar map[string]any, decks ...any) map[string]any {
+	t.Helper()
+	// deckIds は必須（空でも [] を送る）
+	return npcAvatarOperation(t, token, setNpcAvatarDecksMutation, "setNpcAvatarDecks", npcAvatarInput(npcAvatar, map[string]any{"deckIds": append([]any{}, decks...)}))
+}
+
+// 公開中の NPC のデッキを 1 つ使う、準備中の NPC のアバター（変更の結果。id と revision を持つ）
+func readyNpcAvatar(t *testing.T, token, name string) map[string]any {
+	t.Helper()
+	npcAvatar := registerNpcAvatar(t, token, name)
+	deck := publishedNpcDeck(t, token, "デッキ-"+name)
+	assigned := setNpcAvatarDecks(t, token, npcAvatar, deck["id"])
+	require.Equal(t, "SetNpcAvatarDecksSuccess", assigned["__typename"])
+	return assigned
 }
 
 func npcAvatarInput(npcAvatar map[string]any, extra map[string]any) map[string]any {
@@ -154,10 +188,10 @@ func TestNpcAvatars_FiltersByStatusAndRejectsEmptyStatuses(t *testing.T) {
 	token := operators.Token(t)
 	id := npcAvatarUniqueID(t)
 	draft := registerNpcAvatar(t, token, "下書き-"+id)
-	ready := registerNpcAvatar(t, token, "完成-"+id)
+	ready := readyNpcAvatar(t, token, "完成-"+id)
 	published := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(ready, nil))
 	require.Equal(t, "PublishNpcAvatarSuccess", published["__typename"])
-	waitNpcAvatar(t, token, published["id"], 2)
+	waitNpcAvatar(t, token, published["id"], 3)
 	waitNpcAvatar(t, token, draft["id"], 1)
 
 	filtered := client.Data(t, token, npcAvatarsListQuery, map[string]any{"filter": map[string]any{"nameContains": id, "statuses": []string{"PUBLISHED"}}}, "npcAvatars")
@@ -186,18 +220,18 @@ func TestRenameNpcAvatar_ShowsNewNameAndFreesOldName(t *testing.T) {
 func TestPublishNpcAvatar_PublishesRetiresAndPublishesAgain(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
-	npcAvatar := registerNpcAvatar(t, token, "森の番人-"+npcAvatarUniqueID(t))
+	npcAvatar := readyNpcAvatar(t, token, "森の番人-"+npcAvatarUniqueID(t))
 
 	published := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(npcAvatar, nil))
 	again := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(published, nil))
 	retired := npcAvatarOperation(t, token, retireNpcAvatarMutation, "retireNpcAvatar", npcAvatarInput(published, nil))
 	republished := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(retired, nil))
 
-	require.EqualValues(t, 2, published["revision"])
+	require.EqualValues(t, 3, published["revision"])
 	require.Equal(t, published["revision"], again["revision"])
-	require.EqualValues(t, 3, retired["revision"])
-	require.EqualValues(t, 4, republished["revision"])
-	require.Equal(t, "PUBLISHED", waitNpcAvatar(t, token, npcAvatar["id"], 4)["status"])
+	require.EqualValues(t, 4, retired["revision"])
+	require.EqualValues(t, 5, republished["revision"])
+	require.Equal(t, "PUBLISHED", waitNpcAvatar(t, token, npcAvatar["id"], 5)["status"])
 }
 
 func TestNpcAvatarOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing.T) {
@@ -205,7 +239,7 @@ func TestNpcAvatarOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing
 	token := operators.Token(t)
 	id := npcAvatarUniqueID(t)
 	registerNpcAvatar(t, token, "森の番人-"+id)
-	npcAvatar := registerNpcAvatar(t, token, "炎の剣士-"+id)
+	npcAvatar := readyNpcAvatar(t, token, "炎の剣士-"+id)
 
 	used := npcAvatarOperation(t, token, renameNpcAvatarMutation, "renameNpcAvatar", npcAvatarInput(npcAvatar, map[string]any{"name": " 森の番人-" + id}))
 	retireDraft := npcAvatarOperation(t, token, retireNpcAvatarMutation, "retireNpcAvatar", npcAvatarInput(npcAvatar, nil))
@@ -213,12 +247,84 @@ func TestNpcAvatarOperations_ReturnErrorTypesForNameStatusAndRevision(t *testing
 	published := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(npcAvatar, nil))
 	renamePublished := npcAvatarOperation(t, token, renameNpcAvatarMutation, "renameNpcAvatar", npcAvatarInput(published, map[string]any{"name": "湖-" + id}))
 	deletePublished := npcAvatarOperation(t, token, deleteNpcAvatarMutation, "deleteNpcAvatar", npcAvatarInput(published, nil))
+	changeDecksPublished := setNpcAvatarDecks(t, token, published)
 
 	require.Equal(t, "NpcAvatarNameAlreadyInUseError", used["__typename"])
 	require.Equal(t, "InvalidNpcAvatarStatusTransitionError", retireDraft["__typename"])
 	require.Equal(t, "RevisionConflictError", stale["__typename"])
 	require.Equal(t, "NpcAvatarNotDraftError", renamePublished["__typename"])
 	require.Equal(t, "NpcAvatarNotDraftError", deletePublished["__typename"])
+	require.Equal(t, "NpcAvatarNotDraftError", changeDecksPublished["__typename"])
+}
+
+func TestSetNpcAvatarDecks_ShowsDecksInGivenOrderAndReplacesThem(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := npcAvatarUniqueID(t)
+	npcAvatar := registerNpcAvatar(t, token, "森の番人-"+id)
+	first := publishedNpcDeck(t, token, "一つ目-"+id)
+	second := publishedNpcDeck(t, token, "二つ目-"+id)
+
+	changed := setNpcAvatarDecks(t, token, npcAvatar, second["id"], first["id"])
+	same := setNpcAvatarDecks(t, token, changed, first["id"], second["id"])
+	require.Equal(t, "SetNpcAvatarDecksSuccess", changed["__typename"])
+	require.EqualValues(t, 2, changed["revision"])
+	require.Equal(t, changed, same)
+	detail := waitNpcAvatar(t, token, npcAvatar["id"], 2)
+	require.Equal(t, []any{
+		map[string]any{"id": second["id"], "name": "二つ目-" + id, "status": "PUBLISHED"},
+		map[string]any{"id": first["id"], "name": "一つ目-" + id, "status": "PUBLISHED"},
+	}, detail["decks"])
+
+	replaced := setNpcAvatarDecks(t, token, changed, first["id"])
+
+	require.EqualValues(t, 3, replaced["revision"])
+	require.Len(t, waitNpcAvatar(t, token, npcAvatar["id"], 3)["decks"], 1)
+}
+
+func TestSetNpcAvatarDecks_ReturnsFieldErrorPerDeck(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := npcAvatarUniqueID(t)
+	npcAvatar := registerNpcAvatar(t, token, "森の番人-"+id)
+	published := publishedNpcDeck(t, token, "公開-"+id)
+	draft := fullNpcDeck(t, token, "準備中-"+id)
+
+	duplicated := setNpcAvatarDecks(t, token, npcAvatar, published["id"], published["id"])
+	unknown := setNpcAvatarDecks(t, token, npcAvatar, uuid.NewString())
+	notPublished := setNpcAvatarDecks(t, token, npcAvatar, draft["id"], published["id"])
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldDuplicated", "field": "deckIds.1"},
+	}}, duplicated)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldNotFound", "field": "deckIds.0"},
+	}}, unknown)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldUnavailable", "field": "deckIds.0"},
+	}}, notPublished)
+}
+
+func TestPublishNpcAvatar_ReturnsFieldErrorWhenNoDeckIsPublished(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := npcAvatarUniqueID(t)
+	noDeck := registerNpcAvatar(t, token, "デッキ無し-"+id)
+	retiredDeck := readyNpcAvatar(t, token, "使用不可-"+id)
+	deck := waitNpcAvatar(t, token, retiredDeck["id"], 2)["decks"].([]any)[0].(map[string]any)
+	deckDetail := waitNpcDeck(t, token, deck["id"], 3)
+	retired := retireNpcDeck(t, token, deckDetail)
+	require.Equal(t, "RetireNpcDeckSuccess", retired["__typename"])
+
+	noDeckResult := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(noDeck, nil))
+	retiredResult := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(retiredDeck, nil))
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldRequired", "field": "decks"},
+	}}, noDeckResult)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldUnavailable", "field": "decks"},
+	}}, retiredResult)
 }
 
 func TestDeleteNpcAvatar_RemovesDraftNpcAvatarAndFreesName(t *testing.T) {
@@ -257,6 +363,8 @@ func TestNpcAvatarOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testin
 			variables: map[string]any{"id": uuid.NewString()}, want: "NpcAvatarNotFoundError"},
 		{name: "rename_unknown", token: operators.Token(t), operation: renameNpcAvatarMutation, field: "renameNpcAvatar",
 			variables: map[string]any{"input": npcAvatarInput(unknown, map[string]any{"name": "森の番人"})}, want: "NpcAvatarNotFoundError"},
+		{name: "set_decks_unknown", token: operators.Token(t), operation: setNpcAvatarDecksMutation, field: "setNpcAvatarDecks",
+			variables: map[string]any{"input": npcAvatarInput(unknown, map[string]any{"deckIds": []string{}})}, want: "NpcAvatarNotFoundError"},
 		{name: "delete_unknown", token: operators.Token(t), operation: deleteNpcAvatarMutation, field: "deleteNpcAvatar",
 			variables: map[string]any{"input": unknown}, want: "NpcAvatarNotFoundError"},
 		{name: "publish_unknown", token: operators.Token(t), operation: publishNpcAvatarMutation, field: "publishNpcAvatar",
@@ -271,6 +379,8 @@ func TestNpcAvatarOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testin
 			variables: map[string]any{"input": map[string]any{"name": "森の番人-" + npcAvatarUniqueID(t)}}, want: "ForbiddenError"},
 		{name: "rename_by_not_operator", token: notOperator, operation: renameNpcAvatarMutation, field: "renameNpcAvatar",
 			variables: map[string]any{"input": npcAvatarInput(unknown, map[string]any{"name": "森の番人"})}, want: "ForbiddenError"},
+		{name: "set_decks_by_not_operator", token: notOperator, operation: setNpcAvatarDecksMutation, field: "setNpcAvatarDecks",
+			variables: map[string]any{"input": npcAvatarInput(unknown, map[string]any{"deckIds": []string{}})}, want: "ForbiddenError"},
 		{name: "delete_by_not_operator", token: notOperator, operation: deleteNpcAvatarMutation, field: "deleteNpcAvatar",
 			variables: map[string]any{"input": unknown}, want: "ForbiddenError"},
 		{name: "publish_by_not_operator", token: notOperator, operation: publishNpcAvatarMutation, field: "publishNpcAvatar",

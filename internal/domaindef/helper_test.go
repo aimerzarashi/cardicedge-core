@@ -58,7 +58,7 @@ func uniqueKeyTypes() []domain.UniqueKeyType {
 
 // 参照の種別を足したら、ここにその種別を宣言するドメインの ReferenceTypes を足す
 func referenceTypes() []domain.ReferenceType {
-	return slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes(), npcdeck.ReferenceTypes())
+	return slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes(), npcdeck.ReferenceTypes(), npcavatar.ReferenceTypes())
 }
 
 // 上限の種別を足したら、ここにその種別を宣言するドメインの QuotaTypes を足す
