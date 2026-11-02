@@ -1689,8 +1689,10 @@ func (RegisterNpcAvatarSuccess) IsRegisterNpcAvatarResult() {}
 
 // NPC のデッキをプリセットデッキから写して登録する入力
 type RegisterNpcDeckFromPresetDeckInput struct {
-	// 写す元のプリセットデッキの公開用の ID（名前・カードと枚数を写す。合計が 40 枚でなくてもよい）
+	// 写す元のプリセットデッキの公開用の ID（カードと枚数を写す。合計が 40 枚でなくてもよい）
 	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 名前（1〜50 文字。前後の空白は除いて保存する。元のプリセットデッキの名前は写さない）
+	Name string `json:"name"`
 }
 
 // プリセットデッキから写して NPC のデッキを登録した（準備中。写した元の公開 ID と revision を記録する）
@@ -1751,8 +1753,10 @@ func (RegisterSpellSuccess) IsRegisterSpellResult() {}
 
 // スターターデッキをプリセットデッキから写して登録する入力
 type RegisterStarterDeckFromPresetDeckInput struct {
-	// 写す元のプリセットデッキの公開用の ID（名前・カードと枚数を写す。合計が 40 枚でなくてもよい）
+	// 写す元のプリセットデッキの公開用の ID（カードと枚数を写す。合計が 40 枚でなくてもよい）
 	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 名前（1〜50 文字。前後の空白は除いて保存する。元のプリセットデッキの名前は写さない）
+	Name string `json:"name"`
 }
 
 // プリセットデッキから写してスターターデッキを登録した（準備中。写した元の公開 ID と revision を記録する）
@@ -2321,6 +2325,8 @@ func (ValidationErrors) IsNpcDecksResult() {}
 
 func (ValidationErrors) IsRegisterNpcDeckResult() {}
 
+func (ValidationErrors) IsRegisterNpcDeckFromPresetDeckResult() {}
+
 func (ValidationErrors) IsRenameNpcDeckResult() {}
 
 func (ValidationErrors) IsSetNpcDeckCardCountsResult() {}
@@ -2340,6 +2346,8 @@ func (ValidationErrors) IsRegisterSpellResult() {}
 func (ValidationErrors) IsStarterDecksResult() {}
 
 func (ValidationErrors) IsRegisterStarterDeckResult() {}
+
+func (ValidationErrors) IsRegisterStarterDeckFromPresetDeckResult() {}
 
 func (ValidationErrors) IsRenameStarterDeckResult() {}
 

@@ -54,7 +54,7 @@ type PresetDeckLister interface {
 // 実装は command.StarterDeckHandler
 type StarterDeckHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedStarterDeck, error)
-	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID) (command.ChangedStarterDeck, error)
+	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID, name string) (command.ChangedStarterDeck, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedStarterDeck, error)
 	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedStarterDeck, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
@@ -104,7 +104,7 @@ type NPCAvatarLister interface {
 // 実装は command.NPCDeckHandler
 type NPCDeckHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedNPCDeck, error)
-	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID) (command.ChangedNPCDeck, error)
+	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID, name string) (command.ChangedNPCDeck, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedNPCDeck, error)
 	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedNPCDeck, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error

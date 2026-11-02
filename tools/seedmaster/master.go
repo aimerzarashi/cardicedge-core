@@ -27,7 +27,7 @@ type master struct {
 	Boards []masterBoard `json:"boards"`
 	// 登録して公開する NPC のアバターの名前
 	NPCAvatars []string `json:"npc_avatars"`
-	// プリセットデッキから同じ名前で写して、公開する NPC のデッキ。プリセットデッキの名前で書く
+	// プリセットデッキから、元と同じ名前を指定して写して、公開する NPC のデッキ。プリセットデッキの名前で書く
 	NPCDecks []string `json:"npc_decks"`
 }
 

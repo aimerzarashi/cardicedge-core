@@ -49,6 +49,7 @@ const registerNpcDeckFromPresetDeckMutation = `mutation ($input: RegisterNpcDeck
 	registerNpcDeckFromPresetDeck(input: $input) {
 		__typename
 		... on RegisterNpcDeckFromPresetDeckSuccess { id revision }
+		` + npcDeckErrorFields + `
 	}
 }`
 
@@ -200,7 +201,7 @@ func TestNpcDecks_FiltersByStatusAndRejectsEmptyStatuses(t *testing.T) {
 	}}, empty)
 }
 
-// 写すのは名前・カードと枚数。元の公開 ID と、写したときの revision を覚え、元が変わる・消えると、それが分かる
+// 写すのはカードと枚数で、名前は指定したもの。元の公開 ID と、写したときの revision を覚え、元が変わる・消えると、それが分かる
 func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeckAndTracksSource(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
@@ -211,12 +212,12 @@ func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeckAndTracksSource(t *testin
 	filled := setPresetDeckCardCounts(t, token, preset, cardCount(dragonID, 3), cardCount(potionID, 2))
 	presetDetail := waitPresetDeck(t, token, filled["id"], 2)
 
-	copied := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", map[string]any{"presetDeckId": preset["id"]})
+	copied := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", map[string]any{"presetDeckId": preset["id"], "name": "炎-" + id})
 
 	require.Equal(t, "RegisterNpcDeckFromPresetDeckSuccess", copied["__typename"])
 	require.EqualValues(t, 1, copied["revision"])
 	detail := waitNpcDeck(t, token, copied["id"], 1)
-	require.Equal(t, "火-"+id, detail["name"])
+	require.Equal(t, "炎-"+id, detail["name"])
 	require.Equal(t, "DRAFT", detail["status"])
 	require.Equal(t, presetDetail["cards"], detail["cards"])
 	require.EqualValues(t, 5, detail["totalCount"])
@@ -242,19 +243,27 @@ func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeckAndTracksSource(t *testin
 	})
 }
 
-func TestRegisterNpcDeckFromPresetDeck_ReturnsErrorForUnknownPresetDeckOrUsedName(t *testing.T) {
+// 名前は元から写さないので、同じプリセットデッキから名前を変えれば何度でも作れる。使われている名前・空の名前は誤りになる
+func TestRegisterNpcDeckFromPresetDeck_ReturnsErrorForUnknownPresetDeckOrInvalidName(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
 	preset := registerPresetDeck(t, token, "火-"+id)
-	input := map[string]any{"presetDeckId": preset["id"]}
-	first := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", input)
+	copyAs := func(name string) map[string]any {
+		return npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", map[string]any{"presetDeckId": preset["id"], "name": name})
+	}
+	first := copyAs("火-" + id)
 	require.Equal(t, "RegisterNpcDeckFromPresetDeckSuccess", first["__typename"])
 
-	again := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", input)
-	unknown := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", map[string]any{"presetDeckId": uuid.NewString()})
+	second := copyAs("火2-" + id)
+	again := copyAs("火-" + id)
+	blank := copyAs(" ")
+	unknown := npcDeckOperation(t, token, registerNpcDeckFromPresetDeckMutation, "registerNpcDeckFromPresetDeck", map[string]any{"presetDeckId": uuid.NewString(), "name": "炎-" + id})
 
+	require.Equal(t, "RegisterNpcDeckFromPresetDeckSuccess", second["__typename"])
 	require.Equal(t, "NpcDeckNameAlreadyInUseError", again["__typename"])
+	require.Equal(t, "ValidationErrors", blank["__typename"])
+	require.Equal(t, []any{map[string]any{"__typename": "FieldRequired", "field": "name"}}, blank["errors"])
 	require.Equal(t, "PresetDeckNotFoundError", unknown["__typename"])
 }
 
@@ -519,7 +528,7 @@ func TestNpcDeckOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testing.
 		{name: "register_by_not_operator", token: notOperator, operation: registerNpcDeckMutation, field: "registerNpcDeck",
 			variables: map[string]any{"input": map[string]any{"name": "初心者-" + testhelper.UniqueID(t)}}, want: "ForbiddenError"},
 		{name: "register_from_preset_deck_by_not_operator", token: notOperator, operation: registerNpcDeckFromPresetDeckMutation, field: "registerNpcDeckFromPresetDeck",
-			variables: map[string]any{"input": map[string]any{"presetDeckId": uuid.NewString()}}, want: "ForbiddenError"},
+			variables: map[string]any{"input": map[string]any{"presetDeckId": uuid.NewString(), "name": "初心者-" + testhelper.UniqueID(t)}}, want: "ForbiddenError"},
 		{name: "publish_by_not_operator", token: notOperator, operation: publishNpcDeckMutation, field: "publishNpcDeck",
 			variables: map[string]any{"input": unknown}, want: "ForbiddenError"},
 		{name: "retire_by_not_operator", token: notOperator, operation: retireNpcDeckMutation, field: "retireNpcDeck",
