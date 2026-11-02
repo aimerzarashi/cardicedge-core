@@ -18,6 +18,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -159,7 +160,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, err
 	}
 	// ドメインが宣言した種別名と DB（コードの一覧から入れた行）の食い違いを、使うときではなく起動時に検出する（両方向。core#20）
-	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types()}
+	aggregates := []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), starterdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types(), npcavatar.Types()}
 	entityTypes := make([]domain.EntityType, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		entityTypes = append(entityTypes, aggregate.EntityType)
@@ -170,7 +171,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyEventTypes(aggregates...); err != nil {
 		return nil, fmt.Errorf("event types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes())...); err != nil {
+	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes(), npcavatar.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes())...); err != nil {

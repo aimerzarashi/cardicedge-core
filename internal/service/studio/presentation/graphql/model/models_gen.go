@@ -81,6 +81,11 @@ type DeleteBoardResult interface {
 	IsDeleteBoardResult()
 }
 
+// NPC のアバターの削除の結果（準備中のものだけ消せる）
+type DeleteNpcAvatarResult interface {
+	IsDeleteNpcAvatarResult()
+}
+
 // プリセットデッキの削除の結果
 type DeletePresetDeckResult interface {
 	IsDeletePresetDeckResult()
@@ -96,6 +101,16 @@ type FieldError interface {
 	IsFieldError()
 	// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 	GetField() string
+}
+
+// NPC のアバターの詳細の結果
+type NpcAvatarResult interface {
+	IsNpcAvatarResult()
+}
+
+// NPC のアバターの一覧の結果
+type NpcAvatarsResult interface {
+	IsNpcAvatarsResult()
 }
 
 // プリセットデッキの詳細の結果
@@ -118,6 +133,11 @@ type PublishCardResult interface {
 	IsPublishCardResult()
 }
 
+// NPC のアバターの公開の結果（準備中・使用不可から公開中にできる。公開の条件は無い）
+type PublishNpcAvatarResult interface {
+	IsPublishNpcAvatarResult()
+}
+
 // スターターデッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
 type PublishStarterDeckResult interface {
 	IsPublishStarterDeckResult()
@@ -136,6 +156,11 @@ type RegisterCreatureResult interface {
 // アイテムの登録の結果
 type RegisterItemResult interface {
 	IsRegisterItemResult()
+}
+
+// NPC のアバターの登録の結果
+type RegisterNpcAvatarResult interface {
+	IsRegisterNpcAvatarResult()
 }
 
 // プリセットデッキの登録の結果
@@ -163,6 +188,11 @@ type RenameBoardResult interface {
 	IsRenameBoardResult()
 }
 
+// NPC のアバターの名前の変更の結果（準備中のものだけ変えられる）
+type RenameNpcAvatarResult interface {
+	IsRenameNpcAvatarResult()
+}
+
 // プリセットデッキの名前の変更の結果
 type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
@@ -181,6 +211,11 @@ type RetireBoardResult interface {
 // カードを使用不可にする操作の結果
 type RetireCardResult interface {
 	IsRetireCardResult()
+}
+
+// NPC のアバターの使用不可の結果
+type RetireNpcAvatarResult interface {
+	IsRetireNpcAvatarResult()
 }
 
 // スターターデッキの使用不可の結果
@@ -736,6 +771,22 @@ type DeleteBoardSuccess struct {
 
 func (DeleteBoardSuccess) IsDeleteBoardResult() {}
 
+// NPC のアバターを削除する入力
+type DeleteNpcAvatarInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のアバターを削除した（名前はほかの NPC のアバターが使えるようになる）
+type DeleteNpcAvatarSuccess struct {
+	// 削除した NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteNpcAvatarSuccess) IsDeleteNpcAvatarResult() {}
+
 // プリセットデッキを削除する入力
 type DeletePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -996,6 +1047,20 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 
 func (ForbiddenError) IsRegisterItemResult() {}
 
+func (ForbiddenError) IsNpcAvatarsResult() {}
+
+func (ForbiddenError) IsNpcAvatarResult() {}
+
+func (ForbiddenError) IsRegisterNpcAvatarResult() {}
+
+func (ForbiddenError) IsRenameNpcAvatarResult() {}
+
+func (ForbiddenError) IsDeleteNpcAvatarResult() {}
+
+func (ForbiddenError) IsPublishNpcAvatarResult() {}
+
+func (ForbiddenError) IsRetireNpcAvatarResult() {}
+
 func (ForbiddenError) IsPresetDecksResult() {}
 
 func (ForbiddenError) IsPresetDeckResult() {}
@@ -1047,6 +1112,14 @@ type InvalidCardStatusTransitionError struct {
 func (InvalidCardStatusTransitionError) IsPublishCardResult() {}
 
 func (InvalidCardStatusTransitionError) IsRetireCardResult() {}
+
+// 準備中の NPC のアバターを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidNpcAvatarStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidNpcAvatarStatusTransitionError) IsRetireNpcAvatarResult() {}
 
 // 準備中のスターターデッキを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidStarterDeckStatusTransitionError struct {
@@ -1133,6 +1206,86 @@ func (NoCheckpointProblem) IsBoardPublishProblem() {}
 
 // 開発者向けの説明（画面にそのまま出す文言ではない）
 func (this NoCheckpointProblem) GetMessage() string { return this.Message }
+
+// NPC のアバター
+type NpcAvatar struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前（登録・変更したときの表記。前後の空白は除く。状態によらず、すべての NPC のアバターの中で一意）
+	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status NpcAvatarStatus `json:"status"`
+	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (NpcAvatar) IsNpcAvatarResult() {}
+
+// NPC のアバターの一覧の 1 ページ（名前の順）
+type NpcAvatarConnection struct {
+	// このページの NPC のアバター
+	Edges []*NpcAvatarEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (NpcAvatarConnection) IsNpcAvatarsResult() {}
+
+// NPC のアバターの一覧の 1 件と、その位置
+type NpcAvatarEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// NPC のアバター
+	Node *NpcAvatar `json:"node"`
+}
+
+// NPC のアバターの一覧の絞り込み
+type NpcAvatarFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []NpcAvatarStatus `json:"statuses,omitempty"`
+}
+
+// 名前が、ほかの NPC のアバターですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type NpcAvatarNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcAvatarNameAlreadyInUseError) IsRegisterNpcAvatarResult() {}
+
+func (NpcAvatarNameAlreadyInUseError) IsRenameNpcAvatarResult() {}
+
+// 準備中でない NPC のアバターの名前を変える、または削除しようとした（準備中のものだけ変えられる）
+type NpcAvatarNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcAvatarNotDraftError) IsRenameNpcAvatarResult() {}
+
+func (NpcAvatarNotDraftError) IsDeleteNpcAvatarResult() {}
+
+// NPC のアバターが無い（削除したものを含む）
+type NpcAvatarNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
+
+func (NpcAvatarNotFoundError) IsRenameNpcAvatarResult() {}
+
+func (NpcAvatarNotFoundError) IsDeleteNpcAvatarResult() {}
+
+func (NpcAvatarNotFoundError) IsPublishNpcAvatarResult() {}
+
+func (NpcAvatarNotFoundError) IsRetireNpcAvatarResult() {}
 
 // ページの情報
 type PageInfo struct {
@@ -1248,6 +1401,24 @@ type PublishCardSuccess struct {
 
 func (PublishCardSuccess) IsPublishCardResult() {}
 
+// NPC のアバターを公開する入力
+type PublishNpcAvatarInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のアバターを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishNpcAvatarSuccess struct {
+	// 公開した NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishNpcAvatarSuccess) IsPublishNpcAvatarResult() {}
+
 // スターターデッキを公開する入力
 type PublishStarterDeckInput struct {
 	// スターターデッキの公開用の ID
@@ -1312,6 +1483,22 @@ type RegisterItemSuccess struct {
 }
 
 func (RegisterItemSuccess) IsRegisterItemResult() {}
+
+// NPC のアバターを登録する入力
+type RegisterNpcAvatarInput struct {
+	// 名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC のアバターを登録した（準備中）
+type RegisterNpcAvatarSuccess struct {
+	// 登録した NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterNpcAvatarSuccess) IsRegisterNpcAvatarResult() {}
 
 // プリセットデッキを登録する入力
 type RegisterPresetDeckInput struct {
@@ -1395,6 +1582,26 @@ type RenameBoardSuccess struct {
 
 func (RenameBoardSuccess) IsRenameBoardResult() {}
 
+// NPC のアバターの名前を変える入力
+type RenameNpcAvatarInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC のアバターの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameNpcAvatarSuccess struct {
+	// 変えた NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameNpcAvatarSuccess) IsRenameNpcAvatarResult() {}
+
 // プリセットデッキの名前を変える入力
 type RenamePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -1471,6 +1678,24 @@ type RetireCardSuccess struct {
 
 func (RetireCardSuccess) IsRetireCardResult() {}
 
+// NPC のアバターを使用不可にする入力
+type RetireNpcAvatarInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+}
+
+// NPC のアバターを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireNpcAvatarSuccess struct {
+	// 使用不可にした NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にした NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireNpcAvatarSuccess) IsRetireNpcAvatarResult() {}
+
 // スターターデッキを使用不可にする入力
 type RetireStarterDeckInput struct {
 	// スターターデッキの公開用の ID
@@ -1510,6 +1735,14 @@ func (RevisionConflictError) IsRetireBoardResult() {}
 func (RevisionConflictError) IsPublishCardResult() {}
 
 func (RevisionConflictError) IsRetireCardResult() {}
+
+func (RevisionConflictError) IsRenameNpcAvatarResult() {}
+
+func (RevisionConflictError) IsDeleteNpcAvatarResult() {}
+
+func (RevisionConflictError) IsPublishNpcAvatarResult() {}
+
+func (RevisionConflictError) IsRetireNpcAvatarResult() {}
 
 func (RevisionConflictError) IsRenamePresetDeckResult() {}
 
@@ -1790,6 +2023,12 @@ func (ValidationErrors) IsCardsResult() {}
 func (ValidationErrors) IsRegisterCreatureResult() {}
 
 func (ValidationErrors) IsRegisterItemResult() {}
+
+func (ValidationErrors) IsNpcAvatarsResult() {}
+
+func (ValidationErrors) IsRegisterNpcAvatarResult() {}
+
+func (ValidationErrors) IsRenameNpcAvatarResult() {}
 
 func (ValidationErrors) IsPresetDecksResult() {}
 
@@ -2076,6 +2315,68 @@ func (e *CardType) UnmarshalJSON(b []byte) error {
 }
 
 func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// NPC のアバターの状態。準備中は名前を自由に変えられる。公開中の数に上限は無く、公開の条件も無い。
+// 使用不可は新しい対戦に使わない
+type NpcAvatarStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	NpcAvatarStatusDraft NpcAvatarStatus = "DRAFT"
+	// 公開中
+	NpcAvatarStatusPublished NpcAvatarStatus = "PUBLISHED"
+	// 使用不可
+	NpcAvatarStatusRetired NpcAvatarStatus = "RETIRED"
+)
+
+var AllNpcAvatarStatus = []NpcAvatarStatus{
+	NpcAvatarStatusDraft,
+	NpcAvatarStatusPublished,
+	NpcAvatarStatusRetired,
+}
+
+func (e NpcAvatarStatus) IsValid() bool {
+	switch e {
+	case NpcAvatarStatusDraft, NpcAvatarStatusPublished, NpcAvatarStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e NpcAvatarStatus) String() string {
+	return string(e)
+}
+
+func (e *NpcAvatarStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = NpcAvatarStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid NpcAvatarStatus", str)
+	}
+	return nil
+}
+
+func (e NpcAvatarStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *NpcAvatarStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e NpcAvatarStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

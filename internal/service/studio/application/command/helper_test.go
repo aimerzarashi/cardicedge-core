@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -260,6 +261,22 @@ func newBoardHandlerWithRules(t *testing.T, ctx context.Context, rules studiorul
 		identifier.New(registry, board.NewID),
 		constraint.UpdateBoardName,
 		fixedStudioRules(rules),
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func npcAvatarStore(registry *domaindef.Registry) domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State] {
+	return eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve)
+}
+
+func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewNPCAvatarHandler(
+		npcAvatarStore(registry),
+		identifier.New(registry, npcavatar.NewID),
+		constraint.UpdateNPCAvatarName,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

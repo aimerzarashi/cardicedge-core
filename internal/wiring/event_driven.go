@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -36,5 +37,6 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, avatar.NewID, avatar.NewEventType),
 		eventstore.NewEventLoader(registry, board.NewID, board.NewEventType),
 		eventstore.NewEventLoader(registry, studiorules.NewID, studiorules.NewEventType),
+		eventstore.NewEventLoader(registry, npcavatar.NewID, npcavatar.NewEventType),
 	)
 }
