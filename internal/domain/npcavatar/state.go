@@ -2,6 +2,8 @@ package npcavatar
 
 import (
 	"github.com/google/uuid"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 )
 
 type State interface {
@@ -19,6 +21,8 @@ type NPCAvatar struct {
 	PublicID uuid.UUID
 	Name     Name
 	Status   Status
+	// 使うデッキ（変えるか Decide が比べるのと、公開の条件を application が確かめるために持つ）
+	Decks []npcdeck.ID
 }
 
 func (NPCAvatar) isNPCAvatarState() {}

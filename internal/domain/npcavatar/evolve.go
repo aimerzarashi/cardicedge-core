@@ -1,5 +1,11 @@
 package npcavatar
 
+import (
+	"slices"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+)
+
 func Evolve(state State, event Event) (State, error) {
 	meta := event.GetMeta()
 	switch e := event.(type) {
@@ -20,6 +26,20 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		npcAvatar.Name = e.Name
+		return touched(npcAvatar, meta), nil
+	case *DecksAssignedEvent:
+		npcAvatar, ok := state.(NPCAvatar)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		npcAvatar.Decks = append(slices.Clone(npcAvatar.Decks), e.Decks...)
+		return touched(npcAvatar, meta), nil
+	case *DecksUnassignedEvent:
+		npcAvatar, ok := state.(NPCAvatar)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		npcAvatar.Decks = slices.DeleteFunc(slices.Clone(npcAvatar.Decks), func(deck npcdeck.ID) bool { return slices.Contains(e.Decks, deck) })
 		return touched(npcAvatar, meta), nil
 	case *PublishedEvent:
 		npcAvatar, ok := state.(NPCAvatar)

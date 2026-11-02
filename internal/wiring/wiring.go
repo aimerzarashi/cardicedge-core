@@ -175,7 +175,7 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 	if err := registry.VerifyUniqueKeyTypes(slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), starterdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes(), npcavatar.UniqueKeyTypes(), npcdeck.UniqueKeyTypes())...); err != nil {
 		return nil, fmt.Errorf("unique key types do not match catalog: %w", err)
 	}
-	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes(), npcdeck.ReferenceTypes())...); err != nil {
+	if err := registry.VerifyReferenceTypes(slices.Concat(presetdeck.ReferenceTypes(), starterdeck.ReferenceTypes(), npcdeck.ReferenceTypes(), npcavatar.ReferenceTypes())...); err != nil {
 		return nil, fmt.Errorf("reference types do not match catalog: %w", err)
 	}
 	if err := registry.VerifyQuotaTypes(slices.Concat(deck.QuotaTypes(), starterdeck.QuotaTypes(), avatar.QuotaTypes())...); err != nil {

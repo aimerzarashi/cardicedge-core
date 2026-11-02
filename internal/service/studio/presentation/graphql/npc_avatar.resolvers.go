@@ -57,6 +57,28 @@ func (r *mutationResolver) RenameNpcAvatar(ctx context.Context, input model.Rena
 	return &model.RenameNpcAvatarSuccess{ID: renamed.ID, Revision: int(renamed.Revision)}, nil
 }
 
+// SetNpcAvatarDecks is the resolver for the setNpcAvatarDecks field.
+func (r *mutationResolver) SetNpcAvatarDecks(ctx context.Context, input model.SetNpcAvatarDecksInput) (model.SetNpcAvatarDecksResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.npcAvatars.SetDecks(ctx, input.ID, int64(input.Revision), input.DeckIds)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	switch {
+	case errors.Is(err, command.ErrNPCAvatarNotFound):
+		return &model.NpcAvatarNotFoundError{Message: "npc avatar not found"}, nil
+	case errors.Is(err, command.ErrNPCAvatarNotDraft):
+		return &model.NpcAvatarNotDraftError{Message: "npc avatar is not draft"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.SetNpcAvatarDecksSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // DeleteNpcAvatar is the resolver for the deleteNpcAvatar field.
 func (r *mutationResolver) DeleteNpcAvatar(ctx context.Context, input model.DeleteNpcAvatarInput) (model.DeleteNpcAvatarResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -82,6 +104,9 @@ func (r *mutationResolver) PublishNpcAvatar(ctx context.Context, input model.Pub
 		return forbidden, nil
 	}
 	published, err := r.npcAvatars.Publish(ctx, input.ID, int64(input.Revision))
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
 	switch {
 	case errors.Is(err, command.ErrNPCAvatarNotFound):
 		return &model.NpcAvatarNotFoundError{Message: "npc avatar not found"}, nil
@@ -110,6 +135,27 @@ func (r *mutationResolver) RetireNpcAvatar(ctx context.Context, input model.Reti
 		return nil, err
 	}
 	return &model.RetireNpcAvatarSuccess{ID: retired.ID, Revision: int(retired.Revision)}, nil
+}
+
+// Decks is the resolver for the decks field.
+func (r *npcAvatarResolver) Decks(ctx context.Context, obj *model.NpcAvatar) ([]*model.NpcDeck, error) {
+	decks := make([]*model.NpcDeck, 0, len(obj.DeckIDs))
+	for _, id := range obj.DeckIDs {
+		npcDeck, err := r.npcDeckList.Get(ctx, id)
+		// 割り当てたデッキは公開中で、消せないため、無いのは投影が遅れているときだけ。画面を止めずに飛ばす
+		if errors.Is(err, query.ErrNPCDeckNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		deck, err := fromQueryNPCDeck(npcDeck)
+		if err != nil {
+			return nil, err
+		}
+		decks = append(decks, deck)
+	}
+	return decks, nil
 }
 
 // NpcAvatars is the resolver for the npcAvatars field.
@@ -145,3 +191,8 @@ func (r *queryResolver) NpcAvatar(ctx context.Context, id uuid.UUID) (model.NpcA
 	}
 	return fromQueryNPCAvatar(npcAvatar)
 }
+
+// NpcAvatar returns NpcAvatarResolver implementation.
+func (r *Resolver) NpcAvatar() NpcAvatarResolver { return &npcAvatarResolver{r} }
+
+type npcAvatarResolver struct{ *Resolver }

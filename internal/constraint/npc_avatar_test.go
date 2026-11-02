@@ -3,11 +3,15 @@ package constraint_test
 import (
 	"testing"
 
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 )
 
@@ -62,4 +66,33 @@ func TestUpdateNPCAvatarName_ReleasedWhenNPCAvatarIsDeleted(t *testing.T) {
 	require.NoError(t, identifier.New(f.registry, npcavatar.NewID).Delete(f.ctx, id))
 
 	require.NoError(t, f.updateNPCAvatarName(t, f.issueNPCAvatarID(t), "森の番人"))
+}
+
+func TestUpdateNPCAvatarDeckReferences_MatchesGivenDecks(t *testing.T) {
+	f := setup(t)
+	npcAvatar := f.issueNPCAvatarID(t)
+	first, second, third := f.issueNPCDeckID(t), f.issueNPCDeckID(t), f.issueNPCDeckID(t)
+	require.NoError(t, constraint.UpdateNPCAvatarDeckReferences(f.ctx, npcAvatar, []npcdeck.ID{first, second}))
+
+	err := constraint.UpdateNPCAvatarDeckReferences(f.ctx, npcAvatar, []npcdeck.ID{second, third})
+
+	require.NoError(t, err)
+	require.Equal(t, []int64{second.Int64(), third.Int64()}, constrainttest.Referenced(t, f.ctx, npcavatar.DeckReferenceType(), npcAvatar.Int64()))
+}
+
+// 参照されている NPC のデッキの識別子は消せない。参照する側を消すと参照も消え、消せるようになる
+func TestUpdateNPCAvatarDeckReferences_PreventsDeletingReferencedDeckUntilNPCAvatarIsDeleted(t *testing.T) {
+	f := setup(t)
+	npcAvatar, deck := f.issueNPCAvatarID(t), f.issueNPCDeckID(t)
+	require.NoError(t, constraint.UpdateNPCAvatarDeckReferences(f.ctx, npcAvatar, []npcdeck.ID{deck}))
+	require.NoError(t, identifier.New(f.registry, npcavatar.NewID).Delete(f.ctx, npcAvatar))
+	require.Empty(t, constrainttest.Referenced(t, f.ctx, npcavatar.DeckReferenceType(), npcAvatar.Int64()))
+	require.NoError(t, constraint.UpdateNPCAvatarDeckReferences(f.ctx, f.issueNPCAvatarID(t), []npcdeck.ID{deck}))
+
+	err := identifier.New(f.registry, npcdeck.NewID).Delete(f.ctx, deck)
+
+	// 失敗した文でトランザクションは中断されるが、テストの最後なので続けて使わない
+	var pgErr *pq.Error
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, pqerror.RestrictViolation, pgErr.Code)
 }

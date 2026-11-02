@@ -148,7 +148,9 @@ type PublishCardResult interface {
 	IsPublishCardResult()
 }
 
-// NPC のアバターの公開の結果（準備中・使用不可から公開中にできる。公開の条件は無い）
+// NPC のアバターの公開の結果（準備中・使用不可から公開中にできる）。
+// 公開するときは、使うデッキが 1 つ以上あること（無ければ ValidationErrors の decks が必須）と、
+// そのうち 1 つ以上が今も公開中であること（無ければ decks が使えない）を確かめる。すでに公開中なら確かめない
 type PublishNpcAvatarResult interface {
 	IsPublishNpcAvatarResult()
 }
@@ -261,6 +263,13 @@ type RetireNpcDeckResult interface {
 // スターターデッキの使用不可の結果
 type RetireStarterDeckResult interface {
 	IsRetireStarterDeckResult()
+}
+
+// NPC のアバターへの使うデッキの割り当ての結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は deckIds.<番号>。同じデッキの 2 つ目以降は重複、無い・削除したデッキは存在しない、
+// 新しく入れる公開中でないデッキは使えない）
+type SetNpcAvatarDecksResult interface {
+	IsSetNpcAvatarDecksResult()
 }
 
 // NPC のデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
@@ -1116,6 +1125,8 @@ func (ForbiddenError) IsRegisterNpcAvatarResult() {}
 
 func (ForbiddenError) IsRenameNpcAvatarResult() {}
 
+func (ForbiddenError) IsSetNpcAvatarDecksResult() {}
+
 func (ForbiddenError) IsDeleteNpcAvatarResult() {}
 
 func (ForbiddenError) IsPublishNpcAvatarResult() {}
@@ -1294,24 +1305,6 @@ func (NoCheckpointProblem) IsBoardPublishProblem() {}
 // 開発者向けの説明（画面にそのまま出す文言ではない）
 func (this NoCheckpointProblem) GetMessage() string { return this.Message }
 
-// NPC のアバター
-type NpcAvatar struct {
-	// 公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 名前（登録・変更したときの表記。前後の空白は除く。状態によらず、すべての NPC のアバターの中で一意）
-	Name string `json:"name"`
-	// 状態（準備中・公開中・使用不可）
-	Status NpcAvatarStatus `json:"status"`
-	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
-	Revision int `json:"revision"`
-	// 登録した日時
-	RegisteredAt time.Time `json:"registeredAt"`
-	// 最後に変更した日時（変更していなければ登録した日時）
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-func (NpcAvatar) IsNpcAvatarResult() {}
-
 // NPC のアバターの一覧の 1 ページ（名前の順）
 type NpcAvatarConnection struct {
 	// このページの NPC のアバター
@@ -1348,13 +1341,15 @@ func (NpcAvatarNameAlreadyInUseError) IsRegisterNpcAvatarResult() {}
 
 func (NpcAvatarNameAlreadyInUseError) IsRenameNpcAvatarResult() {}
 
-// 準備中でない NPC のアバターの名前を変える、または削除しようとした（準備中のものだけ変えられる）
+// 準備中でない NPC のアバターの名前・使うデッキを変える、または削除しようとした（準備中のものだけ変えられる）
 type NpcAvatarNotDraftError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
 
 func (NpcAvatarNotDraftError) IsRenameNpcAvatarResult() {}
+
+func (NpcAvatarNotDraftError) IsSetNpcAvatarDecksResult() {}
 
 func (NpcAvatarNotDraftError) IsDeleteNpcAvatarResult() {}
 
@@ -1367,6 +1362,8 @@ type NpcAvatarNotFoundError struct {
 func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
 
 func (NpcAvatarNotFoundError) IsRenameNpcAvatarResult() {}
+
+func (NpcAvatarNotFoundError) IsSetNpcAvatarDecksResult() {}
 
 func (NpcAvatarNotFoundError) IsDeleteNpcAvatarResult() {}
 
@@ -1999,6 +1996,8 @@ func (RevisionConflictError) IsRetireCardResult() {}
 
 func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
+func (RevisionConflictError) IsSetNpcAvatarDecksResult() {}
+
 func (RevisionConflictError) IsDeleteNpcAvatarResult() {}
 
 func (RevisionConflictError) IsPublishNpcAvatarResult() {}
@@ -2046,6 +2045,26 @@ func (this SanctuaryTile) GetX() int { return this.X }
 
 // 行
 func (this SanctuaryTile) GetY() int { return this.Y }
+
+// NPC のアバターに使うデッキを割り当てる入力
+type SetNpcAvatarDecksInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+	// 使う NPC のデッキの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じデッキは 2 回入れられない。新しく入れるデッキは公開中のものだけ）
+	DeckIds []uuid.UUID `json:"deckIds"`
+}
+
+// NPC のアバターに使うデッキを割り当てた（同じデッキの集まりなら何も変えず、revision も進まない）
+type SetNpcAvatarDecksSuccess struct {
+	// 変えた NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetNpcAvatarDecksSuccess) IsSetNpcAvatarDecksResult() {}
 
 // NPC のデッキのカードの枚数を変える入力
 type SetNpcDeckCardCountsInput struct {
@@ -2320,6 +2339,10 @@ func (ValidationErrors) IsNpcAvatarsResult() {}
 func (ValidationErrors) IsRegisterNpcAvatarResult() {}
 
 func (ValidationErrors) IsRenameNpcAvatarResult() {}
+
+func (ValidationErrors) IsSetNpcAvatarDecksResult() {}
+
+func (ValidationErrors) IsPublishNpcAvatarResult() {}
 
 func (ValidationErrors) IsNpcDecksResult() {}
 
@@ -2625,8 +2648,8 @@ func (e CardType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// NPC のアバターの状態。準備中は名前を自由に変えられる。公開中の数に上限は無く、公開の条件も無い。
-// 使用不可は新しい対戦に使わない
+// NPC のアバターの状態。準備中は名前と使うデッキを自由に変えられる。公開中の数に上限は無い。
+// 公開中にできるのは、使うデッキに公開中のものが 1 つ以上あるとき。使用不可は新しい対戦に使わない
 type NpcAvatarStatus string
 
 const (

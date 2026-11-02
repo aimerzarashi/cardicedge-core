@@ -82,6 +82,8 @@ var Types = Catalog{
 			{ID: 2503, Name: "DeletedEvent"},
 			{ID: 2504, Name: "PublishedEvent"},
 			{ID: 2505, Name: "RetiredEvent"},
+			{ID: 2506, Name: "DecksAssignedEvent"},
+			{ID: 2507, Name: "DecksUnassignedEvent"},
 		}},
 		{ID: 2600, Name: "npc_deck", Events: []EventTypeDef{
 			{ID: 2601, Name: "RegisteredEvent"},
@@ -114,6 +116,7 @@ var Types = Catalog{
 		{ID: 1000, Name: "preset_deck.card"},
 		{ID: 1002, Name: "starter_deck.card"},
 		{ID: 1003, Name: "npc_deck.card"},
+		{ID: 1004, Name: "npc_avatar.deck"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},

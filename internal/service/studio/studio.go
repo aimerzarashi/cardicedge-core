@@ -160,7 +160,10 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		npcAvatars: command.NewNPCAvatarHandler(
 			eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve),
 			identifier.New(registry, npcavatar.NewID),
+			entityRefs,
 			constraint.UpdateNPCAvatarName,
+			constraint.UpdateNPCAvatarDeckReferences,
+			command.NewNPCDeckStatusReader(eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)).Statuses,
 			now,
 		),
 		npcAvatarList: query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),

@@ -285,7 +285,10 @@ func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHa
 	return command.NewNPCAvatarHandler(
 		npcAvatarStore(registry),
 		identifier.New(registry, npcavatar.NewID),
+		identifier.NewEntityRefResolver(registry),
 		constraint.UpdateNPCAvatarName,
+		constraint.UpdateNPCAvatarDeckReferences,
+		command.NewNPCDeckStatusReader(npcDeckStore(registry)).Statuses,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

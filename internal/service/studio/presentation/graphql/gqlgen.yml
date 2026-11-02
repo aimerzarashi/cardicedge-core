@@ -39,6 +39,13 @@ models:
     fields:
       cards:
         resolver: true
+  # decks は resolver で返す（公開 ID から NPC のデッキを引いてから並べるため。core#87）
+  NpcAvatar:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcAvatar
+    fields:
+      decks:
+        resolver: true
   NpcDeck:
     model:
       - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcDeck

@@ -184,7 +184,10 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 		npcAvatars: command.NewNPCAvatarHandler(
 			eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve),
 			identifier.New(registry, npcavatar.NewID),
+			entityRefs,
 			constraint.UpdateNPCAvatarName,
+			constraint.UpdateNPCAvatarDeckReferences,
+			command.NewNPCDeckStatusReader(eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)).Statuses,
 			now,
 		),
 		npcDecks: command.NewNPCDeckHandler(
@@ -229,10 +232,12 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err := s.seedBoards(ctx, m.Boards); err != nil {
 		return err
 	}
-	if err := s.seedNPCAvatars(ctx, m.NPCAvatars); err != nil {
+	// NPC のアバターは、公開中の NPC のデッキを割り当てて公開するため、NPC のデッキより後に作る
+	npcDeckIDs, err := s.seedNPCDecks(ctx, m.NPCDecks, deckIDs)
+	if err != nil {
 		return err
 	}
-	return s.seedNPCDecks(ctx, m.NPCDecks, deckIDs)
+	return s.seedNPCAvatars(ctx, m.NPCAvatars, npcDeckIDs)
 }
 
 // 登録してレイアウトと既定のルールを入れ、公開する。何度流しても同じ結果になるよう、同じ名前のボードがあれば登録しない。
@@ -337,14 +342,16 @@ func (s *seeder) listBoards(ctx context.Context) (map[string]query.Board, error)
 	}
 }
 
-// 登録して公開する。何度流しても同じ結果になるよう、同じ名前の NPC のアバターがあれば登録しない。
-// 公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）
-func (s *seeder) seedNPCAvatars(ctx context.Context, names []string) error {
+// 登録して使うデッキを割り当て、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のアバターがあれば登録しない。
+// 割り当てと公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない。
+// すでにデッキを持たずに公開済みのものにも、後から割り当てない）。割り当ては同じデッキの集まりなら何も起きないため、準備中のものには毎回呼ぶ
+func (s *seeder) seedNPCAvatars(ctx context.Context, avatars []masterNPCAvatar, npcDeckIDs map[string]uuid.UUID) error {
 	existing, err := s.listNPCAvatars(ctx)
 	if err != nil {
 		return err
 	}
-	for _, name := range names {
+	for _, avatar := range avatars {
+		name := avatar.Name
 		key := domain.NormalizeName(name)
 		current, ok := existing[key]
 		if !ok {
@@ -368,7 +375,28 @@ func (s *seeder) seedNPCAvatars(ctx context.Context, names []string) error {
 		if current.Status != readmodel.NPCAvatarStatusDraft {
 			continue
 		}
-		if err := s.publishNPCAvatar(ctx, name, current); err != nil {
+		deckIDs := make([]uuid.UUID, 0, len(avatar.Decks))
+		for _, deck := range avatar.Decks {
+			deckIDs = append(deckIDs, npcDeckIDs[deck])
+		}
+		assigned, err := s.changeNPCAvatar(ctx, name, current, func(revision int64) (command.ChangedNPCAvatar, error) {
+			changed, err := s.npcAvatars.SetDecks(ctx, current.ID, revision, deckIDs)
+			if err == nil && changed.Revision != revision {
+				slog.InfoContext(ctx, "assigned decks to npc avatar", "name", name, "decks", avatar.Decks)
+			}
+			return changed, err
+		})
+		if err != nil {
+			return fmt.Errorf("assign decks to npc avatar %q: %w", name, err)
+		}
+		current.Revision = assigned.Revision
+		if _, err := s.changeNPCAvatar(ctx, name, current, func(revision int64) (command.ChangedNPCAvatar, error) {
+			changed, err := s.npcAvatars.Publish(ctx, current.ID, revision)
+			if err == nil {
+				slog.InfoContext(ctx, "published npc avatar", "name", name)
+			}
+			return changed, err
+		}); err != nil {
 			return fmt.Errorf("publish npc avatar %q: %w", name, err)
 		}
 	}
@@ -377,9 +405,9 @@ func (s *seeder) seedNPCAvatars(ctx context.Context, names []string) error {
 		if err != nil {
 			return false, err
 		}
-		for _, name := range names {
+		for _, avatar := range avatars {
 			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
-			published, ok := existing[domain.NormalizeName(name)]
+			published, ok := existing[domain.NormalizeName(avatar.Name)]
 			if !ok || published.Status == readmodel.NPCAvatarStatusDraft {
 				return false, nil
 			}
@@ -390,15 +418,12 @@ func (s *seeder) seedNPCAvatars(ctx context.Context, names []string) error {
 
 // read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って
 // 読み直す（publishBoard と同じ）
-func (s *seeder) publishNPCAvatar(ctx context.Context, name string, current query.NPCAvatar) error {
+func (s *seeder) changeNPCAvatar(ctx context.Context, name string, current query.NPCAvatar, change func(revision int64) (command.ChangedNPCAvatar, error)) (command.ChangedNPCAvatar, error) {
 	key := domain.NormalizeName(name)
 	for {
-		_, err := s.npcAvatars.Publish(ctx, current.ID, current.Revision)
+		changed, err := change(current.Revision)
 		if !errors.Is(err, command.ErrRevisionConflict) {
-			if err == nil {
-				slog.InfoContext(ctx, "published npc avatar", "name", name)
-			}
-			return err
+			return changed, err
 		}
 		stale := current.Revision
 		if err := waitFor(ctx, "npc_avatars", func() (bool, error) {
@@ -406,7 +431,7 @@ func (s *seeder) publishNPCAvatar(ctx context.Context, name string, current quer
 			current = existing[key]
 			return current.Revision > stale, err
 		}); err != nil {
-			return err
+			return command.ChangedNPCAvatar{}, err
 		}
 	}
 }
@@ -434,10 +459,10 @@ func (s *seeder) listNPCAvatars(ctx context.Context) (map[string]query.NPCAvatar
 // プリセットデッキから、元と同じ名前を指定して写して NPC のデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のデッキが
 // あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
 // NPC のデッキはスターターデッキと別の集まりなので、同じ名前でも重ならない
-func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
+func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) (map[string]uuid.UUID, error) {
 	existing, err := s.listNPCDecks(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, name := range names {
 		key := domain.NormalizeName(name)
@@ -457,17 +482,20 @@ func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs
 				slog.InfoContext(ctx, "registered npc deck", "name", name)
 			}
 			if err != nil {
-				return fmt.Errorf("register npc deck %q: %w", name, err)
+				return nil, fmt.Errorf("register npc deck %q: %w", name, err)
 			}
 		}
 		if current.Status != readmodel.NPCDeckStatusDraft {
 			continue
 		}
 		if err := s.publishNPCDeck(ctx, name, current); err != nil {
-			return fmt.Errorf("publish npc deck %q: %w", name, err)
+			return nil, fmt.Errorf("publish npc deck %q: %w", name, err)
 		}
 	}
-	return waitFor(ctx, "npc_decks", func() (bool, error) {
+	// 名前から公開 ID を引く表を返す。投影が公開中を書くまで待ってから作る（NPC のアバターの割り当ては、デッキの状態を集約から読む
+	// ため待たなくてもよいが、続けて流す道具が公開中を読めるようにそろえる）
+	ids := make(map[string]uuid.UUID, len(names))
+	err = waitFor(ctx, "npc_decks", func() (bool, error) {
 		existing, err := s.listNPCDecks(ctx)
 		if err != nil {
 			return false, err
@@ -478,9 +506,14 @@ func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs
 			if !ok || npcDeck.Status == readmodel.NPCDeckStatusDraft {
 				return false, nil
 			}
+			ids[name] = npcDeck.ID
 		}
 		return true, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // read model は投影の遅れで古いことがある（作った直後・止まった直後）。その revision で公開すると先に変えられたになるため、
