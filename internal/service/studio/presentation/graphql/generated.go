@@ -302,6 +302,10 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	GameRules struct {
+		Match func(childComplexity int) int
+	}
+
 	InvalidBoardStatusTransitionError struct {
 		Message func(childComplexity int) int
 	}
@@ -335,6 +339,12 @@ type ComplexityRoot struct {
 		Attribute func(childComplexity int) int
 		X         func(childComplexity int) int
 		Y         func(childComplexity int) int
+	}
+
+	MatchRules struct {
+		MaxHandCards func(childComplexity int) int
+		MaxPlayers   func(childComplexity int) int
+		MinPlayers   func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -523,6 +533,7 @@ type ComplexityRoot struct {
 		Boards           func(childComplexity int, filter *model.BoardFilter, first *int, after *string) int
 		Cards            func(childComplexity int, filter *model.CardFilter, first *int, after *string) int
 		CheckBoardLayout func(childComplexity int, input model.CheckBoardLayoutInput) int
+		GameRules        func(childComplexity int) int
 		NpcAvatar        func(childComplexity int, id uuid.UUID) int
 		NpcAvatars       func(childComplexity int, filter *model.NpcAvatarFilter, first *int, after *string) int
 		NpcDeck          func(childComplexity int, id uuid.UUID) int
@@ -800,6 +811,7 @@ type QueryResolver interface {
 	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
 	CheckBoardLayout(ctx context.Context, input model.CheckBoardLayoutInput) (model.CheckBoardLayoutResult, error)
 	Cards(ctx context.Context, filter *model.CardFilter, first *int, after *string) (model.CardsResult, error)
+	GameRules(ctx context.Context) (model.GameRulesResult, error)
 	NpcAvatars(ctx context.Context, filter *model.NpcAvatarFilter, first *int, after *string) (model.NpcAvatarsResult, error)
 	NpcAvatar(ctx context.Context, id uuid.UUID) (model.NpcAvatarResult, error)
 	NpcDecks(ctx context.Context, filter *model.NpcDeckFilter, first *int, after *string) (model.NpcDecksResult, error)
@@ -1553,6 +1565,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
 
+	case "GameRules.match":
+		if e.ComplexityRoot.GameRules.Match == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GameRules.Match(childComplexity), true
+
 	case "InvalidBoardStatusTransitionError.message":
 		if e.ComplexityRoot.InvalidBoardStatusTransitionError.Message == nil {
 			break
@@ -1643,6 +1662,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LandTile.Y(childComplexity), true
+
+	case "MatchRules.maxHandCards":
+		if e.ComplexityRoot.MatchRules.MaxHandCards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchRules.MaxHandCards(childComplexity), true
+	case "MatchRules.maxPlayers":
+		if e.ComplexityRoot.MatchRules.MaxPlayers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchRules.MaxPlayers(childComplexity), true
+	case "MatchRules.minPlayers":
+		if e.ComplexityRoot.MatchRules.MinPlayers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchRules.MinPlayers(childComplexity), true
 
 	case "Mutation.changeBoardDefaultRules":
 		if e.ComplexityRoot.Mutation.ChangeBoardDefaultRules == nil {
@@ -2495,6 +2533,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.CheckBoardLayout(childComplexity, args["input"].(model.CheckBoardLayoutInput)), true
+	case "Query.gameRules":
+		if e.ComplexityRoot.Query.GameRules == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.GameRules(childComplexity), true
 
 	case "Query.npcAvatar":
 		if e.ComplexityRoot.Query.NpcAvatar == nil {
@@ -3282,7 +3326,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "board.graphqls" "card.graphqls" "common.graphqls" "creature.graphqls" "item.graphqls" "npc_avatar.graphqls" "npc_deck.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_deck.graphqls" "studio_rules.graphqls"
+//go:embed "board.graphqls" "card.graphqls" "common.graphqls" "creature.graphqls" "game_rules.graphqls" "item.graphqls" "npc_avatar.graphqls" "npc_deck.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_deck.graphqls" "studio_rules.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -3298,6 +3342,7 @@ var sources = []*ast.Source{
 	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
+	{Name: "game_rules.graphqls", Input: sourceData("game_rules.graphqls"), BuiltIn: false},
 	{Name: "item.graphqls", Input: sourceData("item.graphqls"), BuiltIn: false},
 	{Name: "npc_avatar.graphqls", Input: sourceData("npc_avatar.graphqls"), BuiltIn: false},
 	{Name: "npc_deck.graphqls", Input: sourceData("npc_deck.graphqls"), BuiltIn: false},
@@ -3506,6 +3551,18 @@ func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.
 		return ec.fieldContext_Item_updatedAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchRules(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "minPlayers":
+		return ec.fieldContext_MatchRules_minPlayers(ctx, field)
+	case "maxPlayers":
+		return ec.fieldContext_MatchRules_maxPlayers(ctx, field)
+	case "maxHandCards":
+		return ec.fieldContext_MatchRules_maxHandCards(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchRules", field.Name)
 }
 
 func (ec *executionContext) childFields_NpcAvatar(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -7424,6 +7481,38 @@ func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Contex
 	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, "String")
 }
 
+func (ec *executionContext) _GameRules_match(ctx context.Context, field graphql.CollectedField, obj *model.GameRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GameRules_match(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Match, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchRules) graphql.Marshaler {
+			return ec.marshalNMatchRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐMatchRules(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GameRules_match(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameRules",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchRules(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _InvalidBoardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidBoardStatusTransitionError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7744,6 +7833,75 @@ func (ec *executionContext) _LandTile_attribute(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_LandTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("LandTile", field, false, false, "BoardTileAttribute")
+}
+
+func (ec *executionContext) _MatchRules_minPlayers(ctx context.Context, field graphql.CollectedField, obj *model.MatchRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchRules_minPlayers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinPlayers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchRules_minPlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchRules_maxPlayers(ctx context.Context, field graphql.CollectedField, obj *model.MatchRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchRules_maxPlayers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxPlayers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchRules_maxPlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchRules_maxHandCards(ctx context.Context, field graphql.CollectedField, obj *model.MatchRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchRules_maxHandCards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxHandCards, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchRules_maxHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
 }
 
 func (ec *executionContext) _Mutation_registerBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -11093,6 +11251,29 @@ func (ec *executionContext) fieldContext_Query_cards(ctx context.Context, field 
 		return fc, err
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Query_gameRules(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_gameRules(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().GameRules(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.GameRulesResult) graphql.Marshaler {
+			return ec.marshalNGameRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐGameRulesResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_gameRules(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Query", field, true, true, "GameRulesResult")
 }
 
 func (ec *executionContext) _Query_npcAvatars(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -18082,6 +18263,33 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 	}
 }
 
+func (ec *executionContext) _GameRulesResult(ctx context.Context, sel ast.SelectionSet, obj model.GameRulesResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.GameRules:
+		return ec._GameRules(ctx, sel, &obj)
+	case *model.GameRules:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._GameRules(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of GameRulesResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _NpcAvatarResult(ctx context.Context, sel ast.SelectionSet, obj model.NpcAvatarResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -21711,7 +21919,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "RegisterItemResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult", "StudioRulesResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "PublishCardResult", "RetireCardResult", "RegisterCreatureResult", "GameRulesResult", "RegisterItemResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterDecksResult", "StarterDeckResult", "RegisterStarterDeckResult", "RegisterStarterDeckFromPresetDeckResult", "RenameStarterDeckResult", "SetStarterDeckCardCountsResult", "DeleteStarterDeckResult", "PublishStarterDeckResult", "RetireStarterDeckResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -21724,6 +21932,39 @@ func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("ForbiddenError")
 		case "message":
 			out.Values[i] = ec._ForbiddenError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var gameRulesImplementors = []string{"GameRules", "GameRulesResult"}
+
+func (ec *executionContext) _GameRules(ctx context.Context, sel ast.SelectionSet, obj *model.GameRules) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gameRulesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GameRules")
+		case "match":
+			out.Values[i] = ec._GameRules_match(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -21990,6 +22231,49 @@ func (ec *executionContext) _LandTile(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "attribute":
 			out.Values[i] = ec._LandTile_attribute(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchRulesImplementors = []string{"MatchRules"}
+
+func (ec *executionContext) _MatchRules(ctx context.Context, sel ast.SelectionSet, obj *model.MatchRules) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchRulesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchRules")
+		case "minPlayers":
+			out.Values[i] = ec._MatchRules_minPlayers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxPlayers":
+			out.Values[i] = ec._MatchRules_maxPlayers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxHandCards":
+			out.Values[i] = ec._MatchRules_maxHandCards(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -23391,6 +23675,12 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_cards(ctx, field)
+				})
+		case "gameRules":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_gameRules(ctx, field)
 				})
 		case "npcAvatars":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
@@ -25959,6 +26249,14 @@ func (ec *executionContext) marshalNFieldError2ᚕgitlabᚗcomᚋaimerzarashiᚋ
 	return ret
 }
 
+func (ec *executionContext) marshalNGameRulesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐGameRulesResult(ctx context.Context, sel ast.SelectionSet, v model.GameRulesResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "GameRulesResult!")
+		return graphql.Null
+	}
+	return ec._GameRulesResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -25979,6 +26277,14 @@ func (ec *executionContext) marshalNItem2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecar
 		return graphql.Null
 	}
 	return ec._Item(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMatchRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐMatchRules(ctx context.Context, sel ast.SelectionSet, v *model.MatchRules) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchRules!")
+		return graphql.Null
+	}
+	return ec._MatchRules(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx context.Context, sel ast.SelectionSet, v *model.NpcAvatar) graphql.Marshaler {

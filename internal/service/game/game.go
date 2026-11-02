@@ -44,6 +44,7 @@ type Game struct {
 	avatars        *command.AvatarHandler
 	avatarQuery    *query.AvatarHandler
 	boardQuery     *query.BoardHandler
+	gameRuleQuery  *query.GameRulesHandler
 	npcAvatarQuery *query.NPCAvatarHandler
 }
 
@@ -97,6 +98,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 		),
 		avatarQuery:    query.NewAvatarHandler(repository.NewAvatarReader().ListByPlayer),
 		boardQuery:     query.NewBoardHandler(boardReader.ListPublished, boardReader.GetPublished),
+		gameRuleQuery:  query.NewGameRulesHandler(repository.NewGameRulesReader().Get),
 		npcAvatarQuery: query.NewNPCAvatarHandler(npcAvatarReader.ListPublished, npcAvatarReader.GetPublished, npcAvatarReader.ListPublishedDecks),
 	}
 }
@@ -155,7 +157,7 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.boardQuery, g.npcAvatarQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

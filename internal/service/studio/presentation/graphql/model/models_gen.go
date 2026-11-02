@@ -108,6 +108,11 @@ type FieldError interface {
 	GetField() string
 }
 
+// ゲーム全体のルールの結果
+type GameRulesResult interface {
+	IsGameRulesResult()
+}
+
 // NPC のアバターの詳細の結果
 type NpcAvatarResult interface {
 	IsNpcAvatarResult()
@@ -1115,6 +1120,8 @@ func (ForbiddenError) IsRetireCardResult() {}
 
 func (ForbiddenError) IsRegisterCreatureResult() {}
 
+func (ForbiddenError) IsGameRulesResult() {}
+
 func (ForbiddenError) IsRegisterItemResult() {}
 
 func (ForbiddenError) IsNpcAvatarsResult() {}
@@ -1184,6 +1191,14 @@ func (ForbiddenError) IsPublishStarterDeckResult() {}
 func (ForbiddenError) IsRetireStarterDeckResult() {}
 
 func (ForbiddenError) IsStudioRulesResult() {}
+
+// ゲーム全体のルール
+type GameRules struct {
+	// 対戦の決まり
+	Match *MatchRules `json:"match"`
+}
+
+func (GameRules) IsGameRulesResult() {}
 
 // 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidBoardStatusTransitionError struct {
@@ -1289,6 +1304,16 @@ type LandTileInput struct {
 	Y int `json:"y"`
 	// 属性
 	Attribute BoardTileAttribute `json:"attribute"`
+}
+
+// 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
+type MatchRules struct {
+	// 対戦に参加できる人数の下限（この値を含む）
+	MinPlayers int `json:"minPlayers"`
+	// 対戦に参加できる人数の上限（この値を含む）
+	MaxPlayers int `json:"maxPlayers"`
+	// 手札の上限の枚数
+	MaxHandCards int `json:"maxHandCards"`
 }
 
 type Mutation struct {

@@ -37,6 +37,11 @@ type FieldError interface {
 	GetField() string
 }
 
+// ゲーム全体のルールの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type GameRulesResult interface {
+	IsGameRulesResult()
+}
+
 // me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError
 type MeResult interface {
 	IsMeResult()
@@ -329,6 +334,14 @@ func (FieldTooLong) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
+// ゲーム全体のルール
+type GameRules struct {
+	// 対戦の決まり
+	Match *MatchRules `json:"match"`
+}
+
+func (GameRules) IsGameRulesResult() {}
+
 // 土地（ふつうのマス）
 type LandTile struct {
 	// 列
@@ -346,6 +359,16 @@ func (this LandTile) GetX() int { return this.X }
 
 // 行
 func (this LandTile) GetY() int { return this.Y }
+
+// 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
+type MatchRules struct {
+	// 対戦に参加できる人数の下限（この値を含む）
+	MinPlayers int `json:"minPlayers"`
+	// 対戦に参加できる人数の上限（この値を含む）
+	MaxPlayers int `json:"maxPlayers"`
+	// 手札の上限の枚数
+	MaxHandCards int `json:"maxHandCards"`
+}
 
 type Mutation struct {
 }
@@ -453,6 +476,8 @@ func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
 func (PlayerNotRegisteredError) IsBoardsResult() {}
 
 func (PlayerNotRegisteredError) IsBoardResult() {}
+
+func (PlayerNotRegisteredError) IsGameRulesResult() {}
 
 func (PlayerNotRegisteredError) IsNpcAvatarsResult() {}
 

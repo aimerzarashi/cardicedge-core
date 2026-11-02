@@ -32,6 +32,7 @@ type Rules struct {
 	Player      Player      `json:"player"`
 	Deck        Deck        `json:"deck"`
 	StarterDeck StarterDeck `json:"starter_deck"`
+	Match       Match       `json:"match"`
 }
 
 type Player struct {
@@ -55,10 +56,21 @@ type StarterDeck struct {
 	MaxPublished int `json:"max_published"`
 }
 
-var ErrInvalidRules = errors.New("game rules: every value must be at least 1")
+// 対戦の決まり。盤面（ボード）や部屋によらず、ゲーム全体で同じ値を使う。
+// 部屋の条件が読んで見せ、対戦が使う
+type Match struct {
+	// 対戦に参加できる人数の下限（この値を含む）
+	MinPlayers int `json:"min_players"`
+	// 対戦に参加できる人数の上限（この値を含む）
+	MaxPlayers int `json:"max_players"`
+	// 手札の上限の枚数
+	MaxHandCards int `json:"max_hand_cards"`
+}
+
+var ErrInvalidRules = errors.New("game rules: every value must be at least 1, and a minimum must not exceed its maximum")
 
 // 値の数は増えていくため、値ごとの型は作らず、ここで 1 以上をまとめて確かめる
-func New(player Player, deck Deck, starterDeck StarterDeck) (Rules, error) {
+func New(player Player, deck Deck, starterDeck StarterDeck, match Match) (Rules, error) {
 	// map にしないのは、誤りが複数あるときに、どれを返すかが実行ごとに変わらないようにするため
 	values := []struct {
 		name  string
@@ -69,13 +81,20 @@ func New(player Player, deck Deck, starterDeck StarterDeck) (Rules, error) {
 		{"deck.total_card_count", deck.TotalCardCount},
 		{"deck.max_card_duplicates", deck.MaxCardDuplicates},
 		{"starter_deck.max_published", starterDeck.MaxPublished},
+		{"match.min_players", match.MinPlayers},
+		{"match.max_players", match.MaxPlayers},
+		{"match.max_hand_cards", match.MaxHandCards},
 	}
 	for _, v := range values {
 		if v.value < 1 {
 			return Rules{}, fmt.Errorf("%w: %s is %d", ErrInvalidRules, v.name, v.value)
 		}
 	}
-	return Rules{Player: player, Deck: deck, StarterDeck: starterDeck}, nil
+	// 1 以上の確かめの後に置く（0 や負の値は、大小の比べより先に「1 以上」の誤りとして返すため）
+	if match.MinPlayers > match.MaxPlayers {
+		return Rules{}, fmt.Errorf("%w: match.max_players %d is below match.min_players %d", ErrInvalidRules, match.MaxPlayers, match.MinPlayers)
+	}
+	return Rules{Player: player, Deck: deck, StarterDeck: starterDeck, Match: match}, nil
 }
 
 // 作るときの値。値の変更は core#23 で作るまで、これが全体のルールになる。
@@ -85,5 +104,6 @@ func Defaults() Rules {
 		Player:      Player{MaxDecks: 10, MaxAvatars: 5},
 		Deck:        Deck{TotalCardCount: 40, MaxCardDuplicates: 4},
 		StarterDeck: StarterDeck{MaxPublished: 2},
+		Match:       Match{MinPlayers: 2, MaxPlayers: 4, MaxHandCards: 6},
 	}
 }
