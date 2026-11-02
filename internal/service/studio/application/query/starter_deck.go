@@ -78,9 +78,6 @@ type ListStarterDecksFunc func(ctx context.Context, condition ListStarterDecksCo
 // 無ければ ErrStarterDeckNotFound
 type GetStarterDeckFunc func(ctx context.Context, id uuid.UUID) (StarterDeck, error)
 
-// 公開 ID で引く今の revision。無い（削除した）プリセットデッキは結果に含めない
-type GetPresetDeckRevisionsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error)
-
 type StarterDeckHandler struct {
 	listStarterDecks       ListStarterDecksFunc
 	getStarterDeck         GetStarterDeckFunc

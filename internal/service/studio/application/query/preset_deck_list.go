@@ -66,6 +66,9 @@ type ListPresetDecksFunc func(ctx context.Context, condition ListPresetDecksCond
 // 無ければ ErrPresetDeckNotFound
 type GetPresetDeckFunc func(ctx context.Context, id uuid.UUID) (PresetDeck, error)
 
+// 公開 ID で引く今の revision。無い（削除した）プリセットデッキは結果に含めない
+type GetPresetDeckRevisionsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error)
+
 type PresetDeckHandler struct {
 	listPresetDecks ListPresetDecksFunc
 	getPresetDeck   GetPresetDeckFunc

@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -19,14 +18,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
-
-// 公開までの流れを小さく確かめるルール（合計 4 枚で公開でき、公開中は 2 つまで）
-func smallRules() gamerules.Rules {
-	rules := gamerules.Defaults()
-	rules.Deck = gamerules.Deck{TotalCardCount: 4, MaxCardDuplicates: 4}
-	rules.StarterDeck = gamerules.StarterDeck{MaxPublished: 2}
-	return rules
-}
 
 func restoredStarterDeck(t *testing.T, ctx context.Context, publicID uuid.UUID) starterdeck.StarterDeck {
 	t.Helper()

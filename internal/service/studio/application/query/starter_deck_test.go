@@ -33,10 +33,6 @@ func starterDeckRow(name string, source *query.StarterDeckSource) query.StarterD
 	return query.StarterDeckListRow{StarterDeck: deck, Cursor: cursor}
 }
 
-func noRevisions(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
-	return map[uuid.UUID]int64{}, nil
-}
-
 // 名前はカード名と同じ正規化をしてから、状態はそのまま渡す
 func TestStarterDeckHandler_PassesNormalizedConditionToReader(t *testing.T) {
 	reader := &fakeStarterDeckReader{}

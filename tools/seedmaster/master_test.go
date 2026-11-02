@@ -137,6 +137,33 @@ func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
 	}
 }
 
+// 見本のファイルの NPC のデッキは、プリセットデッキの名前で書く（同じ名前で写して公開する）
+func TestSampleMaster_HasNPCDecksFromPresetDecks(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"火・地属性デッキ", "水・風属性デッキ"}, m.NPCDecks)
+}
+
+func TestLoadMaster_RejectsInvalidNPCDecks(t *testing.T) {
+	tests := []struct {
+		name     string
+		npcDecks []string
+	}{
+		{name: "unknown_preset_deck", npcDecks: []string{"x"}},
+		{name: "duplicated_preset_deck", npcDecks: []string{"火・地属性デッキ", "火・地属性デッキ"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.NPCDecks = tt.npcDecks
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 	tests := []struct {
 		name string

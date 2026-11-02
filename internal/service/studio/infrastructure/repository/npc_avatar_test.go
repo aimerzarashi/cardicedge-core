@@ -31,13 +31,6 @@ func newNPCAvatarFixture(t *testing.T) npcAvatarFixture {
 	return f
 }
 
-func (f npcAvatarFixture) issueOperator(t *testing.T) (operator.ID, uuid.UUID) {
-	t.Helper()
-	id, publicID, err := identifier.New(f.registry, operator.NewID).Issue(f.ctx)
-	require.NoError(t, err)
-	return id, publicID
-}
-
 func (f npcAvatarFixture) npcAvatarState(sortName, name string, status readmodel.NPCAvatarStatus) readmodel.NPCAvatar {
 	id := uuid.New()
 	at := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)

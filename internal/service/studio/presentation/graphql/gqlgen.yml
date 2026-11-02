@@ -39,3 +39,9 @@ models:
     fields:
       cards:
         resolver: true
+  NpcDeck:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcDeck
+    fields:
+      cards:
+        resolver: true

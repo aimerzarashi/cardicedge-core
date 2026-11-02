@@ -142,11 +142,6 @@ func waitStarterDeck(t *testing.T, token string, id any, revision int) map[strin
 	return deck
 }
 
-// 次の操作の入力に渡せるよう、{id, revision} に直す
-func ref(result map[string]any) map[string]any {
-	return map[string]any{"id": result["id"], "revision": result["revision"]}
-}
-
 // 合計がちょうど 40 枚のスターターデッキ（4 枚ずつ 10 種類のクリーチャー。準備中）を作り、投影されるまで待つ
 func fullStarterDeck(t *testing.T, token, name string) map[string]any {
 	t.Helper()

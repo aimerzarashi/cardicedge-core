@@ -101,6 +101,23 @@ type NPCAvatarLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.NPCAvatar, error)
 }
 
+// 実装は command.NPCDeckHandler
+type NPCDeckHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedNPCDeck, error)
+	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID) (command.ChangedNPCDeck, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedNPCDeck, error)
+	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedNPCDeck, error)
+	Delete(ctx context.Context, id uuid.UUID, revision int64) error
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCDeck, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCDeck, error)
+}
+
+// 実装は query.NPCDeckHandler
+type NPCDeckLister interface {
+	List(ctx context.Context, filter query.NPCDeckFilter, first *int, after *string) (pagination.Connection[query.NPCDeck], error)
+	Get(ctx context.Context, id uuid.UUID) (query.NPCDeck, error)
+}
+
 // 実装は query.StudioRulesHandler
 type StudioRulesGetter interface {
 	Get(ctx context.Context) (query.StudioRules, error)
@@ -121,6 +138,8 @@ type Resolver struct {
 	studioRules     StudioRulesGetter
 	npcAvatars      NPCAvatarHandler
 	npcAvatarList   NPCAvatarLister
+	npcDecks        NPCDeckHandler
+	npcDeckList     NPCDeckLister
 }
 
 func NewResolver(
@@ -138,10 +157,13 @@ func NewResolver(
 	studioRules StudioRulesGetter,
 	npcAvatars NPCAvatarHandler,
 	npcAvatarList NPCAvatarLister,
+	npcDecks NPCDeckHandler,
+	npcDeckList NPCDeckLister,
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
 		boards: boards, boardList: boardList, studioRules: studioRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
+		npcDecks: npcDecks, npcDeckList: npcDeckList,
 	}
 }

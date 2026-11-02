@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -185,6 +186,14 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 	return registered
 }
 
+// 公開までの流れを小さく確かめるルール（合計 4 枚で公開でき、公開中は 2 つまで）
+func smallRules() gamerules.Rules {
+	rules := gamerules.Defaults()
+	rules.Deck = gamerules.Deck{TotalCardCount: 4, MaxCardDuplicates: 4}
+	rules.StarterDeck = gamerules.StarterDeck{MaxPublished: 2}
+	return rules
+}
+
 func starterDeckStore(registry *domaindef.Registry) domain.EventStore[starterdeck.ID, starterdeck.Event, starterdeck.State] {
 	return eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve)
 }
@@ -279,4 +288,32 @@ func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHa
 		constraint.UpdateNPCAvatarName,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
+}
+
+func npcDeckStore(registry *domaindef.Registry) domain.EventStore[npcdeck.ID, npcdeck.Event, npcdeck.State] {
+	return eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)
+}
+
+// ルールの値は固定する（値を小さくして確かめるため）
+func newNPCDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.NPCDeckHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewNPCDeckHandler(
+		npcDeckStore(registry),
+		identifier.New(registry, npcdeck.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateNPCDeckName,
+		constraint.UpdateNPCDeckCardReferences,
+		newCardStatusReader(registry).Statuses,
+		presetDeckStore(registry),
+		identifier.New(registry, presetdeck.NewID),
+		fixedRules(rules),
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func newNPCDeckHandler(t *testing.T, ctx context.Context) *command.NPCDeckHandler {
+	t.Helper()
+	return newNPCDeckHandlerWithRules(t, ctx, gamerules.Defaults())
 }
