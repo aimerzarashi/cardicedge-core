@@ -1,0 +1,27 @@
+# ゲーム全体のルール（運営が決める値）のうち、画面が読む項目。部屋の条件（人数・手札の上限）が読んで見せる。
+# 値を変える操作は core#23。ほかの項目（デッキなど）は、読む画面ができたときに足す
+
+"ゲーム全体のルール"
+type GameRules {
+  "対戦の決まり"
+  match: MatchRules!
+}
+
+"対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）"
+type MatchRules {
+  "対戦に参加できる人数の下限（この値を含む）"
+  minPlayers: Int!
+  "対戦に参加できる人数の上限（この値を含む）"
+  maxPlayers: Int!
+  "手札の上限の枚数"
+  maxHandCards: Int!
+}
+
+# 起動時に作った直後で、読み出し用の値がまだ用意できていないときは、既定の値を返さず GraphQL の errors にする（待てば直る失敗）
+"ゲーム全体のルールの結果"
+union GameRulesResult = GameRules | ForbiddenError
+
+extend type Query {
+  "ゲーム全体のルール（紐づいたオペレーターだけ）"
+  gameRules: GameRulesResult!
+}

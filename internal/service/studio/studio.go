@@ -62,6 +62,7 @@ type Studio struct {
 	gameRules       *command.GameRulesHandler
 	studioRules     *command.StudioRulesHandler
 	studioRulesList *query.StudioRulesHandler
+	gameRulesList   *query.GameRulesHandler
 	npcAvatars      *command.NPCAvatarHandler
 	npcAvatarList   *query.NPCAvatarHandler
 	npcDecks        *command.NPCDeckHandler
@@ -106,6 +107,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		gameRules:       gameRules,
 		studioRules:     studioRules,
 		studioRulesList: query.NewStudioRulesHandler(repository.NewStudioRulesReader().Get),
+		gameRulesList:   query.NewGameRulesHandler(repository.NewGameRulesReader().Get),
 		entityRefs:      entityRefs,
 		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
@@ -313,7 +315,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

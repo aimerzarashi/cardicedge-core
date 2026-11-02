@@ -38,7 +38,7 @@ func create(t *testing.T) (gamerules.State, gamerules.Event) {
 func TestDefaults_AreValid(t *testing.T) {
 	defaults := gamerules.Defaults()
 
-	got, err := gamerules.New(defaults.Player, defaults.Deck, defaults.StarterDeck)
+	got, err := gamerules.New(defaults.Player, defaults.Deck, defaults.StarterDeck, defaults.Match)
 
 	require.NoError(t, err)
 	require.Equal(t, defaults, got)
@@ -52,6 +52,9 @@ func TestDefaults_HaveCurrentValues(t *testing.T) {
 	require.Equal(t, 2, defaults.StarterDeck.MaxPublished)
 	require.Equal(t, 10, defaults.Player.MaxDecks)
 	require.Equal(t, 5, defaults.Player.MaxAvatars)
+	require.Equal(t, 2, defaults.Match.MinPlayers)
+	require.Equal(t, 4, defaults.Match.MaxPlayers)
+	require.Equal(t, 6, defaults.Match.MaxHandCards)
 }
 
 func TestNew_RejectsValueBelowOne(t *testing.T) {
@@ -64,17 +67,40 @@ func TestNew_RejectsValueBelowOne(t *testing.T) {
 		{name: "zero_max_published", modify: func(r *gamerules.Rules) { r.StarterDeck.MaxPublished = 0 }},
 		{name: "zero_max_decks", modify: func(r *gamerules.Rules) { r.Player.MaxDecks = 0 }},
 		{name: "negative_max_avatars", modify: func(r *gamerules.Rules) { r.Player.MaxAvatars = -1 }},
+		{name: "zero_min_players", modify: func(r *gamerules.Rules) { r.Match.MinPlayers = 0 }},
+		{name: "zero_max_players", modify: func(r *gamerules.Rules) { r.Match.MaxPlayers = 0 }},
+		{name: "zero_max_hand_cards", modify: func(r *gamerules.Rules) { r.Match.MaxHandCards = 0 }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rules := gamerules.Defaults()
 			tt.modify(&rules)
 
-			_, err := gamerules.New(rules.Player, rules.Deck, rules.StarterDeck)
+			_, err := gamerules.New(rules.Player, rules.Deck, rules.StarterDeck, rules.Match)
 
 			require.ErrorIs(t, err, gamerules.ErrInvalidRules)
 		})
 	}
+}
+
+func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match.MinPlayers = 5
+	rules.Match.MaxPlayers = 4
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.StarterDeck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_AcceptsMinPlayersEqualToMaxPlayers(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match.MinPlayers = 3
+	rules.Match.MaxPlayers = 3
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.StarterDeck, rules.Match)
+
+	require.NoError(t, err)
 }
 
 func TestDecide_CreateEmitsCreatedEvent(t *testing.T) {

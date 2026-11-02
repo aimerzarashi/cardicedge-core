@@ -43,6 +43,11 @@ type NPCAvatarQueries interface {
 	Get(ctx context.Context, id uuid.UUID) (query.NPCAvatar, error)
 }
 
+// 実装は query.GameRulesHandler
+type GameRulesQueries interface {
+	Get(ctx context.Context) (query.GameRules, error)
+}
+
 type Resolver struct {
 	players        Players
 	playerQuery    PlayerQueries
@@ -50,8 +55,9 @@ type Resolver struct {
 	avatarQuery    AvatarQueries
 	boardQuery     BoardQueries
 	npcAvatarQuery NPCAvatarQueries
+	gameRuleQuery  GameRulesQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
 }

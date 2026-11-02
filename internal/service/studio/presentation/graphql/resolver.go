@@ -124,6 +124,11 @@ type StudioRulesGetter interface {
 	Get(ctx context.Context) (query.StudioRules, error)
 }
 
+// 実装は query.GameRulesHandler
+type GameRulesGetter interface {
+	Get(ctx context.Context) (query.GameRules, error)
+}
+
 type Resolver struct {
 	creatures       CreatureRegistrar
 	items           ItemRegistrar
@@ -137,6 +142,7 @@ type Resolver struct {
 	boards          BoardHandler
 	boardList       BoardLister
 	studioRules     StudioRulesGetter
+	gameRules       GameRulesGetter
 	npcAvatars      NPCAvatarHandler
 	npcAvatarList   NPCAvatarLister
 	npcDecks        NPCDeckHandler
@@ -156,6 +162,7 @@ func NewResolver(
 	boards BoardHandler,
 	boardList BoardLister,
 	studioRules StudioRulesGetter,
+	gameRules GameRulesGetter,
 	npcAvatars NPCAvatarHandler,
 	npcAvatarList NPCAvatarLister,
 	npcDecks NPCDeckHandler,
@@ -164,7 +171,7 @@ func NewResolver(
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
-		boards: boards, boardList: boardList, studioRules: studioRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
+		boards: boards, boardList: boardList, studioRules: studioRules, gameRules: gameRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
 		npcDecks: npcDecks, npcDeckList: npcDeckList,
 	}
 }
