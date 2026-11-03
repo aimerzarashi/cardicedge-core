@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset/startersettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -92,6 +93,22 @@ func TestUpdateStarterSetGrantDeckReferences_PreventsDeletingReferencedGrantDeck
 	require.NoError(t, constraint.UpdateStarterSetGrantDeckReferences(f.ctx, f.issueStarterSetID(t), []grantdeck.ID{target}))
 
 	err := identifier.New(f.registry, grantdeck.NewID).Delete(f.ctx, target)
+
+	var pgErr *pq.Error
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, pqerror.RestrictViolation, pgErr.Code)
+}
+
+func TestUpdateStarterSetNPCAvatarReferences_PreventsDeletingReferencedNPCAvatarUntilStarterSetIsDeleted(t *testing.T) {
+	f := setup(t)
+	set, target := f.issueStarterSetID(t), f.issueNPCAvatarID(t)
+	require.NoError(t, constraint.UpdateStarterSetNPCAvatarReferences(f.ctx, set, []npcavatar.ID{target}))
+	require.Equal(t, []int64{target.Int64()}, constrainttest.Referenced(t, f.ctx, starterset.NPCAvatarReferenceType(), set.Int64()))
+	require.NoError(t, identifier.New(f.registry, starterset.NewID).Delete(f.ctx, set))
+	require.Empty(t, constrainttest.Referenced(t, f.ctx, starterset.NPCAvatarReferenceType(), set.Int64()))
+	require.NoError(t, constraint.UpdateStarterSetNPCAvatarReferences(f.ctx, f.issueStarterSetID(t), []npcavatar.ID{target}))
+
+	err := identifier.New(f.registry, npcavatar.NewID).Delete(f.ctx, target)
 
 	var pgErr *pq.Error
 	require.ErrorAs(t, err, &pgErr)

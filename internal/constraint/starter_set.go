@@ -6,6 +6,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 )
 
@@ -13,6 +14,7 @@ var (
 	_ starterset.UpdateNameFunc                = UpdateStarterSetName
 	_ starterset.UpdateGrantDeckReferencesFunc = UpdateStarterSetGrantDeckReferences
 	_ starterset.UpdateBoardReferencesFunc     = UpdateStarterSetBoardReferences
+	_ starterset.UpdateNPCAvatarReferencesFunc = UpdateStarterSetNPCAvatarReferences
 	_ starterset.ReserveQuotaFunc              = ReserveStarterSetQuota
 	_ starterset.ReleaseQuotaFunc              = ReleaseStarterSetQuota
 )
@@ -35,6 +37,14 @@ func UpdateStarterSetBoardReferences(ctx context.Context, id starterset.ID, boar
 		ids = append(ids, b.Int64())
 	}
 	return updateReferences(ctx, starterset.BoardReferenceType(), id.Int64(), ids)
+}
+
+func UpdateStarterSetNPCAvatarReferences(ctx context.Context, id starterset.ID, npcAvatars []npcavatar.ID) error {
+	ids := make([]int64, 0, len(npcAvatars))
+	for _, npcAvatar := range npcAvatars {
+		ids = append(ids, npcAvatar.Int64())
+	}
+	return updateReferences(ctx, starterset.NPCAvatarReferenceType(), id.Int64(), ids)
 }
 
 func ReserveStarterSetQuota(ctx context.Context, quota domain.Quota, limit domain.QuotaLimit) error {

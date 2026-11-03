@@ -15,6 +15,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
@@ -47,7 +49,7 @@ func decks(t *testing.T) []startergrant.Deck {
 
 func startCommand(t *testing.T) *startergrant.StartCommand {
 	t.Helper()
-	return &startergrant.StartCommand{ID: startergranttest.ID(t, 20), Player: playertest.ID(t, 10), Decks: decks(t), UnlockBoards: []board.ID{boardA(t), boardB(t)}}
+	return &startergrant.StartCommand{ID: startergranttest.ID(t, 20), Player: playertest.ID(t, 10), Decks: decks(t), UnlockBoards: []board.ID{boardA(t), boardB(t)}, UnlockNPCAvatars: []npcavatar.ID{npcavatartest.ID(t, 60)}}
 }
 
 // 状態に畳み込んで、イベントを返す
@@ -81,6 +83,7 @@ func TestDecide_StartCopiesDecksAndUnlockBoardsAndCollectsMostCountOfEachCard(t 
 	}, started.Cards)
 	require.Equal(t, decks(t), started.Decks)
 	require.Equal(t, []board.ID{boardA(t), boardB(t)}, started.UnlockBoards)
+	require.Equal(t, []npcavatar.ID{npcavatartest.ID(t, 60)}, started.UnlockNPCAvatars)
 }
 
 // 解放するボードは 0 件でもよい（デッキと違い、無くても配布は始められる）

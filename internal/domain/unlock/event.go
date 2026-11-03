@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -38,9 +39,17 @@ type BoardsUnlockedEvent struct {
 	Boards      []board.ID `json:"boards"`
 }
 
+// 新しく解放した NPC のアバター（1 つ以上）。解放した順。NPC のアバターも内部 ID で持つ
+type NPCAvatarsUnlockedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	NPCAvatars  []npcavatar.ID `json:"npc_avatars"`
+}
+
 var (
-	createdEventType        = domain.NewEventName("CreatedEvent")
-	boardsUnlockedEventType = domain.NewEventName("BoardsUnlockedEvent")
+	createdEventType            = domain.NewEventName("CreatedEvent")
+	boardsUnlockedEventType     = domain.NewEventName("BoardsUnlockedEvent")
+	npcAvatarsUnlockedEventType = domain.NewEventName("NPCAvatarsUnlockedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -56,12 +65,20 @@ func (*CreatedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*NPCAvatarsUnlockedEvent) EventType() domain.EventName {
+	return npcAvatarsUnlockedEventType
+}
+
+func (*NPCAvatarsUnlockedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*BoardsUnlockedEvent) SchemaVersion() int {
 	return 1
 }
 
 func Types() domain.AggregateTypes {
-	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{createdEventType, boardsUnlockedEventType}}
+	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{createdEventType, boardsUnlockedEventType, npcAvatarsUnlockedEventType}}
 }
 
 type EventType domain.EventName
@@ -77,6 +94,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CreatedEvent{EventMeta: meta}
 	case EventType(boardsUnlockedEventType):
 		event = &BoardsUnlockedEvent{EventMeta: meta}
+	case EventType(npcAvatarsUnlockedEventType):
+		event = &NPCAvatarsUnlockedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

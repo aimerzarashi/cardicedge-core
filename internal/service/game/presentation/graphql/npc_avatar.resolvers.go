@@ -10,23 +10,25 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model"
 )
 
 // NpcAvatars is the resolver for the npcAvatars field.
-func (r *queryResolver) NpcAvatars(ctx context.Context, first *int, after *string) (model.NpcAvatarsResult, error) {
-	if notRegistered := requirePlayer(ctx); notRegistered != nil {
-		return notRegistered, nil
-	}
-	connection, err := r.npcAvatarQuery.List(ctx, first, after)
-	if invalid := validationErrors(err); invalid != nil {
-		return invalid, nil
-	}
+func (r *playerResolver) NpcAvatars(ctx context.Context, obj *model.Player) ([]*model.NpcAvatar, error) {
+	avatars, err := r.npcAvatarQuery.ListUnlockedByPlayer(ctx, obj.ID)
 	if err != nil {
 		return nil, err
 	}
-	return toNPCAvatarsConnection(connection)
+	list := make([]*model.NpcAvatar, len(avatars))
+	for i, avatar := range avatars {
+		list[i], err = fromQueryNPCAvatar(avatar)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return list, nil
 }
 
 // NpcAvatar is the resolver for the npcAvatar field.
@@ -34,7 +36,14 @@ func (r *queryResolver) NpcAvatar(ctx context.Context, id uuid.UUID) (model.NpcA
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	avatar, err := r.npcAvatarQuery.Get(ctx, id)
+	me, err := r.players.Me(ctx)
+	if errors.Is(err, command.ErrPlayerNotRegistered) {
+		return &model.PlayerNotRegisteredError{Message: "player not registered"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	avatar, err := r.npcAvatarQuery.GetUnlocked(ctx, me.ID, id)
 	if errors.Is(err, query.ErrNPCAvatarNotFound) {
 		return &model.NpcAvatarNotFoundError{Message: "npc avatar not found"}, nil
 	}

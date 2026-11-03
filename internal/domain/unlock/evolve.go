@@ -19,6 +19,14 @@ func Evolve(state State, event Event) (State, error) {
 		unlock.Version = meta.AggregateVersion
 		unlock.Boards = append(slices.Clone(unlock.Boards), e.Boards...)
 		return unlock, nil
+	case *NPCAvatarsUnlockedEvent:
+		unlock, ok := state.(Unlock)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		unlock.Version = meta.AggregateVersion
+		unlock.NPCAvatars = append(slices.Clone(unlock.NPCAvatars), e.NPCAvatars...)
+		return unlock, nil
 	default:
 		return state, ErrInvalidState
 	}

@@ -3,9 +3,7 @@ package repository
 import (
 	"cmp"
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -50,64 +48,45 @@ type cardMetadata struct {
 	Name string `json:"name"`
 }
 
-// 並びは索引（sort_name, npc_avatar_id）と同じ。続きは行の比べ方で取る（BoardReader と同じ理由で SQL を直接書く）
-func (r *NPCAvatarReader) ListPublished(ctx context.Context, condition query.ListPublishedNPCAvatarsCondition) ([]query.NPCAvatarListRow, error) {
+// プレイヤーが解放した NPC のアバターを、解放した順（read model unlocks の metadata の並び）に読む。公開中でないもの
+// （使用不可・準備中・写していない）は飛ばす。デッキは別の読み出し（ListPublishedDecks）で、全アバター分を 1 回で引く
+func (r *NPCAvatarReader) ListUnlockedByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.NPCAvatarRecord, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
 	}
-	sql := "SELECT npc_avatar_id, sort_name, metadata FROM npc_avatars WHERE status = $1"
-	args := []any{npcStatusPublished}
-	if condition.After != nil {
-		sql += " AND (sort_name, npc_avatar_id) > ($2, $3)"
-		args = append(args, condition.After.SortName, condition.After.NPCAvatarID)
+	unlocked, found, err := unlockMetadataOf(ctx, exec, playerID)
+	if err != nil || !found || len(unlocked.NPCAvatars) == 0 {
+		return nil, err
 	}
-	args = append(args, condition.Limit)
-	sql += fmt.Sprintf(" ORDER BY sort_name, npc_avatar_id LIMIT $%d", len(args))
-
-	rows, err := exec.QueryContext(ctx, sql, args...)
+	rows, err := models.NPCAvatars(
+		qm.WhereIn(models.NPCAvatarColumns.NPCAvatarID+" IN ?", uuidArgs(unlocked.NPCAvatars)...),
+		models.NPCAvatarWhere.Status.EQ(npcStatusPublished),
+	).All(ctx, exec)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var result []query.NPCAvatarListRow
-	for rows.Next() {
-		var (
-			id       uuid.UUID
-			sortName string
-			raw      []byte
-		)
-		if err := rows.Scan(&id, &sortName, &raw); err != nil {
-			return nil, err
+	published := make(map[uuid.UUID]*models.NPCAvatar, len(rows))
+	for _, row := range rows {
+		id, err := uuid.Parse(row.NPCAvatarID)
+		if err != nil {
+			return nil, fmt.Errorf("npc_avatars.npc_avatar_id %q: %w", row.NPCAvatarID, err)
 		}
-		avatar, err := toNPCAvatarRecord(id, raw)
+		published[id] = row
+	}
+	records := make([]query.NPCAvatarRecord, 0, len(unlocked.NPCAvatars))
+	for _, id := range unlocked.NPCAvatars {
+		row, ok := published[id]
+		if !ok {
+			continue
+		}
+		record, err := toNPCAvatarRecord(id, row.Metadata)
 		if err != nil {
 			return nil, err
 		}
-		cursor := query.NPCAvatarListCursor{SortName: sortName, NPCAvatarID: id}
-		result = append(result, query.NPCAvatarListRow{Avatar: avatar, Cursor: cursor})
+		records = append(records, record)
 	}
-	return result, rows.Err()
-}
-
-// 公開中でなければ（使用不可・準備中・行が無い）query.ErrNPCAvatarNotFound
-func (r *NPCAvatarReader) GetPublished(ctx context.Context, id uuid.UUID) (query.NPCAvatarRecord, error) {
-	exec, err := rdb.GetExecutor(ctx)
-	if err != nil {
-		return query.NPCAvatarRecord{}, err
-	}
-	row, err := models.NPCAvatars(
-		models.NPCAvatarWhere.NPCAvatarID.EQ(id.String()),
-		models.NPCAvatarWhere.Status.EQ(npcStatusPublished),
-		qm.Limit(1),
-	).One(ctx, exec)
-	if errors.Is(err, sql.ErrNoRows) {
-		return query.NPCAvatarRecord{}, query.ErrNPCAvatarNotFound
-	}
-	if err != nil {
-		return query.NPCAvatarRecord{}, err
-	}
-	return toNPCAvatarRecord(id, row.Metadata)
+	return records, nil
 }
 
 func toNPCAvatarRecord(id uuid.UUID, raw []byte) (query.NPCAvatarRecord, error) {

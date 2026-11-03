@@ -23,7 +23,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Player:       c.Player,
 			Cards:        collectionOf(c.Decks),
 			Decks:        c.Decks,
-			UnlockBoards: c.UnlockBoards,
+			UnlockBoards: c.UnlockBoards, UnlockNPCAvatars: c.UnlockNPCAvatars,
 		}}, nil
 	case *RecordCollectionCommand:
 		progress, done, err := inProgress(state)

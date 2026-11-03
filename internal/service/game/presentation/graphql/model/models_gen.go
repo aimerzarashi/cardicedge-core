@@ -57,11 +57,6 @@ type NpcAvatarResult interface {
 	IsNpcAvatarResult()
 }
 
-// NPC のアバターの一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
-type NpcAvatarsResult interface {
-	IsNpcAvatarsResult()
-}
-
 // registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type RegisterAvatarResult interface {
 	IsRegisterAvatarResult()
@@ -430,7 +425,7 @@ type MatchRules struct {
 type Mutation struct {
 }
 
-// NPC のアバター（公開中のもの）
+// NPC のアバター（プレイヤーが解放した公開中のもの）
 type NpcAvatar struct {
 	// 公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -442,31 +437,13 @@ type NpcAvatar struct {
 
 func (NpcAvatar) IsNpcAvatarResult() {}
 
-// 公開中の NPC のアバターが無い（公開中でないものを含む）
+// 解放した公開中の NPC のアバターが無い（解放していない・公開中でないものを含む。区別しない）
 type NpcAvatarNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
 
 func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
-
-// NPC のアバターの一覧の 1 ページ（名前の順）
-type NpcAvatarsConnection struct {
-	// このページの NPC のアバター
-	Edges []*NpcAvatarsEdge `json:"edges"`
-	// ページの情報
-	PageInfo *PageInfo `json:"pageInfo"`
-}
-
-func (NpcAvatarsConnection) IsNpcAvatarsResult() {}
-
-// NPC のアバターの一覧の 1 件と、その位置
-type NpcAvatarsEdge struct {
-	// この 1 件の位置（次のページを取るときに after に渡す）
-	Cursor string `json:"cursor"`
-	// NPC のアバター
-	Node *NpcAvatar `json:"node"`
-}
 
 // NPC のデッキ（公開中のもの）。NPC のアバターを通してだけ出る
 type NpcDeck struct {
@@ -522,6 +499,8 @@ type Player struct {
 	Boards []*Board `json:"boards"`
 	// このプレイヤーのデッキ（作った順。スターターの配布で作る数だけなので、ページ分けしないリスト）
 	Decks []*Deck `json:"decks"`
+	// このプレイヤーが解放した NPC のアバター（解放した順。公開中のものだけで、使用不可になったアバターは含まれない。まだ解放が届いていなければ空）
+	NpcAvatars []*NpcAvatar `json:"npcAvatars"`
 }
 
 func (Player) IsMeResult() {}
@@ -541,8 +520,6 @@ func (PlayerNotRegisteredError) IsBoardResult() {}
 func (PlayerNotRegisteredError) IsDeckResult() {}
 
 func (PlayerNotRegisteredError) IsGameRulesResult() {}
-
-func (PlayerNotRegisteredError) IsNpcAvatarsResult() {}
 
 func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
 
@@ -630,8 +607,6 @@ type ValidationErrors struct {
 func (ValidationErrors) IsRegisterAvatarResult() {}
 
 func (ValidationErrors) IsBoardsResult() {}
-
-func (ValidationErrors) IsNpcAvatarsResult() {}
 
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
 type WarpTile struct {

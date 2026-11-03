@@ -17,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
@@ -112,6 +113,12 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	var unlocked unlock.BoardsUnlockedEvent
 	require.NoError(t, json.Unmarshal(unlockRaw, &unlocked))
 	require.Equal(t, []board.ID{m.Boards.InternalPublishedB, m.Boards.InternalRetired, m.Boards.InternalPublishedA}, unlocked.Boards)
+	// NPC のアバターも同じ（種類ごとの 3 つ目のイベント）
+	var npcUnlockedRaw []byte
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 3`, unlockID.Int64()).Scan(&npcUnlockedRaw))
+	var npcUnlocked unlock.NPCAvatarsUnlockedEvent
+	require.NoError(t, json.Unmarshal(npcUnlockedRaw, &npcUnlocked))
+	require.Equal(t, []npcavatar.ID{m.NPCAvatars.InternalPublishedB, m.NPCAvatars.InternalRetired, m.NPCAvatars.InternalPublishedA}, npcUnlocked.NPCAvatars)
 }
 
 // State は名前・カードを持たない（Decide が使わないため）ので、作成のイベントの payload から読む

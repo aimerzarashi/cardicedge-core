@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 )
@@ -46,6 +47,8 @@ type StarterSet struct {
 	// 配るデッキと解放するボード（集約が持つ順）。イベントは別の集約を内部 ID で持つため、内部 ID で持ち、書くときに公開 ID に引き直す
 	GrantDecks   []grantdeck.ID
 	UnlockBoards []board.ID
+	// 解放する NPC のアバター（集約が持つ順）。同じく内部 ID で持ち、書くときに公開 ID に引き直す
+	UnlockNPCAvatars []npcavatar.ID
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
 	IsDeleted bool
 }
@@ -64,6 +67,8 @@ type StarterSetMetadata struct {
 	// 配るデッキ・解放するボードの公開 ID（集約が持つ順）。投影では空のまま。書くときに repository が GrantDecks・UnlockBoards から入れる
 	GrantDecks   []uuid.UUID `json:"grant_decks"`
 	UnlockBoards []uuid.UUID `json:"unlock_boards"`
+	// 解放する NPC のアバターの公開 ID（集約が持つ順）。投影では空のまま。書くときに repository が UnlockNPCAvatars から入れる
+	UnlockNPCAvatars []uuid.UUID `json:"unlock_npc_avatars"`
 }
 
 // スターターセットのイベントだけを扱い、ほかは状態をそのまま返す
@@ -95,6 +100,12 @@ func (state StarterSet) Evolve(event any) StarterSet {
 		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.AssignedBy)
 	case *starterset.UnlockBoardsUnassignedEvent:
 		state.UnlockBoards = slices.DeleteFunc(slices.Clone(state.UnlockBoards), func(id board.ID) bool { return slices.Contains(e.UnlockBoards, id) })
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.UnassignedBy)
+	case *starterset.UnlockNPCAvatarsAssignedEvent:
+		state.UnlockNPCAvatars = append(slices.Clone(state.UnlockNPCAvatars), e.UnlockNPCAvatars...)
+		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.AssignedBy)
+	case *starterset.UnlockNPCAvatarsUnassignedEvent:
+		state.UnlockNPCAvatars = slices.DeleteFunc(slices.Clone(state.UnlockNPCAvatars), func(id npcavatar.ID) bool { return slices.Contains(e.UnlockNPCAvatars, id) })
 		state = state.touched(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.UnassignedBy)
 	case *starterset.PublishedEvent:
 		state = state.changeStatus(StarterSetStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)

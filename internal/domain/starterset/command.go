@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -36,6 +37,11 @@ type SetUnlockBoardsCommand struct {
 	ChangedBy    operator.ID
 }
 
+type SetUnlockNPCAvatarsCommand struct {
+	UnlockNPCAvatars []npcavatar.ID
+	ChangedBy        operator.ID
+}
+
 type PublishCommand struct {
 	PublishedBy operator.ID
 }
@@ -48,10 +54,11 @@ type DeleteCommand struct {
 	DeletedBy operator.ID
 }
 
-func (*RegisterCommand) isStarterSetCommand()        {}
-func (*RenameCommand) isStarterSetCommand()          {}
-func (*SetGrantDecksCommand) isStarterSetCommand()   {}
-func (*SetUnlockBoardsCommand) isStarterSetCommand() {}
-func (*PublishCommand) isStarterSetCommand()         {}
-func (*RetireCommand) isStarterSetCommand()          {}
-func (*DeleteCommand) isStarterSetCommand()          {}
+func (*RegisterCommand) isStarterSetCommand()            {}
+func (*RenameCommand) isStarterSetCommand()              {}
+func (*SetGrantDecksCommand) isStarterSetCommand()       {}
+func (*SetUnlockBoardsCommand) isStarterSetCommand()     {}
+func (*SetUnlockNPCAvatarsCommand) isStarterSetCommand() {}
+func (*PublishCommand) isStarterSetCommand()             {}
+func (*RetireCommand) isStarterSetCommand()              {}
+func (*DeleteCommand) isStarterSetCommand()              {}

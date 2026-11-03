@@ -17,6 +17,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck/grantdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
@@ -73,6 +75,24 @@ func (f fixture) setGrantDecksCommand(t *testing.T, values ...int64) *starterset
 func (f fixture) setUnlockBoardsCommand(t *testing.T, values ...int64) *starterset.SetUnlockBoardsCommand {
 	t.Helper()
 	return &starterset.SetUnlockBoardsCommand{UnlockBoards: boardIDs(t, values...), ChangedBy: f.operatorID}
+}
+
+func (f fixture) setUnlockNPCAvatarsCommand(t *testing.T, values ...int64) *starterset.SetUnlockNPCAvatarsCommand {
+	t.Helper()
+	ids := make([]npcavatar.ID, 0, len(values))
+	for _, value := range values {
+		ids = append(ids, npcavatartest.ID(t, value))
+	}
+	return &starterset.SetUnlockNPCAvatarsCommand{UnlockNPCAvatars: ids, ChangedBy: f.operatorID}
+}
+
+func npcAvatarIDs(t *testing.T, values ...int64) []npcavatar.ID {
+	t.Helper()
+	ids := make([]npcavatar.ID, 0, len(values))
+	for _, value := range values {
+		ids = append(ids, npcavatartest.ID(t, value))
+	}
+	return ids
 }
 
 func grantDeckIDs(t *testing.T, values ...int64) []grantdeck.ID {
@@ -168,6 +188,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		t.Helper()
 		state, _ := apply(t, f.register(t), f.setGrantDecksCommand(t, 40, 41), changedAt)
 		state, _ = apply(t, state, f.setUnlockBoardsCommand(t, 50, 51), changedAt)
+		state, _ = apply(t, state, f.setUnlockNPCAvatarsCommand(t, 60, 61), changedAt)
 		return state
 	}
 	tests := []struct {
@@ -182,6 +203,9 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		{name: "same_unlock_boards", state: withLists(t), cmd: f.setUnlockBoardsCommand(t, 50, 51)},
 		{name: "same_unlock_boards_in_other_order", state: withLists(t), cmd: f.setUnlockBoardsCommand(t, 51, 50)},
 		{name: "no_unlock_boards_to_no_unlock_boards", state: f.register(t), cmd: f.setUnlockBoardsCommand(t)},
+		{name: "same_unlock_npc_avatars", state: withLists(t), cmd: f.setUnlockNPCAvatarsCommand(t, 60, 61)},
+		{name: "same_unlock_npc_avatars_in_other_order", state: withLists(t), cmd: f.setUnlockNPCAvatarsCommand(t, 61, 60)},
+		{name: "no_unlock_npc_avatars_to_no_unlock_npc_avatars", state: f.register(t), cmd: f.setUnlockNPCAvatarsCommand(t)},
 		{name: "publish_published", state: f.published(t), cmd: f.publishCommand()},
 		{name: "retire_retired", state: f.retired(t), cmd: f.retireCommand()},
 	}
@@ -252,6 +276,27 @@ func TestDecide_SetUnlockBoardsUnassignsMissingAndAssignsNewBoards(t *testing.T)
 		},
 	}, events)
 	require.Equal(t, boardIDs(t, 50, 52), state.(starterset.StarterSet).UnlockBoards)
+}
+
+func TestDecide_SetUnlockNPCAvatarsUnassignsMissingAndAssignsNewNPCAvatars(t *testing.T) {
+	f := newFixture(t)
+	before, _ := apply(t, f.register(t), f.setUnlockNPCAvatarsCommand(t, 60, 61), changedAt)
+
+	state, events := apply(t, before, f.setUnlockNPCAvatarsCommand(t, 62, 60), changedAt)
+
+	require.Equal(t, []starterset.Event{
+		&starterset.UnlockNPCAvatarsUnassignedEvent{
+			EventMeta:        starterset.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+			UnlockNPCAvatars: npcAvatarIDs(t, 61),
+			UnassignedBy:     f.operatorID,
+		},
+		&starterset.UnlockNPCAvatarsAssignedEvent{
+			EventMeta:        starterset.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
+			UnlockNPCAvatars: npcAvatarIDs(t, 62),
+			AssignedBy:       f.operatorID,
+		},
+	}, events)
+	require.Equal(t, npcAvatarIDs(t, 60, 62), state.(starterset.StarterSet).UnlockNPCAvatars)
 }
 
 func TestDecide_SetListsCanClearThem(t *testing.T) {
@@ -326,6 +371,7 @@ func TestDecide_RejectsChangesAndDeleteUnlessDraft(t *testing.T) {
 		{name: "rename", cmd: &starterset.RenameCommand{Name: startersettest.Name(t, "新しいセット"), RenamedBy: f.operatorID}},
 		{name: "set_grant_decks", cmd: f.setGrantDecksCommand(t, 40)},
 		{name: "set_unlock_boards", cmd: f.setUnlockBoardsCommand(t, 50)},
+		{name: "set_unlock_npc_avatars", cmd: f.setUnlockNPCAvatarsCommand(t, 60)},
 		{name: "delete", cmd: f.deleteCommand()},
 	}
 	states := []struct {
@@ -368,6 +414,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 		{name: "rename", cmd: &starterset.RenameCommand{Name: startersettest.Name(t, "新しいセット"), RenamedBy: f.operatorID}},
 		{name: "set_grant_decks", cmd: f.setGrantDecksCommand(t, 40)},
 		{name: "set_unlock_boards", cmd: f.setUnlockBoardsCommand(t, 50)},
+		{name: "set_unlock_npc_avatars", cmd: f.setUnlockNPCAvatarsCommand(t, 60)},
 		{name: "publish", cmd: f.publishCommand()},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: f.deleteCommand()},
@@ -468,6 +515,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&starterset.GrantDecksUnassignedEvent{EventMeta: meta, GrantDecks: grantDeckIDs(t, 40), UnassignedBy: f.operatorID},
 		&starterset.UnlockBoardsAssignedEvent{EventMeta: meta, UnlockBoards: boardIDs(t, 50, 51), AssignedBy: f.operatorID},
 		&starterset.UnlockBoardsUnassignedEvent{EventMeta: meta, UnlockBoards: boardIDs(t, 50), UnassignedBy: f.operatorID},
+		&starterset.UnlockNPCAvatarsAssignedEvent{EventMeta: meta, UnlockNPCAvatars: npcAvatarIDs(t, 60, 61), AssignedBy: f.operatorID},
+		&starterset.UnlockNPCAvatarsUnassignedEvent{EventMeta: meta, UnlockNPCAvatars: npcAvatarIDs(t, 60), UnassignedBy: f.operatorID},
 		&starterset.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
 		&starterset.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
 		&starterset.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},

@@ -16,5 +16,6 @@
       {"card_id": "00000000-0000-0000-0000-000000000003", "count": 2}
     ]}
   ],
-  "unlock_boards": [50, 51]
+  "unlock_boards": [50, 51],
+  "unlock_npc_avatars": [60]
 }

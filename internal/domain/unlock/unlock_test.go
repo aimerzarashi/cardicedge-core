@@ -12,6 +12,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock/unlocktest"
@@ -80,11 +82,11 @@ func TestEvolve_CreatedEventMakesUnlockWithoutBoards(t *testing.T) {
 	require.Equal(t, unlock.Unlock{ID: cmd.ID, Version: 1, Player: cmd.Player}, state)
 }
 
-func TestDecide_UnlockBoardsEmitsOnlyNewBoardsInGivenOrder(t *testing.T) {
+func TestDecide_UnlockEmitsOnlyNewBoardsInGivenOrder(t *testing.T) {
 	created, _ := create(t)
-	first, _ := apply(t, created, &unlock.UnlockBoardsCommand{Boards: []board.ID{boardID(t, 2), boardID(t, 1)}})
+	first, _ := apply(t, created, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 2), boardID(t, 1)}})
 
-	state, events := apply(t, first, &unlock.UnlockBoardsCommand{Boards: []board.ID{boardID(t, 1), boardID(t, 3), boardID(t, 3), boardID(t, 4)}})
+	state, events := apply(t, first, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1), boardID(t, 3), boardID(t, 3), boardID(t, 4)}})
 
 	require.Equal(t, []unlock.Event{&unlock.BoardsUnlockedEvent{
 		EventMeta: unlock.EventMeta{EntityID: unlocktest.ID(t, 30), AggregateVersion: 3, OccurredAt: unlockedAt},
@@ -94,20 +96,20 @@ func TestDecide_UnlockBoardsEmitsOnlyNewBoardsInGivenOrder(t *testing.T) {
 	require.Equal(t, int64(3), state.(unlock.Unlock).Version)
 }
 
-func TestDecide_UnlockBoardsEmitsNothingWhenNothingIsNew(t *testing.T) {
+func TestDecide_UnlockEmitsNothingWhenNothingIsNew(t *testing.T) {
 	created, _ := create(t)
-	unlocked, _ := apply(t, created, &unlock.UnlockBoardsCommand{Boards: []board.ID{boardID(t, 1)}})
+	unlocked, _ := apply(t, created, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1)}})
 	tests := []struct {
 		name   string
 		state  unlock.State
 		boards []board.ID
 	}{
-		{name: "no_boards", state: created, boards: nil},
+		{name: "nothing_requested", state: created, boards: nil},
 		{name: "already_unlocked", state: unlocked, boards: []board.ID{boardID(t, 1)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			events, err := unlock.Decide(tt.state, &unlock.UnlockBoardsCommand{Boards: tt.boards}, unlockedAt)
+			events, err := unlock.Decide(tt.state, &unlock.UnlockCommand{Boards: tt.boards}, unlockedAt)
 
 			require.NoError(t, err)
 			require.Empty(t, events)
@@ -115,8 +117,50 @@ func TestDecide_UnlockBoardsEmitsNothingWhenNothingIsNew(t *testing.T) {
 	}
 }
 
-func TestDecide_RejectsUnlockBoardsBeforeCreated(t *testing.T) {
-	_, err := unlock.Decide(unlock.InitialState(), &unlock.UnlockBoardsCommand{Boards: []board.ID{boardID(t, 1)}}, unlockedAt)
+func npcAvatarID(t *testing.T, value int64) npcavatar.ID {
+	t.Helper()
+	return npcavatartest.ID(t, value)
+}
+
+func TestDecide_UnlockEmitsOnlyNewNPCAvatarsInGivenOrderAndSkipsUnlocked(t *testing.T) {
+	created, _ := create(t)
+	first, _ := apply(t, created, &unlock.UnlockCommand{NPCAvatars: []npcavatar.ID{npcAvatarID(t, 2), npcAvatarID(t, 1)}})
+
+	state, events := apply(t, first, &unlock.UnlockCommand{NPCAvatars: []npcavatar.ID{npcAvatarID(t, 1), npcAvatarID(t, 3), npcAvatarID(t, 3)}})
+	_, none := apply(t, state, &unlock.UnlockCommand{NPCAvatars: []npcavatar.ID{npcAvatarID(t, 3)}})
+
+	require.Equal(t, []unlock.Event{&unlock.NPCAvatarsUnlockedEvent{
+		EventMeta:  unlock.EventMeta{EntityID: unlocktest.ID(t, 30), AggregateVersion: 3, OccurredAt: unlockedAt},
+		NPCAvatars: []npcavatar.ID{npcAvatarID(t, 3)},
+	}}, events)
+	require.Equal(t, []npcavatar.ID{npcAvatarID(t, 2), npcAvatarID(t, 1), npcAvatarID(t, 3)}, state.(unlock.Unlock).NPCAvatars)
+	require.Empty(t, none)
+}
+
+// コマンドは種類をまとめ、イベントは種類ごとに分ける（版は出したイベントの数だけ進む）。新しいものが無い種類のイベントは出ない
+func TestDecide_UnlockEmitsOneEventPerKindInOneCommand(t *testing.T) {
+	created, _ := create(t)
+
+	state, events := apply(t, created, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1)}, NPCAvatars: []npcavatar.ID{npcAvatarID(t, 5)}})
+
+	require.Equal(t, []unlock.Event{
+		&unlock.BoardsUnlockedEvent{EventMeta: unlock.EventMeta{EntityID: unlocktest.ID(t, 30), AggregateVersion: 2, OccurredAt: unlockedAt}, Boards: []board.ID{boardID(t, 1)}},
+		&unlock.NPCAvatarsUnlockedEvent{EventMeta: unlock.EventMeta{EntityID: unlocktest.ID(t, 30), AggregateVersion: 3, OccurredAt: unlockedAt}, NPCAvatars: []npcavatar.ID{npcAvatarID(t, 5)}},
+	}, events)
+	require.Equal(t, int64(3), state.(unlock.Unlock).Version)
+	_, onlyNPC := apply(t, state, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1)}, NPCAvatars: []npcavatar.ID{npcAvatarID(t, 6)}})
+	require.Len(t, onlyNPC, 1)
+	require.IsType(t, &unlock.NPCAvatarsUnlockedEvent{}, onlyNPC[0])
+}
+
+func TestEvolve_RejectsNPCAvatarsUnlockedEventBeforeCreated(t *testing.T) {
+	_, err := unlock.Evolve(unlock.InitialState(), &unlock.NPCAvatarsUnlockedEvent{NPCAvatars: []npcavatar.ID{npcAvatarID(t, 1)}})
+
+	require.ErrorIs(t, err, unlock.ErrInvalidState)
+}
+
+func TestDecide_RejectsUnlockBeforeCreated(t *testing.T) {
+	_, err := unlock.Decide(unlock.InitialState(), &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1)}}, unlockedAt)
 
 	require.ErrorIs(t, err, unlock.ErrInvalidState)
 }
@@ -124,7 +168,7 @@ func TestDecide_RejectsUnlockBoardsBeforeCreated(t *testing.T) {
 func TestEvolve_DoesNotChangeGivenState(t *testing.T) {
 	created, _ := create(t)
 
-	next, _ := apply(t, created, &unlock.UnlockBoardsCommand{Boards: []board.ID{boardID(t, 1)}})
+	next, _ := apply(t, created, &unlock.UnlockCommand{Boards: []board.ID{boardID(t, 1)}})
 
 	require.Empty(t, created.(unlock.Unlock).Boards)
 	require.Len(t, next.(unlock.Unlock).Boards, 1)
@@ -151,6 +195,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	events := []unlock.Event{
 		created,
 		&unlock.BoardsUnlockedEvent{EventMeta: meta, Boards: []board.ID{boardID(t, 0xb1), boardID(t, 0xb2)}},
+		&unlock.NPCAvatarsUnlockedEvent{EventMeta: meta, NPCAvatars: []npcavatar.ID{npcAvatarID(t, 60), npcAvatarID(t, 61)}},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {

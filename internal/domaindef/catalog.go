@@ -105,10 +105,13 @@ var Types = Catalog{
 			{ID: 2707, Name: "GrantDecksUnassignedEvent"},
 			{ID: 2708, Name: "UnlockBoardsAssignedEvent"},
 			{ID: 2709, Name: "UnlockBoardsUnassignedEvent"},
+			{ID: 2710, Name: "UnlockNPCAvatarsAssignedEvent"},
+			{ID: 2711, Name: "UnlockNPCAvatarsUnassignedEvent"},
 		}},
 		{ID: 2800, Name: "unlock", Events: []EventTypeDef{
 			{ID: 2801, Name: "CreatedEvent"},
 			{ID: 2802, Name: "BoardsUnlockedEvent"},
+			{ID: 2803, Name: "NPCAvatarsUnlockedEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
@@ -138,6 +141,7 @@ var Types = Catalog{
 		{ID: 1004, Name: "npc_avatar.deck"},
 		{ID: 1005, Name: "starter_set.grant_deck"},
 		{ID: 1006, Name: "starter_set.board"},
+		{ID: 1007, Name: "starter_set.npc_avatar"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},

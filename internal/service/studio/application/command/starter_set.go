@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
@@ -27,8 +28,10 @@ type StarterSetHandler struct {
 	// 配るデッキ・解放するボードを参照する（参照されている間は識別子を消せない）
 	updateGrantDeckReferences starterset.UpdateGrantDeckReferencesFunc
 	updateBoardReferences     starterset.UpdateBoardReferencesFunc
+	updateNPCAvatarReferences starterset.UpdateNPCAvatarReferencesFunc
 	grantDeckStatuses         GrantDeckStatusesFunc
 	boardStatuses             BoardStatusesFunc
+	npcAvatarStatuses         NPCAvatarStatusesFunc
 	// 公開中の数の持ち主（ゲーム全体のルールの集約）を、一意な key から引く
 	findGameRules gamerules.FindFunc
 	reserveQuota  starterset.ReserveQuotaFunc
@@ -43,8 +46,10 @@ func NewStarterSetHandler(
 	updateName starterset.UpdateNameFunc,
 	updateGrantDeckReferences starterset.UpdateGrantDeckReferencesFunc,
 	updateBoardReferences starterset.UpdateBoardReferencesFunc,
+	updateNPCAvatarReferences starterset.UpdateNPCAvatarReferencesFunc,
 	grantDeckStatuses GrantDeckStatusesFunc,
 	boardStatuses BoardStatusesFunc,
+	npcAvatarStatuses NPCAvatarStatusesFunc,
 	findGameRules gamerules.FindFunc,
 	reserveQuota starterset.ReserveQuotaFunc,
 	releaseQuota starterset.ReleaseQuotaFunc,
@@ -52,8 +57,8 @@ func NewStarterSetHandler(
 ) *StarterSetHandler {
 	return &StarterSetHandler{
 		eventStore: eventStore, identifier: identifier, entityRefs: entityRefs, updateName: updateName,
-		updateGrantDeckReferences: updateGrantDeckReferences, updateBoardReferences: updateBoardReferences,
-		grantDeckStatuses: grantDeckStatuses, boardStatuses: boardStatuses,
+		updateGrantDeckReferences: updateGrantDeckReferences, updateBoardReferences: updateBoardReferences, updateNPCAvatarReferences: updateNPCAvatarReferences,
+		grantDeckStatuses: grantDeckStatuses, boardStatuses: boardStatuses, npcAvatarStatuses: npcAvatarStatuses,
 		findGameRules: findGameRules, reserveQuota: reserveQuota, releaseQuota: releaseQuota, now: now,
 	}
 }
@@ -105,6 +110,32 @@ func (r *BoardStatusReader) Statuses(ctx context.Context, ids []board.ID) (map[b
 			return nil, err
 		}
 		if loaded, ok := state.(board.Board); ok {
+			statuses[id] = loaded.Status
+		}
+	}
+	return statuses, nil
+}
+
+// NPC のアバターの状態を返す。無い（削除したものを含む）アバターは結果に含めない
+type NPCAvatarStatusesFunc func(ctx context.Context, ids []npcavatar.ID) (map[npcavatar.ID]npcavatar.Status, error)
+
+// NPC のアバターの状態を、GrantDeckStatusReader と同じ理由でイベントストアから読む
+type NPCAvatarStatusReader struct {
+	eventStore domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State]
+}
+
+func NewNPCAvatarStatusReader(eventStore domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State]) *NPCAvatarStatusReader {
+	return &NPCAvatarStatusReader{eventStore: eventStore}
+}
+
+func (r *NPCAvatarStatusReader) Statuses(ctx context.Context, ids []npcavatar.ID) (map[npcavatar.ID]npcavatar.Status, error) {
+	statuses := make(map[npcavatar.ID]npcavatar.Status, len(ids))
+	for _, id := range ids {
+		state, err := r.eventStore.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if loaded, ok := state.(npcavatar.NPCAvatar); ok {
 			statuses[id] = loaded.Status
 		}
 	}
@@ -247,6 +278,40 @@ func (c *StarterSetHandler) SetUnlockBoards(ctx context.Context, id uuid.UUID, r
 			return ChangedStarterSet{}, err
 		}
 		if err := c.updateBoardReferences(ctx, changed.ID, changed.UnlockBoards); err != nil {
+			return ChangedStarterSet{}, err
+		}
+		return changedStarterSet(changed), nil
+	})
+	return changed, mapStarterSetError(err)
+}
+
+// 解放する NPC のアバターの一覧を npcAvatarIDs（NPC のアバターの公開 ID）に置き換える。誤りの決まりは SetGrantDecks と同じ
+// （項目名は unlockNpcAvatarIds.<番号>。NPC のアバターでないものは input.NotFound）
+func (c *StarterSetHandler) SetUnlockNPCAvatars(ctx context.Context, id uuid.UUID, revision int64, npcAvatarIDs []uuid.UUID) (ChangedStarterSet, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedStarterSet{}, ErrNotOperator
+	}
+	npcAvatars, err := parseReferences(ctx, c.entityRefs, npcAvatarIDs, "unlockNpcAvatarIds", npcavatar.Types().EntityType, npcavatar.NewID)
+	if err != nil {
+		return ChangedStarterSet{}, err
+	}
+	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedStarterSet, error) {
+		current, err := c.load(ctx, id, revision)
+		if err != nil {
+			return ChangedStarterSet{}, err
+		}
+		if current.Status != starterset.StatusDraft {
+			return ChangedStarterSet{}, starterset.ErrNotDraft
+		}
+		if err := requirePublished(ctx, c.npcAvatarStatuses, current.UnlockNPCAvatars, npcAvatars, "unlockNpcAvatarIds", npcavatar.StatusPublished); err != nil {
+			return ChangedStarterSet{}, err
+		}
+		changed, _, err := c.decideAndSave(ctx, current, &starterset.SetUnlockNPCAvatarsCommand{UnlockNPCAvatars: npcAvatars, ChangedBy: changedBy})
+		if err != nil {
+			return ChangedStarterSet{}, err
+		}
+		if err := c.updateNPCAvatarReferences(ctx, changed.ID, changed.UnlockNPCAvatars); err != nil {
 			return ChangedStarterSet{}, err
 		}
 		return changedStarterSet(changed), nil

@@ -8,6 +8,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
@@ -27,16 +29,21 @@ func TestUnlock_CreatedMakesRowWithoutBoardsAndBoardsUnlockedAppendsInOrder(t *t
 		EventMeta: unlock.EventMeta{EntityID: unlocktest.ID(t, 3), AggregateVersion: 2, OccurredAt: occurredAt},
 		Boards:    []board.ID{boardB, boardA},
 	}
+	npcAvatar := &unlock.NPCAvatarsUnlockedEvent{
+		EventMeta:  unlock.EventMeta{EntityID: unlocktest.ID(t, 3), AggregateVersion: 4, OccurredAt: laterAt},
+		NPCAvatars: []npcavatar.ID{npcavatartest.ID(t, 61), npcavatartest.ID(t, 60)},
+	}
 	later := &unlock.BoardsUnlockedEvent{
 		EventMeta: unlock.EventMeta{EntityID: unlocktest.ID(t, 3), AggregateVersion: 3, OccurredAt: laterAt},
 		Boards:    []board.ID{boardC},
 	}
 
 	empty := readmodel.Unlock{}.Evolve(created)
-	unlocked := empty.Evolve(first).Evolve(later)
+	unlocked := empty.Evolve(first).Evolve(later).Evolve(npcAvatar)
 
-	require.Equal(t, readmodel.Unlock{Unlock: unlocktest.ID(t, 3), Player: playertest.ID(t, 7), Boards: []board.ID{}, RegisteredAt: occurredAt, UpdatedAt: occurredAt}, empty)
+	require.Equal(t, readmodel.Unlock{Unlock: unlocktest.ID(t, 3), Player: playertest.ID(t, 7), Boards: []board.ID{}, NPCAvatars: []npcavatar.ID{}, RegisteredAt: occurredAt, UpdatedAt: occurredAt}, empty)
 	require.Equal(t, []board.ID{boardB, boardA, boardC}, unlocked.Boards)
+	require.Equal(t, []npcavatar.ID{npcavatartest.ID(t, 61), npcavatartest.ID(t, 60)}, unlocked.NPCAvatars)
 	require.Equal(t, occurredAt, unlocked.RegisteredAt)
 	// 公開 ID と操作した人は、イベントが内部 ID で持つため空のまま（書くときに repository が入れる）
 	require.Equal(t, readmodel.UnlockMetadata{RegisteredAt: occurredAt, UpdatedAt: laterAt}, unlocked.Metadata())

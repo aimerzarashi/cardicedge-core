@@ -4,7 +4,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
 const npcAvatarFields = `id name
@@ -19,21 +22,9 @@ const npcAvatarQuery = `query ($id: UUID!) {
 	}
 }`
 
-const npcAvatarsQuery = `query ($first: Int, $after: String) {
-	npcAvatars(first: $first, after: $after) {
-		__typename
-		... on NpcAvatarsConnection {
-			edges { cursor node { ` + npcAvatarFields + ` } }
-			pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
-		}
-		... on ValidationErrors {
-			errors {
-				__typename
-				field
-				... on FieldOutOfRange { min max }
-			}
-		}
-		... on PlayerNotRegisteredError { message }
+const meNpcAvatarsQuery = `{
+	me {
+		... on Player { npcAvatars { ` + npcAvatarFields + ` } }
 	}
 }`
 
@@ -77,90 +68,76 @@ func publishedNPCAvatarB() map[string]any {
 	}
 }
 
-func npcAvatarNodes(t *testing.T, result map[string]any) []any {
+func meNpcAvatars(t *testing.T, token string) ([]any, error) {
 	t.Helper()
-	require.Equal(t, "NpcAvatarsConnection", result["__typename"])
-	nodes := []any{}
-	for _, edge := range result["edges"].([]any) {
-		nodes = append(nodes, edge.(map[string]any)["node"])
+	result, err := client.TryData(t.Context(), token, meNpcAvatarsQuery, nil, "me")
+	if err != nil {
+		return nil, err
 	}
-	return nodes
+	return result["npcAvatars"].([]any), nil
 }
 
-// 公開は一度だけ写すので、共有の DB に入っている NPC のアバターはこの 4 つだけ
-func TestNPCAvatars_ListsOnlyPublishedAvatarsInNameOrderWithPublishedDecksInAssignedOrder(t *testing.T) {
+// 解放した NPC のアバターは、スターターセットが指す順（公開中B → 公開中A）に並ぶ。セットは使用不可のアバターも指すが、公開中でないものは出ない。
+// 公開中でも解放されていないアバターは出ない。デッキは割り当てた順に、公開中のものだけ
+func TestMe_ListsUnlockedNPCAvatarsInUnlockOrderWithPublishedDecksInAssignedOrderAfterStarterGrant(t *testing.T) {
 	t.Parallel()
+	token := newPlayerToken(t)
+	registerPlayer(t, token)
 
-	result := client.Data(t, registeredPlayerToken(t), npcAvatarsQuery, nil, "npcAvatars")
-
-	require.Equal(t, []any{publishedNPCAvatarA(), publishedNPCAvatarB()}, npcAvatarNodes(t, result))
-	require.Equal(t, false, result["pageInfo"].(map[string]any)["hasNextPage"])
+	// 解放がまだ届いていなくても、エラーにせず空の一覧を返す（null にしない）
+	_, err := meNpcAvatars(t, token)
+	require.NoError(t, err)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		avatars, err := meNpcAvatars(t, token)
+		if !assert.NoError(c, err) || !assert.Len(c, avatars, 2) {
+			return
+		}
+		assert.Equal(c, publishedNPCAvatarB(), avatars[0])
+		assert.Equal(c, publishedNPCAvatarA(), avatars[1])
+	})
 }
 
-func TestNPCAvatars_PagesWithCursor(t *testing.T) {
+// 解放したものだけ詳細で返す。解放していない（公開中でも）・準備中・使用不可・無いものは、区別せず見つからない扱い
+func TestNPCAvatar_ReturnsUnlockedAvatarWithPublishedDecksInAssignedOrder(t *testing.T) {
 	t.Parallel()
-	token := registeredPlayerToken(t)
+	token := newPlayerToken(t)
+	registerPlayer(t, token)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		avatars, err := meNpcAvatars(t, token)
+		assert.NoError(c, err)
+		assert.Len(c, avatars, 2)
+	})
 
-	first := client.Data(t, token, npcAvatarsQuery, map[string]any{"first": 1}, "npcAvatars")
-	after := first["pageInfo"].(map[string]any)["endCursor"]
-	second := client.Data(t, token, npcAvatarsQuery, map[string]any{"first": 1, "after": after}, "npcAvatars")
-
-	require.Equal(t, []any{publishedNPCAvatarA()}, npcAvatarNodes(t, first))
-	require.Equal(t, true, first["pageInfo"].(map[string]any)["hasNextPage"])
-	require.Equal(t, []any{publishedNPCAvatarB()}, npcAvatarNodes(t, second))
-	require.Equal(t, false, second["pageInfo"].(map[string]any)["hasNextPage"])
-	require.Equal(t, true, second["pageInfo"].(map[string]any)["hasPreviousPage"])
-}
-
-func TestNPCAvatars_ReturnsValidationErrorsForInvalidPaging(t *testing.T) {
-	t.Parallel()
-
-	result := client.Data(t, registeredPlayerToken(t), npcAvatarsQuery, map[string]any{"first": 101, "after": "not-a-cursor"}, "npcAvatars")
-
-	require.Equal(t, "ValidationErrors", result["__typename"])
-	require.ElementsMatch(t, []any{
-		map[string]any{"__typename": "FieldOutOfRange", "field": "first", "min": float64(1), "max": float64(100)},
-		map[string]any{"__typename": "FieldInvalidFormat", "field": "after"},
-	}, result["errors"])
-}
-
-func TestNPCAvatars_ReturnsPlayerNotRegisteredForUnregisteredPlayer(t *testing.T) {
-	t.Parallel()
-
-	result := client.Data(t, newPlayerToken(t), npcAvatarsQuery, nil, "npcAvatars")
-
-	require.Equal(t, "PlayerNotRegisteredError", result["__typename"])
-	require.NotEmpty(t, result["message"])
-}
-
-func TestNPCAvatar_ReturnsPublishedAvatarWithPublishedDecksInAssignedOrder(t *testing.T) {
-	t.Parallel()
-
-	result := client.Data(t, registeredPlayerToken(t), npcAvatarQuery, map[string]any{"id": master.NPCAvatars.PublishedA.String()}, "npcAvatar")
+	result := client.Data(t, token, npcAvatarQuery, map[string]any{"id": master.NPCAvatars.PublishedA.String()}, "npcAvatar")
 
 	want := publishedNPCAvatarA()
 	want["__typename"] = "NpcAvatar"
 	require.Equal(t, want, result)
 }
 
-// 準備中・使用不可は写されていても出さない（詳細は、無いものと同じ扱い）
-func TestNPCAvatar_ReturnsNotFoundForAvatarThatIsNotPublished(t *testing.T) {
+func TestNPCAvatar_ReturnsNotFoundForAvatarThatIsNotUnlockedOrNotPublished(t *testing.T) {
 	t.Parallel()
+	token := newPlayerToken(t)
+	registerPlayer(t, token)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		avatars, err := meNpcAvatars(t, token)
+		assert.NoError(c, err)
+		assert.Len(c, avatars, 2)
+	})
 	tests := []struct {
 		name string
 		id   uuid.UUID
 	}{
+		{name: "published_but_not_unlocked", id: master.NPCAvatars.PublishedLocked},
 		{name: "draft", id: master.NPCAvatars.Draft},
-		{name: "retired", id: master.NPCAvatars.Retired},
+		{name: "retired_but_in_starter_set", id: master.NPCAvatars.Retired},
 		{name: "unknown", id: uuid.New()},
 		// NPC のデッキは単独では引けない（アバターを通してだけ出す）
 		{name: "deck_id", id: master.NPCAvatars.DeckPublished1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			result := client.Data(t, registeredPlayerToken(t), npcAvatarQuery, map[string]any{"id": tt.id.String()}, "npcAvatar")
+			result := client.Data(t, token, npcAvatarQuery, map[string]any{"id": tt.id.String()}, "npcAvatar")
 
 			require.Equal(t, "NpcAvatarNotFoundError", result["__typename"])
 			require.NotEmpty(t, result["message"])

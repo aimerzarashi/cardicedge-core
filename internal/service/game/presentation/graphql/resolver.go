@@ -50,8 +50,8 @@ type DeckQueries interface {
 
 // 実装は query.NPCAvatarHandler
 type NPCAvatarQueries interface {
-	List(ctx context.Context, first *int, after *string) (pagination.Connection[query.NPCAvatar], error)
-	Get(ctx context.Context, id uuid.UUID) (query.NPCAvatar, error)
+	ListUnlockedByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.NPCAvatar, error)
+	GetUnlocked(ctx context.Context, playerID uuid.UUID, id uuid.UUID) (query.NPCAvatar, error)
 }
 
 // 実装は query.GameRulesHandler

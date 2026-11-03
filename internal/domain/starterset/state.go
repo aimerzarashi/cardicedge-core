@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 )
 
 type State interface {
@@ -26,6 +27,8 @@ type StarterSet struct {
 	GrantDecks []grantdeck.ID
 	// 解放するボード（割り当てた順）
 	UnlockBoards []board.ID
+	// 解放する NPC のアバター（割り当てた順）
+	UnlockNPCAvatars []npcavatar.ID
 }
 
 func (StarterSet) isStarterSetState() {}

@@ -103,6 +103,6 @@ func toStarterSet(id uuid.UUID, raw []byte) (query.StarterSet, error) {
 	return query.StarterSet{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, RegisteredBy: metadata.RegisteredBy,
-		UpdatedAt: metadata.UpdatedAt, UpdatedBy: metadata.UpdatedBy, GrantDecks: metadata.GrantDecks, UnlockBoards: metadata.UnlockBoards,
+		UpdatedAt: metadata.UpdatedAt, UpdatedBy: metadata.UpdatedBy, GrantDecks: metadata.GrantDecks, UnlockBoards: metadata.UnlockBoards, UnlockNPCAvatars: metadata.UnlockNPCAvatars,
 	}, nil
 }

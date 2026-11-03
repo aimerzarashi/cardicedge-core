@@ -30,6 +30,8 @@ type StarterSet struct {
 	// 配るデッキ（配布デッキ）・解放するボードの公開 ID（集約が持つ順）
 	GrantDecks   []uuid.UUID
 	UnlockBoards []uuid.UUID
+	// 解放する NPC のアバターの公開 ID（集約が持つ順）
+	UnlockNPCAvatars []uuid.UUID
 }
 
 // Statuses が nil なら絞り込まない。空のリストは入力の誤り（CardFilter と同じ）

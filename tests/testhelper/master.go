@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -28,7 +29,7 @@ type Master struct {
 	Boards Boards
 	// PublishMaster と PublishMasterWithoutGameRules が写す
 	StarterSets StarterSets
-	// PublishMaster だけが写す
+	// PublishMaster と PublishMasterWithoutGameRules が写す
 	NPCAvatars NPCAvatars
 }
 
@@ -41,14 +42,19 @@ type StarterSets struct {
 	Published, Draft, Retired uuid.UUID
 }
 
-// 見本のマスタの NPC のアバターと NPC のデッキ。公開中のアバターが 2 つ（名前の順に A・B）、公開中でないものが 2 つ。
+// 見本のマスタの NPC のアバターと NPC のデッキ。スターターセットが解放する公開中のアバターが 2 つ（A・B）、公開中でないものが 2 つ、
+// 公開中だが解放されないものが 1 つ。
 // 公開中の A は、割り当てた順に 公開中のデッキ 2・準備中・公開中のデッキ 1・使用不可 を使う（公開中でないデッキは出ない）。
 // B は公開中のデッキ 1 だけを使う（同じデッキを複数のアバターが使える）。
 // make publish-master は割り当てられていないデッキを写さないが、写されても出ないことを確かめるために、どのアバターにも使われない公開中のデッキを入れる
 type NPCAvatars struct {
 	PublishedA, PublishedB, Draft, Retired uuid.UUID
-	DeckPublished1, DeckPublished2         uuid.UUID
-	DeckDraft, DeckRetired, DeckUnassigned uuid.UUID
+	// 公開中だが、スターターセットが解放しないアバター（解放していないものは出ないことを確かめる）
+	PublishedLocked uuid.UUID
+	// game の内部 ID（make publish-master が game の domain_entities に作る行の ID）
+	InternalPublishedA, InternalPublishedB, InternalRetired npcavatar.ID
+	DeckPublished1, DeckPublished2                          uuid.UUID
+	DeckDraft, DeckRetired, DeckUnassigned                  uuid.UUID
 	// 公開中のデッキ 1 に入れたカード（種類は順に Creature・Item・Spell。名前の順は Item のほうが先だが、種類が優先される）
 	Creature, Item, Spell uuid.UUID
 }
@@ -72,11 +78,10 @@ func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	if err := PublishGameRules(ctx, gameDB); err != nil {
 		return Master{}, err
 	}
-	master.NPCAvatars, err = PublishNPCAvatars(ctx, gameDB)
-	return master, err
+	return master, nil
 }
 
-// カード・配布デッキ・ボード・スターターセットだけを写す（game_rules を写し忘れた状態を確かめるため）
+// カード・配布デッキ・ボード・NPC のアバター・スターターセットだけを写す（game_rules を写し忘れた状態を確かめるため）
 func PublishMasterWithoutGameRules(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	master, err := publishCards(ctx, gameDB)
 	if err != nil {
@@ -86,6 +91,10 @@ func PublishMasterWithoutGameRules(ctx context.Context, gameDB *sql.DB) (Master,
 		return Master{}, err
 	}
 	master.Boards, err = PublishBoards(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	master.NPCAvatars, err = PublishNPCAvatars(ctx, gameDB)
 	if err != nil {
 		return Master{}, err
 	}
@@ -106,6 +115,10 @@ func PublishMasterWithoutPublishedStarterSet(ctx context.Context, gameDB *sql.DB
 		return Master{}, err
 	}
 	master.Boards, err = PublishBoards(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	master.NPCAvatars, err = PublishNPCAvatars(ctx, gameDB)
 	if err != nil {
 		return Master{}, err
 	}
@@ -159,12 +172,14 @@ func publishGrantDecks(ctx context.Context, gameDB *sql.DB, master Master) error
 	return tx.Commit()
 }
 
-// 公開中のスターターセットを写す。配るデッキは 水・使用不可・火 の順、解放するボードは 公開中B・使用不可・公開中A の順
+// 公開中のスターターセットを写す。配るデッキは 水・使用不可・火 の順、解放するボードは 公開中B・使用不可・公開中A の順、解放する NPC のアバターも 公開中B・使用不可・公開中A の順
 func PublishStarterSet(ctx context.Context, gameDB *sql.DB, master Master) error {
 	published := readmodel.StarterSetMetadata{
 		ID: master.StarterSets.Published, Name: "公開中", Status: readmodel.StarterSetStatusPublished,
 		GrantDecks:   []uuid.UUID{master.GrantDecks.Water, master.GrantDecks.Retired, master.GrantDecks.Fire},
 		UnlockBoards: []uuid.UUID{master.Boards.PublishedB, master.Boards.Retired, master.Boards.PublishedA},
+		// 解放する NPC のアバターも、名前の順でも行の順でもなく、セットが持つ順に解放され、公開中でないものが飛ばされることを確かめる
+		UnlockNPCAvatars: []uuid.UUID{master.NPCAvatars.PublishedB, master.NPCAvatars.Retired, master.NPCAvatars.PublishedA},
 	}
 	return insertStarterSets(ctx, gameDB, published)
 }
@@ -173,11 +188,11 @@ func PublishStarterSet(ctx context.Context, gameDB *sql.DB, master Master) error
 func publishUnpublishedStarterSets(ctx context.Context, gameDB *sql.DB, master Master) error {
 	draft := readmodel.StarterSetMetadata{
 		ID: master.StarterSets.Draft, Name: "準備中", Status: readmodel.StarterSetStatusDraft,
-		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA},
+		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA}, UnlockNPCAvatars: []uuid.UUID{master.NPCAvatars.PublishedA},
 	}
 	retired := readmodel.StarterSetMetadata{
 		ID: master.StarterSets.Retired, Name: "使用不可", Status: readmodel.StarterSetStatusRetired,
-		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA},
+		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA}, UnlockNPCAvatars: []uuid.UUID{master.NPCAvatars.PublishedA},
 	}
 	return insertStarterSets(ctx, gameDB, draft, retired)
 }
@@ -284,7 +299,7 @@ const publishBoardEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_
 // デッキ 1 は書き手の並びを Spell・Creature・Item にして、読み手が種類の順に並べ直すことを確かめる
 func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) {
 	n := NPCAvatars{
-		PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New(),
+		PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New(), PublishedLocked: uuid.New(),
 		DeckPublished1: uuid.New(), DeckPublished2: uuid.New(), DeckDraft: uuid.New(), DeckRetired: uuid.New(), DeckUnassigned: uuid.New(),
 		Creature: uuid.New(), Item: uuid.New(), Spell: uuid.New(),
 	}
@@ -335,6 +350,7 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 		// 公開中でなければ出ないことだけを確かめるので、使うデッキは公開中のものにする
 		npcAvatarMetadata(n.Draft, "準備中", readmodel.NPCAvatarStatusDraft, n.DeckPublished1),
 		npcAvatarMetadata(n.Retired, "使用不可", readmodel.NPCAvatarStatusRetired, n.DeckPublished1),
+		npcAvatarMetadata(n.PublishedLocked, "未解放", readmodel.NPCAvatarStatusPublished, n.DeckPublished1),
 	}
 	for i, metadata := range avatars {
 		raw, err := json.Marshal(metadata)
@@ -346,8 +362,28 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 			return NPCAvatars{}, err
 		}
 	}
+	// make publish-master と同じ文で、写した NPC のアバターの game の内部 ID（domain_entities の行）を作る
+	if _, err := gameDB.ExecContext(ctx, publishNPCAvatarEntitiesSQL); err != nil {
+		return NPCAvatars{}, err
+	}
+	for publicID, internalID := range map[uuid.UUID]*npcavatar.ID{
+		n.PublishedA: &n.InternalPublishedA, n.PublishedB: &n.InternalPublishedB, n.Retired: &n.InternalRetired,
+	} {
+		var value int64
+		if err := gameDB.QueryRowContext(ctx, `SELECT id FROM domain_entities WHERE public_id = $1`, publicID).Scan(&value); err != nil {
+			return NPCAvatars{}, err
+		}
+		id, err := npcavatar.NewID(value)
+		if err != nil {
+			return NPCAvatars{}, err
+		}
+		*internalID = id
+	}
 	return n, nil
 }
+
+// Makefile の publish-master が、写した npc_avatars について流す文と同じ
+const publishNPCAvatarEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT a.npc_avatar_id, t.id FROM npc_avatars a JOIN domain_entity_types t ON t.name = 'npc_avatar' ON CONFLICT DO NOTHING`
 
 func npcDeckMetadata(id uuid.UUID, name string, status readmodel.NPCDeckStatus, cards []readmodel.DeckCard) readmodel.NPCDeckMetadata {
 	return readmodel.NPCDeckMetadata{ID: id, Name: name, Status: status, Cards: cards}

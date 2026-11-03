@@ -29,16 +29,9 @@ func (r *UnlockReader) ListBoardsByPlayer(ctx context.Context, playerID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
-	row, err := models.Unlocks(models.UnlockWhere.PlayerID.EQ(playerID.String())).One(ctx, exec)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
+	metadata, found, err := unlockMetadataOf(ctx, exec, playerID)
+	if err != nil || !found {
 		return nil, err
-	}
-	var metadata readmodel.UnlockMetadata
-	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
-		return nil, fmt.Errorf("unlocks.metadata of %s: %w", row.UnlockID, err)
 	}
 	ids := make([]string, len(metadata.Boards))
 	for i, id := range metadata.Boards {
@@ -72,4 +65,20 @@ func (r *UnlockReader) ListBoardsByPlayer(ctx context.Context, playerID uuid.UUI
 		boards = append(boards, board)
 	}
 	return boards, nil
+}
+
+// プレイヤーの解放（プレイヤーに 1 つ）の metadata。まだ無ければ found が false
+func unlockMetadataOf(ctx context.Context, exec rdb.Executor, playerID uuid.UUID) (readmodel.UnlockMetadata, bool, error) {
+	row, err := models.Unlocks(models.UnlockWhere.PlayerID.EQ(playerID.String())).One(ctx, exec)
+	if errors.Is(err, sql.ErrNoRows) {
+		return readmodel.UnlockMetadata{}, false, nil
+	}
+	if err != nil {
+		return readmodel.UnlockMetadata{}, false, err
+	}
+	var metadata readmodel.UnlockMetadata
+	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+		return readmodel.UnlockMetadata{}, false, fmt.Errorf("unlocks.metadata of %s: %w", row.UnlockID, err)
+	}
+	return metadata, true, nil
 }

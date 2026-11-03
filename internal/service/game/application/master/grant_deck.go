@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 )
 
 // 配る配布デッキ。studio の read model の型を使わず、配布に要る項目だけを持つ
@@ -27,6 +28,8 @@ type DeckCard struct {
 type StarterSet struct {
 	GrantDecks   []GrantDeck
 	UnlockBoards []board.ID
+	// 解放する NPC のアバターの game の内部 ID（セットが持つ順）
+	UnlockNPCAvatars []npcavatar.ID
 }
 
 // 公開中のスターターセットの中身を返す。公開中のセットが無ければ found が false（エラーにしない。

@@ -344,6 +344,13 @@ type SetStarterSetUnlockBoardsResult interface {
 	IsSetStarterSetUnlockBoardsResult()
 }
 
+// スターターセットの解放する NPC のアバターの指定の結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は unlockNpcAvatarIds.<番号>。同じアバターの 2 つ目以降は重複、無い・削除した・NPC のアバターでないものは存在しない、
+// 新しく入れる公開中でないアバターは使えない）
+type SetStarterSetUnlockNpcAvatarsResult interface {
+	IsSetStarterSetUnlockNpcAvatarsResult()
+}
+
 // スターターセットの詳細の結果
 type StarterSetResult interface {
 	IsStarterSetResult()
@@ -1269,6 +1276,8 @@ func (ForbiddenError) IsRenameStarterSetResult() {}
 func (ForbiddenError) IsSetStarterSetGrantDecksResult() {}
 
 func (ForbiddenError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (ForbiddenError) IsSetStarterSetUnlockNpcAvatarsResult() {}
 
 func (ForbiddenError) IsDeleteStarterSetResult() {}
 
@@ -2307,6 +2316,8 @@ func (RevisionConflictError) IsSetStarterSetGrantDecksResult() {}
 
 func (RevisionConflictError) IsSetStarterSetUnlockBoardsResult() {}
 
+func (RevisionConflictError) IsSetStarterSetUnlockNpcAvatarsResult() {}
+
 func (RevisionConflictError) IsDeleteStarterSetResult() {}
 
 func (RevisionConflictError) IsPublishStarterSetResult() {}
@@ -2449,6 +2460,26 @@ type SetStarterSetUnlockBoardsSuccess struct {
 
 func (SetStarterSetUnlockBoardsSuccess) IsSetStarterSetUnlockBoardsResult() {}
 
+// スターターセットの解放する NPC のアバターを指定する入力
+type SetStarterSetUnlockNpcAvatarsInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+	// 解放する NPC のアバターの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じアバターは 2 回入れられない。新しく入れるアバターは公開中のものだけ）
+	UnlockNpcAvatarIds []uuid.UUID `json:"unlockNpcAvatarIds"`
+}
+
+// スターターセットの解放する NPC のアバターを指定した（同じアバターの集まりなら何も変えず、revision も進まない）
+type SetStarterSetUnlockNpcAvatarsSuccess struct {
+	// 変えたスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetStarterSetUnlockNpcAvatarsSuccess) IsSetStarterSetUnlockNpcAvatarsResult() {}
+
 // ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
 type ShrineTile struct {
 	// 列
@@ -2559,6 +2590,8 @@ func (StarterSetNotDraftError) IsSetStarterSetGrantDecksResult() {}
 
 func (StarterSetNotDraftError) IsSetStarterSetUnlockBoardsResult() {}
 
+func (StarterSetNotDraftError) IsSetStarterSetUnlockNpcAvatarsResult() {}
+
 func (StarterSetNotDraftError) IsDeleteStarterSetResult() {}
 
 // スターターセットが無い（削除したものを含む）
@@ -2574,6 +2607,8 @@ func (StarterSetNotFoundError) IsRenameStarterSetResult() {}
 func (StarterSetNotFoundError) IsSetStarterSetGrantDecksResult() {}
 
 func (StarterSetNotFoundError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (StarterSetNotFoundError) IsSetStarterSetUnlockNpcAvatarsResult() {}
 
 func (StarterSetNotFoundError) IsDeleteStarterSetResult() {}
 
@@ -2700,6 +2735,8 @@ func (ValidationErrors) IsRenameStarterSetResult() {}
 func (ValidationErrors) IsSetStarterSetGrantDecksResult() {}
 
 func (ValidationErrors) IsSetStarterSetUnlockBoardsResult() {}
+
+func (ValidationErrors) IsSetStarterSetUnlockNpcAvatarsResult() {}
 
 func (ValidationErrors) IsPublishStarterSetResult() {}
 

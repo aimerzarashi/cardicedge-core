@@ -101,6 +101,28 @@ func (r *mutationResolver) SetStarterSetUnlockBoards(ctx context.Context, input 
 	return &model.SetStarterSetUnlockBoardsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// SetStarterSetUnlockNpcAvatars is the resolver for the setStarterSetUnlockNpcAvatars field.
+func (r *mutationResolver) SetStarterSetUnlockNpcAvatars(ctx context.Context, input model.SetStarterSetUnlockNpcAvatarsInput) (model.SetStarterSetUnlockNpcAvatarsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.starterSets.SetUnlockNPCAvatars(ctx, input.ID, int64(input.Revision), input.UnlockNpcAvatarIds)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	switch {
+	case errors.Is(err, command.ErrStarterSetNotFound):
+		return &model.StarterSetNotFoundError{Message: "starter set not found"}, nil
+	case errors.Is(err, command.ErrStarterSetNotDraft):
+		return &model.StarterSetNotDraftError{Message: "starter set is not draft"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.SetStarterSetUnlockNpcAvatarsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // DeleteStarterSet is the resolver for the deleteStarterSet field.
 func (r *mutationResolver) DeleteStarterSet(ctx context.Context, input model.DeleteStarterSetInput) (model.DeleteStarterSetResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -236,6 +258,27 @@ func (r *starterSetResolver) UnlockBoards(ctx context.Context, obj *model.Starte
 		boards = append(boards, converted)
 	}
 	return boards, nil
+}
+
+// UnlockNpcAvatars is the resolver for the unlockNpcAvatars field.
+func (r *starterSetResolver) UnlockNpcAvatars(ctx context.Context, obj *model.StarterSet) ([]*model.NpcAvatar, error) {
+	npcAvatars := make([]*model.NpcAvatar, 0, len(obj.UnlockNPCAvatarIDs))
+	for _, id := range obj.UnlockNPCAvatarIDs {
+		npcAvatar, err := r.npcAvatarList.Get(ctx, id)
+		// 解放するアバターは割り当てたときに公開中で、消せないため、無いのは投影が遅れているときだけ。画面を止めずに飛ばす
+		if errors.Is(err, query.ErrNPCAvatarNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		converted, err := fromQueryNPCAvatar(npcAvatar)
+		if err != nil {
+			return nil, err
+		}
+		npcAvatars = append(npcAvatars, converted)
+	}
+	return npcAvatars, nil
 }
 
 // StarterSet returns StarterSetResolver implementation.

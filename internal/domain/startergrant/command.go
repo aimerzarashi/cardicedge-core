@@ -2,6 +2,7 @@ package startergrant
 
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -15,6 +16,8 @@ type StartCommand struct {
 	Player       player.ID
 	Decks        []Deck
 	UnlockBoards []board.ID
+	// 解放する NPC のアバター（game の内部 ID）
+	UnlockNPCAvatars []npcavatar.ID
 }
 
 func (*StartCommand) isStarterGrantCommand() {}

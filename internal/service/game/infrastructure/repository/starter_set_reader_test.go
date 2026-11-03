@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -22,10 +23,10 @@ import (
 )
 
 // 公開は studio の read model の行をそのまま写すため、書き手の型で JSON を作り、読み手が同じ形を読めることを確かめる
-func insertStarterSet(t *testing.T, ctx context.Context, sortName string, status readmodel.StarterSetStatus, grantDecks, unlockBoards []uuid.UUID) {
+func insertStarterSet(t *testing.T, ctx context.Context, sortName string, status readmodel.StarterSetStatus, grantDecks, unlockBoards, unlockNPCAvatars []uuid.UUID) {
 	t.Helper()
 	id := uuid.New()
-	metadata, err := json.Marshal(readmodel.StarterSetMetadata{ID: id, Name: sortName, Status: status, GrantDecks: grantDecks, UnlockBoards: unlockBoards})
+	metadata, err := json.Marshal(readmodel.StarterSetMetadata{ID: id, Name: sortName, Status: status, GrantDecks: grantDecks, UnlockBoards: unlockBoards, UnlockNPCAvatars: unlockNPCAvatars})
 	require.NoError(t, err)
 	row := models.StarterSet{StarterSetID: id.String(), SortName: sortName, Status: string(status), Metadata: metadata}
 	exec, err := rdb.GetExecutor(ctx)
@@ -45,7 +46,9 @@ func TestStarterSetReader_ReturnsGrantDecksInSetOrderSkippingUnpublishedAndUnloc
 	// 写したボードは、publish-master が game の domain_entities に行を作る（公開 ID は studio と同じ）
 	boardB, boardBPublicID := issueBoardEntity(t, ctx)
 	boardA, boardAPublicID := issueBoardEntity(t, ctx)
-	insertStarterSet(t, ctx, "a", readmodel.StarterSetStatusPublished, []uuid.UUID{water, retired, missing, fire}, []uuid.UUID{boardBPublicID, boardAPublicID})
+	npcA, npcAPublicID := issueNPCAvatarEntity(t, ctx)
+	npcB, npcBPublicID := issueNPCAvatarEntity(t, ctx)
+	insertStarterSet(t, ctx, "a", readmodel.StarterSetStatusPublished, []uuid.UUID{water, retired, missing, fire}, []uuid.UUID{boardBPublicID, boardAPublicID}, []uuid.UUID{npcAPublicID, npcBPublicID})
 
 	got, found, err := newStarterSetReader(t, ctx).GetPublished(ctx)
 
@@ -56,7 +59,8 @@ func TestStarterSetReader_ReturnsGrantDecksInSetOrderSkippingUnpublishedAndUnloc
 			{Name: "水", Cards: []master.DeckCard{{CardID: card, Count: 2}}},
 			{Name: "火", Cards: []master.DeckCard{{CardID: card, Count: 4}}},
 		},
-		UnlockBoards: []board.ID{boardB, boardA},
+		UnlockBoards:     []board.ID{boardB, boardA},
+		UnlockNPCAvatars: []npcavatar.ID{npcA, npcB},
 	}, got)
 }
 
@@ -66,9 +70,9 @@ func TestStarterSetReader_ReadsOnlyPublishedSet(t *testing.T) {
 	fire, other := uuid.New(), uuid.New()
 	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火")
 	insertGrantDeck(t, ctx, other, "b-other", readmodel.GrantDeckStatusPublished, "他")
-	insertStarterSet(t, ctx, "a-draft", readmodel.StarterSetStatusDraft, []uuid.UUID{other}, nil)
-	insertStarterSet(t, ctx, "b-retired", readmodel.StarterSetStatusRetired, []uuid.UUID{other}, nil)
-	insertStarterSet(t, ctx, "c-published", readmodel.StarterSetStatusPublished, []uuid.UUID{fire}, nil)
+	insertStarterSet(t, ctx, "a-draft", readmodel.StarterSetStatusDraft, []uuid.UUID{other}, nil, nil)
+	insertStarterSet(t, ctx, "b-retired", readmodel.StarterSetStatusRetired, []uuid.UUID{other}, nil, nil)
+	insertStarterSet(t, ctx, "c-published", readmodel.StarterSetStatusPublished, []uuid.UUID{fire}, nil, nil)
 
 	got, found, err := newStarterSetReader(t, ctx).GetPublished(ctx)
 
@@ -85,7 +89,7 @@ func TestStarterSetReader_FailsForUnlockBoardThatWasNotPublishedToGame(t *testin
 	ctx := rdb.WithDB(t.Context(), db)
 	fire := uuid.New()
 	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火")
-	insertStarterSet(t, ctx, "a", readmodel.StarterSetStatusPublished, []uuid.UUID{fire}, []uuid.UUID{uuid.New()})
+	insertStarterSet(t, ctx, "a", readmodel.StarterSetStatusPublished, []uuid.UUID{fire}, []uuid.UUID{uuid.New()}, nil)
 
 	_, _, err := newStarterSetReader(t, ctx).GetPublished(ctx)
 
@@ -96,7 +100,7 @@ func newStarterSetReader(t *testing.T, ctx context.Context) *repository.StarterS
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID))
+	return repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID))
 }
 
 func issueBoardEntity(t *testing.T, ctx context.Context) (board.ID, uuid.UUID) {
@@ -108,11 +112,33 @@ func issueBoardEntity(t *testing.T, ctx context.Context) (board.ID, uuid.UUID) {
 	return id, publicID
 }
 
+// 写していない NPC のアバター（game の domain_entities に行が無い）も同じく失敗にする
+func TestStarterSetReader_FailsForUnlockNPCAvatarThatWasNotPublishedToGame(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	fire := uuid.New()
+	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火")
+	insertStarterSet(t, ctx, "a", readmodel.StarterSetStatusPublished, []uuid.UUID{fire}, nil, []uuid.UUID{uuid.New()})
+
+	_, _, err := newStarterSetReader(t, ctx).GetPublished(ctx)
+
+	require.ErrorIs(t, err, domain.ErrEntityNotFound)
+}
+
+func issueNPCAvatarEntity(t *testing.T, ctx context.Context) (npcavatar.ID, uuid.UUID) {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	id, publicID, err := identifier.New(registry, npcavatar.NewID).Issue(ctx)
+	require.NoError(t, err)
+	return id, publicID
+}
+
 func TestStarterSetReader_ReportsNotFoundWhenNothingIsPublished(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	insertStarterSet(t, ctx, "a-draft", readmodel.StarterSetStatusDraft, nil, nil)
-	insertStarterSet(t, ctx, "b-retired", readmodel.StarterSetStatusRetired, nil, nil)
+	insertStarterSet(t, ctx, "a-draft", readmodel.StarterSetStatusDraft, nil, nil, nil)
+	insertStarterSet(t, ctx, "b-retired", readmodel.StarterSetStatusRetired, nil, nil, nil)
 
 	got, found, err := newStarterSetReader(t, ctx).GetPublished(ctx)
 

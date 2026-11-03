@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -34,13 +35,16 @@ func (w *StarterSetWriter) Upsert(ctx context.Context, starterSet readmodel.Star
 	}
 	registeredByRef := domain.NewEntityRef(operator.Types().EntityType, starterSet.RegisteredBy.Int64())
 	updatedByRef := domain.NewEntityRef(operator.Types().EntityType, starterSet.UpdatedBy.Int64())
-	refs := make([]domain.EntityRef, 0, len(starterSet.GrantDecks)+len(starterSet.UnlockBoards)+2)
+	refs := make([]domain.EntityRef, 0, len(starterSet.GrantDecks)+len(starterSet.UnlockBoards)+len(starterSet.UnlockNPCAvatars)+2)
 	refs = append(refs, registeredByRef, updatedByRef)
 	for _, id := range starterSet.GrantDecks {
 		refs = append(refs, domain.NewEntityRef(grantdeck.Types().EntityType, id.Int64()))
 	}
 	for _, id := range starterSet.UnlockBoards {
 		refs = append(refs, domain.NewEntityRef(board.Types().EntityType, id.Int64()))
+	}
+	for _, id := range starterSet.UnlockNPCAvatars {
+		refs = append(refs, domain.NewEntityRef(npcavatar.Types().EntityType, id.Int64()))
 	}
 	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
@@ -54,6 +58,14 @@ func (w *StarterSetWriter) Upsert(ctx context.Context, starterSet readmodel.Star
 			return errors.New("repository: grant deck of starter set has no public id")
 		}
 		metadata.GrantDecks = append(metadata.GrantDecks, publicID)
+	}
+	metadata.UnlockNPCAvatars = make([]uuid.UUID, 0, len(starterSet.UnlockNPCAvatars))
+	for _, id := range starterSet.UnlockNPCAvatars {
+		publicID, ok := publicIDs[domain.NewEntityRef(npcavatar.Types().EntityType, id.Int64())]
+		if !ok {
+			return errors.New("repository: npc avatar of starter set has no public id")
+		}
+		metadata.UnlockNPCAvatars = append(metadata.UnlockNPCAvatars, publicID)
 	}
 	metadata.UnlockBoards = make([]uuid.UUID, 0, len(starterSet.UnlockBoards))
 	for _, id := range starterSet.UnlockBoards {
