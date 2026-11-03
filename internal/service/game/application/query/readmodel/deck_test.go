@@ -7,11 +7,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query/readmodel"
 )
@@ -23,7 +24,7 @@ func TestDeck_EvolvesFromCreated(t *testing.T) {
 		EventMeta:    deck.EventMeta{EntityID: decktest.ID(t, 3), AggregateVersion: 1, OccurredAt: occurredAt},
 		Player:       playertest.ID(t, 7),
 		Name:         decktest.Name(t, "火"),
-		Cards:        []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4), startergranttest.CardCount(t, cardB, 1)},
+		Cards:        []card.Count{cardtest.Count(t, cardA, 4), cardtest.Count(t, cardB, 1)},
 		StarterGrant: startergranttest.ID(t, 5),
 		Number:       startergranttest.DeckNumber(t, 1),
 	}

@@ -1,6 +1,7 @@
 package collection
 
 import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
@@ -12,7 +13,7 @@ type Command interface {
 type CreateCommand struct {
 	ID           ID
 	Player       player.ID
-	Cards        []startergrant.CardCount
+	Cards        []card.Count
 	StarterGrant startergrant.ID
 }
 

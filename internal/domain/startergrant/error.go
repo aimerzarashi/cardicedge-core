@@ -8,7 +8,6 @@ var (
 	ErrAlreadyStarted    = errors.New("starter grant: already started")
 	ErrInvalidDeckCount  = errors.New("starter grant: deck count must be at least one")
 	ErrInvalidDeckNumber = errors.New("starter grant: invalid deck number")
-	ErrCountNotPositive  = errors.New("starter grant: count must be positive")
 	ErrDeckNameEmpty     = errors.New("starter grant: deck name is empty")
 	ErrDeckNameTooLong   = errors.New("starter grant: deck name is too long")
 )

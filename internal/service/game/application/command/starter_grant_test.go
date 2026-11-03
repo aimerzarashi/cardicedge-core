@@ -10,6 +10,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -72,10 +74,10 @@ func TestStart_CopiesMostCountOfEachCardFromMaster(t *testing.T) {
 
 	state, ok := loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant)
 	require.True(t, ok)
-	require.Equal(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, cardA, 4),
-		startergranttest.CardCount(t, cardB, 3),
-		startergranttest.CardCount(t, cardC, 2),
+	require.Equal(t, []card.Count{
+		cardtest.Count(t, cardA, 4),
+		cardtest.Count(t, cardB, 3),
+		cardtest.Count(t, cardC, 2),
 	}, state.Cards)
 	require.Len(t, state.Decks, 2)
 }

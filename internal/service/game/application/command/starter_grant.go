@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -177,13 +178,13 @@ func startDecks(published []master.StarterDeck) ([]startergrant.Deck, error) {
 		if err != nil {
 			return nil, fmt.Errorf("master starter deck name %q: %w", source.Name, err)
 		}
-		cards := make([]startergrant.CardCount, 0, len(source.Cards))
+		cards := make([]card.Count, 0, len(source.Cards))
 		for _, c := range source.Cards {
-			count, err := startergrant.NewCount(c.Count)
+			count, err := card.NewQuantity(c.Count)
 			if err != nil {
 				return nil, fmt.Errorf("master starter deck %q card %s: %w", source.Name, c.CardID, err)
 			}
-			cards = append(cards, startergrant.CardCount{CardID: c.CardID, Count: count})
+			cards = append(cards, card.Count{CardID: c.CardID, Count: count})
 		}
 		decks = append(decks, startergrant.Deck{Name: name, Cards: cards})
 	}
