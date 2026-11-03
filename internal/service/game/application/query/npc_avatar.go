@@ -34,7 +34,7 @@ func NewCardType(value int16) (CardType, error) {
 
 // NPC のデッキに入っているカード 1 種類。カードは NPC のデッキを見せるのに要る名前と種類だけを持つ
 // （カードの一覧・詳細を game に出す問い合わせは作らない）
-type NPCDeckCard struct {
+type DeckCard struct {
 	CardID uuid.UUID
 	Name   string
 	Type   CardType
@@ -45,7 +45,7 @@ type NPCDeckCard struct {
 type NPCDeck struct {
 	ID    uuid.UUID
 	Name  string
-	Cards []NPCDeckCard
+	Cards []DeckCard
 }
 
 func (d NPCDeck) TotalCount() int {

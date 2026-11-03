@@ -152,7 +152,7 @@ func TestNPCAvatarHandler_GetReturnsNotFoundWithoutReadingDecks(t *testing.T) {
 }
 
 func TestNPCDeck_TotalCountSumsCardCounts(t *testing.T) {
-	deck := query.NPCDeck{Cards: []query.NPCDeckCard{{Count: 3}, {Count: 2}}}
+	deck := query.NPCDeck{Cards: []query.DeckCard{{Count: 3}, {Count: 2}}}
 
 	require.Equal(t, 5, deck.TotalCount())
 }

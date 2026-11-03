@@ -46,7 +46,7 @@ type npcDeckMetadata struct {
 }
 
 // 写した cards.metadata のうち、読む項目
-type npcDeckCardMetadata struct {
+type cardMetadata struct {
 	Name string `json:"name"`
 }
 
@@ -149,7 +149,7 @@ func (r *NPCAvatarReader) ListPublishedDecks(ctx context.Context, ids []uuid.UUI
 			cardIDs = append(cardIDs, card.CardID)
 		}
 	}
-	cards, err := loadNPCDeckCards(ctx, exec, cardIDs)
+	cards, err := loadCards(ctx, exec, cardIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -159,34 +159,55 @@ func (r *NPCAvatarReader) ListPublishedDecks(ctx context.Context, ids []uuid.UUI
 		if err != nil {
 			return nil, fmt.Errorf("npc_decks.npc_deck_id %q: %w", row.NPCDeckID, err)
 		}
-		deckCards := make([]cardRow, 0, len(metadatas[i].Cards))
-		for _, c := range metadatas[i].Cards {
-			card, ok := cards[c.CardID]
-			if !ok {
-				return nil, fmt.Errorf("npc_decks.metadata of %s: card %s is not published to game", row.NPCDeckID, c.CardID)
-			}
-			card.card.Count = c.Count
-			deckCards = append(deckCards, card)
+		counts := make([]cardCount, len(metadatas[i].Cards))
+		for j, c := range metadatas[i].Cards {
+			counts[j] = cardCount{CardID: c.CardID, Count: c.Count}
 		}
-		slices.SortFunc(deckCards, func(a, b cardRow) int {
-			return cmp.Or(cmp.Compare(a.card.Type, b.card.Type), strings.Compare(a.sortName, b.sortName), strings.Compare(a.card.CardID.String(), b.card.CardID.String()))
-		})
-		result := make([]query.NPCDeckCard, 0, len(deckCards))
-		for _, c := range deckCards {
-			result = append(result, c.card)
+		result, err := sortedDeckCards(counts, cards)
+		if err != nil {
+			return nil, fmt.Errorf("npc_decks.metadata of %s: %w", row.NPCDeckID, err)
 		}
 		decks = append(decks, query.NPCDeck{ID: deckID, Name: metadatas[i].Name, Cards: result})
 	}
 	return decks, nil
 }
 
+// デッキに入れたカードの公開 ID と枚数
+type cardCount struct {
+	CardID uuid.UUID
+	Count  int
+}
+
+// 入れたカードを、写した cards の名前・種類つきで、種類 → 正規化した名前 → 公開 ID の順に並べる。
+// 写していないカードはエラー（NPC のデッキもプレイヤーのデッキも、同じ cards から引く）
+func sortedDeckCards(counts []cardCount, cards map[uuid.UUID]cardRow) ([]query.DeckCard, error) {
+	deckCards := make([]cardRow, 0, len(counts))
+	for _, c := range counts {
+		card, ok := cards[c.CardID]
+		if !ok {
+			return nil, fmt.Errorf("card %s is not published to game", c.CardID)
+		}
+		card.card.Count = c.Count
+		deckCards = append(deckCards, card)
+	}
+	slices.SortFunc(deckCards, func(a, b cardRow) int {
+		return cmp.Or(cmp.Compare(a.card.Type, b.card.Type), strings.Compare(a.sortName, b.sortName), strings.Compare(a.card.CardID.String(), b.card.CardID.String()))
+	})
+	result := make([]query.DeckCard, 0, len(deckCards))
+	for _, c := range deckCards {
+		result = append(result, c.card)
+	}
+	return result, nil
+}
+
 // 並べ替えに使う sort_name を、カードと一緒に持つ
 type cardRow struct {
-	card     query.NPCDeckCard
+	card     query.DeckCard
 	sortName string
 }
 
-func loadNPCDeckCards(ctx context.Context, exec rdb.Executor, ids []uuid.UUID) (map[uuid.UUID]cardRow, error) {
+// 渡した公開 ID のカードを、写した cards から 1 回で読む
+func loadCards(ctx context.Context, exec rdb.Executor, ids []uuid.UUID) (map[uuid.UUID]cardRow, error) {
 	cards := map[uuid.UUID]cardRow{}
 	if len(ids) == 0 {
 		return cards, nil
@@ -204,11 +225,11 @@ func loadNPCDeckCards(ctx context.Context, exec rdb.Executor, ids []uuid.UUID) (
 		if err != nil {
 			return nil, fmt.Errorf("cards.card_type of %s: %w", id, err)
 		}
-		var metadata npcDeckCardMetadata
+		var metadata cardMetadata
 		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 			return nil, fmt.Errorf("cards.metadata of %s: %w", id, err)
 		}
-		card := query.NPCDeckCard{CardID: id, Name: metadata.Name, Type: cardType}
+		card := query.DeckCard{CardID: id, Name: metadata.Name, Type: cardType}
 		cards[id] = cardRow{card: card, sortName: row.SortName}
 	}
 	return cards, nil

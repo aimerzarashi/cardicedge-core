@@ -30,6 +30,11 @@ type BoardsResult interface {
 	IsBoardsResult()
 }
 
+// デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type DeckResult interface {
+	IsDeckResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -284,6 +289,58 @@ func (this CheckpointTile) GetX() int { return this.X }
 // 行
 func (this CheckpointTile) GetY() int { return this.Y }
 
+// プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）
+type Deck struct {
+	// デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない
+	Cards []*DeckCard `json:"cards"`
+	// カードの枚数の合計
+	TotalCount int `json:"totalCount"`
+	// カードの種類ごとの枚数の合計（種類の数ではなく、枚数の和。入っていない種類は 0）
+	TypeCounts *DeckTypeCounts `json:"typeCounts"`
+}
+
+func (Deck) IsDeckResult() {}
+
+// デッキに入っているカードと、その枚数
+type DeckCard struct {
+	// カード
+	Card *DeckCardInfo `json:"card"`
+	// 枚数
+	Count int `json:"count"`
+}
+
+// デッキに入っているカードの、見せるのに要る項目
+type DeckCardInfo struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 種類
+	Type CardType `json:"type"`
+}
+
+// 自分のものとしてデッキが無い（無い・ほかのプレイヤーのもの。存在を明かさないため区別しない）
+type DeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (DeckNotFoundError) IsDeckResult() {}
+
+// デッキに入っているカードの、種類ごとの枚数の合計（デッキの read model から返すときに数える）
+type DeckTypeCounts struct {
+	// Creature の枚数
+	Creature int `json:"creature"`
+	// Item の枚数
+	Item int `json:"item"`
+	// Spell の枚数
+	Spell int `json:"spell"`
+}
+
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -461,6 +518,8 @@ type Player struct {
 	StarterGrant StarterGrantStatus `json:"starterGrant"`
 	// このプレイヤーのアバター（作った順。上限があるので、ページ分けしないリスト）
 	Avatars []*Avatar `json:"avatars"`
+	// このプレイヤーのデッキ（作った順。スターターの配布で作る数だけなので、ページ分けしないリスト）
+	Decks []*Deck `json:"decks"`
 }
 
 func (Player) IsMeResult() {}
@@ -476,6 +535,8 @@ func (PlayerNotRegisteredError) IsRegisterAvatarResult() {}
 func (PlayerNotRegisteredError) IsBoardsResult() {}
 
 func (PlayerNotRegisteredError) IsBoardResult() {}
+
+func (PlayerNotRegisteredError) IsDeckResult() {}
 
 func (PlayerNotRegisteredError) IsGameRulesResult() {}
 

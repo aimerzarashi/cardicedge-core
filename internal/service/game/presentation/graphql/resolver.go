@@ -37,6 +37,12 @@ type BoardQueries interface {
 	Get(ctx context.Context, id uuid.UUID) (query.Board, error)
 }
 
+// 実装は query.DeckHandler
+type DeckQueries interface {
+	ListByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.Deck, error)
+	Get(ctx context.Context, playerID uuid.UUID, deckID uuid.UUID) (query.Deck, error)
+}
+
 // 実装は query.NPCAvatarHandler
 type NPCAvatarQueries interface {
 	List(ctx context.Context, first *int, after *string) (pagination.Connection[query.NPCAvatar], error)
@@ -53,11 +59,12 @@ type Resolver struct {
 	playerQuery    PlayerQueries
 	avatars        Avatars
 	avatarQuery    AvatarQueries
+	deckQuery      DeckQueries
 	boardQuery     BoardQueries
 	npcAvatarQuery NPCAvatarQueries
 	gameRuleQuery  GameRulesQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
 }
