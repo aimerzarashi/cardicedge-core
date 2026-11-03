@@ -1,0 +1,64 @@
+"プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）"
+type Deck {
+  "デッキの公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない"
+  cards: [DeckCard!]!
+  "カードの枚数の合計"
+  totalCount: Int!
+  "カードの種類ごとの枚数の合計（種類の数ではなく、枚数の和。入っていない種類は 0）"
+  typeCounts: DeckTypeCounts!
+}
+
+"デッキに入っているカードの、種類ごとの枚数の合計（デッキの read model から返すときに数える）"
+type DeckTypeCounts {
+  "Creature の枚数"
+  creature: Int!
+  "Item の枚数"
+  item: Int!
+  "Spell の枚数"
+  spell: Int!
+}
+
+"デッキに入っているカードと、その枚数"
+type DeckCard {
+  "カード"
+  card: DeckCardInfo!
+  "枚数"
+  count: Int!
+}
+
+# game にはカードの一覧・詳細の問い合わせが無いので、デッキを見せるのに要る項目だけにする（NpcDeckCardInfo と同じ形）
+"デッキに入っているカードの、見せるのに要る項目"
+type DeckCardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "種類"
+  type: CardType!
+}
+
+extend type Player {
+  "このプレイヤーのデッキ（作った順。スターターの配布で作る数だけなので、ページ分けしないリスト）"
+  decks: [Deck!]!
+}
+
+"自分のものとしてデッキが無い（無い・ほかのプレイヤーのもの。存在を明かさないため区別しない）"
+type DeckNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union DeckResult = Deck | DeckNotFoundError | PlayerNotRegisteredError
+
+extend type Query {
+  "自分のデッキの詳細（登録済みのプレイヤーだけ）。無い・ほかのプレイヤーのデッキなら DeckNotFoundError"
+  deck(
+    "デッキの公開用の ID"
+    id: UUID!
+  ): DeckResult!
+}

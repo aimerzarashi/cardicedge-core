@@ -49,7 +49,7 @@ func insertNPCDeck(t *testing.T, ctx context.Context, name string, status readmo
 	return metadata.ID
 }
 
-func insertNPCDeckCard(t *testing.T, ctx context.Context, name string, cardType readmodel.CardType) uuid.UUID {
+func insertDeckCard(t *testing.T, ctx context.Context, name string, cardType query.CardType) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
 	raw, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished})
@@ -161,10 +161,10 @@ func TestNPCAvatarReader_GetFailsWhenDecksIsMissing(t *testing.T) {
 func TestNPCAvatarReader_ListDecksReturnsOnlyPublishedRequestedDecksWithCardsInTypeThenNameOrder(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	spell := insertNPCDeckCard(t, ctx, "a", readmodel.CardTypeSpell)
-	itemB := insertNPCDeckCard(t, ctx, "b", readmodel.CardTypeItem)
-	itemA := insertNPCDeckCard(t, ctx, "a", readmodel.CardTypeItem)
-	creature := insertNPCDeckCard(t, ctx, "z", readmodel.CardTypeCreature)
+	spell := insertDeckCard(t, ctx, "a", query.CardTypeSpell)
+	itemB := insertDeckCard(t, ctx, "b", query.CardTypeItem)
+	itemA := insertDeckCard(t, ctx, "a", query.CardTypeItem)
+	creature := insertDeckCard(t, ctx, "z", query.CardTypeCreature)
 	published := insertNPCDeck(t, ctx, "公開中", readmodel.NPCDeckStatusPublished,
 		readmodel.DeckCard{CardID: spell, Count: 1}, readmodel.DeckCard{CardID: itemB, Count: 2},
 		readmodel.DeckCard{CardID: creature, Count: 3}, readmodel.DeckCard{CardID: itemA, Count: 4})
@@ -177,7 +177,7 @@ func TestNPCAvatarReader_ListDecksReturnsOnlyPublishedRequestedDecksWithCardsInT
 	require.NoError(t, err)
 	require.Equal(t, []query.NPCDeck{{
 		ID: published, Name: "公開中",
-		Cards: []query.NPCDeckCard{
+		Cards: []query.DeckCard{
 			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 3},
 			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Count: 4},
 			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Count: 2},
