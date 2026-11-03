@@ -10,7 +10,7 @@ func Evolve(state State, event Event) (State, error) {
 		if _, ok := state.(NotStartedStarterGrant); !ok {
 			return state, ErrInvalidState
 		}
-		return InProgressStarterGrant{ID: meta.EntityID, Version: meta.AggregateVersion, Player: e.Player, Cards: e.Cards, Decks: e.Decks, DeckRecorded: make([]bool, len(e.Decks))}, nil
+		return InProgressStarterGrant{ID: meta.EntityID, Version: meta.AggregateVersion, Player: e.Player, Cards: e.Cards, Decks: e.Decks, UnlockBoards: e.UnlockBoards, DeckRecorded: make([]bool, len(e.Decks))}, nil
 	case *CollectionRecordedEvent:
 		progress, ok := state.(InProgressStarterGrant)
 		if !ok {
@@ -18,6 +18,14 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		progress.Version = meta.AggregateVersion
 		progress.CollectionRecorded = true
+		return progress, nil
+	case *UnlockRecordedEvent:
+		progress, ok := state.(InProgressStarterGrant)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		progress.Version = meta.AggregateVersion
+		progress.UnlockRecorded = true
 		return progress, nil
 	case *DeckRecordedEvent:
 		progress, ok := state.(InProgressStarterGrant)

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -72,7 +73,7 @@ func countEventsOf(t *testing.T, ctx context.Context, entityTypeID int) int {
 	return count
 }
 
-func newStarterGrantHandler(t *testing.T, ctx context.Context, listGrantDecks master.ListPublishedGrantDecksFunc) *command.StarterGrantHandler {
+func newStarterGrantHandler(t *testing.T, ctx context.Context, getStarterSet master.GetPublishedStarterSetFunc) *command.StarterGrantHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -81,8 +82,10 @@ func newStarterGrantHandler(t *testing.T, ctx context.Context, listGrantDecks ma
 		eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 		identifier.New(registry, startergrant.NewID),
 		constraint.UpdateStarterGrantPlayer,
-		listGrantDecks,
+		getStarterSet,
 		newCollectionHandler(t, ctx),
+		newUnlockHandler(t, ctx),
+		constraint.FindStarterGrantByPlayer,
 		newDeckHandler(t, ctx),
 		now,
 	)
@@ -96,6 +99,18 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 		eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 		identifier.New(registry, collection.NewID),
 		constraint.UpdateCollectionPlayer,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func newUnlockHandler(t *testing.T, ctx context.Context) *command.UnlockHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewUnlockHandler(
+		eventstore.New(registry, unlock.NewID, unlock.NewEventType, unlock.InitialState, unlock.Evolve),
+		identifier.New(registry, unlock.NewID),
+		constraint.UpdateUnlockPlayer,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

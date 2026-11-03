@@ -102,6 +102,23 @@ type NPCAvatarLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.NPCAvatar, error)
 }
 
+// 実装は command.StarterSetHandler
+type StarterSetHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedStarterSet, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedStarterSet, error)
+	SetGrantDecks(ctx context.Context, id uuid.UUID, revision int64, grantDeckIDs []uuid.UUID) (command.ChangedStarterSet, error)
+	SetUnlockBoards(ctx context.Context, id uuid.UUID, revision int64, boardIDs []uuid.UUID) (command.ChangedStarterSet, error)
+	Delete(ctx context.Context, id uuid.UUID, revision int64) error
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterSet, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterSet, error)
+}
+
+// 実装は query.StarterSetHandler
+type StarterSetLister interface {
+	List(ctx context.Context, filter query.StarterSetFilter, first *int, after *string) (pagination.Connection[query.StarterSet], error)
+	Get(ctx context.Context, id uuid.UUID) (query.StarterSet, error)
+}
+
 // 実装は command.NPCDeckHandler
 type NPCDeckHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedNPCDeck, error)
@@ -147,6 +164,8 @@ type Resolver struct {
 	npcAvatarList  NPCAvatarLister
 	npcDecks       NPCDeckHandler
 	npcDeckList    NPCDeckLister
+	starterSets    StarterSetHandler
+	starterSetList StarterSetLister
 }
 
 func NewResolver(
@@ -167,11 +186,13 @@ func NewResolver(
 	npcAvatarList NPCAvatarLister,
 	npcDecks NPCDeckHandler,
 	npcDeckList NPCDeckLister,
+	starterSets StarterSetHandler,
+	starterSetList StarterSetLister,
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, grantDecks: grantDecks, grantDeckList: grantDeckList,
 		boards: boards, boardList: boardList, studioRules: studioRules, gameRules: gameRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
-		npcDecks: npcDecks, npcDeckList: npcDeckList,
+		npcDecks: npcDecks, npcDeckList: npcDeckList, starterSets: starterSets, starterSetList: starterSetList,
 	}
 }

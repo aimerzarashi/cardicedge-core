@@ -37,6 +37,11 @@ type BoardQueries interface {
 	Get(ctx context.Context, id uuid.UUID) (query.Board, error)
 }
 
+// 実装は query.UnlockHandler
+type UnlockQueries interface {
+	ListBoardsByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.Board, error)
+}
+
 // 実装は query.DeckHandler
 type DeckQueries interface {
 	ListByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.Deck, error)
@@ -60,11 +65,12 @@ type Resolver struct {
 	avatars        Avatars
 	avatarQuery    AvatarQueries
 	deckQuery      DeckQueries
+	unlockQuery    UnlockQueries
 	boardQuery     BoardQueries
 	npcAvatarQuery NPCAvatarQueries
 	gameRuleQuery  GameRulesQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
 }

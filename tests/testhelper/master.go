@@ -9,20 +9,36 @@ import (
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
-// 見本のマスタの公開中の配布デッキ。デッキ 1 は A が 4 枚・B が 1 枚、デッキ 2 は A が 2 枚・B が 3 枚・C が 2 枚
+// 見本のマスタの配布デッキ。火は A が 4 枚・B が 1 枚、水は A が 2 枚・B が 3 枚・C が 2 枚
 // （所持カードは、カードごとに多いほうの枚数になる: A が 4 枚・B が 3 枚・C が 2 枚）。
-// 準備中・使用不可の配布デッキも写してあり（C を 5 枚持つので、配られれば所持カードが変わる）、配られないことを確かめる
+// 準備中・使用不可の配布デッキも写してあり（C を 5 枚持つので、配られれば所持カードが変わる）、配られないことを確かめる。
+// 公開中のスターターセットは、配るデッキを 水・使用不可・火 の順に指す（配られるのは公開中の 水 → 火 の順。名前の順（火 → 水）でも
+// 配布デッキの行の順でもなく、セットが持つ順に配られることと、公開中でないデッキが飛ばされることを確かめる）。
+// 解放するボードは 公開中B・使用不可・公開中A の順（解放されて見えるのは 公開中B → 公開中A）
 type Master struct {
 	CardA, CardB, CardC uuid.UUID
-	// PublishMaster だけが写す
+	GrantDecks          GrantDecks
+	// PublishMaster と PublishMasterWithoutGameRules が写す
 	Boards Boards
+	// PublishMaster と PublishMasterWithoutGameRules が写す
+	StarterSets StarterSets
 	// PublishMaster だけが写す
 	NPCAvatars NPCAvatars
+}
+
+type GrantDecks struct {
+	Fire, Water, Draft, Retired uuid.UUID
+}
+
+// 公開中のセットが 1 つ、公開中でないものが 2 つ（公開中でないセットは火だけを配る設定。写されても使われないことを確かめる）
+type StarterSets struct {
+	Published, Draft, Retired uuid.UUID
 }
 
 // 見本のマスタの NPC のアバターと NPC のデッキ。公開中のアバターが 2 つ（名前の順に A・B）、公開中でないものが 2 つ。
@@ -41,9 +57,11 @@ type NPCAvatars struct {
 // 準備中は make publish-master が写さないが、写されても出ないことを確かめるために入れる（配布デッキの準備中と同じ）
 type Boards struct {
 	PublishedA, PublishedB, Draft, Retired uuid.UUID
+	// game の内部 ID（make publish-master が game の domain_entities に作る行の ID。game の集約がボードを指す ID）
+	InternalPublishedA, InternalPublishedB, InternalRetired board.ID
 }
 
-// 公開は、studio の read model の cards・grant_decks・game_rules の行を game の DB に写すことなので（make publish-master）、
+// 公開は、studio の read model の cards・grant_decks・starter_sets・game_rules の行を game の DB に写すことなので（make publish-master）、
 // 行を直接入れる。metadata は書き手（studio の read model）の型で作り、読み手と同じ形であることも確かめる。
 // 行を入れるのは、公開されていない状態から公開された状態への変わり目を確かめる（登録が先、公開が後）ため、アプリの起動とは別にしてある
 func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
@@ -54,41 +72,55 @@ func PublishMaster(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	if err := PublishGameRules(ctx, gameDB); err != nil {
 		return Master{}, err
 	}
-	master.Boards, err = PublishBoards(ctx, gameDB)
-	if err != nil {
-		return Master{}, err
-	}
 	master.NPCAvatars, err = PublishNPCAvatars(ctx, gameDB)
 	return master, err
 }
 
-// カード・配布デッキだけを写す（game_rules を写し忘れた状態を確かめるため）
+// カード・配布デッキ・ボード・スターターセットだけを写す（game_rules を写し忘れた状態を確かめるため）
 func PublishMasterWithoutGameRules(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	master, err := publishCards(ctx, gameDB)
 	if err != nil {
 		return Master{}, err
 	}
-	if err := PublishGrantDecks(ctx, gameDB, master); err != nil {
+	if err := publishGrantDecks(ctx, gameDB, master); err != nil {
 		return Master{}, err
 	}
-	return master, publishUnpublishedGrantDecks(ctx, gameDB, master)
+	master.Boards, err = PublishBoards(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	if err := publishUnpublishedStarterSets(ctx, gameDB, master); err != nil {
+		return Master{}, err
+	}
+	return master, PublishStarterSet(ctx, gameDB, master)
 }
 
-// 公開中の配布デッキが 1 つも無い状態で写す（カード・準備中と使用不可の配布デッキ・game_rules。
-// 公開中が無ければ配布が進まないことを確かめるため）。公開中のものは、後から PublishGrantDecks で足せる
-func PublishMasterWithoutPublishedGrantDecks(ctx context.Context, gameDB *sql.DB) (Master, error) {
+// 公開中のスターターセットが 1 つも無い状態で写す（カード・配布デッキ・ボード・準備中と使用不可のスターターセット・game_rules。
+// 公開中が無ければ配布が進まないことを確かめるため）。公開中のものは、後から PublishStarterSet で足せる
+func PublishMasterWithoutPublishedStarterSet(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	master, err := publishCards(ctx, gameDB)
 	if err != nil {
 		return Master{}, err
 	}
-	if err := publishUnpublishedGrantDecks(ctx, gameDB, master); err != nil {
+	if err := publishGrantDecks(ctx, gameDB, master); err != nil {
+		return Master{}, err
+	}
+	master.Boards, err = PublishBoards(ctx, gameDB)
+	if err != nil {
+		return Master{}, err
+	}
+	if err := publishUnpublishedStarterSets(ctx, gameDB, master); err != nil {
 		return Master{}, err
 	}
 	return master, PublishGameRules(ctx, gameDB)
 }
 
 func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
-	master := Master{CardA: uuid.New(), CardB: uuid.New(), CardC: uuid.New()}
+	master := Master{
+		CardA: uuid.New(), CardB: uuid.New(), CardC: uuid.New(),
+		GrantDecks:  GrantDecks{Fire: uuid.New(), Water: uuid.New(), Draft: uuid.New(), Retired: uuid.New()},
+		StarterSets: StarterSets{Published: uuid.New(), Draft: uuid.New(), Retired: uuid.New()},
+	}
 	for _, id := range []uuid.UUID{master.CardA, master.CardB, master.CardC} {
 		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String()})
 		if err != nil {
@@ -102,46 +134,66 @@ func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
 	return master, nil
 }
 
-// 公開中の配布デッキ 2 つを写す
-func PublishGrantDecks(ctx context.Context, gameDB *sql.DB, master Master) error {
-	fire := readmodel.GrantDeckMetadata{Name: "火", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 4}, {CardID: master.CardB, Count: 1}}}
-	water := readmodel.GrantDeckMetadata{Name: "水", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 2}, {CardID: master.CardB, Count: 3}, {CardID: master.CardC, Count: 2}}}
-	// sort_name は並びを決めるだけの値（読み手は sort_name の順に配る）
-	return insertGrantDecks(ctx, gameDB, []grantDeckRow{{"1", fire}, {"2", water}})
-}
-
-// C を 5 枚持つので、配られれば所持カードが変わる
-func publishUnpublishedGrantDecks(ctx context.Context, gameDB *sql.DB, master Master) error {
-	draft := readmodel.GrantDeckMetadata{Name: "準備中", Status: readmodel.GrantDeckStatusDraft, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
-	retired := readmodel.GrantDeckMetadata{Name: "使用不可", Status: readmodel.GrantDeckStatusRetired, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
-	return insertGrantDecks(ctx, gameDB, []grantDeckRow{{"3", draft}, {"4", retired}})
-}
-
-type grantDeckRow struct {
-	sortName string
-	metadata readmodel.GrantDeckMetadata
-}
-
-// 1 つのトランザクションで書く（make publish-master と同じ）。行ごとに書くと、登録の後に写すテストで、配布が 1 つ目の
-// デッキだけを読んで配ることがある（core#53）
-func insertGrantDecks(ctx context.Context, gameDB *sql.DB, decks []grantDeckRow) error {
+// 配布デッキ 4 つ（公開中が火と水、準備中、使用不可）を写す。C を 5 枚持つのが準備中と使用不可なので、配られれば所持カードが変わる
+func publishGrantDecks(ctx context.Context, gameDB *sql.DB, master Master) error {
+	fire := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Fire, Name: "火", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 4}, {CardID: master.CardB, Count: 1}}}
+	water := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Water, Name: "水", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 2}, {CardID: master.CardB, Count: 3}, {CardID: master.CardC, Count: 2}}}
+	draft := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Draft, Name: "準備中", Status: readmodel.GrantDeckStatusDraft, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
+	retired := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Retired, Name: "使用不可", Status: readmodel.GrantDeckStatusRetired, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
+	// 1 つのトランザクションで書く（make publish-master と同じ）。sort_name は並びを決めるだけの値
 	tx, err := gameDB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	for _, deck := range decks {
-		deck.metadata.ID = uuid.New()
-		metadata, err := json.Marshal(deck.metadata)
+	for i, metadata := range []readmodel.GrantDeckMetadata{fire, water, draft, retired} {
+		raw, err := json.Marshal(metadata)
 		if err != nil {
 			return err
 		}
-		row := models.GrantDeck{GrantDeckID: deck.metadata.ID.String(), SortName: deck.sortName, Status: string(deck.metadata.Status), Metadata: metadata}
+		row := models.GrantDeck{GrantDeckID: metadata.ID.String(), SortName: fmt.Sprint(i + 1), Status: string(metadata.Status), Metadata: raw}
 		if err := row.Insert(ctx, tx, boil.Infer()); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
+}
+
+// 公開中のスターターセットを写す。配るデッキは 水・使用不可・火 の順、解放するボードは 公開中B・使用不可・公開中A の順
+func PublishStarterSet(ctx context.Context, gameDB *sql.DB, master Master) error {
+	published := readmodel.StarterSetMetadata{
+		ID: master.StarterSets.Published, Name: "公開中", Status: readmodel.StarterSetStatusPublished,
+		GrantDecks:   []uuid.UUID{master.GrantDecks.Water, master.GrantDecks.Retired, master.GrantDecks.Fire},
+		UnlockBoards: []uuid.UUID{master.Boards.PublishedB, master.Boards.Retired, master.Boards.PublishedA},
+	}
+	return insertStarterSets(ctx, gameDB, published)
+}
+
+// 公開中でないスターターセット（準備中・使用不可）を写す。火だけを配ってボードを解放する設定で、使われれば配られる中身が変わる
+func publishUnpublishedStarterSets(ctx context.Context, gameDB *sql.DB, master Master) error {
+	draft := readmodel.StarterSetMetadata{
+		ID: master.StarterSets.Draft, Name: "準備中", Status: readmodel.StarterSetStatusDraft,
+		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA},
+	}
+	retired := readmodel.StarterSetMetadata{
+		ID: master.StarterSets.Retired, Name: "使用不可", Status: readmodel.StarterSetStatusRetired,
+		GrantDecks: []uuid.UUID{master.GrantDecks.Fire}, UnlockBoards: []uuid.UUID{master.Boards.PublishedA},
+	}
+	return insertStarterSets(ctx, gameDB, draft, retired)
+}
+
+func insertStarterSets(ctx context.Context, gameDB *sql.DB, sets ...readmodel.StarterSetMetadata) error {
+	for _, metadata := range sets {
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return err
+		}
+		row := models.StarterSet{StarterSetID: metadata.ID.String(), SortName: metadata.ID.String(), Status: string(metadata.Status), Metadata: raw}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // game_rules の行を写す。値は既定の値（studio が起動時に作る値）
@@ -205,8 +257,28 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			return Boards{}, err
 		}
 	}
+	// make publish-master と同じ文で、写したボードの game の内部 ID（domain_entities の行）を作る
+	if _, err := gameDB.ExecContext(ctx, publishBoardEntitiesSQL); err != nil {
+		return Boards{}, err
+	}
+	for publicID, internalID := range map[uuid.UUID]*board.ID{
+		boards.PublishedA: &boards.InternalPublishedA, boards.PublishedB: &boards.InternalPublishedB, boards.Retired: &boards.InternalRetired,
+	} {
+		var value int64
+		if err := gameDB.QueryRowContext(ctx, `SELECT id FROM domain_entities WHERE public_id = $1`, publicID).Scan(&value); err != nil {
+			return Boards{}, err
+		}
+		id, err := board.NewID(value)
+		if err != nil {
+			return Boards{}, err
+		}
+		*internalID = id
+	}
 	return boards, nil
 }
+
+// Makefile の publish-master が、写した boards について流す文と同じ（公開 ID は studio と同じ、内部 ID は game の連番）
+const publishBoardEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT b.board_id, t.id FROM boards b JOIN domain_entity_types t ON t.name = 'board' ON CONFLICT DO NOTHING`
 
 // npc_avatars・npc_decks と、デッキが入れるカードの行を写す。カードは公開中のデッキ 1 が入れる 3 種類（種類が違う）。
 // デッキ 1 は書き手の並びを Spell・Creature・Item にして、読み手が種類の順に並べ直すことを確かめる

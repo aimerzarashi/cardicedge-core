@@ -43,7 +43,7 @@ func (r *GameRulesReader) Get(ctx context.Context) (gamerules.Rules, bool, error
 	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 		return gamerules.Rules{}, false, fmt.Errorf("game_rules.metadata of %s: %w", row.GameRulesID, err)
 	}
-	rules, err := gamerules.New(metadata.Rules.Player, metadata.Rules.Deck, metadata.Rules.StarterDeck, metadata.Rules.Match)
+	rules, err := gamerules.New(metadata.Rules.Player, metadata.Rules.Deck, metadata.Rules.Match)
 	if err != nil {
 		return gamerules.Rules{}, false, fmt.Errorf("game_rules.metadata of %s: %w", row.GameRulesID, err)
 	}

@@ -258,6 +258,7 @@ type ComplexityRoot struct {
 
 	Player struct {
 		Avatars      func(childComplexity int) int
+		Boards       func(childComplexity int) int
 		Decks        func(childComplexity int) int
 		ID           func(childComplexity int) int
 		StarterGrant func(childComplexity int) int
@@ -321,6 +322,7 @@ type MutationResolver interface {
 type PlayerResolver interface {
 	StarterGrant(ctx context.Context, obj *model.Player) (model.StarterGrantStatus, error)
 	Avatars(ctx context.Context, obj *model.Player) ([]*model.Avatar, error)
+	Boards(ctx context.Context, obj *model.Player) ([]*model.Board, error)
 	Decks(ctx context.Context, obj *model.Player) ([]*model.Deck, error)
 }
 type QueryResolver interface {
@@ -1035,6 +1037,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Player.Avatars(childComplexity), true
+	case "Player.boards":
+		if e.ComplexityRoot.Player.Boards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Player.Boards(childComplexity), true
 	case "Player.decks":
 		if e.ComplexityRoot.Player.Decks == nil {
 			break
@@ -1586,6 +1594,8 @@ func (ec *executionContext) childFields_Player(ctx context.Context, field graphq
 		return ec.fieldContext_Player_starterGrant(ctx, field)
 	case "avatars":
 		return ec.fieldContext_Player_avatars(ctx, field)
+	case "boards":
+		return ec.fieldContext_Player_boards(ctx, field)
 	case "decks":
 		return ec.fieldContext_Player_decks(ctx, field)
 	}
@@ -4626,6 +4636,38 @@ func (ec *executionContext) fieldContext_Player_avatars(_ context.Context, field
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Avatar(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Player_boards(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_boards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Player().Boards(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.Board) graphql.Marshaler {
+			return ec.marshalNBoard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_boards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Player",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Board(ctx, field)
 		},
 	}
 	return fc, nil
@@ -8446,6 +8488,12 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Player_avatars(ctx, field, obj)
 				})
+		case "boards":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Player_boards(ctx, field, obj)
+				})
 		case "decks":
 			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
 				true, true,
@@ -9229,6 +9277,22 @@ func (ec *executionContext) marshalNAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiec
 		return graphql.Null
 	}
 	return ec._Avatar(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoard2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Board) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoard(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNBoard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoard(ctx context.Context, sel ast.SelectionSet, v *model.Board) graphql.Marshaler {

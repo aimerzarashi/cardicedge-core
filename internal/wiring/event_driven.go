@@ -15,7 +15,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -40,5 +42,7 @@ func newHub(registry *domaindef.Registry, options eventdriven.Options, subscribe
 		eventstore.NewEventLoader(registry, studiorules.NewID, studiorules.NewEventType),
 		eventstore.NewEventLoader(registry, npcavatar.NewID, npcavatar.NewEventType),
 		eventstore.NewEventLoader(registry, npcdeck.NewID, npcdeck.NewEventType),
+		eventstore.NewEventLoader(registry, starterset.NewID, starterset.NewEventType),
+		eventstore.NewEventLoader(registry, unlock.NewID, unlock.NewEventType),
 	)
 }

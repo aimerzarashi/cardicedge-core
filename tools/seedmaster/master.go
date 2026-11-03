@@ -9,6 +9,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
@@ -29,6 +30,15 @@ type master struct {
 	NPCAvatars []masterNPCAvatar `json:"npc_avatars"`
 	// プリセットデッキから、元と同じ名前を指定して写して、公開する NPC のデッキ。プリセットデッキの名前で書く
 	NPCDecks []string `json:"npc_decks"`
+	// 登録して配るデッキ（grant_decks に書いた名前）と解放するボード（boards に書いた名前）を指定し、公開するスターターセット。
+	// 公開中にできるのは同時に 1 つだけなので、公開するのは 1 つだけ書く
+	StarterSets []masterStarterSet `json:"starter_sets"`
+}
+
+type masterStarterSet struct {
+	Name         string   `json:"name"`
+	GrantDecks   []string `json:"grant_decks"`
+	UnlockBoards []string `json:"unlock_boards"`
 }
 
 // 公開するには公開中のデッキが 1 つ以上要るため、デッキは 1 つ以上書く。NPC のデッキの名前（npc_decks に書いたもの）で指す
@@ -168,7 +178,59 @@ func (m master) validate() error {
 	if err != nil {
 		return err
 	}
-	return m.validateNPCAvatars(npcDeckNames)
+	if err := m.validateNPCAvatars(npcDeckNames); err != nil {
+		return err
+	}
+	return m.validateStarterSets(starterNames)
+}
+
+// 名前の決まりは domain の starterset.NewName で確かめる。公開中の数の上限は、コマンドが守る決まり（quota）なので、
+// 見本のファイルでも 1 つだけにする（2 つ書くと、流すたびに 2 つ目の公開で止まるため）
+func (m master) validateStarterSets(grantDeckNames map[string]bool) error {
+	if len(m.StarterSets) > starterset.MaxPublished {
+		return fmt.Errorf("starter sets: at most %d can be published", starterset.MaxPublished)
+	}
+	boardNames := map[string]bool{}
+	for _, b := range m.Boards {
+		boardNames[b.Name] = true
+	}
+	names := map[string]bool{}
+	for _, set := range m.StarterSets {
+		validName, err := starterset.NewName(set.Name)
+		if err != nil {
+			return fmt.Errorf("starter set %q: %w", set.Name, err)
+		}
+		key := domain.NormalizeName(validName.String())
+		if names[key] {
+			return fmt.Errorf("starter set %q: duplicated", set.Name)
+		}
+		names[key] = true
+		if len(set.GrantDecks) == 0 {
+			return fmt.Errorf("starter set %q: at least one grant deck is required", set.Name)
+		}
+		if err := checkReferences(set.GrantDecks, grantDeckNames); err != nil {
+			return fmt.Errorf("starter set %q: grant decks: %w", set.Name, err)
+		}
+		if err := checkReferences(set.UnlockBoards, boardNames); err != nil {
+			return fmt.Errorf("starter set %q: unlock boards: %w", set.Name, err)
+		}
+	}
+	return nil
+}
+
+// names の名前が、known にあって重ならないこと
+func checkReferences(names []string, known map[string]bool) error {
+	seen := map[string]bool{}
+	for _, name := range names {
+		if !known[name] {
+			return fmt.Errorf("unknown %q", name)
+		}
+		if seen[name] {
+			return fmt.Errorf("%q is duplicated", name)
+		}
+		seen[name] = true
+	}
+	return nil
 }
 
 // レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に

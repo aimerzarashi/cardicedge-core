@@ -24,12 +24,14 @@ var TableNames = struct {
 	EventSubscribers           string
 	EventSubscriptions         string
 	GameRules                  string
+	GrantDecks                 string
 	NPCAvatars                 string
 	NPCDecks                   string
 	Players                    string
 	PresetDecks                string
-	GrantDecks                 string
+	StarterSets                string
 	StudioRules                string
+	Unlocks                    string
 }{
 	Avatars:                    "avatars",
 	Boards:                     "boards",
@@ -51,10 +53,12 @@ var TableNames = struct {
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
 	GameRules:                  "game_rules",
+	GrantDecks:                 "grant_decks",
 	NPCAvatars:                 "npc_avatars",
 	NPCDecks:                   "npc_decks",
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
-	GrantDecks:                 "grant_decks",
+	StarterSets:                "starter_sets",
 	StudioRules:                "studio_rules",
+	Unlocks:                    "unlocks",
 }

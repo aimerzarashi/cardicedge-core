@@ -33,3 +33,6 @@ models:
       # decks は resolver で返す（read model decks から、返すときに読むため）
       decks:
         resolver: true
+      # boards は resolver で返す（read model unlocks と、写した boards から、返すときに読むため）
+      boards:
+        resolver: true

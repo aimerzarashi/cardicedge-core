@@ -30,7 +30,7 @@ type PresetDeck struct {
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`
 	// カードの枚数の合計
 	TotalCount int `boil:"total_count" json:"total_count" toml:"total_count" yaml:"total_count"`
-	// 表示に使う値（イベントの値。名前・更新の番号（集約の版）・日時、入れたカードの公開 ID と枚数の一覧（cards: [{card_id, count}]。枚数が 0 のカードは持たない））
+	// 値（JSON）。項目と形は studio の readmodel.PresetDeckMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *presetDeckR `boil:"-" json:"-" toml:"-" yaml:"-"`

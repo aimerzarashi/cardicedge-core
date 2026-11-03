@@ -132,12 +132,9 @@ func (r *mutationResolver) PublishGrantDeck(ctx context.Context, input model.Pub
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
-	var limitReached *command.LimitReachedError
 	switch {
 	case errors.Is(err, command.ErrGrantDeckNotFound):
 		return &model.GrantDeckNotFoundError{Message: "grant deck not found"}, nil
-	case errors.As(err, &limitReached) && errors.Is(err, command.ErrGrantDeckLimitReached):
-		return &model.GrantDeckLimitReachedError{Message: "grant deck limit reached", Max: limitReached.Max}, nil
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:

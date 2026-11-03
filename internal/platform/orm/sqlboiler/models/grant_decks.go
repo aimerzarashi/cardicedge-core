@@ -32,7 +32,7 @@ type GrantDeck struct {
 	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
 	// カードの枚数の合計
 	TotalCount int `boil:"total_count" json:"total_count" toml:"total_count" yaml:"total_count"`
-	// 表示に使う値（イベントの値。名前・状態・更新の番号（集約の版）・日時、入れたカードの公開 ID と枚数の一覧（cards: [{card_id, count}]。枚数が 0 のカードは持たない）、写した元（source: {preset_deck_id, revision}。写したときだけ））
+	// 値（JSON）。項目と形は studio の readmodel.GrantDeckMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *grantDeckR `boil:"-" json:"-" toml:"-" yaml:"-"`

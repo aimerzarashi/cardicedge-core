@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aarondl/sqlboiler/v4/queries/qm"
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -14,6 +13,7 @@ import (
 )
 
 // core_game の grant_decks（make publish-master が studio の read model から全行を状態つきで写した表）のうち、公開中だけを読む。
+// どれを配るかはスターターセット（StarterSetReader）が決める。
 // 準備中・使用不可も写してあるのは、配り済みのデッキの元を後で表示したくなったとき、表を作り直さずに済むようにするため
 type GrantDeckReader struct{}
 
@@ -31,21 +31,30 @@ type grantDeckMetadata struct {
 	} `json:"cards"`
 }
 
-// 並びは索引（sort_name, grant_deck_id）と同じ。sort_name は COLLATE "C" のため、OS の照合順序に左右されない
-func (r *GrantDeckReader) ListPublished(ctx context.Context) ([]master.GrantDeck, error) {
+// 渡した公開 ID のうち公開中のものを、公開 ID から引く表で返す。公開中でないもの（準備中・使用不可・写していない）は含めない。
+// 並べるのは呼ぶ側（スターターセットが持つ順）なので、ここでは並べない
+func (r *GrantDeckReader) ListPublishedByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]master.GrantDeck, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
 		return nil, err
 	}
+	idStrings := make([]string, len(ids))
+	for i, id := range ids {
+		idStrings[i] = id.String()
+	}
 	rows, err := models.GrantDecks(
 		models.GrantDeckWhere.Status.EQ("published"),
-		qm.OrderBy(models.GrantDeckColumns.SortName+", "+models.GrantDeckColumns.GrantDeckID),
+		models.GrantDeckWhere.GrantDeckID.IN(idStrings),
 	).All(ctx, exec)
 	if err != nil {
 		return nil, err
 	}
-	decks := make([]master.GrantDeck, 0, len(rows))
+	decks := make(map[uuid.UUID]master.GrantDeck, len(rows))
 	for _, row := range rows {
+		id, err := uuid.Parse(row.GrantDeckID)
+		if err != nil {
+			return nil, fmt.Errorf("grant_decks.grant_deck_id %q: %w", row.GrantDeckID, err)
+		}
 		var metadata grantDeckMetadata
 		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 			return nil, fmt.Errorf("grant_decks.metadata of %s: %w", row.GrantDeckID, err)
@@ -54,7 +63,7 @@ func (r *GrantDeckReader) ListPublished(ctx context.Context) ([]master.GrantDeck
 		for _, c := range metadata.Cards {
 			cards = append(cards, master.DeckCard{CardID: c.CardID, Count: c.Count})
 		}
-		decks = append(decks, master.GrantDeck{Name: metadata.Name, Cards: cards})
+		decks[id] = master.GrantDeck{Name: metadata.Name, Cards: cards}
 	}
 	return decks, nil
 }

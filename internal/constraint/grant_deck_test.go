@@ -14,7 +14,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
 
 func (f fixture) issueGrantDeckID(t *testing.T) grantdeck.ID {
@@ -101,42 +100,4 @@ func TestUpdateGrantDeckCardReferences_PreventsDeletingReferencedCardUntilGrantD
 	var pgErr *pq.Error
 	require.ErrorAs(t, err, &pgErr)
 	require.Equal(t, pqerror.RestrictViolation, pgErr.Code)
-}
-
-func (f fixture) grantDeckUsed(t *testing.T, ownerID int64) int {
-	t.Helper()
-	exec, err := rdb.GetExecutor(f.ctx)
-	require.NoError(t, err)
-	var used int
-	err = exec.QueryRowContext(f.ctx, `
-		SELECT COALESCE(SUM(q.used), 0) FROM domain_quotas q JOIN domain_quota_types t ON t.id = q.quota_type_id
-		WHERE t.name = $1 AND q.owner_id = $2`, grantdeck.PublishedQuotaType.String(), ownerID).Scan(&used)
-	require.NoError(t, err)
-	return used
-}
-
-func TestReserveGrantDeckQuota_ReservesUpToLimitThenReportsLimitReached(t *testing.T) {
-	f := setup(t)
-	gameRulesID := f.issueGameRulesID(t)
-	limit := quotaLimit(t, 2)
-	for range 2 {
-		require.NoError(t, constraint.ReserveGrantDeckQuota(f.ctx, grantdeck.PublishedQuota(gameRulesID), limit))
-	}
-
-	err := constraint.ReserveGrantDeckQuota(f.ctx, grantdeck.PublishedQuota(gameRulesID), limit)
-
-	require.ErrorIs(t, err, grantdeck.ErrLimitReached)
-	require.Equal(t, 2, f.grantDeckUsed(t, gameRulesID.Int64()))
-}
-
-func TestReleaseGrantDeckQuota_MakesRoomForNextPublish(t *testing.T) {
-	f := setup(t)
-	gameRulesID := f.issueGameRulesID(t)
-	limit := quotaLimit(t, 1)
-	require.NoError(t, constraint.ReserveGrantDeckQuota(f.ctx, grantdeck.PublishedQuota(gameRulesID), limit))
-
-	require.NoError(t, constraint.ReleaseGrantDeckQuota(f.ctx, grantdeck.PublishedQuota(gameRulesID)))
-
-	require.Equal(t, 0, f.grantDeckUsed(t, gameRulesID.Int64()))
-	require.NoError(t, constraint.ReserveGrantDeckQuota(f.ctx, grantdeck.PublishedQuota(gameRulesID), limit))
 }

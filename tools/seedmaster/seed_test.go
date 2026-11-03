@@ -98,6 +98,23 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		}
 		require.Equal(t, wantDecks, npcAvatar.Decks)
 	}
+	starterSets, err := s.listStarterSets(ctx)
+	require.NoError(t, err)
+	require.Len(t, starterSets, len(m.StarterSets))
+	for _, set := range m.StarterSets {
+		starterSet := starterSets[domain.NormalizeName(set.Name)]
+		require.Equal(t, readmodel.StarterSetStatusPublished, starterSet.Status)
+		wantGrantDecks := make([]uuid.UUID, 0, len(set.GrantDecks))
+		for _, name := range set.GrantDecks {
+			wantGrantDecks = append(wantGrantDecks, grantDecks[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantGrantDecks, starterSet.GrantDecks)
+		wantBoards := make([]uuid.UUID, 0, len(set.UnlockBoards))
+		for _, name := range set.UnlockBoards {
+			wantBoards = append(wantBoards, boards[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantBoards, starterSet.UnlockBoards)
+	}
 	require.Len(t, npcDecks, len(m.NPCDecks))
 	for _, name := range m.NPCDecks {
 		npcDeck := npcDecks[domain.NormalizeName(name)]
@@ -199,6 +216,23 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			registered, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0].Name)
 			require.NoError(t, err)
 			_, err = s.npcAvatars.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{npcDeckIDs[m.NPCAvatars[0].Decks[0]]})
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_registered_without_contents", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.starterSets.Register(ctx, m.StarterSets[0].Name)
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_grant_decks_assigned_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			require.NoError(t, s.seedGrantDecks(ctx, m.GrantDecks, deckIDs))
+			grantDecks, err := s.listGrantDecks(ctx)
+			require.NoError(t, err)
+			registered, err := s.starterSets.Register(ctx, m.StarterSets[0].Name)
+			require.NoError(t, err)
+			_, err = s.starterSets.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{grantDecks[domain.NormalizeName(m.StarterSets[0].GrantDecks[0])].ID})
 			require.NoError(t, err)
 		}},
 		{name: "npc_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {

@@ -28,30 +28,33 @@ func insertGrantDeck(t *testing.T, ctx context.Context, id uuid.UUID, sortName s
 	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
 }
 
-func TestGrantDeckReader_ListsOnlyPublishedInSortNameOrder(t *testing.T) {
+func TestGrantDeckReader_ListsOnlyPublishedOfGivenIDs(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	fireCard, waterCard := uuid.New(), uuid.New()
-	insertGrantDeck(t, ctx, uuid.New(), "b-water", readmodel.GrantDeckStatusPublished, "水", readmodel.DeckCard{CardID: waterCard, Count: 3}, readmodel.DeckCard{CardID: fireCard, Count: 1})
-	insertGrantDeck(t, ctx, uuid.New(), "a-fire", readmodel.GrantDeckStatusPublished, "火", readmodel.DeckCard{CardID: fireCard, Count: 4})
-	insertGrantDeck(t, ctx, uuid.New(), "c-draft", readmodel.GrantDeckStatusDraft, "準備中")
-	insertGrantDeck(t, ctx, uuid.New(), "d-retired", readmodel.GrantDeckStatusRetired, "使用不可")
+	water, fire, draft, retired, other := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	insertGrantDeck(t, ctx, water, "b-water", readmodel.GrantDeckStatusPublished, "水", readmodel.DeckCard{CardID: waterCard, Count: 3}, readmodel.DeckCard{CardID: fireCard, Count: 1})
+	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火", readmodel.DeckCard{CardID: fireCard, Count: 4})
+	insertGrantDeck(t, ctx, draft, "c-draft", readmodel.GrantDeckStatusDraft, "準備中")
+	insertGrantDeck(t, ctx, retired, "d-retired", readmodel.GrantDeckStatusRetired, "使用不可")
+	insertGrantDeck(t, ctx, other, "e-other", readmodel.GrantDeckStatusPublished, "指さない")
 
-	got, err := repository.NewGrantDeckReader().ListPublished(ctx)
+	got, err := repository.NewGrantDeckReader().ListPublishedByIDs(ctx, []uuid.UUID{water, fire, draft, retired, uuid.New()})
 
 	require.NoError(t, err)
-	require.Equal(t, []master.GrantDeck{
-		{Name: "火", Cards: []master.DeckCard{{CardID: fireCard, Count: 4}}},
-		{Name: "水", Cards: []master.DeckCard{{CardID: waterCard, Count: 3}, {CardID: fireCard, Count: 1}}},
+	require.Equal(t, map[uuid.UUID]master.GrantDeck{
+		fire:  {Name: "火", Cards: []master.DeckCard{{CardID: fireCard, Count: 4}}},
+		water: {Name: "水", Cards: []master.DeckCard{{CardID: waterCard, Count: 3}, {CardID: fireCard, Count: 1}}},
 	}, got)
 }
 
-func TestGrantDeckReader_ReturnsEmptyWhenNothingIsPublished(t *testing.T) {
+func TestGrantDeckReader_ReturnsEmptyWhenNoneOfGivenIDsIsPublished(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	insertGrantDeck(t, ctx, uuid.New(), "a-draft", readmodel.GrantDeckStatusDraft, "準備中")
+	draft := uuid.New()
+	insertGrantDeck(t, ctx, draft, "a-draft", readmodel.GrantDeckStatusDraft, "準備中")
 
-	got, err := repository.NewGrantDeckReader().ListPublished(ctx)
+	got, err := repository.NewGrantDeckReader().ListPublishedByIDs(ctx, []uuid.UUID{draft})
 
 	require.NoError(t, err)
 	require.Empty(t, got)

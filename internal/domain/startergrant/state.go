@@ -1,6 +1,7 @@
 package startergrant
 
 import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
@@ -20,7 +21,9 @@ type InProgressStarterGrant struct {
 	Player             player.ID
 	Cards              []card.Count
 	Decks              []Deck
+	UnlockBoards       []board.ID
 	CollectionRecorded bool
+	UnlockRecorded     bool
 	// 添字は DeckNumber - 1。長さは配るデッキの数（Decks と同じ）
 	DeckRecorded []bool
 }
@@ -28,7 +31,7 @@ type InProgressStarterGrant struct {
 func (InProgressStarterGrant) isStarterGrantState() {}
 
 func (s InProgressStarterGrant) allRecorded() bool {
-	if !s.CollectionRecorded {
+	if !s.CollectionRecorded || !s.UnlockRecorded {
 		return false
 	}
 	for _, recorded := range s.DeckRecorded {

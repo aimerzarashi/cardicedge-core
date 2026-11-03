@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
@@ -23,18 +24,25 @@ type Event interface {
 
 type EventMeta = domain.EventMeta[ID]
 
-// 配る中身（所持カードとデッキ）を、開始のときにマスタから写して持つ。後でマスタが変わっても、この配布は変わらない。
-// プレイヤーはほかの集約なので内部 ID で持つ
+// 配る中身（所持カード・デッキ・解放するボード）を、開始のときにマスタから写して持つ。後でマスタが変わっても、この配布は変わらない。
+// プレイヤーはほかの集約なので内部 ID で持つ。解放するボードは内部 ID（board.ID）
 type StartedEvent struct {
-	EventMeta   `json:"-"`
-	eventMarker `json:"-"`
-	Player      player.ID    `json:"player"`
-	Cards       []card.Count `json:"cards"`
-	Decks       []Deck       `json:"decks"`
+	EventMeta    `json:"-"`
+	eventMarker  `json:"-"`
+	Player       player.ID    `json:"player"`
+	Cards        []card.Count `json:"cards"`
+	Decks        []Deck       `json:"decks"`
+	UnlockBoards []board.ID   `json:"unlock_boards"`
 }
 
 // 所持カードの集約ができたことの記録
 type CollectionRecordedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+}
+
+// 解放の集約ができたことの記録
+type UnlockRecordedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 }
@@ -46,7 +54,7 @@ type DeckRecordedEvent struct {
 	Number      DeckNumber `json:"number"`
 }
 
-// 所持カードとデッキの記録がそろった
+// 所持カード・デッキ・解放の記録がそろった
 type CompletedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -56,6 +64,7 @@ var (
 	startedEventType            = domain.NewEventName("StartedEvent")
 	collectionRecordedEventType = domain.NewEventName("CollectionRecordedEvent")
 	deckRecordedEventType       = domain.NewEventName("DeckRecordedEvent")
+	unlockRecordedEventType     = domain.NewEventName("UnlockRecordedEvent")
 	completedEventType          = domain.NewEventName("CompletedEvent")
 )
 
@@ -69,6 +78,10 @@ func (*CollectionRecordedEvent) EventType() domain.EventName {
 
 func (*DeckRecordedEvent) EventType() domain.EventName {
 	return deckRecordedEventType
+}
+
+func (*UnlockRecordedEvent) EventType() domain.EventName {
+	return unlockRecordedEventType
 }
 
 func (*CompletedEvent) EventType() domain.EventName {
@@ -88,6 +101,10 @@ func (*DeckRecordedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*UnlockRecordedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*CompletedEvent) SchemaVersion() int {
 	return 1
 }
@@ -95,7 +112,7 @@ func (*CompletedEvent) SchemaVersion() int {
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
-		EventTypes: []domain.EventName{startedEventType, collectionRecordedEventType, deckRecordedEventType, completedEventType},
+		EventTypes: []domain.EventName{startedEventType, collectionRecordedEventType, deckRecordedEventType, completedEventType, unlockRecordedEventType},
 	}
 }
 
@@ -114,6 +131,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CollectionRecordedEvent{EventMeta: meta}
 	case EventType(deckRecordedEventType):
 		event = &DeckRecordedEvent{EventMeta: meta}
+	case EventType(unlockRecordedEventType):
+		event = &UnlockRecordedEvent{EventMeta: meta}
 	case EventType(completedEventType):
 		event = &CompletedEvent{EventMeta: meta}
 	default:

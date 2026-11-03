@@ -31,12 +31,8 @@ type GrantDeckHandler struct {
 	// 写す元のプリセットデッキを、公開 ID から引いて Load する
 	presetDecks          domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State]
 	presetDeckIdentifier domain.Identifier[presetdeck.ID]
-	// 公開中の数の持ち主（ゲーム全体のルールの集約）を、一意な key から引く
-	findGameRules gamerules.FindFunc
-	reserveQuota  grantdeck.ReserveQuotaFunc
-	releaseQuota  grantdeck.ReleaseQuotaFunc
-	getRules      GetGameRulesFunc
-	now           func() time.Time
+	getRules             GetGameRulesFunc
+	now                  func() time.Time
 }
 
 func NewGrantDeckHandler(
@@ -48,9 +44,6 @@ func NewGrantDeckHandler(
 	cardStatuses CardStatusesFunc,
 	presetDecks domain.EventStore[presetdeck.ID, presetdeck.Event, presetdeck.State],
 	presetDeckIdentifier domain.Identifier[presetdeck.ID],
-	findGameRules gamerules.FindFunc,
-	reserveQuota grantdeck.ReserveQuotaFunc,
-	releaseQuota grantdeck.ReleaseQuotaFunc,
 	getRules GetGameRulesFunc,
 	now func() time.Time,
 ) *GrantDeckHandler {
@@ -63,9 +56,6 @@ func NewGrantDeckHandler(
 		cardStatuses:         cardStatuses,
 		presetDecks:          presetDecks,
 		presetDeckIdentifier: presetDeckIdentifier,
-		findGameRules:        findGameRules,
-		reserveQuota:         reserveQuota,
-		releaseQuota:         releaseQuota,
 		getRules:             getRules,
 		now:                  now,
 	}
@@ -218,8 +208,8 @@ func (c *GrantDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revi
 }
 
 // 公開中にする（使用不可からの公開に戻すのも同じ）。公開するとき確かめるのは、合計の枚数がちょうどルールの値
-// （input.TotalMismatch）・入っているカードがすべて公開中（input.Unavailable。項目名は cards）・公開中の数の上限
-// （ErrGrantDeckLimitReached。上限の値は LimitReachedError）。名前は登録・変更のときに全体で一意にしてあるため、ここでは確かめない。
+// （input.TotalMismatch）・入っているカードがすべて公開中（input.Unavailable。項目名は cards）。
+// 公開中の数に上限は持たない（どれを配るかはスターターセットが決めるため）。名前は登録・変更のときに全体で一意にしてあるため、ここでは確かめない。
 // すでに公開中なら、何も確かめず変えずに成功する（revision が古ければ ErrRevisionConflict）。ほかのエラーは Rename と同じ
 func (c *GrantDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedGrantDeck, error) {
 	publishedBy, ok := authentication.Operator(ctx)
@@ -245,18 +235,12 @@ func (c *GrantDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision i
 		if err := c.checkPublishable(ctx, deck, rules.Deck); err != nil {
 			return ChangedGrantDeck{}, err
 		}
-		if err := c.reservePublished(ctx, rules.StarterDeck.MaxPublished); err != nil {
-			return ChangedGrantDeck{}, err
-		}
 		published, _, err := c.decideAndSave(ctx, deck, &grantdeck.PublishCommand{Rules: rules.Deck, PublishedBy: publishedBy})
 		if err != nil {
 			return ChangedGrantDeck{}, err
 		}
 		return changedGrantDeck(published), nil
 	})
-	if errors.Is(err, grantdeck.ErrLimitReached) {
-		return ChangedGrantDeck{}, &LimitReachedError{reason: ErrGrantDeckLimitReached, Max: rules.StarterDeck.MaxPublished}
-	}
 	return published, mapGrantDeckError(err)
 }
 
@@ -287,23 +271,7 @@ func (c *GrantDeckHandler) checkPublishable(ctx context.Context, deck grantdeck.
 	return nil
 }
 
-// 公開中の数を 1 つ確保する。持ち主は game_rules の内部 ID、上限はルールの値
-func (c *GrantDeckHandler) reservePublished(ctx context.Context, maxPublished int) error {
-	gameRulesID, found, err := c.findGameRules(ctx)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return ErrGameRulesNotCreated
-	}
-	limit, err := domain.NewQuotaLimit(maxPublished)
-	if err != nil {
-		return err
-	}
-	return c.reserveQuota(ctx, grantdeck.PublishedQuota(gameRulesID), limit)
-}
-
-// 使用不可にする。公開中の数を 1 つ戻す（もう一度公開できるように）。すでに使用不可なら変えずに成功する。
+// 使用不可にする。すでに使用不可なら変えずに成功する。
 // 準備中なら ErrInvalidGrantDeckStatusTransition。ほかのエラーは Rename と同じ
 func (c *GrantDeckHandler) Retire(ctx context.Context, id uuid.UUID, revision int64) (ChangedGrantDeck, error) {
 	retiredBy, ok := authentication.Operator(ctx)
@@ -315,21 +283,9 @@ func (c *GrantDeckHandler) Retire(ctx context.Context, id uuid.UUID, revision in
 		if err != nil {
 			return ChangedGrantDeck{}, err
 		}
-		retired, changed, err := c.decideAndSave(ctx, deck, &grantdeck.RetireCommand{RetiredBy: retiredBy})
+		retired, _, err := c.decideAndSave(ctx, deck, &grantdeck.RetireCommand{RetiredBy: retiredBy})
 		if err != nil {
 			return ChangedGrantDeck{}, err
-		}
-		if changed {
-			gameRulesID, found, err := c.findGameRules(ctx)
-			if err != nil {
-				return ChangedGrantDeck{}, err
-			}
-			if !found {
-				return ChangedGrantDeck{}, ErrGameRulesNotCreated
-			}
-			if err := c.releaseQuota(ctx, grantdeck.PublishedQuota(gameRulesID)); err != nil {
-				return ChangedGrantDeck{}, err
-			}
 		}
 		return changedGrantDeck(retired), nil
 	})
