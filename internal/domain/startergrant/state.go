@@ -1,6 +1,9 @@
 package startergrant
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+)
 
 type State interface {
 	isStarterGrantState()
@@ -15,7 +18,7 @@ type InProgressStarterGrant struct {
 	ID                 ID
 	Version            int64
 	Player             player.ID
-	Cards              []CardCount
+	Cards              []card.Count
 	Decks              []Deck
 	CollectionRecorded bool
 	// 添字は DeckNumber - 1。長さは配るデッキの数（Decks と同じ）

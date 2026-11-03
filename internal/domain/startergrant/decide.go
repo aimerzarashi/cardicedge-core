@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"slices"
 	"time"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 // 中で time.Now を呼ばず発生時刻を受け取るのは、テストで時刻を固定するため
@@ -82,8 +84,8 @@ func withCompletion(progress InProgressStarterGrant, now time.Time, event Event)
 
 // カードごとに、配るデッキのうち多いほうの枚数。1 枚の所持カードを複数のデッキで使えるため、合計にはしない。
 // 同じ中身を同じ値として比べられるよう、カードの ID の順に並べる
-func collectionOf(decks []Deck) []CardCount {
-	most := map[[16]byte]CardCount{}
+func collectionOf(decks []Deck) []card.Count {
+	most := map[[16]byte]card.Count{}
 	for _, deck := range decks {
 		for _, c := range deck.Cards {
 			if current, ok := most[c.CardID]; !ok || c.Count > current.Count {
@@ -91,11 +93,11 @@ func collectionOf(decks []Deck) []CardCount {
 			}
 		}
 	}
-	cards := make([]CardCount, 0, len(most))
+	cards := make([]card.Count, 0, len(most))
 	for _, c := range most {
 		cards = append(cards, c)
 	}
-	slices.SortFunc(cards, func(a, b CardCount) int {
+	slices.SortFunc(cards, func(a, b card.Count) int {
 		return bytes.Compare(a.CardID[:], b.CardID[:])
 	})
 	return cards

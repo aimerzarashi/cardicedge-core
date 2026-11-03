@@ -3,9 +3,9 @@ package startergranttest
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
 
@@ -26,19 +26,7 @@ func DeckNumber(t testing.TB, value int) startergrant.DeckNumber {
 	return number
 }
 
-func Count(t testing.TB, value int) startergrant.Count {
-	t.Helper()
-	count, err := startergrant.NewCount(value)
-	require.NoError(t, err)
-	return count
-}
-
-func CardCount(t testing.TB, cardID uuid.UUID, count int) startergrant.CardCount {
-	t.Helper()
-	return startergrant.CardCount{CardID: cardID, Count: Count(t, count)}
-}
-
-func Deck(t testing.TB, name string, cards ...startergrant.CardCount) startergrant.Deck {
+func Deck(t testing.TB, name string, cards ...card.Count) startergrant.Deck {
 	t.Helper()
 	return startergrant.Deck{Name: DeckName(t, name), Cards: cards}
 }

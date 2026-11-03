@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 )
@@ -18,7 +19,7 @@ func TestCreateCollection_CreatesCollectionOfOwnerWithGivenCards(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
-	cards := []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4), startergranttest.CardCount(t, cardB, 3)}
+	cards := []card.Count{cardtest.Count(t, cardA, 4), cardtest.Count(t, cardB, 3)}
 
 	require.NoError(t, newCollectionHandler(t, ctx).Create(ctx, playerID, starterGrantID, cards))
 
@@ -41,7 +42,7 @@ func TestCreateCollection_DoesNothingWhenOwnerAlreadyHasCollection(t *testing.T)
 	ctx := isolatedDatabase(t)
 	handler := newCollectionHandler(t, ctx)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
-	cards := []startergrant.CardCount{startergranttest.CardCount(t, cardA, 1)}
+	cards := []card.Count{cardtest.Count(t, cardA, 1)}
 	require.NoError(t, handler.Create(ctx, playerID, startergranttest.ID(t, 10), cards))
 
 	err := handler.Create(ctx, playerID, startergranttest.ID(t, 10), cards)

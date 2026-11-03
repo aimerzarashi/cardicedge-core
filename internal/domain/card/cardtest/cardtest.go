@@ -3,6 +3,7 @@ package cardtest
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
@@ -16,4 +17,16 @@ func Name(t testing.TB, value string) card.Name {
 	name, err := card.NewName(value)
 	require.NoError(t, err)
 	return name
+}
+
+func Quantity(t testing.TB, value int) card.Quantity {
+	t.Helper()
+	quantity, err := card.NewQuantity(value)
+	require.NoError(t, err)
+	return quantity
+}
+
+func Count(t testing.TB, cardID uuid.UUID, quantity int) card.Count {
+	t.Helper()
+	return card.Count{CardID: cardID, Count: Quantity(t, quantity)}
 }

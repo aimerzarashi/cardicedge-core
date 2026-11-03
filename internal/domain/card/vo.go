@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 const MaxNameLength = 50
@@ -79,4 +81,26 @@ func (s Status) Retire() (Status, bool, error) {
 	default:
 		return s, false, ErrStatusUnknown
 	}
+}
+
+// 持つ・配るカードの枚数。1 以上（0 枚のカードは持たない）
+type Quantity int
+
+func NewQuantity(value int) (Quantity, error) {
+	if value <= 0 {
+		return 0, ErrQuantityNotPositive
+	}
+	return Quantity(value), nil
+}
+
+func (q Quantity) Int() int {
+	return int(q)
+}
+
+// カードとその枚数。game の所持カード・デッキ・配布の中身が使う（配布の型にすると、長く残る所持品が 1 回で終わる配布の流れに依存するため）。
+// カードは公開 ID で持つ。game の DB にはカードの集約が無く、公開されたマスタ（read model の写し）の公開 ID しか無いため
+// （マスタの内部 ID は studio の DB のもので、game の DB の内部 ID と意味が重なる）
+type Count struct {
+	CardID uuid.UUID `json:"card_id"`
+	Count  Quantity  `json:"count"`
 }

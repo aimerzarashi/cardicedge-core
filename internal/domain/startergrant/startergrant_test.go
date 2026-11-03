@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
@@ -26,8 +28,8 @@ var (
 func decks(t *testing.T) []startergrant.Deck {
 	t.Helper()
 	return []startergrant.Deck{
-		startergranttest.Deck(t, "火", startergranttest.CardCount(t, cardA, 4), startergranttest.CardCount(t, cardB, 1)),
-		startergranttest.Deck(t, "水", startergranttest.CardCount(t, cardA, 2), startergranttest.CardCount(t, cardB, 3), startergranttest.CardCount(t, cardC, 2)),
+		startergranttest.Deck(t, "火", cardtest.Count(t, cardA, 4), cardtest.Count(t, cardB, 1)),
+		startergranttest.Deck(t, "水", cardtest.Count(t, cardA, 2), cardtest.Count(t, cardB, 3), cardtest.Count(t, cardC, 2)),
 	}
 }
 
@@ -60,10 +62,10 @@ func TestDecide_StartCopiesDecksAndCollectsMostCountOfEachCard(t *testing.T) {
 
 	started, ok := event.(*startergrant.StartedEvent)
 	require.True(t, ok)
-	require.Equal(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, cardA, 4),
-		startergranttest.CardCount(t, cardB, 3),
-		startergranttest.CardCount(t, cardC, 2),
+	require.Equal(t, []card.Count{
+		cardtest.Count(t, cardA, 4),
+		cardtest.Count(t, cardB, 3),
+		cardtest.Count(t, cardC, 2),
 	}, started.Cards)
 	require.Equal(t, decks(t), started.Decks)
 }
@@ -91,7 +93,7 @@ func TestDecide_CompletesAfterRecordingEveryDeckWhateverTheDeckCount(t *testing.
 			cmd := startCommand(t)
 			cmd.Decks = nil
 			for range tt.count {
-				cmd.Decks = append(cmd.Decks, startergranttest.Deck(t, "火", startergranttest.CardCount(t, cardA, 4)))
+				cmd.Decks = append(cmd.Decks, startergranttest.Deck(t, "火", cardtest.Count(t, cardA, 4)))
 			}
 			state, _ := apply(t, startergrant.InitialState(), cmd)
 			state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
@@ -229,14 +231,12 @@ func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestNewDeckNumberAndCount_RejectOutOfRange(t *testing.T) {
+func TestNewDeckNumber_RejectsOutOfRange(t *testing.T) {
 	_, zero := startergrant.NewDeckNumber(0)
 	_, negative := startergrant.NewDeckNumber(-1)
-	_, noCount := startergrant.NewCount(0)
 
 	require.ErrorIs(t, zero, startergrant.ErrInvalidDeckNumber)
 	require.ErrorIs(t, negative, startergrant.ErrInvalidDeckNumber)
-	require.ErrorIs(t, noCount, startergrant.ErrCountNotPositive)
 }
 
 func TestPlayerKey_UsesPlayerKeyType(t *testing.T) {

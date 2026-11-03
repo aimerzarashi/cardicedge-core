@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -79,10 +81,10 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	var owned collection.CreatedEvent
 	require.NoError(t, json.Unmarshal(raw, &owned))
 	// 並びはカードの ID の順（ランダムな ID のため、テストでは順を問わない）
-	require.ElementsMatch(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, m.CardA, 4),
-		startergranttest.CardCount(t, m.CardB, 3),
-		startergranttest.CardCount(t, m.CardC, 2),
+	require.ElementsMatch(t, []card.Count{
+		cardtest.Count(t, m.CardA, 4),
+		cardtest.Count(t, m.CardB, 3),
+		cardtest.Count(t, m.CardC, 2),
 	}, owned.Cards)
 
 	var deckCount int
@@ -93,10 +95,10 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	first := loadDeck(t, ctx, grantID, 1)
 	second := loadDeck(t, ctx, grantID, 2)
 	require.Equal(t, "火", first.Name.String())
-	require.Equal(t, []startergrant.CardCount{startergranttest.CardCount(t, m.CardA, 4), startergranttest.CardCount(t, m.CardB, 1)}, first.Cards)
+	require.Equal(t, []card.Count{cardtest.Count(t, m.CardA, 4), cardtest.Count(t, m.CardB, 1)}, first.Cards)
 	require.Equal(t, "水", second.Name.String())
-	require.Equal(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, m.CardA, 2), startergranttest.CardCount(t, m.CardB, 3), startergranttest.CardCount(t, m.CardC, 2),
+	require.Equal(t, []card.Count{
+		cardtest.Count(t, m.CardA, 2), cardtest.Count(t, m.CardB, 3), cardtest.Count(t, m.CardC, 2),
 	}, second.Cards)
 }
 

@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 )
 
@@ -29,7 +30,7 @@ func createCommand(t *testing.T) *deck.CreateCommand {
 		ID:           decktest.ID(t, 40),
 		Player:       playertest.ID(t, 10),
 		Name:         decktest.Name(t, "火"),
-		Cards:        []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
+		Cards:        []card.Count{cardtest.Count(t, cardA, 4)},
 		StarterGrant: startergranttest.ID(t, 20),
 		Number:       startergranttest.DeckNumber(t, 1),
 	}

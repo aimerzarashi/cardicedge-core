@@ -108,3 +108,11 @@ func TestStatus_Retire(t *testing.T) {
 		})
 	}
 }
+
+func TestNewQuantity_RejectsNotPositive(t *testing.T) {
+	_, zero := card.NewQuantity(0)
+	_, negative := card.NewQuantity(-1)
+
+	require.ErrorIs(t, zero, card.ErrQuantityNotPositive)
+	require.ErrorIs(t, negative, card.ErrQuantityNotPositive)
+}
