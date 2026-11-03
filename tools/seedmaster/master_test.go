@@ -118,7 +118,7 @@ func TestSampleMaster_HasFourNPCAvatarsUsingNPCDecks(t *testing.T) {
 		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}},
 		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}},
 		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}},
-		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ"}},
+		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ", "水・風属性デッキ"}},
 	}, m.NPCAvatars)
 }
 
