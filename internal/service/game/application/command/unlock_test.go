@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
@@ -53,7 +54,7 @@ func TestCreateUnlock_DoesNothingWhenOwnerAlreadyHasUnlock(t *testing.T) {
 	require.Equal(t, 1, countEventsOf(t, ctx, unlockTypeID))
 }
 
-func TestUnlockBoards_UnlocksOnlyNewBoardsAndReportsWhetherAnythingChanged(t *testing.T) {
+func TestUnlock_UnlocksOnlyNewBoardsAndNPCAvatarsAndReportsWhetherAnythingChanged(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	handler := newUnlockHandler(t, ctx)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
@@ -61,15 +62,22 @@ func TestUnlockBoards_UnlocksOnlyNewBoardsAndReportsWhetherAnythingChanged(t *te
 	id, _ := readUnlockCreated(t, ctx, playerID)
 	a, b := boardtest.ID(t, boardA), boardtest.ID(t, boardB)
 
-	first, err := handler.UnlockBoards(ctx, id, []board.ID{b, a})
+	n1, n2 := mustNPCAvatarID(60), mustNPCAvatarID(61)
+	first, err := handler.Unlock(ctx, id, []board.ID{b, a}, []npcavatar.ID{n1})
 	require.NoError(t, err)
-	again, err := handler.UnlockBoards(ctx, id, []board.ID{a})
+	again, err := handler.Unlock(ctx, id, []board.ID{a}, []npcavatar.ID{n1})
+	require.NoError(t, err)
+	onlyNPC, err := handler.Unlock(ctx, id, []board.ID{a}, []npcavatar.ID{n1, n2})
 	require.NoError(t, err)
 
 	require.True(t, first)
 	require.False(t, again)
-	require.Equal(t, 2, countEventsOf(t, ctx, unlockTypeID))
-	owner, err := handler.Player(ctx, id)
+	require.True(t, onlyNPC)
+	// 作成・ボードの解放・NPC の解放・NPC の解放（2 回目は新しい 1 つだけ）
+	require.Equal(t, 4, countEventsOf(t, ctx, unlockTypeID))
+	current, err := handler.Get(ctx, id)
 	require.NoError(t, err)
-	require.Equal(t, playerID, owner)
+	require.Equal(t, playerID, current.Player)
+	require.Equal(t, []board.ID{b, a}, current.Boards)
+	require.Equal(t, []npcavatar.ID{n1, n2}, current.NPCAvatars)
 }

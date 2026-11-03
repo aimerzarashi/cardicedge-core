@@ -11,6 +11,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck/grantdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset/startersettest"
@@ -143,6 +145,19 @@ func TestStarterSet_UnlockBoardsAssignedAndUnassignedChangeUnlockBoardsRevisionA
 	require.Equal(t, []board.ID{boardtest.ID(t, 51), boardtest.ID(t, 50)}, assigned.UnlockBoards)
 	require.Equal(t, []board.ID{boardtest.ID(t, 52)}, replaced.UnlockBoards)
 	require.Empty(t, replaced.GrantDecks)
+	require.Equal(t, int64(4), replaced.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 12), replaced.UpdatedBy)
+}
+
+func TestStarterSet_UnlockNPCAvatarsAssignedAndUnassignedChangeUnlockNPCAvatarsRevisionAndUpdater(t *testing.T) {
+	h := newStarterSetHistory(t, uuid.New(), "標準")
+	h.apply(&starterset.SetUnlockNPCAvatarsCommand{UnlockNPCAvatars: []npcavatar.ID{npcavatartest.ID(t, 61), npcavatartest.ID(t, 60)}, ChangedBy: operatortest.ID(t, 11)}, starterSetChangedAt)
+	assigned := h.project()
+	h.apply(&starterset.SetUnlockNPCAvatarsCommand{UnlockNPCAvatars: []npcavatar.ID{npcavatartest.ID(t, 62)}, ChangedBy: operatortest.ID(t, 12)}, starterSetChangedAt)
+	replaced := h.project()
+
+	require.Equal(t, []npcavatar.ID{npcavatartest.ID(t, 61), npcavatartest.ID(t, 60)}, assigned.UnlockNPCAvatars)
+	require.Equal(t, []npcavatar.ID{npcavatartest.ID(t, 62)}, replaced.UnlockNPCAvatars)
 	require.Equal(t, int64(4), replaced.Metadata.Revision)
 	require.Equal(t, operatortest.ID(t, 12), replaced.UpdatedBy)
 }

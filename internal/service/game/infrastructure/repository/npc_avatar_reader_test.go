@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
@@ -61,99 +62,73 @@ func insertDeckCard(t *testing.T, ctx context.Context, name string, cardType que
 	return id
 }
 
-func TestNPCAvatarReader_ListsOnlyPublishedInSortNameOrderWithDeckIDsInAssignedOrder(t *testing.T) {
+// 解放の行を、投影が書く形（metadata の npc_avatars は解放した順の公開 ID）で直接入れる
+func insertUnlockedNPCAvatars(t *testing.T, ctx context.Context, playerPublicID uuid.UUID, npcAvatars ...uuid.UUID) {
+	t.Helper()
+	id := uuid.New()
+	metadata, err := json.Marshal(map[string]any{"id": id, "boards": []uuid.UUID{}, "npc_avatars": npcAvatars})
+	require.NoError(t, err)
+	row := models.Unlock{UnlockID: id.String(), PlayerID: playerPublicID.String(), RegisteredAt: time.Now(), Metadata: metadata}
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
+}
+
+// 解放した順に、公開中のものだけを読む。使用不可・準備中・写していないものは飛ばし、解放していないもの（公開中でも）と
+// ほかのプレイヤーの解放は混ざらない。デッキの公開 ID は割り当てた順のまま
+func TestNPCAvatarReader_ListsOwnUnlockedPublishedAvatarsInUnlockOrderWithDeckIDsInAssignedOrder(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	d1, d2 := uuid.New(), uuid.New()
 	b := npcAvatarMetadata("B", readmodel.NPCAvatarStatusPublished)
 	a := npcAvatarMetadata("A", readmodel.NPCAvatarStatusPublished, d2, d1)
-	insertNPCAvatar(t, ctx, "b", b)
-	insertNPCAvatar(t, ctx, "a", a)
-	insertNPCAvatar(t, ctx, "c", npcAvatarMetadata("C", readmodel.NPCAvatarStatusDraft))
-	insertNPCAvatar(t, ctx, "d", npcAvatarMetadata("D", readmodel.NPCAvatarStatusRetired))
-
-	got, err := repository.NewNPCAvatarReader().ListPublished(ctx, query.ListPublishedNPCAvatarsCondition{Limit: 10})
-
-	require.NoError(t, err)
-	wantA := query.NPCAvatarRecord{ID: a.ID, Name: "A", DeckIDs: []uuid.UUID{d2, d1}}
-	wantB := query.NPCAvatarRecord{ID: b.ID, Name: "B", DeckIDs: []uuid.UUID{}}
-	cursorA := query.NPCAvatarListCursor{SortName: "a", NPCAvatarID: a.ID}
-	cursorB := query.NPCAvatarListCursor{SortName: "b", NPCAvatarID: b.ID}
-	require.Equal(t, []query.NPCAvatarListRow{{Avatar: wantA, Cursor: cursorA}, {Avatar: wantB, Cursor: cursorB}}, got)
-}
-
-func TestNPCAvatarReader_ListContinuesAfterCursorUpToLimit(t *testing.T) {
-	db, _ := rdbtest.NewDatabase(t)
-	ctx := rdb.WithDB(t.Context(), db)
-	a, b, c := npcAvatarMetadata("A", readmodel.NPCAvatarStatusPublished), npcAvatarMetadata("B", readmodel.NPCAvatarStatusPublished), npcAvatarMetadata("C", readmodel.NPCAvatarStatusPublished)
-	insertNPCAvatar(t, ctx, "a", a)
-	insertNPCAvatar(t, ctx, "b", b)
-	insertNPCAvatar(t, ctx, "c", c)
-	after := query.NPCAvatarListCursor{SortName: "a", NPCAvatarID: a.ID}
-
-	got, err := repository.NewNPCAvatarReader().ListPublished(ctx, query.ListPublishedNPCAvatarsCondition{After: &after, Limit: 1})
-
-	require.NoError(t, err)
-	require.Len(t, got, 1)
-	require.Equal(t, b.ID, got[0].Avatar.ID)
-}
-
-func TestNPCAvatarReader_ListReturnsEmptyWhenNothingIsPublished(t *testing.T) {
-	db, _ := rdbtest.NewDatabase(t)
-	ctx := rdb.WithDB(t.Context(), db)
-	insertNPCAvatar(t, ctx, "a", npcAvatarMetadata("A", readmodel.NPCAvatarStatusRetired))
-
-	got, err := repository.NewNPCAvatarReader().ListPublished(ctx, query.ListPublishedNPCAvatarsCondition{Limit: 10})
-
-	require.NoError(t, err)
-	require.Empty(t, got)
-}
-
-func TestNPCAvatarReader_GetReturnsPublishedAvatar(t *testing.T) {
-	db, _ := rdbtest.NewDatabase(t)
-	ctx := rdb.WithDB(t.Context(), db)
-	deck := uuid.New()
-	a := npcAvatarMetadata("A", readmodel.NPCAvatarStatusPublished, deck)
-	insertNPCAvatar(t, ctx, "a", a)
-
-	got, err := repository.NewNPCAvatarReader().GetPublished(ctx, a.ID)
-
-	require.NoError(t, err)
-	require.Equal(t, query.NPCAvatarRecord{ID: a.ID, Name: "A", DeckIDs: []uuid.UUID{deck}}, got)
-}
-
-func TestNPCAvatarReader_GetReturnsNotFoundForAvatarThatIsNotPublished(t *testing.T) {
-	db, _ := rdbtest.NewDatabase(t)
-	ctx := rdb.WithDB(t.Context(), db)
-	draft := npcAvatarMetadata("A", readmodel.NPCAvatarStatusDraft)
-	retired := npcAvatarMetadata("B", readmodel.NPCAvatarStatusRetired)
-	insertNPCAvatar(t, ctx, "a", draft)
-	insertNPCAvatar(t, ctx, "b", retired)
-	tests := []struct {
-		name string
-		id   uuid.UUID
-	}{
-		{name: "draft", id: draft.ID},
-		{name: "retired", id: retired.ID},
-		{name: "unknown", id: uuid.New()},
+	notUnlocked := npcAvatarMetadata("未解放", readmodel.NPCAvatarStatusPublished)
+	retired := npcAvatarMetadata("使用不可", readmodel.NPCAvatarStatusRetired)
+	draft := npcAvatarMetadata("準備中", readmodel.NPCAvatarStatusDraft)
+	for i, metadata := range []readmodel.NPCAvatarMetadata{a, b, notUnlocked, retired, draft} {
+		insertNPCAvatar(t, ctx, string(rune('a'+i)), metadata)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := repository.NewNPCAvatarReader().GetPublished(ctx, tt.id)
+	player, other := uuid.New(), uuid.New()
+	insertUnlockedNPCAvatars(t, ctx, player, b.ID, retired.ID, uuid.New(), draft.ID, a.ID)
+	insertUnlockedNPCAvatars(t, ctx, other, notUnlocked.ID)
 
-			require.ErrorIs(t, err, query.ErrNPCAvatarNotFound)
-		})
-	}
+	got, err := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, player)
+	gotOther, otherErr := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, other)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.NPCAvatarRecord{
+		{ID: b.ID, Name: "B", DeckIDs: []uuid.UUID{}},
+		{ID: a.ID, Name: "A", DeckIDs: []uuid.UUID{d2, d1}},
+	}, got)
+	require.NoError(t, otherErr)
+	require.Equal(t, []uuid.UUID{notUnlocked.ID}, []uuid.UUID{gotOther[0].ID})
+}
+
+func TestNPCAvatarReader_ListsNothingForPlayerWithoutUnlockOrUnlockedAvatars(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	insertNPCAvatar(t, ctx, "a", npcAvatarMetadata("A", readmodel.NPCAvatarStatusPublished))
+	withoutAvatars := uuid.New()
+	insertUnlockedNPCAvatars(t, ctx, withoutAvatars)
+
+	none, noneErr := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, uuid.New())
+	empty, emptyErr := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, withoutAvatars)
+
+	require.NoError(t, noneErr)
+	require.Empty(t, none)
+	require.NoError(t, emptyErr)
+	require.Empty(t, empty)
 }
 
 // decks が無い行（デッキを持たせる前に写した行）を、デッキが無いものとして返さず、読み出しを失敗させる
-func TestNPCAvatarReader_GetFailsWhenDecksIsMissing(t *testing.T) {
+func TestNPCAvatarReader_ListFailsWhenDecksIsMissing(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	id := uuid.New()
+	id, player := uuid.New(), uuid.New()
 	insertNPCAvatarRow(t, ctx, id, "a", "published", []byte(`{"name":"A"}`))
+	insertUnlockedNPCAvatars(t, ctx, player, id)
 
-	_, err := repository.NewNPCAvatarReader().GetPublished(ctx, id)
+	_, err := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, player)
 
 	require.ErrorContains(t, err, "decks is missing")
 }

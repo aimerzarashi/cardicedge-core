@@ -221,16 +221,6 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
-	NpcAvatarsConnection struct {
-		Edges    func(childComplexity int) int
-		PageInfo func(childComplexity int) int
-	}
-
-	NpcAvatarsEdge struct {
-		Cursor func(childComplexity int) int
-		Node   func(childComplexity int) int
-	}
-
 	NpcDeck struct {
 		Cards      func(childComplexity int) int
 		ID         func(childComplexity int) int
@@ -261,6 +251,7 @@ type ComplexityRoot struct {
 		Boards       func(childComplexity int) int
 		Decks        func(childComplexity int) int
 		ID           func(childComplexity int) int
+		NpcAvatars   func(childComplexity int) int
 		StarterGrant func(childComplexity int) int
 	}
 
@@ -274,13 +265,12 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Board      func(childComplexity int, id uuid.UUID) int
-		Boards     func(childComplexity int, first *int, after *string) int
-		Deck       func(childComplexity int, id uuid.UUID) int
-		GameRules  func(childComplexity int) int
-		Me         func(childComplexity int) int
-		NpcAvatar  func(childComplexity int, id uuid.UUID) int
-		NpcAvatars func(childComplexity int, first *int, after *string) int
+		Board     func(childComplexity int, id uuid.UUID) int
+		Boards    func(childComplexity int, first *int, after *string) int
+		Deck      func(childComplexity int, id uuid.UUID) int
+		GameRules func(childComplexity int) int
+		Me        func(childComplexity int) int
+		NpcAvatar func(childComplexity int, id uuid.UUID) int
 	}
 
 	RegisterAvatarSuccess struct {
@@ -324,13 +314,13 @@ type PlayerResolver interface {
 	Avatars(ctx context.Context, obj *model.Player) ([]*model.Avatar, error)
 	Boards(ctx context.Context, obj *model.Player) ([]*model.Board, error)
 	Decks(ctx context.Context, obj *model.Player) ([]*model.Deck, error)
+	NpcAvatars(ctx context.Context, obj *model.Player) ([]*model.NpcAvatar, error)
 }
 type QueryResolver interface {
 	Boards(ctx context.Context, first *int, after *string) (model.BoardsResult, error)
 	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
 	Deck(ctx context.Context, id uuid.UUID) (model.DeckResult, error)
 	GameRules(ctx context.Context) (model.GameRulesResult, error)
-	NpcAvatars(ctx context.Context, first *int, after *string) (model.NpcAvatarsResult, error)
 	NpcAvatar(ctx context.Context, id uuid.UUID) (model.NpcAvatarResult, error)
 	Me(ctx context.Context) (model.MeResult, error)
 }
@@ -923,32 +913,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.NpcAvatarNotFoundError.Message(childComplexity), true
 
-	case "NpcAvatarsConnection.edges":
-		if e.ComplexityRoot.NpcAvatarsConnection.Edges == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcAvatarsConnection.Edges(childComplexity), true
-	case "NpcAvatarsConnection.pageInfo":
-		if e.ComplexityRoot.NpcAvatarsConnection.PageInfo == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcAvatarsConnection.PageInfo(childComplexity), true
-
-	case "NpcAvatarsEdge.cursor":
-		if e.ComplexityRoot.NpcAvatarsEdge.Cursor == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcAvatarsEdge.Cursor(childComplexity), true
-	case "NpcAvatarsEdge.node":
-		if e.ComplexityRoot.NpcAvatarsEdge.Node == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcAvatarsEdge.Node(childComplexity), true
-
 	case "NpcDeck.cards":
 		if e.ComplexityRoot.NpcDeck.Cards == nil {
 			break
@@ -1055,6 +1019,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Player.ID(childComplexity), true
+	case "Player.npcAvatars":
+		if e.ComplexityRoot.Player.NpcAvatars == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Player.NpcAvatars(childComplexity), true
 	case "Player.starterGrant":
 		if e.ComplexityRoot.Player.StarterGrant == nil {
 			break
@@ -1139,17 +1109,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.NpcAvatar(childComplexity, args["id"].(uuid.UUID)), true
-	case "Query.npcAvatars":
-		if e.ComplexityRoot.Query.NpcAvatars == nil {
-			break
-		}
-
-		args, err := ec.field_Query_npcAvatars_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Query.NpcAvatars(childComplexity, args["first"].(*int), args["after"].(*string)), true
 
 	case "RegisterAvatarSuccess.avatar":
 		if e.ComplexityRoot.RegisterAvatarSuccess.Avatar == nil {
@@ -1526,16 +1485,6 @@ func (ec *executionContext) childFields_NpcAvatar(ctx context.Context, field gra
 	return nil, fmt.Errorf("no field named %q was found under type NpcAvatar", field.Name)
 }
 
-func (ec *executionContext) childFields_NpcAvatarsEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "cursor":
-		return ec.fieldContext_NpcAvatarsEdge_cursor(ctx, field)
-	case "node":
-		return ec.fieldContext_NpcAvatarsEdge_node(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type NpcAvatarsEdge", field.Name)
-}
-
 func (ec *executionContext) childFields_NpcDeck(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1598,6 +1547,8 @@ func (ec *executionContext) childFields_Player(ctx context.Context, field graphq
 		return ec.fieldContext_Player_boards(ctx, field)
 	case "decks":
 		return ec.fieldContext_Player_decks(ctx, field)
+	case "npcAvatars":
+		return ec.fieldContext_Player_npcAvatars(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Player", field.Name)
 }
@@ -1807,28 +1758,6 @@ func (ec *executionContext) field_Query_npcAvatar_args(ctx context.Context, rawA
 		return nil, err
 	}
 	args["id"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_npcAvatars_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
-		func(ctx context.Context, v any) (*int, error) {
-			return ec.unmarshalOInt2ᚖint(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["first"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
-		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["after"] = arg1
 	return args, nil
 }
 
@@ -4127,125 +4056,6 @@ func (ec *executionContext) fieldContext_NpcAvatarNotFoundError_message(_ contex
 	return graphql.NewScalarFieldContext("NpcAvatarNotFoundError", field, false, false, "String")
 }
 
-func (ec *executionContext) _NpcAvatarsConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcAvatarsConnection_edges(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Edges, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcAvatarsEdge) graphql.Marshaler {
-			return ec.marshalNNpcAvatarsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdgeᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcAvatarsConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "NpcAvatarsConnection",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_NpcAvatarsEdge(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _NpcAvatarsConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcAvatarsConnection_pageInfo(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PageInfo, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
-			return ec.marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcAvatarsConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "NpcAvatarsConnection",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PageInfo(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _NpcAvatarsEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsEdge) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcAvatarsEdge_cursor(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Cursor, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcAvatarsEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcAvatarsEdge", field, false, false, "String")
-}
-
-func (ec *executionContext) _NpcAvatarsEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarsEdge) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcAvatarsEdge_node(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Node, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.NpcAvatar) graphql.Marshaler {
-			return ec.marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcAvatarsEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "NpcAvatarsEdge",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_NpcAvatar(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _NpcDeck_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4705,6 +4515,38 @@ func (ec *executionContext) fieldContext_Player_decks(_ context.Context, field g
 	return fc, nil
 }
 
+func (ec *executionContext) _Player_npcAvatars(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_npcAvatars(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Player().NpcAvatars(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcAvatar) graphql.Marshaler {
+			return ec.marshalNNpcAvatar2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_npcAvatars(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Player",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcAvatar(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PlayerNotRegisteredError_message(ctx context.Context, field graphql.CollectedField, obj *model.PlayerNotRegisteredError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4927,50 +4769,6 @@ func (ec *executionContext) _Query_gameRules(ctx context.Context, field graphql.
 }
 func (ec *executionContext) fieldContext_Query_gameRules(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Query", field, true, true, "GameRulesResult")
-}
-
-func (ec *executionContext) _Query_npcAvatars(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Query_npcAvatars(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().NpcAvatars(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.NpcAvatarsResult) graphql.Marshaler {
-			return ec.marshalNNpcAvatarsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsResult(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Query_npcAvatars(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type NpcAvatarsResult does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_npcAvatars_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
 }
 
 func (ec *executionContext) _Query_npcAvatar(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6776,40 +6574,6 @@ func (ec *executionContext) _NpcAvatarResult(ctx context.Context, sel ast.Select
 	}
 }
 
-func (ec *executionContext) _NpcAvatarsResult(ctx context.Context, sel ast.SelectionSet, obj model.NpcAvatarsResult) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.ValidationErrors:
-		return ec._ValidationErrors(ctx, sel, &obj)
-	case *model.ValidationErrors:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ValidationErrors(ctx, sel, obj)
-	case model.PlayerNotRegisteredError:
-		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
-	case *model.PlayerNotRegisteredError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._PlayerNotRegisteredError(ctx, sel, obj)
-	case model.NpcAvatarsConnection:
-		return ec._NpcAvatarsConnection(ctx, sel, &obj)
-	case *model.NpcAvatarsConnection:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._NpcAvatarsConnection(ctx, sel, obj)
-	default:
-		if typedObj, ok := obj.(graphql.Marshaler); ok {
-			return typedObj
-		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of NpcAvatarsResult must implement graphql.Marshaler", obj))
-		}
-	}
-}
-
 func (ec *executionContext) _RegisterAvatarResult(ctx context.Context, sel ast.SelectionSet, obj model.RegisterAvatarResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -8207,82 +7971,6 @@ func (ec *executionContext) _NpcAvatarNotFoundError(ctx context.Context, sel ast
 	return out
 }
 
-var npcAvatarsConnectionImplementors = []string{"NpcAvatarsConnection", "NpcAvatarsResult"}
-
-func (ec *executionContext) _NpcAvatarsConnection(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatarsConnection) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarsConnectionImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("NpcAvatarsConnection")
-		case "edges":
-			out.Values[i] = ec._NpcAvatarsConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pageInfo":
-			out.Values[i] = ec._NpcAvatarsConnection_pageInfo(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var npcAvatarsEdgeImplementors = []string{"NpcAvatarsEdge"}
-
-func (ec *executionContext) _NpcAvatarsEdge(ctx context.Context, sel ast.SelectionSet, obj *model.NpcAvatarsEdge) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, npcAvatarsEdgeImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("NpcAvatarsEdge")
-		case "cursor":
-			out.Values[i] = ec._NpcAvatarsEdge_cursor(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "node":
-			out.Values[i] = ec._NpcAvatarsEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var npcDeckImplementors = []string{"NpcDeck"}
 
 func (ec *executionContext) _NpcDeck(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeck) graphql.Marshaler {
@@ -8500,6 +8188,12 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Player_decks(ctx, field, obj)
 				})
+		case "npcAvatars":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Player_npcAvatars(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8517,7 +8211,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "DeckResult", "GameRulesResult", "NpcAvatarsResult", "NpcAvatarResult", "MeResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "DeckResult", "GameRulesResult", "NpcAvatarResult", "MeResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -8630,12 +8324,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_gameRules(ctx, field)
-				})
-		case "npcAvatars":
-			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
-				func(ctx context.Context) graphql.Marshaler {
-					return ec._Query_npcAvatars(ctx, field)
 				})
 		case "npcAvatar":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
@@ -8822,7 +8510,7 @@ func (ec *executionContext) _ShrineTile(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "NpcAvatarsResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -9607,6 +9295,22 @@ func (ec *executionContext) marshalNMeResult2gitlabᚗcomᚋaimerzarashiᚋdieca
 	return ec._MeResult(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNNpcAvatar2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcAvatar) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNNpcAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatar(ctx context.Context, sel ast.SelectionSet, v *model.NpcAvatar) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "NpcAvatar!")
@@ -9621,38 +9325,6 @@ func (ec *executionContext) marshalNNpcAvatarResult2gitlabᚗcomᚋaimerzarashi�
 		return graphql.Null
 	}
 	return ec._NpcAvatarResult(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNNpcAvatarsEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcAvatarsEdge) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNNpcAvatarsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdge(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNNpcAvatarsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsEdge(ctx context.Context, sel ast.SelectionSet, v *model.NpcAvatarsEdge) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "NpcAvatarsEdge!")
-		return graphql.Null
-	}
-	return ec._NpcAvatarsEdge(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNNpcAvatarsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcAvatarsResult(ctx context.Context, sel ast.SelectionSet, v model.NpcAvatarsResult) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "NpcAvatarsResult!")
-		return graphql.Null
-	}
-	return ec._NpcAvatarsResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNNpcDeck2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcDeck) graphql.Marshaler {

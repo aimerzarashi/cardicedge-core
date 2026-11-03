@@ -6,12 +6,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
 )
 
-// 公開 ID に当たる公開中の NPC のアバターが無い（無い・準備中・使用不可・まだ写されていない）
+// 公開 ID に当たる、プレイヤーが解放した公開中の NPC のアバターが無い（無い・解放していない・準備中・使用不可・まだ写されていない）
 var ErrNPCAvatarNotFound = errors.New("query: npc avatar not found")
 
 // カードの種類。写した cards.card_type の値（1: Creature、2: Item、3: Spell）の並びが、そのまま表示の並びになる。
@@ -56,7 +53,7 @@ func (d NPCDeck) TotalCount() int {
 	return total
 }
 
-// 公開中の NPC のアバターと、使うデッキ。Decks は割り当てた順で、公開中のものだけ（準備中・使用不可のデッキは出さない）。
+// プレイヤーが解放した公開中の NPC のアバターと、使うデッキ。Decks は割り当てた順で、公開中のものだけ（準備中・使用不可のデッキは出さない）。
 // NPC のデッキは単独では使わず、アバターを通してだけ使う（core#63）
 type NPCAvatar struct {
 	ID    uuid.UUID
@@ -71,107 +68,47 @@ type NPCAvatarRecord struct {
 	DeckIDs []uuid.UUID
 }
 
-// 並び順（正規化した名前 → 公開 ID）の位置。項目名を 1 文字にする理由は studio のカーソルと同じ
-type NPCAvatarListCursor struct {
-	SortName    string    `json:"n"`
-	NPCAvatarID uuid.UUID `json:"i"`
-}
-
-func (c NPCAvatarListCursor) Validate() error {
-	if c.SortName == "" || c.NPCAvatarID == uuid.Nil {
-		return errors.New("sort name and npc avatar id are required")
-	}
-	return nil
-}
-
-type ListPublishedNPCAvatarsCondition struct {
-	After *NPCAvatarListCursor
-	Limit int
-}
-
-type NPCAvatarListRow struct {
-	Avatar NPCAvatarRecord
-	Cursor NPCAvatarListCursor
-}
-
-// 公開中の NPC のアバターだけを、名前の正規化 → 公開 ID の順に Limit 件まで返す
-type ListPublishedNPCAvatarsFunc func(ctx context.Context, condition ListPublishedNPCAvatarsCondition) ([]NPCAvatarListRow, error)
-
-// 公開中でなければ（使用不可を含む）ErrNPCAvatarNotFound
-type GetPublishedNPCAvatarFunc func(ctx context.Context, id uuid.UUID) (NPCAvatarRecord, error)
+// プレイヤーが解放した NPC のアバターのうち、公開中のものを、解放した順に返す（公開中でないものは飛ばす。解放がまだ無ければ空）
+type ListUnlockedNPCAvatarsFunc func(ctx context.Context, playerID uuid.UUID) ([]NPCAvatarRecord, error)
 
 // 渡した公開 ID のうち公開中の NPC のデッキだけを、順不同で返す（無い・公開中でないものは含めない）。
 // 1 ページ分のアバターのデッキを 1 回の読み出しにまとめるため、ID の一覧で受ける
 type ListPublishedNPCDecksFunc func(ctx context.Context, ids []uuid.UUID) ([]NPCDeck, error)
 
 type NPCAvatarHandler struct {
-	listPublished ListPublishedNPCAvatarsFunc
-	getPublished  GetPublishedNPCAvatarFunc
-	listDecks     ListPublishedNPCDecksFunc
+	listUnlocked ListUnlockedNPCAvatarsFunc
+	listDecks    ListPublishedNPCDecksFunc
 }
 
-func NewNPCAvatarHandler(listPublished ListPublishedNPCAvatarsFunc, getPublished GetPublishedNPCAvatarFunc, listDecks ListPublishedNPCDecksFunc) *NPCAvatarHandler {
-	return &NPCAvatarHandler{listPublished: listPublished, getPublished: getPublished, listDecks: listDecks}
+func NewNPCAvatarHandler(listUnlocked ListUnlockedNPCAvatarsFunc, listDecks ListPublishedNPCDecksFunc) *NPCAvatarHandler {
+	return &NPCAvatarHandler{listUnlocked: listUnlocked, listDecks: listDecks}
 }
 
-// 入力の誤りは input.Errors（まとめて返す）。項目名は GraphQL の引数名
-func (q *NPCAvatarHandler) List(ctx context.Context, first *int, after *string) (pagination.Connection[NPCAvatar], error) {
-	page, err := pagination.NewCondition[NPCAvatarListCursor](first, after)
+// プレイヤーが解放した NPC のアバターを、解放した順に返す（Player.npcAvatars）。解放した数は少ないので、ページ分けしない。
+// デッキは全アバター分を 1 回で読む。投影が遅れて解放がまだ無いときも、空の一覧を返す（nil にしない。GraphQL の [NpcAvatar!]! は null を返せないため）
+func (q *NPCAvatarHandler) ListUnlockedByPlayer(ctx context.Context, playerID uuid.UUID) ([]NPCAvatar, error) {
+	records, err := q.listUnlocked(ctx, playerID)
 	if err != nil {
-		invalid := input.Errors{}
-		if errors.Is(err, pagination.ErrFirstOutOfRange) {
-			invalid = append(invalid, &input.OutOfRange{Field: "first", Min: pagination.MinFirst, Max: pagination.MaxFirst})
-		}
-		if errors.Is(err, pagination.ErrInvalidCursor) {
-			invalid = append(invalid, &input.InvalidFormat{Field: "after"})
-		}
-		if len(invalid) == 0 {
-			return pagination.Connection[NPCAvatar]{}, err
-		}
-		return pagination.Connection[NPCAvatar]{}, invalid
+		return nil, err
 	}
-	rows, err := q.listPublished(ctx, ListPublishedNPCAvatarsCondition{After: page.After, Limit: page.FetchLimit()})
-	if err != nil {
-		return pagination.Connection[NPCAvatar]{}, err
-	}
-	rowConnection, err := pagination.BuildConnection(rows, page, func(row NPCAvatarListRow) NPCAvatarListCursor {
-		return row.Cursor
-	})
-	if err != nil {
-		return pagination.Connection[NPCAvatar]{}, err
-	}
-	records := make([]NPCAvatarRecord, 0, len(rowConnection.Edges))
-	for _, edge := range rowConnection.Edges {
-		records = append(records, edge.Node.Avatar)
-	}
-	avatars, err := q.withDecks(ctx, records)
-	if err != nil {
-		return pagination.Connection[NPCAvatar]{}, err
-	}
-	connection := pagination.Connection[NPCAvatar]{
-		Edges:    make([]pagination.Edge[NPCAvatar], 0, len(rowConnection.Edges)),
-		PageInfo: rowConnection.PageInfo,
-	}
-	for i, edge := range rowConnection.Edges {
-		connection.Edges = append(connection.Edges, pagination.Edge[NPCAvatar]{Node: avatars[i], Cursor: edge.Cursor})
-	}
-	return connection, nil
+	return q.withDecks(ctx, records)
 }
 
-// 公開中でなければ ErrNPCAvatarNotFound
-func (q *NPCAvatarHandler) Get(ctx context.Context, id uuid.UUID) (NPCAvatar, error) {
-	record, err := q.getPublished(ctx, id)
+// 解放していない・公開中でないアバターは ErrNPCAvatarNotFound（存在を明かさないため区別しない）
+func (q *NPCAvatarHandler) GetUnlocked(ctx context.Context, playerID uuid.UUID, id uuid.UUID) (NPCAvatar, error) {
+	avatars, err := q.ListUnlockedByPlayer(ctx, playerID)
 	if err != nil {
 		return NPCAvatar{}, err
 	}
-	avatars, err := q.withDecks(ctx, []NPCAvatarRecord{record})
-	if err != nil {
-		return NPCAvatar{}, err
+	for _, avatar := range avatars {
+		if avatar.ID == id {
+			return avatar, nil
+		}
 	}
-	return avatars[0], nil
+	return NPCAvatar{}, ErrNPCAvatarNotFound
 }
 
-// ページ全体のデッキを 1 回で読み、アバターごとに割り当てた順に並べ直す。公開中でないデッキは読み出しの結果に無いので飛ばす。
+// 全アバターのデッキを 1 回で読み、アバターごとに割り当てた順に並べ直す。公開中でないデッキは読み出しの結果に無いので飛ばす。
 // 同じデッキを複数のアバターが使ってよい（複製せず、同じ値を渡す）
 func (q *NPCAvatarHandler) withDecks(ctx context.Context, records []NPCAvatarRecord) ([]NPCAvatar, error) {
 	seen := map[uuid.UUID]struct{}{}

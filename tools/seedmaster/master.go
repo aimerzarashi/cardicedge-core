@@ -39,6 +39,8 @@ type masterStarterSet struct {
 	Name         string   `json:"name"`
 	GrantDecks   []string `json:"grant_decks"`
 	UnlockBoards []string `json:"unlock_boards"`
+	// npc_avatars に書いた名前。解放する NPC のアバター
+	UnlockNPCAvatars []string `json:"unlock_npc_avatars"`
 }
 
 // 公開するには公開中のデッキが 1 つ以上要るため、デッキは 1 つ以上書く。NPC のデッキの名前（npc_decks に書いたもの）で指す
@@ -194,6 +196,10 @@ func (m master) validateStarterSets(grantDeckNames map[string]bool) error {
 	for _, b := range m.Boards {
 		boardNames[b.Name] = true
 	}
+	npcAvatarNames := map[string]bool{}
+	for _, a := range m.NPCAvatars {
+		npcAvatarNames[a.Name] = true
+	}
 	names := map[string]bool{}
 	for _, set := range m.StarterSets {
 		validName, err := starterset.NewName(set.Name)
@@ -213,6 +219,9 @@ func (m master) validateStarterSets(grantDeckNames map[string]bool) error {
 		}
 		if err := checkReferences(set.UnlockBoards, boardNames); err != nil {
 			return fmt.Errorf("starter set %q: unlock boards: %w", set.Name, err)
+		}
+		if err := checkReferences(set.UnlockNPCAvatars, npcAvatarNames); err != nil {
+			return fmt.Errorf("starter set %q: unlock npc avatars: %w", set.Name, err)
 		}
 	}
 	return nil

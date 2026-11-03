@@ -62,6 +62,24 @@ func publishableStarterSet(t *testing.T, ctx context.Context, commands *command.
 	return assigned
 }
 
+// 公開中の NPC のアバター（公開中のデッキを 1 つ使う）
+func publishedNPCAvatar(t *testing.T, ctx context.Context) command.ChangedNPCAvatar {
+	t.Helper()
+	commands := newNPCAvatarHandler(t, ctx)
+	assigned := publishableNPCAvatar(t, ctx, commands, "アバター-"+uuid.NewString()[:8])
+	published, err := commands.Publish(ctx, assigned.ID, assigned.Revision)
+	require.NoError(t, err)
+	return published
+}
+
+func internalNPCAvatarIDs(current starterset.StarterSet) []int64 {
+	ids := make([]int64, 0, len(current.UnlockNPCAvatars))
+	for _, id := range current.UnlockNPCAvatars {
+		ids = append(ids, id.Int64())
+	}
+	return ids
+}
+
 func internalGrantDeckIDs(current starterset.StarterSet) []int64 {
 	ids := make([]int64, 0, len(current.GrantDecks))
 	for _, id := range current.GrantDecks {
@@ -136,6 +154,8 @@ func TestStarterSetHandler_RejectsCallWithoutOperator(t *testing.T) {
 	require.ErrorIs(t, err, command.ErrNotOperator)
 	_, err = commands.SetUnlockBoards(ctx, uuid.New(), 1, nil)
 	require.ErrorIs(t, err, command.ErrNotOperator)
+	_, err = commands.SetUnlockNPCAvatars(ctx, uuid.New(), 1, nil)
+	require.ErrorIs(t, err, command.ErrNotOperator)
 	_, err = commands.Publish(ctx, uuid.New(), 1)
 	require.ErrorIs(t, err, command.ErrNotOperator)
 	_, err = commands.Retire(ctx, uuid.New(), 1)
@@ -198,6 +218,10 @@ func TestStarterSetHandler_RejectsStaleRevisionAndMissingStarterSet(t *testing.T
 		}},
 		{name: "set_unlock_boards", call: func(id uuid.UUID, revision int64) error {
 			_, err := commands.SetUnlockBoards(ctx, id, revision, nil)
+			return err
+		}},
+		{name: "set_unlock_npc_avatars", call: func(id uuid.UUID, revision int64) error {
+			_, err := commands.SetUnlockNPCAvatars(ctx, id, revision, nil)
 			return err
 		}},
 		{name: "publish", call: func(id uuid.UUID, revision int64) error { _, err := commands.Publish(ctx, id, revision); return err }},
@@ -488,4 +512,84 @@ func TestStarterSetHandler_RejectsEditingUnlessDraft(t *testing.T) {
 	_, err = commands.SetUnlockBoards(ctx, published.ID, published.Revision, []uuid.UUID{publishedBoard(t, ctx).ID})
 	require.ErrorIs(t, err, command.ErrStarterSetNotDraft)
 	require.ErrorIs(t, commands.Delete(ctx, published.ID, published.Revision), command.ErrStarterSetNotDraft)
+}
+
+func TestSetStarterSetUnlockNPCAvatars_AssignsPublishedNPCAvatarsInGivenOrderAndReferences(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newStarterSetHandler(t, ctx)
+	registered := registerStarterSet(t, ctx, commands, "標準")
+	first, second := publishedNPCAvatar(t, ctx), publishedNPCAvatar(t, ctx)
+
+	changed, err := commands.SetUnlockNPCAvatars(ctx, registered.ID, registered.Revision, []uuid.UUID{second.ID, first.ID})
+
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedStarterSet{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	current := restoredStarterSet(t, ctx, registered.ID)
+	require.Equal(t, []int64{internalID(t, ctx, second.ID), internalID(t, ctx, first.ID)}, internalNPCAvatarIDs(current))
+	require.ElementsMatch(t, []int64{internalID(t, ctx, first.ID), internalID(t, ctx, second.ID)},
+		constrainttest.Referenced(t, ctx, starterset.NPCAvatarReferenceType(), current.ID.Int64()))
+}
+
+func TestSetStarterSetUnlockNPCAvatars_ReplacesWholeListAndSameNPCAvatarsKeepRevision(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newStarterSetHandler(t, ctx)
+	registered := registerStarterSet(t, ctx, commands, "標準")
+	first, second := publishedNPCAvatar(t, ctx), publishedNPCAvatar(t, ctx)
+	assigned, err := commands.SetUnlockNPCAvatars(ctx, registered.ID, registered.Revision, []uuid.UUID{first.ID, second.ID})
+	require.NoError(t, err)
+
+	same, err := commands.SetUnlockNPCAvatars(ctx, assigned.ID, assigned.Revision, []uuid.UUID{second.ID, first.ID})
+	require.NoError(t, err)
+	replaced, err := commands.SetUnlockNPCAvatars(ctx, same.ID, same.Revision, []uuid.UUID{second.ID})
+
+	require.Equal(t, assigned, same)
+	require.NoError(t, err)
+	require.Equal(t, assigned.Revision+1, replaced.Revision)
+	current := restoredStarterSet(t, ctx, registered.ID)
+	require.Equal(t, []int64{internalID(t, ctx, second.ID)}, internalNPCAvatarIDs(current))
+	require.Equal(t, []int64{internalID(t, ctx, second.ID)}, constrainttest.Referenced(t, ctx, starterset.NPCAvatarReferenceType(), current.ID.Int64()))
+}
+
+func TestSetStarterSetUnlockNPCAvatars_ReturnsFieldErrorsForDuplicateUnknownAndUnpublished(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newStarterSetHandler(t, ctx)
+	registered := registerStarterSet(t, ctx, commands, "標準")
+	published := publishedNPCAvatar(t, ctx)
+	draft := publishableNPCAvatar(t, ctx, newNPCAvatarHandler(t, ctx), "準備中-"+uuid.NewString()[:8])
+	retired := publishedNPCAvatar(t, ctx)
+	_, err := newNPCAvatarHandler(t, ctx).Retire(ctx, retired.ID, retired.Revision)
+	require.NoError(t, err)
+	tests := []struct {
+		name string
+		ids  []uuid.UUID
+		want []input.Error
+	}{
+		{name: "duplicated", ids: []uuid.UUID{published.ID, published.ID}, want: []input.Error{&input.Duplicated{Field: "unlockNpcAvatarIds.1"}}},
+		{name: "unknown", ids: []uuid.UUID{published.ID, uuid.New()}, want: []input.Error{&input.NotFound{Field: "unlockNpcAvatarIds.1"}}},
+		{name: "not_npc_avatar", ids: []uuid.UUID{registered.ID}, want: []input.Error{&input.NotFound{Field: "unlockNpcAvatarIds.0"}}},
+		{name: "draft_and_retired", ids: []uuid.UUID{draft.ID, published.ID, retired.ID}, want: []input.Error{&input.Unavailable{Field: "unlockNpcAvatarIds.0"}, &input.Unavailable{Field: "unlockNpcAvatarIds.2"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := commands.SetUnlockNPCAvatars(ctx, registered.ID, registered.Revision, tt.ids)
+
+			invalid, ok := input.AsErrors(err)
+			require.True(t, ok)
+			require.Equal(t, tt.want, []input.Error(invalid))
+			require.Empty(t, restoredStarterSet(t, ctx, registered.ID).UnlockNPCAvatars)
+		})
+	}
+}
+
+// 解放する NPC のアバターは 0 件でも公開できる。公開した後は変えられない
+func TestStarterSetHandler_RejectsSettingUnlockNPCAvatarsUnlessDraft(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newStarterSetHandler(t, ctx)
+	assigned := publishableStarterSet(t, ctx, commands, "標準")
+	published, err := commands.Publish(ctx, assigned.ID, assigned.Revision)
+	require.NoError(t, err)
+
+	_, err = commands.SetUnlockNPCAvatars(ctx, published.ID, published.Revision, []uuid.UUID{publishedNPCAvatar(t, ctx).ID})
+
+	require.ErrorIs(t, err, command.ErrStarterSetNotDraft)
 }

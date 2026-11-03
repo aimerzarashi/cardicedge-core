@@ -189,8 +189,10 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			constraint.UpdateStarterSetName,
 			constraint.UpdateStarterSetGrantDeckReferences,
 			constraint.UpdateStarterSetBoardReferences,
+			constraint.UpdateStarterSetNPCAvatarReferences,
 			command.NewGrantDeckStatusReader(eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve)).Statuses,
 			command.NewBoardStatusReader(eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve)).Statuses,
+			command.NewNPCAvatarStatusReader(eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve)).Statuses,
 			constraint.FindGameRules,
 			constraint.ReserveStarterSetQuota,
 			constraint.ReleaseStarterSetQuota,
@@ -382,6 +384,10 @@ func (s *seeder) seedStarterSets(ctx context.Context, sets []masterStarterSet) e
 	if err != nil {
 		return err
 	}
+	npcAvatars, err := s.listNPCAvatars(ctx)
+	if err != nil {
+		return err
+	}
 	for _, set := range sets {
 		name := set.Name
 		key := domain.NormalizeName(name)
@@ -415,6 +421,10 @@ func (s *seeder) seedStarterSets(ctx context.Context, sets []masterStarterSet) e
 		for _, b := range set.UnlockBoards {
 			boardIDs = append(boardIDs, boards[domain.NormalizeName(b)].ID)
 		}
+		npcAvatarIDs := make([]uuid.UUID, 0, len(set.UnlockNPCAvatars))
+		for _, a := range set.UnlockNPCAvatars {
+			npcAvatarIDs = append(npcAvatarIDs, npcAvatars[domain.NormalizeName(a)].ID)
+		}
 		assigned, err := s.changeStarterSet(ctx, name, current, func(revision int64) (command.ChangedStarterSet, error) {
 			changed, err := s.starterSets.SetGrantDecks(ctx, current.ID, revision, grantDeckIDs)
 			if err == nil && changed.Revision != revision {
@@ -435,6 +445,17 @@ func (s *seeder) seedStarterSets(ctx context.Context, sets []masterStarterSet) e
 		})
 		if err != nil {
 			return fmt.Errorf("assign unlock boards to starter set %q: %w", name, err)
+		}
+		current.Revision = assigned.Revision
+		assigned, err = s.changeStarterSet(ctx, name, current, func(revision int64) (command.ChangedStarterSet, error) {
+			changed, err := s.starterSets.SetUnlockNPCAvatars(ctx, current.ID, revision, npcAvatarIDs)
+			if err == nil && changed.Revision != revision {
+				slog.InfoContext(ctx, "assigned unlock npc avatars to starter set", "name", name, "unlock_npc_avatars", set.UnlockNPCAvatars)
+			}
+			return changed, err
+		})
+		if err != nil {
+			return fmt.Errorf("assign unlock npc avatars to starter set %q: %w", name, err)
 		}
 		current.Revision = assigned.Revision
 		if _, err := s.changeStarterSet(ctx, name, current, func(revision int64) (command.ChangedStarterSet, error) {

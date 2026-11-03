@@ -61,6 +61,22 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			events = append(events, &UnlockBoardsAssignedEvent{EventMeta: metaAt(starterSet, version, now), UnlockBoards: assigned, AssignedBy: c.ChangedBy})
 		}
 		return events, nil
+	case *SetUnlockNPCAvatarsCommand:
+		starterSet, err := draft(state)
+		if err != nil {
+			return nil, err
+		}
+		var events []Event
+		version := starterSet.Version
+		if unassigned := missingFrom(c.UnlockNPCAvatars, starterSet.UnlockNPCAvatars); len(unassigned) > 0 {
+			version++
+			events = append(events, &UnlockNPCAvatarsUnassignedEvent{EventMeta: metaAt(starterSet, version, now), UnlockNPCAvatars: unassigned, UnassignedBy: c.ChangedBy})
+		}
+		if assigned := missingFrom(starterSet.UnlockNPCAvatars, c.UnlockNPCAvatars); len(assigned) > 0 {
+			version++
+			events = append(events, &UnlockNPCAvatarsAssignedEvent{EventMeta: metaAt(starterSet, version, now), UnlockNPCAvatars: assigned, AssignedBy: c.ChangedBy})
+		}
+		return events, nil
 	case *PublishCommand:
 		starterSet, ok := state.(StarterSet)
 		if !ok {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -62,14 +63,12 @@ func (c *StarterGrantHandler) Handle(ctx context.Context, event any) error {
 	case *collection.CreatedEvent:
 		return c.RecordCollection(ctx, e.StarterGrant.Int64())
 	case *unlock.CreatedEvent:
-		return c.UnlockSnapshotBoards(ctx, e.GetMeta().EntityID, e.Player)
+		return c.UnlockSnapshot(ctx, e.GetMeta().EntityID, e.Player)
+	// 実績などで後から解放したものも来る。配布が済んでいる・解放の段が済んでいれば、何もしない
 	case *unlock.BoardsUnlockedEvent:
-		// 実績などで後から解放したものも来る。配布が済んでいれば、record が何もしない
-		playerID, err := c.unlocks.Player(ctx, e.GetMeta().EntityID)
-		if err != nil {
-			return err
-		}
-		return c.recordUnlockOf(ctx, playerID)
+		return c.OnUnlocked(ctx, e.GetMeta().EntityID)
+	case *unlock.NPCAvatarsUnlockedEvent:
+		return c.OnUnlocked(ctx, e.GetMeta().EntityID)
 	case *deck.CreatedEvent:
 		return c.RecordDeck(ctx, e.StarterGrant.Int64(), e.Number.Int())
 	default:
@@ -103,7 +102,7 @@ func (c *StarterGrantHandler) Start(ctx context.Context, rawPlayerID int64) erro
 		if err := c.updatePlayer(ctx, id, playerID); err != nil {
 			return struct{}{}, err
 		}
-		events, err := startergrant.Decide(startergrant.InitialState(), &startergrant.StartCommand{ID: id, Player: playerID, Decks: decks, UnlockBoards: set.UnlockBoards}, c.now())
+		events, err := startergrant.Decide(startergrant.InitialState(), &startergrant.StartCommand{ID: id, Player: playerID, Decks: decks, UnlockBoards: set.UnlockBoards, UnlockNPCAvatars: set.UnlockNPCAvatars}, c.now())
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -149,10 +148,11 @@ func (c *StarterGrantHandler) RecordCollection(ctx context.Context, grantID int6
 	return c.record(ctx, grantID, &startergrant.RecordCollectionCommand{})
 }
 
-// 解放の集約ができたら、プレイヤーの配布を引き、写したボードを解放する（配布の流れの段）。ボードが無ければ、解放の段を済んだものとして
-// 記録する。ボードがすべて解放済みでイベントが出ないときも、BoardsUnlockedEvent が来ないので、ここで記録する（記録は何度呼んでもよい）。
+// 解放の集約ができたら、プレイヤーの配布を引き、写したボードと NPC のアバターを 1 つのコマンドで解放する（配布の流れの段）。
+// 解放の段は、写したものがすべて解放されたときに記録する（UnlockedSnapshot）ので、種類が何であれ、解放するものが無い・
+// すべて解放済みでイベントが出ないときも、ここで記録する（記録は何度呼んでもよい）。
 // 配布が無い・済んでいる・解放の段が済んでいるときは何もしない
-func (c *StarterGrantHandler) UnlockSnapshotBoards(ctx context.Context, unlockID unlock.ID, playerID player.ID) error {
+func (c *StarterGrantHandler) UnlockSnapshot(ctx context.Context, unlockID unlock.ID, playerID player.ID) error {
 	grantID, found, err := c.findGrant(ctx, playerID)
 	if err != nil || !found {
 		return err
@@ -165,24 +165,58 @@ func (c *StarterGrantHandler) UnlockSnapshotBoards(ctx context.Context, unlockID
 	if !ok || progress.UnlockRecorded {
 		return nil
 	}
-	if len(progress.UnlockBoards) > 0 {
-		unlocked, err := c.unlocks.UnlockBoards(ctx, unlockID, progress.UnlockBoards)
-		if err != nil || unlocked {
+	if len(progress.UnlockBoards) > 0 || len(progress.UnlockNPCAvatars) > 0 {
+		if _, err := c.unlocks.Unlock(ctx, unlockID, progress.UnlockBoards, progress.UnlockNPCAvatars); err != nil {
 			return err
 		}
 	}
-	return c.RecordUnlock(ctx, grantID.Int64())
+	return c.recordUnlockIfUnlocked(ctx, grantID, unlockID)
 }
 
-// プレイヤーの配布の解放の段を記録する。配布が無ければ何もしない
-func (c *StarterGrantHandler) recordUnlockOf(ctx context.Context, playerID player.ID) error {
-	grantID, found, err := c.findGrant(ctx, playerID)
+// 解放のイベント（ボード・NPC のどちらも）を受けたら、unlock の持ち主から配布を引き、写したものがそろっていれば解放の段を記録する。
+// 配布が済んでいる・段が記録済みなら何もしない（実績などで後から解放したものは無視する）
+func (c *StarterGrantHandler) OnUnlocked(ctx context.Context, unlockID unlock.ID) error {
+	current, err := c.unlocks.Get(ctx, unlockID)
+	if err != nil {
+		return err
+	}
+	grantID, found, err := c.findGrant(ctx, current.Player)
 	if err != nil || !found {
 		return err
+	}
+	return c.recordUnlockIfUnlocked(ctx, grantID, unlockID)
+}
+
+// 配布に写したボードと NPC のアバターが、解放の集約にすべてあれば、解放の段を記録する
+func (c *StarterGrantHandler) recordUnlockIfUnlocked(ctx context.Context, grantID startergrant.ID, unlockID unlock.ID) error {
+	state, err := c.load(ctx, grantID.Int64())
+	if err != nil {
+		return err
+	}
+	progress, ok := state.(startergrant.InProgressStarterGrant)
+	if !ok || progress.UnlockRecorded {
+		return nil
+	}
+	current, err := c.unlocks.Get(ctx, unlockID)
+	if err != nil {
+		return err
+	}
+	if !containsAll(current.Boards, progress.UnlockBoards) || !containsAll(current.NPCAvatars, progress.UnlockNPCAvatars) {
+		return nil
 	}
 	return c.RecordUnlock(ctx, grantID.Int64())
 }
 
+func containsAll[T comparable](have, want []T) bool {
+	for _, id := range want {
+		if !slices.Contains(have, id) {
+			return false
+		}
+	}
+	return true
+}
+
+// プレイヤーの配布の解放の段を記録する。配布が無ければ何もしない
 // 解放ができたことを記録する
 func (c *StarterGrantHandler) RecordUnlock(ctx context.Context, grantID int64) error {
 	return c.record(ctx, grantID, &startergrant.RecordUnlockCommand{})

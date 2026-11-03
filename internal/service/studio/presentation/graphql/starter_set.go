@@ -16,7 +16,7 @@ func fromQueryStarterSet(starterSet query.StarterSet) (*model.StarterSet, error)
 	}
 	return &model.StarterSet{
 		ID: starterSet.ID, Name: starterSet.Name, Status: status, Revision: int(starterSet.Revision),
-		RegisteredAt: starterSet.RegisteredAt, UpdatedAt: starterSet.UpdatedAt, GrantDeckIDs: starterSet.GrantDecks, UnlockBoardIDs: starterSet.UnlockBoards,
+		RegisteredAt: starterSet.RegisteredAt, UpdatedAt: starterSet.UpdatedAt, GrantDeckIDs: starterSet.GrantDecks, UnlockBoardIDs: starterSet.UnlockBoards, UnlockNPCAvatarIDs: starterSet.UnlockNPCAvatars,
 	}, nil
 }
 

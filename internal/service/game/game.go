@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
@@ -74,7 +75,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 			identifier.New(registry, startergrant.NewID),
 			constraint.UpdateStarterGrantPlayer,
-			repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID)).GetPublished,
+			repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID)).GetPublished,
 			command.NewCollectionHandler(
 				eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 				identifier.New(registry, collection.NewID),
@@ -113,7 +114,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 		unlockQuery:    query.NewUnlockHandler(unlockReader.ListBoardsByPlayer),
 		boardQuery:     query.NewBoardHandler(boardReader.ListPublished, boardReader.GetPublished),
 		gameRuleQuery:  query.NewGameRulesHandler(repository.NewGameRulesReader().Get),
-		npcAvatarQuery: query.NewNPCAvatarHandler(npcAvatarReader.ListPublished, npcAvatarReader.GetPublished, npcAvatarReader.ListPublishedDecks),
+		npcAvatarQuery: query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks),
 	}
 }
 

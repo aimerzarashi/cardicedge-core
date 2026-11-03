@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -75,6 +76,22 @@ type UnlockBoardsUnassignedEvent struct {
 	UnassignedBy operator.ID `json:"unassigned_by"`
 }
 
+// 解放する NPC のアバターに割り当てたもの。NPC のアバターは別の集約を指すため内部 ID で持つ
+type UnlockNPCAvatarsAssignedEvent struct {
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	UnlockNPCAvatars []npcavatar.ID `json:"unlock_npc_avatars"`
+	AssignedBy       operator.ID    `json:"assigned_by"`
+}
+
+// 解放する NPC のアバターから外したもの
+type UnlockNPCAvatarsUnassignedEvent struct {
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	UnlockNPCAvatars []npcavatar.ID `json:"unlock_npc_avatars"`
+	UnassignedBy     operator.ID    `json:"unassigned_by"`
+}
+
 type PublishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -94,15 +111,17 @@ type DeletedEvent struct {
 }
 
 var (
-	registeredEventType             = domain.NewEventName("RegisteredEvent")
-	renamedEventType                = domain.NewEventName("RenamedEvent")
-	grantDecksAssignedEventType     = domain.NewEventName("GrantDecksAssignedEvent")
-	grantDecksUnassignedEventType   = domain.NewEventName("GrantDecksUnassignedEvent")
-	unlockBoardsAssignedEventType   = domain.NewEventName("UnlockBoardsAssignedEvent")
-	unlockBoardsUnassignedEventType = domain.NewEventName("UnlockBoardsUnassignedEvent")
-	publishedEventType              = domain.NewEventName("PublishedEvent")
-	retiredEventType                = domain.NewEventName("RetiredEvent")
-	deletedEventType                = domain.NewEventName("DeletedEvent")
+	registeredEventType                 = domain.NewEventName("RegisteredEvent")
+	renamedEventType                    = domain.NewEventName("RenamedEvent")
+	grantDecksAssignedEventType         = domain.NewEventName("GrantDecksAssignedEvent")
+	grantDecksUnassignedEventType       = domain.NewEventName("GrantDecksUnassignedEvent")
+	unlockBoardsAssignedEventType       = domain.NewEventName("UnlockBoardsAssignedEvent")
+	unlockBoardsUnassignedEventType     = domain.NewEventName("UnlockBoardsUnassignedEvent")
+	unlockNPCAvatarsAssignedEventType   = domain.NewEventName("UnlockNPCAvatarsAssignedEvent")
+	unlockNPCAvatarsUnassignedEventType = domain.NewEventName("UnlockNPCAvatarsUnassignedEvent")
+	publishedEventType                  = domain.NewEventName("PublishedEvent")
+	retiredEventType                    = domain.NewEventName("RetiredEvent")
+	deletedEventType                    = domain.NewEventName("DeletedEvent")
 )
 
 func (*RegisteredEvent) EventType() domain.EventName {
@@ -127,6 +146,14 @@ func (*UnlockBoardsAssignedEvent) EventType() domain.EventName {
 
 func (*UnlockBoardsUnassignedEvent) EventType() domain.EventName {
 	return unlockBoardsUnassignedEventType
+}
+
+func (*UnlockNPCAvatarsAssignedEvent) EventType() domain.EventName {
+	return unlockNPCAvatarsAssignedEventType
+}
+
+func (*UnlockNPCAvatarsUnassignedEvent) EventType() domain.EventName {
+	return unlockNPCAvatarsUnassignedEventType
 }
 
 func (*PublishedEvent) EventType() domain.EventName {
@@ -166,6 +193,14 @@ func (*UnlockBoardsUnassignedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*UnlockNPCAvatarsAssignedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*UnlockNPCAvatarsUnassignedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*PublishedEvent) SchemaVersion() int {
 	return 1
 }
@@ -184,6 +219,7 @@ func Types() domain.AggregateTypes {
 		EventTypes: []domain.EventName{
 			registeredEventType, renamedEventType, deletedEventType, publishedEventType, retiredEventType,
 			grantDecksAssignedEventType, grantDecksUnassignedEventType, unlockBoardsAssignedEventType, unlockBoardsUnassignedEventType,
+			unlockNPCAvatarsAssignedEventType, unlockNPCAvatarsUnassignedEventType,
 		},
 	}
 }
@@ -209,6 +245,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &UnlockBoardsAssignedEvent{EventMeta: meta}
 	case EventType(unlockBoardsUnassignedEventType):
 		event = &UnlockBoardsUnassignedEvent{EventMeta: meta}
+	case EventType(unlockNPCAvatarsAssignedEventType):
+		event = &UnlockNPCAvatarsAssignedEvent{EventMeta: meta}
+	case EventType(unlockNPCAvatarsUnassignedEventType):
+		event = &UnlockNPCAvatarsUnassignedEvent{EventMeta: meta}
 	case EventType(publishedEventType):
 		event = &PublishedEvent{EventMeta: meta}
 	case EventType(retiredEventType):

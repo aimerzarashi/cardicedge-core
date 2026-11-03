@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 )
 
 func Evolve(state State, event Event) (State, error) {
@@ -36,6 +37,10 @@ func Evolve(state State, event Event) (State, error) {
 		starterSet.UnlockBoards = append(slices.Clone(starterSet.UnlockBoards), e.UnlockBoards...)
 	case *UnlockBoardsUnassignedEvent:
 		starterSet.UnlockBoards = slices.DeleteFunc(slices.Clone(starterSet.UnlockBoards), func(id board.ID) bool { return slices.Contains(e.UnlockBoards, id) })
+	case *UnlockNPCAvatarsAssignedEvent:
+		starterSet.UnlockNPCAvatars = append(slices.Clone(starterSet.UnlockNPCAvatars), e.UnlockNPCAvatars...)
+	case *UnlockNPCAvatarsUnassignedEvent:
+		starterSet.UnlockNPCAvatars = slices.DeleteFunc(slices.Clone(starterSet.UnlockNPCAvatars), func(id npcavatar.ID) bool { return slices.Contains(e.UnlockNPCAvatars, id) })
 	case *PublishedEvent:
 		status, _, err := starterSet.Status.Publish()
 		if err != nil {

@@ -11,6 +11,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck/grantdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
@@ -38,6 +40,13 @@ func newStarterSetFixture(t *testing.T) starterSetFixture {
 func (f starterSetFixture) issueGrantDeck(t *testing.T) (grantdeck.ID, uuid.UUID) {
 	t.Helper()
 	id, publicID, err := identifier.New(f.registry, grantdeck.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id, publicID
+}
+
+func (f starterSetFixture) issueNPCAvatar(t *testing.T) (npcavatar.ID, uuid.UUID) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, npcavatar.NewID).Issue(f.ctx)
 	require.NoError(t, err)
 	return id, publicID
 }
@@ -111,9 +120,12 @@ func TestStarterSet_GetsGrantDeckAndBoardPublicIDsInGivenOrder(t *testing.T) {
 	secondDeck, secondDeckPublicID := f.issueGrantDeck(t)
 	firstBoard, firstBoardPublicID := f.issueBoard(t)
 	secondBoard, secondBoardPublicID := f.issueBoard(t)
+	firstNPC, firstNPCPublicID := f.issueNPCAvatar(t)
+	secondNPC, secondNPCPublicID := f.issueNPCAvatar(t)
 	starterSet := f.starterSetState("fire", "Ｆire", readmodel.StarterSetStatusDraft)
 	starterSet.GrantDecks = []grantdeck.ID{secondDeck, firstDeck}
 	starterSet.UnlockBoards = []board.ID{secondBoard, firstBoard}
+	starterSet.UnlockNPCAvatars = []npcavatar.ID{secondNPC, firstNPC}
 	empty := f.put(t, "water", "Water", readmodel.StarterSetStatusDraft)
 
 	require.NoError(t, f.writer.Upsert(f.ctx, starterSet))
@@ -123,9 +135,11 @@ func TestStarterSet_GetsGrantDeckAndBoardPublicIDsInGivenOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []uuid.UUID{secondDeckPublicID, firstDeckPublicID}, got.GrantDecks)
 	require.Equal(t, []uuid.UUID{secondBoardPublicID, firstBoardPublicID}, got.UnlockBoards)
+	require.Equal(t, []uuid.UUID{secondNPCPublicID, firstNPCPublicID}, got.UnlockNPCAvatars)
 	require.NoError(t, emptyErr)
 	require.Empty(t, gotEmpty.GrantDecks)
 	require.Empty(t, gotEmpty.UnlockBoards)
+	require.Empty(t, gotEmpty.UnlockNPCAvatars)
 }
 
 func TestStarterSet_UpsertFailsForGrantDeckOrBoardWithoutPublicID(t *testing.T) {
@@ -134,9 +148,12 @@ func TestStarterSet_UpsertFailsForGrantDeckOrBoardWithoutPublicID(t *testing.T) 
 	withDeck.GrantDecks = []grantdeck.ID{grantdecktest.ID(t, 999999)}
 	withBoard := f.starterSetState("water", "Water", readmodel.StarterSetStatusDraft)
 	withBoard.UnlockBoards = []board.ID{boardtest.ID(t, 999999)}
+	withNPC := f.starterSetState("earth", "Earth", readmodel.StarterSetStatusDraft)
+	withNPC.UnlockNPCAvatars = []npcavatar.ID{npcavatartest.ID(t, 999999)}
 
 	require.Error(t, f.writer.Upsert(f.ctx, withDeck))
 	require.Error(t, f.writer.Upsert(f.ctx, withBoard))
+	require.Error(t, f.writer.Upsert(f.ctx, withNPC))
 }
 
 func TestStarterSet_GetFailsForMissingStarterSet(t *testing.T) {

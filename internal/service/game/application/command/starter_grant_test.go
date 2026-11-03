@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
@@ -54,6 +55,17 @@ var publishedDecks = []master.GrantDeck{
 // 配るボード。セットが持つ順（ID の順ではない）
 var starterBoards = []board.ID{mustBoardID(boardB), mustBoardID(boardA)}
 
+// 解放する NPC のアバター（game の内部 ID）。これもセットが持つ順
+var starterNPCAvatars = []npcavatar.ID{mustNPCAvatarID(61), mustNPCAvatarID(60)}
+
+func mustNPCAvatarID(value int64) npcavatar.ID {
+	id, err := npcavatar.NewID(value)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 func mustBoardID(value int64) board.ID {
 	id, err := board.NewID(value)
 	if err != nil {
@@ -67,7 +79,7 @@ func publishedMaster() master.GetPublishedStarterSetFunc {
 }
 
 func decksMaster(decks ...master.GrantDeck) master.GetPublishedStarterSetFunc {
-	return starterSetMaster(master.StarterSet{GrantDecks: decks, UnlockBoards: starterBoards})
+	return starterSetMaster(master.StarterSet{GrantDecks: decks, UnlockBoards: starterBoards, UnlockNPCAvatars: starterNPCAvatars})
 }
 
 func starterSetMaster(set master.StarterSet) master.GetPublishedStarterSetFunc {
@@ -104,7 +116,7 @@ func TestStart_RejectsWhenStarterSetHasNoPublishedGrantDeck(t *testing.T) {
 	require.Equal(t, 0, countEventsOf(t, ctx, starterGrantTypeID))
 }
 
-func TestStart_CopiesUnlockBoardsInSetOrderFromMaster(t *testing.T) {
+func TestStart_CopiesUnlockBoardsAndNPCAvatarsInSetOrderFromMaster(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	playerID := issuePlayerID(t, ctx)
 
@@ -112,6 +124,7 @@ func TestStart_CopiesUnlockBoardsInSetOrderFromMaster(t *testing.T) {
 
 	state := loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant)
 	require.Equal(t, []board.ID{boardtest.ID(t, boardB), boardtest.ID(t, boardA)}, state.UnlockBoards)
+	require.Equal(t, starterNPCAvatars, state.UnlockNPCAvatars)
 }
 
 // 解放するボードは 0 件でもよい（配るデッキと違い、無くても配布は始められる）
@@ -285,10 +298,13 @@ func TestHandle_CompletesGrantWhenGivenEventsOfFlow(t *testing.T) {
 	handleAll(t, ctx, handler, loadEvents(t, ctx, collection.NewID, collection.NewEventType, constrainttest.Owner(t, ctx, collection.PlayerKey(grantPlayer))))
 	unlockID := constrainttest.Owner(t, ctx, unlock.PlayerKey(grantPlayer))
 	handleAll(t, ctx, handler, loadEvents(t, ctx, unlock.NewID, unlock.NewEventType, unlockID))
-	// 作られた解放に、写したボードを解放する（イベントは作成と、ボードの解放の 2 つ）。解放の記録は、ボードの解放のイベントで済む
+	// 作られた解放に、写したボードと NPC のアバターを 1 つのコマンドで解放する（イベントは作成と、種類ごとの解放の 3 つ）。
+	// 解放した後に受ける解放のイベントでは、解放の段が済んでいて、何も起きない
 	unlockEvents := loadEvents(t, ctx, unlock.NewID, unlock.NewEventType, unlockID)
-	require.Len(t, unlockEvents, 2)
+	require.Len(t, unlockEvents, 3)
 	require.IsType(t, &unlock.BoardsUnlockedEvent{}, unlockEvents[1])
+	require.IsType(t, &unlock.NPCAvatarsUnlockedEvent{}, unlockEvents[2])
+	require.True(t, loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant).UnlockRecorded)
 	handleAll(t, ctx, handler, unlockEvents[1:])
 	for number := 1; number <= len(publishedDecks); number++ {
 		deckID := constrainttest.Owner(t, ctx, deck.StarterKey(grant.ID, startergranttest.DeckNumber(t, number)))
@@ -314,11 +330,11 @@ func TestHandle_IgnoresEventsNotInFlow(t *testing.T) {
 	require.IsType(t, startergrant.InProgressStarterGrant{}, loadStarterGrant(t, ctx, playerID))
 }
 
-// 解放するボードが無いセットなら、解放の集約を作ったとき（CreatedEvent を受けたとき）に解放の段を済んだものとして記録し、
-// ボードの解放のイベントは出ない
-func TestHandle_RecordsUnlockImmediatelyWhenStarterSetHasNoBoards(t *testing.T) {
+// 解放するものが 1 つも無いセットなら、解放の集約を作ったとき（CreatedEvent を受けたとき）に解放の段を済んだものとして記録し、
+// 解放のイベントは出ない
+func TestHandle_RecordsUnlockImmediatelyWhenStarterSetUnlocksNothing(t *testing.T) {
 	ctx := isolatedDatabase(t)
-	handler := newStarterGrantHandler(t, ctx, starterSetMaster(master.StarterSet{GrantDecks: publishedDecks, UnlockBoards: []board.ID{}}))
+	handler := newStarterGrantHandler(t, ctx, starterSetMaster(master.StarterSet{GrantDecks: publishedDecks, UnlockBoards: []board.ID{}, UnlockNPCAvatars: []npcavatar.ID{}}))
 	playerID, grantID := startedGrantID(t, ctx, handler)
 	require.NoError(t, handler.Distribute(ctx, grantID))
 	grantPlayer := playertest.ID(t, playerID)
@@ -332,7 +348,7 @@ func TestHandle_RecordsUnlockImmediatelyWhenStarterSetHasNoBoards(t *testing.T) 
 }
 
 // 配布が済んだ後に、実績などで解放したボードのイベントが来ても、何もしない
-func TestHandle_IgnoresBoardsUnlockedAfterGrantIsCompleted(t *testing.T) {
+func TestHandle_IgnoresUnlockedEventsAfterGrantIsCompleted(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	handler := newStarterGrantHandler(t, ctx, publishedMaster())
 	playerID, grantID := startedGrantID(t, ctx, handler)
@@ -348,11 +364,11 @@ func TestHandle_IgnoresBoardsUnlockedAfterGrantIsCompleted(t *testing.T) {
 	before := countEventsOf(t, ctx, starterGrantTypeID)
 	unlockAggregate, err := unlock.NewID(unlockID)
 	require.NoError(t, err)
-	unlocked, err := newUnlockHandler(t, ctx).UnlockBoards(ctx, unlockAggregate, []board.ID{boardtest.ID(t, boardC)})
+	unlocked, err := newUnlockHandler(t, ctx).Unlock(ctx, unlockAggregate, []board.ID{boardtest.ID(t, boardC)}, []npcavatar.ID{mustNPCAvatarID(62)})
 	require.NoError(t, err)
 	require.True(t, unlocked)
 
-	handleAll(t, ctx, handler, loadEvents(t, ctx, unlock.NewID, unlock.NewEventType, unlockID)[2:])
+	handleAll(t, ctx, handler, loadEvents(t, ctx, unlock.NewID, unlock.NewEventType, unlockID)[3:])
 
 	require.Equal(t, before, countEventsOf(t, ctx, starterGrantTypeID))
 	require.IsType(t, startergrant.CompletedStarterGrant{}, loadStarterGrant(t, ctx, playerID))

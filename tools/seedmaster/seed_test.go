@@ -114,6 +114,11 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			wantBoards = append(wantBoards, boards[domain.NormalizeName(name)].ID)
 		}
 		require.Equal(t, wantBoards, starterSet.UnlockBoards)
+		wantNPCAvatars := make([]uuid.UUID, 0, len(set.UnlockNPCAvatars))
+		for _, name := range set.UnlockNPCAvatars {
+			wantNPCAvatars = append(wantNPCAvatars, npcAvatars[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantNPCAvatars, starterSet.UnlockNPCAvatars)
 	}
 	require.Len(t, npcDecks, len(m.NPCDecks))
 	for _, name := range m.NPCDecks {
@@ -233,6 +238,25 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			registered, err := s.starterSets.Register(ctx, m.StarterSets[0].Name)
 			require.NoError(t, err)
 			_, err = s.starterSets.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{grantDecks[domain.NormalizeName(m.StarterSets[0].GrantDecks[0])].ID})
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_unlock_boards_assigned_without_unlock_npc_avatars", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			require.NoError(t, s.seedGrantDecks(ctx, m.GrantDecks, deckIDs))
+			require.NoError(t, s.seedBoards(ctx, m.Boards))
+			grantDecks, err := s.listGrantDecks(ctx)
+			require.NoError(t, err)
+			boards, err := s.listBoards(ctx)
+			require.NoError(t, err)
+			set := m.StarterSets[0]
+			registered, err := s.starterSets.Register(ctx, set.Name)
+			require.NoError(t, err)
+			withDecks, err := s.starterSets.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{grantDecks[domain.NormalizeName(set.GrantDecks[0])].ID})
+			require.NoError(t, err)
+			_, err = s.starterSets.SetUnlockBoards(ctx, withDecks.ID, withDecks.Revision, []uuid.UUID{boards[domain.NormalizeName(set.UnlockBoards[0])].ID})
 			require.NoError(t, err)
 		}},
 		{name: "npc_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {

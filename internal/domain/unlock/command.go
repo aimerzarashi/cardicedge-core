@@ -2,6 +2,7 @@ package unlock
 
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -14,11 +15,12 @@ type CreateCommand struct {
 	Player player.ID
 }
 
-// 解放するボード。すでに解放しているものは Decide が飛ばす。解放の種類を足すときは、種類ごとのコマンドを足し、
-// 複数の種類を同時に解放するコマンドは、種類ごとのイベントを 1 つずつ出す
-type UnlockBoardsCommand struct {
-	Boards []board.ID
+// 解放するもの。種類ごとに渡し、すでに解放しているものは Decide が飛ばす。コマンドは種類をまとめ（配布の流れが、ボードと NPC を
+// 1 回で解放できるように）、イベントは種類ごとに分ける。解放の種類を足すときは、このコマンドに項目を、種類ごとのイベントを足す
+type UnlockCommand struct {
+	Boards     []board.ID
+	NPCAvatars []npcavatar.ID
 }
 
-func (*CreateCommand) isUnlockCommand()       {}
-func (*UnlockBoardsCommand) isUnlockCommand() {}
+func (*CreateCommand) isUnlockCommand() {}
+func (*UnlockCommand) isUnlockCommand() {}

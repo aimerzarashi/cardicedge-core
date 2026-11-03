@@ -108,6 +108,7 @@ type StarterSetHandler interface {
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedStarterSet, error)
 	SetGrantDecks(ctx context.Context, id uuid.UUID, revision int64, grantDeckIDs []uuid.UUID) (command.ChangedStarterSet, error)
 	SetUnlockBoards(ctx context.Context, id uuid.UUID, revision int64, boardIDs []uuid.UUID) (command.ChangedStarterSet, error)
+	SetUnlockNPCAvatars(ctx context.Context, id uuid.UUID, revision int64, npcAvatarIDs []uuid.UUID) (command.ChangedStarterSet, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterSet, error)
 	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterSet, error)

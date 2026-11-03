@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -37,6 +38,9 @@ func (w *UnlockWriter) Upsert(ctx context.Context, state readmodel.Unlock) error
 	for _, id := range state.Boards {
 		refs = append(refs, domain.NewEntityRef(board.Types().EntityType, id.Int64()))
 	}
+	for _, id := range state.NPCAvatars {
+		refs = append(refs, domain.NewEntityRef(npcavatar.Types().EntityType, id.Int64()))
+	}
 	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
 		return err
@@ -52,6 +56,14 @@ func (w *UnlockWriter) Upsert(ctx context.Context, state readmodel.Unlock) error
 	metadata := state.Metadata()
 	metadata.ID = unlockPublicID
 	// read model は公開 ID だけを持つ。game の内部 ID は、publish-master が domain_entities に作った行から引き直す
+	metadata.NPCAvatars = make([]uuid.UUID, 0, len(state.NPCAvatars))
+	for _, id := range state.NPCAvatars {
+		publicID, ok := publicIDs[domain.NewEntityRef(npcavatar.Types().EntityType, id.Int64())]
+		if !ok {
+			return errors.New("repository: npc avatar of unlock has no public id")
+		}
+		metadata.NPCAvatars = append(metadata.NPCAvatars, publicID)
+	}
 	metadata.Boards = make([]uuid.UUID, 0, len(state.Boards))
 	for _, id := range state.Boards {
 		publicID, ok := publicIDs[domain.NewEntityRef(board.Types().EntityType, id.Int64())]

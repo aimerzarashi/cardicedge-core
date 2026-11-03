@@ -1,6 +1,6 @@
 # スターターセット（新しいプレイヤーに配るものを指すマスタ。1 セット 1 集約。core#92）。配るデッキ（配布デッキ）と解放するボードを
 # 公開 ID で指し、中身の写しは配布を始めるときに game が取る（セットを変えても、配り終えたプレイヤーには影響しない）。
-# 項目は「セットがプレイヤーに何をするか」で名付ける（grantDecks・unlockBoards）。準備中のあいだだけ名前と中身を変えられ、削除できる。
+# 項目は「セットがプレイヤーに何をするか」で名付ける（grantDecks・unlockBoards・unlockNpcAvatars）。準備中のあいだだけ名前と中身を変えられ、削除できる。
 # 公開中にできるのは同時に 1 つだけ（入れ替えは今のセットを使用不可にしてから）
 
 "スターターセット"
@@ -15,6 +15,8 @@ type StarterSet {
   grantDecks: [GrantDeck!]!
   "解放するボード（割り当てた順。0 件でもよい。使用不可にしたボードも、外すまで含まれる）"
   unlockBoards: [Board!]!
+  "解放する NPC のアバター（割り当てた順。0 件でもよい。使用不可にしたアバターも、外すまで含まれる）"
+  unlockNpcAvatars: [NpcAvatar!]!
   "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -225,6 +227,37 @@ union SetStarterSetUnlockBoardsResult =
   | RevisionConflictError
   | ForbiddenError
 
+"スターターセットの解放する NPC のアバターを指定する入力"
+input SetStarterSetUnlockNpcAvatarsInput {
+  "スターターセットの公開用の ID"
+  id: UUID!
+  "画面が見ていたスターターセットの revision"
+  revision: Int!
+  "解放する NPC のアバターの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じアバターは 2 回入れられない。新しく入れるアバターは公開中のものだけ）"
+  unlockNpcAvatarIds: [UUID!]!
+}
+
+"スターターセットの解放する NPC のアバターを指定した（同じアバターの集まりなら何も変えず、revision も進まない）"
+type SetStarterSetUnlockNpcAvatarsSuccess {
+  "変えたスターターセットの公開用の ID"
+  id: UUID!
+  "変えたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"""
+スターターセットの解放する NPC のアバターの指定の結果（準備中のものだけ変えられる）。
+入力の誤りは ValidationErrors（項目名は unlockNpcAvatarIds.<番号>。同じアバターの 2 つ目以降は重複、無い・削除した・NPC のアバターでないものは存在しない、
+新しく入れる公開中でないアバターは使えない）
+"""
+union SetStarterSetUnlockNpcAvatarsResult =
+    SetStarterSetUnlockNpcAvatarsSuccess
+  | ValidationErrors
+  | StarterSetNotFoundError
+  | StarterSetNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
 "スターターセットを削除する入力"
 input DeleteStarterSetInput {
   "スターターセットの公開用の ID"
@@ -322,6 +355,11 @@ extend type Mutation {
     "変える内容"
     input: SetStarterSetUnlockBoardsInput!
   ): SetStarterSetUnlockBoardsResult!
+  "スターターセットの解放する NPC のアバターを指定する（今の指定を、渡した一覧に置き換える。外すのも同じ操作。準備中のものだけ。紐づいたオペレーターだけ）"
+  setStarterSetUnlockNpcAvatars(
+    "変える内容"
+    input: SetStarterSetUnlockNpcAvatarsInput!
+  ): SetStarterSetUnlockNpcAvatarsResult!
   "スターターセットを削除する（準備中のものだけ。紐づいたオペレーターだけ）"
   deleteStarterSet(
     "削除するスターターセット"

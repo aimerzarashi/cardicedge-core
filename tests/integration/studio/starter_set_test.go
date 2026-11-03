@@ -13,7 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-const starterSetFields = `id name status revision registeredAt updatedAt grantDecks { id name status } unlockBoards { id name status }`
+const starterSetFields = `id name status revision registeredAt updatedAt grantDecks { id name status } unlockBoards { id name status } unlockNpcAvatars { id name status }`
 
 const starterSetQuery = `query ($id: UUID!) {
 	starterSet(id: $id) {
@@ -64,6 +64,14 @@ const setStarterSetUnlockBoardsMutation = `mutation ($input: SetStarterSetUnlock
 	setStarterSetUnlockBoards(input: $input) {
 		__typename
 		... on SetStarterSetUnlockBoardsSuccess { id revision }
+		` + starterSetErrorFields + `
+	}
+}`
+
+const setStarterSetUnlockNpcAvatarsMutation = `mutation ($input: SetStarterSetUnlockNpcAvatarsInput!) {
+	setStarterSetUnlockNpcAvatars(input: $input) {
+		__typename
+		... on SetStarterSetUnlockNpcAvatarsSuccess { id revision }
 		` + starterSetErrorFields + `
 	}
 }`
@@ -126,6 +134,20 @@ func setStarterSetGrantDecks(t *testing.T, token string, starterSet map[string]a
 func setStarterSetUnlockBoards(t *testing.T, token string, starterSet map[string]any, boards ...any) map[string]any {
 	t.Helper()
 	return starterSetOperation(t, token, setStarterSetUnlockBoardsMutation, "setStarterSetUnlockBoards", starterSetInput(starterSet, map[string]any{"unlockBoardIds": append([]any{}, boards...)}))
+}
+
+func setStarterSetUnlockNpcAvatars(t *testing.T, token string, starterSet map[string]any, npcAvatars ...any) map[string]any {
+	t.Helper()
+	return starterSetOperation(t, token, setStarterSetUnlockNpcAvatarsMutation, "setStarterSetUnlockNpcAvatars", starterSetInput(starterSet, map[string]any{"unlockNpcAvatarIds": append([]any{}, npcAvatars...)}))
+}
+
+// 公開中の NPC のアバターを作り、投影されるまで待つ
+func publishedNpcAvatar(t *testing.T, token, name string) map[string]any {
+	t.Helper()
+	ready := readyNpcAvatar(t, token, name)
+	published := npcAvatarOperation(t, token, publishNpcAvatarMutation, "publishNpcAvatar", npcAvatarInput(ready, nil))
+	require.Equal(t, "PublishNpcAvatarSuccess", published["__typename"])
+	return waitNpcAvatar(t, token, published["id"], 3)
 }
 
 func publishStarterSet(t *testing.T, token string, starterSet map[string]any) map[string]any {
@@ -219,6 +241,7 @@ func TestRegisterStarterSet_ListsDraftStarterSet(t *testing.T) {
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	require.Equal(t, []any{}, node["grantDecks"])
 	require.Equal(t, []any{}, node["unlockBoards"])
+	require.Equal(t, []any{}, node["unlockNpcAvatars"])
 	detail := waitStarterSet(t, token, registered["id"], 1)
 	delete(detail, "__typename")
 	require.Equal(t, node, detail)
@@ -406,6 +429,7 @@ func TestStarterSetOperations_ReturnErrorTypesForNameStatusAndRevision(t *testin
 	deletePublished := starterSetOperation(t, token, deleteStarterSetMutation, "deleteStarterSet", starterSetInput(published, nil))
 	changeDecksPublished := setStarterSetGrantDecks(t, token, published)
 	changeBoardsPublished := setStarterSetUnlockBoards(t, token, published)
+	changeNpcAvatarsPublished := setStarterSetUnlockNpcAvatars(t, token, published)
 
 	require.Equal(t, "StarterSetNameAlreadyInUseError", used["__typename"])
 	require.Equal(t, "InvalidStarterSetStatusTransitionError", retireDraft["__typename"])
@@ -414,6 +438,7 @@ func TestStarterSetOperations_ReturnErrorTypesForNameStatusAndRevision(t *testin
 	require.Equal(t, "StarterSetNotDraftError", deletePublished["__typename"])
 	require.Equal(t, "StarterSetNotDraftError", changeDecksPublished["__typename"])
 	require.Equal(t, "StarterSetNotDraftError", changeBoardsPublished["__typename"])
+	require.Equal(t, "StarterSetNotDraftError", changeNpcAvatarsPublished["__typename"])
 }
 
 func TestDeleteStarterSet_RemovesDraftStarterSetAndFreesName(t *testing.T) {
@@ -435,4 +460,54 @@ func TestDeleteStarterSet_RemovesDraftStarterSetAndFreesName(t *testing.T) {
 		}
 	})
 	registerStarterSet(t, token, "標準-"+id)
+}
+
+func TestSetStarterSetUnlockNpcAvatars_ShowsThemInGivenOrderAndReplacesThem(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := starterSetUniqueID(t)
+	starterSet := registerStarterSet(t, token, "標準-"+id)
+	first := publishedNpcAvatar(t, token, "一-"+id)
+	second := publishedNpcAvatar(t, token, "二-"+id)
+
+	changed := setStarterSetUnlockNpcAvatars(t, token, starterSet, second["id"], first["id"])
+	same := setStarterSetUnlockNpcAvatars(t, token, changed, first["id"], second["id"])
+
+	require.Equal(t, "SetStarterSetUnlockNpcAvatarsSuccess", changed["__typename"])
+	require.EqualValues(t, 2, changed["revision"])
+	require.Equal(t, changed, same)
+	detail := waitStarterSet(t, token, starterSet["id"], 2)
+	require.Equal(t, []any{
+		map[string]any{"id": second["id"], "name": "二-" + id, "status": "PUBLISHED"},
+		map[string]any{"id": first["id"], "name": "一-" + id, "status": "PUBLISHED"},
+	}, detail["unlockNpcAvatars"])
+
+	replaced := setStarterSetUnlockNpcAvatars(t, token, changed, first["id"])
+
+	// 二つ目だけを外す（割り当てる分は無い）ので、revision は 1 つだけ進む
+	require.EqualValues(t, 3, replaced["revision"])
+	require.Len(t, waitStarterSet(t, token, starterSet["id"], 3)["unlockNpcAvatars"], 1)
+}
+
+func TestSetStarterSetUnlockNpcAvatars_ReturnsFieldErrorPerItem(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := starterSetUniqueID(t)
+	starterSet := registerStarterSet(t, token, "標準-"+id)
+	published := publishedNpcAvatar(t, token, "公開-"+id)
+	draft := readyNpcAvatar(t, token, "準備中-"+id)
+
+	duplicated := setStarterSetUnlockNpcAvatars(t, token, starterSet, published["id"], published["id"])
+	unknown := setStarterSetUnlockNpcAvatars(t, token, starterSet, uuid.NewString())
+	notPublished := setStarterSetUnlockNpcAvatars(t, token, starterSet, published["id"], draft["id"])
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldDuplicated", "field": "unlockNpcAvatarIds.1"},
+	}}, duplicated)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldNotFound", "field": "unlockNpcAvatarIds.0"},
+	}}, unknown)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldUnavailable", "field": "unlockNpcAvatarIds.1"},
+	}}, notPublished)
 }

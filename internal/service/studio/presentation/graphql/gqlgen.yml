@@ -55,6 +55,8 @@ models:
         resolver: true
       unlockBoards:
         resolver: true
+      unlockNpcAvatars:
+        resolver: true
   NpcDeck:
     model:
       - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcDeck

@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -50,15 +51,15 @@ func (c *UnlockHandler) Create(ctx context.Context, playerID player.ID) error {
 	return err
 }
 
-// ボードを解放する。すでに解放しているものは飛ばし、新しいものが無ければ何も起きない（false）。
+// ボードと NPC のアバターを 1 つのコマンドで解放する。すでに解放しているものは飛ばし、新しいものが無ければ何も起きない（false）。
 // 解放の集約がまだ作られていなければ unlock.ErrInvalidState
-func (c *UnlockHandler) UnlockBoards(ctx context.Context, unlockID unlock.ID, boards []board.ID) (unlocked bool, err error) {
+func (c *UnlockHandler) Unlock(ctx context.Context, unlockID unlock.ID, boards []board.ID, npcAvatars []npcavatar.ID) (unlocked bool, err error) {
 	return rdb.Transact(ctx, func(ctx context.Context) (bool, error) {
 		state, err := c.eventStore.Load(ctx, unlockID)
 		if err != nil {
 			return false, err
 		}
-		events, err := unlock.Decide(state, &unlock.UnlockBoardsCommand{Boards: boards}, c.now())
+		events, err := unlock.Decide(state, &unlock.UnlockCommand{Boards: boards, NPCAvatars: npcAvatars}, c.now())
 		if err != nil {
 			return false, err
 		}
@@ -66,15 +67,15 @@ func (c *UnlockHandler) UnlockBoards(ctx context.Context, unlockID unlock.ID, bo
 	})
 }
 
-// 解放の持ち主。配布の流れが、unlock のイベントから自分の配布を引くのに使う
-func (c *UnlockHandler) Player(ctx context.Context, unlockID unlock.ID) (player.ID, error) {
+// 解放の今の状態。配布の流れが、写したものがそろったかを見るのと、unlock のイベントから持ち主（配布を引く手がかり）を読むのに使う
+func (c *UnlockHandler) Get(ctx context.Context, unlockID unlock.ID) (unlock.Unlock, error) {
 	state, err := c.eventStore.Load(ctx, unlockID)
 	if err != nil {
-		return 0, err
+		return unlock.Unlock{}, err
 	}
 	current, ok := state.(unlock.Unlock)
 	if !ok {
-		return 0, unlock.ErrInvalidState
+		return unlock.Unlock{}, unlock.ErrInvalidState
 	}
-	return current.Player, nil
+	return current, nil
 }

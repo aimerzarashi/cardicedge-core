@@ -36,3 +36,6 @@ models:
       # boards は resolver で返す（read model unlocks と、写した boards から、返すときに読むため）
       boards:
         resolver: true
+      # npcAvatars は resolver で返す（read model unlocks と、写した npc_avatars・npc_decks から、返すときに読むため）
+      npcAvatars:
+        resolver: true

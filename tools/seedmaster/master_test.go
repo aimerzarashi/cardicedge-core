@@ -109,8 +109,8 @@ func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
 	require.True(t, found)
 }
 
-// 見本のファイルに NPC のアバターが 3 つあり、どれも名前の決まりを満たし、見本の NPC のデッキを使う（始める前に確かめる流れが、見本で必ず通るように）
-func TestSampleMaster_HasThreeNPCAvatarsUsingNPCDecks(t *testing.T) {
+// 見本のファイルに NPC のアバターが 4 つあり（ゴリガンは、スターターセットが解放する）、どれも名前の決まりを満たし、見本の NPC のデッキを使う（始める前に確かめる流れが、見本で必ず通るように）
+func TestSampleMaster_HasFourNPCAvatarsUsingNPCDecks(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
@@ -118,6 +118,7 @@ func TestSampleMaster_HasThreeNPCAvatarsUsingNPCDecks(t *testing.T) {
 		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}},
 		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}},
 		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}},
+		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ"}},
 	}, m.NPCAvatars)
 }
 
@@ -179,7 +180,7 @@ func TestSampleMaster_HasStarterSetWithGrantDecksAndTutorialBoard(t *testing.T) 
 	require.NoError(t, err)
 
 	require.Equal(t, []masterStarterSet{
-		{Name: "スターターセット", GrantDecks: []string{"火・地属性デッキ", "水・風属性デッキ"}, UnlockBoards: []string{"チュートリアル"}},
+		{Name: "スターターセット", GrantDecks: []string{"火・地属性デッキ", "水・風属性デッキ"}, UnlockBoards: []string{"チュートリアル"}, UnlockNPCAvatars: []string{"ゴリガン"}},
 	}, m.StarterSets)
 	require.Equal(t, m.GrantDecks, m.StarterSets[0].GrantDecks)
 }
@@ -198,6 +199,8 @@ func TestLoadMaster_RejectsInvalidStarterSets(t *testing.T) {
 		{name: "unknown_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{"x"}}}},
 		{name: "duplicated_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{grantDecks[0], grantDecks[0]}}}},
 		{name: "unknown_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"x"}}}},
+		{name: "unknown_unlock_npc_avatar", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockNPCAvatars: []string{"x"}}}},
+		{name: "duplicated_unlock_npc_avatar", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockNPCAvatars: []string{"ゴリガン", "ゴリガン"}}}},
 		{name: "duplicated_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"チュートリアル", "チュートリアル"}}}},
 	}
 	for _, tt := range tests {

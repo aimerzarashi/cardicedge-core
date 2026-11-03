@@ -3,6 +3,7 @@ package startergrant
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -22,6 +23,7 @@ type InProgressStarterGrant struct {
 	Cards              []card.Count
 	Decks              []Deck
 	UnlockBoards       []board.ID
+	UnlockNPCAvatars   []npcavatar.ID
 	CollectionRecorded bool
 	UnlockRecorded     bool
 	// 添字は DeckNumber - 1。長さは配るデッキの数（Decks と同じ）
