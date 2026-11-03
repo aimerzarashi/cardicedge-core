@@ -51,21 +51,21 @@ type PresetDeckLister interface {
 	Get(ctx context.Context, id uuid.UUID) (query.PresetDeck, error)
 }
 
-// 実装は command.StarterDeckHandler
-type StarterDeckHandler interface {
-	Register(ctx context.Context, name string) (command.ChangedStarterDeck, error)
-	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID, name string) (command.ChangedStarterDeck, error)
-	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedStarterDeck, error)
-	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedStarterDeck, error)
+// 実装は command.GrantDeckHandler
+type GrantDeckHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedGrantDeck, error)
+	RegisterFromPresetDeck(ctx context.Context, presetDeckID uuid.UUID, name string) (command.ChangedGrantDeck, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedGrantDeck, error)
+	SetCardCounts(ctx context.Context, id uuid.UUID, revision int64, cards []command.CardCountInput) (command.ChangedGrantDeck, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
-	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterDeck, error)
-	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedStarterDeck, error)
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedGrantDeck, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedGrantDeck, error)
 }
 
-// 実装は query.StarterDeckHandler
-type StarterDeckLister interface {
-	List(ctx context.Context, filter query.StarterDeckFilter, first *int, after *string) (pagination.Connection[query.StarterDeck], error)
-	Get(ctx context.Context, id uuid.UUID) (query.StarterDeck, error)
+// 実装は query.GrantDeckHandler
+type GrantDeckLister interface {
+	List(ctx context.Context, filter query.GrantDeckFilter, first *int, after *string) (pagination.Connection[query.GrantDeck], error)
+	Get(ctx context.Context, id uuid.UUID) (query.GrantDeck, error)
 }
 
 // 実装は command.BoardHandler
@@ -130,23 +130,23 @@ type GameRulesGetter interface {
 }
 
 type Resolver struct {
-	creatures       CreatureRegistrar
-	items           ItemRegistrar
-	spells          SpellRegistrar
-	cardStatuses    CardStatusHandler
-	presetDecks     PresetDeckHandler
-	cards           CardLister
-	presetDeckList  PresetDeckLister
-	starterDecks    StarterDeckHandler
-	starterDeckList StarterDeckLister
-	boards          BoardHandler
-	boardList       BoardLister
-	studioRules     StudioRulesGetter
-	gameRules       GameRulesGetter
-	npcAvatars      NPCAvatarHandler
-	npcAvatarList   NPCAvatarLister
-	npcDecks        NPCDeckHandler
-	npcDeckList     NPCDeckLister
+	creatures      CreatureRegistrar
+	items          ItemRegistrar
+	spells         SpellRegistrar
+	cardStatuses   CardStatusHandler
+	presetDecks    PresetDeckHandler
+	cards          CardLister
+	presetDeckList PresetDeckLister
+	grantDecks     GrantDeckHandler
+	grantDeckList  GrantDeckLister
+	boards         BoardHandler
+	boardList      BoardLister
+	studioRules    StudioRulesGetter
+	gameRules      GameRulesGetter
+	npcAvatars     NPCAvatarHandler
+	npcAvatarList  NPCAvatarLister
+	npcDecks       NPCDeckHandler
+	npcDeckList    NPCDeckLister
 }
 
 func NewResolver(
@@ -157,8 +157,8 @@ func NewResolver(
 	presetDecks PresetDeckHandler,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
-	starterDecks StarterDeckHandler,
-	starterDeckList StarterDeckLister,
+	grantDecks GrantDeckHandler,
+	grantDeckList GrantDeckLister,
 	boards BoardHandler,
 	boardList BoardLister,
 	studioRules StudioRulesGetter,
@@ -170,7 +170,7 @@ func NewResolver(
 ) *Resolver {
 	return &Resolver{
 		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
-		cards: cards, presetDeckList: presetDeckList, starterDecks: starterDecks, starterDeckList: starterDeckList,
+		cards: cards, presetDeckList: presetDeckList, grantDecks: grantDecks, grantDeckList: grantDeckList,
 		boards: boards, boardList: boardList, studioRules: studioRules, gameRules: gameRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
 		npcDecks: npcDecks, npcDeckList: npcDeckList,
 	}

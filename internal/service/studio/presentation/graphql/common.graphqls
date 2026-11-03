@@ -137,7 +137,7 @@ type FieldTotalTooLarge implements FieldError {
   max: Int!
 }
 
-"合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）"
+"合計がちょうど決まった値でない（公開する配布デッキの枚数の合計等。多すぎるのも足りないのも同じ理由）"
 type FieldTotalMismatch implements FieldError {
   "誤りのある入力の項目"
   field: String!

@@ -33,9 +33,9 @@ func TestUpdateBoardName_RejectsNameUsedByOtherBoard(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrNameAlreadyInUse)
 }
 
-func TestUpdateBoardName_AllowsNameUsedByStarterDeckAndCard(t *testing.T) {
+func TestUpdateBoardName_AllowsNameUsedByGrantDeckAndCard(t *testing.T) {
 	f := setup(t)
-	require.NoError(t, f.updateStarterDeckName(t, f.issueStarterDeckID(t), cardName(t, "初心者")))
+	require.NoError(t, f.updateGrantDeckName(t, f.issueGrantDeckID(t), cardName(t, "初心者")))
 	require.NoError(t, f.updateCardName(t, f.issueCreatureID(t), cardName(t, "ドラゴン")))
 
 	require.NoError(t, f.updateBoardName(t, f.issueBoardID(t), cardName(t, "初心者")))

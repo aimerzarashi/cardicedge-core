@@ -187,8 +187,8 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
 		{name: "board_with_zero_round_limit", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":0,"dice_min":1,"dice_max":6}`)},
 		{name: "board_with_dice_max_below_dice_min", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":4,"dice_max":3}`)},
-		{name: "no_starter_decks", json: `{"cards":[],"starter_decks":[]}`},
-		{name: "unknown_preset_deck_for_starter_deck", json: `{"cards":[],"starter_decks":["x"]}`},
+		{name: "no_grant_decks", json: `{"cards":[],"grant_decks":[]}`},
+		{name: "unknown_preset_deck_for_grant_deck", json: `{"cards":[],"grant_decks":["x"]}`},
 		{name: "blank_board_name", json: boardJSON("", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
 		{name: "board_tile_outside_grid", json: boardJSON("b", `{"x":8,"y":0,"kind":"base"}`, ``)},
 		{name: "board_without_checkpoint", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"}`, ``)},
@@ -197,7 +197,7 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "land_without_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
 		{name: "base_with_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base","attribute":"fire"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
 		{name: "unknown_board_tile_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land","attribute":"light"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
-		{name: "duplicated_board_name", json: `{"cards":[],"starter_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
+		{name: "duplicated_board_name", json: `{"cards":[],"grant_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -210,12 +210,12 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 
 // 8×8 の盤面を 1 つ持つ見本の JSON。tiles・connections は中身だけを渡す
 func boardJSON(name, tiles, connections string) string {
-	return `{"cards":[],"starter_decks":[],"boards":[` + boardBodyWith(name, tiles, connections) + `]}`
+	return `{"cards":[],"grant_decks":[],"boards":[` + boardBodyWith(name, tiles, connections) + `]}`
 }
 
 func boardWithRulesJSON(defaultRules string) string {
 	body := boardBodyWithRules("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`, defaultRules)
-	return `{"cards":[],"starter_decks":[],"boards":[` + body + `]}`
+	return `{"cards":[],"grant_decks":[],"boards":[` + body + `]}`
 }
 
 func boardBody(name string) string {

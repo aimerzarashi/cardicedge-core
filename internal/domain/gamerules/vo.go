@@ -42,17 +42,17 @@ type Player struct {
 	MaxAvatars int `json:"max_avatars"`
 }
 
-// デッキ（プリセットデッキ・スターターデッキ・プレイヤーのデッキ）に共通の決まり
+// デッキ（プリセットデッキ・配布デッキ・プレイヤーのデッキ）に共通の決まり
 type Deck struct {
-	// カードの合計の枚数（スターターデッキはちょうど、プリセットデッキは上限）
+	// カードの合計の枚数（配布デッキはちょうど、プリセットデッキは上限）
 	TotalCardCount int `json:"total_card_count"`
 	// 同じカードを入れられる枚数の上限
 	MaxCardDuplicates int `json:"max_card_duplicates"`
 }
 
-// スターターデッキだけの決まり
+// 配布デッキだけの決まり
 type StarterDeck struct {
-	// 公開中のスターターデッキの数の上限
+	// 公開中の配布デッキの数の上限
 	MaxPublished int `json:"max_published"`
 }
 

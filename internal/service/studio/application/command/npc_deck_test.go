@@ -78,9 +78,9 @@ func TestRegisterNPCDeck_AllowsNameUsedByPresetDeck(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRegisterNPCDeck_AllowsNameUsedByStarterDeck(t *testing.T) {
+func TestRegisterNPCDeck_AllowsNameUsedByGrantDeck(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	_, err := newStarterDeckHandler(t, ctx).Register(ctx, "初心者デッキ")
+	_, err := newGrantDeckHandler(t, ctx).Register(ctx, "初心者デッキ")
 	require.NoError(t, err)
 
 	_, err = newNPCDeckHandler(t, ctx).Register(ctx, "初心者デッキ")

@@ -126,9 +126,9 @@ func TestRegisterBoard_RejectsNameAlreadyInUse(t *testing.T) {
 	require.ErrorIs(t, err, command.ErrBoardNameAlreadyInUse)
 }
 
-func TestRegisterBoard_AllowsNameUsedByStarterDeck(t *testing.T) {
+func TestRegisterBoard_AllowsNameUsedByGrantDeck(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	_, err := newStarterDeckHandler(t, ctx).Register(ctx, "草原")
+	_, err := newGrantDeckHandler(t, ctx).Register(ctx, "草原")
 	require.NoError(t, err)
 
 	_, err = newBoardHandler(t, ctx).Register(ctx, "草原")

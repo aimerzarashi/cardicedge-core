@@ -33,9 +33,9 @@ models:
     fields:
       cards:
         resolver: true
-  StarterDeck:
+  GrantDeck:
     model:
-      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.StarterDeck
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.GrantDeck
     fields:
       cards:
         resolver: true

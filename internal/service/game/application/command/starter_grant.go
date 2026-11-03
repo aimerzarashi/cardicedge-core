@@ -20,26 +20,26 @@ import (
 const maxRecordAttempts = 5
 
 type StarterGrantHandler struct {
-	eventStore       domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State]
-	identifier       domain.Identifier[startergrant.ID]
-	updatePlayer     startergrant.UpdatePlayerFunc
-	listStarterDecks master.ListPublishedStarterDecksFunc
-	collections      *CollectionHandler
-	decks            *DeckHandler
-	now              func() time.Time
+	eventStore     domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State]
+	identifier     domain.Identifier[startergrant.ID]
+	updatePlayer   startergrant.UpdatePlayerFunc
+	listGrantDecks master.ListPublishedGrantDecksFunc
+	collections    *CollectionHandler
+	decks          *DeckHandler
+	now            func() time.Time
 }
 
 func NewStarterGrantHandler(
 	eventStore domain.EventStore[startergrant.ID, startergrant.Event, startergrant.State],
 	identifier domain.Identifier[startergrant.ID],
 	updatePlayer startergrant.UpdatePlayerFunc,
-	listStarterDecks master.ListPublishedStarterDecksFunc,
+	listGrantDecks master.ListPublishedGrantDecksFunc,
 	collections *CollectionHandler,
 	decks *DeckHandler,
 	now func() time.Time,
 ) *StarterGrantHandler {
 	return &StarterGrantHandler{
-		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, listStarterDecks: listStarterDecks,
+		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, listGrantDecks: listGrantDecks,
 		collections: collections, decks: decks, now: now,
 	}
 }
@@ -63,13 +63,13 @@ func (c *StarterGrantHandler) Handle(ctx context.Context, event any) error {
 	}
 }
 
-// プレイヤーの配布を始める。公開中のスターターデッキが 1 つも無ければ ErrMasterNotPublished（公開中をあるだけ配る）。そのプレイヤーの配布がもう始まっていれば何もしない
+// プレイヤーの配布を始める。公開中の配布デッキが 1 つも無ければ ErrMasterNotPublished（公開中をあるだけ配る）。そのプレイヤーの配布がもう始まっていれば何もしない
 func (c *StarterGrantHandler) Start(ctx context.Context, rawPlayerID int64) error {
 	playerID, err := player.NewID(rawPlayerID)
 	if err != nil {
 		return err
 	}
-	published, err := c.listStarterDecks(ctx)
+	published, err := c.listGrantDecks(ctx)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (c *StarterGrantHandler) Start(ctx context.Context, rawPlayerID int64) erro
 	return err
 }
 
-// 所持カードと公開中のスターターデッキの数だけのデッキを、それぞれ別のトランザクションで作る（どのトランザクションも 1 つの集約だけを変える）。
+// 所持カードと公開中の配布デッキの数だけのデッキを、それぞれ別のトランザクションで作る（どのトランザクションも 1 つの集約だけを変える）。
 // どれも、もうあれば何もしないので、途中で止まっても、もう一度呼べば続きから進む
 func (c *StarterGrantHandler) Distribute(ctx context.Context, grantID int64) error {
 	state, err := c.load(ctx, grantID)
@@ -171,18 +171,18 @@ func (c *StarterGrantHandler) load(ctx context.Context, grantID int64) (starterg
 	return c.eventStore.Load(ctx, id)
 }
 
-func startDecks(published []master.StarterDeck) ([]startergrant.Deck, error) {
+func startDecks(published []master.GrantDeck) ([]startergrant.Deck, error) {
 	decks := make([]startergrant.Deck, 0, len(published))
 	for _, source := range published {
 		name, err := startergrant.NewDeckName(source.Name)
 		if err != nil {
-			return nil, fmt.Errorf("master starter deck name %q: %w", source.Name, err)
+			return nil, fmt.Errorf("master grant deck name %q: %w", source.Name, err)
 		}
 		cards := make([]card.Count, 0, len(source.Cards))
 		for _, c := range source.Cards {
 			count, err := card.NewQuantity(c.Count)
 			if err != nil {
-				return nil, fmt.Errorf("master starter deck %q card %s: %w", source.Name, c.CardID, err)
+				return nil, fmt.Errorf("master grant deck %q card %s: %w", source.Name, c.CardID, err)
 			}
 			cards = append(cards, card.Count{CardID: c.CardID, Count: count})
 		}

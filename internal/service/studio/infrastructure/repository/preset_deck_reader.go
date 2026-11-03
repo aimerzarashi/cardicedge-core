@@ -18,7 +18,7 @@ import (
 
 // 並び順は索引（sort_name, preset_deck_id）と同じにし、続きは行の比べ方で取る（理由は ListCards と同じ）。
 // sqlboiler を使わない理由も ListCards と同じ
-// preset_decks を読む（一覧・詳細と、スターターデッキが比べる今の revision）
+// preset_decks を読む（一覧・詳細と、配布デッキが比べる今の revision）
 type PresetDeckReader struct{}
 
 func NewPresetDeckReader() *PresetDeckReader {

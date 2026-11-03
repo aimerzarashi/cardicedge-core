@@ -61,7 +61,7 @@ func resolvePlayer(t *testing.T, db *sql.DB, publicID string) player.ID {
 	return id
 }
 
-// 配られた所持カードとデッキ 2 つ（公開中のスターターデッキだけ）が、マスタの中身どおりか確かめる
+// 配られた所持カードとデッキ 2 つ（公開中の配布デッキだけ）が、マスタの中身どおりか確かめる
 func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID player.ID) {
 	t.Helper()
 	ctx := rdb.WithDB(t.Context(), db)
@@ -183,8 +183,8 @@ func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
 	requireDistributed(t, app.GameDB, published, playerID)
 }
 
-// 公開中のスターターデッキが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
-func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
+// 公開中の配布デッキが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
+func TestRegisterPlayer_WaitsForPublishedGrantDeck(t *testing.T) {
 	t.Parallel()
 	app, err := testhelper.StartApp(t.Context())
 	require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
 	playerID := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
 	ctx := rdb.WithDB(t.Context(), app.GameDB)
-	published, err := testhelper.PublishMasterWithoutPublishedStarterDecks(ctx, app.GameDB)
+	published, err := testhelper.PublishMasterWithoutPublishedGrantDecks(ctx, app.GameDB)
 	require.NoError(t, err)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		var failures int
@@ -206,7 +206,7 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 	require.NoError(t, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM domain_events WHERE entity_type_id = 1700`).Scan(&grants))
 	require.Zero(t, grants)
 
-	require.NoError(t, testhelper.PublishStarterDecks(ctx, app.GameDB, published))
+	require.NoError(t, testhelper.PublishGrantDecks(ctx, app.GameDB, published))
 
 	waitStarterGrantCompleted(t, app.GameDB, playerID)
 	requireDistributed(t, app.GameDB, published, playerID)

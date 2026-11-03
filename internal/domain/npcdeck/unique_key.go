@@ -8,7 +8,7 @@ import (
 )
 
 // domain_unique_key_types の名前。 NPC のデッキどうしで名前を一意にする（状態によらない。プリセットデッキの名前と同じ扱い）。
-// スターターデッキ（starter_deck.name）・プリセットデッキとは別の key で、同じ名前でもよい
+// 配布デッキ（grant_deck.name）・プリセットデッキとは別の key で、同じ名前でもよい
 var nameKeyType = domain.NewUniqueKeyType("npc_deck.name")
 
 func UniqueKeyTypes() []domain.UniqueKeyType {

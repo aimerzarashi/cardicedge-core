@@ -1,4 +1,4 @@
-// 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を、studio のコマンドで登録する（カードとスターターデッキは公開中にする）。
+// 開発で触る見本のマスタ（カード・プリセットデッキ・配布デッキ）を、studio のコマンドで登録する（カードと配布デッキは公開中にする）。
 // 初期オペレーター（STUDIO_INITIAL_OPERATOR_EMAIL）として呼ぶ。開発の道具で、本番のコード（cmd/app・internal）からは import しない（core#37）
 package main
 
@@ -18,13 +18,13 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -90,23 +90,23 @@ func run(ctx context.Context, env string) error {
 
 // studio.New は部品を外に出さないため、tests/testhelper と同じく、ここで組み立てる
 type seeder struct {
-	gameRules       *command.GameRulesHandler
-	studioRules     *command.StudioRulesHandler
-	creatures       *command.CreatureHandler
-	items           *command.ItemHandler
-	spells          *command.SpellHandler
-	cardStatuses    *command.CardHandler
-	presetDecks     *command.PresetDeckHandler
-	starterDecks    *command.StarterDeckHandler
-	boards          *command.BoardHandler
-	npcAvatars      *command.NPCAvatarHandler
-	npcDecks        *command.NPCDeckHandler
-	cards           *query.CardHandler
-	presetDeckList  *query.PresetDeckHandler
-	starterDeckList *query.StarterDeckHandler
-	boardList       *query.BoardHandler
-	npcAvatarList   *query.NPCAvatarHandler
-	npcDeckList     *query.NPCDeckHandler
+	gameRules      *command.GameRulesHandler
+	studioRules    *command.StudioRulesHandler
+	creatures      *command.CreatureHandler
+	items          *command.ItemHandler
+	spells         *command.SpellHandler
+	cardStatuses   *command.CardHandler
+	presetDecks    *command.PresetDeckHandler
+	grantDecks     *command.GrantDeckHandler
+	boards         *command.BoardHandler
+	npcAvatars     *command.NPCAvatarHandler
+	npcDecks       *command.NPCDeckHandler
+	cards          *query.CardHandler
+	presetDeckList *query.PresetDeckHandler
+	grantDeckList  *query.GrantDeckHandler
+	boardList      *query.BoardHandler
+	npcAvatarList  *query.NPCAvatarHandler
+	npcDeckList    *query.NPCDeckHandler
 }
 
 func newSeeder(registry *domaindef.Registry) *seeder {
@@ -116,7 +116,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	entityRefs := identifier.NewEntityRefResolver(registry)
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
-	starterDeckReader := repository.NewStarterDeckReader()
+	grantDeckReader := repository.NewGrantDeckReader()
 	boardReader := repository.NewBoardReader()
 	npcAvatarReader := repository.NewNPCAvatarReader()
 	npcDeckReader := repository.NewNPCDeckReader()
@@ -159,18 +159,18 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			gameRules.Get,
 			now,
 		),
-		starterDecks: command.NewStarterDeckHandler(
-			eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve),
-			identifier.New(registry, starterdeck.NewID),
+		grantDecks: command.NewGrantDeckHandler(
+			eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve),
+			identifier.New(registry, grantdeck.NewID),
 			entityRefs,
-			constraint.UpdateStarterDeckName,
-			constraint.UpdateStarterDeckCardReferences,
+			constraint.UpdateGrantDeckName,
+			constraint.UpdateGrantDeckCardReferences,
 			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
 			presetDeckStore,
 			presetDeckIdentifier,
 			constraint.FindGameRules,
-			constraint.ReserveStarterDeckQuota,
-			constraint.ReleaseStarterDeckQuota,
+			constraint.ReserveGrantDeckQuota,
+			constraint.ReleaseGrantDeckQuota,
 			gameRules.Get,
 			now,
 		),
@@ -202,12 +202,12 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			gameRules.Get,
 			now,
 		),
-		cards:           query.NewCardHandler(cardReader.List, cardReader.Get),
-		presetDeckList:  query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
-		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
-		boardList:       query.NewBoardHandler(boardReader.List, boardReader.Get),
-		npcAvatarList:   query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
-		npcDeckList:     query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
+		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
+		presetDeckList: query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
+		grantDeckList:  query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get, presetDeckReader.Revisions),
+		boardList:      query.NewBoardHandler(boardReader.List, boardReader.Get),
+		npcAvatarList:  query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
+		npcDeckList:    query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
 	}
 }
 
@@ -226,7 +226,7 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err != nil {
 		return err
 	}
-	if err := s.seedStarterDecks(ctx, m.StarterDecks, deckIDs); err != nil {
+	if err := s.seedGrantDecks(ctx, m.GrantDecks, deckIDs); err != nil {
 		return err
 	}
 	if err := s.seedBoards(ctx, m.Boards); err != nil {
@@ -294,7 +294,7 @@ func (s *seeder) seedBoards(ctx context.Context, boards []masterBoard) error {
 
 // レイアウトと既定のルールを入れてから公開する。入っていれば変えずに成功する（revision は進まない）ので、途中で止まった続きも
 // 同じ手順でよい。read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って
-// 読み直す（publishStarterDeck と同じ）
+// 読み直す（publishGrantDeck と同じ）
 func (s *seeder) publishBoard(ctx context.Context, b masterBoard, current query.Board) error {
 	key := domain.NormalizeName(b.Name)
 	for {
@@ -458,7 +458,7 @@ func (s *seeder) listNPCAvatars(ctx context.Context) (map[string]query.NPCAvatar
 
 // プリセットデッキから、元と同じ名前を指定して写して NPC のデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のデッキが
 // あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
-// NPC のデッキはスターターデッキと別の集まりなので、同じ名前でも重ならない
+// NPC のデッキは配布デッキと別の集まりなので、同じ名前でも重ならない
 func (s *seeder) seedNPCDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) (map[string]uuid.UUID, error) {
 	existing, err := s.listNPCDecks(ctx)
 	if err != nil {
@@ -559,11 +559,11 @@ func (s *seeder) listNPCDecks(ctx context.Context) (map[string]query.NPCDeck, er
 	}
 }
 
-// プリセットデッキから、元と同じ名前を指定して写してスターターデッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前のスターターデッキが
+// プリセットデッキから、元と同じ名前を指定して写して配布デッキを作り、公開する。何度流しても同じ結果になるよう、同じ名前の配布デッキが
 // あれば作らない。公開は、準備中のまま止まったものだけ続ける（使用不可にしたものを、流し直しで公開に戻さない）。
 // 続けて make publish-master を流せるよう、core の投影が公開中を書くまで待つ
-func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
-	existing, err := s.listStarterDecks(ctx)
+func (s *seeder) seedGrantDecks(ctx context.Context, names []string, presetDeckIDs map[string]uuid.UUID) error {
+	existing, err := s.listGrantDecks(ctx)
 	if err != nil {
 		return err
 	}
@@ -571,39 +571,39 @@ func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDec
 		key := domain.NormalizeName(name)
 		current, ok := existing[key]
 		if !ok {
-			copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name], name)
-			if errors.Is(err, command.ErrStarterDeckNameAlreadyInUse) {
+			copied, err := s.grantDecks.RegisterFromPresetDeck(ctx, presetDeckIDs[name], name)
+			if errors.Is(err, command.ErrGrantDeckNameAlreadyInUse) {
 				// 作成済みだが read model にまだ無い（投影の遅れ）
-				err = waitFor(ctx, "starter_decks", func() (bool, error) {
-					existing, err = s.listStarterDecks(ctx)
+				err = waitFor(ctx, "grant_decks", func() (bool, error) {
+					existing, err = s.listGrantDecks(ctx)
 					_, ok := existing[key]
 					return ok, err
 				})
 				current = existing[key]
 			} else if err == nil {
-				current = query.StarterDeck{ID: copied.ID, Status: readmodel.StarterDeckStatusDraft, Revision: copied.Revision}
-				slog.InfoContext(ctx, "registered starter deck", "name", name)
+				current = query.GrantDeck{ID: copied.ID, Status: readmodel.GrantDeckStatusDraft, Revision: copied.Revision}
+				slog.InfoContext(ctx, "registered grant deck", "name", name)
 			}
 			if err != nil {
-				return fmt.Errorf("register starter deck %q: %w", name, err)
+				return fmt.Errorf("register grant deck %q: %w", name, err)
 			}
 		}
-		if current.Status != readmodel.StarterDeckStatusDraft {
+		if current.Status != readmodel.GrantDeckStatusDraft {
 			continue
 		}
-		if err := s.publishStarterDeck(ctx, name, current); err != nil {
-			return fmt.Errorf("publish starter deck %q: %w", name, err)
+		if err := s.publishGrantDeck(ctx, name, current); err != nil {
+			return fmt.Errorf("publish grant deck %q: %w", name, err)
 		}
 	}
-	return waitFor(ctx, "starter_decks", func() (bool, error) {
-		existing, err := s.listStarterDecks(ctx)
+	return waitFor(ctx, "grant_decks", func() (bool, error) {
+		existing, err := s.listGrantDecks(ctx)
 		if err != nil {
 			return false, err
 		}
 		for _, name := range names {
 			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
 			deck, ok := existing[domain.NormalizeName(name)]
-			if !ok || deck.Status == readmodel.StarterDeckStatusDraft {
+			if !ok || deck.Status == readmodel.GrantDeckStatusDraft {
 				return false, nil
 			}
 		}
@@ -613,19 +613,19 @@ func (s *seeder) seedStarterDecks(ctx context.Context, names []string, presetDec
 
 // read model は投影の遅れで古いことがある（作った直後・止まった直後）。その revision で公開すると先に変えられたになるため、
 // 追いつくのを待って読み直す（publishCard と同じ）
-func (s *seeder) publishStarterDeck(ctx context.Context, name string, current query.StarterDeck) error {
+func (s *seeder) publishGrantDeck(ctx context.Context, name string, current query.GrantDeck) error {
 	key := domain.NormalizeName(name)
 	for {
-		_, err := s.starterDecks.Publish(ctx, current.ID, current.Revision)
+		_, err := s.grantDecks.Publish(ctx, current.ID, current.Revision)
 		if !errors.Is(err, command.ErrRevisionConflict) {
 			if err == nil {
-				slog.InfoContext(ctx, "published starter deck", "name", name)
+				slog.InfoContext(ctx, "published grant deck", "name", name)
 			}
 			return err
 		}
 		stale := current.Revision
-		if err := waitFor(ctx, "starter_decks", func() (bool, error) {
-			existing, err := s.listStarterDecks(ctx)
+		if err := waitFor(ctx, "grant_decks", func() (bool, error) {
+			existing, err := s.listGrantDecks(ctx)
 			current = existing[key]
 			return current.Revision > stale, err
 		}); err != nil {
@@ -634,13 +634,13 @@ func (s *seeder) publishStarterDeck(ctx context.Context, name string, current qu
 	}
 }
 
-// 正規化した名前（重複の判定と同じ）からスターターデッキを引く表
-func (s *seeder) listStarterDecks(ctx context.Context) (map[string]query.StarterDeck, error) {
-	decks := map[string]query.StarterDeck{}
+// 正規化した名前（重複の判定と同じ）から配布デッキを引く表
+func (s *seeder) listGrantDecks(ctx context.Context) (map[string]query.GrantDeck, error) {
+	decks := map[string]query.GrantDeck{}
 	var after *string
 	for {
 		first := pagination.MaxFirst
-		page, err := s.starterDeckList.List(ctx, query.StarterDeckFilter{}, &first, after)
+		page, err := s.grantDeckList.List(ctx, query.GrantDeckFilter{}, &first, after)
 		if err != nil {
 			return nil, err
 		}

@@ -28,7 +28,7 @@ func (id ID) Int64() int64 {
 
 func NewID(value int64) (ID, error) {
 	if value <= 0 {
-		return 0, errors.New("starter deck id must be positive")
+		return 0, errors.New("grant deck id must be positive")
 	}
 	return ID(value), nil
 }
@@ -84,7 +84,7 @@ func NewCardRef(entityType domain.EntityType, id int64) (CardRef, error) {
 		return CardRef{}, fmt.Errorf("%w: %s", ErrNotCard, entityType)
 	}
 	if id <= 0 {
-		return CardRef{}, errors.New("starter deck: card id must be positive")
+		return CardRef{}, errors.New("grant deck: card id must be positive")
 	}
 	return CardRef{entityType: entityType, id: id}, nil
 }

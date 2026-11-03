@@ -292,12 +292,12 @@ func TestNpcDeckName_IsUniqueAmongAllNpcDecksRegardlessOfStatus(t *testing.T) {
 	require.Equal(t, "RegisterNpcDeckSuccess", reused["__typename"])
 }
 
-// スターターデッキ・プリセットデッキとは別の名前の集まりで、同じ名前でもよい
-func TestRegisterNpcDeck_AllowsNameUsedByStarterDeckAndPresetDeck(t *testing.T) {
+// 配布デッキ・プリセットデッキとは別の名前の集まりで、同じ名前でもよい
+func TestRegisterNpcDeck_AllowsNameUsedByGrantDeckAndPresetDeck(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	registerStarterDeck(t, token, "共通-"+id)
+	registerGrantDeck(t, token, "共通-"+id)
 	registerPresetDeck(t, token, "共通-"+id)
 
 	registered := npcDeckOperation(t, token, registerNpcDeckMutation, "registerNpcDeck", map[string]any{"name": "共通-" + id})

@@ -12,7 +12,7 @@ import (
 )
 
 // 公開 ID に当たるプリセットデッキが read model に無い（無い・削除した・まだ投影されていない）
-var ErrPresetDeckNotFound = errors.New("query: starter deck not found")
+var ErrPresetDeckNotFound = errors.New("query: grant deck not found")
 
 // presentation 層に read model の作りを見せず、表示に要る値だけを返す
 type PresetDeck struct {
@@ -48,7 +48,7 @@ type PresetDeckListCursor struct {
 
 func (c PresetDeckListCursor) Validate() error {
 	if c.SortName == "" || c.PresetDeckID == uuid.Nil {
-		return errors.New("sort name and starter deck id are required")
+		return errors.New("sort name and grant deck id are required")
 	}
 	return nil
 }

@@ -2,7 +2,7 @@ package domaindef
 
 // 種別の名前と id の一覧（全サービスで共通。core_studio・core_game のどちらの DB にも、同じ行を入れる）。
 // id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた名前と id は変えない・消さない（過去のイベントが id で
-// 参照しているため）。ただし main に入る前（リリース前）は除く（core#42 でスターターデッキセットの種別を、開発の DB を作り直す前提で消した）。
+// 参照しているため）。ただし main に入る前（リリース前）は除く（core#42 で配布デッキセットの種別を、開発の DB を作り直す前提で消した）。
 // 名前は各集約の宣言（Types() 等）にも書くが、ドメインのコードには id を持たせない（保存の都合のため）。
 // この一覧と DB は Sync が合わせ、DB と各集約の宣言は Verify... が照合する（core#33）
 //
@@ -53,7 +53,7 @@ var Types = Catalog{
 		{ID: 2000, Name: "game_rules", Events: []EventTypeDef{
 			{ID: 2001, Name: "CreatedEvent"},
 		}},
-		{ID: 2100, Name: "starter_deck", Events: []EventTypeDef{
+		{ID: 2100, Name: "grant_deck", Events: []EventTypeDef{
 			{ID: 2101, Name: "RegisteredEvent"},
 			{ID: 2102, Name: "RenamedEvent"},
 			{ID: 2103, Name: "CardCountsChangedEvent"},
@@ -105,7 +105,7 @@ var Types = Catalog{
 		{ID: 1008, Name: "deck.starter"},
 		{ID: 1009, Name: "deck.name"},
 		{ID: 1010, Name: "game_rules.singleton"},
-		{ID: 1011, Name: "starter_deck.name"},
+		{ID: 1011, Name: "grant_deck.name"},
 		{ID: 1012, Name: "avatar.name"},
 		{ID: 1013, Name: "board.name"},
 		{ID: 1014, Name: "studio_rules.singleton"},
@@ -114,13 +114,13 @@ var Types = Catalog{
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
-		{ID: 1002, Name: "starter_deck.card"},
+		{ID: 1002, Name: "grant_deck.card"},
 		{ID: 1003, Name: "npc_deck.card"},
 		{ID: 1004, Name: "npc_avatar.deck"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},
-		{ID: 1001, Name: "starter_deck.published"},
+		{ID: 1001, Name: "grant_deck.published"},
 		{ID: 1002, Name: "avatar.per_player"},
 	},
 }

@@ -1,4 +1,4 @@
--- NPC のデッキの一覧と詳細の read model（starter_decks と同じ形）。値はイベントから導く。
+-- NPC のデッキの一覧と詳細の read model（grant_decks と同じ形）。値はイベントから導く。
 -- 入れたカードは metadata に公開 ID と枚数だけ持ち、カード名・種類は書き写さない（0010 と同じ）。
 -- 状態（準備中・公開中・使用不可）は一覧の絞り込みに使うため個別の列にし、表示用にも metadata に持つ（0010 と同じ）。
 -- game には、NPC のアバターに割り当てたものだけを make publish-master が写す（core#63）
