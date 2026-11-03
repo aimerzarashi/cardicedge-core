@@ -46,7 +46,7 @@ func TestCreateDeck_CreatesDeckOfOwnerWithNameAndCardsOfSource(t *testing.T) {
 }
 
 // 同じ配布の同じ番号のデッキは 1 つ。2 回目はエラーにせず何もしない（ポリシーのやり直しで同じ作成が来ても害が無いように）
-func TestCreateDeck_DoesNothingWhenStarterDeckAlreadyExists(t *testing.T) {
+func TestCreateDeck_DoesNothingWhenGrantDeckAlreadyExists(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	handler := newDeckHandler(t, ctx)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
@@ -84,7 +84,7 @@ func TestCreateDeck_ReservesQuotaOfOwner(t *testing.T) {
 }
 
 // 配布のやり直しで同じ作成が来ても、全体が戻るので数は増えない
-func TestCreateDeck_DoesNotReserveQuotaAgainWhenStarterDeckAlreadyExists(t *testing.T) {
+func TestCreateDeck_DoesNotReserveQuotaAgainWhenGrantDeckAlreadyExists(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	handler := newDeckHandler(t, ctx)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))

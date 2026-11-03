@@ -12,7 +12,7 @@ type Command interface {
 }
 
 // 名前だけで作る。形は四角形、大きさは DefaultSize を Rules の範囲に収めた値、マスもつながりも無い準備中になる。
-// 範囲は、ドメインが既定の値を読まず、コマンドを動かす側が studio_rules を読んで渡す（starterdeck.RegisterCommand の Rules と同じ）
+// 範囲は、ドメインが既定の値を読まず、コマンドを動かす側が studio_rules を読んで渡す（grantdeck.RegisterCommand の Rules と同じ）
 type RegisterCommand struct {
 	ID           ID
 	PublicID     uuid.UUID

@@ -79,7 +79,7 @@ func TestDecide_RejectsStartWithoutDecks(t *testing.T) {
 	require.ErrorIs(t, err, startergrant.ErrInvalidDeckCount)
 }
 
-// 配るデッキの数は公開中のスターターデッキの数で決まり、1 つでも、3 つ以上でも配れる。済む条件はその数すべての記録
+// 配るデッキの数は公開中の配布デッキの数で決まり、1 つでも、3 つ以上でも配れる。済む条件はその数すべての記録
 func TestDecide_CompletesAfterRecordingEveryDeckWhateverTheDeckCount(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -81,6 +81,11 @@ type DeleteBoardResult interface {
 	IsDeleteBoardResult()
 }
 
+// 配布デッキの削除の結果（準備中のものだけ消せる）
+type DeleteGrantDeckResult interface {
+	IsDeleteGrantDeckResult()
+}
+
 // NPC のアバターの削除の結果（準備中のものだけ消せる）
 type DeleteNpcAvatarResult interface {
 	IsDeleteNpcAvatarResult()
@@ -96,11 +101,6 @@ type DeletePresetDeckResult interface {
 	IsDeletePresetDeckResult()
 }
 
-// スターターデッキの削除の結果（準備中のものだけ消せる）
-type DeleteStarterDeckResult interface {
-	IsDeleteStarterDeckResult()
-}
-
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -111,6 +111,16 @@ type FieldError interface {
 // ゲーム全体のルールの結果
 type GameRulesResult interface {
 	IsGameRulesResult()
+}
+
+// 配布デッキの詳細の結果
+type GrantDeckResult interface {
+	IsGrantDeckResult()
+}
+
+// 配布デッキの一覧の結果
+type GrantDecksResult interface {
+	IsGrantDecksResult()
 }
 
 // NPC のアバターの詳細の結果
@@ -153,6 +163,11 @@ type PublishCardResult interface {
 	IsPublishCardResult()
 }
 
+// 配布デッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
+type PublishGrantDeckResult interface {
+	IsPublishGrantDeckResult()
+}
+
 // NPC のアバターの公開の結果（準備中・使用不可から公開中にできる）。
 // 公開するときは、使うデッキが 1 つ以上あること（無ければ ValidationErrors の decks が必須）と、
 // そのうち 1 つ以上が今も公開中であること（無ければ decks が使えない）を確かめる。すでに公開中なら確かめない
@@ -165,11 +180,6 @@ type PublishNpcDeckResult interface {
 	IsPublishNpcDeckResult()
 }
 
-// スターターデッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
-type PublishStarterDeckResult interface {
-	IsPublishStarterDeckResult()
-}
-
 // ボードの登録の結果
 type RegisterBoardResult interface {
 	IsRegisterBoardResult()
@@ -178,6 +188,16 @@ type RegisterBoardResult interface {
 // クリーチャーの登録の結果
 type RegisterCreatureResult interface {
 	IsRegisterCreatureResult()
+}
+
+// プリセットデッキから写した配布デッキの登録の結果
+type RegisterGrantDeckFromPresetDeckResult interface {
+	IsRegisterGrantDeckFromPresetDeckResult()
+}
+
+// 配布デッキの登録の結果
+type RegisterGrantDeckResult interface {
+	IsRegisterGrantDeckResult()
 }
 
 // アイテムの登録の結果
@@ -210,19 +230,14 @@ type RegisterSpellResult interface {
 	IsRegisterSpellResult()
 }
 
-// プリセットデッキから写したスターターデッキの登録の結果
-type RegisterStarterDeckFromPresetDeckResult interface {
-	IsRegisterStarterDeckFromPresetDeckResult()
-}
-
-// スターターデッキの登録の結果
-type RegisterStarterDeckResult interface {
-	IsRegisterStarterDeckResult()
-}
-
 // ボードの名前の変更の結果（準備中のものだけ変えられる）
 type RenameBoardResult interface {
 	IsRenameBoardResult()
+}
+
+// 配布デッキの名前の変更の結果（準備中のものだけ変えられる）
+type RenameGrantDeckResult interface {
+	IsRenameGrantDeckResult()
 }
 
 // NPC のアバターの名前の変更の結果（準備中のものだけ変えられる）
@@ -240,11 +255,6 @@ type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
 }
 
-// スターターデッキの名前の変更の結果（準備中のものだけ変えられる）
-type RenameStarterDeckResult interface {
-	IsRenameStarterDeckResult()
-}
-
 // ボードの使用不可の結果
 type RetireBoardResult interface {
 	IsRetireBoardResult()
@@ -253,6 +263,11 @@ type RetireBoardResult interface {
 // カードを使用不可にする操作の結果
 type RetireCardResult interface {
 	IsRetireCardResult()
+}
+
+// 配布デッキの使用不可の結果
+type RetireGrantDeckResult interface {
+	IsRetireGrantDeckResult()
 }
 
 // NPC のアバターの使用不可の結果
@@ -265,9 +280,9 @@ type RetireNpcDeckResult interface {
 	IsRetireNpcDeckResult()
 }
 
-// スターターデッキの使用不可の結果
-type RetireStarterDeckResult interface {
-	IsRetireStarterDeckResult()
+// 配布デッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
+type SetGrantDeckCardCountsResult interface {
+	IsSetGrantDeckCardCountsResult()
 }
 
 // NPC のアバターへの使うデッキの割り当ての結果（準備中のものだけ変えられる）。
@@ -285,21 +300,6 @@ type SetNpcDeckCardCountsResult interface {
 // プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
 type SetPresetDeckCardCountsResult interface {
 	IsSetPresetDeckCardCountsResult()
-}
-
-// スターターデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
-type SetStarterDeckCardCountsResult interface {
-	IsSetStarterDeckCardCountsResult()
-}
-
-// スターターデッキの詳細の結果
-type StarterDeckResult interface {
-	IsStarterDeckResult()
-}
-
-// スターターデッキの一覧の結果
-type StarterDecksResult interface {
-	IsStarterDecksResult()
 }
 
 // studio の決まりの結果
@@ -830,6 +830,22 @@ type DeleteBoardSuccess struct {
 
 func (DeleteBoardSuccess) IsDeleteBoardResult() {}
 
+// 配布デッキを削除する入力
+type DeleteGrantDeckInput struct {
+	// 配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた配布デッキの revision
+	Revision int `json:"revision"`
+}
+
+// 配布デッキを削除した（名前はほかの配布デッキが使えるようになる）
+type DeleteGrantDeckSuccess struct {
+	// 削除した配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteGrantDeckSuccess) IsDeleteGrantDeckResult() {}
+
 // NPC のアバターを削除する入力
 type DeleteNpcAvatarInput struct {
 	// NPC のアバターの公開用の ID
@@ -877,22 +893,6 @@ type DeletePresetDeckSuccess struct {
 }
 
 func (DeletePresetDeckSuccess) IsDeletePresetDeckResult() {}
-
-// スターターデッキを削除する入力
-type DeleteStarterDeckInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
-	Revision int `json:"revision"`
-}
-
-// スターターデッキを削除した（名前はほかのスターターデッキが使えるようになる）
-type DeleteStarterDeckSuccess struct {
-	// 削除したスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-}
-
-func (DeleteStarterDeckSuccess) IsDeleteStarterDeckResult() {}
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
 type FieldDuplicated struct {
@@ -1049,7 +1049,7 @@ func (FieldTooSmall) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooSmall) GetField() string { return this.Field }
 
-// 合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等。多すぎるのも足りないのも同じ理由）
+// 合計がちょうど決まった値でない（公開する配布デッキの枚数の合計等。多すぎるのも足りないのも同じ理由）
 type FieldTotalMismatch struct {
 	// 誤りのある入力の項目
 	Field string `json:"field"`
@@ -1122,6 +1122,24 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
+func (ForbiddenError) IsGrantDecksResult() {}
+
+func (ForbiddenError) IsGrantDeckResult() {}
+
+func (ForbiddenError) IsRegisterGrantDeckResult() {}
+
+func (ForbiddenError) IsRegisterGrantDeckFromPresetDeckResult() {}
+
+func (ForbiddenError) IsRenameGrantDeckResult() {}
+
+func (ForbiddenError) IsSetGrantDeckCardCountsResult() {}
+
+func (ForbiddenError) IsDeleteGrantDeckResult() {}
+
+func (ForbiddenError) IsPublishGrantDeckResult() {}
+
+func (ForbiddenError) IsRetireGrantDeckResult() {}
+
 func (ForbiddenError) IsRegisterItemResult() {}
 
 func (ForbiddenError) IsNpcAvatarsResult() {}
@@ -1172,24 +1190,6 @@ func (ForbiddenError) IsDeletePresetDeckResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
 
-func (ForbiddenError) IsStarterDecksResult() {}
-
-func (ForbiddenError) IsStarterDeckResult() {}
-
-func (ForbiddenError) IsRegisterStarterDeckResult() {}
-
-func (ForbiddenError) IsRegisterStarterDeckFromPresetDeckResult() {}
-
-func (ForbiddenError) IsRenameStarterDeckResult() {}
-
-func (ForbiddenError) IsSetStarterDeckCardCountsResult() {}
-
-func (ForbiddenError) IsDeleteStarterDeckResult() {}
-
-func (ForbiddenError) IsPublishStarterDeckResult() {}
-
-func (ForbiddenError) IsRetireStarterDeckResult() {}
-
 func (ForbiddenError) IsStudioRulesResult() {}
 
 // ゲーム全体のルール
@@ -1199,6 +1199,96 @@ type GameRules struct {
 }
 
 func (GameRules) IsGameRulesResult() {}
+
+// 配布デッキの一覧の 1 ページ（名前の順）
+type GrantDeckConnection struct {
+	// このページの配布デッキ
+	Edges []*GrantDeckEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (GrantDeckConnection) IsGrantDecksResult() {}
+
+// 配布デッキの一覧の 1 件と、その位置
+type GrantDeckEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// 配布デッキ
+	Node *GrantDeck `json:"node"`
+}
+
+// 配布デッキの一覧の絞り込み
+type GrantDeckFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []GrantDeckStatus `json:"statuses,omitempty"`
+}
+
+// 公開中の配布デッキの数が上限に達している（ほかのものを使用不可にすると公開できる）
+type GrantDeckLimitReachedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 公開中の配布デッキの数の上限（そのときのゲーム全体のルールの値。画面が文言に出す）
+	Max int `json:"max"`
+}
+
+func (GrantDeckLimitReachedError) IsPublishGrantDeckResult() {}
+
+// 名前が、ほかの配布デッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type GrantDeckNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (GrantDeckNameAlreadyInUseError) IsRegisterGrantDeckResult() {}
+
+func (GrantDeckNameAlreadyInUseError) IsRegisterGrantDeckFromPresetDeckResult() {}
+
+func (GrantDeckNameAlreadyInUseError) IsRenameGrantDeckResult() {}
+
+// 準備中でない配布デッキの名前・枚数を変える、または削除しようとした（準備中のものだけ変えられる）
+type GrantDeckNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (GrantDeckNotDraftError) IsRenameGrantDeckResult() {}
+
+func (GrantDeckNotDraftError) IsSetGrantDeckCardCountsResult() {}
+
+func (GrantDeckNotDraftError) IsDeleteGrantDeckResult() {}
+
+// 配布デッキが無い（削除したものを含む）
+type GrantDeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (GrantDeckNotFoundError) IsGrantDeckResult() {}
+
+func (GrantDeckNotFoundError) IsRenameGrantDeckResult() {}
+
+func (GrantDeckNotFoundError) IsSetGrantDeckCardCountsResult() {}
+
+func (GrantDeckNotFoundError) IsDeleteGrantDeckResult() {}
+
+func (GrantDeckNotFoundError) IsPublishGrantDeckResult() {}
+
+func (GrantDeckNotFoundError) IsRetireGrantDeckResult() {}
+
+// 写した元
+type GrantDeckSource struct {
+	// 元のプリセットデッキの公開用の ID（消されていることもある）
+	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 写したときの、元のプリセットデッキの revision
+	Revision int `json:"revision"`
+	// 写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）
+	ChangedSinceCopied bool `json:"changedSinceCopied"`
+	// 元のプリセットデッキが削除されている
+	PresetDeckDeleted bool `json:"presetDeckDeleted"`
+}
 
 // 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidBoardStatusTransitionError struct {
@@ -1218,6 +1308,14 @@ func (InvalidCardStatusTransitionError) IsPublishCardResult() {}
 
 func (InvalidCardStatusTransitionError) IsRetireCardResult() {}
 
+// 準備中の配布デッキを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidGrantDeckStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidGrantDeckStatusTransitionError) IsRetireGrantDeckResult() {}
+
 // 準備中の NPC のアバターを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidNpcAvatarStatusTransitionError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1233,14 +1331,6 @@ type InvalidNpcDeckStatusTransitionError struct {
 }
 
 func (InvalidNpcDeckStatusTransitionError) IsRetireNpcDeckResult() {}
-
-// 準備中のスターターデッキを使用不可にしようとした（準備中から移れるのは公開中だけ）
-type InvalidStarterDeckStatusTransitionError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (InvalidStarterDeckStatusTransitionError) IsRetireStarterDeckResult() {}
 
 // アイテム（カードの種類の 1 つ）
 type Item struct {
@@ -1528,6 +1618,8 @@ type PresetDeckNotFoundError struct {
 	Message string `json:"message"`
 }
 
+func (PresetDeckNotFoundError) IsRegisterGrantDeckFromPresetDeckResult() {}
+
 func (PresetDeckNotFoundError) IsRegisterNpcDeckFromPresetDeckResult() {}
 
 func (PresetDeckNotFoundError) IsPresetDeckResult() {}
@@ -1537,8 +1629,6 @@ func (PresetDeckNotFoundError) IsRenamePresetDeckResult() {}
 func (PresetDeckNotFoundError) IsSetPresetDeckCardCountsResult() {}
 
 func (PresetDeckNotFoundError) IsDeletePresetDeckResult() {}
-
-func (PresetDeckNotFoundError) IsRegisterStarterDeckFromPresetDeckResult() {}
 
 // 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
 type ProphecyShopTile struct {
@@ -1592,6 +1682,24 @@ type PublishCardSuccess struct {
 
 func (PublishCardSuccess) IsPublishCardResult() {}
 
+// 配布デッキを公開する入力
+type PublishGrantDeckInput struct {
+	// 配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた配布デッキの revision
+	Revision int `json:"revision"`
+}
+
+// 配布デッキを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishGrantDeckSuccess struct {
+	// 公開した配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishGrantDeckSuccess) IsPublishGrantDeckResult() {}
+
 // NPC のアバターを公開する入力
 type PublishNpcAvatarInput struct {
 	// NPC のアバターの公開用の ID
@@ -1628,24 +1736,6 @@ type PublishNpcDeckSuccess struct {
 
 func (PublishNpcDeckSuccess) IsPublishNpcDeckResult() {}
 
-// スターターデッキを公開する入力
-type PublishStarterDeckInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
-	Revision int `json:"revision"`
-}
-
-// スターターデッキを公開中にした（すでに公開中なら何も変えず、revision も進まない）
-type PublishStarterDeckSuccess struct {
-	// 公開したスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 公開したスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (PublishStarterDeckSuccess) IsPublishStarterDeckResult() {}
-
 type Query struct {
 }
 
@@ -1678,6 +1768,40 @@ type RegisterCreatureSuccess struct {
 }
 
 func (RegisterCreatureSuccess) IsRegisterCreatureResult() {}
+
+// 配布デッキをプリセットデッキから写して登録する入力
+type RegisterGrantDeckFromPresetDeckInput struct {
+	// 写す元のプリセットデッキの公開用の ID（カードと枚数を写す。合計が 40 枚でなくてもよい）
+	PresetDeckID uuid.UUID `json:"presetDeckId"`
+	// 名前（1〜50 文字。前後の空白は除いて保存する。元のプリセットデッキの名前は写さない）
+	Name string `json:"name"`
+}
+
+// プリセットデッキから写して配布デッキを登録した（準備中。写した元の公開 ID と revision を記録する）
+type RegisterGrantDeckFromPresetDeckSuccess struct {
+	// 登録した配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterGrantDeckFromPresetDeckSuccess) IsRegisterGrantDeckFromPresetDeckResult() {}
+
+// 配布デッキを空から登録する入力
+type RegisterGrantDeckInput struct {
+	// 名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// 配布デッキを登録した（準備中）
+type RegisterGrantDeckSuccess struct {
+	// 登録した配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterGrantDeckSuccess) IsRegisterGrantDeckResult() {}
 
 // アイテムを登録する入力
 type RegisterItemInput struct {
@@ -1773,40 +1897,6 @@ type RegisterSpellSuccess struct {
 
 func (RegisterSpellSuccess) IsRegisterSpellResult() {}
 
-// スターターデッキをプリセットデッキから写して登録する入力
-type RegisterStarterDeckFromPresetDeckInput struct {
-	// 写す元のプリセットデッキの公開用の ID（カードと枚数を写す。合計が 40 枚でなくてもよい）
-	PresetDeckID uuid.UUID `json:"presetDeckId"`
-	// 名前（1〜50 文字。前後の空白は除いて保存する。元のプリセットデッキの名前は写さない）
-	Name string `json:"name"`
-}
-
-// プリセットデッキから写してスターターデッキを登録した（準備中。写した元の公開 ID と revision を記録する）
-type RegisterStarterDeckFromPresetDeckSuccess struct {
-	// 登録したスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 登録したスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (RegisterStarterDeckFromPresetDeckSuccess) IsRegisterStarterDeckFromPresetDeckResult() {}
-
-// スターターデッキを空から登録する入力
-type RegisterStarterDeckInput struct {
-	// 名前（1〜50 文字。前後の空白は除いて保存する）
-	Name string `json:"name"`
-}
-
-// スターターデッキを登録した（準備中）
-type RegisterStarterDeckSuccess struct {
-	// 登録したスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 登録したスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (RegisterStarterDeckSuccess) IsRegisterStarterDeckResult() {}
-
 // ボードの名前を変える入力
 type RenameBoardInput struct {
 	// ボードの公開用の ID
@@ -1826,6 +1916,26 @@ type RenameBoardSuccess struct {
 }
 
 func (RenameBoardSuccess) IsRenameBoardResult() {}
+
+// 配布デッキの名前を変える入力
+type RenameGrantDeckInput struct {
+	// 配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた配布デッキの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// 配布デッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameGrantDeckSuccess struct {
+	// 変えた配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameGrantDeckSuccess) IsRenameGrantDeckResult() {}
 
 // NPC のアバターの名前を変える入力
 type RenameNpcAvatarInput struct {
@@ -1887,26 +1997,6 @@ type RenamePresetDeckSuccess struct {
 
 func (RenamePresetDeckSuccess) IsRenamePresetDeckResult() {}
 
-// スターターデッキの名前を変える入力
-type RenameStarterDeckInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
-	Revision int `json:"revision"`
-	// 新しい名前（1〜50 文字。前後の空白は除いて保存する）
-	Name string `json:"name"`
-}
-
-// スターターデッキの名前を変えた（同じ名前なら何も変えず、revision も進まない）
-type RenameStarterDeckSuccess struct {
-	// 変えたスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 変えたスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (RenameStarterDeckSuccess) IsRenameStarterDeckResult() {}
-
 // ボードを使用不可にする入力
 type RetireBoardInput struct {
 	// ボードの公開用の ID
@@ -1942,6 +2032,24 @@ type RetireCardSuccess struct {
 }
 
 func (RetireCardSuccess) IsRetireCardResult() {}
+
+// 配布デッキを使用不可にする入力
+type RetireGrantDeckInput struct {
+	// 配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた配布デッキの revision
+	Revision int `json:"revision"`
+}
+
+// 配布デッキを使用不可にした（すでに使用不可なら何も変えず、revision も進まない。新しいプレイヤーには配らない）
+type RetireGrantDeckSuccess struct {
+	// 使用不可にした配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にした配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireGrantDeckSuccess) IsRetireGrantDeckResult() {}
 
 // NPC のアバターを使用不可にする入力
 type RetireNpcAvatarInput struct {
@@ -1979,24 +2087,6 @@ type RetireNpcDeckSuccess struct {
 
 func (RetireNpcDeckSuccess) IsRetireNpcDeckResult() {}
 
-// スターターデッキを使用不可にする入力
-type RetireStarterDeckInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
-	Revision int `json:"revision"`
-}
-
-// スターターデッキを使用不可にした（すでに使用不可なら何も変えず、revision も進まない。新しいプレイヤーには配らない）
-type RetireStarterDeckSuccess struct {
-	// 使用不可にしたスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 使用不可にしたスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (RetireStarterDeckSuccess) IsRetireStarterDeckResult() {}
-
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -2018,6 +2108,16 @@ func (RevisionConflictError) IsRetireBoardResult() {}
 func (RevisionConflictError) IsPublishCardResult() {}
 
 func (RevisionConflictError) IsRetireCardResult() {}
+
+func (RevisionConflictError) IsRenameGrantDeckResult() {}
+
+func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
+
+func (RevisionConflictError) IsDeleteGrantDeckResult() {}
+
+func (RevisionConflictError) IsPublishGrantDeckResult() {}
+
+func (RevisionConflictError) IsRetireGrantDeckResult() {}
 
 func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
@@ -2045,16 +2145,6 @@ func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
 func (RevisionConflictError) IsDeletePresetDeckResult() {}
 
-func (RevisionConflictError) IsRenameStarterDeckResult() {}
-
-func (RevisionConflictError) IsSetStarterDeckCardCountsResult() {}
-
-func (RevisionConflictError) IsDeleteStarterDeckResult() {}
-
-func (RevisionConflictError) IsPublishStarterDeckResult() {}
-
-func (RevisionConflictError) IsRetireStarterDeckResult() {}
-
 // 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
 type SanctuaryTile struct {
 	// 列
@@ -2070,6 +2160,26 @@ func (this SanctuaryTile) GetX() int { return this.X }
 
 // 行
 func (this SanctuaryTile) GetY() int { return this.Y }
+
+// 配布デッキのカードの枚数を変える入力
+type SetGrantDeckCardCountsInput struct {
+	// 配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた配布デッキの revision
+	Revision int `json:"revision"`
+	// 変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り。新しく入れる・増やすカードは公開中だけ）
+	Cards []*DeckCardCountInput `json:"cards"`
+}
+
+// 配布デッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
+type SetGrantDeckCardCountsSuccess struct {
+	// 変えた配布デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた配布デッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetGrantDeckCardCountsSuccess) IsSetGrantDeckCardCountsResult() {}
 
 // NPC のアバターに使うデッキを割り当てる入力
 type SetNpcAvatarDecksInput struct {
@@ -2131,26 +2241,6 @@ type SetPresetDeckCardCountsSuccess struct {
 
 func (SetPresetDeckCardCountsSuccess) IsSetPresetDeckCardCountsResult() {}
 
-// スターターデッキのカードの枚数を変える入力
-type SetStarterDeckCardCountsInput struct {
-	// スターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたスターターデッキの revision
-	Revision int `json:"revision"`
-	// 変えるカードだけの一覧（40 件まで。変えないカードは含めなくてよい。同じカードを 2 回入れると入力の誤り。空なら何も変えない。変えた後の枚数の合計が 40 を超えると入力の誤り。新しく入れる・増やすカードは公開中だけ）
-	Cards []*DeckCardCountInput `json:"cards"`
-}
-
-// スターターデッキのカードの枚数を変えた（1 回の操作で revision は 1 つ進む。何も変わらなければ進まない）
-type SetStarterDeckCardCountsSuccess struct {
-	// 変えたスターターデッキの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 変えたスターターデッキの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (SetStarterDeckCardCountsSuccess) IsSetStarterDeckCardCountsResult() {}
-
 // ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
 type ShrineTile struct {
 	// 列
@@ -2202,96 +2292,6 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
-
-// スターターデッキの一覧の 1 ページ（名前の順）
-type StarterDeckConnection struct {
-	// このページのスターターデッキ
-	Edges []*StarterDeckEdge `json:"edges"`
-	// ページの情報
-	PageInfo *PageInfo `json:"pageInfo"`
-}
-
-func (StarterDeckConnection) IsStarterDecksResult() {}
-
-// スターターデッキの一覧の 1 件と、その位置
-type StarterDeckEdge struct {
-	// この 1 件の位置（次のページを取るときに after に渡す）
-	Cursor string `json:"cursor"`
-	// スターターデッキ
-	Node *StarterDeck `json:"node"`
-}
-
-// スターターデッキの一覧の絞り込み
-type StarterDeckFilter struct {
-	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
-	NameContains *string `json:"nameContains,omitempty"`
-	// 状態（指定が無ければすべて。空のリストは入力の誤り）
-	Statuses []StarterDeckStatus `json:"statuses,omitempty"`
-}
-
-// 公開中のスターターデッキの数が上限に達している（ほかのものを使用不可にすると公開できる）
-type StarterDeckLimitReachedError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-	// 公開中のスターターデッキの数の上限（そのときのゲーム全体のルールの値。画面が文言に出す）
-	Max int `json:"max"`
-}
-
-func (StarterDeckLimitReachedError) IsPublishStarterDeckResult() {}
-
-// 名前が、ほかのスターターデッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
-type StarterDeckNameAlreadyInUseError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (StarterDeckNameAlreadyInUseError) IsRegisterStarterDeckResult() {}
-
-func (StarterDeckNameAlreadyInUseError) IsRegisterStarterDeckFromPresetDeckResult() {}
-
-func (StarterDeckNameAlreadyInUseError) IsRenameStarterDeckResult() {}
-
-// 準備中でないスターターデッキの名前・枚数を変える、または削除しようとした（準備中のものだけ変えられる）
-type StarterDeckNotDraftError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (StarterDeckNotDraftError) IsRenameStarterDeckResult() {}
-
-func (StarterDeckNotDraftError) IsSetStarterDeckCardCountsResult() {}
-
-func (StarterDeckNotDraftError) IsDeleteStarterDeckResult() {}
-
-// スターターデッキが無い（削除したものを含む）
-type StarterDeckNotFoundError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-}
-
-func (StarterDeckNotFoundError) IsStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsRenameStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsSetStarterDeckCardCountsResult() {}
-
-func (StarterDeckNotFoundError) IsDeleteStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsPublishStarterDeckResult() {}
-
-func (StarterDeckNotFoundError) IsRetireStarterDeckResult() {}
-
-// 写した元
-type StarterDeckSource struct {
-	// 元のプリセットデッキの公開用の ID（消されていることもある）
-	PresetDeckID uuid.UUID `json:"presetDeckId"`
-	// 写したときの、元のプリセットデッキの revision
-	Revision int `json:"revision"`
-	// 写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）
-	ChangedSinceCopied bool `json:"changedSinceCopied"`
-	// 元のプリセットデッキが削除されている
-	PresetDeckDeleted bool `json:"presetDeckDeleted"`
-}
 
 // studio でマスタを作るときの決まり
 type StudioRules struct {
@@ -2357,6 +2357,18 @@ func (ValidationErrors) IsCardsResult() {}
 
 func (ValidationErrors) IsRegisterCreatureResult() {}
 
+func (ValidationErrors) IsGrantDecksResult() {}
+
+func (ValidationErrors) IsRegisterGrantDeckResult() {}
+
+func (ValidationErrors) IsRegisterGrantDeckFromPresetDeckResult() {}
+
+func (ValidationErrors) IsRenameGrantDeckResult() {}
+
+func (ValidationErrors) IsSetGrantDeckCardCountsResult() {}
+
+func (ValidationErrors) IsPublishGrantDeckResult() {}
+
 func (ValidationErrors) IsRegisterItemResult() {}
 
 func (ValidationErrors) IsNpcAvatarsResult() {}
@@ -2390,18 +2402,6 @@ func (ValidationErrors) IsRenamePresetDeckResult() {}
 func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
-
-func (ValidationErrors) IsStarterDecksResult() {}
-
-func (ValidationErrors) IsRegisterStarterDeckResult() {}
-
-func (ValidationErrors) IsRegisterStarterDeckFromPresetDeckResult() {}
-
-func (ValidationErrors) IsRenameStarterDeckResult() {}
-
-func (ValidationErrors) IsSetStarterDeckCardCountsResult() {}
-
-func (ValidationErrors) IsPublishStarterDeckResult() {}
 
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない。
 // 対は Board.pairs で持つ（相手のいない転送円は保存できるが、公開できない）
@@ -2673,6 +2673,68 @@ func (e CardType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// 配布デッキの状態。準備中は名前・カードを自由に変えられ、決まり（40 枚等）を満たさなくてよい。公開中は決まりを満たし、
+// 新しいプレイヤーに配る。使用不可は配らない（配り済みのデッキはプレイヤーの持ち物なので変わらない）
+type GrantDeckStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	GrantDeckStatusDraft GrantDeckStatus = "DRAFT"
+	// 公開中
+	GrantDeckStatusPublished GrantDeckStatus = "PUBLISHED"
+	// 使用不可
+	GrantDeckStatusRetired GrantDeckStatus = "RETIRED"
+)
+
+var AllGrantDeckStatus = []GrantDeckStatus{
+	GrantDeckStatusDraft,
+	GrantDeckStatusPublished,
+	GrantDeckStatusRetired,
+}
+
+func (e GrantDeckStatus) IsValid() bool {
+	switch e {
+	case GrantDeckStatusDraft, GrantDeckStatusPublished, GrantDeckStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e GrantDeckStatus) String() string {
+	return string(e)
+}
+
+func (e *GrantDeckStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = GrantDeckStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid GrantDeckStatus", str)
+	}
+	return nil
+}
+
+func (e GrantDeckStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *GrantDeckStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e GrantDeckStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // NPC のアバターの状態。準備中は名前と使うデッキを自由に変えられる。公開中の数に上限は無い。
 // 公開中にできるのは、使うデッキに公開中のものが 1 つ以上あるとき。使用不可は新しい対戦に使わない
 type NpcAvatarStatus string
@@ -2792,68 +2854,6 @@ func (e *NpcDeckStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e NpcDeckStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-// スターターデッキの状態。準備中は名前・カードを自由に変えられ、決まり（40 枚等）を満たさなくてよい。公開中は決まりを満たし、
-// 新しいプレイヤーに配る。使用不可は配らない（配り済みのデッキはプレイヤーの持ち物なので変わらない）
-type StarterDeckStatus string
-
-const (
-	// 準備中（登録したときの状態）
-	StarterDeckStatusDraft StarterDeckStatus = "DRAFT"
-	// 公開中
-	StarterDeckStatusPublished StarterDeckStatus = "PUBLISHED"
-	// 使用不可
-	StarterDeckStatusRetired StarterDeckStatus = "RETIRED"
-)
-
-var AllStarterDeckStatus = []StarterDeckStatus{
-	StarterDeckStatusDraft,
-	StarterDeckStatusPublished,
-	StarterDeckStatusRetired,
-}
-
-func (e StarterDeckStatus) IsValid() bool {
-	switch e {
-	case StarterDeckStatusDraft, StarterDeckStatusPublished, StarterDeckStatusRetired:
-		return true
-	}
-	return false
-}
-
-func (e StarterDeckStatus) String() string {
-	return string(e)
-}
-
-func (e *StarterDeckStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = StarterDeckStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid StarterDeckStatus", str)
-	}
-	return nil
-}
-
-func (e StarterDeckStatus) MarshalGQL(w io.Writer) {
-	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *StarterDeckStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e StarterDeckStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

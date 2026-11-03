@@ -29,7 +29,7 @@ func NewID(value int64) (ID, error) {
 }
 
 // 何番目のデッキか（1 から、配るデッキの数まで）。デッキの集約の一意な key と、配布の記録の段に使う。
-// 配るデッキの数は公開中のスターターデッキの数で決まり、値の形では上限を持てないため、配るデッキの数との照合は Decide でする
+// 配るデッキの数は公開中の配布デッキの数で決まり、値の形では上限を持てないため、配るデッキの数との照合は Decide でする
 type DeckNumber int
 
 func NewDeckNumber(value int) (DeckNumber, error) {

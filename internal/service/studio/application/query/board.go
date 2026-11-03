@@ -16,7 +16,7 @@ import (
 var ErrBoardNotFound = errors.New("query: board not found")
 
 // presentation 層に read model の作りを見せず、表示に要る値だけを返す。マスは y → x、つながりは a → b の順。
-// 一覧の要素にもマスとつながりを持たせる（スターターデッキの一覧が入れたカードを持つのと同じ。最大 32×32 でも、
+// 一覧の要素にもマスとつながりを持たせる（配布デッキの一覧が入れたカードを持つのと同じ。最大 32×32 でも、
 // 1 ページ 100 件までなので、別に引き直す仕組みは作らなかった）
 type Board struct {
 	ID     uuid.UUID

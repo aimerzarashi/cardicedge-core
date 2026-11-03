@@ -38,10 +38,10 @@ func TestUpdateNPCDeckName_RejectsNameUsedByOtherNPCDeck(t *testing.T) {
 	require.ErrorIs(t, err, npcdeck.ErrNameAlreadyInUse)
 }
 
-func TestUpdateNPCDeckName_AllowsNameUsedByPresetDeckStarterDeckAndCard(t *testing.T) {
+func TestUpdateNPCDeckName_AllowsNameUsedByPresetDeckGrantDeckAndCard(t *testing.T) {
 	f := setup(t)
 	require.NoError(t, f.updatePresetDeckName(t, f.issuePresetDeckID(t), cardName(t, "初心者")))
-	require.NoError(t, f.updateStarterDeckName(t, f.issueStarterDeckID(t), cardName(t, "中級者")))
+	require.NoError(t, f.updateGrantDeckName(t, f.issueGrantDeckID(t), cardName(t, "中級者")))
 	require.NoError(t, f.updateCardName(t, f.issueCreatureID(t), cardName(t, "ドラゴン")))
 
 	require.NoError(t, f.updateNPCDeckName(t, f.issueNPCDeckID(t), cardName(t, "初心者")))

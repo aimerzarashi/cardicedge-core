@@ -53,12 +53,12 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	for _, deck := range decks {
 		require.Equal(t, deckTotalCount, deck.TotalCount)
 	}
-	starterDecks, err := s.listStarterDecks(ctx)
+	grantDecks, err := s.listGrantDecks(ctx)
 	require.NoError(t, err)
-	require.Len(t, starterDecks, len(m.StarterDecks))
-	for _, name := range m.StarterDecks {
-		deck := starterDecks[domain.NormalizeName(name)]
-		require.Equal(t, readmodel.StarterDeckStatusPublished, deck.Status)
+	require.Len(t, grantDecks, len(m.GrantDecks))
+	for _, name := range m.GrantDecks {
+		deck := grantDecks[domain.NormalizeName(name)]
+		require.Equal(t, readmodel.GrantDeckStatusPublished, deck.Status)
 		require.Equal(t, deckTotalCount, deck.TotalCount)
 		require.NotNil(t, deck.Source)
 	}
@@ -147,23 +147,23 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			_, err = s.seedPresetDecks(ctx, m.PresetDecks[:1], cardIDs)
 			require.NoError(t, err)
 		}},
-		{name: "starter_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+		{name: "grant_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			cardIDs, err := s.seedCards(ctx, m.Cards)
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			_, err = s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[m.StarterDecks[0]], m.StarterDecks[0])
+			_, err = s.grantDecks.RegisterFromPresetDeck(ctx, deckIDs[m.GrantDecks[0]], m.GrantDecks[0])
 			require.NoError(t, err)
 		}},
-		{name: "starter_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+		{name: "grant_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			cardIDs, err := s.seedCards(ctx, m.Cards)
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			for _, name := range m.StarterDecks {
-				copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[name], name)
+			for _, name := range m.GrantDecks {
+				copied, err := s.grantDecks.RegisterFromPresetDeck(ctx, deckIDs[name], name)
 				require.NoError(t, err)
-				_, err = s.starterDecks.Publish(ctx, copied.ID, copied.Revision)
+				_, err = s.grantDecks.Publish(ctx, copied.ID, copied.Revision)
 				require.NoError(t, err)
 			}
 		}},

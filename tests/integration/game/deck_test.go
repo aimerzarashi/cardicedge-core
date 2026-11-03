@@ -65,7 +65,7 @@ func TestMe_ListsOwnDecksWithCardsAfterStarterGrant(t *testing.T) {
 		if !assert.NoError(c, err) || !assert.Len(c, decks, 2) {
 			return
 		}
-		// 配った順（スターターデッキの順）に並ぶ。公開 ID はデッキごとに発行されるため、中身だけ確かめる
+		// 配った順（配布デッキの順）に並ぶ。公開 ID はデッキごとに発行されるため、中身だけ確かめる
 		assert.Equal(c, "火", decks[0]["name"])
 		assert.Equal(c, float64(5), decks[0]["totalCount"])
 		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 1}), decks[0]["cards"])

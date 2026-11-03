@@ -14,7 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
 
-// プリセットデッキとスターターデッキの、カードの枚数の入力の確かめ方を共有する（デッキに入れるカードの決まりを 2 か所に書き写さないため）
+// プリセットデッキと配布デッキの、カードの枚数の入力の確かめ方を共有する（デッキに入れるカードの決まりを 2 か所に書き写さないため）
 
 // 変えるカードだけの、その枚数にする入力（変えないカードは含めなくてよい）
 type CardCountInput struct {
@@ -35,7 +35,7 @@ type cardCountEntry struct {
 
 // 新しく入れる・枚数を増やすカードが、公開中であることを確かめる。減らす・外す・変えないカードは確かめない
 // （使用不可にしたカードを、すでに入っているデッキから外せなくならないように）。
-// カードの状態を読むのと保存の間に、ほかの操作がカードを使用不可にする競合は許す。プリセットデッキ・スターターデッキはカードの状態を
+// カードの状態を読むのと保存の間に、ほかの操作がカードを使用不可にする競合は許す。プリセットデッキ・配布デッキはカードの状態を
 // 守る集約ではなく、使用不可は新しく入れないための印で、入ってしまっても残せる決まりなので、状態の変更と枚数の変更を
 // 同じ版に並べるまとめ役の集約を作ってまで防がない（設計メモの「集約をまたぐ制約の守り方」）
 func requireAvailable(ctx context.Context, cardStatuses CardStatusesFunc, current map[presetdeck.CardRef]presetdeck.CardCount, requested cardCountRequest) error {

@@ -37,22 +37,22 @@ var (
 	cardC = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 )
 
-var publishedDecks = []master.StarterDeck{
+var publishedDecks = []master.GrantDeck{
 	{Name: "火", Cards: []master.DeckCard{{CardID: cardA, Count: 4}, {CardID: cardB, Count: 1}}},
 	{Name: "水", Cards: []master.DeckCard{{CardID: cardA, Count: 2}, {CardID: cardB, Count: 3}, {CardID: cardC, Count: 2}}},
 }
 
-func publishedMaster() master.ListPublishedStarterDecksFunc {
+func publishedMaster() master.ListPublishedGrantDecksFunc {
 	return decksMaster(publishedDecks...)
 }
 
-func decksMaster(decks ...master.StarterDeck) master.ListPublishedStarterDecksFunc {
-	return func(context.Context) ([]master.StarterDeck, error) {
+func decksMaster(decks ...master.GrantDeck) master.ListPublishedGrantDecksFunc {
+	return func(context.Context) ([]master.GrantDeck, error) {
 		return decks, nil
 	}
 }
 
-func unpublishedMaster() master.ListPublishedStarterDecksFunc {
+func unpublishedMaster() master.ListPublishedGrantDecksFunc {
 	return decksMaster()
 }
 
@@ -82,14 +82,14 @@ func TestStart_CopiesMostCountOfEachCardFromMaster(t *testing.T) {
 	require.Len(t, state.Decks, 2)
 }
 
-// 公開中をあるだけ配る（2 つに決めない）。デッキの名前はスターターデッキの名前
+// 公開中をあるだけ配る（2 つに決めない）。デッキの名前は配布デッキの名前
 func TestStart_DistributesAsManyDecksAsPublished(t *testing.T) {
 	tests := []struct {
 		name  string
-		decks []master.StarterDeck
+		decks []master.GrantDeck
 	}{
 		{name: "one_deck", decks: publishedDecks[:1]},
-		{name: "three_decks", decks: append(append([]master.StarterDeck{}, publishedDecks...), master.StarterDeck{Name: "風", Cards: []master.DeckCard{{CardID: cardC, Count: 5}}})},
+		{name: "three_decks", decks: append(append([]master.GrantDeck{}, publishedDecks...), master.GrantDeck{Name: "風", Cards: []master.DeckCard{{CardID: cardC, Count: 5}}})},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

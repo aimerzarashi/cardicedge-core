@@ -152,7 +152,7 @@ func (e *TotalTooLarge) InputField() string {
 	return e.Field
 }
 
-// 合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等）。多すぎるのも足りないのも同じ理由なので、
+// 合計がちょうど決まった値でない（公開する配布デッキの枚数の合計等）。多すぎるのも足りないのも同じ理由なので、
 // TotalTooLarge と分ける
 type TotalMismatch struct {
 	Field    string

@@ -9,9 +9,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら StarterDeckConnection）
-const starterDecksQuery = `query {
-	starterDecks {
+// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら GrantDeckConnection）
+const grantDecksQuery = `query {
+	grantDecks {
 		__typename
 	}
 }`

@@ -25,7 +25,7 @@ func (r *mutationResolver) RegisterPresetDeck(ctx context.Context, input model.R
 		return invalid, nil
 	}
 	if errors.Is(err, command.ErrPresetDeckNameAlreadyInUse) {
-		return &model.PresetDeckNameAlreadyInUseError{Message: "starter deck name already in use"}, nil
+		return &model.PresetDeckNameAlreadyInUseError{Message: "grant deck name already in use"}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -44,9 +44,9 @@ func (r *mutationResolver) RenamePresetDeck(ctx context.Context, input model.Ren
 	}
 	switch {
 	case errors.Is(err, command.ErrPresetDeckNotFound):
-		return &model.PresetDeckNotFoundError{Message: "starter deck not found"}, nil
+		return &model.PresetDeckNotFoundError{Message: "grant deck not found"}, nil
 	case errors.Is(err, command.ErrPresetDeckNameAlreadyInUse):
-		return &model.PresetDeckNameAlreadyInUseError{Message: "starter deck name already in use"}, nil
+		return &model.PresetDeckNameAlreadyInUseError{Message: "grant deck name already in use"}, nil
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:
@@ -66,7 +66,7 @@ func (r *mutationResolver) SetPresetDeckCardCounts(ctx context.Context, input mo
 	}
 	switch {
 	case errors.Is(err, command.ErrPresetDeckNotFound):
-		return &model.PresetDeckNotFoundError{Message: "starter deck not found"}, nil
+		return &model.PresetDeckNotFoundError{Message: "grant deck not found"}, nil
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:
@@ -83,7 +83,7 @@ func (r *mutationResolver) DeletePresetDeck(ctx context.Context, input model.Del
 	err := r.presetDecks.Delete(ctx, input.ID, int64(input.Revision))
 	switch {
 	case errors.Is(err, command.ErrPresetDeckNotFound):
-		return &model.PresetDeckNotFoundError{Message: "starter deck not found"}, nil
+		return &model.PresetDeckNotFoundError{Message: "grant deck not found"}, nil
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case err != nil:
@@ -123,7 +123,7 @@ func (r *queryResolver) PresetDeck(ctx context.Context, id uuid.UUID) (model.Pre
 	}
 	deck, err := r.presetDeckList.Get(ctx, id)
 	if errors.Is(err, query.ErrPresetDeckNotFound) {
-		return &model.PresetDeckNotFoundError{Message: "starter deck not found"}, nil
+		return &model.PresetDeckNotFoundError{Message: "grant deck not found"}, nil
 	}
 	if err != nil {
 		return nil, err

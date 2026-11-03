@@ -72,7 +72,7 @@ func countEventsOf(t *testing.T, ctx context.Context, entityTypeID int) int {
 	return count
 }
 
-func newStarterGrantHandler(t *testing.T, ctx context.Context, listStarterDecks master.ListPublishedStarterDecksFunc) *command.StarterGrantHandler {
+func newStarterGrantHandler(t *testing.T, ctx context.Context, listGrantDecks master.ListPublishedGrantDecksFunc) *command.StarterGrantHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func newStarterGrantHandler(t *testing.T, ctx context.Context, listStarterDecks 
 		eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 		identifier.New(registry, startergrant.NewID),
 		constraint.UpdateStarterGrantPlayer,
-		listStarterDecks,
+		listGrantDecks,
 		newCollectionHandler(t, ctx),
 		newDeckHandler(t, ctx),
 		now,

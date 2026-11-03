@@ -12,7 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
-// テスト用の値ではなく、開発で触る見本。本番に近い中身（火・地と水・風の属性のスターターデッキ）にし、ファイル名で見本と分かるようにする
+// テスト用の値ではなく、開発で触る見本。本番に近い中身（火・地と水・風の属性の配布デッキ）にし、ファイル名で見本と分かるようにする
 //
 //go:embed sample_master.json
 var sampleMasterJSON []byte
@@ -22,7 +22,7 @@ type master struct {
 	// 名前はカードの名前で指す（登録して初めて公開 ID が決まるため、ファイルに ID は書けない）
 	PresetDecks []masterPresetDeck `json:"preset_decks"`
 	// 写して作るプリセットデッキの名前。作って公開する（名前はプリセットデッキの名前のまま）
-	StarterDecks []string `json:"starter_decks"`
+	GrantDecks []string `json:"grant_decks"`
 	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
 	Boards []masterBoard `json:"boards"`
 	// 登録して使う NPC のデッキを割り当て、公開する NPC のアバター
@@ -148,16 +148,16 @@ func (m master) validate() error {
 			return fmt.Errorf("preset deck %q: total %d is not %d", d.Name, total, deckTotalCount)
 		}
 	}
-	if len(m.StarterDecks) == 0 {
-		return fmt.Errorf("starter decks: at least one is required")
+	if len(m.GrantDecks) == 0 {
+		return fmt.Errorf("grant decks: at least one is required")
 	}
 	starterNames := map[string]bool{}
-	for _, name := range m.StarterDecks {
+	for _, name := range m.GrantDecks {
 		if !deckNames[name] {
-			return fmt.Errorf("starter decks: unknown preset deck %q", name)
+			return fmt.Errorf("grant decks: unknown preset deck %q", name)
 		}
 		if starterNames[name] {
-			return fmt.Errorf("starter decks: %q is duplicated", name)
+			return fmt.Errorf("grant decks: %q is duplicated", name)
 		}
 		starterNames[name] = true
 	}
