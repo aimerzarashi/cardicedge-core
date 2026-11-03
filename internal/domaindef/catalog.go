@@ -2,7 +2,8 @@ package domaindef
 
 // 種別の名前と id の一覧（全サービスで共通。core_studio・core_game のどちらの DB にも、同じ行を入れる）。
 // id は自動で振らない（DB ごと・起動の順番で変わりうるため）。一度決めた名前と id は変えない・消さない（過去のイベントが id で
-// 参照しているため）。ただし main に入る前（リリース前）は除く（core#42 で配布デッキセットの種別を、開発の DB を作り直す前提で消した）。
+// 参照しているため）。ただし main に入る前（リリース前）は除く（core#42 で配布デッキセットの種別を、core#92 で配布デッキの
+// 公開中の数の上限 grant_deck.published（1001）を、開発の DB を作り直す前提で消した。消した番号は使い回さず、スターターセットの公開中の上限には 1003 を振った）。
 // 名前は各集約の宣言（Types() 等）にも書くが、ドメインのコードには id を持たせない（保存の都合のため）。
 // この一覧と DB は Sync が合わせ、DB と各集約の宣言は Verify... が照合する（core#33）
 //
@@ -43,6 +44,7 @@ var Types = Catalog{
 			{ID: 1702, Name: "CollectionRecordedEvent"},
 			{ID: 1703, Name: "DeckRecordedEvent"},
 			{ID: 1704, Name: "CompletedEvent"},
+			{ID: 1705, Name: "UnlockRecordedEvent"},
 		}},
 		{ID: 1800, Name: "collection", Events: []EventTypeDef{
 			{ID: 1801, Name: "CreatedEvent"},
@@ -93,6 +95,21 @@ var Types = Catalog{
 			{ID: 2605, Name: "RetiredEvent"},
 			{ID: 2606, Name: "DeletedEvent"},
 		}},
+		{ID: 2700, Name: "starter_set", Events: []EventTypeDef{
+			{ID: 2701, Name: "RegisteredEvent"},
+			{ID: 2702, Name: "RenamedEvent"},
+			{ID: 2703, Name: "DeletedEvent"},
+			{ID: 2704, Name: "PublishedEvent"},
+			{ID: 2705, Name: "RetiredEvent"},
+			{ID: 2706, Name: "GrantDecksAssignedEvent"},
+			{ID: 2707, Name: "GrantDecksUnassignedEvent"},
+			{ID: 2708, Name: "UnlockBoardsAssignedEvent"},
+			{ID: 2709, Name: "UnlockBoardsUnassignedEvent"},
+		}},
+		{ID: 2800, Name: "unlock", Events: []EventTypeDef{
+			{ID: 2801, Name: "CreatedEvent"},
+			{ID: 2802, Name: "BoardsUnlockedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
@@ -111,17 +128,21 @@ var Types = Catalog{
 		{ID: 1014, Name: "studio_rules.singleton"},
 		{ID: 1015, Name: "npc_avatar.name"},
 		{ID: 1016, Name: "npc_deck.name"},
+		{ID: 1017, Name: "starter_set.name"},
+		{ID: 1018, Name: "unlock.player"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
 		{ID: 1002, Name: "grant_deck.card"},
 		{ID: 1003, Name: "npc_deck.card"},
 		{ID: 1004, Name: "npc_avatar.deck"},
+		{ID: 1005, Name: "starter_set.grant_deck"},
+		{ID: 1006, Name: "starter_set.board"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},
-		{ID: 1001, Name: "grant_deck.published"},
 		{ID: 1002, Name: "avatar.per_player"},
+		{ID: 1003, Name: "starter_set.published"},
 	},
 }
 

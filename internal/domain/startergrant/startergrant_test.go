@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
@@ -25,6 +27,16 @@ var (
 	cardC     = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 )
 
+func boardA(t *testing.T) board.ID {
+	t.Helper()
+	return boardtest.ID(t, 50)
+}
+
+func boardB(t *testing.T) board.ID {
+	t.Helper()
+	return boardtest.ID(t, 51)
+}
+
 func decks(t *testing.T) []startergrant.Deck {
 	t.Helper()
 	return []startergrant.Deck{
@@ -35,7 +47,7 @@ func decks(t *testing.T) []startergrant.Deck {
 
 func startCommand(t *testing.T) *startergrant.StartCommand {
 	t.Helper()
-	return &startergrant.StartCommand{ID: startergranttest.ID(t, 20), Player: playertest.ID(t, 10), Decks: decks(t)}
+	return &startergrant.StartCommand{ID: startergranttest.ID(t, 20), Player: playertest.ID(t, 10), Decks: decks(t), UnlockBoards: []board.ID{boardA(t), boardB(t)}}
 }
 
 // 状態に畳み込んで、イベントを返す
@@ -57,7 +69,7 @@ func started(t *testing.T) (startergrant.State, startergrant.Event) {
 	return state, events[0]
 }
 
-func TestDecide_StartCopiesDecksAndCollectsMostCountOfEachCard(t *testing.T) {
+func TestDecide_StartCopiesDecksAndUnlockBoardsAndCollectsMostCountOfEachCard(t *testing.T) {
 	_, event := started(t)
 
 	started, ok := event.(*startergrant.StartedEvent)
@@ -68,6 +80,18 @@ func TestDecide_StartCopiesDecksAndCollectsMostCountOfEachCard(t *testing.T) {
 		cardtest.Count(t, cardC, 2),
 	}, started.Cards)
 	require.Equal(t, decks(t), started.Decks)
+	require.Equal(t, []board.ID{boardA(t), boardB(t)}, started.UnlockBoards)
+}
+
+// 解放するボードは 0 件でもよい（デッキと違い、無くても配布は始められる）
+func TestDecide_StartsWithoutUnlockBoards(t *testing.T) {
+	cmd := startCommand(t)
+	cmd.UnlockBoards = []board.ID{}
+
+	state, events := apply(t, startergrant.InitialState(), cmd)
+
+	require.Len(t, events, 1)
+	require.Empty(t, state.(startergrant.InProgressStarterGrant).UnlockBoards)
 }
 
 func TestDecide_RejectsStartWithoutDecks(t *testing.T) {
@@ -97,6 +121,7 @@ func TestDecide_CompletesAfterRecordingEveryDeckWhateverTheDeckCount(t *testing.
 			}
 			state, _ := apply(t, startergrant.InitialState(), cmd)
 			state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
+			state, _ = apply(t, state, &startergrant.RecordUnlockCommand{})
 			for number := 1; number < tt.count; number++ {
 				state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, number)})
 				require.IsType(t, startergrant.InProgressStarterGrant{}, state)
@@ -141,6 +166,16 @@ func TestDecide_RecordCollectionTwiceEmitsNoEventTheSecondTime(t *testing.T) {
 	require.Empty(t, second)
 }
 
+func TestDecide_RecordUnlockTwiceEmitsNoEventTheSecondTime(t *testing.T) {
+	state, _ := started(t)
+	state, first := apply(t, state, &startergrant.RecordUnlockCommand{})
+
+	_, second := apply(t, state, &startergrant.RecordUnlockCommand{})
+
+	require.Len(t, first, 1)
+	require.Empty(t, second)
+}
+
 func TestDecide_RecordDeckTwiceEmitsNoEventTheSecondTime(t *testing.T) {
 	state, _ := started(t)
 	number := startergranttest.DeckNumber(t, 1)
@@ -156,19 +191,33 @@ func TestDecide_LastRecordEmitsRecordedAndCompletedEvents(t *testing.T) {
 	state, _ := started(t)
 	state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 2)})
 	state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
+	state, _ = apply(t, state, &startergrant.RecordUnlockCommand{})
 
 	state, events := apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 1)})
 
 	require.Len(t, events, 2)
 	require.IsType(t, &startergrant.DeckRecordedEvent{}, events[0])
 	require.IsType(t, &startergrant.CompletedEvent{}, events[1])
-	require.Equal(t, int64(5), events[1].GetMeta().AggregateVersion)
-	require.Equal(t, startergrant.CompletedStarterGrant{ID: startergranttest.ID(t, 20), Version: 5}, state)
+	require.Equal(t, int64(6), events[1].GetMeta().AggregateVersion)
+	require.Equal(t, startergrant.CompletedStarterGrant{ID: startergranttest.ID(t, 20), Version: 6}, state)
+}
+
+// 所持カードとデッキがそろっても、解放の記録がなければ終わらない
+func TestDecide_DoesNotCompleteWithoutUnlockRecorded(t *testing.T) {
+	state, _ := started(t)
+	state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
+	state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 1)})
+
+	state, events := apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 2)})
+
+	require.Len(t, events, 1)
+	require.IsType(t, startergrant.InProgressStarterGrant{}, state)
 }
 
 func TestDecide_RecordAfterCompletedEmitsNoEvent(t *testing.T) {
 	state, _ := started(t)
 	state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})
+	state, _ = apply(t, state, &startergrant.RecordUnlockCommand{})
 	state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 1)})
 	state, _ = apply(t, state, &startergrant.RecordDeckCommand{Number: startergranttest.DeckNumber(t, 2)})
 
@@ -205,6 +254,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	events := []startergrant.Event{
 		started,
 		&startergrant.CollectionRecordedEvent{EventMeta: meta},
+		&startergrant.UnlockRecordedEvent{EventMeta: meta},
 		&startergrant.DeckRecordedEvent{EventMeta: meta, Number: startergranttest.DeckNumber(t, 2)},
 		&startergrant.CompletedEvent{EventMeta: meta},
 	}

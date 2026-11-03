@@ -22,6 +22,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
@@ -67,6 +68,8 @@ type Studio struct {
 	npcAvatarList   *query.NPCAvatarHandler
 	npcDecks        *command.NPCDeckHandler
 	npcDeckList     *query.NPCDeckHandler
+	starterSets     *command.StarterSetHandler
+	starterSetList  *query.StarterSetHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -82,6 +85,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	boardReader := repository.NewBoardReader()
 	npcAvatarReader := repository.NewNPCAvatarReader()
 	npcDeckReader := repository.NewNPCDeckReader()
+	starterSetReader := repository.NewStarterSetReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -144,9 +148,6 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
-			constraint.FindGameRules,
-			constraint.ReserveGrantDeckQuota,
-			constraint.ReleaseGrantDeckQuota,
 			gameRules.Get,
 			now,
 		),
@@ -182,6 +183,21 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			now,
 		),
 		npcDeckList: query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
+		starterSets: command.NewStarterSetHandler(
+			eventstore.New(registry, starterset.NewID, starterset.NewEventType, starterset.InitialState, starterset.Evolve),
+			identifier.New(registry, starterset.NewID),
+			entityRefs,
+			constraint.UpdateStarterSetName,
+			constraint.UpdateStarterSetGrantDeckReferences,
+			constraint.UpdateStarterSetBoardReferences,
+			command.NewGrantDeckStatusReader(eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve)).Statuses,
+			command.NewBoardStatusReader(eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve)).Statuses,
+			constraint.FindGameRules,
+			constraint.ReserveStarterSetQuota,
+			constraint.ReleaseStarterSetQuota,
+			now,
+		),
+		starterSetList: query.NewStarterSetHandler(starterSetReader.List, starterSetReader.Get),
 	}
 }
 
@@ -304,18 +320,29 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	npcDecks := repository.NewNPCDeckWriter(c.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.NPCDeck]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.NPCDeck]{
 		Name: "npc_decks",
 		Subscriptions: []domain.EntityType{
 			npcdeck.Types().EntityType,
 		},
 		Upsert: npcDecks.Upsert,
 		Delete: npcDecks.Delete,
+	}); err != nil {
+		return err
+	}
+	starterSets := repository.NewStarterSetWriter(c.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterSet]{
+		Name: "starter_sets",
+		Subscriptions: []domain.EntityType{
+			starterset.Types().EntityType,
+		},
+		Upsert: starterSets.Upsert,
+		Delete: starterSets.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.grantDecks, c.grantDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.grantDecks, c.grantDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList, c.starterSets, c.starterSetList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

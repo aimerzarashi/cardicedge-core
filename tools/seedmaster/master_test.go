@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 )
 
 func TestSampleMaster_IsValid(t *testing.T) {
@@ -166,6 +167,44 @@ func TestLoadMaster_RejectsInvalidNPCDecks(t *testing.T) {
 			m, err := loadMaster(sampleMasterJSON)
 			require.NoError(t, err)
 			m.NPCDecks = tt.npcDecks
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+// 見本のスターターセットは、見本の配布デッキを今の順にすべて配り、チュートリアルのボードを解放する
+func TestSampleMaster_HasStarterSetWithGrantDecksAndTutorialBoard(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []masterStarterSet{
+		{Name: "スターターセット", GrantDecks: []string{"火・地属性デッキ", "水・風属性デッキ"}, UnlockBoards: []string{"チュートリアル"}},
+	}, m.StarterSets)
+	require.Equal(t, m.GrantDecks, m.StarterSets[0].GrantDecks)
+}
+
+func TestLoadMaster_RejectsInvalidStarterSets(t *testing.T) {
+	grantDecks := []string{"火・地属性デッキ"}
+	tests := []struct {
+		name        string
+		starterSets []masterStarterSet
+	}{
+		{name: "blank_name", starterSets: []masterStarterSet{{Name: " ", GrantDecks: grantDecks}}},
+		{name: "too_long_name", starterSets: []masterStarterSet{{Name: strings.Repeat("あ", starterset.MaxNameLength+1), GrantDecks: grantDecks}}},
+		{name: "duplicated_name", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks}, {Name: "a", GrantDecks: grantDecks}}},
+		{name: "more_than_publishable_at_once", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks}, {Name: "b", GrantDecks: grantDecks}}},
+		{name: "no_grant_decks", starterSets: []masterStarterSet{{Name: "a"}}},
+		{name: "unknown_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{"x"}}}},
+		{name: "duplicated_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{grantDecks[0], grantDecks[0]}}}},
+		{name: "unknown_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"x"}}}},
+		{name: "duplicated_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"チュートリアル", "チュートリアル"}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.StarterSets = tt.starterSets
 
 			require.Error(t, m.validate())
 		})

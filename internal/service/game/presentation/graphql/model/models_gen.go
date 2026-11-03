@@ -518,6 +518,8 @@ type Player struct {
 	StarterGrant StarterGrantStatus `json:"starterGrant"`
 	// このプレイヤーのアバター（作った順。上限があるので、ページ分けしないリスト）
 	Avatars []*Avatar `json:"avatars"`
+	// このプレイヤーが解放したボード（解放した順。公開中のものだけで、使用不可になったボードは含まれない。まだ解放が届いていなければ空）
+	Boards []*Board `json:"boards"`
 	// このプレイヤーのデッキ（作った順。スターターの配布で作る数だけなので、ページ分けしないリスト）
 	Decks []*Deck `json:"decks"`
 }
@@ -782,7 +784,7 @@ type StarterGrantStatus string
 const (
 	// まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）
 	StarterGrantStatusInProgress StarterGrantStatus = "IN_PROGRESS"
-	// 所持カードとデッキがそろった
+	// 所持カード・デッキ・解放がそろった
 	StarterGrantStatusCompleted StarterGrantStatus = "COMPLETED"
 )
 

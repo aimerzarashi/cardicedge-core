@@ -101,6 +101,11 @@ type DeletePresetDeckResult interface {
 	IsDeletePresetDeckResult()
 }
 
+// スターターセットの削除の結果（準備中のものだけ消せる）
+type DeleteStarterSetResult interface {
+	IsDeleteStarterSetResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -163,7 +168,7 @@ type PublishCardResult interface {
 	IsPublishCardResult()
 }
 
-// 配布デッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）
+// 配布デッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数に上限は無い。どれを配るかはスターターセットが決める）
 type PublishGrantDeckResult interface {
 	IsPublishGrantDeckResult()
 }
@@ -178,6 +183,14 @@ type PublishNpcAvatarResult interface {
 // NPC のデッキの公開の結果（準備中・使用不可から公開中にできる）
 type PublishNpcDeckResult interface {
 	IsPublishNpcDeckResult()
+}
+
+// スターターセットの公開の結果（準備中・使用不可から公開中にできる）。
+// 公開するときは、配るデッキが 1 つ以上あること（無ければ ValidationErrors の grantDecks が必須）と、
+// ほかに公開中のスターターセットが無いこと（あれば StarterSetLimitReachedError）を確かめる。解放するボードは 0 件でもよい。
+// すでに公開中なら確かめない。公開した後は、配るデッキと解放するボードを変えられない
+type PublishStarterSetResult interface {
+	IsPublishStarterSetResult()
 }
 
 // ボードの登録の結果
@@ -230,6 +243,11 @@ type RegisterSpellResult interface {
 	IsRegisterSpellResult()
 }
 
+// スターターセットの登録の結果
+type RegisterStarterSetResult interface {
+	IsRegisterStarterSetResult()
+}
+
 // ボードの名前の変更の結果（準備中のものだけ変えられる）
 type RenameBoardResult interface {
 	IsRenameBoardResult()
@@ -253,6 +271,11 @@ type RenameNpcDeckResult interface {
 // プリセットデッキの名前の変更の結果
 type RenamePresetDeckResult interface {
 	IsRenamePresetDeckResult()
+}
+
+// スターターセットの名前の変更の結果（準備中のものだけ変えられる）
+type RenameStarterSetResult interface {
+	IsRenameStarterSetResult()
 }
 
 // ボードの使用不可の結果
@@ -280,6 +303,11 @@ type RetireNpcDeckResult interface {
 	IsRetireNpcDeckResult()
 }
 
+// スターターセットの使用不可の結果
+type RetireStarterSetResult interface {
+	IsRetireStarterSetResult()
+}
+
 // 配布デッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
 type SetGrantDeckCardCountsResult interface {
 	IsSetGrantDeckCardCountsResult()
@@ -300,6 +328,30 @@ type SetNpcDeckCardCountsResult interface {
 // プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
 type SetPresetDeckCardCountsResult interface {
 	IsSetPresetDeckCardCountsResult()
+}
+
+// スターターセットの配るデッキの指定の結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は grantDeckIds.<番号>。同じデッキの 2 つ目以降は重複、無い・削除した・配布デッキでないものは存在しない、
+// 新しく入れる公開中でないデッキは使えない）
+type SetStarterSetGrantDecksResult interface {
+	IsSetStarterSetGrantDecksResult()
+}
+
+// スターターセットの解放するボードの指定の結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は unlockBoardIds.<番号>。同じボードの 2 つ目以降は重複、無い・削除した・ボードでないものは存在しない、
+// 新しく入れる公開中でないボードは使えない）
+type SetStarterSetUnlockBoardsResult interface {
+	IsSetStarterSetUnlockBoardsResult()
+}
+
+// スターターセットの詳細の結果
+type StarterSetResult interface {
+	IsStarterSetResult()
+}
+
+// スターターセットの一覧の結果
+type StarterSetsResult interface {
+	IsStarterSetsResult()
 }
 
 // studio の決まりの結果
@@ -894,6 +946,22 @@ type DeletePresetDeckSuccess struct {
 
 func (DeletePresetDeckSuccess) IsDeletePresetDeckResult() {}
 
+// スターターセットを削除する入力
+type DeleteStarterSetInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+}
+
+// スターターセットを削除した（名前はほかのスターターセットが使えるようになる）
+type DeleteStarterSetSuccess struct {
+	// 削除したスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteStarterSetSuccess) IsDeleteStarterSetResult() {}
+
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
 type FieldDuplicated struct {
 	// 誤りのある入力の項目（一覧の中の位置を含む。例: cards.2.cardId）
@@ -1190,6 +1258,24 @@ func (ForbiddenError) IsDeletePresetDeckResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
 
+func (ForbiddenError) IsStarterSetsResult() {}
+
+func (ForbiddenError) IsStarterSetResult() {}
+
+func (ForbiddenError) IsRegisterStarterSetResult() {}
+
+func (ForbiddenError) IsRenameStarterSetResult() {}
+
+func (ForbiddenError) IsSetStarterSetGrantDecksResult() {}
+
+func (ForbiddenError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (ForbiddenError) IsDeleteStarterSetResult() {}
+
+func (ForbiddenError) IsPublishStarterSetResult() {}
+
+func (ForbiddenError) IsRetireStarterSetResult() {}
+
 func (ForbiddenError) IsStudioRulesResult() {}
 
 // ゲーム全体のルール
@@ -1225,16 +1311,6 @@ type GrantDeckFilter struct {
 	// 状態（指定が無ければすべて。空のリストは入力の誤り）
 	Statuses []GrantDeckStatus `json:"statuses,omitempty"`
 }
-
-// 公開中の配布デッキの数が上限に達している（ほかのものを使用不可にすると公開できる）
-type GrantDeckLimitReachedError struct {
-	// 開発者向けの説明（画面にそのまま出す文言ではない）
-	Message string `json:"message"`
-	// 公開中の配布デッキの数の上限（そのときのゲーム全体のルールの値。画面が文言に出す）
-	Max int `json:"max"`
-}
-
-func (GrantDeckLimitReachedError) IsPublishGrantDeckResult() {}
 
 // 名前が、ほかの配布デッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
 type GrantDeckNameAlreadyInUseError struct {
@@ -1331,6 +1407,14 @@ type InvalidNpcDeckStatusTransitionError struct {
 }
 
 func (InvalidNpcDeckStatusTransitionError) IsRetireNpcDeckResult() {}
+
+// 準備中のスターターセットを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidStarterSetStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidStarterSetStatusTransitionError) IsRetireStarterSetResult() {}
 
 // アイテム（カードの種類の 1 つ）
 type Item struct {
@@ -1736,6 +1820,24 @@ type PublishNpcDeckSuccess struct {
 
 func (PublishNpcDeckSuccess) IsPublishNpcDeckResult() {}
 
+// スターターセットを公開する入力
+type PublishStarterSetInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+}
+
+// スターターセットを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishStarterSetSuccess struct {
+	// 公開したスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開したスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishStarterSetSuccess) IsPublishStarterSetResult() {}
+
 type Query struct {
 }
 
@@ -1897,6 +1999,22 @@ type RegisterSpellSuccess struct {
 
 func (RegisterSpellSuccess) IsRegisterSpellResult() {}
 
+// スターターセットを登録する入力
+type RegisterStarterSetInput struct {
+	// 名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// スターターセットを登録した（準備中。配るデッキと解放するボードは登録の後に指定する）
+type RegisterStarterSetSuccess struct {
+	// 登録したスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録したスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterStarterSetSuccess) IsRegisterStarterSetResult() {}
+
 // ボードの名前を変える入力
 type RenameBoardInput struct {
 	// ボードの公開用の ID
@@ -1997,6 +2115,26 @@ type RenamePresetDeckSuccess struct {
 
 func (RenamePresetDeckSuccess) IsRenamePresetDeckResult() {}
 
+// スターターセットの名前を変える入力
+type RenameStarterSetInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// スターターセットの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameStarterSetSuccess struct {
+	// 変えたスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameStarterSetSuccess) IsRenameStarterSetResult() {}
+
 // ボードを使用不可にする入力
 type RetireBoardInput struct {
 	// ボードの公開用の ID
@@ -2087,6 +2225,24 @@ type RetireNpcDeckSuccess struct {
 
 func (RetireNpcDeckSuccess) IsRetireNpcDeckResult() {}
 
+// スターターセットを使用不可にする入力
+type RetireStarterSetInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+}
+
+// スターターセットを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireStarterSetSuccess struct {
+	// 使用不可にしたスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にしたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireStarterSetSuccess) IsRetireStarterSetResult() {}
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -2144,6 +2300,18 @@ func (RevisionConflictError) IsRenamePresetDeckResult() {}
 func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
 func (RevisionConflictError) IsDeletePresetDeckResult() {}
+
+func (RevisionConflictError) IsRenameStarterSetResult() {}
+
+func (RevisionConflictError) IsSetStarterSetGrantDecksResult() {}
+
+func (RevisionConflictError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (RevisionConflictError) IsDeleteStarterSetResult() {}
+
+func (RevisionConflictError) IsPublishStarterSetResult() {}
+
+func (RevisionConflictError) IsRetireStarterSetResult() {}
 
 // 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
 type SanctuaryTile struct {
@@ -2241,6 +2409,46 @@ type SetPresetDeckCardCountsSuccess struct {
 
 func (SetPresetDeckCardCountsSuccess) IsSetPresetDeckCardCountsResult() {}
 
+// スターターセットの配るデッキを指定する入力
+type SetStarterSetGrantDecksInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+	// 配るデッキ（配布デッキ）の公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じデッキは 2 回入れられない。新しく入れるデッキは公開中のものだけ）
+	GrantDeckIds []uuid.UUID `json:"grantDeckIds"`
+}
+
+// スターターセットの配るデッキを指定した（同じデッキの集まりなら何も変えず、revision も進まない）
+type SetStarterSetGrantDecksSuccess struct {
+	// 変えたスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetStarterSetGrantDecksSuccess) IsSetStarterSetGrantDecksResult() {}
+
+// スターターセットの解放するボードを指定する入力
+type SetStarterSetUnlockBoardsInput struct {
+	// スターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスターターセットの revision
+	Revision int `json:"revision"`
+	// 解放するボードの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じボードは 2 回入れられない。新しく入れるボードは公開中のものだけ）
+	UnlockBoardIds []uuid.UUID `json:"unlockBoardIds"`
+}
+
+// スターターセットの解放するボードを指定した（同じボードの集まりなら何も変えず、revision も進まない）
+type SetStarterSetUnlockBoardsSuccess struct {
+	// 変えたスターターセットの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスターターセットの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetStarterSetUnlockBoardsSuccess) IsSetStarterSetUnlockBoardsResult() {}
+
 // ほこら（止まると、ランダムで特別なことが起きる）。属性は持たない
 type ShrineTile struct {
 	// 列
@@ -2292,6 +2500,86 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// スターターセットの一覧の 1 ページ（名前の順）
+type StarterSetConnection struct {
+	// このページのスターターセット
+	Edges []*StarterSetEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (StarterSetConnection) IsStarterSetsResult() {}
+
+// スターターセットの一覧の 1 件と、その位置
+type StarterSetEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// スターターセット
+	Node *StarterSet `json:"node"`
+}
+
+// スターターセットの一覧の絞り込み
+type StarterSetFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []StarterSetStatus `json:"statuses,omitempty"`
+}
+
+// 公開中のスターターセットの数が上限（1 つ）に達している（今の公開中のセットを使用不可にすると公開できる）
+type StarterSetLimitReachedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 公開中のスターターセットの数の上限（画面が文言に出す）
+	Max int `json:"max"`
+}
+
+func (StarterSetLimitReachedError) IsPublishStarterSetResult() {}
+
+// 名前が、ほかのスターターセットですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type StarterSetNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (StarterSetNameAlreadyInUseError) IsRegisterStarterSetResult() {}
+
+func (StarterSetNameAlreadyInUseError) IsRenameStarterSetResult() {}
+
+// 準備中でないスターターセットの名前・配るデッキ・解放するボードを変える、または削除しようとした（準備中のものだけ変えられる）
+type StarterSetNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (StarterSetNotDraftError) IsRenameStarterSetResult() {}
+
+func (StarterSetNotDraftError) IsSetStarterSetGrantDecksResult() {}
+
+func (StarterSetNotDraftError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (StarterSetNotDraftError) IsDeleteStarterSetResult() {}
+
+// スターターセットが無い（削除したものを含む）
+type StarterSetNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (StarterSetNotFoundError) IsStarterSetResult() {}
+
+func (StarterSetNotFoundError) IsRenameStarterSetResult() {}
+
+func (StarterSetNotFoundError) IsSetStarterSetGrantDecksResult() {}
+
+func (StarterSetNotFoundError) IsSetStarterSetUnlockBoardsResult() {}
+
+func (StarterSetNotFoundError) IsDeleteStarterSetResult() {}
+
+func (StarterSetNotFoundError) IsPublishStarterSetResult() {}
+
+func (StarterSetNotFoundError) IsRetireStarterSetResult() {}
 
 // studio でマスタを作るときの決まり
 type StudioRules struct {
@@ -2402,6 +2690,18 @@ func (ValidationErrors) IsRenamePresetDeckResult() {}
 func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
+
+func (ValidationErrors) IsStarterSetsResult() {}
+
+func (ValidationErrors) IsRegisterStarterSetResult() {}
+
+func (ValidationErrors) IsRenameStarterSetResult() {}
+
+func (ValidationErrors) IsSetStarterSetGrantDecksResult() {}
+
+func (ValidationErrors) IsSetStarterSetUnlockBoardsResult() {}
+
+func (ValidationErrors) IsPublishStarterSetResult() {}
 
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない。
 // 対は Board.pairs で持つ（相手のいない転送円は保存できるが、公開できない）
@@ -2854,6 +3154,68 @@ func (e *NpcDeckStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e NpcDeckStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// スターターセットの状態。準備中は名前・配るデッキ・解放するボードを自由に変えられる。公開中にできるのは同時に 1 つだけで、
+// 配るデッキが 1 つ以上あるとき。公開中は中身を変えられない（変えたいときは使用不可にして新しく作る）
+type StarterSetStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	StarterSetStatusDraft StarterSetStatus = "DRAFT"
+	// 公開中
+	StarterSetStatusPublished StarterSetStatus = "PUBLISHED"
+	// 使用不可
+	StarterSetStatusRetired StarterSetStatus = "RETIRED"
+)
+
+var AllStarterSetStatus = []StarterSetStatus{
+	StarterSetStatusDraft,
+	StarterSetStatusPublished,
+	StarterSetStatusRetired,
+}
+
+func (e StarterSetStatus) IsValid() bool {
+	switch e {
+	case StarterSetStatusDraft, StarterSetStatusPublished, StarterSetStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e StarterSetStatus) String() string {
+	return string(e)
+}
+
+func (e *StarterSetStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = StarterSetStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid StarterSetStatus", str)
+	}
+	return nil
+}
+
+func (e StarterSetStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *StarterSetStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e StarterSetStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

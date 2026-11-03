@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
@@ -81,7 +80,6 @@ const publishGrantDeckMutation = `mutation ($input: PublishGrantDeckInput!) {
 	publishGrantDeck(input: $input) {
 		__typename
 		... on PublishGrantDeckSuccess { id revision }
-		... on GrantDeckLimitReachedError { max }
 		` + errorFields + `
 	}
 }`
@@ -154,18 +152,6 @@ func fullGrantDeck(t *testing.T, token, name string) map[string]any {
 	filled := setGrantDeckCardCounts(t, token, deck, cards...)
 	require.Equal(t, "SetGrantDeckCardCountsSuccess", filled["__typename"])
 	return waitGrantDeck(t, token, filled["id"], 2)
-}
-
-// 公開中の数の上限（ゲーム全体で 1 つ）を取り合うため、公開するテストは並列にしない（ほかのテストと取り合うと、
-// 上限に達して公開できなくなる。並列のテストは、並列でないテストがすべて終わってから動く）。終わったら使用不可に戻す
-func retireOnCleanup(t *testing.T, token string, deck map[string]any) {
-	t.Helper()
-	t.Cleanup(func() {
-		latest, err := client.TryData(t.Context(), token, grantDeckQuery, map[string]any{"id": deck["id"]}, "grantDeck")
-		if err == nil && latest["status"] == "PUBLISHED" {
-			_, _ = client.TryData(t.Context(), token, retireGrantDeckMutation, map[string]any{"input": ref(latest)}, "retireGrantDeck")
-		}
-	})
 }
 
 func TestRegisterGrantDeck_ListsDraftGrantDeckWithoutSource(t *testing.T) {
@@ -288,7 +274,6 @@ func TestGrantDeckName_IsUniqueAmongAllGrantDecksRegardlessOfStatus(t *testing.T
 	published := fullGrantDeck(t, token, "公開-"+id)
 	publishedResult := publishGrantDeck(t, token, published)
 	require.Equal(t, "PublishGrantDeckSuccess", publishedResult["__typename"])
-	retireOnCleanup(t, token, published)
 	draft := registerGrantDeck(t, token, "準備中-"+id)
 
 	sameAsPublished := grantDeckOperation(t, token, registerGrantDeckMutation, "registerGrantDeck", map[string]any{"name": " 公開-" + id})
@@ -364,7 +349,6 @@ func TestGrantDeckEditing_IsRejectedUnlessDraft(t *testing.T) {
 	deck := fullGrantDeck(t, token, "初心者-"+id)
 	published := publishGrantDeck(t, token, deck)
 	require.Equal(t, "PublishGrantDeckSuccess", published["__typename"])
-	retireOnCleanup(t, token, deck)
 	cardID := registerPublishedCreature(t, token, "ドラゴン-"+id)
 	states := []struct {
 		name string
@@ -421,38 +405,31 @@ func TestPublishGrantDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testin
 	}}, fullResult)
 }
 
-// 公開中の数は上限（既定 2）まで。使用不可にすると数が戻り、もう一度公開できる。同じ状態への操作は変わらない
-func TestPublishGrantDeck_StopsAtLimitAndReleasesOnRetire(t *testing.T) {
+// 公開中の数に上限は無い。同じ状態への操作は変わらない
+func TestPublishGrantDeck_HasNoLimitAndSameStatusOperationsKeepRevision(t *testing.T) {
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
 	first := fullGrantDeck(t, token, "一-"+id)
 	second := fullGrantDeck(t, token, "二-"+id)
 	third := fullGrantDeck(t, token, "三-"+id)
-	for _, deck := range []map[string]any{first, second, third} {
-		retireOnCleanup(t, token, deck)
-	}
 	draftRetire := retireGrantDeck(t, token, first)
 	require.Equal(t, "InvalidGrantDeckStatusTransitionError", draftRetire["__typename"])
 
 	firstPublished := publishGrantDeck(t, token, first)
 	secondPublished := publishGrantDeck(t, token, second)
-	limitReached := publishGrantDeck(t, token, third)
+	thirdPublished := publishGrantDeck(t, token, third)
 	samePublished := publishGrantDeck(t, token, ref(firstPublished))
 	retired := retireGrantDeck(t, token, ref(firstPublished))
 	sameRetired := retireGrantDeck(t, token, ref(retired))
-	thirdPublished := publishGrantDeck(t, token, third)
-	republishLimit := publishGrantDeck(t, token, ref(retired))
+	republished := publishGrantDeck(t, token, ref(retired))
 
 	require.Equal(t, map[string]any{"__typename": "PublishGrantDeckSuccess", "id": first["id"], "revision": float64(3)}, firstPublished)
 	require.Equal(t, "PublishGrantDeckSuccess", secondPublished["__typename"])
-	require.Equal(t, "GrantDeckLimitReachedError", limitReached["__typename"])
-	require.EqualValues(t, gamerules.Defaults().StarterDeck.MaxPublished, limitReached["max"])
+	require.Equal(t, "PublishGrantDeckSuccess", thirdPublished["__typename"])
 	require.Equal(t, firstPublished, samePublished)
 	require.Equal(t, map[string]any{"__typename": "RetireGrantDeckSuccess", "id": first["id"], "revision": float64(4)}, retired)
 	require.Equal(t, retired, sameRetired)
-	require.Equal(t, "PublishGrantDeckSuccess", thirdPublished["__typename"])
-	require.Equal(t, "GrantDeckLimitReachedError", republishLimit["__typename"])
-	require.Equal(t, "PUBLISHED", waitGrantDeck(t, token, third["id"], 3)["status"])
+	require.Equal(t, "PublishGrantDeckSuccess", republished["__typename"])
 }
 
 func TestGrantDeckMutations_ReturnRevisionConflictForStaleRevision(t *testing.T) {

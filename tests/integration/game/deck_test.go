@@ -65,16 +65,16 @@ func TestMe_ListsOwnDecksWithCardsAfterStarterGrant(t *testing.T) {
 		if !assert.NoError(c, err) || !assert.Len(c, decks, 2) {
 			return
 		}
-		// 配った順（配布デッキの順）に並ぶ。公開 ID はデッキごとに発行されるため、中身だけ確かめる
-		assert.Equal(c, "火", decks[0]["name"])
-		assert.Equal(c, float64(5), decks[0]["totalCount"])
-		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 1}), decks[0]["cards"])
+		// 配った順（公開中のスターターセットが配るデッキを指す順。名前の順ではない）に並ぶ。公開 ID はデッキごとに発行されるため、中身だけ確かめる
+		assert.Equal(c, "水", decks[0]["name"])
+		assert.Equal(c, float64(7), decks[0]["totalCount"])
+		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 2, master.CardB: 3, master.CardC: 2}), decks[0]["cards"])
 		// 見本のマスタのカードはすべて Creature なので、合計が Creature の枚数になる
-		assert.Equal(c, map[string]any{"creature": float64(5), "item": float64(0), "spell": float64(0)}, decks[0]["typeCounts"])
-		assert.Equal(c, "水", decks[1]["name"])
-		assert.Equal(c, float64(7), decks[1]["totalCount"])
-		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 2, master.CardB: 3, master.CardC: 2}), decks[1]["cards"])
-		assert.Equal(c, map[string]any{"creature": float64(7), "item": float64(0), "spell": float64(0)}, decks[1]["typeCounts"])
+		assert.Equal(c, map[string]any{"creature": float64(7), "item": float64(0), "spell": float64(0)}, decks[0]["typeCounts"])
+		assert.Equal(c, "火", decks[1]["name"])
+		assert.Equal(c, float64(5), decks[1]["totalCount"])
+		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 1}), decks[1]["cards"])
+		assert.Equal(c, map[string]any{"creature": float64(5), "item": float64(0), "spell": float64(0)}, decks[1]["typeCounts"])
 		assert.NotEqual(c, decks[0]["id"], decks[1]["id"])
 	})
 }
@@ -126,10 +126,10 @@ func TestDeck_ReturnsOwnDeckWithCardsAndTypeCounts(t *testing.T) {
 
 	require.Equal(t, "Deck", result["__typename"])
 	require.Equal(t, first["id"], result["id"])
-	require.Equal(t, "火", result["name"])
-	require.Equal(t, float64(5), result["totalCount"])
-	require.Equal(t, map[string]any{"creature": float64(5), "item": float64(0), "spell": float64(0)}, result["typeCounts"])
-	require.Equal(t, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 1}), result["cards"])
+	require.Equal(t, "水", result["name"])
+	require.Equal(t, float64(7), result["totalCount"])
+	require.Equal(t, map[string]any{"creature": float64(7), "item": float64(0), "spell": float64(0)}, result["typeCounts"])
+	require.Equal(t, deckCards(map[uuid.UUID]int{master.CardA: 2, master.CardB: 3, master.CardC: 2}), result["cards"])
 }
 
 func TestDeck_ReturnsNotFoundForOtherPlayersDeck(t *testing.T) {

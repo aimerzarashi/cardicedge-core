@@ -15,6 +15,22 @@ import (
 )
 
 // Boards is the resolver for the boards field.
+func (r *playerResolver) Boards(ctx context.Context, obj *model.Player) ([]*model.Board, error) {
+	boards, err := r.unlockQuery.ListBoardsByPlayer(ctx, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	list := make([]*model.Board, len(boards))
+	for i, board := range boards {
+		list[i], err = fromQueryBoard(board)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return list, nil
+}
+
+// Boards is the resolver for the boards field.
 func (r *queryResolver) Boards(ctx context.Context, first *int, after *string) (model.BoardsResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil

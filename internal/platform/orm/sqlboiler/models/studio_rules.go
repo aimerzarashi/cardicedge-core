@@ -26,7 +26,7 @@ import (
 type StudioRule struct {
 	// studio_rules の公開 ID（domain_entities.public_id）
 	StudioRulesID string `boil:"studio_rules_id" json:"studio_rules_id" toml:"studio_rules_id" yaml:"studio_rules_id"`
-	// 値（イベントの値。更新の番号（集約の版）・日時、ルール rules（ボードの幅・高さの範囲など）。項目はスネークケース）
+	// 値（JSON）。項目と形は studio の readmodel.StudioRulesMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *studioRuleR `boil:"-" json:"-" toml:"-" yaml:"-"`

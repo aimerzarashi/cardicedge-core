@@ -19,10 +19,11 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, ErrInvalidDeckCount
 		}
 		return []Event{&StartedEvent{
-			EventMeta: EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
-			Player:    c.Player,
-			Cards:     collectionOf(c.Decks),
-			Decks:     c.Decks,
+			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
+			Player:       c.Player,
+			Cards:        collectionOf(c.Decks),
+			Decks:        c.Decks,
+			UnlockBoards: c.UnlockBoards,
 		}}, nil
 	case *RecordCollectionCommand:
 		progress, done, err := inProgress(state)
@@ -33,6 +34,17 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, nil
 		}
 		return withCompletion(progress, now, &CollectionRecordedEvent{
+			EventMeta: EventMeta{EntityID: progress.ID, AggregateVersion: progress.Version + 1, OccurredAt: now},
+		}), nil
+	case *RecordUnlockCommand:
+		progress, done, err := inProgress(state)
+		if err != nil || done {
+			return nil, err
+		}
+		if progress.UnlockRecorded {
+			return nil, nil
+		}
+		return withCompletion(progress, now, &UnlockRecordedEvent{
 			EventMeta: EventMeta{EntityID: progress.ID, AggregateVersion: progress.Version + 1, OccurredAt: now},
 		}), nil
 	case *RecordDeckCommand:
@@ -67,7 +79,7 @@ func inProgress(state State) (progress InProgressStarterGrant, done bool, err er
 	}
 }
 
-// 記録のイベントで所持カードとすべてのデッキがそろうなら、続けて終わったイベントを出す
+// 記録のイベントで所持カード・すべてのデッキ・解放がそろうなら、続けて終わったイベントを出す
 func withCompletion(progress InProgressStarterGrant, now time.Time, event Event) []Event {
 	next, err := Evolve(progress, event)
 	if err != nil {

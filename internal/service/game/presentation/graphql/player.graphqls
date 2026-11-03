@@ -10,7 +10,7 @@ type Player {
 enum StarterGrantStatus {
   "まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）"
   IN_PROGRESS
-  "所持カードとデッキがそろった"
+  "所持カード・デッキ・解放がそろった"
   COMPLETED
 }
 

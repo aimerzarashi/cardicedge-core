@@ -6,6 +6,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 )
 
 // 配る配布デッキ。studio の read model の型を使わず、配布に要る項目だけを持つ
@@ -20,6 +22,13 @@ type DeckCard struct {
 	Count  int
 }
 
-// 公開中の配布デッキを、決まった順（名前の正規化 → 公開 ID）で返す。1 つも無ければ空（エラーにしない。
-// 公開が間に合っていないだけで待てば直るかは、呼ぶ側が決める）。公開中でないもの（準備中・使用不可）は返さない
-type ListPublishedGrantDecksFunc func(ctx context.Context) ([]GrantDeck, error)
+// 配る中身。公開中のスターターセットが指す配布デッキ（セットが持つ順。公開中でないものは飛ばす）と、解放するボードの内部 ID
+// （セットが持つ順。ボードの中身は読まない。make publish-master が studio の内部 ID も写す）
+type StarterSet struct {
+	GrantDecks   []GrantDeck
+	UnlockBoards []board.ID
+}
+
+// 公開中のスターターセットの中身を返す。公開中のセットが無ければ found が false（エラーにしない。
+// 公開が間に合っていないだけで待てば直るかは、呼ぶ側が決める）。公開中でないもの（準備中・使用不可）は読まない
+type GetPublishedStarterSetFunc func(ctx context.Context) (set StarterSet, found bool, err error)

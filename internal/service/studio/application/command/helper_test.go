@@ -22,6 +22,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -187,11 +188,10 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 	return registered
 }
 
-// 公開までの流れを小さく確かめるルール（合計 4 枚で公開でき、公開中は 2 つまで）
+// 公開までの流れを小さく確かめるルール（合計 4 枚で公開できる）
 func smallRules() gamerules.Rules {
 	rules := gamerules.Defaults()
 	rules.Deck = gamerules.Deck{TotalCardCount: 4, MaxCardDuplicates: 4}
-	rules.StarterDeck = gamerules.StarterDeck{MaxPublished: 2}
 	return rules
 }
 
@@ -199,11 +199,9 @@ func grantDeckStore(registry *domaindef.Registry) domain.EventStore[grantdeck.ID
 	return eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve)
 }
 
-// 公開中の数の持ち主（ゲーム全体のルール）が要るため、無ければ作る。ルールの値は固定する（値を小さくして確かめるため）
+// ルールの値は固定する（値を小さくして確かめるため）
 func newGrantDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.GrantDeckHandler {
 	t.Helper()
-	_, err := newGameRulesHandler(t, ctx).CreateInitial(ctx)
-	require.NoError(t, err)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	return command.NewGrantDeckHandler(
@@ -215,9 +213,6 @@ func newGrantDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamer
 		newCardStatusReader(registry).Statuses,
 		presetDeckStore(registry),
 		identifier.New(registry, presetdeck.NewID),
-		constraint.FindGameRules,
-		constraint.ReserveGrantDeckQuota,
-		constraint.ReleaseGrantDeckQuota,
 		fixedRules(rules),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
@@ -290,6 +285,33 @@ func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHa
 		constraint.UpdateNPCAvatarName,
 		constraint.UpdateNPCAvatarDeckReferences,
 		command.NewNPCDeckStatusReader(npcDeckStore(registry)).Statuses,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func starterSetStore(registry *domaindef.Registry) domain.EventStore[starterset.ID, starterset.Event, starterset.State] {
+	return eventstore.New(registry, starterset.NewID, starterset.NewEventType, starterset.InitialState, starterset.Evolve)
+}
+
+// 公開中の数の持ち主（ゲーム全体のルール）が要るため、無ければ作る
+func newStarterSetHandler(t *testing.T, ctx context.Context) *command.StarterSetHandler {
+	t.Helper()
+	_, err := newGameRulesHandler(t, ctx).CreateInitial(ctx)
+	require.NoError(t, err)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewStarterSetHandler(
+		starterSetStore(registry),
+		identifier.New(registry, starterset.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateStarterSetName,
+		constraint.UpdateStarterSetGrantDeckReferences,
+		constraint.UpdateStarterSetBoardReferences,
+		command.NewGrantDeckStatusReader(grantDeckStore(registry)).Statuses,
+		command.NewBoardStatusReader(boardStore(registry)).Statuses,
+		constraint.FindGameRules,
+		constraint.ReserveStarterSetQuota,
+		constraint.ReleaseStarterSetQuota,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

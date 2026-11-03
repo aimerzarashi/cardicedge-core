@@ -24,14 +24,16 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
 )
 
 // 集約を足したら、ここにその集約の Types を足す（マイグレーションの種別の足し忘れをテストで検出する）
 func aggregates() []domain.AggregateTypes {
-	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), grantdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types(), npcavatar.Types(), npcdeck.Types()}
+	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), grantdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types(), npcavatar.Types(), npcdeck.Types(), starterset.Types(), unlock.Types()}
 }
 
 func entityTypes() []domain.EntityType {
@@ -53,17 +55,17 @@ func insert(t *testing.T, ctx context.Context, query string) {
 
 // 一意な key の種別を足したら、ここにその種別を宣言するドメインの UniqueKeyTypes を足す
 func uniqueKeyTypes() []domain.UniqueKeyType {
-	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), grantdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes(), npcavatar.UniqueKeyTypes(), npcdeck.UniqueKeyTypes())
+	return slices.Concat(operator.UniqueKeyTypes(), card.UniqueKeyTypes(), presetdeck.UniqueKeyTypes(), grantdeck.UniqueKeyTypes(), player.UniqueKeyTypes(), startergrant.UniqueKeyTypes(), collection.UniqueKeyTypes(), deck.UniqueKeyTypes(), gamerules.UniqueKeyTypes(), avatar.UniqueKeyTypes(), board.UniqueKeyTypes(), studiorules.UniqueKeyTypes(), npcavatar.UniqueKeyTypes(), npcdeck.UniqueKeyTypes(), starterset.UniqueKeyTypes(), unlock.UniqueKeyTypes())
 }
 
 // 参照の種別を足したら、ここにその種別を宣言するドメインの ReferenceTypes を足す
 func referenceTypes() []domain.ReferenceType {
-	return slices.Concat(presetdeck.ReferenceTypes(), grantdeck.ReferenceTypes(), npcdeck.ReferenceTypes(), npcavatar.ReferenceTypes())
+	return slices.Concat(presetdeck.ReferenceTypes(), grantdeck.ReferenceTypes(), npcdeck.ReferenceTypes(), npcavatar.ReferenceTypes(), starterset.ReferenceTypes())
 }
 
 // 上限の種別を足したら、ここにその種別を宣言するドメインの QuotaTypes を足す
 func quotaTypes() []domain.QuotaType {
-	return slices.Concat(deck.QuotaTypes(), grantdeck.QuotaTypes(), avatar.QuotaTypes())
+	return slices.Concat(deck.QuotaTypes(), avatar.QuotaTypes(), starterset.QuotaTypes())
 }
 
 // テンプレートから複製した自分だけの DB（一覧の種別の行が入っている）で動かす（行を足したり、食い違う行を入れたりするため）

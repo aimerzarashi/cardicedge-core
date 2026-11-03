@@ -27,8 +27,6 @@ var (
 	ErrInvalidGrantDeckStatusTransition = errors.New("command: invalid grant deck status transition")
 	// 準備中でない配布デッキの名前・枚数を変える、または削除しようとした
 	ErrGrantDeckNotDraft = errors.New("command: grant deck is not draft")
-	// 公開中の配布デッキの数の上限に達している。上限の値は LimitReachedError で受け取る
-	ErrGrantDeckLimitReached = errors.New("command: grant deck limit reached")
 	// ほかのボードが同じ名前を使っている（状態によらない）
 	ErrBoardNameAlreadyInUse = errors.New("command: board name already in use")
 	// 公開 ID に当たるボードが無い（削除したものを含む）
@@ -39,6 +37,16 @@ var (
 	ErrBoardNotDraft = errors.New("command: board is not draft")
 	// 公開の条件（拠点・チェックポイント・拠点から行けること）を満たしていない。理由は BoardNotPublishableError で受け取る
 	ErrBoardNotPublishable = errors.New("command: board is not publishable")
+	// ほかのスターターセットが同じ名前を使っている（状態によらない）
+	ErrStarterSetNameAlreadyInUse = errors.New("command: starter set name already in use")
+	// 公開 ID に当たるスターターセットが無い（削除したものを含む）
+	ErrStarterSetNotFound = errors.New("command: starter set not found")
+	// 準備中のスターターセットを使用不可にしようとした
+	ErrInvalidStarterSetStatusTransition = errors.New("command: invalid starter set status transition")
+	// 準備中でないスターターセットの名前・配るデッキ・解放するボードを変える、または削除しようとした
+	ErrStarterSetNotDraft = errors.New("command: starter set is not draft")
+	// 公開中のスターターセットの数の上限に達している。上限の値は LimitReachedError で受け取る
+	ErrStarterSetLimitReached = errors.New("command: starter set limit reached")
 	// ほかの NPC のアバターが同じ名前を使っている（状態によらない）
 	ErrNPCAvatarNameAlreadyInUse = errors.New("command: npc avatar name already in use")
 	// 公開 ID に当たる NPC のアバターが無い（削除したものを含む）

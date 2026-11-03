@@ -460,16 +460,6 @@ func TestNameKey_TreatsWidthAndCaseAsSame(t *testing.T) {
 		grantdeck.NameKey(presetdecktest.Name(t, "fire デッキ")))
 }
 
-func TestPublishedQuota_CountsOnceForTheGame(t *testing.T) {
-	rules, err := gamerules.NewID(5)
-	require.NoError(t, err)
-
-	quota := grantdeck.PublishedQuota(rules)
-
-	require.Equal(t, grantdeck.PublishedQuotaType, quota.Type())
-	require.Equal(t, int64(5), quota.OwnerID())
-}
-
 // 保存済みのイベントを読めなくなる変更（payload の形の変更）を検出する。形を変えるときは版を上げ、古い版の golden も残す
 func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	f := newFixture(t)

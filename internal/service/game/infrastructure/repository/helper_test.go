@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -42,6 +43,14 @@ func (f playerFixture) issuePlayer(t *testing.T) (player.ID, uuid.UUID) {
 func (f playerFixture) issueDeck(t *testing.T) (deck.ID, uuid.UUID) {
 	t.Helper()
 	id, publicID, err := identifier.New(f.registry, deck.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id, publicID
+}
+
+// 解放の投影は解放を内部 ID で受け取り公開用の ID を引くため、識別子を発行して組を作る
+func (f playerFixture) issueUnlock(t *testing.T) (unlock.ID, uuid.UUID) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, unlock.NewID).Issue(f.ctx)
 	require.NoError(t, err)
 	return id, publicID
 }

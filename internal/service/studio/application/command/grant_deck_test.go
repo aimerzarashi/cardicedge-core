@@ -3,7 +3,6 @@ package command_test
 import (
 	"context"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -369,62 +368,17 @@ func TestPublishGrantDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testin
 	require.Equal(t, grantdeck.StatusDraft, restoredGrantDeck(t, ctx, short.ID).Status)
 }
 
-// 上限は game_rules の値。使用不可にすると数が戻り、使用不可から公開し直すときも上限を確かめる
-func TestPublishGrantDeck_StopsAtRuleLimitAndRetireMakesRoom(t *testing.T) {
+// 公開中の数に上限は持たない（どれを配るかはスターターセットが決めるため）
+func TestPublishGrantDeck_HasNoLimitOnPublishedCount(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
-	first, second, third := fullGrantDeck(t, ctx, commands), fullGrantDeck(t, ctx, commands), fullGrantDeck(t, ctx, commands)
-	firstPublished, err := commands.Publish(ctx, first.ID, first.Revision)
-	require.NoError(t, err)
-	_, err = commands.Publish(ctx, second.ID, second.Revision)
-	require.NoError(t, err)
 
-	_, atLimit := commands.Publish(ctx, third.ID, third.Revision)
-	retired, err := commands.Retire(ctx, firstPublished.ID, firstPublished.Revision)
-	require.NoError(t, err)
-	_, afterRetire := commands.Publish(ctx, third.ID, third.Revision)
-	_, republishAtLimit := commands.Publish(ctx, retired.ID, retired.Revision)
-
-	require.ErrorIs(t, atLimit, command.ErrGrantDeckLimitReached)
-	var limitReached *command.LimitReachedError
-	require.ErrorAs(t, atLimit, &limitReached)
-	require.Equal(t, smallRules().StarterDeck.MaxPublished, limitReached.Max)
-	require.NoError(t, afterRetire)
-	require.ErrorIs(t, republishAtLimit, command.ErrGrantDeckLimitReached)
-	require.Equal(t, grantdeck.StatusPublished, restoredGrantDeck(t, ctx, third.ID).Status)
-}
-
-// 同時に公開しても、上限を超えない（確保が 1 つの文で、同じ行を順番に更新するため）
-func TestPublishGrantDeck_NeverExceedsLimitWhenPublishedConcurrently(t *testing.T) {
-	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
-	const decks = 6
-	targets := make([]command.ChangedGrantDeck, 0, decks)
-	for range decks {
-		targets = append(targets, fullGrantDeck(t, ctx, commands))
+	for range 3 {
+		deck := fullGrantDeck(t, ctx, commands)
+		published, err := commands.Publish(ctx, deck.ID, deck.Revision)
+		require.NoError(t, err)
+		require.Equal(t, grantdeck.StatusPublished, restoredGrantDeck(t, ctx, published.ID).Status)
 	}
-	errs := make([]error, decks)
-	var wg sync.WaitGroup
-	for i, target := range targets {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, errs[i] = commands.Publish(ctx, target.ID, target.Revision)
-		}()
-	}
-	wg.Wait()
-
-	succeeded, limited := 0, 0
-	for _, err := range errs {
-		if err == nil {
-			succeeded++
-			continue
-		}
-		require.ErrorIs(t, err, command.ErrGrantDeckLimitReached)
-		limited++
-	}
-	require.Equal(t, 2, succeeded)
-	require.Equal(t, decks-2, limited)
 }
 
 func TestRetireGrantDeck_RetiresOnlyPublishedAndKeepsRevisionWhenAlreadyRetired(t *testing.T) {

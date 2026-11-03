@@ -77,14 +77,6 @@ type GrantDeckNotDraftError {
   message: String!
 }
 
-"公開中の配布デッキの数が上限に達している（ほかのものを使用不可にすると公開できる）"
-type GrantDeckLimitReachedError {
-  "開発者向けの説明（画面にそのまま出す文言ではない）"
-  message: String!
-  "公開中の配布デッキの数の上限（そのときのゲーム全体のルールの値。画面が文言に出す）"
-  max: Int!
-}
-
 "配布デッキの一覧の絞り込み"
 input GrantDeckFilter {
   "名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）"
@@ -269,12 +261,11 @@ type PublishGrantDeckSuccess {
 
 # 公開するときの誤りは ValidationErrors の項目 cards に付ける: 合計がちょうど 40 枚でない（FieldTotalMismatch）、
 # 入っているカードに公開中でないものがある（FieldUnavailable）
-"配布デッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数が上限なら公開できない）"
+"配布デッキの公開の結果（準備中・使用不可から公開中にできる。公開中の数に上限は無い。どれを配るかはスターターセットが決める）"
 union PublishGrantDeckResult =
     PublishGrantDeckSuccess
   | ValidationErrors
   | GrantDeckNotFoundError
-  | GrantDeckLimitReachedError
   | RevisionConflictError
   | ForbiddenError
 

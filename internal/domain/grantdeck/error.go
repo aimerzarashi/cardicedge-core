@@ -15,6 +15,4 @@ var (
 	ErrTotalCountTooLarge  = errors.New("grant deck: total card count is too large")
 	// 公開するときの合計が、ちょうど gamerules.Deck.TotalCardCount でない
 	ErrTotalMismatch = errors.New("grant deck: total card count mismatch")
-	// 公開中の数の上限（gamerules.StarterDeck.MaxPublished）に達している
-	ErrLimitReached = errors.New("grant deck: limit reached")
 )
