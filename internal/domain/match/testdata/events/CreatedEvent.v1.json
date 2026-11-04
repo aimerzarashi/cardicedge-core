@@ -1,0 +1,89 @@
+{
+  "participants": [
+    {
+      "player": {
+        "player": 10,
+        "avatar": 1,
+        "deck": 2
+      },
+      "cards": [
+        {
+          "card": {
+            "entity_type": "creature",
+            "id": 101
+          },
+          "quantity": 2
+        },
+        {
+          "card": {
+            "entity_type": "creature",
+            "id": 102
+          },
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "npc": {
+        "avatar": 7,
+        "deck": 8
+      },
+      "cards": [
+        {
+          "card": {
+            "entity_type": "creature",
+            "id": 201
+          },
+          "quantity": 3
+        }
+      ]
+    }
+  ],
+  "board": {
+    "id": 5,
+    "size": {
+      "width": 2,
+      "height": 1
+    },
+    "tiles": [
+      {
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "kind": "base"
+      },
+      {
+        "position": {
+          "x": 1,
+          "y": 0
+        },
+        "kind": "land",
+        "attribute": "fire"
+      }
+    ],
+    "connections": [
+      {
+        "a": {
+          "x": 0,
+          "y": 0
+        },
+        "b": {
+          "x": 1,
+          "y": 0
+        }
+      }
+    ]
+  },
+  "rules": {
+    "target_magic": 8000,
+    "starting_magic": 600,
+    "lap_bonus": 300,
+    "checkpoint_bonus": 100,
+    "round_limit": 30,
+    "dice_min": 1,
+    "dice_max": 6,
+    "max_hand_cards": 6,
+    "starting_hand_cards": 5
+  }
+}

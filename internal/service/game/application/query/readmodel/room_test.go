@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -74,6 +75,19 @@ func TestRoom_EvolvesThroughEveryEventToPreparingAndReady(t *testing.T) {
 			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax,
 		},
 	}, ready.Metadata())
+}
+
+func TestRoom_MatchStartedMakesRowPlayingAndLinksMatch(t *testing.T) {
+	owner := playertest.ID(t, 7)
+	preparing := readmodel.Room{}.
+		Evolve(&room.CreatedEvent{EventMeta: roomMeta(t, 1, roomCreatedAt), Player: owner, Name: roomtest.Name(t, "部屋")}).
+		Evolve(&room.PreparationStartedEvent{EventMeta: roomMeta(t, 2, roomChangedAt)})
+
+	playing := preparing.Evolve(&room.MatchStartedEvent{EventMeta: roomMeta(t, 3, roomChangedAt), Match: matchtest.ID(t, 9)})
+
+	require.Equal(t, readmodel.RoomStatusPlaying, playing.Status)
+	require.Equal(t, matchtest.ID(t, 9), playing.Match)
+	require.Equal(t, int64(3), playing.Revision)
 }
 
 func TestRoom_ChangingSeatsClearsChoicesAndClosedEventClosesRowWithoutDeleting(t *testing.T) {

@@ -13,13 +13,13 @@ import (
 
 func TestGameRulesHandler_ReturnsMatchRulesFromPublishedRules(t *testing.T) {
 	rules := gamerules.Defaults()
-	rules.Match = gamerulestest.Match(t, 3, 5, 7)
+	rules.Match = gamerulestest.Match(t, 3, 5, 7, 4)
 	reader := func(context.Context) (gamerules.Rules, bool, error) { return rules, true, nil }
 
 	got, err := query.NewGameRulesHandler(reader).Get(t.Context())
 
 	require.NoError(t, err)
-	match := query.MatchRules{MinPlayers: 3, MaxPlayers: 5, MaxHandCards: 7}
+	match := query.MatchRules{MinPlayers: 3, MaxPlayers: 5, MaxHandCards: 7, StartingHandCards: 4}
 	require.Equal(t, query.GameRules{Match: match}, got)
 }
 

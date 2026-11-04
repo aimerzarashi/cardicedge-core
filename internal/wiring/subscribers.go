@@ -22,6 +22,7 @@ var subscribers = []serviceSubscriber{
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1014, "starter_sets")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1015, "unlocks")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1016, "rooms")},
+	{service: serviceGame, def: eventdriven.PolicySubscriber(1017, "match_start")},
 }
 
 const (

@@ -18,7 +18,7 @@ func ID(t testing.TB, value int64) gamerules.ID {
 	return id
 }
 
-func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards int) gamerules.Match {
+func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards int) gamerules.Match {
 	t.Helper()
 	min, err := gamerules.NewMinPlayers(minPlayers)
 	require.NoError(t, err)
@@ -26,7 +26,9 @@ func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards int) gamerules.Mat
 	require.NoError(t, err)
 	hand, err := gamerules.NewMaxHandCards(maxHandCards)
 	require.NoError(t, err)
-	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand}
+	starting, err := gamerules.NewStartingHandCards(startingHandCards)
+	require.NoError(t, err)
+	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting}
 }
 
 func MaxHandCards(t testing.TB, value int) gamerules.MaxHandCards {
@@ -34,4 +36,11 @@ func MaxHandCards(t testing.TB, value int) gamerules.MaxHandCards {
 	hand, err := gamerules.NewMaxHandCards(value)
 	require.NoError(t, err)
 	return hand
+}
+
+func StartingHandCards(t testing.TB, value int) gamerules.StartingHandCards {
+	t.Helper()
+	starting, err := gamerules.NewStartingHandCards(value)
+	require.NoError(t, err)
+	return starting
 }

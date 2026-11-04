@@ -39,7 +39,7 @@ const boardsListQuery = `query ($filter: BoardFilter, $first: Int, $after: Strin
 	}
 }`
 
-const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTooSmall { min } ... on FieldNotGreaterThan { than } ... on FieldLessThan { than } } }`
+const boardErrorFields = `... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } ... on FieldTooSmall { min } ... on FieldNotGreaterThan { than } } }`
 
 const registerBoardMutation = `mutation ($input: RegisterBoardInput!) {
 	registerBoard(input: $input) {
@@ -377,7 +377,7 @@ func TestChangeBoardDefaultRules_ReturnsFieldErrorPerViolation(t *testing.T) {
 		map[string]any{"__typename": "FieldNotGreaterThan", "field": "targetMagic", "than": "startingMagic"},
 	}}, notGreater)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
-		map[string]any{"__typename": "FieldLessThan", "field": "diceMax", "than": "diceMin"},
+		map[string]any{"__typename": "FieldNotGreaterThan", "field": "diceMax", "than": "diceMin"},
 	}}, diceReversed)
 }
 

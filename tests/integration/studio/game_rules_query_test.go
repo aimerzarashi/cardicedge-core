@@ -15,7 +15,7 @@ import (
 const gameRulesQuery = `query {
 	gameRules {
 		__typename
-		... on GameRules { match { minPlayers maxPlayers maxHandCards } }
+		... on GameRules { match { minPlayers maxPlayers maxHandCards startingHandCards } }
 	}
 }`
 
@@ -36,9 +36,10 @@ func TestGameRules_ReturnsMatchRulesToOperator(t *testing.T) {
 	require.Equal(t, map[string]any{
 		"__typename": "GameRules",
 		"match": map[string]any{
-			"minPlayers":   float64(defaults.MinPlayers),
-			"maxPlayers":   float64(defaults.MaxPlayers),
-			"maxHandCards": float64(defaults.MaxHandCards),
+			"minPlayers":        float64(defaults.MinPlayers),
+			"maxPlayers":        float64(defaults.MaxPlayers),
+			"maxHandCards":      float64(defaults.MaxHandCards),
+			"startingHandCards": float64(defaults.StartingHandCards),
 		},
 	}, rules)
 }

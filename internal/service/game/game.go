@@ -3,8 +3,10 @@ package game
 
 import (
 	"context"
+	crand "crypto/rand"
 	"database/sql"
 	"io"
+	"math/rand/v2"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -45,6 +48,8 @@ type Game struct {
 	entityRefs     domain.EntityRefResolver
 	players        *command.PlayerHandler
 	grants         *command.StarterGrantHandler
+	matchStart     *command.MatchStartHandler
+	matchQuery     *query.MatchHandler
 	playerQuery    *query.PlayerHandler
 	avatars        *command.AvatarHandler
 	avatarQuery    *query.AvatarHandler
@@ -73,6 +78,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	unlockQuery := query.NewUnlockHandler(unlockReader.ListBoardsByPlayer)
 	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks)
 	roomReader := repository.NewRoomReader()
+	matchSources := repository.NewMatchSourceReader(entityRefs)
 	return &Game{
 		config:     config,
 		entityRefs: entityRefs,
@@ -114,6 +120,23 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			),
 			now,
 		),
+		matchStart: command.NewMatchStartHandler(
+			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
+			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+			gameRulesReader.Get,
+			matchSources.Board,
+			matchSources.PlayerDeckCards,
+			matchSources.NPCDeckCards,
+			newRandom,
+			now,
+		),
+		matchQuery: query.NewMatchHandler(
+			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+			identifier.New(registry, match.NewID),
+			identifier.New(registry, player.NewID),
+			entityRefs,
+			repository.NewMatchNameReader().Load,
+		),
 		playerQuery: query.NewPlayerHandler(repository.NewPlayerReader().GetStarterGrantStatus),
 		avatars: command.NewAvatarHandler(
 			eventstore.New(registry, avatar.NewID, avatar.NewEventType, avatar.InitialState, avatar.Evolve),
@@ -132,6 +155,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 		rooms: command.NewRoomHandler(
 			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 			identifier.New(registry, room.NewID),
+			identifier.New(registry, match.NewID),
 			command.RoomReferences{
 				Avatars:    identifier.New(registry, avatar.NewID),
 				Decks:      identifier.New(registry, deck.NewID),
@@ -154,8 +178,27 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	}
 }
 
-// 名前と購読は internal/wiring の購読者の一覧と照合される（studio の RegisterProjections と同じ形）
+// 対戦ごとの乱数の元。予測されない種を OS の乱数から取る（順番と山札の並びを、先に読めないようにするため）。
+// 種の取得に失敗するのは OS の乱数が使えないときだけで、続けても安全な代わりが無いので止める
+func newRandom() match.Random {
+	var seed [32]byte
+	if _, err := crand.Read(seed[:]); err != nil {
+		panic(err)
+	}
+	return rand.New(rand.NewChaCha8(seed))
+}
+
+// 名前と購読は internal/wiring の購読者の一覧と照合される（studio の RegisterProjections と同じ形）。最初の失敗で止める
 func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
+	if err := eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
+		Name:          "match_start",
+		Subscriptions: []domain.EntityType{room.Types().EntityType},
+		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
+			return g.matchStart.Handle(ctx, event.Event)
+		},
+	}); err != nil {
+		return err
+	}
 	return eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
 		Name: "starter_grant",
 		Subscriptions: []domain.EntityType{
@@ -242,7 +285,7 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matchQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

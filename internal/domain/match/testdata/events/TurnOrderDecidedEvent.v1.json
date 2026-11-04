@@ -1,0 +1,18 @@
+{
+  "rolls": [
+    {
+      "participant": 0,
+      "attempt": 1,
+      "value": 3
+    },
+    {
+      "participant": 1,
+      "attempt": 1,
+      "value": 5
+    }
+  ],
+  "order": [
+    1,
+    0
+  ]
+}

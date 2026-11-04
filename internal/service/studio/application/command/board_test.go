@@ -574,7 +574,12 @@ func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
 		{
 			name:  "dice_max_less_than_dice_min",
 			rules: command.NewBoardDefaultRulesInput(8000, 600, 300, 100, 30, 4, 3),
-			want:  []input.Error{&input.LessThan{Field: "diceMax", Than: "diceMin"}},
+			want:  []input.Error{&input.NotGreaterThan{Field: "diceMax", Than: "diceMin"}},
+		},
+		{
+			name:  "dice_max_equal_to_dice_min",
+			rules: command.NewBoardDefaultRulesInput(8000, 600, 300, 100, 30, 3, 3),
+			want:  []input.Error{&input.NotGreaterThan{Field: "diceMax", Than: "diceMin"}},
 		},
 	}
 	for _, tt := range tests {

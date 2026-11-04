@@ -775,7 +775,7 @@ func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 		target, starting, lap, checkpoint, roundLimit, diceMin, diceMax int
 		wantErrs                                                        []error
 	}{
-		{name: "minimum", target: 1, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 1},
+		{name: "minimum", target: 1, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 2},
 		{name: "beyond_default_values", target: 1_000_000, starting: 999_999, lap: 1_000_000, checkpoint: 1_000_000, roundLimit: 1_000_000, diceMin: 1_000, diceMax: 1_000_000},
 		{name: "zero_target", target: 0, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
 		{name: "negative_target", target: -1, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
@@ -786,8 +786,8 @@ func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 		{name: "target_less_than_starting", target: 500, starting: 600, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, wantErrs: []error{board.ErrTargetMagicNotGreaterThanStartingMagic}},
 		{name: "zero_round_limit", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 0, diceMin: 1, diceMax: 6, wantErrs: []error{board.ErrRoundLimitTooSmall}},
 		{name: "zero_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 0, diceMax: 6, wantErrs: []error{board.ErrDiceMinTooSmall}},
-		{name: "dice_max_less_than_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 4, diceMax: 3, wantErrs: []error{board.ErrDiceMaxLessThanDiceMin}},
-		{name: "dice_max_equal_to_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 3, diceMax: 3},
+		{name: "dice_max_less_than_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 4, diceMax: 3, wantErrs: []error{board.ErrDiceMaxNotGreaterThanDiceMin}},
+		{name: "dice_max_equal_to_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 3, diceMax: 3, wantErrs: []error{board.ErrDiceMaxNotGreaterThanDiceMin}},
 		{name: "reports_all_violations", target: 0, starting: 0, lap: -1, checkpoint: -1, roundLimit: 0, diceMin: 0, diceMax: -1, wantErrs: []error{
 			board.ErrTargetMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic,
 			board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall,
@@ -795,7 +795,7 @@ func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 	}
 	all := []error{
 		board.ErrTargetMagicTooSmall, board.ErrStartingMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall,
-		board.ErrTargetMagicNotGreaterThanStartingMagic, board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall, board.ErrDiceMaxLessThanDiceMin,
+		board.ErrTargetMagicNotGreaterThanStartingMagic, board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall, board.ErrDiceMaxNotGreaterThanDiceMin,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

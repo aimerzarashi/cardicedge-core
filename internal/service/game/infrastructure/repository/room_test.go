@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -216,6 +217,22 @@ func TestRoomReader_GetReturnsRoomWithNamesJoinedAtReadTime(t *testing.T) {
 			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
 		},
 	}, got)
+}
+
+func TestRoomWriterAndReader_PlayingRoomCarriesPublicIDOfMatch(t *testing.T) {
+	f := newPlayerFixture(t)
+	owner, ownerPublicID := f.issuePlayer(t)
+	seeded := seedRoom(t, f, owner, ownerPublicID, roomBase)
+	matchID, matchPublicID := issueEntity(t, f, match.NewID)
+	state := seeded.state
+	state.Status, state.Match = readmodel.RoomStatusPlaying, matchID
+	require.NoError(t, roomWriter(f).Upsert(f.ctx, state))
+
+	got, err := repository.NewRoomReader().Get(f.ctx, ownerPublicID, seeded.roomPublicID)
+
+	require.NoError(t, err)
+	require.Equal(t, query.RoomStatusPlaying, got.Status)
+	require.Equal(t, &matchPublicID, got.Match)
 }
 
 func TestRoomReader_GetReturnsNotFoundForRoomOfOtherPlayerAndUnknownRoom(t *testing.T) {

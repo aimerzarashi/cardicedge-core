@@ -17,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -34,7 +35,7 @@ import (
 
 // 集約を足したら、ここにその集約の Types を足す（マイグレーションの種別の足し忘れをテストで検出する）
 func aggregates() []domain.AggregateTypes {
-	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), grantdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types(), npcavatar.Types(), npcdeck.Types(), starterset.Types(), unlock.Types(), room.Types()}
+	return []domain.AggregateTypes{operator.Types(), creature.Types(), item.Types(), spell.Types(), presetdeck.Types(), grantdeck.Types(), player.Types(), startergrant.Types(), collection.Types(), deck.Types(), gamerules.Types(), avatar.Types(), board.Types(), studiorules.Types(), npcavatar.Types(), npcdeck.Types(), starterset.Types(), unlock.Types(), room.Types(), match.Types()}
 }
 
 func entityTypes() []domain.EntityType {

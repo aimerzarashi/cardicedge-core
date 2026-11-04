@@ -1,6 +1,9 @@
 package room
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+)
 
 type Command interface {
 	isRoomCommand()
@@ -36,8 +39,11 @@ type PublishCommand struct {
 	PublishedBy player.ID
 }
 
+// 最後の準備完了なら対戦が始まる。対戦の ID は、Room.StartsMatchOnReady が true のときに呼ぶ側が取って入れる
+// （ID を取るのは DB の仕事で、Decide の中ではできないため。最後でなければ 0 のまま）
 type DeclareReadyCommand struct {
 	Player player.ID
+	Match  match.ID
 }
 
 // 名前を変える（作った人だけ。閉じる前まで）。名前は対戦の条件ではないので、公開の後にも変えられる

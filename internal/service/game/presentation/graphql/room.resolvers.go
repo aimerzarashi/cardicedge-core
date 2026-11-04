@@ -197,3 +197,28 @@ func (r *queryResolver) Room(ctx context.Context, id uuid.UUID) (model.RoomResul
 	}
 	return fromQueryRoom(found)
 }
+
+// Match is the resolver for the match field.
+func (r *roomResolver) Match(ctx context.Context, obj *model.Room) (*model.Match, error) {
+	if obj.MatchID == nil {
+		return nil, nil
+	}
+	me, err := r.players.Me(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found, err := r.matchQuery.Get(ctx, me.ID, *obj.MatchID)
+	// 対戦はポリシーが部屋の後に作るので、作られるまでの間は null にする（部屋は対戦中でも、対戦の集約はまだ無い）
+	if errors.Is(err, query.ErrMatchNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return fromQueryMatch(found)
+}
+
+// Room returns RoomResolver implementation.
+func (r *Resolver) Room() RoomResolver { return &roomResolver{r} }
+
+type roomResolver struct{ *Resolver }

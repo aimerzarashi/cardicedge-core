@@ -1,14 +1,16 @@
 # 部屋（対戦の前に、席・対戦ルール・席ごとのアバターとデッキを決め、公開して、準備完了まで進める集約）。
 # 部屋に入れるのは、今は作った人だけ（ほかの人が参加する操作と、部屋を探す query は先の候補）。
 # 操作は集約のコマンドの名前にそろえる（createRoom・renameRoom・changeRoomSeats・changeRoomMatchRules・changeRoomSeatChoice・publishRoom・declareRoomReady・closeRoom）。
-# 全員の準備完了から対戦を始める操作は、対戦を作るときに足す
+# 全員の準備完了で対戦が始まる（専用の操作は無い。対戦は Match、読むのは Room.match と match(id)）
 
-"部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）"
+"部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）。全員が準備完了を申告すると対戦中に進む"
 enum RoomStatus {
   "公開前（マスタの「準備中」と分けて、公開前と呼ぶ）。席・対戦ルール・席の選択を何でも決められる"
   DRAFT
   "準備中（公開した後、全員の準備完了まで）。公開前に決めなかったものを、担当の人が決める"
   PREPARING
+  "対戦中（全員が準備完了を申告して、対戦が始まった）。対戦は Room.match。対戦が終わった後の部屋の動きは先の候補"
+  PLAYING
   "閉じた（作った人が閉じた）。一覧には出ない"
   CLOSED
 }
@@ -66,7 +68,7 @@ type RoomCapabilities {
   publish: Boolean!
   "準備完了を押せるか（declareRoomReady）"
   declareReady: Boolean!
-  "閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false"
+  "閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false。対戦中も false"
   close: Boolean!
   "名前を変えられるか（renameRoom）"
   rename: Boolean!
@@ -116,6 +118,8 @@ type Room {
   matchRules: RoomMatchRules
   "見ている人にできる操作。部屋の詳細（room）だけが返し、一覧（myRooms）では null"
   capabilities: RoomCapabilities
+  "始まった対戦（対戦中になるまでは null）。部屋の詳細（room）だけが返し、一覧（myRooms）では null。部屋の入っている人はみな対戦の参加者なので、読める"
+  match: Match
 }
 
 "自分の部屋の一覧の 1 件と、その位置"
@@ -426,11 +430,12 @@ type CloseRoomSuccess {
   revision: Int!
 }
 
-"closeRoom の結果（作った人だけ。対戦中は閉じられない（対戦中の状態は対戦を作るときに足す））"
+"closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError。対戦が終わった後の部屋の動きは先の候補）"
 union CloseRoomResult =
     CloseRoomSuccess
   | RoomNotFoundError
   | RevisionConflictError
+  | RoomStatusNotAllowedError
   | RoomNotResponsibleError
   | PlayerNotRegisteredError
 

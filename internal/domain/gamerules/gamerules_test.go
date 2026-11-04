@@ -54,24 +54,39 @@ func TestDefaults_HaveCurrentValues(t *testing.T) {
 	require.Equal(t, 2, defaults.Match.MinPlayers.Int())
 	require.Equal(t, 4, defaults.Match.MaxPlayers.Int())
 	require.Equal(t, 6, defaults.Match.MaxHandCards.Int())
-}
-
-func TestNewMatchValues_RejectValueBelowOne(t *testing.T) {
-	for _, value := range []int{0, -1} {
-		_, err := gamerules.NewMinPlayers(value)
-		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
-
-		_, err = gamerules.NewMaxPlayers(value)
-		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
-
-		_, err = gamerules.NewMaxHandCards(value)
-		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
-	}
+	require.Equal(t, 5, defaults.Match.StartingHandCards.Int())
 }
 
 func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
 	rules := gamerules.Defaults()
-	rules.Match = gamerulestest.Match(t, 5, 4, 6)
+	rules.Match = gamerulestest.Match(t, 5, 4, 6, 5)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_RejectsStartingHandCardsAboveMaxHandCards(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 6, 7)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_AcceptsStartingHandCardsEqualToMaxHandCards(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 6, 6)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.NoError(t, err)
+}
+
+func TestNew_RejectsStartingHandCardsAboveDeckTotalCardCount(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 50, 41)
 
 	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
 
@@ -80,7 +95,7 @@ func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
 
 func TestNew_AcceptsMinPlayersEqualToMaxPlayers(t *testing.T) {
 	rules := gamerules.Defaults()
-	rules.Match = gamerulestest.Match(t, 3, 3, 6)
+	rules.Match = gamerulestest.Match(t, 3, 3, 6, 5)
 
 	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
 

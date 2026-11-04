@@ -18,9 +18,10 @@ type GameRules struct {
 
 // 対戦の決まり
 type MatchRules struct {
-	MinPlayers   int
-	MaxPlayers   int
-	MaxHandCards int
+	MinPlayers        int
+	MaxPlayers        int
+	MaxHandCards      int
+	StartingHandCards int
 }
 
 // 写した game_rules を読む。まだ写されていなければ found は false
@@ -43,6 +44,6 @@ func (q *GameRulesHandler) Get(ctx context.Context) (GameRules, error) {
 		return GameRules{}, ErrGameRulesNotPublished
 	}
 	match := rules.Match
-	matchRules := MatchRules{MinPlayers: match.MinPlayers.Int(), MaxPlayers: match.MaxPlayers.Int(), MaxHandCards: match.MaxHandCards.Int()}
+	matchRules := MatchRules{MinPlayers: match.MinPlayers.Int(), MaxPlayers: match.MaxPlayers.Int(), MaxHandCards: match.MaxHandCards.Int(), StartingHandCards: match.StartingHandCards.Int()}
 	return GameRules{Match: matchRules}, nil
 }

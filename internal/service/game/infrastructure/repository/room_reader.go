@@ -230,7 +230,7 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 	if err != nil {
 		return query.Room{}, err
 	}
-	result := query.Room{ID: metadata.ID, Name: metadata.Name, Revision: metadata.Revision, Status: status}
+	result := query.Room{ID: metadata.ID, Name: metadata.Name, Revision: metadata.Revision, Status: status, Match: metadata.Match}
 	result.Participants = []query.RoomParticipant{{PlayerID: metadata.Owner, Owner: true, Ready: slices.Contains(metadata.ReadyPlayers, metadata.Owner)}}
 	for _, seat := range metadata.Seats {
 		kind, err := toRoomSeatKind(seat.Kind)
@@ -283,6 +283,8 @@ func toRoomStatus(status readmodel.RoomStatus) (query.RoomStatus, error) {
 		return query.RoomStatusDraft, nil
 	case readmodel.RoomStatusPreparing:
 		return query.RoomStatusPreparing, nil
+	case readmodel.RoomStatusPlaying:
+		return query.RoomStatusPlaying, nil
 	case readmodel.RoomStatusClosed:
 		return query.RoomStatusClosed, nil
 	default:

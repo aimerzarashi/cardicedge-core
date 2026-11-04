@@ -44,13 +44,13 @@ func TestGameRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 func TestGameRulesReader_ReadsProjectedMatchRules(t *testing.T) {
 	ctx := emptyCardLists(t)
 	rules := gamerules.Defaults()
-	rules.Match = gamerulestest.Match(t, 3, 5, 8)
+	rules.Match = gamerulestest.Match(t, 3, 5, 8, 4)
 	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: uuid.New(), Revision: 1, UpdatedAt: time.Now().UTC(), Rules: rules}))
 
 	got, err := repository.NewGameRulesReader().Get(ctx)
 
 	require.NoError(t, err)
-	match := query.MatchRules{MinPlayers: 3, MaxPlayers: 5, MaxHandCards: 8}
+	match := query.MatchRules{MinPlayers: 3, MaxPlayers: 5, MaxHandCards: 8, StartingHandCards: 4}
 	require.Equal(t, query.GameRules{Match: match}, got)
 }
 

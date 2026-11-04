@@ -239,11 +239,6 @@ type ComplexityRoot struct {
 		Field func(childComplexity int) int
 	}
 
-	FieldLessThan struct {
-		Field func(childComplexity int) int
-		Than  func(childComplexity int) int
-	}
-
 	FieldNotAdjacent struct {
 		Field func(childComplexity int) int
 	}
@@ -384,9 +379,10 @@ type ComplexityRoot struct {
 	}
 
 	MatchRules struct {
-		MaxHandCards func(childComplexity int) int
-		MaxPlayers   func(childComplexity int) int
-		MinPlayers   func(childComplexity int) int
+		MaxHandCards      func(childComplexity int) int
+		MaxPlayers        func(childComplexity int) int
+		MinPlayers        func(childComplexity int) int
+		StartingHandCards func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -1506,19 +1502,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FieldInvalidFormat.Field(childComplexity), true
 
-	case "FieldLessThan.field":
-		if e.ComplexityRoot.FieldLessThan.Field == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldLessThan.Field(childComplexity), true
-	case "FieldLessThan.than":
-		if e.ComplexityRoot.FieldLessThan.Than == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldLessThan.Than(childComplexity), true
-
 	case "FieldNotAdjacent.field":
 		if e.ComplexityRoot.FieldNotAdjacent.Field == nil {
 			break
@@ -1878,6 +1861,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchRules.MinPlayers(childComplexity), true
+	case "MatchRules.startingHandCards":
+		if e.ComplexityRoot.MatchRules.StartingHandCards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchRules.StartingHandCards(childComplexity), true
 
 	case "Mutation.changeBoardDefaultRules":
 		if e.ComplexityRoot.Mutation.ChangeBoardDefaultRules == nil {
@@ -3945,6 +3934,8 @@ func (ec *executionContext) childFields_MatchRules(ctx context.Context, field gr
 		return ec.fieldContext_MatchRules_maxPlayers(ctx, field)
 	case "maxHandCards":
 		return ec.fieldContext_MatchRules_maxHandCards(ctx, field)
+	case "startingHandCards":
+		return ec.fieldContext_MatchRules_startingHandCards(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchRules", field.Name)
 }
@@ -7485,52 +7476,6 @@ func (ec *executionContext) fieldContext_FieldInvalidFormat_field(_ context.Cont
 	return graphql.NewScalarFieldContext("FieldInvalidFormat", field, false, false, "String")
 }
 
-func (ec *executionContext) _FieldLessThan_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldLessThan_field(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Field, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldLessThan_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, "String")
-}
-
-func (ec *executionContext) _FieldLessThan_than(ctx context.Context, field graphql.CollectedField, obj *model.FieldLessThan) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldLessThan_than(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Than, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldLessThan_than(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldLessThan", field, false, false, "String")
-}
-
 func (ec *executionContext) _FieldNotAdjacent_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldNotAdjacent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8838,6 +8783,29 @@ func (ec *executionContext) _MatchRules_maxHandCards(ctx context.Context, field 
 	)
 }
 func (ec *executionContext) fieldContext_MatchRules_maxHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchRules_startingHandCards(ctx context.Context, field graphql.CollectedField, obj *model.MatchRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchRules_startingHandCards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartingHandCards, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchRules_startingHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
 }
 
@@ -20235,13 +20203,6 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldNotAdjacent(ctx, sel, obj)
-	case model.FieldLessThan:
-		return ec._FieldLessThan(ctx, sel, &obj)
-	case *model.FieldLessThan:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._FieldLessThan(ctx, sel, obj)
 	case model.FieldInvalidFormat:
 		return ec._FieldInvalidFormat(ctx, sel, &obj)
 	case *model.FieldInvalidFormat:
@@ -23884,44 +23845,6 @@ func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.Sel
 	return out
 }
 
-var fieldLessThanImplementors = []string{"FieldLessThan", "FieldError"}
-
-func (ec *executionContext) _FieldLessThan(ctx context.Context, sel ast.SelectionSet, obj *model.FieldLessThan) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, fieldLessThanImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("FieldLessThan")
-		case "field":
-			out.Values[i] = ec._FieldLessThan_field(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "than":
-			out.Values[i] = ec._FieldLessThan_than(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var fieldNotAdjacentImplementors = []string{"FieldNotAdjacent", "FieldError"}
 
 func (ec *executionContext) _FieldNotAdjacent(ctx context.Context, sel ast.SelectionSet, obj *model.FieldNotAdjacent) graphql.Marshaler {
@@ -25018,6 +24941,11 @@ func (ec *executionContext) _MatchRules(ctx context.Context, sel ast.SelectionSe
 			}
 		case "maxHandCards":
 			out.Values[i] = ec._MatchRules_maxHandCards(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "startingHandCards":
+			out.Values[i] = ec._MatchRules_startingHandCards(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

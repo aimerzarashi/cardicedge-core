@@ -991,19 +991,6 @@ func (FieldInvalidFormat) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
 
-// 入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）
-type FieldLessThan struct {
-	// 誤りのある入力の項目
-	Field string `json:"field"`
-	// 下回ってはいけない相手の入力の項目（例: diceMin）
-	Than string `json:"than"`
-}
-
-func (FieldLessThan) IsFieldError() {}
-
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
-func (this FieldLessThan) GetField() string { return this.Field }
-
 // つながりの両端が隣どうし（上下左右に 1 マス）でない（同じ座標を指すものを含む）
 type FieldNotAdjacent struct {
 	// 誤りのある入力の項目（一覧の中の位置を含む。例: connections.2）
@@ -1026,7 +1013,7 @@ func (FieldNotFound) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotFound) GetField() string { return this.Field }
 
-// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）
+// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下、サイコロの目の最大が最小以下）
 type FieldNotGreaterThan struct {
 	// 誤りのある入力の項目
 	Field string `json:"field"`
@@ -1485,6 +1472,8 @@ type MatchRules struct {
 	MaxPlayers int `json:"maxPlayers"`
 	// 手札の上限の枚数
 	MaxHandCards int `json:"maxHandCards"`
+	// 対戦の始めに配る手札の枚数
+	StartingHandCards int `json:"startingHandCards"`
 }
 
 type Mutation struct {

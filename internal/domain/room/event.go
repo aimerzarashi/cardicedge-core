@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -72,6 +73,14 @@ type ReadyDeclaredEvent struct {
 	Player      player.ID `json:"player"`
 }
 
+// 全員が準備完了になり、対戦が始まった（対戦中）。対戦はこのイベントを受けたポリシーが、部屋の条件の写しから作る
+// （1 つのトランザクションで変える集約を 1 つにするため。ID だけは先に取り、部屋から対戦をすぐ引けるようにする）
+type MatchStartedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Match       match.ID `json:"match"`
+}
+
 type ClosedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -92,6 +101,7 @@ var (
 	publishedEventType          = domain.NewEventName("PublishedEvent")
 	preparationStartedEventType = domain.NewEventName("PreparationStartedEvent")
 	readyDeclaredEventType      = domain.NewEventName("ReadyDeclaredEvent")
+	matchStartedEventType       = domain.NewEventName("MatchStartedEvent")
 	closedEventType             = domain.NewEventName("ClosedEvent")
 	renamedEventType            = domain.NewEventName("RenamedEvent")
 )
@@ -122,6 +132,10 @@ func (*PreparationStartedEvent) EventType() domain.EventName {
 
 func (*ReadyDeclaredEvent) EventType() domain.EventName {
 	return readyDeclaredEventType
+}
+
+func (*MatchStartedEvent) EventType() domain.EventName {
+	return matchStartedEventType
 }
 
 func (*ClosedEvent) EventType() domain.EventName {
@@ -161,6 +175,10 @@ func (*ReadyDeclaredEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*MatchStartedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*ClosedEvent) SchemaVersion() int {
 	return 1
 }
@@ -172,7 +190,7 @@ func (*RenamedEvent) SchemaVersion() int {
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, seatsChangedEventType, matchRulesChangedEventType, seatChoiceChangedEventType,
-		publishedEventType, preparationStartedEventType, readyDeclaredEventType, closedEventType, renamedEventType,
+		publishedEventType, preparationStartedEventType, readyDeclaredEventType, closedEventType, renamedEventType, matchStartedEventType,
 	}}
 }
 
@@ -199,6 +217,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &PreparationStartedEvent{EventMeta: meta}
 	case EventType(readyDeclaredEventType):
 		event = &ReadyDeclaredEvent{EventMeta: meta}
+	case EventType(matchStartedEventType):
+		event = &MatchStartedEvent{EventMeta: meta}
 	case EventType(closedEventType):
 		event = &ClosedEvent{EventMeta: meta}
 	case EventType(renamedEventType):

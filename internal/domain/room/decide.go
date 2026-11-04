@@ -81,7 +81,14 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err := current.checkDeclareReady(c.Player); err != nil {
 			return nil, err
 		}
-		return []Event{&ReadyDeclaredEvent{EventMeta: nextMeta(current, now), Player: c.Player}}, nil
+		events := []Event{&ReadyDeclaredEvent{EventMeta: nextMeta(current, now), Player: c.Player}}
+		if current.StartsMatchOnReady(c.Player) {
+			if c.Match == 0 {
+				return nil, ErrMatchIDMissing
+			}
+			events = append(events, &MatchStartedEvent{EventMeta: metaAt(current, current.Version+2, now), Match: c.Match})
+		}
+		return events, nil
 	case *RenameCommand:
 		if err := current.checkRename(c.RenamedBy); err != nil {
 			return nil, err
@@ -166,11 +173,14 @@ func (r Room) checkRename(actor player.ID) error {
 	return nil
 }
 
-// 閉じた部屋を閉じ直すのは成功（イベントは出ない）なので、この関数は閉じた部屋でも通る。
-// 対戦中（PLAYING）は閉じられない。対戦中の状態を足すとき（core#71）に、ここで止める
+// 閉じた部屋を閉じ直すのは成功（イベントは出ない）なので、この関数は閉じた部屋でも通る。対戦中は閉じられない
+// （途中でやめる（投了）は対戦の側で決める）
 func (r Room) checkClose(actor player.ID) error {
 	if actor != r.Owner {
 		return ErrNotOwner
+	}
+	if r.Status == StatusPlaying {
+		return ErrStatusNotAllowed
 	}
 	return nil
 }

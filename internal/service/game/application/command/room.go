@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -45,6 +46,7 @@ type RoomSelectable interface {
 type RoomHandler struct {
 	eventStore domain.EventStore[room.ID, room.Event, room.State]
 	identifier domain.Identifier[room.ID]
+	matches    domain.Identifier[match.ID]
 	references RoomReferences
 	entityRefs domain.EntityRefResolver
 	selectable RoomSelectable
@@ -55,6 +57,7 @@ type RoomHandler struct {
 func NewRoomHandler(
 	eventStore domain.EventStore[room.ID, room.Event, room.State],
 	identifier domain.Identifier[room.ID],
+	matches domain.Identifier[match.ID],
 	references RoomReferences,
 	entityRefs domain.EntityRefResolver,
 	selectable RoomSelectable,
@@ -62,7 +65,7 @@ func NewRoomHandler(
 	now func() time.Time,
 ) *RoomHandler {
 	return &RoomHandler{
-		eventStore: eventStore, identifier: identifier, references: references, entityRefs: entityRefs,
+		eventStore: eventStore, identifier: identifier, matches: matches, references: references, entityRefs: entityRefs,
 		selectable: selectable, getRules: getRules, now: now,
 	}
 }
@@ -170,7 +173,7 @@ func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision in
 
 // 対戦ルールを決める（公開前、または公開前に決めていなければ準備中）。決めるのは作った人。
 // 入力の誤りは input.Errors（まとめて返す）。7 つの値の誤りは board.NewDefaultRules の決まりで、項目名は GraphQL の入力の項目名
-// （targetMagic 等。TooSmall・NotGreaterThan・LessThan）。ボードが解放した公開中のものでなければ NotFound（項目名 boardId）。
+// （targetMagic 等。TooSmall・NotGreaterThan）。ボードが解放した公開中のものでなければ NotFound（項目名 boardId）。
 // ほかのエラーは ChangeSeats と同じ。公開前に決めたものは ErrRoomConditionLocked、準備完了の申告の後は ErrRoomAlreadyReady
 func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revision int64, rulesInput RoomMatchRulesInput) (ChangedRoom, error) {
 	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
@@ -221,8 +224,8 @@ func valuesToInput(rulesInput RoomMatchRulesInput) input.Errors {
 	if errors.Is(err, board.ErrDiceMinTooSmall) {
 		invalid = append(invalid, &input.TooSmall{Field: "diceMin", Min: 1})
 	}
-	if errors.Is(err, board.ErrDiceMaxLessThanDiceMin) {
-		invalid = append(invalid, &input.LessThan{Field: "diceMax", Than: "diceMin"})
+	if errors.Is(err, board.ErrDiceMaxNotGreaterThanDiceMin) {
+		invalid = append(invalid, &input.NotGreaterThan{Field: "diceMax", Than: "diceMin"})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）
@@ -351,10 +354,21 @@ func (c *RoomHandler) Publish(ctx context.Context, id uuid.UUID, revision int64)
 
 // context のプレイヤーが準備完了を申告する（準備中だけ。自分の担当の分がすべて決まっているとき）。
 // 担当の分に決まっていないものがあれば ErrRoomConditionsNotDecided、すでに申告していれば ErrRoomAlreadyReady。
-// 選んだ値が使えるかは、選んだ時に確かめているので、ここでは確かめ直さない。ほかのエラーは ChangeSeats と同じ
+// 選んだ値が使えるかは、選んだ時に確かめているので、ここでは確かめ直さない。ほかのエラーは ChangeSeats と同じ。
+// 最後の準備完了なら、同じトランザクションで対戦の ID を取って渡し、部屋が対戦中になる（対戦そのものはポリシーが作る）。
+// ID を取るのは DB の仕事で Decide の中ではできず、取るかどうかはドメイン（StartsMatchOnReady）が決める。
+// 最後でない準備完了では取らない（使わない ID で domain_entities の行を増やさないため）
 func (c *RoomHandler) DeclareReady(ctx context.Context, id uuid.UUID, revision int64) (ChangedRoom, error) {
 	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
-		return &room.DeclareReadyCommand{Player: actor}, nil
+		cmd := &room.DeclareReadyCommand{Player: actor}
+		if current.StartsMatchOnReady(actor) {
+			matchID, _, err := c.matches.Issue(ctx)
+			if err != nil {
+				return nil, err
+			}
+			cmd.Match = matchID
+		}
+		return cmd, nil
 	})
 }
 

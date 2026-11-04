@@ -59,14 +59,16 @@ func (n Name) String() string {
 }
 
 // 部屋の状態。マスタの draft の訳語が「準備中」なので、部屋の DRAFT は日本語で「公開前」と書いて分ける。
-// 募集中（RECRUITING）・対戦中（PLAYING）は、使う操作（参加・対戦の開始）を作るときに足す（使わない値を先に置かない。
+// 募集中（RECRUITING）は、参加の操作を作るときに足す（使わない値を先に置かない。
 // 公開は同時に準備中へ進むので、公開しただけの状態は持たない）
 type Status string
 
 const (
 	StatusDraft     Status = "draft"
 	StatusPreparing Status = "preparing"
-	StatusClosed    Status = "closed"
+	// 全員の準備完了で対戦が始まってから、対戦が終わるまで。終わった後の部屋の動きは ⑦ で決める
+	StatusPlaying Status = "playing"
+	StatusClosed  Status = "closed"
 )
 
 func (s Status) String() string {

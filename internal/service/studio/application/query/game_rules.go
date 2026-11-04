@@ -17,9 +17,10 @@ type GameRules struct {
 
 // 対戦の決まり
 type MatchRules struct {
-	MinPlayers   int
-	MaxPlayers   int
-	MaxHandCards int
+	MinPlayers        int
+	MaxPlayers        int
+	MaxHandCards      int
+	StartingHandCards int
 }
 
 // 無ければ ErrGameRulesNotProjected
