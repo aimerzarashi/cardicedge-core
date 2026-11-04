@@ -47,10 +47,10 @@ func (i ParticipantIndex) Int() int {
 	return int(i)
 }
 
-// 乱数の元。Decide の中で引かず、time.Now と同じく外から受け取る（テストで目と並びを固定するため）。
-// 振り直しは前に出た目で決まるので、結果をコマンドで渡す形では決まりがアプリケーションの層に出る。math/rand/v2 の *rand.Rand が満たす
+// 乱数の元（順番と山札を混ぜる）。Decide の中で引かず、time.Now と同じく外から受け取る（テストで並びを固定するため）。
+// 混ぜた結果をコマンドで渡す形にしないのは、山札の並べ方（カードを枚数の分だけ並べる）を Decide の 1 か所に置くため。math/rand/v2 の *rand.Rand が満たす
+// サイコロ（IntN）は、ターンで振るようになるとき（⑥）に足す
 type Random interface {
-	IntN(n int) int
 	Shuffle(n int, swap func(i, j int))
 }
 
@@ -137,15 +137,4 @@ func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, st
 		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 	}
-}
-
-func (r Rules) rollDie(random Random) int {
-	return r.DiceMin + random.IntN(r.DiceMax-r.DiceMin+1)
-}
-
-// 順番を決めるサイコロ 1 回。Attempt は 1 が最初の 1 回で、同じ目の人どうしで振り直すたびに 1 つ増える
-type TurnOrderRoll struct {
-	Participant ParticipantIndex `json:"participant"`
-	Attempt     int              `json:"attempt"`
-	Value       int              `json:"value"`
 }

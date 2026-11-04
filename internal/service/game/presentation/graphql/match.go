@@ -51,10 +51,6 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			Magic:    participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, TurnOrder: participant.TurnOrder,
 		}
 	}
-	rolls := make([]*model.MatchTurnOrderRoll, len(match.TurnOrderRolls))
-	for i, roll := range match.TurnOrderRolls {
-		rolls[i] = &model.MatchTurnOrderRoll{Participant: roll.Participant, Attempt: roll.Attempt, Value: roll.Value}
-	}
 	rules := match.Rules
 	return &model.Match{
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
@@ -64,7 +60,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			MaxHandCards: rules.MaxHandCards, StartingHandCards: rules.StartingHandCards,
 		},
 		Board:        &model.MatchBoard{Width: match.Board.Width, Height: match.Board.Height, Tiles: tiles, Connections: connections, Pairs: pairs},
-		Participants: participants, TurnOrderRolls: rolls, CurrentParticipant: match.CurrentParticipant,
+		Participants: participants, CurrentParticipant: match.CurrentParticipant,
 	}, nil
 }
 

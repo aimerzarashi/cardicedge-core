@@ -57,8 +57,7 @@ func newMatchStartFixture(t *testing.T) matchStartFixture {
 			return []master.DeckCard{{Card: cardC, Count: 2}}, nil
 		},
 		func() match.Random {
-			rules := matchtest.Rules(t, 1, 6, 3)
-			return matchtest.NewRandom(t, rules, 2, 5)
+			return matchtest.NewRandom()
 		},
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)

@@ -58,12 +58,10 @@ func startCommand(t *testing.T, rules match.Rules, participants ...match.Partici
 	return &match.StartCommand{ID: matchtest.ID(t, 40), Participants: participants, Board: twoTileBoard(t), Rules: rules}
 }
 
-func start(t *testing.T, cmd *match.StartCommand, dice ...int) (match.Match, []match.Event) {
+func start(t *testing.T, cmd *match.StartCommand) (match.Match, []match.Event) {
 	t.Helper()
-	random := matchtest.NewRandom(t, cmd.Rules, dice...)
-	events, err := match.Decide(match.InitialState(), cmd, startedAt, random)
+	events, err := match.Decide(match.InitialState(), cmd, startedAt, matchtest.NewRandom())
 	require.NoError(t, err)
-	random.RequireUsed(t)
 	state := match.InitialState()
 	for _, event := range events {
 		state, err = match.Evolve(state, event)
@@ -94,7 +92,7 @@ func refs(t *testing.T, ids ...int64) []card.Ref {
 func TestDecide_StartPutsEveryoneOnBaseWithStartingMagicAtRoundOne(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
 
-	state, events := start(t, cmd, 3, 5)
+	state, events := start(t, cmd)
 
 	require.Len(t, events, 4)
 	require.Equal(t, int64(4), state.Version)
@@ -108,50 +106,22 @@ func TestDecide_StartPutsEveryoneOnBaseWithStartingMagicAtRoundOne(t *testing.T)
 	}
 }
 
-func TestDecide_StartOrdersByDiceFromTheHighestAndGivesTheTurnToTheFirst(t *testing.T) {
-	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-
-	state, _ := start(t, cmd, 3, 5)
-
-	require.Equal(t, indexes(t, 1, 0), state.TurnOrder)
-	require.Equal(t, []match.TurnOrderRoll{matchtest.Roll(t, 0, 1, 3), matchtest.Roll(t, 1, 1, 5)}, state.TurnOrderRolls)
-	current, ok := state.CurrentParticipant()
-	require.True(t, ok)
-	require.Equal(t, matchtest.Index(t, 1), current)
-}
-
-func TestDecide_StartRerollsOnlyTiedParticipantsUntilTheOrderIsDecided(t *testing.T) {
+// 順番は参加者の並びを乱数の元で混ぜたもの（テストの乱数の元は逆順にする）
+func TestDecide_StartShufflesParticipantsIntoTheTurnOrderAndGivesTheTurnToTheFirst(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 1), playerParticipant(t), npcParticipant(t), npcParticipant(t))
 
-	// 1 回目: 0 と 2 が 4 で同じ → 0 と 2 だけで振り直し、また同じ（2）→ もう一度振って 2 が上
-	state, _ := start(t, cmd, 4, 6, 4, 2, 2, 1, 3)
+	state, _ := start(t, cmd)
 
-	require.Equal(t, indexes(t, 1, 2, 0), state.TurnOrder)
-	require.Equal(t, []match.TurnOrderRoll{
-		matchtest.Roll(t, 0, 1, 4), matchtest.Roll(t, 1, 1, 6), matchtest.Roll(t, 2, 1, 4),
-		matchtest.Roll(t, 0, 2, 2), matchtest.Roll(t, 2, 2, 2),
-		matchtest.Roll(t, 0, 3, 1), matchtest.Roll(t, 2, 3, 3),
-	}, state.TurnOrderRolls)
-}
-
-func TestDecide_StartRerollsTiedGroupsFromTheHigherRank(t *testing.T) {
-	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 1), playerParticipant(t), npcParticipant(t), npcParticipant(t), npcParticipant(t))
-
-	// 1 回目: 2 と 3 が 5、0 と 1 が 2 → 上の組（2 と 3）から振り直す
-	state, _ := start(t, cmd, 2, 2, 5, 5, 1, 6, 4, 3)
-
-	require.Equal(t, indexes(t, 3, 2, 0, 1), state.TurnOrder)
-	require.Equal(t, []match.TurnOrderRoll{
-		matchtest.Roll(t, 0, 1, 2), matchtest.Roll(t, 1, 1, 2), matchtest.Roll(t, 2, 1, 5), matchtest.Roll(t, 3, 1, 5),
-		matchtest.Roll(t, 2, 2, 1), matchtest.Roll(t, 3, 2, 6),
-		matchtest.Roll(t, 0, 2, 4), matchtest.Roll(t, 1, 2, 3),
-	}, state.TurnOrderRolls)
+	require.Equal(t, indexes(t, 2, 1, 0), state.TurnOrder)
+	current, ok := state.CurrentParticipant()
+	require.True(t, ok)
+	require.Equal(t, matchtest.Index(t, 2), current)
 }
 
 func TestDecide_StartShufflesEachDeckAndDealsTheStartingHandFromTheTop(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
 
-	state, _ := start(t, cmd, 3, 5)
+	state, _ := start(t, cmd)
 
 	// 並べると 101, 101, 102。混ぜる（テストの乱数の元は逆順）と 102, 101, 101 で、先頭の 2 枚を配る
 	require.Equal(t, refs(t, 102, 101), state.Participants[0].Hand)
@@ -163,30 +133,26 @@ func TestDecide_StartShufflesEachDeckAndDealsTheStartingHandFromTheTop(t *testin
 func TestDecide_StartDealsOnlyWhatTheDeckHasWhenTheDeckIsSmallerThanTheStartingHand(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 5), playerParticipant(t), npcParticipant(t))
 
-	state, _ := start(t, cmd, 3, 5)
+	state, _ := start(t, cmd)
 
 	require.Len(t, state.Participants[0].Hand, 3)
 	require.Empty(t, state.Participants[0].DrawPile)
 }
 
-func TestDecide_StartRejectsBoardWithoutBaseAndSingleFacedDice(t *testing.T) {
-	noBase := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	noBase.Board.Tiles = []board.Tile{boardtest.Tile(t, 0, 0, "land", "fire")}
-	_, err := match.Decide(match.InitialState(), noBase, startedAt, matchtest.NewRandom(t, noBase.Rules))
-	require.ErrorIs(t, err, match.ErrBaseNotFound)
+func TestDecide_StartRejectsBoardWithoutBase(t *testing.T) {
+	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
+	cmd.Board.Tiles = []board.Tile{boardtest.Tile(t, 0, 0, "land", "fire")}
 
-	// 読み直した写しなど、board.DefaultRules を通らずに作った値でも止まる
-	singleFaced := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	singleFaced.Rules.DiceMax = singleFaced.Rules.DiceMin
-	_, err = match.Decide(match.InitialState(), singleFaced, startedAt, matchtest.NewRandom(t, singleFaced.Rules))
-	require.ErrorIs(t, err, match.ErrDiceRangeTooNarrow)
+	_, err := match.Decide(match.InitialState(), cmd, startedAt, matchtest.NewRandom())
+
+	require.ErrorIs(t, err, match.ErrBaseNotFound)
 }
 
 func TestDecide_RejectsStartWhenAlreadyCreated(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	state, _ := start(t, cmd, 3, 5)
+	state, _ := start(t, cmd)
 
-	_, err := match.Decide(state, cmd, startedAt, matchtest.NewRandom(t, cmd.Rules))
+	_, err := match.Decide(state, cmd, startedAt, matchtest.NewRandom())
 
 	require.ErrorIs(t, err, match.ErrAlreadyCreated)
 }
@@ -196,15 +162,14 @@ func TestEvolve_RejectsEventsBeforeCreatedAndSecondCreated(t *testing.T) {
 	require.ErrorIs(t, err, match.ErrInvalidState)
 
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	state, events := start(t, cmd, 3, 5)
+	state, events := start(t, cmd)
 	_, err = match.Evolve(state, events[0])
 	require.ErrorIs(t, err, match.ErrInvalidState)
 }
 
 func TestEvolve_DoesNotChangeGivenState(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	random := matchtest.NewRandom(t, cmd.Rules, 3, 5)
-	events, err := match.Decide(match.InitialState(), cmd, startedAt, random)
+	events, err := match.Decide(match.InitialState(), cmd, startedAt, matchtest.NewRandom())
 	require.NoError(t, err)
 	state := match.InitialState()
 	for _, event := range events[:3] {
@@ -223,7 +188,7 @@ func TestEvolve_DoesNotChangeGivenState(t *testing.T) {
 
 func TestMatch_HasPlayerIsTheParticipatingPlayersOnly(t *testing.T) {
 	cmd := startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npcParticipant(t))
-	state, _ := start(t, cmd, 3, 5)
+	state, _ := start(t, cmd)
 
 	require.True(t, state.HasPlayer(playertest.ID(t, 10)))
 	require.False(t, state.HasPlayer(playertest.ID(t, 11)))
@@ -234,7 +199,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	meta := match.EventMeta{EntityID: matchtest.ID(t, 40), AggregateVersion: 2, OccurredAt: startedAt}
 	events := []match.Event{
 		&match.CreatedEvent{EventMeta: meta, Participants: []match.Participant{playerParticipant(t), npcParticipant(t)}, Board: twoTileBoard(t), Rules: matchtest.Rules(t, 1, 6, 5)},
-		&match.TurnOrderDecidedEvent{EventMeta: meta, Rolls: []match.TurnOrderRoll{matchtest.Roll(t, 0, 1, 3), matchtest.Roll(t, 1, 1, 5)}, Order: indexes(t, 1, 0)},
+		&match.TurnOrderDecidedEvent{EventMeta: meta, Order: indexes(t, 1, 0)},
 		&match.DecksShuffledEvent{EventMeta: meta, DrawPiles: [][]card.Ref{refs(t, 102, 101, 101), refs(t, 201, 201, 201)}},
 		&match.HandsDealtEvent{EventMeta: meta, Cards: 5},
 	}

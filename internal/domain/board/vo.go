@@ -157,7 +157,7 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	if startingMagic >= 0 && targetMagic <= startingMagic {
 		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
 	}
-	// 等しいのも誤り。対戦の順番はサイコロの大きい順で、同じ目の人は振り直して決めるため、目が 1 種類だと順番が決まらない（core#71）
+	// 等しいのも誤り。最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため（core#71・core#100）
 	if diceMin >= 1 && diceMax <= diceMin {
 		errs = append(errs, ErrDiceMaxNotGreaterThanDiceMin)
 	}

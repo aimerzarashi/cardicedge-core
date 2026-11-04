@@ -17,7 +17,6 @@ const matchQuery = `query ($id: UUID!) {
 			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
 			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder }
-			turnOrderRolls { participant attempt value }
 			currentParticipant
 		}
 		... on MatchNotFoundError { message }
@@ -93,7 +92,6 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(0), npc["drawPileCount"])
 	// 順番は 0 と 1 の並べ替えで、先頭の人の番から始まる
 	require.ElementsMatch(t, []any{float64(0), float64(1)}, []any{player["turnOrder"], npc["turnOrder"]})
-	require.NotEmpty(t, found["turnOrderRolls"])
 	first := float64(0)
 	if npc["turnOrder"] == float64(0) {
 		first = 1

@@ -26,7 +26,6 @@ func Evolve(state State, event Event) (State, error) {
 	current.Version = meta.AggregateVersion
 	switch e := event.(type) {
 	case *TurnOrderDecidedEvent:
-		current.TurnOrderRolls = e.Rolls
 		current.TurnOrder = e.Order
 		current.Turn = 0
 	case *DecksShuffledEvent:

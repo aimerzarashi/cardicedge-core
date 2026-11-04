@@ -258,7 +258,6 @@ type ComplexityRoot struct {
 		Revision           func(childComplexity int) int
 		Round              func(childComplexity int) int
 		Rules              func(childComplexity int) int
-		TurnOrderRolls     func(childComplexity int) int
 	}
 
 	MatchAvatar struct {
@@ -306,12 +305,6 @@ type ComplexityRoot struct {
 		MaxPlayers        func(childComplexity int) int
 		MinPlayers        func(childComplexity int) int
 		StartingHandCards func(childComplexity int) int
-	}
-
-	MatchTurnOrderRoll struct {
-		Attempt     func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Value       func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -1252,12 +1245,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.Rules(childComplexity), true
-	case "Match.turnOrderRolls":
-		if e.ComplexityRoot.Match.TurnOrderRolls == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.TurnOrderRolls(childComplexity), true
 
 	case "MatchAvatar.id":
 		if e.ComplexityRoot.MatchAvatar.ID == nil {
@@ -1438,25 +1425,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchRules.StartingHandCards(childComplexity), true
-
-	case "MatchTurnOrderRoll.attempt":
-		if e.ComplexityRoot.MatchTurnOrderRoll.Attempt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTurnOrderRoll.Attempt(childComplexity), true
-	case "MatchTurnOrderRoll.participant":
-		if e.ComplexityRoot.MatchTurnOrderRoll.Participant == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTurnOrderRoll.Participant(childComplexity), true
-	case "MatchTurnOrderRoll.value":
-		if e.ComplexityRoot.MatchTurnOrderRoll.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTurnOrderRoll.Value(childComplexity), true
 
 	case "Mutation.changeRoomMatchRules":
 		if e.ComplexityRoot.Mutation.ChangeRoomMatchRules == nil {
@@ -2507,8 +2475,6 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_board(ctx, field)
 	case "participants":
 		return ec.fieldContext_Match_participants(ctx, field)
-	case "turnOrderRolls":
-		return ec.fieldContext_Match_turnOrderRolls(ctx, field)
 	case "currentParticipant":
 		return ec.fieldContext_Match_currentParticipant(ctx, field)
 	}
@@ -2599,18 +2565,6 @@ func (ec *executionContext) childFields_MatchRules(ctx context.Context, field gr
 		return ec.fieldContext_MatchRules_startingHandCards(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchRules", field.Name)
-}
-
-func (ec *executionContext) childFields_MatchTurnOrderRoll(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "participant":
-		return ec.fieldContext_MatchTurnOrderRoll_participant(ctx, field)
-	case "attempt":
-		return ec.fieldContext_MatchTurnOrderRoll_attempt(ctx, field)
-	case "value":
-		return ec.fieldContext_MatchTurnOrderRoll_value(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type MatchTurnOrderRoll", field.Name)
 }
 
 func (ec *executionContext) childFields_NpcAvatar(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -5835,38 +5789,6 @@ func (ec *executionContext) fieldContext_Match_participants(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Match_turnOrderRolls(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_turnOrderRolls(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TurnOrderRolls, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.MatchTurnOrderRoll) graphql.Marshaler {
-			return ec.marshalNMatchTurnOrderRoll2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchTurnOrderRollᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Match_turnOrderRolls(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_MatchTurnOrderRoll(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Match_currentParticipant(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6609,75 +6531,6 @@ func (ec *executionContext) _MatchRules_startingHandCards(ctx context.Context, f
 }
 func (ec *executionContext) fieldContext_MatchRules_startingHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
-}
-
-func (ec *executionContext) _MatchTurnOrderRoll_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchTurnOrderRoll) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTurnOrderRoll_participant(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Participant, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTurnOrderRoll_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTurnOrderRoll", field, false, false, "Int")
-}
-
-func (ec *executionContext) _MatchTurnOrderRoll_attempt(ctx context.Context, field graphql.CollectedField, obj *model.MatchTurnOrderRoll) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTurnOrderRoll_attempt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Attempt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTurnOrderRoll_attempt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTurnOrderRoll", field, false, false, "Int")
-}
-
-func (ec *executionContext) _MatchTurnOrderRoll_value(ctx context.Context, field graphql.CollectedField, obj *model.MatchTurnOrderRoll) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTurnOrderRoll_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTurnOrderRoll_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTurnOrderRoll", field, false, false, "Int")
 }
 
 func (ec *executionContext) _Mutation_registerAvatar(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -13829,11 +13682,6 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "turnOrderRolls":
-			out.Values[i] = ec._Match_turnOrderRolls(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "currentParticipant":
 			out.Values[i] = ec._Match_currentParticipant(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -14149,49 +13997,6 @@ func (ec *executionContext) _MatchRules(ctx context.Context, sel ast.SelectionSe
 			}
 		case "startingHandCards":
 			out.Values[i] = ec._MatchRules_startingHandCards(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var matchTurnOrderRollImplementors = []string{"MatchTurnOrderRoll"}
-
-func (ec *executionContext) _MatchTurnOrderRoll(ctx context.Context, sel ast.SelectionSet, obj *model.MatchTurnOrderRoll) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, matchTurnOrderRollImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("MatchTurnOrderRoll")
-		case "participant":
-			out.Values[i] = ec._MatchTurnOrderRoll_participant(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "attempt":
-			out.Values[i] = ec._MatchTurnOrderRoll_attempt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._MatchTurnOrderRoll_value(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -16636,30 +16441,6 @@ func (ec *executionContext) marshalNMatchRules2ᚖgitlabᚗcomᚋaimerzarashiᚋ
 		return graphql.Null
 	}
 	return ec._MatchRules(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNMatchTurnOrderRoll2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchTurnOrderRollᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchTurnOrderRoll) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNMatchTurnOrderRoll2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchTurnOrderRoll(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNMatchTurnOrderRoll2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchTurnOrderRoll(ctx context.Context, sel ast.SelectionSet, v *model.MatchTurnOrderRoll) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "MatchTurnOrderRoll!")
-		return graphql.Null
-	}
-	return ec._MatchTurnOrderRoll(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMeResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMeResult(ctx context.Context, sel ast.SelectionSet, v model.MeResult) graphql.Marshaler {

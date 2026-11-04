@@ -29,37 +29,17 @@ func Rules(t testing.TB, diceMin, diceMax, startingHandCards int) match.Rules {
 	)
 }
 
-// 決まった目を順に返し、山札は逆順に並べる乱数の元。目が足りなくなったら、テストの用意の誤りとして落とす
-type Random struct {
-	t       testing.TB
-	diceMin int
-	values  []int
+// 混ぜる並びを逆順にする乱数の元（順番も山札も、席の並び・デッキの並びの逆になる）
+type Random struct{}
+
+func NewRandom() Random {
+	return Random{}
 }
 
-func NewRandom(t testing.TB, rules match.Rules, values ...int) *Random {
-	t.Helper()
-	return &Random{t: t, diceMin: rules.DiceMin, values: values}
-}
-
-func (r *Random) IntN(n int) int {
-	r.t.Helper()
-	require.NotEmpty(r.t, r.values)
-	value := r.values[0] - r.diceMin
-	r.values = r.values[1:]
-	require.True(r.t, value >= 0 && value < n)
-	return value
-}
-
-func (r *Random) Shuffle(n int, swap func(i, j int)) {
+func (Random) Shuffle(n int, swap func(i, j int)) {
 	for i := range n / 2 {
 		swap(i, n-1-i)
 	}
-}
-
-// 振っていない目が残っていない（振る回数がテストの想定どおり）
-func (r *Random) RequireUsed(t testing.TB) {
-	t.Helper()
-	require.Empty(t, r.values)
 }
 
 func Index(t testing.TB, value int) match.ParticipantIndex {
@@ -67,9 +47,4 @@ func Index(t testing.TB, value int) match.ParticipantIndex {
 	index, err := match.NewParticipantIndex(value)
 	require.NoError(t, err)
 	return index
-}
-
-func Roll(t testing.TB, participant, attempt, value int) match.TurnOrderRoll {
-	t.Helper()
-	return match.TurnOrderRoll{Participant: Index(t, participant), Attempt: attempt, Value: value}
 }
