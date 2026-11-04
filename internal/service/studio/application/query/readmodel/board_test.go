@@ -46,7 +46,7 @@ func (h *boardHistory) apply(cmd board.Command, at time.Time) {
 
 func (h *boardHistory) changeLayout(layout board.Layout) {
 	h.t.Helper()
-	h.apply(&board.ChangeLayoutCommand{Layout: layout, Rules: studiorules.Defaults().Board, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
+	h.apply(&board.ChangeLayoutCommand{Layout: layout, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
 }
 
 func (h *boardHistory) project() readmodel.Board {

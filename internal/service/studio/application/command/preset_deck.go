@@ -158,7 +158,7 @@ func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, rev
 		return changedPresetDeck(changed), nil
 	})
 	if errors.Is(err, presetdeck.ErrTotalCountTooLarge) {
-		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount}}
+		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount.Int()}}
 	}
 	return changed, revisionConflict(err)
 }

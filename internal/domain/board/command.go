@@ -4,7 +4,6 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 )
 
 type Command interface {
@@ -17,7 +16,7 @@ type RegisterCommand struct {
 	ID           ID
 	PublicID     uuid.UUID
 	Name         Name
-	Rules        studiorules.Board
+	Rules        SizeRange
 	RegisteredBy operator.ID
 }
 
@@ -27,11 +26,9 @@ type RenameCommand struct {
 }
 
 // 入力は変えた後の全体で、イベントの差分は Decide が前の状態と比べて作る（presetdeck.SetCardCountsCommand と同じ）。
-// Layout は作る時点でレイアウトの決まりを守っているが、大きさの範囲は Rules で Decide が確かめる
-// （範囲を下げた後に、準備中のボードを保存し直すときも新しい範囲で確かめるため）
+// Layout は作る時点でレイアウトの決まりと、大きさの範囲（NewWidth・NewHeight が受け取る SizeRange）を守っている
 type ChangeLayoutCommand struct {
 	Layout    Layout
-	Rules     studiorules.Board
 	ChangedBy operator.ID
 }
 

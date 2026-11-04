@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
@@ -315,12 +316,15 @@ func (m master) validateNPCDecks(presetDeckNames map[string]bool) (map[string]bo
 	return names, nil
 }
 
+// 幅・高さの範囲は、ファイルの確かめでは studio_rules の既定の値を使う（実際の範囲は適用時にコマンドが studio_rules から読んで確かめる。
+// ここは適用の前に、ファイルの誤りを早く見つけるための確かめ）
 func (b masterBoard) layout() (board.Layout, error) {
-	width, err := board.NewWidth(b.Width)
+	within := studiorules.Defaults().Board
+	width, err := board.NewWidth(b.Width, within)
 	if err != nil {
 		return board.Layout{}, err
 	}
-	height, err := board.NewHeight(b.Height)
+	height, err := board.NewHeight(b.Height, within)
 	if err != nil {
 		return board.Layout{}, err
 	}

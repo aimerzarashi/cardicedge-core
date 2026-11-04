@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
 type ID int64
@@ -35,17 +36,18 @@ type Rules struct {
 	Match  Match  `json:"match"`
 }
 
+// 値の型は意味の持ち主の側に置き、ここは組み合わせて持つだけ（部品の決まりだけの構造体なので、Player・Deck・Match に生成関数は無い）
 type Player struct {
 	// 持てるデッキの数
-	MaxDecks int `json:"max_decks"`
+	MaxDecks player.MaxDecks `json:"max_decks"`
 	// 持てるアバターの数
-	MaxAvatars int `json:"max_avatars"`
+	MaxAvatars player.MaxAvatars `json:"max_avatars"`
 }
 
 // デッキ（プリセットデッキ・配布デッキ・プレイヤーのデッキ）に共通の決まり
 type Deck struct {
 	// カードの合計の枚数（配布デッキはちょうど、プリセットデッキは上限）
-	TotalCardCount int `json:"total_card_count"`
+	TotalCardCount card.DeckTotalCount `json:"total_card_count"`
 	// 同じカードを入れられる枚数の上限
 	MaxCardDuplicates card.MaxDeckQuantity `json:"max_card_duplicates"`
 }
@@ -54,37 +56,63 @@ type Deck struct {
 // 部屋の条件が読んで見せ、対戦が使う
 type Match struct {
 	// 対戦に参加できる人数の下限（この値を含む）
-	MinPlayers int `json:"min_players"`
+	MinPlayers MinPlayers `json:"min_players"`
 	// 対戦に参加できる人数の上限（この値を含む）
-	MaxPlayers int `json:"max_players"`
+	MaxPlayers MaxPlayers `json:"max_players"`
 	// 手札の上限の枚数
-	MaxHandCards int `json:"max_hand_cards"`
+	MaxHandCards MaxHandCards `json:"max_hand_cards"`
 }
 
-var ErrInvalidRules = errors.New("game rules: every value must be at least 1, and a minimum must not exceed its maximum")
+// 対戦の値の型は gamerules に置く。対戦の集約（match）がまだ無く、意味の持ち主がこのルールだけのため。対戦の集約を作るときに移す
+var ErrMatchValueNotPositive = errors.New("game rules: match value must be at least 1")
 
-// 値の数は増えていくため、値ごとの型は作らず、ここで 1 以上をまとめて確かめる
+// 対戦に参加できる人数の下限。1 以上
+type MinPlayers int
+
+func NewMinPlayers(value int) (MinPlayers, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: min players is %d", ErrMatchValueNotPositive, value)
+	}
+	return MinPlayers(value), nil
+}
+
+func (m MinPlayers) Int() int {
+	return int(m)
+}
+
+// 対戦に参加できる人数の上限。1 以上
+type MaxPlayers int
+
+func NewMaxPlayers(value int) (MaxPlayers, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: max players is %d", ErrMatchValueNotPositive, value)
+	}
+	return MaxPlayers(value), nil
+}
+
+func (m MaxPlayers) Int() int {
+	return int(m)
+}
+
+// 手札の上限の枚数。1 以上
+type MaxHandCards int
+
+func NewMaxHandCards(value int) (MaxHandCards, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: max hand cards is %d", ErrMatchValueNotPositive, value)
+	}
+	return MaxHandCards(value), nil
+}
+
+func (m MaxHandCards) Int() int {
+	return int(m)
+}
+
+var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
+
+// 項目をまたぐ決まり（人数の最小 ≤ 最大）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
 func New(player Player, deck Deck, match Match) (Rules, error) {
-	// map にしないのは、誤りが複数あるときに、どれを返すかが実行ごとに変わらないようにするため
-	values := []struct {
-		name  string
-		value int
-	}{
-		{"player.max_decks", player.MaxDecks},
-		{"player.max_avatars", player.MaxAvatars},
-		{"deck.total_card_count", deck.TotalCardCount},
-		{"deck.max_card_duplicates", deck.MaxCardDuplicates.Int()},
-		{"match.min_players", match.MinPlayers},
-		{"match.max_players", match.MaxPlayers},
-		{"match.max_hand_cards", match.MaxHandCards},
-	}
-	for _, v := range values {
-		if v.value < 1 {
-			return Rules{}, fmt.Errorf("%w: %s is %d", ErrInvalidRules, v.name, v.value)
-		}
-	}
-	// 1 以上の確かめの後に置く（0 や負の値は、大小の比べより先に「1 以上」の誤りとして返すため）
-	if match.MinPlayers > match.MaxPlayers {
+	if match.MinPlayers.Int() > match.MaxPlayers.Int() {
 		return Rules{}, fmt.Errorf("%w: match.max_players %d is below match.min_players %d", ErrInvalidRules, match.MaxPlayers, match.MinPlayers)
 	}
 	return Rules{Player: player, Deck: deck, Match: match}, nil
@@ -94,13 +122,28 @@ func New(player Player, deck Deck, match Match) (Rules, error) {
 // 作るとき（とテストの用意）のほかは、この値を直接読まず game_rules から読む（ここを読むと、値を変えても効かない所ができるため）
 func Defaults() Rules {
 	// 定数で失敗しないため、呼ぶ側に error を返さず panic にする
-	maxCardDuplicates, err := card.NewMaxDeckQuantity(4)
-	if err != nil {
-		panic(err)
+	must := func(err error) {
+		if err != nil {
+			panic(err)
+		}
 	}
+	maxDecks, err := player.NewMaxDecks(10)
+	must(err)
+	maxAvatars, err := player.NewMaxAvatars(5)
+	must(err)
+	totalCardCount, err := card.NewDeckTotalCount(40)
+	must(err)
+	maxCardDuplicates, err := card.NewMaxDeckQuantity(4)
+	must(err)
+	minPlayers, err := NewMinPlayers(2)
+	must(err)
+	maxPlayers, err := NewMaxPlayers(4)
+	must(err)
+	maxHandCards, err := NewMaxHandCards(6)
+	must(err)
 	return Rules{
-		Player: Player{MaxDecks: 10, MaxAvatars: 5},
-		Deck:   Deck{TotalCardCount: 40, MaxCardDuplicates: maxCardDuplicates},
-		Match:  Match{MinPlayers: 2, MaxPlayers: 4, MaxHandCards: 6},
+		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
+		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
+		Match:  Match{MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards},
 	}
 }

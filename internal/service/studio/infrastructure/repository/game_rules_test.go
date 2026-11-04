@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
@@ -22,8 +24,8 @@ func TestGameRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 	publicID := uuid.New()
 	at := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	rules := gamerules.Defaults()
-	rules.Player.MaxDecks = 3
-	rules.Match.MaxHandCards = 8
+	rules.Player.MaxDecks = playertest.MaxDecks(t, 3)
+	rules.Match.MaxHandCards = gamerulestest.MaxHandCards(t, 8)
 
 	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 1, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
 	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: publicID, Revision: 2, RegisteredAt: at, UpdatedAt: at, Rules: rules}))
@@ -42,7 +44,7 @@ func TestGameRulesWriter_UpsertsRulesAsMetadata(t *testing.T) {
 func TestGameRulesReader_ReadsProjectedMatchRules(t *testing.T) {
 	ctx := emptyCardLists(t)
 	rules := gamerules.Defaults()
-	rules.Match = gamerules.Match{MinPlayers: 3, MaxPlayers: 5, MaxHandCards: 8}
+	rules.Match = gamerulestest.Match(t, 3, 5, 8)
 	require.NoError(t, repository.NewGameRulesWriter().Upsert(ctx, readmodel.GameRules{GameRulesID: uuid.New(), Revision: 1, UpdatedAt: time.Now().UTC(), Rules: rules}))
 
 	got, err := repository.NewGameRulesReader().Get(ctx)

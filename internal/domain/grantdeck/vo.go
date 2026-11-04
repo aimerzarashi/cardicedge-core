@@ -82,15 +82,8 @@ func (s Status) Retire() (Status, bool, error) {
 
 // どのプリセットデッキの、どの時点から写したか。登録のイベントにだけ記録として残し、State・read model には持たせない
 // （写した後は元と関係を持たないため）。同じ studio の中なので内部 ID で指す。JSON のタグだけで読み書きし、
-// 保存済みのイベントを読み直すときは確かめない
+// 保存済みのイベントを読み直すときは確かめない。部品（ID・Revision）の決まりだけなので、生成関数は持たない
 type Source struct {
-	PresetDeck presetdeck.ID `json:"preset_deck"`
-	Revision   int64         `json:"revision"`
-}
-
-func NewSource(presetDeck presetdeck.ID, revision int64) (Source, error) {
-	if presetDeck <= 0 || revision <= 0 {
-		return Source{}, errors.New("grantdeck: source needs a preset deck id and a positive revision")
-	}
-	return Source{PresetDeck: presetDeck, Revision: revision}, nil
+	PresetDeck presetdeck.ID       `json:"preset_deck"`
+	Revision   presetdeck.Revision `json:"revision"`
 }

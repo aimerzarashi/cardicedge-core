@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -118,7 +119,7 @@ func newUnlockHandler(t *testing.T, ctx context.Context) *command.UnlockHandler 
 
 func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 	t.Helper()
-	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks)
+	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks.Int())
 	require.NoError(t, err)
 	return newDeckHandlerWithLimit(t, ctx, limit)
 }
@@ -128,7 +129,7 @@ func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.Quo
 	t.Helper()
 	return newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
 		values := gamerules.Defaults()
-		values.Player.MaxDecks = limit.Int()
+		values.Player.MaxDecks = playertest.MaxDecks(t, limit.Int())
 		return values, true, nil
 	})
 }
@@ -177,7 +178,7 @@ func newAvatarHandlerWithMax(t *testing.T, ctx context.Context, maxAvatars int) 
 	t.Helper()
 	return newAvatarHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
 		values := gamerules.Defaults()
-		values.Player.MaxAvatars = maxAvatars
+		values.Player.MaxAvatars = playertest.MaxAvatars(t, maxAvatars)
 		return values, true, nil
 	})
 }

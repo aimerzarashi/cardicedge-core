@@ -68,7 +68,7 @@ func (f fixture) register(t *testing.T) board.State {
 }
 
 func (f fixture) changeLayoutCommand(layout board.Layout) *board.ChangeLayoutCommand {
-	return &board.ChangeLayoutCommand{Layout: layout, Rules: defaultRules, ChangedBy: f.operatorID}
+	return &board.ChangeLayoutCommand{Layout: layout, ChangedBy: f.operatorID}
 }
 
 func (f fixture) changeLayout(t *testing.T, state board.State, layout board.Layout) board.State {
@@ -144,7 +144,7 @@ func TestDecide_RegisterMakesEmptyDraftOfDefaultSize(t *testing.T) {
 func TestDecide_RegisterClampsDefaultSizeIntoRange(t *testing.T) {
 	tests := []struct {
 		name  string
-		rules studiorules.Board
+		rules board.SizeRange
 		want  int
 	}{
 		{name: "inside_range", rules: studiorulestest.Board(t, 1, 32), want: 8},
@@ -178,13 +178,13 @@ func TestEvolve_KeepsRegisteredSizeOutsideCurrentRange(t *testing.T) {
 	f := newFixture(t)
 	event := &board.RegisteredEvent{
 		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
-		PublicID:  publicID, Name: f.name, Width: boardtest.Width(t, defaultRules.MaxSize+1), Height: boardtest.Height(t, 8), DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID,
+		PublicID:  publicID, Name: f.name, Width: boardtest.Width(t, defaultRules.MaxSize.Int()+1), Height: boardtest.Height(t, 8), DefaultRules: initialDefaultRules(t), RegisteredBy: f.operatorID,
 	}
 
 	state, err := board.Evolve(board.InitialState(), event)
 
 	require.NoError(t, err)
-	require.Equal(t, defaultRules.MaxSize+1, state.(board.Board).Layout.Size().Width.Int())
+	require.Equal(t, defaultRules.MaxSize.Int()+1, state.(board.Board).Layout.Size().Width.Int())
 }
 
 func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
@@ -304,39 +304,91 @@ func TestDecide_ChangeLayoutEmitsChangedTileWhenOnlyAttributeChanges(t *testing.
 	require.Empty(t, event.RemovedTiles)
 }
 
-func TestDecide_RejectsChangeLayoutOutsideRange(t *testing.T) {
+func TestNewWidthAndHeight_RejectSizeOutsideRange(t *testing.T) {
 	tests := []struct {
-		name          string
-		width, height int
-		rules         studiorules.Board
+		name  string
+		value int
+		rules board.SizeRange
 	}{
-		{name: "too_wide", width: 33, height: 8, rules: defaultRules},
-		{name: "too_high", width: 8, height: 33, rules: defaultRules},
-		{name: "below_min_width", width: 3, height: 8, rules: studiorulestest.Board(t, 4, 32)},
-		{name: "above_lowered_max_height", width: 8, height: 8, rules: studiorulestest.Board(t, 1, 7)},
+		{name: "above_max", value: 33, rules: defaultRules},
+		{name: "zero", value: 0, rules: defaultRules},
+		{name: "below_min", value: 3, rules: boardtest.SizeRange(t, 4, 32)},
+		{name: "above_lowered_max", value: 8, rules: boardtest.SizeRange(t, 1, 7)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newFixture(t)
-			cmd := f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, tt.width, tt.height)))
-			cmd.Rules = tt.rules
+			_, err := board.NewWidth(tt.value, tt.rules)
+			require.ErrorIs(t, err, board.ErrSizeOutOfRange)
 
-			_, err := board.Decide(f.register(t), cmd, changedAt)
-
+			_, err = board.NewHeight(tt.value, tt.rules)
 			require.ErrorIs(t, err, board.ErrSizeOutOfRange)
 		})
 	}
 }
 
-// 範囲を下げた後は、大きさを変えない保存でも新しい範囲で確かめる（準備中のものを保存し直すときに範囲に収めさせるため）
-func TestDecide_RejectsChangeLayoutKeepingSizeOutsideLoweredRange(t *testing.T) {
-	f := newFixture(t)
-	cmd := f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 8, 8)))
-	cmd.Rules = studiorulestest.Board(t, 1, 7)
+func TestNewWidthAndHeight_AcceptSizeAtRangeEnds(t *testing.T) {
+	rules := boardtest.SizeRange(t, 4, 10)
+	for _, value := range []int{4, 10} {
+		width, err := board.NewWidth(value, rules)
+		require.NoError(t, err)
+		require.Equal(t, value, width.Int())
 
-	_, err := board.Decide(f.register(t), cmd, changedAt)
+		height, err := board.NewHeight(value, rules)
+		require.NoError(t, err)
+		require.Equal(t, value, height.Int())
+	}
+}
 
-	require.ErrorIs(t, err, board.ErrSizeOutOfRange)
+func TestNewSizeRange_RejectsInvalidRange(t *testing.T) {
+	tests := []struct {
+		name             string
+		minSize, maxSize int
+	}{
+		{name: "zero_min_size", minSize: 0, maxSize: 32},
+		{name: "negative_min_size", minSize: -1, maxSize: 32},
+		{name: "zero_max_size", minSize: 1, maxSize: 0},
+		{name: "max_size_below_min_size", minSize: 5, maxSize: 4},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			minSize, minErr := board.NewMinSize(tt.minSize)
+			maxSize, maxErr := board.NewMaxSize(tt.maxSize)
+			if minErr != nil || maxErr != nil {
+				require.ErrorIs(t, errors.Join(minErr, maxErr), board.ErrSizeRangeInvalid)
+				return
+			}
+
+			_, err := board.NewSizeRange(minSize, maxSize)
+
+			require.ErrorIs(t, err, board.ErrSizeRangeInvalid)
+		})
+	}
+}
+
+func TestNewSizeRange_AcceptsSingleSizeRange(t *testing.T) {
+	_ = boardtest.SizeRange(t, 8, 8)
+}
+
+func TestSizeRange_ContainsAndClamp(t *testing.T) {
+	rules := boardtest.SizeRange(t, 4, 10)
+	tests := []struct {
+		name      string
+		size      int
+		contained bool
+		clamped   int
+	}{
+		{name: "below_min", size: 3, contained: false, clamped: 4},
+		{name: "min", size: 4, contained: true, clamped: 4},
+		{name: "inside", size: 8, contained: true, clamped: 8},
+		{name: "max", size: 10, contained: true, clamped: 10},
+		{name: "above_max", size: 11, contained: false, clamped: 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.contained, rules.Contains(tt.size))
+			require.Equal(t, tt.clamped, rules.Clamp(tt.size))
+		})
+	}
 }
 
 func TestDecide_ChangeLayoutOmitsSizeWhenSizeIsSame(t *testing.T) {
@@ -770,36 +822,6 @@ func TestInitialDefaultRules_SatisfiesTheRules(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, rules, checked)
 	require.Equal(t, initialDefaultRules(t), rules)
-}
-
-// 範囲（上限・下限）は studio_rules が決めるので、値の形（1 以上）だけを確かめる
-func TestNewWidthAndHeight_AcceptOneOrMore(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   int
-		wantErr bool
-	}{
-		{name: "minimum", value: 1},
-		{name: "beyond_default_max", value: 100},
-		{name: "zero", value: 0, wantErr: true},
-		{name: "negative", value: -1, wantErr: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			width, widthErr := board.NewWidth(tt.value)
-			height, heightErr := board.NewHeight(tt.value)
-
-			if tt.wantErr {
-				require.ErrorIs(t, widthErr, board.ErrSizeOutOfRange)
-				require.ErrorIs(t, heightErr, board.ErrSizeOutOfRange)
-				return
-			}
-			require.NoError(t, widthErr)
-			require.NoError(t, heightErr)
-			require.Equal(t, tt.value, width.Int())
-			require.Equal(t, tt.value, height.Int())
-		})
-	}
 }
 
 func TestNewXAndY_AcceptZeroOrMore(t *testing.T) {

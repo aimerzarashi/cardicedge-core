@@ -37,7 +37,7 @@ func registerStarterSet(t *testing.T, ctx context.Context, commands *command.Sta
 // 公開中の配布デッキ（smallRules で公開できるカード 4 枚）
 func publishedGrantDeck(t *testing.T, ctx context.Context) command.ChangedGrantDeck {
 	t.Helper()
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	filled := fullGrantDeck(t, ctx, commands)
 	published, err := commands.Publish(ctx, filled.ID, filled.Revision)
 	require.NoError(t, err)
@@ -306,9 +306,9 @@ func TestSetStarterSetGrantDecks_ReturnsFieldErrorsForDuplicateUnknownAndUnpubli
 	commands := newStarterSetHandler(t, ctx)
 	registered := registerStarterSet(t, ctx, commands, "標準")
 	published := publishedGrantDeck(t, ctx)
-	draft := fullGrantDeck(t, ctx, newGrantDeckHandlerWithRules(t, ctx, smallRules()))
+	draft := fullGrantDeck(t, ctx, newGrantDeckHandlerWithRules(t, ctx, smallRules(t)))
 	retired := publishedGrantDeck(t, ctx)
-	_, err := newGrantDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, retired.ID, retired.Revision)
+	_, err := newGrantDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, retired.ID, retired.Revision)
 	require.NoError(t, err)
 	deleted := registerGrantDeck(t, ctx, newGrantDeckHandler(t, ctx), "消すデッキ")
 	require.NoError(t, newGrantDeckHandler(t, ctx).Delete(ctx, deleted.ID, deleted.Revision))
@@ -343,7 +343,7 @@ func TestSetStarterSetGrantDecks_KeepsAssignedGrantDeckThatWasRetiredAfterwards(
 	retired, other := publishedGrantDeck(t, ctx), publishedGrantDeck(t, ctx)
 	assigned, err := commands.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{retired.ID})
 	require.NoError(t, err)
-	_, err = newGrantDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, retired.ID, retired.Revision)
+	_, err = newGrantDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, retired.ID, retired.Revision)
 	require.NoError(t, err)
 
 	_, err = commands.SetGrantDecks(ctx, assigned.ID, assigned.Revision, []uuid.UUID{retired.ID, other.ID})

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb/rdbtest"
@@ -20,7 +21,7 @@ func TestGameRulesReader_GetsPublishedRules(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	want := gamerules.Defaults()
-	want.Player.MaxDecks = 3
+	want.Player.MaxDecks = playertest.MaxDecks(t, 3)
 	// 公開は studio の read model の行をそのまま写すため、書き手の型で JSON を作り、読み手が同じ形を読めることを確かめる
 	published, err := json.Marshal(readmodel.GameRulesMetadata{ID: uuid.New(), Revision: 1, Rules: want})
 	require.NoError(t, err)
@@ -41,16 +42,4 @@ func TestGameRulesReader_ReturnsNotFoundBeforePublished(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, found)
-}
-
-// 写した行が壊れていて、上限が 0 などの値で動くのを防ぐ
-func TestGameRulesReader_RejectsInvalidValues(t *testing.T) {
-	db, _ := rdbtest.NewDatabase(t)
-	ctx := rdb.WithDB(t.Context(), db)
-	row := models.GameRule{GameRulesID: uuid.NewString(), Metadata: []byte(`{"rules": {"player": {"max_decks": 0}}}`)}
-	require.NoError(t, row.Insert(ctx, db, boil.Infer()))
-
-	_, _, err := repository.NewGameRulesReader().Get(ctx)
-
-	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
 }

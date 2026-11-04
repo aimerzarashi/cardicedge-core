@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
 
@@ -22,7 +23,7 @@ func published(rules gamerules.Rules) rules.GetRulesFunc {
 
 func TestFromPublished_ReturnsMaxDecksForDeckQuota(t *testing.T) {
 	values := gamerules.Defaults()
-	values.Player.MaxDecks = 7
+	values.Player.MaxDecks = playertest.MaxDecks(t, 7)
 
 	got, err := rules.FromPublished(published(values))(t.Context(), deck.PlayerQuotaType)
 
@@ -32,7 +33,7 @@ func TestFromPublished_ReturnsMaxDecksForDeckQuota(t *testing.T) {
 
 func TestFromPublished_ReturnsMaxAvatarsForAvatarQuota(t *testing.T) {
 	values := gamerules.Defaults()
-	values.Player.MaxAvatars = 3
+	values.Player.MaxAvatars = playertest.MaxAvatars(t, 3)
 
 	got, err := rules.FromPublished(published(values))(t.Context(), avatar.PlayerQuotaType)
 

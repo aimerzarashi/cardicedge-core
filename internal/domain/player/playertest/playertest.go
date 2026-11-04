@@ -31,3 +31,17 @@ func Subject(t testing.TB, value string) player.Subject {
 	require.NoError(t, err)
 	return subject
 }
+
+func MaxDecks(t testing.TB, value int) player.MaxDecks {
+	t.Helper()
+	max, err := player.NewMaxDecks(value)
+	require.NoError(t, err)
+	return max
+}
+
+func MaxAvatars(t testing.TB, value int) player.MaxAvatars {
+	t.Helper()
+	max, err := player.NewMaxAvatars(value)
+	require.NoError(t, err)
+	return max
+}

@@ -35,70 +35,11 @@ func create(t *testing.T) (studiorules.State, studiorules.Event) {
 	return state, events[0]
 }
 
-func TestDefaults_AreValid(t *testing.T) {
-	defaults := studiorules.Defaults()
-
-	got, err := studiorules.New(defaults.Board)
-
-	require.NoError(t, err)
-	require.Equal(t, defaults, got)
-}
-
 func TestDefaults_HaveCurrentValues(t *testing.T) {
 	defaults := studiorules.Defaults()
 
-	require.Equal(t, 1, defaults.Board.MinSize)
-	require.Equal(t, 32, defaults.Board.MaxSize)
-}
-
-func TestNew_RejectsInvalidBoardRange(t *testing.T) {
-	tests := []struct {
-		name             string
-		minSize, maxSize int
-	}{
-		{name: "zero_min_size", minSize: 0, maxSize: 32},
-		{name: "negative_min_size", minSize: -1, maxSize: 32},
-		{name: "max_size_below_min_size", minSize: 5, maxSize: 4},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			board := studiorules.Board{MinSize: tt.minSize, MaxSize: tt.maxSize}
-
-			_, err := studiorules.New(board)
-
-			require.ErrorIs(t, err, studiorules.ErrInvalidRules)
-		})
-	}
-}
-
-func TestNew_AcceptsSingleSizeRange(t *testing.T) {
-	board := studiorules.Board{MinSize: 8, MaxSize: 8}
-
-	_, err := studiorules.New(board)
-
-	require.NoError(t, err)
-}
-
-func TestBoard_ContainsAndClamp(t *testing.T) {
-	board := studiorulestest.Board(t, 4, 10)
-	tests := []struct {
-		name      string
-		size      int
-		contained bool
-		clamped   int
-	}{
-		{name: "below_min", size: 3, contained: false, clamped: 4},
-		{name: "min", size: 4, contained: true, clamped: 4},
-		{name: "inside", size: 8, contained: true, clamped: 8},
-		{name: "max", size: 10, contained: true, clamped: 10},
-		{name: "above_max", size: 11, contained: false, clamped: 10},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.contained, board.Contains(tt.size))
-			require.Equal(t, tt.clamped, board.Clamp(tt.size))
-		})
-	}
+	require.Equal(t, 1, defaults.Board.MinSize.Int())
+	require.Equal(t, 32, defaults.Board.MaxSize.Int())
 }
 
 func TestDecide_CreateEmitsCreatedEvent(t *testing.T) {

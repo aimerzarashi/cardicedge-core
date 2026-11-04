@@ -13,8 +13,10 @@ var (
 	ErrStatusUnknown    = errors.New("board: unknown status")
 	ErrTileKindUnknown  = errors.New("board: unknown tile kind")
 	ErrAttributeUnknown = errors.New("board: unknown attribute")
-	// 幅・高さが 1 未満、または studio_rules の範囲の外
+	// 幅・高さが studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
+	// 範囲の下限・上限が 1 未満、または上限が下限未満
+	ErrSizeRangeInvalid = errors.New("board: size range is invalid")
 	// 座標が負（格子の中かどうかは ValidateLayout が大きさと合わせて確かめる）
 	ErrPositionNegative = errors.New("board: position is negative")
 	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、

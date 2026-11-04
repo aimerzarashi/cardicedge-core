@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -189,7 +188,7 @@ func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision 
 		if err != nil {
 			return ChangedBoard{}, err
 		}
-		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeLayoutCommand{Layout: layout, Rules: rules.Board, ChangedBy: changedBy})
+		changed, _, err := c.decideAndSave(ctx, current, &board.ChangeLayoutCommand{Layout: layout, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedBoard{}, err
 		}
@@ -364,25 +363,24 @@ func newBoardName(field, value string) (board.Name, input.Error) {
 
 // 幅・高さ → ValidateLayout の順に確かめ、誤りはまとめて input.Errors で返す。レイアウトの決まりは ValidateLayout の
 // 1 か所にあり、ここはその違反を入力の項目のパスに写すだけ。幅・高さの範囲は studio_rules（rules）の値
-func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Layout, error) {
+func newLayout(rules board.SizeRange, layoutInput BoardLayoutInput) (board.Layout, error) {
 	invalid := input.Errors{}
-	if !rules.Contains(layoutInput.Width) {
-		invalid = append(invalid, &input.OutOfRange{Field: "width", Min: rules.MinSize, Max: rules.MaxSize})
+	width, err := board.NewWidth(layoutInput.Width, rules)
+	switch {
+	case errors.Is(err, board.ErrSizeOutOfRange):
+		invalid = append(invalid, &input.OutOfRange{Field: "width", Min: rules.MinSize.Int(), Max: rules.MaxSize.Int()})
+	case err != nil:
+		return board.Layout{}, err
 	}
-	if !rules.Contains(layoutInput.Height) {
-		invalid = append(invalid, &input.OutOfRange{Field: "height", Min: rules.MinSize, Max: rules.MaxSize})
+	height, err := board.NewHeight(layoutInput.Height, rules)
+	switch {
+	case errors.Is(err, board.ErrSizeOutOfRange):
+		invalid = append(invalid, &input.OutOfRange{Field: "height", Min: rules.MinSize.Int(), Max: rules.MaxSize.Int()})
+	case err != nil:
+		return board.Layout{}, err
 	}
 	if len(invalid) > 0 {
 		return board.Layout{}, invalid
-	}
-	// 範囲の下限は 1 以上（studiorules.New）なので、範囲の中なら失敗しない。失敗するならコードの誤りなので、内部のエラーのまま返す
-	width, err := board.NewWidth(layoutInput.Width)
-	if err != nil {
-		return board.Layout{}, err
-	}
-	height, err := board.NewHeight(layoutInput.Height)
-	if err != nil {
-		return board.Layout{}, err
 	}
 	size := board.Size{Width: width, Height: height}
 

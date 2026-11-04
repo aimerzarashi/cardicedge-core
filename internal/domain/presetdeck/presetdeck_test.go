@@ -90,6 +90,18 @@ func (f fixture) setCounts(t *testing.T, state presetdeck.State, counts map[card
 	return state
 }
 
+func TestNewRevision_RejectsZeroOrNegative(t *testing.T) {
+	for _, value := range []int64{0, -1} {
+		_, err := presetdeck.NewRevision(value)
+
+		require.ErrorIs(t, err, presetdeck.ErrRevisionNotPositive)
+	}
+
+	revision, err := presetdeck.NewRevision(1)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), revision.Int64())
+}
+
 func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 	f := newFixture(t)
 
@@ -184,10 +196,10 @@ func TestDecide_RejectsTotalCountOverRule(t *testing.T) {
 	f := newFixture(t)
 	state := f.register(t)
 	cmd := f.setCountsCommand(t, map[card.Ref]int{f.dragon: 3, f.potion: 2})
-	cmd.Rules.TotalCardCount = 5
+	cmd.Rules.TotalCardCount = cardtest.DeckTotalCount(t, 5)
 	state, _ = apply(t, state, cmd, changedAt)
 	more := f.setCountsCommand(t, map[card.Ref]int{f.potion: 3})
-	more.Rules.TotalCardCount = 5
+	more.Rules.TotalCardCount = cardtest.DeckTotalCount(t, 5)
 
 	_, err := presetdeck.Decide(state, more, changedAt)
 

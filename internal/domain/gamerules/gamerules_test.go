@@ -47,44 +47,31 @@ func TestDefaults_AreValid(t *testing.T) {
 func TestDefaults_HaveCurrentValues(t *testing.T) {
 	defaults := gamerules.Defaults()
 
-	require.Equal(t, 40, defaults.Deck.TotalCardCount)
+	require.Equal(t, 40, defaults.Deck.TotalCardCount.Int())
 	require.Equal(t, 4, defaults.Deck.MaxCardDuplicates.Int())
-	require.Equal(t, 10, defaults.Player.MaxDecks)
-	require.Equal(t, 5, defaults.Player.MaxAvatars)
-	require.Equal(t, 2, defaults.Match.MinPlayers)
-	require.Equal(t, 4, defaults.Match.MaxPlayers)
-	require.Equal(t, 6, defaults.Match.MaxHandCards)
+	require.Equal(t, 10, defaults.Player.MaxDecks.Int())
+	require.Equal(t, 5, defaults.Player.MaxAvatars.Int())
+	require.Equal(t, 2, defaults.Match.MinPlayers.Int())
+	require.Equal(t, 4, defaults.Match.MaxPlayers.Int())
+	require.Equal(t, 6, defaults.Match.MaxHandCards.Int())
 }
 
-func TestNew_RejectsValueBelowOne(t *testing.T) {
-	tests := []struct {
-		name   string
-		modify func(*gamerules.Rules)
-	}{
-		{name: "zero_total_card_count", modify: func(r *gamerules.Rules) { r.Deck.TotalCardCount = 0 }},
-		{name: "zero_max_card_duplicates", modify: func(r *gamerules.Rules) { r.Deck.MaxCardDuplicates = 0 }},
-		{name: "zero_max_decks", modify: func(r *gamerules.Rules) { r.Player.MaxDecks = 0 }},
-		{name: "negative_max_avatars", modify: func(r *gamerules.Rules) { r.Player.MaxAvatars = -1 }},
-		{name: "zero_min_players", modify: func(r *gamerules.Rules) { r.Match.MinPlayers = 0 }},
-		{name: "zero_max_players", modify: func(r *gamerules.Rules) { r.Match.MaxPlayers = 0 }},
-		{name: "zero_max_hand_cards", modify: func(r *gamerules.Rules) { r.Match.MaxHandCards = 0 }},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rules := gamerules.Defaults()
-			tt.modify(&rules)
+func TestNewMatchValues_RejectValueBelowOne(t *testing.T) {
+	for _, value := range []int{0, -1} {
+		_, err := gamerules.NewMinPlayers(value)
+		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
 
-			_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+		_, err = gamerules.NewMaxPlayers(value)
+		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
 
-			require.ErrorIs(t, err, gamerules.ErrInvalidRules)
-		})
+		_, err = gamerules.NewMaxHandCards(value)
+		require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
 	}
 }
 
 func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
 	rules := gamerules.Defaults()
-	rules.Match.MinPlayers = 5
-	rules.Match.MaxPlayers = 4
+	rules.Match = gamerulestest.Match(t, 5, 4, 6)
 
 	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
 
@@ -93,8 +80,7 @@ func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
 
 func TestNew_AcceptsMinPlayersEqualToMaxPlayers(t *testing.T) {
 	rules := gamerules.Defaults()
-	rules.Match.MinPlayers = 3
-	rules.Match.MaxPlayers = 3
+	rules.Match = gamerulestest.Match(t, 3, 3, 6)
 
 	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
 

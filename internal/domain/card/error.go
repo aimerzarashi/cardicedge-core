@@ -3,11 +3,12 @@ package card
 import "errors"
 
 var (
-	ErrNameEmpty           = errors.New("card: name is empty")
-	ErrNameTooLong         = errors.New("card: name is too long")
-	ErrNameAlreadyInUse    = errors.New("card: name already in use")
-	ErrStatusUnknown       = errors.New("card: unknown status")
-	ErrQuantityNotPositive = errors.New("card: quantity must be positive")
+	ErrNameEmpty                 = errors.New("card: name is empty")
+	ErrNameTooLong               = errors.New("card: name is too long")
+	ErrNameAlreadyInUse          = errors.New("card: name already in use")
+	ErrStatusUnknown             = errors.New("card: unknown status")
+	ErrQuantityNotPositive       = errors.New("card: quantity must be positive")
+	ErrDeckTotalCountNotPositive = errors.New("card: deck total count must be positive")
 	// デッキに入れる枚数が、同じカードを入れられる上限（gamerules.Deck.MaxCardDuplicates）を超える
 	ErrDeckQuantityOverMax = errors.New("card: deck quantity is over the max")
 	ErrNotCard             = errors.New("card: not a card")
