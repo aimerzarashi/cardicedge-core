@@ -11,10 +11,12 @@ import (
 
 // decks の 1 行。デッキの公開 ID と持ち主は、イベントが内部 ID で持つ（イベントに公開 ID は無い）ため、書くときに repository が公開用の ID に引き直す
 type Deck struct {
-	Deck         deck.ID
-	Player       player.ID
-	Name         string
-	Cards        []DeckCard
+	Deck   deck.ID
+	Player player.ID
+	Name   string
+	// 入れたカード。イベントはカードを game の内部 ID で持ち、Evolve は DB を読めないため、
+	// 書くときに repository が公開 ID に引き直して DeckMetadata.Cards にする
+	Cards        []deck.Card
 	RegisteredAt time.Time
 }
 
@@ -26,7 +28,7 @@ type DeckCard struct {
 
 // 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）
 type DeckMetadata struct {
-	// 空のまま。書くときに repository が公開 ID を入れる
+	// ID・Cards は空のまま。書くときに repository が公開 ID を入れる
 	ID           uuid.UUID  `json:"id"`
 	Name         string     `json:"name"`
 	Cards        []DeckCard `json:"cards"`
@@ -39,7 +41,7 @@ type DeckMetadata struct {
 }
 
 func (state Deck) Metadata() DeckMetadata {
-	return DeckMetadata{Name: state.Name, Cards: state.Cards, RegisteredAt: state.RegisteredAt, UpdatedAt: state.RegisteredAt}
+	return DeckMetadata{Name: state.Name, RegisteredAt: state.RegisteredAt, UpdatedAt: state.RegisteredAt}
 }
 
 // デッキのイベントだけを扱い、ほかは状態をそのまま返す
@@ -48,10 +50,7 @@ func (state Deck) Evolve(event any) Deck {
 		state.Deck = e.GetMeta().EntityID
 		state.Player = e.Player
 		state.Name = e.Name.String()
-		state.Cards = make([]DeckCard, len(e.Cards))
-		for i, card := range e.Cards {
-			state.Cards[i] = DeckCard{CardID: card.CardID, Count: card.Count.Int()}
-		}
+		state.Cards = e.Cards
 		state.RegisteredAt = e.GetMeta().OccurredAt
 	}
 	return state

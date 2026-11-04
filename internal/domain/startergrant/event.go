@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
@@ -30,11 +29,11 @@ type EventMeta = domain.EventMeta[ID]
 type StartedEvent struct {
 	EventMeta        `json:"-"`
 	eventMarker      `json:"-"`
-	Player           player.ID      `json:"player"`
-	Cards            []card.Count   `json:"cards"`
-	Decks            []Deck         `json:"decks"`
-	UnlockBoards     []board.ID     `json:"unlock_boards"`
-	UnlockNPCAvatars []npcavatar.ID `json:"unlock_npc_avatars"`
+	Player           player.ID        `json:"player"`
+	Cards            []CollectionCard `json:"cards"`
+	Decks            []Deck           `json:"decks"`
+	UnlockBoards     []board.ID       `json:"unlock_boards"`
+	UnlockNPCAvatars []npcavatar.ID   `json:"unlock_npc_avatars"`
 }
 
 // 所持カードの集約ができたことの記録

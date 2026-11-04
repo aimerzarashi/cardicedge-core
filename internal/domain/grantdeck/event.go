@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
@@ -34,14 +35,14 @@ type RegisteredEvent struct {
 	PublicID     uuid.UUID       `json:"public_id"`
 	Name         presetdeck.Name `json:"name"`
 	Source       *Source         `json:"source,omitempty"`
-	Cards        []CardEntry     `json:"cards,omitempty"`
+	Cards        []DeckCard      `json:"cards,omitempty"`
 	RegisteredBy operator.ID     `json:"registered_by"`
 }
 
-// 写したときのカードと枚数（1 以上）
-type CardEntry struct {
-	Card  presetdeck.CardRef   `json:"card"`
-	Count presetdeck.CardCount `json:"count"`
+// 写したときのカードと枚数。枚数は 1 以上
+type DeckCard struct {
+	Card     card.Ref          `json:"card"`
+	Quantity card.DeckQuantity `json:"quantity"`
 }
 
 type RenamedEvent struct {
@@ -61,8 +62,8 @@ type CardCountsChangedEvent struct {
 
 // Delta は 0 以外。足した結果が 0 になったカードはデッキから外れる
 type CardCountChange struct {
-	Card  presetdeck.CardRef `json:"card"`
-	Delta int                `json:"delta"`
+	Card  card.Ref `json:"card"`
+	Delta int      `json:"delta"`
 }
 
 type PublishedEvent struct {

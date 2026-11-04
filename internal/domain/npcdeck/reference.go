@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 // domain_reference_types の名前。NPC のデッキに入れたカードを、入れている間は消せないようにする（プリセットデッキと同じ）
@@ -19,4 +19,4 @@ func CardReferenceType() domain.ReferenceType {
 }
 
 // NPC のデッキが参照するカードを cards にそろえる（presetdeck.UpdateCardReferencesFunc と同じ形）
-type UpdateCardReferencesFunc func(ctx context.Context, id ID, cards []presetdeck.CardRef) error
+type UpdateCardReferencesFunc func(ctx context.Context, id ID, cards []card.Ref) error

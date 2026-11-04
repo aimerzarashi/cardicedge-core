@@ -3,6 +3,7 @@ package presetdeck
 import (
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
@@ -23,11 +24,13 @@ type RenameCommand struct {
 	RenamedBy operator.ID
 }
 
-// 入力は「その枚数にする」（画面が選んだ値をそのまま送れ、今の枚数を知らずに済むため）。イベントの差分は Decide が計算する
+// 入力は「その枚数にする」（画面が選んだ値をそのまま送れ、今の枚数を知らずに済むため）。イベントの差分は Decide が計算する。
+// デッキから外すのは枚数（DeckQuantity は 1 以上）ではなく操作なので、枚数を決めるカード（Set）と外すカード（Remove）に分ける
 //
 // ルールは、ドメインが既定の値を読まず、コマンドを動かす側が game_rules を読んで渡す（値が変わっても、テストで小さくしても、Decide は変えない）
 type SetCardCountsCommand struct {
-	Counts    map[CardRef]CardCount
+	Set       map[card.Ref]card.DeckQuantity
+	Remove    []card.Ref
 	Rules     gamerules.Deck
 	ChangedBy operator.ID
 }

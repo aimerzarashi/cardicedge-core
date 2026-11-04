@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -64,7 +63,7 @@ func (f fixture) updateCardName(t *testing.T, id creature.ID, name string) error
 	return constraint.UpdateCreatureName(f.ctx, id, cardtest.Name(t, name))
 }
 
-func (f fixture) cardRef(t *testing.T, id creature.ID) presetdeck.CardRef {
+func (f fixture) cardRef(t *testing.T, id creature.ID) card.Ref {
 	t.Helper()
-	return presetdecktest.CardRef(t, creature.Types().EntityType, id.Int64())
+	return cardtest.Ref(t, creature.Types().EntityType, id.Int64())
 }

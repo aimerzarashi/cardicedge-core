@@ -48,7 +48,7 @@ func TestDefaults_HaveCurrentValues(t *testing.T) {
 	defaults := gamerules.Defaults()
 
 	require.Equal(t, 40, defaults.Deck.TotalCardCount)
-	require.Equal(t, 4, defaults.Deck.MaxCardDuplicates)
+	require.Equal(t, 4, defaults.Deck.MaxCardDuplicates.Int())
 	require.Equal(t, 10, defaults.Player.MaxDecks)
 	require.Equal(t, 5, defaults.Player.MaxAvatars)
 	require.Equal(t, 2, defaults.Match.MinPlayers)

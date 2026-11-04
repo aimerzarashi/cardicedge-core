@@ -221,10 +221,10 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList: query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
-		grantDeckList:  query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get, presetDeckReader.Revisions),
+		grantDeckList:  query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get),
 		boardList:      query.NewBoardHandler(boardReader.List, boardReader.Get),
 		npcAvatarList:  query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
-		npcDeckList:    query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
+		npcDeckList:    query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get),
 		starterSetList: query.NewStarterSetHandler(starterSetReader.List, starterSetReader.Get),
 	}
 }

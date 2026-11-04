@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -52,8 +53,8 @@ type CardCountsChangedEvent struct {
 
 // Delta は 0 以外（変わらないカードはイベントに入れない）。足した結果が 0 になったカードはデッキから外れる
 type CardCountChange struct {
-	Card  CardRef `json:"card"`
-	Delta int     `json:"delta"`
+	Card  card.Ref `json:"card"`
+	Delta int      `json:"delta"`
 }
 
 type DeletedEvent struct {

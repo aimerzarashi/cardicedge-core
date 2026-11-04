@@ -1,6 +1,10 @@
 package presetdeck
 
-import "maps"
+import (
+	"maps"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 // 状態を書き換えないよう、カードの一覧は写してから変える
 func Evolve(state State, event Event) (State, error) {
@@ -15,7 +19,7 @@ func Evolve(state State, event Event) (State, error) {
 			Version:  meta.AggregateVersion,
 			PublicID: e.PublicID,
 			Name:     e.Name,
-			Cards:    map[CardRef]CardCount{},
+			Cards:    map[card.Ref]card.DeckQuantity{},
 		}, nil
 	case *RenamedEvent:
 		deck, ok := state.(PresetDeck)
@@ -31,14 +35,14 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		cards := maps.Clone(deck.Cards)
 		for _, change := range e.Changes {
-			count, err := NewCardCount(cards[change.Card].Int() + change.Delta)
+			quantity, remains, err := cards[change.Card].Add(change.Delta)
 			if err != nil {
 				return state, err
 			}
-			if count == 0 {
-				delete(cards, change.Card)
+			if remains {
+				cards[change.Card] = quantity
 			} else {
-				cards[change.Card] = count
+				delete(cards, change.Card)
 			}
 		}
 		deck.Cards = cards

@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
@@ -48,13 +50,18 @@ func (h *presetDeckHistory) apply(cmd presetdeck.Command, at time.Time) {
 	h.events = append(h.events, events...)
 }
 
-func (h *presetDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
+func (h *presetDeckHistory) setCounts(counts map[card.Ref]int) {
 	h.t.Helper()
-	cardCounts := make(map[presetdeck.CardRef]presetdeck.CardCount, len(counts))
-	for card, count := range counts {
-		cardCounts[card] = presetdecktest.CardCount(h.t, count)
+	set := make(map[card.Ref]card.DeckQuantity, len(counts))
+	var remove []card.Ref
+	for ref, count := range counts {
+		if count == 0 {
+			remove = append(remove, ref)
+			continue
+		}
+		set[ref] = cardtest.DeckQuantity(h.t, count)
 	}
-	h.apply(&presetdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 12)}, deckChangedAt)
+	h.apply(&presetdeck.SetCardCountsCommand{Set: set, Remove: remove, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 12)}, deckChangedAt)
 }
 
 func (h *presetDeckHistory) project() readmodel.PresetDeck {
@@ -82,7 +89,7 @@ func TestPresetDeck_EvolvesFromRegistered(t *testing.T) {
 		// 並べ替え・検索は正規化した名前、表示は入力どおりの名前
 		SortName: "fire デッキ",
 		Metadata: metadata,
-		Cards:    map[presetdeck.CardRef]int{},
+		Cards:    map[card.Ref]int{},
 		// 登録の直後は、更新した人も登録した人
 		RegisteredBy: operatortest.ID(t, 10), UpdatedBy: operatortest.ID(t, 10),
 	}, state)
@@ -106,15 +113,15 @@ func TestPresetDeck_EvolvesFromRenamed(t *testing.T) {
 
 // 差分を足して枚数を作り、0 になったカードは持たない
 func TestPresetDeck_EvolvesFromCardCountsChanged(t *testing.T) {
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
-	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
+	potion := cardtest.Ref(t, item.Types().EntityType, 21)
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 3, potion: 2})
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 0, potion: 4})
+	history.setCounts(map[card.Ref]int{dragon: 3, potion: 2})
+	history.setCounts(map[card.Ref]int{dragon: 0, potion: 4})
 
 	state := history.project()
 
-	require.Equal(t, map[presetdeck.CardRef]int{potion: 4}, state.Cards)
+	require.Equal(t, map[card.Ref]int{potion: 4}, state.Cards)
 	require.Equal(t, 4, state.TotalCount())
 	require.Equal(t, int64(3), state.Metadata.Revision)
 	require.Equal(t, deckChangedAt, state.Metadata.UpdatedAt)
@@ -123,15 +130,15 @@ func TestPresetDeck_EvolvesFromCardCountsChanged(t *testing.T) {
 }
 
 func TestPresetDeck_DoesNotChangeTheGivenState(t *testing.T) {
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
 	history := newPresetDeckHistory(t, uuid.New(), "炎のデッキ")
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 3})
+	history.setCounts(map[card.Ref]int{dragon: 3})
 	before := history.project()
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 1})
+	history.setCounts(map[card.Ref]int{dragon: 1})
 
 	before.Evolve(history.events[len(history.events)-1])
 
-	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3}, before.Cards)
+	require.Equal(t, map[card.Ref]int{dragon: 3}, before.Cards)
 }
 
 func TestPresetDeck_BecomesTerminalWhenDeleted(t *testing.T) {

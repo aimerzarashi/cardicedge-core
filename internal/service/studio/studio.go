@@ -151,7 +151,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			gameRules.Get,
 			now,
 		),
-		grantDeckList: query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get, presetDeckReader.Revisions),
+		grantDeckList: query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get),
 		boards: command.NewBoardHandler(
 			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
 			identifier.New(registry, board.NewID),
@@ -182,7 +182,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			gameRules.Get,
 			now,
 		),
-		npcDeckList: query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get, presetDeckReader.Revisions),
+		npcDeckList: query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get),
 		starterSets: command.NewStarterSetHandler(
 			eventstore.New(registry, starterset.NewID, starterset.NewEventType, starterset.InitialState, starterset.Evolve),
 			identifier.New(registry, starterset.NewID),

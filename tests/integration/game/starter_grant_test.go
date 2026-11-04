@@ -13,10 +13,10 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection/collectiontest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
@@ -84,10 +84,10 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	var owned collection.CreatedEvent
 	require.NoError(t, json.Unmarshal(raw, &owned))
 	// 並びはカードの ID の順（ランダムな ID のため、テストでは順を問わない）
-	require.ElementsMatch(t, []card.Count{
-		cardtest.Count(t, m.CardA, 4),
-		cardtest.Count(t, m.CardB, 3),
-		cardtest.Count(t, m.CardC, 2),
+	require.ElementsMatch(t, []collection.Card{
+		collectiontest.Card(t, m.InternalCardA, 4),
+		collectiontest.Card(t, m.InternalCardB, 3),
+		collectiontest.Card(t, m.InternalCardC, 2),
 	}, owned.Cards)
 
 	var deckCount int
@@ -99,11 +99,11 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 	second := loadDeck(t, ctx, grantID, 2)
 	// セットが指す順（水・使用不可・火）のうち、公開中のものが順に配られる
 	require.Equal(t, "水", first.Name.String())
-	require.Equal(t, []card.Count{
-		cardtest.Count(t, m.CardA, 2), cardtest.Count(t, m.CardB, 3), cardtest.Count(t, m.CardC, 2),
+	require.Equal(t, []deck.Card{
+		decktest.Card(t, m.InternalCardA, 2), decktest.Card(t, m.InternalCardB, 3), decktest.Card(t, m.InternalCardC, 2),
 	}, first.Cards)
 	require.Equal(t, "火", second.Name.String())
-	require.Equal(t, []card.Count{cardtest.Count(t, m.CardA, 4), cardtest.Count(t, m.CardB, 1)}, second.Cards)
+	require.Equal(t, []deck.Card{decktest.Card(t, m.InternalCardA, 4), decktest.Card(t, m.InternalCardB, 1)}, second.Cards)
 
 	// 解放は、セットが指すボードの内部 ID をそのまま、指す順に持つ（公開中かは読むときに見る）。作った後の 2 つ目のイベントで解放する
 	unlockID, err := unlock.NewID(constrainttest.Owner(t, ctx, unlock.PlayerKey(playerID)))

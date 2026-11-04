@@ -3,6 +3,7 @@ package npcdeck
 import (
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -21,8 +22,8 @@ type NPCDeck struct {
 	PublicID uuid.UUID
 	Name     presetdeck.Name
 	Status   Status
-	// 枚数が 0 のカードは持たない
-	Cards map[presetdeck.CardRef]presetdeck.CardCount
+	// 枚数が 0 のカードは持たない（DeckQuantity は 1 以上）
+	Cards map[card.Ref]card.DeckQuantity
 }
 
 func (NPCDeck) isNPCDeckState() {}

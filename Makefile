@@ -71,9 +71,10 @@ seed-master:
 # 表を作り直さずに済むように）
 # starter_sets も grant_decks と同じく全行を状態つきで写し、game は公開中の 1 つだけを読む（配る配布デッキは、そのセットが指す公開 ID で
 # 写した grant_decks の公開中の行から引く。解放するボードは公開 ID のまま持ち、配布のとき game の内部 ID に引き直して解放の集約へ渡す）
-# 写した boards と npc_avatars は、game の domain_entities にも行を作る（公開 ID は studio と同じ。内部 ID は game の連番が振る）。game の集約は、
+# 写した cards・boards・npc_avatars は、game の domain_entities にも行を作る（公開 ID は studio と同じ。内部 ID は game の連番が振る）。game の集約は、
 # 境界（studio・game）の中の内部 ID で ほかの集約を指すため、写したボードを game の内部 ID で指せるようにする。
-# ON CONFLICT DO NOTHING なので、何度流しても同じボードの内部 ID は変わらない（TRUNCATE は domain_entities に及ばない）。ボードと NPC のアバターだけ（カードは #94）
+# ON CONFLICT DO NOTHING なので、何度流しても同じ内部 ID は変わらない（TRUNCATE は domain_entities に及ばない）。
+# カードの種類（集約の種別）は、写した cards.card_type（1: Creature、2: Item、3: Spell）から決める
 # npc_avatars も boards と同じ選び方（公開中・使用不可だけ。game が出すのは公開中だけ）
 # npc_decks は、写した npc_avatars の metadata の decks（使うデッキの公開 ID）に入っているものだけを、状態によらず写す（core#63）。
 # NPC のデッキは単独では使わず、アバターを通してだけ使う（game が公開中のデッキだけを出す）ため、どのアバターにも使われていないデッキ
@@ -86,7 +87,7 @@ publish-master:
 	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
 	  printf "%s\n" "TRUNCATE cards, boards, grant_decks, starter_sets, game_rules, npc_avatars, npc_decks;" "\\copy cards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
-	  printf "%s\n" "\\." "\\copy boards FROM STDIN"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT c.card_id, t.id FROM cards c JOIN domain_entity_types t ON t.name = CASE c.card_type WHEN 1 THEN '"'"'creature'"'"' WHEN 2 THEN '"'"'item'"'"' WHEN 3 THEN '"'"'spell'"'"' END ON CONFLICT DO NOTHING;" "\\copy boards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM boards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
 	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT b.board_id, t.id FROM boards b JOIN domain_entity_types t ON t.name = '"'"'board'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_avatars FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_avatars WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \

@@ -7,13 +7,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -55,13 +56,18 @@ func (h *npcDeckHistory) apply(cmd npcdeck.Command, at time.Time) {
 	h.events = append(h.events, events...)
 }
 
-func (h *npcDeckHistory) setCounts(counts map[presetdeck.CardRef]int) {
+func (h *npcDeckHistory) setCounts(counts map[card.Ref]int) {
 	h.t.Helper()
-	cardCounts := make(map[presetdeck.CardRef]presetdeck.CardCount, len(counts))
-	for card, count := range counts {
-		cardCounts[card] = presetdecktest.CardCount(h.t, count)
+	set := make(map[card.Ref]card.DeckQuantity, len(counts))
+	var remove []card.Ref
+	for ref, count := range counts {
+		if count == 0 {
+			remove = append(remove, ref)
+			continue
+		}
+		set[ref] = cardtest.DeckQuantity(h.t, count)
 	}
-	h.apply(&npcdeck.SetCardCountsCommand{Counts: cardCounts, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 10)}, npcDeckChangedAt)
+	h.apply(&npcdeck.SetCardCountsCommand{Set: set, Remove: remove, Rules: gamerules.Defaults().Deck, ChangedBy: operatortest.ID(h.t, 10)}, npcDeckChangedAt)
 }
 
 func (h *npcDeckHistory) project() readmodel.NPCDeck {
@@ -89,27 +95,26 @@ func TestNPCDeck_EvolvesFromRegisteredWithoutSource(t *testing.T) {
 		Metadata:     metadata,
 		RegisteredBy: operatortest.ID(t, 10),
 		UpdatedBy:    operatortest.ID(t, 10),
-		Cards:        map[presetdeck.CardRef]int{},
+		Cards:        map[card.Ref]int{},
 	}, state)
 	require.False(t, state.IsTerminal())
 }
 
-// 写して作ったときは、カードと写した元（公開 ID と revision）を持つ
-func TestNPCDeck_EvolvesFromRegisteredWithSourceAndCards(t *testing.T) {
-	publicID, presetID := uuid.New(), uuid.New()
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
-	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
-	source := npcdecktest.Source(t, presetID, 4)
+// 写して作ったときは、カードを持つ。写した元は登録のイベントにだけ記録し、read model には持たせない
+func TestNPCDeck_EvolvesFromRegisteredWithCopiedCards(t *testing.T) {
+	publicID := uuid.New()
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
+	potion := cardtest.Ref(t, item.Types().EntityType, 21)
+	source := npcdecktest.Source(t, presetdecktest.ID(t, 40), 4)
 
 	state := newNPCDeckHistoryFrom(t, &npcdeck.RegisterCommand{
 		ID: npcdecktest.ID(t, 1), PublicID: publicID, Name: presetdecktest.Name(t, "炎のデッキ"), Source: &source,
-		Cards:        map[presetdeck.CardRef]presetdeck.CardCount{dragon: presetdecktest.CardCount(t, 3), potion: presetdecktest.CardCount(t, 2)},
+		Cards:        map[card.Ref]card.DeckQuantity{dragon: cardtest.DeckQuantity(t, 3), potion: cardtest.DeckQuantity(t, 2)},
 		RegisteredBy: operatortest.ID(t, 10),
 	}).project()
 
-	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3, potion: 2}, state.Cards)
+	require.Equal(t, map[card.Ref]int{dragon: 3, potion: 2}, state.Cards)
 	require.Equal(t, 5, state.TotalCount())
-	require.Equal(t, &readmodel.NPCDeckSource{PresetDeckID: presetID, Revision: 4}, state.Metadata.Source)
 }
 
 func TestNPCDeck_EvolvesFromRenamed(t *testing.T) {
@@ -129,15 +134,15 @@ func TestNPCDeck_EvolvesFromRenamed(t *testing.T) {
 
 // 差分を足して枚数を作り、0 になったカードは持たない
 func TestNPCDeck_EvolvesFromCardCountsChanged(t *testing.T) {
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
-	potion := presetdecktest.CardRef(t, item.Types().EntityType, 21)
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
+	potion := cardtest.Ref(t, item.Types().EntityType, 21)
 	history := newNPCDeckHistory(t, uuid.New(), "炎のデッキ")
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 3, potion: 2})
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 0, potion: 4})
+	history.setCounts(map[card.Ref]int{dragon: 3, potion: 2})
+	history.setCounts(map[card.Ref]int{dragon: 0, potion: 4})
 
 	state := history.project()
 
-	require.Equal(t, map[presetdeck.CardRef]int{potion: 4}, state.Cards)
+	require.Equal(t, map[card.Ref]int{potion: 4}, state.Cards)
 	require.Equal(t, 4, state.TotalCount())
 	require.Equal(t, int64(3), state.Metadata.Revision)
 	require.Equal(t, operatortest.ID(t, 10), state.UpdatedBy)
@@ -145,13 +150,13 @@ func TestNPCDeck_EvolvesFromCardCountsChanged(t *testing.T) {
 
 // 状態は絞り込みの列と、表示の metadata の両方に持つ
 func TestNPCDeck_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
 	history := newNPCDeckHistory(t, uuid.New(), "炎のデッキ")
 	rules := gamerules.Defaults().Deck
 	rules.TotalCardCount = 4
 	history.apply(&npcdeck.SetCardCountsCommand{
-		Counts: map[presetdeck.CardRef]presetdeck.CardCount{dragon: presetdecktest.CardCount(t, 4)},
-		Rules:  rules, ChangedBy: operatortest.ID(t, 10),
+		Set:   map[card.Ref]card.DeckQuantity{dragon: cardtest.DeckQuantity(t, 4)},
+		Rules: rules, ChangedBy: operatortest.ID(t, 10),
 	}, npcDeckChangedAt)
 	history.apply(&npcdeck.PublishCommand{Rules: rules, PublishedBy: operatortest.ID(t, 11)}, npcDeckChangedAt)
 	published := history.project()
@@ -169,15 +174,15 @@ func TestNPCDeck_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 }
 
 func TestNPCDeck_DoesNotChangeTheGivenState(t *testing.T) {
-	dragon := presetdecktest.CardRef(t, creature.Types().EntityType, 20)
+	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
 	history := newNPCDeckHistory(t, uuid.New(), "炎のデッキ")
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 3})
+	history.setCounts(map[card.Ref]int{dragon: 3})
 	before := history.project()
-	history.setCounts(map[presetdeck.CardRef]int{dragon: 1})
+	history.setCounts(map[card.Ref]int{dragon: 1})
 
 	before.Evolve(history.events[len(history.events)-1])
 
-	require.Equal(t, map[presetdeck.CardRef]int{dragon: 3}, before.Cards)
+	require.Equal(t, map[card.Ref]int{dragon: 3}, before.Cards)
 }
 
 func TestNPCDeck_BecomesTerminalWhenDeleted(t *testing.T) {

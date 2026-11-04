@@ -18,17 +18,8 @@ func fromQueryNPCDeck(npcDeck query.NPCDeck) (*model.NpcDeck, error) {
 	for _, card := range npcDeck.Cards {
 		counts = append(counts, model.DeckCardCount{CardID: card.CardID, Count: card.Count})
 	}
-	var source *model.NpcDeckSource
-	if npcDeck.Source != nil {
-		source = &model.NpcDeckSource{
-			PresetDeckID:       npcDeck.Source.PresetDeckID,
-			Revision:           int(npcDeck.Source.Revision),
-			ChangedSinceCopied: npcDeck.Source.ChangedSinceCopied,
-			PresetDeckDeleted:  npcDeck.Source.PresetDeckDeleted,
-		}
-	}
 	return &model.NpcDeck{
-		ID: npcDeck.ID, Name: npcDeck.Name, Status: status, TotalCount: npcDeck.TotalCount, Source: source, Revision: int(npcDeck.Revision),
+		ID: npcDeck.ID, Name: npcDeck.Name, Status: status, TotalCount: npcDeck.TotalCount, Revision: int(npcDeck.Revision),
 		RegisteredAt: npcDeck.RegisteredAt, UpdatedAt: npcDeck.UpdatedAt, CardCounts: counts,
 	}, nil
 }

@@ -1,7 +1,6 @@
 package deck
 
 import (
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
@@ -14,7 +13,7 @@ type CreateCommand struct {
 	ID           ID
 	Player       player.ID
 	Name         Name
-	Cards        []card.Count
+	Cards        []Card
 	StarterGrant startergrant.ID
 	Number       startergrant.DeckNumber
 }

@@ -98,7 +98,7 @@ func (c *GrantDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDec
 	if err != nil {
 		return ChangedGrantDeck{}, err
 	}
-	source, err := grantdeck.NewSource(preset.PublicID, preset.Version)
+	source, err := grantdeck.NewSource(preset.ID, preset.Version)
 	if err != nil {
 		return ChangedGrantDeck{}, err
 	}
@@ -192,7 +192,7 @@ func (c *GrantDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revi
 		if err := requireAvailable(ctx, c.cardStatuses, deck.Cards, requested); err != nil {
 			return ChangedGrantDeck{}, err
 		}
-		changed, _, err := c.decideAndSave(ctx, deck, &grantdeck.SetCardCountsCommand{Counts: requested.counts, Rules: rules.Deck, ChangedBy: changedBy})
+		changed, _, err := c.decideAndSave(ctx, deck, &grantdeck.SetCardCountsCommand{Set: requested.set, Remove: requested.remove, Rules: rules.Deck, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedGrantDeck{}, err
 		}
@@ -251,8 +251,8 @@ func (c *GrantDeckHandler) checkPublishable(ctx context.Context, deck grantdeck.
 		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount})
 	}
 	if len(deck.Cards) > 0 {
-		refs := slices.SortedFunc(maps.Keys(deck.Cards), func(a, b presetdeck.CardRef) int {
-			return cmp.Or(cmp.Compare(a.EntityType(), b.EntityType()), cmp.Compare(a.ID(), b.ID()))
+		refs := slices.SortedFunc(maps.Keys(deck.Cards), func(a, b card.Ref) int {
+			return cmp.Or(cmp.Compare(a.EntityType, b.EntityType), cmp.Compare(a.ID, b.ID))
 		})
 		statuses, err := c.cardStatuses(ctx, refs)
 		if err != nil {

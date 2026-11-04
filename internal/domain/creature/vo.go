@@ -4,11 +4,12 @@ import (
 	"errors"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 type ID int64
 
-var entityType = domain.NewEntityType("creature")
+var entityType = card.CreatureEntityType
 
 func (ID) EntityType() domain.EntityType {
 	return entityType

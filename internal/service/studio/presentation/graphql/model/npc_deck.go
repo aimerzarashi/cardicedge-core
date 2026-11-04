@@ -13,7 +13,6 @@ type NpcDeck struct {
 	Name         string
 	Status       NpcDeckStatus
 	TotalCount   int
-	Source       *NpcDeckSource
 	Revision     int
 	RegisteredAt time.Time
 	UpdatedAt    time.Time

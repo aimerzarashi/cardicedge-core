@@ -1,11 +1,10 @@
 package grantdeck
 
 import (
-	"cmp"
 	"slices"
 	"time"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 // 変えても同じになる操作（同じ名前・同じ枚数・公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）。
@@ -38,12 +37,10 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, count := range c.Counts {
-			if count.Int() > c.Rules.MaxCardDuplicates {
-				return nil, ErrCardCountOutOfRange
-			}
+		changes, err := cardCountChanges(deck, c.Set, c.Remove)
+		if err != nil {
+			return nil, err
 		}
-		changes := cardCountChanges(deck, c.Counts)
 		if len(changes) == 0 {
 			return nil, nil
 		}
@@ -105,29 +102,32 @@ func nextMeta(deck GrantDeck, now time.Time) EventMeta {
 	return EventMeta{EntityID: deck.ID, AggregateVersion: deck.Version + 1, OccurredAt: now}
 }
 
-// map の順は決まらないため、種類・内部 ID の順に並べる（同じ操作から同じイベントを作るため）。0 枚のカードは持たない
-func cardEntries(cards map[presetdeck.CardRef]presetdeck.CardCount) []CardEntry {
-	var entries []CardEntry
-	for card, count := range cards {
-		if count.Int() > 0 {
-			entries = append(entries, CardEntry{Card: card, Count: count})
-		}
+// map の順は決まらないため、種類・内部 ID の順に並べる（同じ操作から同じイベントを作るため）
+func cardEntries(cards map[card.Ref]card.DeckQuantity) []DeckCard {
+	var entries []DeckCard
+	for ref, quantity := range cards {
+		entries = append(entries, DeckCard{Card: ref, Quantity: quantity})
 	}
-	slices.SortFunc(entries, func(a, b CardEntry) int { return compareCards(a.Card, b.Card) })
+	slices.SortFunc(entries, func(a, b DeckCard) int { return a.Card.Compare(b.Card) })
 	return entries
 }
 
-func cardCountChanges(deck GrantDeck, counts map[presetdeck.CardRef]presetdeck.CardCount) []CardCountChange {
+func cardCountChanges(deck GrantDeck, set map[card.Ref]card.DeckQuantity, remove []card.Ref) ([]CardCountChange, error) {
 	var changes []CardCountChange
-	for card, count := range counts {
-		if delta := count.Int() - deck.Cards[card].Int(); delta != 0 {
-			changes = append(changes, CardCountChange{Card: card, Delta: delta})
+	for ref, quantity := range set {
+		if delta := quantity.Int() - deck.Cards[ref].Int(); delta != 0 {
+			changes = append(changes, CardCountChange{Card: ref, Delta: delta})
 		}
 	}
-	slices.SortFunc(changes, func(a, b CardCountChange) int { return compareCards(a.Card, b.Card) })
-	return changes
-}
-
-func compareCards(a, b presetdeck.CardRef) int {
-	return cmp.Or(cmp.Compare(a.EntityType(), b.EntityType()), cmp.Compare(a.ID(), b.ID()))
+	for _, ref := range remove {
+		if _, ok := set[ref]; ok {
+			return nil, ErrCardConflict
+		}
+		if current := deck.Cards[ref].Int(); current != 0 {
+			changes = append(changes, CardCountChange{Card: ref, Delta: -current})
+		}
+	}
+	slices.SortFunc(changes, func(a, b CardCountChange) int { return a.Card.Compare(b.Card) })
+	// 同じカードを 2 回外す指定は 1 回にする（差分を重ねて、持っている枚数より多く引かないため）
+	return slices.CompactFunc(changes, func(a, b CardCountChange) bool { return a.Card == b.Card }), nil
 }

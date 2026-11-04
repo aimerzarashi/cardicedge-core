@@ -18,17 +18,8 @@ func fromQueryGrantDeck(deck query.GrantDeck) (*model.GrantDeck, error) {
 	for _, card := range deck.Cards {
 		counts = append(counts, model.DeckCardCount{CardID: card.CardID, Count: card.Count})
 	}
-	var source *model.GrantDeckSource
-	if deck.Source != nil {
-		source = &model.GrantDeckSource{
-			PresetDeckID:       deck.Source.PresetDeckID,
-			Revision:           int(deck.Source.Revision),
-			ChangedSinceCopied: deck.Source.ChangedSinceCopied,
-			PresetDeckDeleted:  deck.Source.PresetDeckDeleted,
-		}
-	}
 	return &model.GrantDeck{
-		ID: deck.ID, Name: deck.Name, Status: status, TotalCount: deck.TotalCount, Source: source, Revision: int(deck.Revision),
+		ID: deck.ID, Name: deck.Name, Status: status, TotalCount: deck.TotalCount, Revision: int(deck.Revision),
 		RegisteredAt: deck.RegisteredAt, UpdatedAt: deck.UpdatedAt, CardCounts: counts,
 	}, nil
 }

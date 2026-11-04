@@ -13,7 +13,6 @@ type GrantDeck struct {
 	Name         string
 	Status       GrantDeckStatus
 	TotalCount   int
-	Source       *GrantDeckSource
 	Revision     int
 	RegisteredAt time.Time
 	UpdatedAt    time.Time

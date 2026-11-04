@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -22,12 +21,22 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 )
 
-var (
-	startedAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
-	cardA     = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	cardB     = uuid.MustParse("00000000-0000-0000-0000-000000000002")
-	cardC     = uuid.MustParse("00000000-0000-0000-0000-000000000003")
-)
+var startedAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+
+func cardA(t *testing.T) card.Ref {
+	t.Helper()
+	return cardtest.CreatureRef(t, 1)
+}
+
+func cardB(t *testing.T) card.Ref {
+	t.Helper()
+	return cardtest.CreatureRef(t, 2)
+}
+
+func cardC(t *testing.T) card.Ref {
+	t.Helper()
+	return cardtest.CreatureRef(t, 3)
+}
 
 func boardA(t *testing.T) board.ID {
 	t.Helper()
@@ -42,8 +51,8 @@ func boardB(t *testing.T) board.ID {
 func decks(t *testing.T) []startergrant.Deck {
 	t.Helper()
 	return []startergrant.Deck{
-		startergranttest.Deck(t, "火", cardtest.Count(t, cardA, 4), cardtest.Count(t, cardB, 1)),
-		startergranttest.Deck(t, "水", cardtest.Count(t, cardA, 2), cardtest.Count(t, cardB, 3), cardtest.Count(t, cardC, 2)),
+		startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA(t), 4), startergranttest.DeckCard(t, cardB(t), 1)),
+		startergranttest.Deck(t, "水", startergranttest.DeckCard(t, cardA(t), 2), startergranttest.DeckCard(t, cardB(t), 3), startergranttest.DeckCard(t, cardC(t), 2)),
 	}
 }
 
@@ -76,10 +85,10 @@ func TestDecide_StartCopiesDecksAndUnlockBoardsAndCollectsMostCountOfEachCard(t 
 
 	started, ok := event.(*startergrant.StartedEvent)
 	require.True(t, ok)
-	require.Equal(t, []card.Count{
-		cardtest.Count(t, cardA, 4),
-		cardtest.Count(t, cardB, 3),
-		cardtest.Count(t, cardC, 2),
+	require.Equal(t, []startergrant.CollectionCard{
+		startergranttest.CollectionCard(t, cardA(t), 4),
+		startergranttest.CollectionCard(t, cardB(t), 3),
+		startergranttest.CollectionCard(t, cardC(t), 2),
 	}, started.Cards)
 	require.Equal(t, decks(t), started.Decks)
 	require.Equal(t, []board.ID{boardA(t), boardB(t)}, started.UnlockBoards)
@@ -120,7 +129,7 @@ func TestDecide_CompletesAfterRecordingEveryDeckWhateverTheDeckCount(t *testing.
 			cmd := startCommand(t)
 			cmd.Decks = nil
 			for range tt.count {
-				cmd.Decks = append(cmd.Decks, startergranttest.Deck(t, "火", cardtest.Count(t, cardA, 4)))
+				cmd.Decks = append(cmd.Decks, startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA(t), 4)))
 			}
 			state, _ := apply(t, startergrant.InitialState(), cmd)
 			state, _ = apply(t, state, &startergrant.RecordCollectionCommand{})

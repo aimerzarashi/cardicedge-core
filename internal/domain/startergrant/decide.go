@@ -1,7 +1,6 @@
 package startergrant
 
 import (
-	"bytes"
 	"slices"
 	"time"
 
@@ -18,10 +17,14 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if len(c.Decks) < 1 {
 			return nil, ErrInvalidDeckCount
 		}
+		cards, err := collectionOf(c.Decks)
+		if err != nil {
+			return nil, err
+		}
 		return []Event{&StartedEvent{
 			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
 			Player:       c.Player,
-			Cards:        collectionOf(c.Decks),
+			Cards:        cards,
 			Decks:        c.Decks,
 			UnlockBoards: c.UnlockBoards, UnlockNPCAvatars: c.UnlockNPCAvatars,
 		}}, nil
@@ -95,22 +98,24 @@ func withCompletion(progress InProgressStarterGrant, now time.Time, event Event)
 }
 
 // カードごとに、配るデッキのうち多いほうの枚数。1 枚の所持カードを複数のデッキで使えるため、合計にはしない。
-// 同じ中身を同じ値として比べられるよう、カードの ID の順に並べる
-func collectionOf(decks []Deck) []card.Count {
-	most := map[[16]byte]card.Count{}
+// 同じ中身を同じ値として比べられるよう、カードの種類・内部 ID の順に並べる
+func collectionOf(decks []Deck) ([]CollectionCard, error) {
+	most := map[card.Ref]card.DeckQuantity{}
 	for _, deck := range decks {
 		for _, c := range deck.Cards {
-			if current, ok := most[c.CardID]; !ok || c.Count > current.Count {
-				most[c.CardID] = c
+			if c.Quantity > most[c.Card] {
+				most[c.Card] = c.Quantity
 			}
 		}
 	}
-	cards := make([]card.Count, 0, len(most))
-	for _, c := range most {
-		cards = append(cards, c)
+	cards := make([]CollectionCard, 0, len(most))
+	for ref, quantity := range most {
+		owned, err := card.NewOwnedQuantity(quantity.Int())
+		if err != nil {
+			return nil, err
+		}
+		cards = append(cards, CollectionCard{Card: ref, Quantity: owned})
 	}
-	slices.SortFunc(cards, func(a, b card.Count) int {
-		return bytes.Compare(a.CardID[:], b.CardID[:])
-	})
-	return cards
+	slices.SortFunc(cards, func(a, b CollectionCard) int { return a.Card.Compare(b.Card) })
+	return cards, nil
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
@@ -19,17 +18,19 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 )
 
-var (
-	createdAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
-	cardA     = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-)
+var createdAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+
+func cardA(t *testing.T) card.Ref {
+	t.Helper()
+	return cardtest.CreatureRef(t, 1)
+}
 
 func createCommand(t *testing.T) *collection.CreateCommand {
 	t.Helper()
 	return &collection.CreateCommand{
 		ID:           collectiontest.ID(t, 30),
 		Player:       playertest.ID(t, 10),
-		Cards:        []card.Count{cardtest.Count(t, cardA, 4)},
+		Cards:        []collection.Card{collectiontest.Card(t, cardA(t), 4)},
 		StarterGrant: startergranttest.ID(t, 20),
 	}
 }

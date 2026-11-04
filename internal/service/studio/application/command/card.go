@@ -10,7 +10,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -98,7 +97,7 @@ func (c *CardHandler) changer(ctx context.Context, id uuid.UUID) (cardStatusChan
 }
 
 // プリセットデッキのカード（種類と内部 ID の組）の状態を返す。無い（まだ登録していない）カードは結果に含めない
-type CardStatusesFunc func(ctx context.Context, refs []presetdeck.CardRef) (map[presetdeck.CardRef]card.Status, error)
+type CardStatusesFunc func(ctx context.Context, refs []card.Ref) (map[card.Ref]card.Status, error)
 
 // カードの状態を、集約をイベントストアで読んで確かめる。read model（cards）を読まないのは、投影が遅れている間に
 // 古い状態で判断しないため。読むだけで書かない
@@ -116,8 +115,8 @@ func NewCardStatusReader(
 	return &CardStatusReader{creatures: creatures, items: items, spells: spells}
 }
 
-func (r *CardStatusReader) Statuses(ctx context.Context, refs []presetdeck.CardRef) (map[presetdeck.CardRef]card.Status, error) {
-	statuses := make(map[presetdeck.CardRef]card.Status, len(refs))
+func (r *CardStatusReader) Statuses(ctx context.Context, refs []card.Ref) (map[card.Ref]card.Status, error) {
+	statuses := make(map[card.Ref]card.Status, len(refs))
 	for _, ref := range refs {
 		status, found, err := r.status(ctx, ref)
 		if err != nil {
@@ -130,10 +129,10 @@ func (r *CardStatusReader) Statuses(ctx context.Context, refs []presetdeck.CardR
 	return statuses, nil
 }
 
-func (r *CardStatusReader) status(ctx context.Context, ref presetdeck.CardRef) (card.Status, bool, error) {
-	switch ref.EntityType() {
+func (r *CardStatusReader) status(ctx context.Context, ref card.Ref) (card.Status, bool, error) {
+	switch ref.EntityType {
 	case creature.Types().EntityType:
-		id, err := creature.NewID(ref.ID())
+		id, err := creature.NewID(ref.ID)
 		if err != nil {
 			return "", false, err
 		}
@@ -144,7 +143,7 @@ func (r *CardStatusReader) status(ctx context.Context, ref presetdeck.CardRef) (
 		loaded, ok := state.(creature.Creature)
 		return loaded.Status, ok, nil
 	case item.Types().EntityType:
-		id, err := item.NewID(ref.ID())
+		id, err := item.NewID(ref.ID)
 		if err != nil {
 			return "", false, err
 		}
@@ -155,7 +154,7 @@ func (r *CardStatusReader) status(ctx context.Context, ref presetdeck.CardRef) (
 		loaded, ok := state.(item.Item)
 		return loaded.Status, ok, nil
 	case spell.Types().EntityType:
-		id, err := spell.NewID(ref.ID())
+		id, err := spell.NewID(ref.ID)
 		if err != nil {
 			return "", false, err
 		}
@@ -166,6 +165,6 @@ func (r *CardStatusReader) status(ctx context.Context, ref presetdeck.CardRef) (
 		loaded, ok := state.(spell.Spell)
 		return loaded.Status, ok, nil
 	default:
-		return "", false, presetdeck.ErrNotCard
+		return "", false, card.ErrNotCard
 	}
 }

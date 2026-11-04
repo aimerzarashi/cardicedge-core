@@ -14,8 +14,6 @@ type GrantDeck {
   cards: [DeckCard!]!
   "カードの枚数の合計"
   totalCount: Int!
-  "プリセットデッキから写して作ったときの写し元（空から作ったときは null）"
-  source: GrantDeckSource
   "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -37,20 +35,6 @@ enum GrantDeckStatus {
   PUBLISHED
   "使用不可"
   RETIRED
-}
-
-# 元は参照（消せない制約）にしないため、消されていることもある。そのときは presetDeckDeleted が true になり、changedSinceCopied は
-# false（比べる相手が無い）
-"写した元"
-type GrantDeckSource {
-  "元のプリセットデッキの公開用の ID（消されていることもある）"
-  presetDeckId: UUID!
-  "写したときの、元のプリセットデッキの revision"
-  revision: Int!
-  "写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）"
-  changedSinceCopied: Boolean!
-  "元のプリセットデッキが削除されている"
-  presetDeckDeleted: Boolean!
 }
 
 "名前が、ほかの配布デッキですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）"
@@ -150,7 +134,7 @@ input RegisterGrantDeckFromPresetDeckInput {
   name: String!
 }
 
-"プリセットデッキから写して配布デッキを登録した（準備中。写した元の公開 ID と revision を記録する）"
+"プリセットデッキから写して配布デッキを登録した（準備中。写した元の内部 ID と revision は登録のイベントにだけ記録する）"
 type RegisterGrantDeckFromPresetDeckSuccess {
   "登録した配布デッキの公開用の ID"
   id: UUID!

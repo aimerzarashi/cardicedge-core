@@ -3,6 +3,7 @@ package grantdeck
 import (
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -19,7 +20,7 @@ type RegisterCommand struct {
 	PublicID     uuid.UUID
 	Name         presetdeck.Name
 	Source       *Source
-	Cards        map[presetdeck.CardRef]presetdeck.CardCount
+	Cards        map[card.Ref]card.DeckQuantity
 	RegisteredBy operator.ID
 }
 
@@ -28,10 +29,11 @@ type RenameCommand struct {
 	RenamedBy operator.ID
 }
 
-// 入力は「その枚数にする」で、イベントの差分は Decide が計算する（presetdeck.SetCardCountsCommand と同じ）。
+// 入力は「その枚数にする」で、イベントの差分は Decide が計算する（presetdeck.SetCardCountsCommand と同じ。外すカードを分けるのも同じ理由）。
 // ルールは、ドメインが既定の値を読まず、コマンドを動かす側が game_rules を読んで渡す
 type SetCardCountsCommand struct {
-	Counts    map[presetdeck.CardRef]presetdeck.CardCount
+	Set       map[card.Ref]card.DeckQuantity
+	Remove    []card.Ref
 	Rules     gamerules.Deck
 	ChangedBy operator.ID
 }

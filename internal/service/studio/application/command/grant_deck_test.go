@@ -166,7 +166,7 @@ func TestRegisterGrantDeckFromPresetDeck_UsesGivenNameAndCopiesCardsAndSource(t 
 	require.Equal(t, 5, deck.TotalCount())
 	source := registeredSource(t, ctx, copied.ID)
 	require.NotNil(t, source)
-	require.Equal(t, preset.ID, source.PresetDeckID)
+	require.Equal(t, internalID(t, ctx, preset.ID), source.PresetDeckID)
 	require.Equal(t, filled.Revision, source.Revision)
 	require.ElementsMatch(t, []int64{internalID(t, ctx, dragon), internalID(t, ctx, potion)}, constrainttest.Referenced(t, ctx, grantdeck.CardReferenceType(), internalID(t, ctx, copied.ID)))
 	_, err = presets.SetCardCounts(ctx, filled.ID, filled.Revision, []command.CardCountInput{{CardID: dragon, Count: 0}})

@@ -105,12 +105,8 @@ func toGrantDeck(id uuid.UUID, totalCount int, raw []byte) (query.GrantDeck, err
 	for _, card := range metadata.Cards {
 		cards = append(cards, query.PresetDeckCard{CardID: card.CardID, Count: card.Count})
 	}
-	var source *query.GrantDeckSource
-	if metadata.Source != nil {
-		source = &query.GrantDeckSource{PresetDeckID: metadata.Source.PresetDeckID, Revision: metadata.Source.Revision}
-	}
 	return query.GrantDeck{
-		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Cards: cards, TotalCount: totalCount, Source: source,
+		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
 		RegisteredBy: metadata.RegisteredBy, UpdatedBy: metadata.UpdatedBy,
 	}, nil

@@ -55,6 +55,9 @@ func registrant(t *testing.T) operator.ID {
 
 var defaultRules = gamerules.Defaults().Deck
 
+// Count などの int と比べるため、型を外した値
+var defaultMaxCardDuplicates = defaultRules.MaxCardDuplicates.Int()
+
 // 既定のルールで動かす。値を小さくして確かめるときは newPresetDeckHandlerWithRules
 func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeckHandler {
 	t.Helper()
@@ -191,7 +194,7 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 // 公開までの流れを小さく確かめるルール（合計 4 枚で公開できる）
 func smallRules() gamerules.Rules {
 	rules := gamerules.Defaults()
-	rules.Deck = gamerules.Deck{TotalCardCount: 4, MaxCardDuplicates: 4}
+	rules.Deck.TotalCardCount = 4
 	return rules
 }
 
@@ -346,10 +349,11 @@ func newNPCDeckHandler(t *testing.T, ctx context.Context) *command.NPCDeckHandle
 	return newNPCDeckHandlerWithRules(t, ctx, gamerules.Defaults())
 }
 
-// State は写し元を持たない（Decide が使わないため）ので、登録のイベントの payload から読む。写して作らなければ nil
+// State は写し元を持たない（Decide が使わないため）ので、登録のイベントの payload から読む。写して作らなければ nil。
+// 写し元のプリセットデッキは内部 ID で持つ
 func registeredSource(t *testing.T, ctx context.Context, publicID uuid.UUID) *struct {
-	PresetDeckID uuid.UUID `json:"preset_deck_id"`
-	Revision     int64     `json:"revision"`
+	PresetDeckID int64 `json:"preset_deck"`
+	Revision     int64 `json:"revision"`
 } {
 	t.Helper()
 	exec, err := rdb.GetExecutor(ctx)
@@ -359,8 +363,8 @@ func registeredSource(t *testing.T, ctx context.Context, publicID uuid.UUID) *st
 		`SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, internalID(t, ctx, publicID)).Scan(&raw))
 	var payload struct {
 		Source *struct {
-			PresetDeckID uuid.UUID `json:"preset_deck_id"`
-			Revision     int64     `json:"revision"`
+			PresetDeckID int64 `json:"preset_deck"`
+			Revision     int64 `json:"revision"`
 		} `json:"source"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &payload))

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 // domain_reference_types の名前。プリセットデッキに入れたカードを、入れている間は消せないようにする
@@ -19,4 +20,4 @@ func CardReferenceType() domain.ReferenceType {
 
 // プリセットデッキが参照するカードを cards にそろえる（無いものは足し、外れたものは消す）。コマンドがイベントの差分を
 // 知らなくても、変えた後の状態（PresetDeck.Cards）を渡すだけで済むよう、差分ではなく変えた後の一覧を受け取る
-type UpdateCardReferencesFunc func(ctx context.Context, id ID, cards []CardRef) error
+type UpdateCardReferencesFunc func(ctx context.Context, id ID, cards []card.Ref) error

@@ -5,9 +5,8 @@ package master
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 )
 
@@ -17,10 +16,10 @@ type GrantDeck struct {
 	Cards []DeckCard
 }
 
-// カードは公開 ID で指す
+// カードは game の内部 ID で指す（写した公開 ID を、読み出すときに引き直す）。枚数は、配布に写すときにルールの上限で確かめる
 type DeckCard struct {
-	CardID uuid.UUID
-	Count  int
+	Card  card.Ref
+	Count int
 }
 
 // 配る中身。公開中のスターターセットが指す配布デッキ（セットが持つ順。公開中でないものは飛ばす）と、解放するボードの内部 ID

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 type ID int64
@@ -46,7 +47,7 @@ type Deck struct {
 	// カードの合計の枚数（配布デッキはちょうど、プリセットデッキは上限）
 	TotalCardCount int `json:"total_card_count"`
 	// 同じカードを入れられる枚数の上限
-	MaxCardDuplicates int `json:"max_card_duplicates"`
+	MaxCardDuplicates card.MaxDeckQuantity `json:"max_card_duplicates"`
 }
 
 // 対戦の決まり。盤面（ボード）や部屋によらず、ゲーム全体で同じ値を使う。
@@ -72,7 +73,7 @@ func New(player Player, deck Deck, match Match) (Rules, error) {
 		{"player.max_decks", player.MaxDecks},
 		{"player.max_avatars", player.MaxAvatars},
 		{"deck.total_card_count", deck.TotalCardCount},
-		{"deck.max_card_duplicates", deck.MaxCardDuplicates},
+		{"deck.max_card_duplicates", deck.MaxCardDuplicates.Int()},
 		{"match.min_players", match.MinPlayers},
 		{"match.max_players", match.MaxPlayers},
 		{"match.max_hand_cards", match.MaxHandCards},
@@ -92,9 +93,14 @@ func New(player Player, deck Deck, match Match) (Rules, error) {
 // 作るときの値。値の変更は core#23 で作るまで、これが全体のルールになる。
 // 作るとき（とテストの用意）のほかは、この値を直接読まず game_rules から読む（ここを読むと、値を変えても効かない所ができるため）
 func Defaults() Rules {
+	// 定数で失敗しないため、呼ぶ側に error を返さず panic にする
+	maxCardDuplicates, err := card.NewMaxDeckQuantity(4)
+	if err != nil {
+		panic(err)
+	}
 	return Rules{
 		Player: Player{MaxDecks: 10, MaxAvatars: 5},
-		Deck:   Deck{TotalCardCount: 40, MaxCardDuplicates: 4},
+		Deck:   Deck{TotalCardCount: 40, MaxCardDuplicates: maxCardDuplicates},
 		Match:  Match{MinPlayers: 2, MaxPlayers: 4, MaxHandCards: 6},
 	}
 }

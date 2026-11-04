@@ -65,8 +65,12 @@ func (c *DeckHandler) Create(ctx context.Context, playerID player.ID, starterGra
 		if err := c.reserveQuota(ctx, deck.PlayerQuota(playerID), limit); err != nil {
 			return struct{}{}, err
 		}
+		cards := make([]deck.Card, len(source.Cards))
+		for i, c := range source.Cards {
+			cards[i] = deck.Card{Card: c.Card, Quantity: c.Quantity}
+		}
 		events, err := deck.Decide(deck.InitialState(), &deck.CreateCommand{
-			ID: id, Player: playerID, Name: name, Cards: source.Cards, StarterGrant: starterGrantID, Number: number,
+			ID: id, Player: playerID, Name: name, Cards: cards, StarterGrant: starterGrantID, Number: number,
 		}, c.now())
 		if err != nil {
 			return struct{}{}, err

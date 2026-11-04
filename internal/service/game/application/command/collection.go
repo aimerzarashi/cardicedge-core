@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
@@ -30,7 +29,7 @@ func NewCollectionHandler(
 }
 
 // 所持品（いまはカード）を作る。そのプレイヤーの所持品がもうあれば（配布のやり直し）、何もしない
-func (c *CollectionHandler) Create(ctx context.Context, playerID player.ID, starterGrantID startergrant.ID, cards []card.Count) error {
+func (c *CollectionHandler) Create(ctx context.Context, playerID player.ID, starterGrantID startergrant.ID, cards []collection.Card) error {
 	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
 		id, _, err := c.identifier.Issue(ctx)
 		if err != nil {

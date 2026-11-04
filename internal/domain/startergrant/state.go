@@ -2,7 +2,6 @@ package startergrant
 
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
@@ -20,7 +19,7 @@ type InProgressStarterGrant struct {
 	ID                 ID
 	Version            int64
 	Player             player.ID
-	Cards              []card.Count
+	Cards              []CollectionCard
 	Decks              []Deck
 	UnlockBoards       []board.ID
 	UnlockNPCAvatars   []npcavatar.ID

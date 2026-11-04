@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
 
 // 版の衝突でやり直す回数の上限。衝突するのは、所持カード・解放・デッキの記録が同じ配布に同時に来たときだけ（最大で、配るデッキの数 + 2 つ。デッキが 2 つなら 4 つ）
@@ -26,6 +27,7 @@ type StarterGrantHandler struct {
 	identifier    domain.Identifier[startergrant.ID]
 	updatePlayer  startergrant.UpdatePlayerFunc
 	getStarterSet master.GetPublishedStarterSetFunc
+	getRules      rules.GetRulesFunc
 	collections   *CollectionHandler
 	unlocks       *UnlockHandler
 	findGrant     FindStarterGrantByPlayerFunc
@@ -38,6 +40,7 @@ func NewStarterGrantHandler(
 	identifier domain.Identifier[startergrant.ID],
 	updatePlayer startergrant.UpdatePlayerFunc,
 	getStarterSet master.GetPublishedStarterSetFunc,
+	getRules rules.GetRulesFunc,
 	collections *CollectionHandler,
 	unlocks *UnlockHandler,
 	findGrant FindStarterGrantByPlayerFunc,
@@ -45,7 +48,7 @@ func NewStarterGrantHandler(
 	now func() time.Time,
 ) *StarterGrantHandler {
 	return &StarterGrantHandler{
-		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, getStarterSet: getStarterSet,
+		eventStore: eventStore, identifier: identifier, updatePlayer: updatePlayer, getStarterSet: getStarterSet, getRules: getRules,
 		collections: collections, unlocks: unlocks, findGrant: findGrant, decks: decks, now: now,
 	}
 }
@@ -90,7 +93,14 @@ func (c *StarterGrantHandler) Start(ctx context.Context, rawPlayerID int64) erro
 	if !found || len(set.GrantDecks) == 0 {
 		return ErrMasterNotPublished
 	}
-	decks, err := startDecks(set.GrantDecks)
+	gameRules, found, err := c.getRules(ctx)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return rules.ErrNotPublished
+	}
+	decks, err := startDecks(set.GrantDecks, gameRules.Deck.MaxCardDuplicates)
 	if err != nil {
 		return err
 	}
@@ -125,7 +135,11 @@ func (c *StarterGrantHandler) Distribute(ctx context.Context, grantID int64) err
 	case startergrant.CompletedStarterGrant:
 		return nil
 	case startergrant.InProgressStarterGrant:
-		if err := c.collections.Create(ctx, s.Player, s.ID, s.Cards); err != nil {
+		owned := make([]collection.Card, len(s.Cards))
+		for i, entry := range s.Cards {
+			owned[i] = collection.Card{Card: entry.Card, Quantity: entry.Quantity}
+		}
+		if err := c.collections.Create(ctx, s.Player, s.ID, owned); err != nil {
 			return err
 		}
 		for i, source := range s.Decks {
@@ -262,20 +276,20 @@ func (c *StarterGrantHandler) load(ctx context.Context, grantID int64) (starterg
 // プレイヤーの配布を引く（プレイヤーに 1 つ）。無ければ found が false
 type FindStarterGrantByPlayerFunc func(ctx context.Context, playerID player.ID) (startergrant.ID, bool, error)
 
-func startDecks(published []master.GrantDeck) ([]startergrant.Deck, error) {
+func startDecks(published []master.GrantDeck, maxCardDuplicates card.MaxDeckQuantity) ([]startergrant.Deck, error) {
 	decks := make([]startergrant.Deck, 0, len(published))
 	for _, source := range published {
 		name, err := startergrant.NewDeckName(source.Name)
 		if err != nil {
 			return nil, fmt.Errorf("master grant deck name %q: %w", source.Name, err)
 		}
-		cards := make([]card.Count, 0, len(source.Cards))
+		cards := make([]startergrant.DeckCard, 0, len(source.Cards))
 		for _, c := range source.Cards {
-			count, err := card.NewQuantity(c.Count)
+			quantity, err := card.NewDeckQuantity(c.Count, maxCardDuplicates)
 			if err != nil {
-				return nil, fmt.Errorf("master grant deck %q card %s: %w", source.Name, c.CardID, err)
+				return nil, fmt.Errorf("master grant deck %q card %s/%d: %w", source.Name, c.Card.EntityType, c.Card.ID, err)
 			}
-			cards = append(cards, card.Count{CardID: c.CardID, Count: count})
+			cards = append(cards, startergrant.DeckCard{Card: c.Card, Quantity: quantity})
 		}
 		decks = append(decks, startergrant.Deck{Name: name, Cards: cards})
 	}
