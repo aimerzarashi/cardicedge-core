@@ -1,6 +1,9 @@
 package deck
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // 中で time.Now を呼ばず発生時刻を受け取るのは、テストで時刻を固定するため
 func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
@@ -8,6 +11,13 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	case *CreateCommand:
 		if _, ok := state.(UncreatedDeck); !ok {
 			return nil, ErrAlreadyCreated
+		}
+		total := 0
+		for _, c := range c.Cards {
+			total += c.Quantity.Int()
+		}
+		if total != int(c.Total) {
+			return nil, fmt.Errorf("%w: %d (rule %d)", ErrTotalMismatch, total, c.Total)
 		}
 		return []Event{&CreatedEvent{
 			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},

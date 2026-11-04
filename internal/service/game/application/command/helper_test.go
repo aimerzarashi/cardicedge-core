@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
@@ -84,7 +85,7 @@ func newStarterGrantHandler(t *testing.T, ctx context.Context, getStarterSet mas
 		identifier.New(registry, startergrant.NewID),
 		constraint.UpdateStarterGrantPlayer,
 		getStarterSet,
-		func(context.Context) (gamerules.Rules, bool, error) { return gamerules.Defaults(), true, nil },
+		func(context.Context) (gamerules.Rules, bool, error) { return testRules(t), true, nil },
 		newCollectionHandler(t, ctx),
 		newUnlockHandler(t, ctx),
 		constraint.FindStarterGrantByPlayer,
@@ -117,6 +118,14 @@ func newUnlockHandler(t *testing.T, ctx context.Context) *command.UnlockHandler 
 	)
 }
 
+// 見本の配布デッキ（publishedDecks）の合計に合わせたルール。本番も、公開された配布デッキの合計は決まりの枚数とちょうど同じ
+func testRules(t *testing.T) gamerules.Rules {
+	t.Helper()
+	values := gamerules.Defaults()
+	values.Deck.TotalCardCount = cardtest.DeckTotalCount(t, grantDeckTotal)
+	return values
+}
+
 func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 	t.Helper()
 	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks.Int())
@@ -128,7 +137,7 @@ func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.QuotaLimit) *command.DeckHandler {
 	t.Helper()
 	return newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
-		values := gamerules.Defaults()
+		values := testRules(t)
 		values.Player.MaxDecks = playertest.MaxDecks(t, limit.Int())
 		return values, true, nil
 	})
@@ -145,6 +154,7 @@ func newDeckHandlerWithRules(t *testing.T, ctx context.Context, getRules rules.G
 		constraint.UpdateDeckName,
 		constraint.ReserveDeckQuota,
 		rules.FromPublished(getRules),
+		getRules,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

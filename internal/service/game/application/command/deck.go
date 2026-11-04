@@ -19,6 +19,7 @@ type DeckHandler struct {
 	updateStarter deck.UpdateStarterFunc
 	updateName    deck.UpdateNameFunc
 	reserveQuota  deck.ReserveQuotaFunc
+	getRules      rules.GetRulesFunc
 	getQuotaLimit rules.GetQuotaLimitFunc
 	now           func() time.Time
 }
@@ -30,11 +31,12 @@ func NewDeckHandler(
 	updateName deck.UpdateNameFunc,
 	reserveQuota deck.ReserveQuotaFunc,
 	getQuotaLimit rules.GetQuotaLimitFunc,
+	getRules rules.GetRulesFunc,
 	now func() time.Time,
 ) *DeckHandler {
 	return &DeckHandler{
 		eventStore: eventStore, identifier: identifier, updateStarter: updateStarter, updateName: updateName,
-		reserveQuota: reserveQuota, getQuotaLimit: getQuotaLimit, now: now,
+		reserveQuota: reserveQuota, getQuotaLimit: getQuotaLimit, getRules: getRules, now: now,
 	}
 }
 
@@ -46,6 +48,14 @@ func (c *DeckHandler) Create(ctx context.Context, playerID player.ID, starterGra
 	name, err := deck.NewName(source.Name.String())
 	if err != nil {
 		return err
+	}
+	// 決まりの枚数は、作るときのルールで確かめる（配布を始めた時点のルールの写しではなく、今のルール。デッキの決まりはデッキを作る側が守る）
+	gameRules, found, err := c.getRules(ctx)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return rules.ErrNotPublished
 	}
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
 		id, _, err := c.identifier.Issue(ctx)
@@ -70,7 +80,7 @@ func (c *DeckHandler) Create(ctx context.Context, playerID player.ID, starterGra
 			cards[i] = deck.Card{Card: c.Card, Quantity: c.Quantity}
 		}
 		events, err := deck.Decide(deck.InitialState(), &deck.CreateCommand{
-			ID: id, Player: playerID, Name: name, Cards: cards, StarterGrant: starterGrantID, Number: number,
+			ID: id, Player: playerID, Name: name, Cards: cards, Total: gameRules.Deck.TotalCardCount, StarterGrant: starterGrantID, Number: number,
 		}, c.now())
 		if err != nil {
 			return struct{}{}, err

@@ -98,6 +98,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 				constraint.UpdateDeckName,
 				constraint.ReserveDeckQuota,
 				rules.FromPublished(repository.NewGameRulesReader().Get),
+				repository.NewGameRulesReader().Get,
 				now,
 			),
 			now,

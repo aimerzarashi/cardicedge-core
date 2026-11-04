@@ -18,7 +18,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
 
-// 見本のマスタの配布デッキ。火は A が 4 枚・B が 1 枚、水は A が 2 枚・B が 3 枚・C が 2 枚
+// 見本のマスタの配布デッキ。火は A が 4 枚・B が 3 枚、水は A が 2 枚・B が 3 枚・C が 2 枚（どちらも 7 枚。本番も公開された配布デッキの合計は決まりの枚数とちょうど同じなので、見本の game_rules は 7 枚にしてある）
 // （所持カードは、カードごとに多いほうの枚数になる: A が 4 枚・B が 3 枚・C が 2 枚）。
 // 準備中・使用不可の配布デッキも写してあり（C を 5 枚持つので、配られれば所持カードが変わる）、配られないことを確かめる。
 // 公開中のスターターセットは、配るデッキを 水・使用不可・火 の順に指す（配られるのは公開中の 水 → 火 の順。名前の順（火 → 水）でも
@@ -182,7 +182,7 @@ func InternalCardRef(ctx context.Context, gameDB *sql.DB, publicID uuid.UUID) (c
 
 // 配布デッキ 4 つ（公開中が火と水、準備中、使用不可）を写す。C を 5 枚持つのが準備中と使用不可なので、配られれば所持カードが変わる
 func publishGrantDecks(ctx context.Context, gameDB *sql.DB, master Master) error {
-	fire := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Fire, Name: "火", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 4}, {CardID: master.CardB, Count: 1}}}
+	fire := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Fire, Name: "火", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 4}, {CardID: master.CardB, Count: 3}}}
 	water := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Water, Name: "水", Status: readmodel.GrantDeckStatusPublished, Cards: []readmodel.DeckCard{{CardID: master.CardA, Count: 2}, {CardID: master.CardB, Count: 3}, {CardID: master.CardC, Count: 2}}}
 	draft := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Draft, Name: "準備中", Status: readmodel.GrantDeckStatusDraft, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
 	retired := readmodel.GrantDeckMetadata{ID: master.GrantDecks.Retired, Name: "使用不可", Status: readmodel.GrantDeckStatusRetired, Cards: []readmodel.DeckCard{{CardID: master.CardC, Count: 5}}}
@@ -244,9 +244,15 @@ func insertStarterSets(ctx context.Context, gameDB *sql.DB, sets ...readmodel.St
 	return nil
 }
 
-// game_rules の行を写す。値は既定の値（studio が起動時に作る値）
+// game_rules の行を写す。値は既定の値（studio が起動時に作る値）だが、デッキの枚数だけは見本の配布デッキの合計（7 枚）にする
 func PublishGameRules(ctx context.Context, gameDB *sql.DB) error {
-	metadata, err := json.Marshal(readmodel.GameRulesMetadata{ID: uuid.New(), Revision: 1, Rules: gamerules.Defaults()})
+	rules := gamerules.Defaults()
+	total, err := card.NewDeckTotalCount(7)
+	if err != nil {
+		return err
+	}
+	rules.Deck.TotalCardCount = total
+	metadata, err := json.Marshal(readmodel.GameRulesMetadata{ID: uuid.New(), Revision: 1, Rules: rules})
 	if err != nil {
 		return err
 	}

@@ -103,7 +103,7 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 		decktest.Card(t, m.InternalCardA, 2), decktest.Card(t, m.InternalCardB, 3), decktest.Card(t, m.InternalCardC, 2),
 	}, first.Cards)
 	require.Equal(t, "火", second.Name.String())
-	require.Equal(t, []deck.Card{decktest.Card(t, m.InternalCardA, 4), decktest.Card(t, m.InternalCardB, 1)}, second.Cards)
+	require.Equal(t, []deck.Card{decktest.Card(t, m.InternalCardA, 4), decktest.Card(t, m.InternalCardB, 3)}, second.Cards)
 
 	// 解放は、セットが指すボードの内部 ID をそのまま、指す順に持つ（公開中かは読むときに見る）。作った後の 2 つ目のイベントで解放する
 	unlockID, err := unlock.NewID(constrainttest.Owner(t, ctx, unlock.PlayerKey(playerID)))
