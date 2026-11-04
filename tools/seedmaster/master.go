@@ -316,17 +316,26 @@ func (m master) validateNPCDecks(presetDeckNames map[string]bool) (map[string]bo
 }
 
 func (b masterBoard) layout() (board.Layout, error) {
-	size, err := board.NewSize(b.Width, b.Height)
+	width, err := board.NewWidth(b.Width)
 	if err != nil {
 		return board.Layout{}, err
 	}
+	height, err := board.NewHeight(b.Height)
+	if err != nil {
+		return board.Layout{}, err
+	}
+	size := board.Size{Width: width, Height: height}
 	tiles := make([]board.Tile, 0, len(b.Tiles))
 	for _, t := range b.Tiles {
 		kind, err := board.NewTileKind(t.Kind)
 		if err != nil {
 			return board.Layout{}, err
 		}
-		tile := board.Tile{Position: board.NewPosition(t.X, t.Y), Kind: kind}
+		position, err := newPosition(t.X, t.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		tile := board.Tile{Position: position, Kind: kind}
 		if t.Attribute != "" {
 			tile.Attribute, err = board.NewAttribute(t.Attribute)
 			if err != nil {
@@ -337,13 +346,41 @@ func (b masterBoard) layout() (board.Layout, error) {
 	}
 	connections := make([]board.Connection, 0, len(b.Connections))
 	for _, c := range b.Connections {
-		connections = append(connections, board.NewConnection(board.NewPosition(c.A.X, c.A.Y), board.NewPosition(c.B.X, c.B.Y)))
+		a, err := newPosition(c.A.X, c.A.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		b, err := newPosition(c.B.X, c.B.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		connections = append(connections, board.NewConnection(a, b))
 	}
 	pairs := make([]board.Pair, 0, len(b.Pairs))
 	for _, p := range b.Pairs {
-		pairs = append(pairs, board.NewPair(board.NewPosition(p.A.X, p.A.Y), board.NewPosition(p.B.X, p.B.Y)))
+		a, err := newPosition(p.A.X, p.A.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		b, err := newPosition(p.B.X, p.B.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		pairs = append(pairs, board.NewPair(a, b))
 	}
 	return board.NewLayout(size, tiles, connections, pairs)
+}
+
+func newPosition(x, y int) (board.Position, error) {
+	px, err := board.NewX(x)
+	if err != nil {
+		return board.Position{}, err
+	}
+	py, err := board.NewY(y)
+	if err != nil {
+		return board.Position{}, err
+	}
+	return board.Position{X: px, Y: py}, nil
 }
 
 func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {

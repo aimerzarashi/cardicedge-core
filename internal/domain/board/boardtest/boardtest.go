@@ -25,11 +25,37 @@ func Name(t testing.TB, value string) board.Name {
 	return name
 }
 
+func Width(t testing.TB, value int) board.Width {
+	t.Helper()
+	width, err := board.NewWidth(value)
+	require.NoError(t, err)
+	return width
+}
+
+func Height(t testing.TB, value int) board.Height {
+	t.Helper()
+	height, err := board.NewHeight(value)
+	require.NoError(t, err)
+	return height
+}
+
+func X(t testing.TB, value int) board.X {
+	t.Helper()
+	x, err := board.NewX(value)
+	require.NoError(t, err)
+	return x
+}
+
+func Y(t testing.TB, value int) board.Y {
+	t.Helper()
+	y, err := board.NewY(value)
+	require.NoError(t, err)
+	return y
+}
+
 func Size(t testing.TB, width, height int) board.Size {
 	t.Helper()
-	size, err := board.NewSize(width, height)
-	require.NoError(t, err)
-	return size
+	return board.Size{Width: Width(t, width), Height: Height(t, height)}
 }
 
 func DefaultRules(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) board.DefaultRules {
@@ -56,19 +82,21 @@ func Attribute(t testing.TB, value string) board.Attribute {
 // 属性は土地のときだけ渡す（拠点・チェックポイントは空にする）
 func Tile(t testing.TB, x, y int, kind, attribute string) board.Tile {
 	t.Helper()
-	tile := board.Tile{Position: board.NewPosition(x, y), Kind: TileKind(t, kind)}
+	tile := board.Tile{Position: Position(t, x, y), Kind: TileKind(t, kind)}
 	if attribute != "" {
 		tile.Attribute = Attribute(t, attribute)
 	}
 	return tile
 }
 
-func Connection(ax, ay, bx, by int) board.Connection {
-	return board.NewConnection(board.NewPosition(ax, ay), board.NewPosition(bx, by))
+func Connection(t testing.TB, ax, ay, bx, by int) board.Connection {
+	t.Helper()
+	return board.NewConnection(Position(t, ax, ay), Position(t, bx, by))
 }
 
-func Pair(ax, ay, bx, by int) board.Pair {
-	return board.NewPair(board.NewPosition(ax, ay), board.NewPosition(bx, by))
+func Pair(t testing.TB, ax, ay, bx, by int) board.Pair {
+	t.Helper()
+	return board.NewPair(Position(t, ax, ay), Position(t, bx, by))
 }
 
 // 対が要らないテストは pairs を渡さない
@@ -79,6 +107,7 @@ func Layout(t testing.TB, size board.Size, tiles []board.Tile, connections []boa
 	return layout
 }
 
-func Position(x, y int) board.Position {
-	return board.NewPosition(x, y)
+func Position(t testing.TB, x, y int) board.Position {
+	t.Helper()
+	return board.Position{X: X(t, x), Y: Y(t, y)}
 }

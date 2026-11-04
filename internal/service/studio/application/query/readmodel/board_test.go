@@ -112,7 +112,7 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 1, 1, "land", "fire"), boardtest.Tile(t, 2, 0, "base", ""), boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "fire")},
-		[]board.Connection{boardtest.Connection(1, 1, 1, 0), boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 1, 1, 1, 0), boardtest.Connection(t, 0, 0, 1, 0)}))
 
 	state := h.project()
 
@@ -159,11 +159,11 @@ func TestBoard_LayoutChangeRecomputesPublishProblems(t *testing.T) {
 	twoBases := h.project().Metadata.PublishProblems
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 2, "land", "fire")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 	unreachable := h.project().Metadata.PublishProblems
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 	publishable := h.project().Metadata.PublishProblems
 
 	require.Equal(t, []readmodel.BoardPublishProblem{
@@ -185,13 +185,13 @@ func TestBoard_LayoutChangeAppliesPairsAndRecomputesUnpairedProblem(t *testing.T
 		boardtest.Tile(t, 2, 1, "sanctuary", ""), boardtest.Tile(t, 3, 1, "card_shop", ""),
 	}
 	connections := []board.Connection{
-		boardtest.Connection(0, 0, 1, 0), boardtest.Connection(0, 0, 0, 1), boardtest.Connection(0, 1, 1, 1),
-		boardtest.Connection(1, 0, 2, 0), boardtest.Connection(2, 0, 2, 1), boardtest.Connection(3, 0, 3, 1),
+		boardtest.Connection(t, 0, 0, 1, 0), boardtest.Connection(t, 0, 0, 0, 1), boardtest.Connection(t, 0, 1, 1, 1),
+		boardtest.Connection(t, 1, 0, 2, 0), boardtest.Connection(t, 2, 0, 2, 1), boardtest.Connection(t, 3, 0, 3, 1),
 	}
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(3, 0, 2, 0), boardtest.Pair(0, 1, 1, 1)))
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(t, 3, 0, 2, 0), boardtest.Pair(t, 0, 1, 1, 1)))
 	paired := h.project().Metadata
-	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(2, 0, 3, 0)))
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(t, 2, 0, 3, 0)))
 	unpaired := h.project().Metadata
 
 	require.Equal(t, []readmodel.BoardPair{
@@ -210,7 +210,7 @@ func TestBoard_LayoutChangeAppliesPairsAndRecomputesUnpairedProblem(t *testing.T
 func TestBoard_LayoutChangeDropsPairOfRemovedTile(t *testing.T) {
 	size := boardtest.Size(t, 3, 1)
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")}, nil, boardtest.Pair(0, 0, 2, 0)))
+	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")}, nil, boardtest.Pair(t, 0, 0, 2, 0)))
 	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", "")}, nil))
 
 	state := h.project()
@@ -239,10 +239,10 @@ func TestBoard_LayoutChangeRemovesChangesAndResizes(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0), boardtest.Connection(t, 1, 0, 2, 0)}))
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 2),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 
 	state := h.project()
 
@@ -271,7 +271,7 @@ func TestBoard_DoesNotChangeTheGivenState(t *testing.T) {
 func TestBoard_StatusEventsChangeStatusAndRevision(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")}, []board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 	h.apply(&board.PublishCommand{PublishedBy: operatortest.ID(t, 11)}, boardChangedAt)
 	published := h.project()
 	h.apply(&board.RetireCommand{RetiredBy: operatortest.ID(t, 13)}, boardChangedAt)

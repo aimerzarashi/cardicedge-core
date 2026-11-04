@@ -78,8 +78,8 @@ func TestRegisterBoard_ReturnsPublicIDAndMakesEmptyDraft(t *testing.T) {
 	current := restoredBoard(t, ctx, registered.ID)
 	require.Equal(t, "草原", current.Name.String())
 	require.Equal(t, board.StatusDraft, current.Status)
-	require.Equal(t, 8, current.Layout.Size().Width())
-	require.Equal(t, 8, current.Layout.Size().Height())
+	require.Equal(t, 8, current.Layout.Size().Width.Int())
+	require.Equal(t, 8, current.Layout.Size().Height.Int())
 	require.Empty(t, current.Layout.Tiles())
 	require.Empty(t, current.Layout.Connections())
 }
@@ -102,8 +102,8 @@ func TestRegisterBoard_ClampsDefaultSizeIntoStudioRulesRange(t *testing.T) {
 			registered := registerBoard(t, ctx, commands, "草原")
 
 			current := restoredBoard(t, ctx, registered.ID)
-			require.Equal(t, tt.want, current.Layout.Size().Width())
-			require.Equal(t, tt.want, current.Layout.Size().Height())
+			require.Equal(t, tt.want, current.Layout.Size().Width.Int())
+			require.Equal(t, tt.want, current.Layout.Size().Height.Int())
 		})
 	}
 }
@@ -248,7 +248,7 @@ func TestChangeBoardLayout_SavesWholeLayoutAndReplacesPrevious(t *testing.T) {
 
 	current := restoredBoard(t, ctx, changed.ID)
 	require.Equal(t, int64(2), changed.Revision)
-	require.Equal(t, 3, current.Layout.Size().Width())
+	require.Equal(t, 3, current.Layout.Size().Width.Int())
 	require.Len(t, current.Layout.Tiles(), 3)
 	require.Len(t, current.Layout.Connections(), 2)
 
@@ -257,7 +257,7 @@ func TestChangeBoardLayout_SavesWholeLayoutAndReplacesPrevious(t *testing.T) {
 
 	current = restoredBoard(t, ctx, changed.ID)
 	require.Equal(t, int64(3), replaced.Revision)
-	require.Equal(t, 2, current.Layout.Size().Width())
+	require.Equal(t, 2, current.Layout.Size().Width.Int())
 	require.Len(t, current.Layout.Tiles(), 1)
 	require.Empty(t, current.Layout.Connections())
 }
@@ -355,6 +355,22 @@ func TestChangeBoardLayout_MapsViolationsToInputPaths(t *testing.T) {
 			name:   "checkpoint_out_of_range",
 			layout: layoutInput(3, 2, tiles(tileInput(0, 2, "checkpoint")), nil),
 			want:   []input.Error{&input.OutOfRange{Field: "tiles.0.checkpoint.y", Min: 0, Max: 1}},
+		},
+		{
+			name:   "negative_tile_coordinate",
+			layout: layoutInput(3, 2, tiles(tileInput(-1, 0, "land"), tileInput(0, -1, "base")), nil),
+			want: []input.Error{
+				&input.TooSmall{Field: "tiles.0.land.x", Min: 0},
+				&input.TooSmall{Field: "tiles.1.base.y", Min: 0},
+			},
+		},
+		{
+			name:   "negative_connection_and_pair_ends",
+			layout: withPairs(layoutInput(3, 3, tiles(tileInput(0, 0, "land")), connections(connectionInput(-1, 0, 0, 0))), pairInput(0, 0, 0, -1)),
+			want: []input.Error{
+				&input.TooSmall{Field: "connections.0.a.x", Min: 0},
+				&input.TooSmall{Field: "pairs.0.b.y", Min: 0},
+			},
 		},
 		{
 			name:   "duplicated_tile",
@@ -485,7 +501,7 @@ func TestChangeBoardLayout_SavesSpecialTilesAndPairs(t *testing.T) {
 	require.NoError(t, err)
 	current := restoredBoard(t, ctx, changed.ID)
 	require.Len(t, current.Layout.Tiles(), 8)
-	require.Equal(t, []board.Pair{boardtest.Pair(0, 0, 3, 1), boardtest.Pair(1, 0, 2, 1)}, current.Layout.Pairs())
+	require.Equal(t, []board.Pair{boardtest.Pair(t, 0, 0, 3, 1), boardtest.Pair(t, 1, 0, 2, 1)}, current.Layout.Pairs())
 }
 
 func TestChangeBoardDefaultRules_SavesAllValuesAndKeepsLayout(t *testing.T) {
