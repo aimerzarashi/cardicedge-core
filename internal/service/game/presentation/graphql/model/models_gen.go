@@ -30,9 +30,41 @@ type BoardsResult interface {
 	IsBoardsResult()
 }
 
+// changeRoomMatchRules の結果（公開前、または公開前に決めていなければ準備中。決めるのは作った人）。
+// 入力の誤りは ValidationErrors（段階ごと。7 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
+type ChangeRoomMatchRulesResult interface {
+	IsChangeRoomMatchRulesResult()
+}
+
+// changeRoomSeatChoice の結果（公開前、または公開前に決めていなければ準備中）。選んだ時の 1 回だけ、選べるものかを確かめる（準備完了の時には確かめ直さない）。
+// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキを確かめる）
+type ChangeRoomSeatChoiceResult interface {
+	IsChangeRoomSeatChoiceResult()
+}
+
+// changeRoomSeats の結果（公開前だけ。作った人だけ）
+type ChangeRoomSeatsResult interface {
+	IsChangeRoomSeatsResult()
+}
+
+// closeRoom の結果（作った人だけ。対戦中は閉じられない（対戦中の状態は対戦を作るときに足す））
+type CloseRoomResult interface {
+	IsCloseRoomResult()
+}
+
+// createRoom の結果。名前の誤りは ValidationErrors（項目名 name）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type CreateRoomResult interface {
+	IsCreateRoomResult()
+}
+
 // デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type DeckResult interface {
 	IsDeckResult()
+}
+
+// declareRoomReady の結果（準備中だけ。自分の担当の分がすべて決まっているときだけ）
+type DeclareRoomReadyResult interface {
+	IsDeclareRoomReadyResult()
 }
 
 // 入力の項目ごとの誤り。理由は __typename で見分ける
@@ -52,9 +84,19 @@ type MeResult interface {
 	IsMeResult()
 }
 
+// 自分の部屋の一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MyRoomsResult interface {
+	IsMyRoomsResult()
+}
+
 // NPC のアバターの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type NpcAvatarResult interface {
 	IsNpcAvatarResult()
+}
+
+// publishRoom の結果（公開前だけ。作った人だけ。席の並びが決まっていなければ RoomSeatsNotDecidedError。対戦ルールと席の選択は、決まっていなくても公開できる）
+type PublishRoomResult interface {
+	IsPublishRoomResult()
 }
 
 // registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
@@ -65,6 +107,16 @@ type RegisterAvatarResult interface {
 // registerPlayer の結果
 type RegisterPlayerResult interface {
 	IsRegisterPlayerResult()
+}
+
+// renameRoom の結果（作った人だけ。閉じる前まで。公開の後にも変えられる。閉じた部屋は RoomStatusNotAllowedError）
+type RenameRoomResult interface {
+	IsRenameRoomResult()
+}
+
+// 部屋の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type RoomResult interface {
+	IsRoomResult()
 }
 
 // プレイヤーのアバター。ほかのプレイヤーにも見える名前を持つ
@@ -268,6 +320,84 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
+// 対戦ルールを決める入力。7 つの値の名前と決まりは、ボードの既定のルールと同じ
+type ChangeRoomMatchRulesInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// ボードの公開用の ID（作った人が解放した公開中のもの。Player.boards に出るもの）
+	BoardID uuid.UUID `json:"boardId"`
+	// 目標の魔力（1 以上、開始時の魔力より大きい）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（0 以上）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（0 以上）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（0 以上）
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（1 以上）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上）
+	DiceMax int `json:"diceMax"`
+}
+
+// 対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）
+type ChangeRoomMatchRulesSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomMatchRulesSuccess) IsChangeRoomMatchRulesResult() {}
+
+// 席のアバターとデッキを選ぶ入力。席の種類で、選ぶものが変わる
+type ChangeRoomSeatChoiceInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 席の番号（席の並びの何番目か。0 始まり）
+	Seat int `json:"seat"`
+	// アバターの公開用の ID（プレイヤーの席は座っている人のアバター（Player.avatars に出るもの）、NPC の席は作った人が解放した公開中の NPC のアバター（Player.npcAvatars に出るもの））
+	AvatarID uuid.UUID `json:"avatarId"`
+	// デッキの公開用の ID（プレイヤーの席は座っている人のデッキ（Player.decks に出るもの）、NPC の席は選んだ NPC のアバターに割り当てた公開中のデッキ（Player.npcAvatars の decks に出るもの））
+	DeckID uuid.UUID `json:"deckId"`
+}
+
+// 席のアバターとデッキを選んだ（同じ選択なら何も変えず、revision も進まない）
+type ChangeRoomSeatChoiceSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomSeatChoiceSuccess) IsChangeRoomSeatChoiceResult() {}
+
+// 席の並びを決める入力
+type ChangeRoomSeatsInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる
+	Seats []RoomSeatKind `json:"seats"`
+}
+
+// 席の並びを決めた（同じ並びなら何も変えず、revision も進まない）
+type ChangeRoomSeatsSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomSeatsSuccess) IsChangeRoomSeatsResult() {}
+
 // チェックポイント
 type CheckpointTile struct {
 	// 列
@@ -283,6 +413,40 @@ func (this CheckpointTile) GetX() int { return this.X }
 
 // 行
 func (this CheckpointTile) GetY() int { return this.Y }
+
+// 部屋を閉じる入力
+type CloseRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 部屋を閉じた（閉じた部屋をもう一度閉じても、何も変えず成功する）
+type CloseRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 閉じた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (CloseRoomSuccess) IsCloseRoomResult() {}
+
+// 部屋を作る入力
+type CreateRoomInput struct {
+	// 部屋の名前（前後の空白を除いて 1〜20 文字。FieldRequired・FieldTooLong の max。ほかの部屋と同じでもよい）
+	Name string `json:"name"`
+}
+
+// 部屋を作った（公開前。席は 0）
+type CreateRoomSuccess struct {
+	// 作った部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 作った部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (CreateRoomSuccess) IsCreateRoomResult() {}
 
 // プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）
 type Deck struct {
@@ -336,6 +500,37 @@ type DeckTypeCounts struct {
 	Spell int `json:"spell"`
 }
 
+// 準備完了を申告する入力
+type DeclareRoomReadyInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 準備完了を申告した（以後、自分の担当の分を選び直せない。取り消す操作は無い）
+type DeclareRoomReadySuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 申告した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (DeclareRoomReadySuccess) IsDeclareRoomReadyResult() {}
+
+// 入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）
+type FieldCountMismatch struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 決まりの個数
+	Expected int `json:"expected"`
+}
+
+func (FieldCountMismatch) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldCountMismatch) GetField() string { return this.Field }
+
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -346,6 +541,43 @@ func (FieldInvalidFormat) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）
+type FieldLessThan struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 下回ってはいけない相手の入力の項目（例: diceMin）
+	Than string `json:"than"`
+}
+
+func (FieldLessThan) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldLessThan) GetField() string { return this.Field }
+
+// 入力の ID が指すものが、選べるものの中に無い（無い・ほかのプレイヤーのもの・解放していない・公開中でない等。区別しない）
+type FieldNotFound struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldNotFound) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotFound) GetField() string { return this.Field }
+
+// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）
+type FieldNotGreaterThan struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 大きくなければならない相手の入力の項目（例: startingMagic）
+	Than string `json:"than"`
+}
+
+func (FieldNotGreaterThan) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotGreaterThan) GetField() string { return this.Field }
 
 // 入力が範囲の外
 type FieldOutOfRange struct {
@@ -385,6 +617,19 @@ func (FieldTooLong) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 入力が下限より小さい（上限は無い）
+type FieldTooSmall struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 下限（この値を含む）
+	Min int `json:"min"`
+}
+
+func (FieldTooSmall) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooSmall) GetField() string { return this.Field }
 
 // ゲーム全体のルール
 type GameRules struct {
@@ -525,6 +770,26 @@ func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
 
 func (PlayerNotRegisteredError) IsMeResult() {}
 
+func (PlayerNotRegisteredError) IsMyRoomsResult() {}
+
+func (PlayerNotRegisteredError) IsRoomResult() {}
+
+func (PlayerNotRegisteredError) IsCreateRoomResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomSeatsResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomMatchRulesResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomSeatChoiceResult() {}
+
+func (PlayerNotRegisteredError) IsPublishRoomResult() {}
+
+func (PlayerNotRegisteredError) IsDeclareRoomReadyResult() {}
+
+func (PlayerNotRegisteredError) IsRenameRoomResult() {}
+
+func (PlayerNotRegisteredError) IsCloseRoomResult() {}
+
 // 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
 type ProphecyShopTile struct {
 	// 列
@@ -540,6 +805,24 @@ func (this ProphecyShopTile) GetX() int { return this.X }
 
 // 行
 func (this ProphecyShopTile) GetY() int { return this.Y }
+
+// 部屋を公開する入力
+type PublishRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 部屋を公開した（プレイヤーの席が定員なので、そのまま準備中に進む。公開前に決めたものは、準備中に変えられなくなる）
+type PublishRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (PublishRoomSuccess) IsPublishRoomResult() {}
 
 type Query struct {
 }
@@ -565,6 +848,257 @@ type RegisterPlayerSuccess struct {
 }
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
+
+// 部屋の名前を変える入力
+type RenameRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 新しい名前（前後の空白を除いて 1〜20 文字。FieldRequired・FieldTooLong の max）
+	Name string `json:"name"`
+}
+
+// 部屋の名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (RenameRoomSuccess) IsRenameRoomResult() {}
+
+// 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
+type RevisionConflictError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RevisionConflictError) IsChangeRoomSeatsResult() {}
+
+func (RevisionConflictError) IsChangeRoomMatchRulesResult() {}
+
+func (RevisionConflictError) IsChangeRoomSeatChoiceResult() {}
+
+func (RevisionConflictError) IsPublishRoomResult() {}
+
+func (RevisionConflictError) IsDeclareRoomReadyResult() {}
+
+func (RevisionConflictError) IsRenameRoomResult() {}
+
+func (RevisionConflictError) IsCloseRoomResult() {}
+
+// 部屋。自分が入っている部屋だけが読める（入っていない人には RoomNotFoundError）。
+// 席・対戦ルール・席の選択は、それぞれ「まだ決まっていない（空の席の並び・null）／決まった」で返す
+type Room struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 部屋の名前（ほかの部屋と同じでもよい）
+	Name string `json:"name"`
+	// 更新の番号（変える操作の revision に渡す。画面は詳細を読み直し、この revision を持つ）
+	Revision int `json:"revision"`
+	// 状態
+	Status RoomStatus `json:"status"`
+	// 部屋に入っている人（作った人が先）と、準備完了の申告
+	Participants []*RoomParticipant `json:"participants"`
+	// 席の並び（まだ決めていなければ空）
+	Seats []*RoomSeat `json:"seats"`
+	// 対戦ルール（まだ決めていなければ null）
+	MatchRules *RoomMatchRules `json:"matchRules,omitempty"`
+	// 見ている人にできる操作。部屋の詳細（room）だけが返し、一覧（myRooms）では null
+	Capabilities *RoomCapabilities `json:"capabilities,omitempty"`
+}
+
+func (Room) IsRoomResult() {}
+
+// 準備完了を申告した後に、自分の担当の分を選び直そうとした、または申告し直そうとした（操作は行われていない）
+type RoomAlreadyReadyError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomAlreadyReadyError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomAlreadyReadyError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomAlreadyReadyError) IsDeclareRoomReadyResult() {}
+
+// 見ている人にできる操作。core の Decide と同じ関数で判断した値で、画面は担当・公開前に決めたものの固定・準備完了の条件を自分で判断せず、
+// この値で出し分けるだけにする。席ごとの選び直しは RoomSeat.choiceChangeable
+type RoomCapabilities struct {
+	// 席の並びを変えられるか（changeRoomSeats）
+	ChangeSeats bool `json:"changeSeats"`
+	// 対戦ルールを変えられるか（changeRoomMatchRules）
+	ChangeMatchRules bool `json:"changeMatchRules"`
+	// 公開できるか（publishRoom）
+	Publish bool `json:"publish"`
+	// 準備完了を押せるか（declareRoomReady）
+	DeclareReady bool `json:"declareReady"`
+	// 閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false
+	Close bool `json:"close"`
+	// 名前を変えられるか（renameRoom）
+	Rename bool `json:"rename"`
+}
+
+// 公開前に決めたものを、準備中に変えようとした（操作は行われていない）
+type RoomConditionLockedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomConditionLockedError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomConditionLockedError) IsChangeRoomSeatChoiceResult() {}
+
+// 自分の担当の分に、まだ決まっていないものがある（準備完了は押せない。操作は行われていない）
+type RoomConditionsNotDecidedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomConditionsNotDecidedError) IsDeclareRoomReadyResult() {}
+
+// 部屋の対戦ルール。ボードと 7 つの値で、7 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
+// 部屋では既定ではなく、ボードごと決める値なので、入れ子にせず並べる
+type RoomMatchRules struct {
+	// ボード（作った人が解放した公開中のもの）
+	Board *RoomNamed `json:"board"`
+	// 目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち。1 以上、開始時の魔力より大きい）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（0 以上）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（拠点に戻ったときに増える魔力。0 以上）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上）
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（上限に達したら、その時点で魔力の多い人が勝つ。1 以上）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上）
+	DiceMax int `json:"diceMax"`
+}
+
+// アバター・デッキ・ボードを、公開用の ID と名前で見せる値（名前は読むときに引く）
+type RoomNamed struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// 部屋が無い（無い・入っていない部屋。区別しない）
+type RoomNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomNotFoundError) IsRoomResult() {}
+
+func (RoomNotFoundError) IsChangeRoomSeatsResult() {}
+
+func (RoomNotFoundError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomNotFoundError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomNotFoundError) IsPublishRoomResult() {}
+
+func (RoomNotFoundError) IsDeclareRoomReadyResult() {}
+
+func (RoomNotFoundError) IsRenameRoomResult() {}
+
+func (RoomNotFoundError) IsCloseRoomResult() {}
+
+// その操作の担当ではない（作った人だけの操作、ほかの人の席の選択。操作は行われていない）
+type RoomNotResponsibleError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomNotResponsibleError) IsChangeRoomSeatsResult() {}
+
+func (RoomNotResponsibleError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomNotResponsibleError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomNotResponsibleError) IsPublishRoomResult() {}
+
+func (RoomNotResponsibleError) IsDeclareRoomReadyResult() {}
+
+func (RoomNotResponsibleError) IsRenameRoomResult() {}
+
+func (RoomNotResponsibleError) IsCloseRoomResult() {}
+
+// 部屋に入っている人と、準備完了の申告
+type RoomParticipant struct {
+	// プレイヤーの公開用の ID
+	PlayerID uuid.UUID `json:"playerId"`
+	// 部屋を作った人か
+	Owner bool `json:"owner"`
+	// 準備完了を申告したか
+	Ready bool `json:"ready"`
+}
+
+// 席 1 つ。席の並びの順に返す
+type RoomSeat struct {
+	// 席の種類
+	Kind RoomSeatKind `json:"kind"`
+	// 座っているプレイヤーの公開用の ID（プレイヤーの席だけ。NPC の席は null）
+	PlayerID *uuid.UUID `json:"playerId,omitempty"`
+	// 選んだアバター（プレイヤーの席は座っている人のアバター、NPC の席は NPC のアバター。まだ選んでいなければ null）
+	Avatar *RoomNamed `json:"avatar,omitempty"`
+	// 選んだデッキ（プレイヤーの席は座っている人のデッキ、NPC の席は NPC のアバターに割り当てたデッキ。まだ選んでいなければ null）
+	Deck *RoomNamed `json:"deck,omitempty"`
+	// 見ている人がこの席のアバターとデッキを選び直せるか（changeRoomSeatChoice）。部屋の詳細（room）だけが返し、一覧（myRooms）では null
+	ChoiceChangeable *bool `json:"choiceChangeable,omitempty"`
+}
+
+// 席の並びがまだ決まっていない（公開と、席の選択はできない。操作は行われていない）
+type RoomSeatsNotDecidedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomSeatsNotDecidedError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomSeatsNotDecidedError) IsPublishRoomResult() {}
+
+// 今の状態ではできない操作（席の並びと公開は公開前だけ、条件を選ぶのは公開前か準備中だけ、準備完了は準備中だけ。操作は行われていない）
+type RoomStatusNotAllowedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomStatusNotAllowedError) IsChangeRoomSeatsResult() {}
+
+func (RoomStatusNotAllowedError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomStatusNotAllowedError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomStatusNotAllowedError) IsPublishRoomResult() {}
+
+func (RoomStatusNotAllowedError) IsDeclareRoomReadyResult() {}
+
+func (RoomStatusNotAllowedError) IsRenameRoomResult() {}
+
+// 自分の部屋の一覧の 1 ページ（新しい順。閉じた部屋は含まない）
+type RoomsConnection struct {
+	// このページの部屋
+	Edges []*RoomsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (RoomsConnection) IsMyRoomsResult() {}
+
+// 自分の部屋の一覧の 1 件と、その位置
+type RoomsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// 部屋
+	Node *Room `json:"node"`
+}
 
 // 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
 type SanctuaryTile struct {
@@ -607,6 +1141,18 @@ type ValidationErrors struct {
 func (ValidationErrors) IsRegisterAvatarResult() {}
 
 func (ValidationErrors) IsBoardsResult() {}
+
+func (ValidationErrors) IsMyRoomsResult() {}
+
+func (ValidationErrors) IsCreateRoomResult() {}
+
+func (ValidationErrors) IsChangeRoomSeatsResult() {}
+
+func (ValidationErrors) IsChangeRoomMatchRulesResult() {}
+
+func (ValidationErrors) IsChangeRoomSeatChoiceResult() {}
+
+func (ValidationErrors) IsRenameRoomResult() {}
 
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
 type WarpTile struct {
@@ -748,6 +1294,125 @@ func (e *CardType) UnmarshalJSON(b []byte) error {
 }
 
 func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 席に座るのがプレイヤーか NPC か。形式（個人戦／チーム戦）とチームは持たない
+type RoomSeatKind string
+
+const (
+	// プレイヤーの席。今は 1 つで、作った人が座る
+	RoomSeatKindPlayer RoomSeatKind = "PLAYER"
+	// NPC の席
+	RoomSeatKindNpc RoomSeatKind = "NPC"
+)
+
+var AllRoomSeatKind = []RoomSeatKind{
+	RoomSeatKindPlayer,
+	RoomSeatKindNpc,
+}
+
+func (e RoomSeatKind) IsValid() bool {
+	switch e {
+	case RoomSeatKindPlayer, RoomSeatKindNpc:
+		return true
+	}
+	return false
+}
+
+func (e RoomSeatKind) String() string {
+	return string(e)
+}
+
+func (e *RoomSeatKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomSeatKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomSeatKind", str)
+	}
+	return nil
+}
+
+func (e RoomSeatKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomSeatKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomSeatKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）
+type RoomStatus string
+
+const (
+	// 公開前（マスタの「準備中」と分けて、公開前と呼ぶ）。席・対戦ルール・席の選択を何でも決められる
+	RoomStatusDraft RoomStatus = "DRAFT"
+	// 準備中（公開した後、全員の準備完了まで）。公開前に決めなかったものを、担当の人が決める
+	RoomStatusPreparing RoomStatus = "PREPARING"
+	// 閉じた（作った人が閉じた）。一覧には出ない
+	RoomStatusClosed RoomStatus = "CLOSED"
+)
+
+var AllRoomStatus = []RoomStatus{
+	RoomStatusDraft,
+	RoomStatusPreparing,
+	RoomStatusClosed,
+}
+
+func (e RoomStatus) IsValid() bool {
+	switch e {
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusClosed:
+		return true
+	}
+	return false
+}
+
+func (e RoomStatus) String() string {
+	return string(e)
+}
+
+func (e *RoomStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomStatus", str)
+	}
+	return nil
+}
+
+func (e RoomStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

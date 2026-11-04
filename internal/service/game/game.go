@@ -16,7 +16,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -51,6 +53,8 @@ type Game struct {
 	boardQuery     *query.BoardHandler
 	gameRuleQuery  *query.GameRulesHandler
 	npcAvatarQuery *query.NPCAvatarHandler
+	rooms          *command.RoomHandler
+	roomQuery      *query.RoomHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Game {
@@ -62,6 +66,13 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	npcAvatarReader := repository.NewNPCAvatarReader()
 	unlockReader := repository.NewUnlockReader()
 	entityRefs := identifier.NewEntityRefResolver(registry)
+	gameRulesReader := repository.NewGameRulesReader()
+	avatarQuery := query.NewAvatarHandler(repository.NewAvatarReader().ListByPlayer)
+	deckReader := repository.NewDeckReader()
+	deckQuery := query.NewDeckHandler(deckReader.ListByPlayer, deckReader.Get)
+	unlockQuery := query.NewUnlockHandler(unlockReader.ListBoardsByPlayer)
+	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks)
+	roomReader := repository.NewRoomReader()
 	return &Game{
 		config:     config,
 		entityRefs: entityRefs,
@@ -112,12 +123,34 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			rules.FromPublished(repository.NewGameRulesReader().Get),
 			now,
 		),
-		avatarQuery:    query.NewAvatarHandler(repository.NewAvatarReader().ListByPlayer),
-		deckQuery:      query.NewDeckHandler(repository.NewDeckReader().ListByPlayer, repository.NewDeckReader().Get),
-		unlockQuery:    query.NewUnlockHandler(unlockReader.ListBoardsByPlayer),
+		avatarQuery:    avatarQuery,
+		deckQuery:      deckQuery,
+		unlockQuery:    unlockQuery,
 		boardQuery:     query.NewBoardHandler(boardReader.ListPublished, boardReader.GetPublished),
-		gameRuleQuery:  query.NewGameRulesHandler(repository.NewGameRulesReader().Get),
-		npcAvatarQuery: query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks),
+		gameRuleQuery:  query.NewGameRulesHandler(gameRulesReader.Get),
+		npcAvatarQuery: npcAvatarQuery,
+		rooms: command.NewRoomHandler(
+			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
+			identifier.New(registry, room.NewID),
+			command.RoomReferences{
+				Avatars:    identifier.New(registry, avatar.NewID),
+				Decks:      identifier.New(registry, deck.NewID),
+				NPCAvatars: identifier.New(registry, npcavatar.NewID),
+				NPCDecks:   identifier.New(registry, npcdeck.NewID),
+				Boards:     identifier.New(registry, board.NewID),
+			},
+			entityRefs,
+			// 席・対戦ルールに選べるものは、画面の選択肢を出す query（Player.avatars・decks・npcAvatars・boards）と同じハンドラーを通して調べる
+			query.NewRoomSelectable(avatarQuery, deckQuery, npcAvatarQuery, unlockQuery),
+			gameRulesReader.Get,
+			now,
+		),
+		// できる操作は Decide と同じ関数で答えるため、read model ではなくイベントストアから読む集約の状態を使う
+		roomQuery: query.NewRoomHandler(roomReader.ListByPlayer, roomReader.Get, query.NewRoomCapabilitiesLoader(
+			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
+			identifier.New(registry, room.NewID),
+			identifier.New(registry, player.NewID),
+		).Get),
 	}
 }
 
@@ -186,19 +219,30 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	unlocks := repository.NewUnlockWriter(g.entityRefs)
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Unlock]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Unlock]{
 		Name: "unlocks",
 		Subscriptions: []domain.EntityType{
 			unlock.Types().EntityType,
 		},
 		Upsert: unlocks.Upsert,
 		Delete: unlocks.Delete,
+	}); err != nil {
+		return err
+	}
+	rooms := repository.NewRoomWriter(g.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Room]{
+		Name: "rooms",
+		Subscriptions: []domain.EntityType{
+			room.Types().EntityType,
+		},
+		Upsert: rooms.Upsert,
+		Delete: rooms.Delete,
 	})
 }
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

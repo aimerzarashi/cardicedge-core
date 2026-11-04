@@ -42,6 +42,48 @@ type FieldOutOfRange implements FieldError {
   max: Int!
 }
 
+# 上限の無い値の下限。上限のある値の FieldOutOfRange は max が必須で、上限の無い値には使えない
+"入力が下限より小さい（上限は無い）"
+type FieldTooSmall implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "下限（この値を含む）"
+  min: Int!
+}
+
+# 下限が相手の項目の値で決まるので、数ではなく相手の項目の名前を返す。画面は相手の項目の入力中の値で文言を作る
+"入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）"
+type FieldNotGreaterThan implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "大きくなければならない相手の入力の項目（例: startingMagic）"
+  than: String!
+}
+
+# 下限が相手の項目の値で決まるので、FieldNotGreaterThan と同じく相手の項目の名前を返す。等しいのは誤りでない点が違う
+"入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）"
+type FieldLessThan implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "下回ってはいけない相手の入力の項目（例: diceMin）"
+  than: String!
+}
+
+# 無い・ほかのプレイヤーのもの・解放していない・公開中でない等を区別しないのは、存在を明かさないため
+"入力の ID が指すものが、選べるものの中に無い（無い・ほかのプレイヤーのもの・解放していない・公開中でない等。区別しない）"
+type FieldNotFound implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+}
+
+"入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）"
+type FieldCountMismatch implements FieldError {
+  "誤りのある入力の項目"
+  field: String!
+  "決まりの個数"
+  expected: Int!
+}
+
 "入力の形が正しくない（ページの位置（カーソル）が読めない等）"
 type FieldInvalidFormat implements FieldError {
   "誤りのある入力の項目"
@@ -65,4 +107,12 @@ type PageInfo {
   startCursor: String
   "このページの最後の 1 件の位置（次のページは after にこれを渡す）"
   endCursor: String
+}
+
+# 画面で見た内容をもとに、既にあるものを変える操作は、入力に revision（画面が見ていた版）を含め、今の版と違えばこの型を返す
+# （studio と同じ。流れは internal/eventstore/README.md）。今の revision は持たせない（読み直さずに送り直せてしまうため）
+"先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す"
+type RevisionConflictError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
 }

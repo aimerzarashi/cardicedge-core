@@ -54,6 +54,24 @@ type NPCAvatarQueries interface {
 	GetUnlocked(ctx context.Context, playerID uuid.UUID, id uuid.UUID) (query.NPCAvatar, error)
 }
 
+// 実装は command.RoomHandler
+type Rooms interface {
+	Create(ctx context.Context, name string) (command.ChangedRoom, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedRoom, error)
+	ChangeSeats(ctx context.Context, id uuid.UUID, revision int64, seats []command.RoomSeatKind) (command.ChangedRoom, error)
+	ChangeMatchRules(ctx context.Context, id uuid.UUID, revision int64, rules command.RoomMatchRulesInput) (command.ChangedRoom, error)
+	ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID) (command.ChangedRoom, error)
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
+	DeclareReady(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
+	Close(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
+}
+
+// 実装は query.RoomHandler
+type RoomQueries interface {
+	ListByPlayer(ctx context.Context, playerID uuid.UUID, first *int, after *string) (pagination.Connection[query.Room], error)
+	Get(ctx context.Context, playerID uuid.UUID, roomID uuid.UUID) (query.Room, error)
+}
+
 // 実装は query.GameRulesHandler
 type GameRulesQueries interface {
 	Get(ctx context.Context) (query.GameRules, error)
@@ -69,8 +87,10 @@ type Resolver struct {
 	boardQuery     BoardQueries
 	npcAvatarQuery NPCAvatarQueries
 	gameRuleQuery  GameRulesQueries
+	rooms          Rooms
+	roomQuery      RoomQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery}
 }

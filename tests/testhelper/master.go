@@ -404,8 +404,11 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 			return NPCAvatars{}, err
 		}
 	}
-	// make publish-master と同じ文で、写した NPC のアバターの game の内部 ID（domain_entities の行）を作る
+	// make publish-master と同じ文で、写した NPC のアバターとデッキの game の内部 ID（domain_entities の行）を作る
 	if _, err := gameDB.ExecContext(ctx, publishNPCAvatarEntitiesSQL); err != nil {
+		return NPCAvatars{}, err
+	}
+	if _, err := gameDB.ExecContext(ctx, publishNPCDeckEntitiesSQL); err != nil {
 		return NPCAvatars{}, err
 	}
 	for publicID, internalID := range map[uuid.UUID]*npcavatar.ID{
@@ -426,6 +429,9 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 
 // Makefile の publish-master が、写した npc_avatars について流す文と同じ
 const publishNPCAvatarEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT a.npc_avatar_id, t.id FROM npc_avatars a JOIN domain_entity_types t ON t.name = 'npc_avatar' ON CONFLICT DO NOTHING`
+
+// Makefile の publish-master が、写した npc_decks について流す文と同じ（部屋の席の選択が NPC のデッキを game の内部 ID で指すため）
+const publishNPCDeckEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = 'npc_deck' ON CONFLICT DO NOTHING`
 
 func npcDeckMetadata(id uuid.UUID, name string, status readmodel.NPCDeckStatus, cards []readmodel.DeckCard) readmodel.NPCDeckMetadata {
 	return readmodel.NPCDeckMetadata{ID: id, Name: name, Status: status, Cards: cards}
