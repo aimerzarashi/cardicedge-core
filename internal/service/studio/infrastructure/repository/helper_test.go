@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -63,21 +63,21 @@ func (f presetDeckFixture) issueOperator(t *testing.T) (operator.ID, uuid.UUID) 
 }
 
 // read model はカードを内部 ID で持つため、識別子を発行して、内部 ID と公開 ID の組を作る
-func (f presetDeckFixture) issueCreature(t *testing.T) (presetdeck.CardRef, uuid.UUID) {
+func (f presetDeckFixture) issueCreature(t *testing.T) (card.Ref, uuid.UUID) {
 	t.Helper()
 	id, publicID, err := identifier.New(f.registry, creature.NewID).Issue(f.ctx)
 	require.NoError(t, err)
-	return presetdecktest.CardRef(t, creature.Types().EntityType, id.Int64()), publicID
+	return cardtest.Ref(t, creature.Types().EntityType, id.Int64()), publicID
 }
 
-func (f presetDeckFixture) issueItem(t *testing.T) (presetdeck.CardRef, uuid.UUID) {
+func (f presetDeckFixture) issueItem(t *testing.T) (card.Ref, uuid.UUID) {
 	t.Helper()
 	id, publicID, err := identifier.New(f.registry, item.NewID).Issue(f.ctx)
 	require.NoError(t, err)
-	return presetdecktest.CardRef(t, item.Types().EntityType, id.Int64()), publicID
+	return cardtest.Ref(t, item.Types().EntityType, id.Int64()), publicID
 }
 
-func (f presetDeckFixture) presetDeckList(sortName, name string, cards map[presetdeck.CardRef]int) readmodel.PresetDeck {
+func (f presetDeckFixture) presetDeckList(sortName, name string, cards map[card.Ref]int) readmodel.PresetDeck {
 	id := uuid.New()
 	at := time.Date(2026, 10, 19, 9, 0, 0, 0, time.UTC)
 	metadata := readmodel.PresetDeckMetadata{ID: id, Name: name, Revision: 3, RegisteredAt: at, UpdatedAt: at}
@@ -89,7 +89,7 @@ func (f presetDeckFixture) presetDeckList(sortName, name string, cards map[prese
 
 func (f presetDeckFixture) put(t *testing.T, sortName, name string) readmodel.PresetDeck {
 	t.Helper()
-	list := f.presetDeckList(sortName, name, map[presetdeck.CardRef]int{})
+	list := f.presetDeckList(sortName, name, map[card.Ref]int{})
 	require.NoError(t, f.writer.Upsert(f.ctx, list))
 	return list
 }

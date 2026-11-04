@@ -9,7 +9,9 @@ import (
 	"github.com/aarondl/sqlboiler/v4/boil"
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -24,7 +26,9 @@ import (
 // 解放するボードは 公開中B・使用不可・公開中A の順（解放されて見えるのは 公開中B → 公開中A）
 type Master struct {
 	CardA, CardB, CardC uuid.UUID
-	GrantDecks          GrantDecks
+	// game の内部 ID で指したカード（make publish-master が game の domain_entities に作る行。種類はどれも Creature）
+	InternalCardA, InternalCardB, InternalCardC card.Ref
+	GrantDecks                                  GrantDecks
 	// PublishMaster と PublishMasterWithoutGameRules が写す
 	Boards Boards
 	// PublishMaster と PublishMasterWithoutGameRules が写す
@@ -144,7 +148,36 @@ func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
 			return Master{}, err
 		}
 	}
+	if _, err := gameDB.ExecContext(ctx, publishCardEntitiesSQL); err != nil {
+		return Master{}, err
+	}
+	for public, internal := range map[uuid.UUID]*card.Ref{
+		master.CardA: &master.InternalCardA, master.CardB: &master.InternalCardB, master.CardC: &master.InternalCardC,
+	} {
+		ref, err := InternalCardRef(ctx, gameDB, public)
+		if err != nil {
+			return Master{}, err
+		}
+		*internal = ref
+	}
 	return master, nil
+}
+
+// Makefile の publish-master が、写した cards について流す文と同じ（公開 ID は studio と同じ、内部 ID は game の連番。
+// 種類は写した cards.card_type から決める）
+const publishCardEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT c.card_id, t.id FROM cards c JOIN domain_entity_types t ON t.name = CASE c.card_type WHEN 1 THEN 'creature' WHEN 2 THEN 'item' WHEN 3 THEN 'spell' END ON CONFLICT DO NOTHING`
+
+// 写したカードの公開 ID を、game の内部 ID で指す card.Ref に引く
+func InternalCardRef(ctx context.Context, gameDB *sql.DB, publicID uuid.UUID) (card.Ref, error) {
+	var value int64
+	var entityType string
+	err := gameDB.QueryRowContext(ctx,
+		`SELECT e.id, t.name FROM domain_entities e JOIN domain_entity_types t ON t.id = e.entity_type_id WHERE e.public_id = $1`,
+		publicID).Scan(&value, &entityType)
+	if err != nil {
+		return card.Ref{}, err
+	}
+	return card.NewRef(domain.NewEntityType(entityType), value)
 }
 
 // 配布デッキ 4 つ（公開中が火と水、準備中、使用不可）を写す。C を 5 枚持つのが準備中と使用不可なので、配られれば所持カードが変わる
@@ -321,6 +354,9 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
 			return NPCAvatars{}, err
 		}
+	}
+	if _, err := gameDB.ExecContext(ctx, publishCardEntitiesSQL); err != nil {
+		return NPCAvatars{}, err
 	}
 	// sort_name は並びを決めるだけの値（読み手は sort_name の順に返す）
 	deck1 := npcDeckMetadata(n.DeckPublished1, "公開中デッキ1", readmodel.NPCDeckStatusPublished, []readmodel.DeckCard{

@@ -44,8 +44,21 @@ func (n DeckNumber) Int() int {
 }
 
 type Deck struct {
-	Name  DeckName     `json:"name"`
-	Cards []card.Count `json:"cards"`
+	Name  DeckName   `json:"name"`
+	Cards []DeckCard `json:"cards"`
+}
+
+// 配るデッキのカードと枚数（開始のときに写したもの）。deck.Card を使わないのは、deck が startergrant を参照し、
+// 逆向きに参照すると循環するため（DeckName と同じ）
+type DeckCard struct {
+	Card     card.Ref          `json:"card"`
+	Quantity card.DeckQuantity `json:"quantity"`
+}
+
+// 配る所持カードと枚数。デッキのカードのうち多いほうの枚数から Decide が計算する
+type CollectionCard struct {
+	Card     card.Ref           `json:"card"`
+	Quantity card.OwnedQuantity `json:"quantity"`
 }
 
 // これから作るデッキに付ける名前（配布を始めたときに、マスタのデッキの名前を写したもの）。deck.Name を使わないのは、deck が

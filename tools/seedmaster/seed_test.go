@@ -60,7 +60,6 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		deck := grantDecks[domain.NormalizeName(name)]
 		require.Equal(t, readmodel.GrantDeckStatusPublished, deck.Status)
 		require.Equal(t, deckTotalCount, deck.TotalCount)
-		require.NotNil(t, deck.Source)
 	}
 	boards, err := s.listBoards(ctx)
 	require.NoError(t, err)
@@ -125,7 +124,6 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		npcDeck := npcDecks[domain.NormalizeName(name)]
 		require.Equal(t, readmodel.NPCDeckStatusPublished, npcDeck.Status)
 		require.Equal(t, deckTotalCount, npcDeck.TotalCount)
-		require.NotNil(t, npcDeck.Source)
 	}
 }
 

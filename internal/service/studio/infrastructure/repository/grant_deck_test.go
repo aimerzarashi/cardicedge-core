@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
@@ -25,7 +25,7 @@ func newGrantDeckFixture(t *testing.T) grantDeckFixture {
 	return grantDeckFixture{presetDeckFixture: f, starterWriter: repository.NewGrantDeckWriter(identifier.NewEntityRefResolver(f.registry))}
 }
 
-func (f grantDeckFixture) grantDeckState(sortName, name string, status readmodel.GrantDeckStatus, cards map[presetdeck.CardRef]int) readmodel.GrantDeck {
+func (f grantDeckFixture) grantDeckState(sortName, name string, status readmodel.GrantDeckStatus, cards map[card.Ref]int) readmodel.GrantDeck {
 	id := uuid.New()
 	at := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	metadata := readmodel.GrantDeckMetadata{ID: id, Name: name, Status: status, Revision: 3, RegisteredAt: at, UpdatedAt: at}
@@ -37,7 +37,7 @@ func (f grantDeckFixture) grantDeckState(sortName, name string, status readmodel
 
 func (f grantDeckFixture) put(t *testing.T, sortName, name string, status readmodel.GrantDeckStatus) readmodel.GrantDeck {
 	t.Helper()
-	deck := f.grantDeckState(sortName, name, status, map[presetdeck.CardRef]int{})
+	deck := f.grantDeckState(sortName, name, status, map[card.Ref]int{})
 	require.NoError(t, f.starterWriter.Upsert(f.ctx, deck))
 	return deck
 }
@@ -62,13 +62,12 @@ func grantDeckNames(rows []query.GrantDeckListRow) []string {
 	return result
 }
 
-// カードは内部 ID から公開 ID に引き直して書き、読むときは公開 ID と枚数で返す。状態・写した元も読める
-func TestGrantDeck_GetsUpsertedGrantDeckWithCardPublicIDsAndSource(t *testing.T) {
+// カードは内部 ID から公開 ID に引き直して書き、読むときは公開 ID と枚数で返す。状態も読める
+func TestGrantDeck_GetsUpsertedGrantDeckWithCardPublicIDs(t *testing.T) {
 	f := newGrantDeckFixture(t)
 	dragon, dragonID := f.issueCreature(t)
 	potion, potionID := f.issueItem(t)
-	deck := f.grantDeckState("fire", "Ｆire", readmodel.GrantDeckStatusPublished, map[presetdeck.CardRef]int{dragon: 3, potion: 1})
-	deck.Metadata.Source = &readmodel.GrantDeckSource{PresetDeckID: uuid.New(), Revision: 7}
+	deck := f.grantDeckState("fire", "Ｆire", readmodel.GrantDeckStatusPublished, map[card.Ref]int{dragon: 3, potion: 1})
 
 	require.NoError(t, f.starterWriter.Upsert(f.ctx, deck))
 	got, err := repository.NewGrantDeckReader().Get(f.ctx, deck.GrantDeckID)
@@ -79,22 +78,11 @@ func TestGrantDeck_GetsUpsertedGrantDeckWithCardPublicIDsAndSource(t *testing.T)
 	require.Equal(t, readmodel.GrantDeckStatusPublished, got.Status)
 	require.ElementsMatch(t, []query.PresetDeckCard{{CardID: dragonID, Count: 3}, {CardID: potionID, Count: 1}}, got.Cards)
 	require.Equal(t, 4, got.TotalCount)
-	require.Equal(t, &query.GrantDeckSource{PresetDeckID: deck.Metadata.Source.PresetDeckID, Revision: 7}, got.Source)
 	require.Equal(t, int64(3), got.Revision)
 	require.Equal(t, deck.Metadata.RegisteredAt, got.RegisteredAt.UTC())
 	require.Equal(t, deck.Metadata.UpdatedAt, got.UpdatedAt.UTC())
 	require.Equal(t, f.registeredByPublicID, got.RegisteredBy)
 	require.Equal(t, f.updatedByPublicID, got.UpdatedBy)
-}
-
-func TestGrantDeck_GetsNoSourceForGrantDeckMadeFromScratch(t *testing.T) {
-	f := newGrantDeckFixture(t)
-	deck := f.put(t, "fire", "Fire", readmodel.GrantDeckStatusDraft)
-
-	got, err := repository.NewGrantDeckReader().Get(f.ctx, deck.GrantDeckID)
-
-	require.NoError(t, err)
-	require.Nil(t, got.Source)
 }
 
 func TestGrantDeck_GetFailsForMissingGrantDeck(t *testing.T) {
@@ -113,7 +101,7 @@ func TestGrantDeck_UpsertOverwritesSameGrantDeck(t *testing.T) {
 	deck.Metadata.Name = "Water"
 	deck.Status = readmodel.GrantDeckStatusRetired
 	deck.Metadata.Status = readmodel.GrantDeckStatusRetired
-	deck.Cards = map[presetdeck.CardRef]int{dragon: 2}
+	deck.Cards = map[card.Ref]int{dragon: 2}
 
 	require.NoError(t, f.starterWriter.Upsert(f.ctx, deck))
 

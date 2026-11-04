@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
@@ -21,7 +22,7 @@ type PresetDeck struct {
 	UpdatedBy    operator.ID
 	// 入れたカードと枚数（0 のカードは持たない）。イベントはカードを内部 ID で持ち、Evolve は DB を読めないため、
 	// 書くときに repository が公開 ID に引き直して Metadata.Cards にする
-	Cards map[presetdeck.CardRef]int
+	Cards map[card.Ref]int
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
 	IsDeleted bool
 }
@@ -66,7 +67,7 @@ func (state PresetDeck) Evolve(event any) PresetDeck {
 		}
 		state.RegisteredBy = e.RegisteredBy
 		state.UpdatedBy = e.RegisteredBy
-		state.Cards = map[presetdeck.CardRef]int{}
+		state.Cards = map[card.Ref]int{}
 	case *presetdeck.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
 		state.Metadata.Name = e.Name.String()

@@ -83,6 +83,7 @@ func newStarterGrantHandler(t *testing.T, ctx context.Context, getStarterSet mas
 		identifier.New(registry, startergrant.NewID),
 		constraint.UpdateStarterGrantPlayer,
 		getStarterSet,
+		func(context.Context) (gamerules.Rules, bool, error) { return gamerules.Defaults(), true, nil },
 		newCollectionHandler(t, ctx),
 		newUnlockHandler(t, ctx),
 		constraint.FindStarterGrantByPlayer,

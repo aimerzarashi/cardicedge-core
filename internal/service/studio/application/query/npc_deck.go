@@ -23,8 +23,6 @@ type NPCDeck struct {
 	// カード名・種類は持たない（presentation 層が CardHandler.Get で引く）
 	Cards      []PresetDeckCard
 	TotalCount int
-	// プリセットデッキから写して作ったときだけ。空から作ったときは nil
-	Source *NPCDeckSource
 	// 集約の版（画面が変える操作に渡す）。投影が遅れているあいだは古いことがある（internal/eventstore/README.md）
 	Revision     int64
 	RegisteredAt time.Time
@@ -32,16 +30,6 @@ type NPCDeck struct {
 	RegisteredBy uuid.UUID
 	UpdatedAt    time.Time
 	UpdatedBy    uuid.UUID
-}
-
-type NPCDeckSource struct {
-	PresetDeckID uuid.UUID
-	// 写したときのプリセットデッキの revision
-	Revision int64
-	// 写した後に、元のプリセットデッキが変わっている。元が消されていれば false（比べる相手が無い）
-	ChangedSinceCopied bool
-	// 元のプリセットデッキが消されている（消されたことを「変わっていない」と見分けられるように。core#32）
-	PresetDeckDeleted bool
 }
 
 // Statuses が nil なら絞り込まない。空のリストは入力の誤り（CardFilter と同じ）
@@ -82,13 +70,12 @@ type ListNPCDecksFunc func(ctx context.Context, condition ListNPCDecksCondition)
 type GetNPCDeckFunc func(ctx context.Context, id uuid.UUID) (NPCDeck, error)
 
 type NPCDeckHandler struct {
-	listNPCDecks           ListNPCDecksFunc
-	getNPCDeck             GetNPCDeckFunc
-	getPresetDeckRevisions GetPresetDeckRevisionsFunc
+	listNPCDecks ListNPCDecksFunc
+	getNPCDeck   GetNPCDeckFunc
 }
 
-func NewNPCDeckHandler(listNPCDecks ListNPCDecksFunc, getNPCDeck GetNPCDeckFunc, getPresetDeckRevisions GetPresetDeckRevisionsFunc) *NPCDeckHandler {
-	return &NPCDeckHandler{listNPCDecks: listNPCDecks, getNPCDeck: getNPCDeck, getPresetDeckRevisions: getPresetDeckRevisions}
+func NewNPCDeckHandler(listNPCDecks ListNPCDecksFunc, getNPCDeck GetNPCDeckFunc) *NPCDeckHandler {
+	return &NPCDeckHandler{listNPCDecks: listNPCDecks, getNPCDeck: getNPCDeck}
 }
 
 // 入力の誤りは input.Errors（まとめて返す）。項目名は GraphQL の引数・入力の項目名
@@ -126,62 +113,17 @@ func (q *NPCDeckHandler) List(ctx context.Context, filter NPCDeckFilter, first *
 	if err != nil {
 		return pagination.Connection[NPCDeck]{}, err
 	}
-	npcDecks := make([]NPCDeck, 0, len(rowConnection.Edges))
-	for _, edge := range rowConnection.Edges {
-		npcDecks = append(npcDecks, edge.Node.NPCDeck)
-	}
-	if err := q.compareSources(ctx, npcDecks); err != nil {
-		return pagination.Connection[NPCDeck]{}, err
-	}
 	connection := pagination.Connection[NPCDeck]{
 		Edges:    make([]pagination.Edge[NPCDeck], 0, len(rowConnection.Edges)),
 		PageInfo: rowConnection.PageInfo,
 	}
-	for i, edge := range rowConnection.Edges {
-		connection.Edges = append(connection.Edges, pagination.Edge[NPCDeck]{Node: npcDecks[i], Cursor: edge.Cursor})
+	for _, edge := range rowConnection.Edges {
+		connection.Edges = append(connection.Edges, pagination.Edge[NPCDeck]{Node: edge.Node.NPCDeck, Cursor: edge.Cursor})
 	}
 	return connection, nil
 }
 
 // 無ければ ErrNPCDeckNotFound
 func (q *NPCDeckHandler) Get(ctx context.Context, id uuid.UUID) (NPCDeck, error) {
-	npcDeck, err := q.getNPCDeck(ctx, id)
-	if err != nil {
-		return NPCDeck{}, err
-	}
-	npcDecks := []NPCDeck{npcDeck}
-	if err := q.compareSources(ctx, npcDecks); err != nil {
-		return NPCDeck{}, err
-	}
-	return npcDecks[0], nil
-}
-
-// 「写した後に変わったか」は保存せず、ここで 2 つの read model を突き合わせて出す（どちらか 1 つの集約からは投影できないため。
-// 投影の遅れ方が違うので、一瞬だけ古い組み合わせが見えることがあるが、表示のための値なので受け入れる）。
-// npcDecks の要素を直接書き換える
-func (q *NPCDeckHandler) compareSources(ctx context.Context, npcDecks []NPCDeck) error {
-	var ids []uuid.UUID
-	for _, npcDeck := range npcDecks {
-		if npcDeck.Source != nil {
-			ids = append(ids, npcDeck.Source.PresetDeckID)
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	revisions, err := q.getPresetDeckRevisions(ctx, ids)
-	if err != nil {
-		return err
-	}
-	for i, npcDeck := range npcDecks {
-		if npcDeck.Source == nil {
-			continue
-		}
-		source := *npcDeck.Source
-		current, ok := revisions[source.PresetDeckID]
-		source.ChangedSinceCopied = ok && current != source.Revision
-		source.PresetDeckDeleted = !ok
-		npcDecks[i].Source = &source
-	}
-	return nil
+	return q.getNPCDeck(ctx, id)
 }

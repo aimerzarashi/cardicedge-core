@@ -1363,18 +1363,6 @@ func (GrantDeckNotFoundError) IsPublishGrantDeckResult() {}
 
 func (GrantDeckNotFoundError) IsRetireGrantDeckResult() {}
 
-// 写した元
-type GrantDeckSource struct {
-	// 元のプリセットデッキの公開用の ID（消されていることもある）
-	PresetDeckID uuid.UUID `json:"presetDeckId"`
-	// 写したときの、元のプリセットデッキの revision
-	Revision int `json:"revision"`
-	// 写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）
-	ChangedSinceCopied bool `json:"changedSinceCopied"`
-	// 元のプリセットデッキが削除されている
-	PresetDeckDeleted bool `json:"presetDeckDeleted"`
-}
-
 // 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidBoardStatusTransitionError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1647,18 +1635,6 @@ func (NpcDeckNotFoundError) IsPublishNpcDeckResult() {}
 
 func (NpcDeckNotFoundError) IsRetireNpcDeckResult() {}
 
-// 写した元
-type NpcDeckSource struct {
-	// 元のプリセットデッキの公開用の ID（消されていることもある）
-	PresetDeckID uuid.UUID `json:"presetDeckId"`
-	// 写したときの、元のプリセットデッキの revision
-	Revision int `json:"revision"`
-	// 写した後に、元のプリセットデッキが変わっている（元が削除されていれば false）
-	ChangedSinceCopied bool `json:"changedSinceCopied"`
-	// 元のプリセットデッキが削除されている
-	PresetDeckDeleted bool `json:"presetDeckDeleted"`
-}
-
 // ページの情報
 type PageInfo struct {
 	// 次のページがあるか
@@ -1888,7 +1864,7 @@ type RegisterGrantDeckFromPresetDeckInput struct {
 	Name string `json:"name"`
 }
 
-// プリセットデッキから写して配布デッキを登録した（準備中。写した元の公開 ID と revision を記録する）
+// プリセットデッキから写して配布デッキを登録した（準備中。写した元の内部 ID と revision は登録のイベントにだけ記録する）
 type RegisterGrantDeckFromPresetDeckSuccess struct {
 	// 登録した配布デッキの公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1952,7 +1928,7 @@ type RegisterNpcDeckFromPresetDeckInput struct {
 	Name string `json:"name"`
 }
 
-// プリセットデッキから写して NPC のデッキを登録した（準備中。写した元の公開 ID と revision を記録する）
+// プリセットデッキから写して NPC のデッキを登録した（準備中。写した元の内部 ID と revision は登録のイベントにだけ記録する）
 type RegisterNpcDeckFromPresetDeckSuccess struct {
 	// 登録した NPC のデッキの公開用の ID
 	ID uuid.UUID `json:"id"`

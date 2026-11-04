@@ -33,7 +33,7 @@ func (w *PresetDeckWriter) Upsert(ctx context.Context, deck readmodel.PresetDeck
 	}
 	refs := make([]domain.EntityRef, 0, len(deck.Cards))
 	for card := range deck.Cards {
-		refs = append(refs, domain.NewEntityRef(card.EntityType(), card.ID()))
+		refs = append(refs, domain.NewEntityRef(card.EntityType, card.ID))
 	}
 	registeredBy, updatedBy, publicIDs, err := operatorPublicIDs(ctx, w.entityRefs, deck.RegisteredBy, deck.UpdatedBy, refs...)
 	if err != nil {
@@ -41,7 +41,7 @@ func (w *PresetDeckWriter) Upsert(ctx context.Context, deck readmodel.PresetDeck
 	}
 	cards := make([]readmodel.DeckCard, 0, len(deck.Cards))
 	for card, count := range deck.Cards {
-		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType(), card.ID())]
+		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType, card.ID)]
 		if !ok {
 			return errors.New("repository: card in grant deck has no public id")
 		}

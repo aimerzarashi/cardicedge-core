@@ -61,9 +61,10 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	boardReader := repository.NewBoardReader()
 	npcAvatarReader := repository.NewNPCAvatarReader()
 	unlockReader := repository.NewUnlockReader()
+	entityRefs := identifier.NewEntityRefResolver(registry)
 	return &Game{
 		config:     config,
-		entityRefs: identifier.NewEntityRefResolver(registry),
+		entityRefs: entityRefs,
 		players: command.NewPlayerHandler(
 			eventstore.New(registry, player.NewID, player.NewEventType, player.InitialState, player.Evolve),
 			identifier.New(registry, player.NewID),
@@ -75,7 +76,8 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 			identifier.New(registry, startergrant.NewID),
 			constraint.UpdateStarterGrantPlayer,
-			repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID)).GetPublished,
+			repository.NewStarterSetReader(repository.NewGrantDeckReader(entityRefs), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID)).GetPublished,
+			repository.NewGameRulesReader().Get,
 			command.NewCollectionHandler(
 				eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 				identifier.New(registry, collection.NewID),

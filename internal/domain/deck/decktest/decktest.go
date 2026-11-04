@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 )
 
@@ -22,4 +24,9 @@ func Name(t testing.TB, value string) deck.Name {
 	name, err := deck.NewName(value)
 	require.NoError(t, err)
 	return name
+}
+
+func Card(t testing.TB, ref card.Ref, quantity int) deck.Card {
+	t.Helper()
+	return deck.Card{Card: ref, Quantity: cardtest.DeckQuantity(t, quantity)}
 }

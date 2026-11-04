@@ -23,8 +23,6 @@ type GrantDeck struct {
 	// カード名・種類は持たない（presentation 層が CardHandler.Get で引く）
 	Cards      []PresetDeckCard
 	TotalCount int
-	// プリセットデッキから写して作ったときだけ。空から作ったときは nil
-	Source *GrantDeckSource
 	// 集約の版（画面が変える操作に渡す）。投影が遅れているあいだは古いことがある（internal/eventstore/README.md）
 	Revision     int64
 	RegisteredAt time.Time
@@ -33,16 +31,6 @@ type GrantDeck struct {
 	// この変更の前に投影した行は、次のイベントで投影し直すまでゼロ値
 	RegisteredBy uuid.UUID
 	UpdatedBy    uuid.UUID
-}
-
-type GrantDeckSource struct {
-	PresetDeckID uuid.UUID
-	// 写したときのプリセットデッキの revision
-	Revision int64
-	// 写した後に、元のプリセットデッキが変わっている。元が消されていれば false（比べる相手が無い）
-	ChangedSinceCopied bool
-	// 元のプリセットデッキが消されている（消されたことを「変わっていない」と見分けられるように。core#32）
-	PresetDeckDeleted bool
 }
 
 // Statuses が nil なら絞り込まない。空のリストは入力の誤り（CardFilter と同じ）
@@ -83,13 +71,12 @@ type ListGrantDecksFunc func(ctx context.Context, condition ListGrantDecksCondit
 type GetGrantDeckFunc func(ctx context.Context, id uuid.UUID) (GrantDeck, error)
 
 type GrantDeckHandler struct {
-	listGrantDecks         ListGrantDecksFunc
-	getGrantDeck           GetGrantDeckFunc
-	getPresetDeckRevisions GetPresetDeckRevisionsFunc
+	listGrantDecks ListGrantDecksFunc
+	getGrantDeck   GetGrantDeckFunc
 }
 
-func NewGrantDeckHandler(listGrantDecks ListGrantDecksFunc, getGrantDeck GetGrantDeckFunc, getPresetDeckRevisions GetPresetDeckRevisionsFunc) *GrantDeckHandler {
-	return &GrantDeckHandler{listGrantDecks: listGrantDecks, getGrantDeck: getGrantDeck, getPresetDeckRevisions: getPresetDeckRevisions}
+func NewGrantDeckHandler(listGrantDecks ListGrantDecksFunc, getGrantDeck GetGrantDeckFunc) *GrantDeckHandler {
+	return &GrantDeckHandler{listGrantDecks: listGrantDecks, getGrantDeck: getGrantDeck}
 }
 
 // 入力の誤りは input.Errors（まとめて返す）。項目名は GraphQL の引数・入力の項目名
@@ -127,62 +114,17 @@ func (q *GrantDeckHandler) List(ctx context.Context, filter GrantDeckFilter, fir
 	if err != nil {
 		return pagination.Connection[GrantDeck]{}, err
 	}
-	decks := make([]GrantDeck, 0, len(rowConnection.Edges))
-	for _, edge := range rowConnection.Edges {
-		decks = append(decks, edge.Node.GrantDeck)
-	}
-	if err := q.compareSources(ctx, decks); err != nil {
-		return pagination.Connection[GrantDeck]{}, err
-	}
 	connection := pagination.Connection[GrantDeck]{
 		Edges:    make([]pagination.Edge[GrantDeck], 0, len(rowConnection.Edges)),
 		PageInfo: rowConnection.PageInfo,
 	}
-	for i, edge := range rowConnection.Edges {
-		connection.Edges = append(connection.Edges, pagination.Edge[GrantDeck]{Node: decks[i], Cursor: edge.Cursor})
+	for _, edge := range rowConnection.Edges {
+		connection.Edges = append(connection.Edges, pagination.Edge[GrantDeck]{Node: edge.Node.GrantDeck, Cursor: edge.Cursor})
 	}
 	return connection, nil
 }
 
 // 無ければ ErrGrantDeckNotFound
 func (q *GrantDeckHandler) Get(ctx context.Context, id uuid.UUID) (GrantDeck, error) {
-	deck, err := q.getGrantDeck(ctx, id)
-	if err != nil {
-		return GrantDeck{}, err
-	}
-	decks := []GrantDeck{deck}
-	if err := q.compareSources(ctx, decks); err != nil {
-		return GrantDeck{}, err
-	}
-	return decks[0], nil
-}
-
-// 「写した後に変わったか」は保存せず、ここで 2 つの read model を突き合わせて出す（どちらか 1 つの集約からは投影できないため。
-// 投影の遅れ方が違うので、一瞬だけ古い組み合わせが見えることがあるが、表示のための値なので受け入れる）。
-// decks の要素を直接書き換える
-func (q *GrantDeckHandler) compareSources(ctx context.Context, decks []GrantDeck) error {
-	var ids []uuid.UUID
-	for _, deck := range decks {
-		if deck.Source != nil {
-			ids = append(ids, deck.Source.PresetDeckID)
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	revisions, err := q.getPresetDeckRevisions(ctx, ids)
-	if err != nil {
-		return err
-	}
-	for i, deck := range decks {
-		if deck.Source == nil {
-			continue
-		}
-		source := *deck.Source
-		current, ok := revisions[source.PresetDeckID]
-		source.ChangedSinceCopied = ok && current != source.Revision
-		source.PresetDeckDeleted = !ok
-		decks[i].Source = &source
-	}
-	return nil
+	return q.getGrantDeck(ctx, id)
 }

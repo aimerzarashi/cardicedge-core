@@ -2,6 +2,8 @@ package presetdeck
 
 import (
 	"github.com/google/uuid"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 type State interface {
@@ -18,8 +20,8 @@ type PresetDeck struct {
 	Version  int64
 	PublicID uuid.UUID
 	Name     Name
-	// 枚数が 0 のカードは持たない
-	Cards map[CardRef]CardCount
+	// 枚数が 0 のカードは持たない（DeckQuantity は 1 以上）
+	Cards map[card.Ref]card.DeckQuantity
 }
 
 func (PresetDeck) isPresetDeckState() {}

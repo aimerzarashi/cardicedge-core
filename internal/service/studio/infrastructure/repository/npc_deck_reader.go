@@ -105,12 +105,8 @@ func toNPCDeck(id uuid.UUID, totalCount int, raw []byte) (query.NPCDeck, error) 
 	for _, card := range metadata.Cards {
 		cards = append(cards, query.PresetDeckCard{CardID: card.CardID, Count: card.Count})
 	}
-	var source *query.NPCDeckSource
-	if metadata.Source != nil {
-		source = &query.NPCDeckSource{PresetDeckID: metadata.Source.PresetDeckID, Revision: metadata.Source.Revision}
-	}
 	return query.NPCDeck{
-		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Cards: cards, TotalCount: totalCount, Source: source,
+		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, RegisteredBy: metadata.RegisteredBy,
 		UpdatedAt: metadata.UpdatedAt, UpdatedBy: metadata.UpdatedBy,
 	}, nil

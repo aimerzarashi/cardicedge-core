@@ -3,7 +3,7 @@ package npcdeck
 import (
 	"maps"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 // 状態を書き換えないよう、カードの一覧は写してから変える
@@ -14,9 +14,9 @@ func Evolve(state State, event Event) (State, error) {
 		if _, ok := state.(UnregisteredNPCDeck); !ok {
 			return state, ErrInvalidState
 		}
-		cards := make(map[presetdeck.CardRef]presetdeck.CardCount, len(e.Cards))
+		cards := make(map[card.Ref]card.DeckQuantity, len(e.Cards))
 		for _, entry := range e.Cards {
-			cards[entry.Card] = entry.Count
+			cards[entry.Card] = entry.Quantity
 		}
 		return NPCDeck{
 			ID:       meta.EntityID,
@@ -40,14 +40,14 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		cards := maps.Clone(npcDeck.Cards)
 		for _, change := range e.Changes {
-			count, err := presetdeck.NewCardCount(cards[change.Card].Int() + change.Delta)
+			quantity, remains, err := cards[change.Card].Add(change.Delta)
 			if err != nil {
 				return state, err
 			}
-			if count == 0 {
-				delete(cards, change.Card)
+			if remains {
+				cards[change.Card] = quantity
 			} else {
-				cards[change.Card] = count
+				delete(cards, change.Card)
 			}
 		}
 		npcDeck.Cards = cards

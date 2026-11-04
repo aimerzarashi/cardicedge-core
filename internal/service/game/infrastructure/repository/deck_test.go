@@ -8,6 +8,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -16,24 +24,53 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/infrastructure/repository"
 )
 
+// 写したカードを、make publish-master と同じく cards の行と game の内部 ID（domain_entities の行）で用意する。
+// 公開 ID は識別子の発行が振るので、cards の行はその公開 ID で入れる
+func (f playerFixture) insertPublishedCard(t *testing.T, name string, cardType query.CardType) (uuid.UUID, card.Ref) {
+	t.Helper()
+	publicID, ref := f.issueCard(t, cardType)
+	insertCardRow(t, f.ctx, publicID, name, cardType)
+	return publicID, ref
+}
+
+// cards の行は入れず、game の内部 ID（domain_entities の行）だけ用意する
+func (f playerFixture) issueCard(t *testing.T, cardType query.CardType) (uuid.UUID, card.Ref) {
+	t.Helper()
+	switch cardType {
+	case query.CardTypeCreature:
+		return issueCardOf(t, f, creature.NewID)
+	case query.CardTypeItem:
+		return issueCardOf(t, f, item.NewID)
+	default:
+		return issueCardOf(t, f, spell.NewID)
+	}
+}
+
+func issueCardOf[I domain.ID](t *testing.T, f playerFixture, newID domain.NewIDFunc[I]) (uuid.UUID, card.Ref) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, newID).Issue(f.ctx)
+	require.NoError(t, err)
+	return publicID, cardtest.Ref(t, id.EntityType(), id.Int64())
+}
+
 func TestDeckReader_ListsOwnDecksInRegistrationOrderWithCardsInTypeThenNameOrder(t *testing.T) {
 	f := newPlayerFixture(t)
 	playerID, ownerPublicID := f.issuePlayer(t)
 	other, otherPublicID := f.issuePlayer(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	spell := insertDeckCard(t, f.ctx, "a", query.CardTypeSpell)
-	itemB := insertDeckCard(t, f.ctx, "b", query.CardTypeItem)
-	itemA := insertDeckCard(t, f.ctx, "a", query.CardTypeItem)
-	creature := insertDeckCard(t, f.ctx, "z", query.CardTypeCreature)
+	spell, spellRef := f.insertPublishedCard(t, "a", query.CardTypeSpell)
+	itemB, itemBRef := f.insertPublishedCard(t, "b", query.CardTypeItem)
+	itemA, itemARef := f.insertPublishedCard(t, "a", query.CardTypeItem)
+	creature, creatureRef := f.insertPublishedCard(t, "z", query.CardTypeCreature)
 	base := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
 	olderID, olderPublicID := f.issueDeck(t)
 	newerID, newerPublicID := f.issueDeck(t)
 	othersID, othersPublicID := f.issueDeck(t)
-	older := readmodel.Deck{Deck: olderID, Player: playerID, Name: "先", RegisteredAt: base, Cards: []readmodel.DeckCard{
-		{CardID: spell, Count: 1}, {CardID: itemB, Count: 2}, {CardID: creature, Count: 3}, {CardID: itemA, Count: 4},
+	older := readmodel.Deck{Deck: olderID, Player: playerID, Name: "先", RegisteredAt: base, Cards: []deck.Card{
+		decktest.Card(t, spellRef, 1), decktest.Card(t, itemBRef, 2), decktest.Card(t, creatureRef, 3), decktest.Card(t, itemARef, 4),
 	}}
-	newer := readmodel.Deck{Deck: newerID, Player: playerID, Name: "後", RegisteredAt: base.Add(time.Second), Cards: []readmodel.DeckCard{{CardID: creature, Count: 5}}}
-	others := readmodel.Deck{Deck: othersID, Player: other, Name: "他", RegisteredAt: base, Cards: []readmodel.DeckCard{{CardID: creature, Count: 1}}}
+	newer := readmodel.Deck{Deck: newerID, Player: playerID, Name: "後", RegisteredAt: base.Add(time.Second), Cards: []deck.Card{decktest.Card(t, creatureRef, 4)}}
+	others := readmodel.Deck{Deck: othersID, Player: other, Name: "他", RegisteredAt: base, Cards: []deck.Card{decktest.Card(t, creatureRef, 1)}}
 	// 作った順と逆に書いても、作った順に読む
 	for _, state := range []readmodel.Deck{newer, others, older} {
 		require.NoError(t, writer.Upsert(f.ctx, state))
@@ -51,7 +88,7 @@ func TestDeckReader_ListsOwnDecksInRegistrationOrderWithCardsInTypeThenNameOrder
 			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Count: 2},
 			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Count: 1},
 		}},
-		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 5}}},
+		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 4}}},
 	}, got)
 	require.Equal(t, []query.Deck{{ID: othersPublicID, Name: "他", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 1}}}}, gotOther)
 }
@@ -60,11 +97,11 @@ func TestDeckReader_GetReturnsOwnDeckWithCardsInTypeThenNameOrder(t *testing.T) 
 	f := newPlayerFixture(t)
 	playerID, ownerPublicID := f.issuePlayer(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	spell := insertDeckCard(t, f.ctx, "a", query.CardTypeSpell)
-	creature := insertDeckCard(t, f.ctx, "z", query.CardTypeCreature)
+	spell, spellRef := f.insertPublishedCard(t, "a", query.CardTypeSpell)
+	creature, creatureRef := f.insertPublishedCard(t, "z", query.CardTypeCreature)
 	deckID, deckPublicID := f.issueDeck(t)
-	require.NoError(t, writer.Upsert(f.ctx, readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Now(), Cards: []readmodel.DeckCard{
-		{CardID: spell, Count: 1}, {CardID: creature, Count: 3},
+	require.NoError(t, writer.Upsert(f.ctx, readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Now(), Cards: []deck.Card{
+		decktest.Card(t, spellRef, 1), decktest.Card(t, creatureRef, 3),
 	}}))
 
 	got, err := repository.NewDeckReader().Get(f.ctx, ownerPublicID, deckPublicID)
@@ -81,9 +118,9 @@ func TestDeckReader_GetReturnsNotFoundForOtherPlayersDeck(t *testing.T) {
 	other, _ := f.issuePlayer(t)
 	_, requesterPublicID := f.issuePlayer(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	card := insertDeckCard(t, f.ctx, "a", query.CardTypeCreature)
+	_, cardRef := f.insertPublishedCard(t, "a", query.CardTypeCreature)
 	deckID, deckPublicID := f.issueDeck(t)
-	require.NoError(t, writer.Upsert(f.ctx, readmodel.Deck{Deck: deckID, Player: other, Name: "他", RegisteredAt: time.Now(), Cards: []readmodel.DeckCard{{CardID: card, Count: 1}}}))
+	require.NoError(t, writer.Upsert(f.ctx, readmodel.Deck{Deck: deckID, Player: other, Name: "他", RegisteredAt: time.Now(), Cards: []deck.Card{decktest.Card(t, cardRef, 1)}}))
 
 	_, err := repository.NewDeckReader().Get(f.ctx, requesterPublicID, deckPublicID)
 
@@ -115,7 +152,8 @@ func TestDeckReader_FailsForCardThatWasNotPublishedToGame(t *testing.T) {
 	playerID, publicID := f.issuePlayer(t)
 	deckID, _ := f.issueDeck(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Now(), Cards: []readmodel.DeckCard{{CardID: uuid.New(), Count: 1}}}
+	_, unpublished := f.issueCard(t, query.CardTypeCreature)
+	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Now(), Cards: []deck.Card{decktest.Card(t, unpublished, 1)}}
 	require.NoError(t, writer.Upsert(f.ctx, state))
 
 	_, err := repository.NewDeckReader().ListByPlayer(f.ctx, publicID)
@@ -128,8 +166,8 @@ func TestDeckWriter_UpsertTwiceKeepsOneRow(t *testing.T) {
 	playerID, ownerPublicID := f.issuePlayer(t)
 	deckID, _ := f.issueDeck(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	card := insertDeckCard(t, f.ctx, "a", query.CardTypeCreature)
-	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC), Cards: []readmodel.DeckCard{{CardID: card, Count: 1}}}
+	_, cardRef := f.insertPublishedCard(t, "a", query.CardTypeCreature)
+	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC), Cards: []deck.Card{decktest.Card(t, cardRef, 1)}}
 
 	require.NoError(t, writer.Upsert(f.ctx, state))
 	require.NoError(t, writer.Upsert(f.ctx, state))
@@ -144,8 +182,8 @@ func TestDeckWriter_DeleteRemovesRowAndToleratesMissing(t *testing.T) {
 	playerID, ownerPublicID := f.issuePlayer(t)
 	deckID, _ := f.issueDeck(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
-	card := insertDeckCard(t, f.ctx, "a", query.CardTypeCreature)
-	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC), Cards: []readmodel.DeckCard{{CardID: card, Count: 1}}}
+	_, cardRef := f.insertPublishedCard(t, "a", query.CardTypeCreature)
+	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC), Cards: []deck.Card{decktest.Card(t, cardRef, 1)}}
 	require.NoError(t, writer.Upsert(f.ctx, state))
 
 	require.NoError(t, writer.Delete(f.ctx, state))
@@ -163,8 +201,8 @@ func TestDeckWriter_RecordsOwnerPublicIDAsRegisteredAndUpdatedBy(t *testing.T) {
 	deckID, deckPublicID := f.issueDeck(t)
 	writer := repository.NewDeckWriter(identifier.NewEntityRefResolver(f.registry))
 	registeredAt := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
-	card := uuid.New()
-	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: registeredAt, Cards: []readmodel.DeckCard{{CardID: card, Count: 2}}}
+	card, cardRef := f.insertPublishedCard(t, "a", query.CardTypeCreature)
+	state := readmodel.Deck{Deck: deckID, Player: playerID, Name: "火", RegisteredAt: registeredAt, Cards: []deck.Card{decktest.Card(t, cardRef, 2)}}
 	require.NoError(t, writer.Upsert(f.ctx, state))
 
 	exec, err := rdb.GetExecutor(f.ctx)

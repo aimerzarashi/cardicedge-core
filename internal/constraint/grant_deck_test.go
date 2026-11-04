@@ -9,9 +9,9 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 )
@@ -77,9 +77,9 @@ func TestUpdateGrantDeckCardReferences_MatchesGivenCards(t *testing.T) {
 	f := setup(t)
 	deck := f.issueGrantDeckID(t)
 	dragon, goblin, slime := f.issueCreatureID(t), f.issueCreatureID(t), f.issueCreatureID(t)
-	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, dragon), f.cardRef(t, goblin)}))
+	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, dragon), f.cardRef(t, goblin)}))
 
-	err := constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, goblin), f.cardRef(t, slime)})
+	err := constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, goblin), f.cardRef(t, slime)})
 
 	require.NoError(t, err)
 	require.Equal(t, []int64{goblin.Int64(), slime.Int64()}, f.grantDeckReferencedCards(t, deck))
@@ -88,13 +88,13 @@ func TestUpdateGrantDeckCardReferences_MatchesGivenCards(t *testing.T) {
 // 参照されているカードの識別子は消せない。参照する側を消すと参照も消え、消せるようになる
 func TestUpdateGrantDeckCardReferences_PreventsDeletingReferencedCardUntilGrantDeckIsDeleted(t *testing.T) {
 	f := setup(t)
-	deck, card := f.issueGrantDeckID(t), f.issueCreatureID(t)
-	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, card)}))
+	deck, creatureID := f.issueGrantDeckID(t), f.issueCreatureID(t)
+	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, creatureID)}))
 	require.NoError(t, identifier.New(f.registry, grantdeck.NewID).Delete(f.ctx, deck))
 	require.Empty(t, f.grantDeckReferencedCards(t, deck))
-	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, f.issueGrantDeckID(t), []presetdeck.CardRef{f.cardRef(t, card)}))
+	require.NoError(t, constraint.UpdateGrantDeckCardReferences(f.ctx, f.issueGrantDeckID(t), []card.Ref{f.cardRef(t, creatureID)}))
 
-	err := identifier.New(f.registry, creature.NewID).Delete(f.ctx, card)
+	err := identifier.New(f.registry, creature.NewID).Delete(f.ctx, creatureID)
 
 	// 失敗した文でトランザクションは中断されるが、テストの最後なので続けて使わない
 	var pgErr *pq.Error

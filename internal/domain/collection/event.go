@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
@@ -24,12 +23,12 @@ type Event interface {
 
 type EventMeta = domain.EventMeta[ID]
 
-// 持ち主と配布は、ほかの集約なので内部 ID で持つ。カードは公開 ID（理由は card.Count）
+// 持ち主と配布は、ほかの集約なので内部 ID で持つ。カードは game の内部 ID
 type CreatedEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
 	Player       player.ID       `json:"player"`
-	Cards        []card.Count    `json:"cards"`
+	Cards        []Card          `json:"cards"`
 	StarterGrant startergrant.ID `json:"starter_grant"`
 }
 

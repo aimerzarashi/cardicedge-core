@@ -36,7 +36,7 @@ func (w *NPCDeckWriter) Upsert(ctx context.Context, npcDeck readmodel.NPCDeck) e
 	refs := make([]domain.EntityRef, 0, len(npcDeck.Cards)+2)
 	refs = append(refs, registeredByRef, updatedByRef)
 	for card := range npcDeck.Cards {
-		refs = append(refs, domain.NewEntityRef(card.EntityType(), card.ID()))
+		refs = append(refs, domain.NewEntityRef(card.EntityType, card.ID))
 	}
 	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
@@ -44,7 +44,7 @@ func (w *NPCDeckWriter) Upsert(ctx context.Context, npcDeck readmodel.NPCDeck) e
 	}
 	cards := make([]readmodel.DeckCard, 0, len(npcDeck.Cards))
 	for card, count := range npcDeck.Cards {
-		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType(), card.ID())]
+		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType, card.ID)]
 		if !ok {
 			return errors.New("repository: card in npc deck has no public id")
 		}

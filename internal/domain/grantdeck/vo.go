@@ -1,13 +1,11 @@
 package grantdeck
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
 type ID int64
@@ -82,42 +80,17 @@ func (s Status) Retire() (Status, bool, error) {
 	}
 }
 
-// どのプリセットデッキの、どの時点から写したか。元のプリセットデッキは消してよい（参照にしない）ため、
-// 消えた後も読めるよう、内部 ID ではなく公開 ID で持つ
+// どのプリセットデッキの、どの時点から写したか。登録のイベントにだけ記録として残し、State・read model には持たせない
+// （写した後は元と関係を持たないため）。同じ studio の中なので内部 ID で指す。JSON のタグだけで読み書きし、
+// 保存済みのイベントを読み直すときは確かめない
 type Source struct {
-	presetDeckID uuid.UUID
-	revision     int64
+	PresetDeck presetdeck.ID `json:"preset_deck"`
+	Revision   int64         `json:"revision"`
 }
 
-func NewSource(presetDeckID uuid.UUID, revision int64) (Source, error) {
-	if presetDeckID == uuid.Nil || revision <= 0 {
-		return Source{}, errors.New("grant deck: source needs a preset deck id and a positive revision")
+func NewSource(presetDeck presetdeck.ID, revision int64) (Source, error) {
+	if presetDeck <= 0 || revision <= 0 {
+		return Source{}, errors.New("grantdeck: source needs a preset deck id and a positive revision")
 	}
-	return Source{presetDeckID: presetDeckID, revision: revision}, nil
-}
-
-func (s Source) PresetDeckID() uuid.UUID {
-	return s.presetDeckID
-}
-
-func (s Source) Revision() int64 {
-	return s.revision
-}
-
-type sourceJSON struct {
-	PresetDeckID uuid.UUID `json:"preset_deck_id"`
-	Revision     int64     `json:"revision"`
-}
-
-func (s Source) MarshalJSON() ([]byte, error) {
-	return json.Marshal(sourceJSON{PresetDeckID: s.presetDeckID, Revision: s.revision})
-}
-
-func (s *Source) UnmarshalJSON(data []byte) error {
-	var v sourceJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	*s = Source{presetDeckID: v.PresetDeckID, revision: v.Revision}
-	return nil
+	return Source{PresetDeck: presetDeck, Revision: revision}, nil
 }

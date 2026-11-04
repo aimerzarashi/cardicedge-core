@@ -26,9 +26,9 @@ func (r *fakeNPCDeckReader) list(_ context.Context, condition query.ListNPCDecks
 	return r.rows, nil
 }
 
-func npcDeckRow(name string, source *query.NPCDeckSource) query.NPCDeckListRow {
+func npcDeckRow(name string) query.NPCDeckListRow {
 	id := uuid.New()
-	npcDeck := query.NPCDeck{ID: id, Name: name, Source: source}
+	npcDeck := query.NPCDeck{ID: id, Name: name}
 	cursor := query.NPCDeckListCursor{SortName: strings.ToLower(name), NPCDeckID: id}
 	return query.NPCDeckListRow{NPCDeck: npcDeck, Cursor: cursor}
 }
@@ -41,7 +41,7 @@ func TestNPCDeckHandler_PassesNormalizedConditionToReader(t *testing.T) {
 		Statuses:     []readmodel.NPCDeckStatus{readmodel.NPCDeckStatusPublished},
 	}
 
-	_, err := query.NewNPCDeckHandler(reader.list, nil, noRevisions).List(t.Context(), filter, ptr(10), nil)
+	_, err := query.NewNPCDeckHandler(reader.list, nil).List(t.Context(), filter, ptr(10), nil)
 
 	require.NoError(t, err)
 	require.Equal(t, query.ListNPCDecksCondition{
@@ -81,7 +81,7 @@ func TestNPCDeckHandler_RejectsInvalidInput(t *testing.T) {
 			reader := &fakeNPCDeckReader{}
 			filter := query.NPCDeckFilter{NameContains: tt.nameContains, Statuses: tt.statuses}
 
-			_, err := query.NewNPCDeckHandler(reader.list, nil, noRevisions).List(t.Context(), filter, tt.first, tt.after)
+			_, err := query.NewNPCDeckHandler(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -92,10 +92,10 @@ func TestNPCDeckHandler_RejectsInvalidInput(t *testing.T) {
 }
 
 func TestNPCDeckHandler_ReturnsNPCDecksWithCursorsAndNextPage(t *testing.T) {
-	rows := []query.NPCDeckListRow{npcDeckRow("A", nil), npcDeckRow("B", nil), npcDeckRow("C", nil)}
+	rows := []query.NPCDeckListRow{npcDeckRow("A"), npcDeckRow("B"), npcDeckRow("C")}
 	reader := &fakeNPCDeckReader{rows: rows}
 
-	connection, err := query.NewNPCDeckHandler(reader.list, nil, noRevisions).List(t.Context(), query.NPCDeckFilter{}, ptr(2), nil)
+	connection, err := query.NewNPCDeckHandler(reader.list, nil).List(t.Context(), query.NPCDeckFilter{}, ptr(2), nil)
 
 	require.NoError(t, err)
 	require.Len(t, connection.Edges, 2)
@@ -104,66 +104,12 @@ func TestNPCDeckHandler_ReturnsNPCDecksWithCursorsAndNextPage(t *testing.T) {
 	require.True(t, connection.PageInfo.HasNextPage)
 }
 
-// 写した後に元が変わっていれば changedSinceCopied が true。同じ revision なら false。元が消されていれば比べる相手が無いので
-// changedSinceCopied は false で、presetDeckDeleted が true。空から作ったもの（写し元が無い）は比べない
-func TestNPCDeckHandler_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
-	unchanged, changed, deleted := uuid.New(), uuid.New(), uuid.New()
-	source := func(presetDeckID uuid.UUID) *query.NPCDeckSource {
-		return &query.NPCDeckSource{PresetDeckID: presetDeckID, Revision: 5}
-	}
-	rows := []query.NPCDeckListRow{
-		npcDeckRow("unchanged", source(unchanged)),
-		npcDeckRow("changed", source(changed)),
-		npcDeckRow("deleted", source(deleted)),
-		npcDeckRow("empty", nil),
-	}
-	reader := &fakeNPCDeckReader{rows: rows}
-	revisions := func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error) {
-		require.ElementsMatch(t, []uuid.UUID{unchanged, changed, deleted}, ids)
-		return map[uuid.UUID]int64{unchanged: 5, changed: 6}, nil
-	}
-
-	connection, err := query.NewNPCDeckHandler(reader.list, nil, revisions).List(t.Context(), query.NPCDeckFilter{}, nil, nil)
-
-	require.NoError(t, err)
-	changedSinceCopied := map[string]bool{}
-	presetDeckDeleted := map[string]bool{}
-	for _, edge := range connection.Edges {
-		if edge.Node.Source == nil {
-			continue
-		}
-		changedSinceCopied[edge.Node.Name] = edge.Node.Source.ChangedSinceCopied
-		presetDeckDeleted[edge.Node.Name] = edge.Node.Source.PresetDeckDeleted
-	}
-	require.Equal(t, map[string]bool{"unchanged": false, "changed": true, "deleted": false}, changedSinceCopied)
-	require.Equal(t, map[string]bool{"unchanged": false, "changed": false, "deleted": true}, presetDeckDeleted)
-	require.Nil(t, connection.Edges[3].Node.Source)
-	// 読み出した値を書き換えない
-	require.False(t, rows[1].NPCDeck.Source.ChangedSinceCopied)
-}
-
 func TestNPCDeckHandler_GetReturnsNotFoundForMissingNPCDeck(t *testing.T) {
 	get := func(context.Context, uuid.UUID) (query.NPCDeck, error) {
 		return query.NPCDeck{}, query.ErrNPCDeckNotFound
 	}
 
-	_, err := query.NewNPCDeckHandler(nil, get, noRevisions).Get(t.Context(), uuid.New())
+	_, err := query.NewNPCDeckHandler(nil, get).Get(t.Context(), uuid.New())
 
 	require.ErrorIs(t, err, query.ErrNPCDeckNotFound)
-}
-
-func TestNPCDeckHandler_GetShowsWhetherSourceChanged(t *testing.T) {
-	presetDeckID := uuid.New()
-	get := func(context.Context, uuid.UUID) (query.NPCDeck, error) {
-		return query.NPCDeck{Source: &query.NPCDeckSource{PresetDeckID: presetDeckID, Revision: 2}}, nil
-	}
-	revisions := func(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
-		return map[uuid.UUID]int64{presetDeckID: 3}, nil
-	}
-
-	npcDeck, err := query.NewNPCDeckHandler(nil, get, revisions).Get(t.Context(), uuid.New())
-
-	require.NoError(t, err)
-	require.True(t, npcDeck.Source.ChangedSinceCopied)
-	require.False(t, npcDeck.Source.PresetDeckDeleted)
 }

@@ -38,10 +38,10 @@ func insertStarterSet(t *testing.T, ctx context.Context, sortName string, status
 func TestStarterSetReader_ReturnsGrantDecksInSetOrderSkippingUnpublishedAndUnlockBoards(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	card := uuid.New()
+	cardPublicID, cardRef := issueCardEntity(t, ctx)
 	fire, water, retired, missing := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火", readmodel.DeckCard{CardID: card, Count: 4})
-	insertGrantDeck(t, ctx, water, "b-water", readmodel.GrantDeckStatusPublished, "水", readmodel.DeckCard{CardID: card, Count: 2})
+	insertGrantDeck(t, ctx, fire, "a-fire", readmodel.GrantDeckStatusPublished, "火", readmodel.DeckCard{CardID: cardPublicID, Count: 4})
+	insertGrantDeck(t, ctx, water, "b-water", readmodel.GrantDeckStatusPublished, "水", readmodel.DeckCard{CardID: cardPublicID, Count: 2})
 	insertGrantDeck(t, ctx, retired, "c-retired", readmodel.GrantDeckStatusRetired, "使用不可")
 	// 写したボードは、publish-master が game の domain_entities に行を作る（公開 ID は studio と同じ）
 	boardB, boardBPublicID := issueBoardEntity(t, ctx)
@@ -56,8 +56,8 @@ func TestStarterSetReader_ReturnsGrantDecksInSetOrderSkippingUnpublishedAndUnloc
 	require.True(t, found)
 	require.Equal(t, master.StarterSet{
 		GrantDecks: []master.GrantDeck{
-			{Name: "水", Cards: []master.DeckCard{{CardID: card, Count: 2}}},
-			{Name: "火", Cards: []master.DeckCard{{CardID: card, Count: 4}}},
+			{Name: "水", Cards: []master.DeckCard{{Card: cardRef, Count: 2}}},
+			{Name: "火", Cards: []master.DeckCard{{Card: cardRef, Count: 4}}},
 		},
 		UnlockBoards:     []board.ID{boardB, boardA},
 		UnlockNPCAvatars: []npcavatar.ID{npcA, npcB},
@@ -100,7 +100,7 @@ func newStarterSetReader(t *testing.T, ctx context.Context) *repository.StarterS
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return repository.NewStarterSetReader(repository.NewGrantDeckReader(), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID))
+	return repository.NewStarterSetReader(repository.NewGrantDeckReader(identifier.NewEntityRefResolver(registry)), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID))
 }
 
 func issueBoardEntity(t *testing.T, ctx context.Context) (board.ID, uuid.UUID) {

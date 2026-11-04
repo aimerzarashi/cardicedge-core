@@ -53,13 +53,18 @@ func insertNPCDeck(t *testing.T, ctx context.Context, name string, status readmo
 func insertDeckCard(t *testing.T, ctx context.Context, name string, cardType query.CardType) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
+	insertCardRow(t, ctx, id, name, cardType)
+	return id
+}
+
+func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string, cardType query.CardType) {
+	t.Helper()
 	raw, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished})
 	require.NoError(t, err)
 	row := models.Card{CardID: id.String(), CardType: int16(cardType), SortName: name, Status: string(readmodel.CardStatusPublished), Metadata: raw}
 	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
 	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
-	return id
 }
 
 // 解放の行を、投影が書く形（metadata の npc_avatars は解放した順の公開 ID）で直接入れる

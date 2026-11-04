@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
@@ -13,7 +12,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
@@ -37,9 +35,9 @@ const (
 )
 
 var (
-	cardA = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	cardB = uuid.MustParse("00000000-0000-0000-0000-000000000002")
-	cardC = uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	cardA = mustCardRef(1)
+	cardB = mustCardRef(2)
+	cardC = mustCardRef(3)
 	// 解放するボードの公開 ID。ボードの中身は読まないので、写した boards は要らない
 	boardA = int64(50)
 	boardB = int64(51)
@@ -47,8 +45,8 @@ var (
 )
 
 var publishedDecks = []master.GrantDeck{
-	{Name: "火", Cards: []master.DeckCard{{CardID: cardA, Count: 4}, {CardID: cardB, Count: 1}}},
-	{Name: "水", Cards: []master.DeckCard{{CardID: cardA, Count: 2}, {CardID: cardB, Count: 3}, {CardID: cardC, Count: 2}}},
+	{Name: "火", Cards: []master.DeckCard{{Card: cardA, Count: 4}, {Card: cardB, Count: 1}}},
+	{Name: "水", Cards: []master.DeckCard{{Card: cardA, Count: 2}, {Card: cardB, Count: 3}, {Card: cardC, Count: 2}}},
 }
 
 // 公開中のスターターセット。解放するボードの並びはセットが持つ順（公開 ID の順ではない）
@@ -64,6 +62,14 @@ func mustNPCAvatarID(value int64) npcavatar.ID {
 		panic(err)
 	}
 	return id
+}
+
+func mustCardRef(id int64) card.Ref {
+	ref, err := card.NewRef(card.CreatureEntityType, id)
+	if err != nil {
+		panic(err)
+	}
+	return ref
 }
 
 func mustBoardID(value int64) board.ID {
@@ -147,10 +153,10 @@ func TestStart_CopiesMostCountOfEachCardFromMaster(t *testing.T) {
 
 	state, ok := loadStarterGrant(t, ctx, playerID).(startergrant.InProgressStarterGrant)
 	require.True(t, ok)
-	require.Equal(t, []card.Count{
-		cardtest.Count(t, cardA, 4),
-		cardtest.Count(t, cardB, 3),
-		cardtest.Count(t, cardC, 2),
+	require.Equal(t, []startergrant.CollectionCard{
+		startergranttest.CollectionCard(t, cardA, 4),
+		startergranttest.CollectionCard(t, cardB, 3),
+		startergranttest.CollectionCard(t, cardC, 2),
 	}, state.Cards)
 	require.Len(t, state.Decks, 2)
 }
@@ -162,7 +168,7 @@ func TestStart_DistributesAsManyDecksAsStarterSetHas(t *testing.T) {
 		decks []master.GrantDeck
 	}{
 		{name: "one_deck", decks: publishedDecks[:1]},
-		{name: "three_decks", decks: append(append([]master.GrantDeck{}, publishedDecks...), master.GrantDeck{Name: "風", Cards: []master.DeckCard{{CardID: cardC, Count: 5}}})},
+		{name: "three_decks", decks: append(append([]master.GrantDeck{}, publishedDecks...), master.GrantDeck{Name: "風", Cards: []master.DeckCard{{Card: cardC, Count: 4}}})},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -14,8 +14,7 @@ import (
 )
 
 const npcDeckFields = `id name status totalCount revision registeredAt updatedAt
-	cards { count card { __typename id name } }
-	source { presetDeckId revision changedSinceCopied presetDeckDeleted }`
+	cards { count card { __typename id name } }`
 
 const npcDeckQuery = `query ($id: UUID!) {
 	npcDeck(id: $id) {
@@ -154,7 +153,7 @@ func fullNpcDeck(t *testing.T, token, name string) map[string]any {
 	return waitNpcDeck(t, token, filled["id"], 2)
 }
 
-func TestRegisterNpcDeck_ListsDraftNpcDeckWithoutSource(t *testing.T) {
+func TestRegisterNpcDeck_ListsDraftNpcDeck(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
@@ -176,7 +175,6 @@ func TestRegisterNpcDeck_ListsDraftNpcDeckWithoutSource(t *testing.T) {
 	require.Equal(t, "DRAFT", node["status"])
 	require.EqualValues(t, 0, node["totalCount"])
 	require.Empty(t, node["cards"])
-	require.Nil(t, node["source"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	detail := waitNpcDeck(t, token, registered["id"], 1)
 	delete(detail, "__typename")
@@ -201,8 +199,8 @@ func TestNpcDecks_FiltersByStatusAndRejectsEmptyStatuses(t *testing.T) {
 	}}, empty)
 }
 
-// 写すのはカードと枚数で、名前は指定したもの。元の公開 ID と、写したときの revision を覚え、元が変わる・消えると、それが分かる
-func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeckAndTracksSource(t *testing.T) {
+// 写すのはカードと枚数で、名前は指定したもの。写した元は覚えない（作った後は元と関係を持たない）
+func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeck(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
@@ -221,26 +219,6 @@ func TestRegisterNpcDeckFromPresetDeck_CopiesPresetDeckAndTracksSource(t *testin
 	require.Equal(t, "DRAFT", detail["status"])
 	require.Equal(t, presetDetail["cards"], detail["cards"])
 	require.EqualValues(t, 5, detail["totalCount"])
-	require.Equal(t, map[string]any{"presetDeckId": preset["id"], "revision": float64(2), "changedSinceCopied": false, "presetDeckDeleted": false}, detail["source"])
-
-	renamed := client.Data(t, token, renamePresetDeckMutation, map[string]any{"input": map[string]any{"id": preset["id"], "revision": 2, "name": "水-" + id}}, "renamePresetDeck")
-	require.Equal(t, "RenamePresetDeckSuccess", renamed["__typename"])
-	testhelper.Eventually(t, func(c *assert.CollectT) {
-		detail, err := client.TryData(t.Context(), token, npcDeckQuery, map[string]any{"id": copied["id"]}, "npcDeck")
-		if assert.NoError(c, err) {
-			assert.Equal(c, true, detail["source"].(map[string]any)["changedSinceCopied"])
-		}
-	})
-	deleted := client.Data(t, token, deletePresetDeckMutation, map[string]any{"input": map[string]any{"id": preset["id"], "revision": 3}}, "deletePresetDeck")
-	require.Equal(t, "DeletePresetDeckSuccess", deleted["__typename"])
-	testhelper.Eventually(t, func(c *assert.CollectT) {
-		detail, err := client.TryData(t.Context(), token, npcDeckQuery, map[string]any{"id": copied["id"]}, "npcDeck")
-		if assert.NoError(c, err) {
-			source := detail["source"].(map[string]any)
-			assert.Equal(c, true, source["presetDeckDeleted"])
-			assert.Equal(c, false, source["changedSinceCopied"])
-		}
-	})
 }
 
 // 名前は元から写さないので、同じプリセットデッキから名前を変えれば何度でも作れる。使われている名前・空の名前は誤りになる

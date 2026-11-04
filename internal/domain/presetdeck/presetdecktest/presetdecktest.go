@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -24,18 +23,4 @@ func Name(t testing.TB, value string) presetdeck.Name {
 	name, err := presetdeck.NewName(value)
 	require.NoError(t, err)
 	return name
-}
-
-func CardCount(t testing.TB, value int) presetdeck.CardCount {
-	t.Helper()
-	count, err := presetdeck.NewCardCount(value)
-	require.NoError(t, err)
-	return count
-}
-
-func CardRef(t testing.TB, entityType domain.EntityType, id int64) presetdeck.CardRef {
-	t.Helper()
-	ref, err := presetdeck.NewCardRef(entityType, id)
-	require.NoError(t, err)
-	return ref
 }

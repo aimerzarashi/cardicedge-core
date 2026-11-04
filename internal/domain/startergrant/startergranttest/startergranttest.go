@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
 
@@ -26,7 +27,7 @@ func DeckNumber(t testing.TB, value int) startergrant.DeckNumber {
 	return number
 }
 
-func Deck(t testing.TB, name string, cards ...card.Count) startergrant.Deck {
+func Deck(t testing.TB, name string, cards ...startergrant.DeckCard) startergrant.Deck {
 	t.Helper()
 	return startergrant.Deck{Name: DeckName(t, name), Cards: cards}
 }
@@ -36,4 +37,14 @@ func DeckName(t testing.TB, value string) startergrant.DeckName {
 	name, err := startergrant.NewDeckName(value)
 	require.NoError(t, err)
 	return name
+}
+
+func DeckCard(t testing.TB, ref card.Ref, quantity int) startergrant.DeckCard {
+	t.Helper()
+	return startergrant.DeckCard{Card: ref, Quantity: cardtest.DeckQuantity(t, quantity)}
+}
+
+func CollectionCard(t testing.TB, ref card.Ref, quantity int) startergrant.CollectionCard {
+	t.Helper()
+	return startergrant.CollectionCard{Card: ref, Quantity: cardtest.OwnedQuantity(t, quantity)}
 }

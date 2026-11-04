@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
@@ -15,10 +17,13 @@ import (
 // core_game の grant_decks（make publish-master が studio の read model から全行を状態つきで写した表）のうち、公開中だけを読む。
 // どれを配るかはスターターセット（StarterSetReader）が決める。
 // 準備中・使用不可も写してあるのは、配り済みのデッキの元を後で表示したくなったとき、表を作り直さずに済むようにするため
-type GrantDeckReader struct{}
+type GrantDeckReader struct {
+	// 写したカードの公開 ID を、game の内部 ID（make publish-master が domain_entities に作る行）に引き直す
+	entityRefs domain.EntityRefResolver
+}
 
-func NewGrantDeckReader() *GrantDeckReader {
-	return &GrantDeckReader{}
+func NewGrantDeckReader(entityRefs domain.EntityRefResolver) *GrantDeckReader {
+	return &GrantDeckReader{entityRefs: entityRefs}
 }
 
 // 写した表の metadata のうち、配布に要る項目。studio の read model の型を import せず、この JSON の形だけを契約にする
@@ -49,7 +54,8 @@ func (r *GrantDeckReader) ListPublishedByIDs(ctx context.Context, ids []uuid.UUI
 	if err != nil {
 		return nil, err
 	}
-	decks := make(map[uuid.UUID]master.GrantDeck, len(rows))
+	metadatas := make(map[uuid.UUID]grantDeckMetadata, len(rows))
+	var cardIDs []uuid.UUID
 	for _, row := range rows {
 		id, err := uuid.Parse(row.GrantDeckID)
 		if err != nil {
@@ -59,9 +65,29 @@ func (r *GrantDeckReader) ListPublishedByIDs(ctx context.Context, ids []uuid.UUI
 		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 			return nil, fmt.Errorf("grant_decks.metadata of %s: %w", row.GrantDeckID, err)
 		}
+		metadatas[id] = metadata
+		for _, c := range metadata.Cards {
+			cardIDs = append(cardIDs, c.CardID)
+		}
+	}
+	// 写していないカード（publish-master が domain_entities に行を作っていない）は、待てば直る失敗として返す
+	entityRefs, err := r.entityRefs.ResolveAll(ctx, cardIDs)
+	if err != nil {
+		return nil, err
+	}
+	decks := make(map[uuid.UUID]master.GrantDeck, len(rows))
+	for id, metadata := range metadatas {
 		cards := make([]master.DeckCard, 0, len(metadata.Cards))
 		for _, c := range metadata.Cards {
-			cards = append(cards, master.DeckCard{CardID: c.CardID, Count: c.Count})
+			entityRef, ok := entityRefs[c.CardID]
+			if !ok {
+				return nil, fmt.Errorf("grant_decks.metadata of %s: card %s: %w", id, c.CardID, domain.ErrEntityNotFound)
+			}
+			ref, err := card.NewRef(entityRef.EntityType(), entityRef.ID())
+			if err != nil {
+				return nil, fmt.Errorf("grant_decks.metadata of %s: card %s: %w", id, c.CardID, err)
+			}
+			cards = append(cards, master.DeckCard{Card: ref, Count: c.Count})
 		}
 		decks[id] = master.GrantDeck{Name: metadata.Name, Cards: cards}
 	}

@@ -317,7 +317,6 @@ type ComplexityRoot struct {
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
 		Revision     func(childComplexity int) int
-		Source       func(childComplexity int) int
 		Status       func(childComplexity int) int
 		TotalCount   func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
@@ -343,13 +342,6 @@ type ComplexityRoot struct {
 
 	GrantDeckNotFoundError struct {
 		Message func(childComplexity int) int
-	}
-
-	GrantDeckSource struct {
-		ChangedSinceCopied func(childComplexity int) int
-		PresetDeckDeleted  func(childComplexity int) int
-		PresetDeckID       func(childComplexity int) int
-		Revision           func(childComplexity int) int
 	}
 
 	InvalidBoardStatusTransitionError struct {
@@ -486,7 +478,6 @@ type ComplexityRoot struct {
 		Name         func(childComplexity int) int
 		RegisteredAt func(childComplexity int) int
 		Revision     func(childComplexity int) int
-		Source       func(childComplexity int) int
 		Status       func(childComplexity int) int
 		TotalCount   func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
@@ -512,13 +503,6 @@ type ComplexityRoot struct {
 
 	NpcDeckNotFoundError struct {
 		Message func(childComplexity int) int
-	}
-
-	NpcDeckSource struct {
-		ChangedSinceCopied func(childComplexity int) int
-		PresetDeckDeleted  func(childComplexity int) int
-		PresetDeckID       func(childComplexity int) int
-		Revision           func(childComplexity int) int
 	}
 
 	PageInfo struct {
@@ -1712,12 +1696,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.GrantDeck.Revision(childComplexity), true
-	case "GrantDeck.source":
-		if e.ComplexityRoot.GrantDeck.Source == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GrantDeck.Source(childComplexity), true
 	case "GrantDeck.status":
 		if e.ComplexityRoot.GrantDeck.Status == nil {
 			break
@@ -1783,31 +1761,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.GrantDeckNotFoundError.Message(childComplexity), true
-
-	case "GrantDeckSource.changedSinceCopied":
-		if e.ComplexityRoot.GrantDeckSource.ChangedSinceCopied == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GrantDeckSource.ChangedSinceCopied(childComplexity), true
-	case "GrantDeckSource.presetDeckDeleted":
-		if e.ComplexityRoot.GrantDeckSource.PresetDeckDeleted == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GrantDeckSource.PresetDeckDeleted(childComplexity), true
-	case "GrantDeckSource.presetDeckId":
-		if e.ComplexityRoot.GrantDeckSource.PresetDeckID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GrantDeckSource.PresetDeckID(childComplexity), true
-	case "GrantDeckSource.revision":
-		if e.ComplexityRoot.GrantDeckSource.Revision == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GrantDeckSource.Revision(childComplexity), true
 
 	case "InvalidBoardStatusTransitionError.message":
 		if e.ComplexityRoot.InvalidBoardStatusTransitionError.Message == nil {
@@ -2538,12 +2491,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.NpcDeck.Revision(childComplexity), true
-	case "NpcDeck.source":
-		if e.ComplexityRoot.NpcDeck.Source == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeck.Source(childComplexity), true
 	case "NpcDeck.status":
 		if e.ComplexityRoot.NpcDeck.Status == nil {
 			break
@@ -2609,31 +2556,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.NpcDeckNotFoundError.Message(childComplexity), true
-
-	case "NpcDeckSource.changedSinceCopied":
-		if e.ComplexityRoot.NpcDeckSource.ChangedSinceCopied == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckSource.ChangedSinceCopied(childComplexity), true
-	case "NpcDeckSource.presetDeckDeleted":
-		if e.ComplexityRoot.NpcDeckSource.PresetDeckDeleted == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckSource.PresetDeckDeleted(childComplexity), true
-	case "NpcDeckSource.presetDeckId":
-		if e.ComplexityRoot.NpcDeckSource.PresetDeckID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckSource.PresetDeckID(childComplexity), true
-	case "NpcDeckSource.revision":
-		if e.ComplexityRoot.NpcDeckSource.Revision == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckSource.Revision(childComplexity), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -3977,8 +3899,6 @@ func (ec *executionContext) childFields_GrantDeck(ctx context.Context, field gra
 		return ec.fieldContext_GrantDeck_cards(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_GrantDeck_totalCount(ctx, field)
-	case "source":
-		return ec.fieldContext_GrantDeck_source(ctx, field)
 	case "revision":
 		return ec.fieldContext_GrantDeck_revision(ctx, field)
 	case "registeredAt":
@@ -3997,20 +3917,6 @@ func (ec *executionContext) childFields_GrantDeckEdge(ctx context.Context, field
 		return ec.fieldContext_GrantDeckEdge_node(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type GrantDeckEdge", field.Name)
-}
-
-func (ec *executionContext) childFields_GrantDeckSource(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "presetDeckId":
-		return ec.fieldContext_GrantDeckSource_presetDeckId(ctx, field)
-	case "revision":
-		return ec.fieldContext_GrantDeckSource_revision(ctx, field)
-	case "changedSinceCopied":
-		return ec.fieldContext_GrantDeckSource_changedSinceCopied(ctx, field)
-	case "presetDeckDeleted":
-		return ec.fieldContext_GrantDeckSource_presetDeckDeleted(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type GrantDeckSource", field.Name)
 }
 
 func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4085,8 +3991,6 @@ func (ec *executionContext) childFields_NpcDeck(ctx context.Context, field graph
 		return ec.fieldContext_NpcDeck_cards(ctx, field)
 	case "totalCount":
 		return ec.fieldContext_NpcDeck_totalCount(ctx, field)
-	case "source":
-		return ec.fieldContext_NpcDeck_source(ctx, field)
 	case "revision":
 		return ec.fieldContext_NpcDeck_revision(ctx, field)
 	case "registeredAt":
@@ -4105,20 +4009,6 @@ func (ec *executionContext) childFields_NpcDeckEdge(ctx context.Context, field g
 		return ec.fieldContext_NpcDeckEdge_node(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type NpcDeckEdge", field.Name)
-}
-
-func (ec *executionContext) childFields_NpcDeckSource(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "presetDeckId":
-		return ec.fieldContext_NpcDeckSource_presetDeckId(ctx, field)
-	case "revision":
-		return ec.fieldContext_NpcDeckSource_revision(ctx, field)
-	case "changedSinceCopied":
-		return ec.fieldContext_NpcDeckSource_changedSinceCopied(ctx, field)
-	case "presetDeckDeleted":
-		return ec.fieldContext_NpcDeckSource_presetDeckDeleted(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type NpcDeckSource", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8280,38 +8170,6 @@ func (ec *executionContext) fieldContext_GrantDeck_totalCount(_ context.Context,
 	return graphql.NewScalarFieldContext("GrantDeck", field, false, false, "Int")
 }
 
-func (ec *executionContext) _GrantDeck_source(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeck) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GrantDeck_source(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Source, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.GrantDeckSource) graphql.Marshaler {
-			return ec.marshalOGrantDeckSource2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐGrantDeckSource(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_GrantDeck_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "GrantDeck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_GrantDeckSource(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _GrantDeck_revision(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeck) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8567,98 +8425,6 @@ func (ec *executionContext) _GrantDeckNotFoundError_message(ctx context.Context,
 }
 func (ec *executionContext) fieldContext_GrantDeckNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("GrantDeckNotFoundError", field, false, false, "String")
-}
-
-func (ec *executionContext) _GrantDeckSource_presetDeckId(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GrantDeckSource_presetDeckId(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PresetDeckID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GrantDeckSource_presetDeckId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GrantDeckSource", field, false, false, "UUID")
-}
-
-func (ec *executionContext) _GrantDeckSource_revision(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GrantDeckSource_revision(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Revision, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GrantDeckSource_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GrantDeckSource", field, false, false, "Int")
-}
-
-func (ec *executionContext) _GrantDeckSource_changedSinceCopied(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GrantDeckSource_changedSinceCopied(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ChangedSinceCopied, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GrantDeckSource_changedSinceCopied(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GrantDeckSource", field, false, false, "Boolean")
-}
-
-func (ec *executionContext) _GrantDeckSource_presetDeckDeleted(ctx context.Context, field graphql.CollectedField, obj *model.GrantDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GrantDeckSource_presetDeckDeleted(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PresetDeckDeleted, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GrantDeckSource_presetDeckDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GrantDeckSource", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _InvalidBoardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidBoardStatusTransitionError) (ret graphql.Marshaler) {
@@ -11516,38 +11282,6 @@ func (ec *executionContext) fieldContext_NpcDeck_totalCount(_ context.Context, f
 	return graphql.NewScalarFieldContext("NpcDeck", field, false, false, "Int")
 }
 
-func (ec *executionContext) _NpcDeck_source(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeck_source(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Source, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.NpcDeckSource) graphql.Marshaler {
-			return ec.marshalONpcDeckSource2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckSource(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeck_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "NpcDeck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_NpcDeckSource(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _NpcDeck_revision(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeck) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11803,98 +11537,6 @@ func (ec *executionContext) _NpcDeckNotFoundError_message(ctx context.Context, f
 }
 func (ec *executionContext) fieldContext_NpcDeckNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("NpcDeckNotFoundError", field, false, false, "String")
-}
-
-func (ec *executionContext) _NpcDeckSource_presetDeckId(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckSource_presetDeckId(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PresetDeckID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckSource_presetDeckId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckSource", field, false, false, "UUID")
-}
-
-func (ec *executionContext) _NpcDeckSource_revision(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckSource_revision(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Revision, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckSource_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckSource", field, false, false, "Int")
-}
-
-func (ec *executionContext) _NpcDeckSource_changedSinceCopied(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckSource_changedSinceCopied(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ChangedSinceCopied, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckSource_changedSinceCopied(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckSource", field, false, false, "Boolean")
-}
-
-func (ec *executionContext) _NpcDeckSource_presetDeckDeleted(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckSource) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckSource_presetDeckDeleted(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PresetDeckDeleted, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckSource_presetDeckDeleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckSource", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
@@ -24847,11 +24489,6 @@ func (ec *executionContext) _GrantDeck(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "source":
-			out.Values[i] = ec._GrantDeck_source(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "revision":
 			out.Values[i] = ec._GrantDeck_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -25039,54 +24676,6 @@ func (ec *executionContext) _GrantDeckNotFoundError(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("GrantDeckNotFoundError")
 		case "message":
 			out.Values[i] = ec._GrantDeckNotFoundError_message(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var grantDeckSourceImplementors = []string{"GrantDeckSource"}
-
-func (ec *executionContext) _GrantDeckSource(ctx context.Context, sel ast.SelectionSet, obj *model.GrantDeckSource) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, grantDeckSourceImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("GrantDeckSource")
-		case "presetDeckId":
-			out.Values[i] = ec._GrantDeckSource_presetDeckId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "revision":
-			out.Values[i] = ec._GrantDeckSource_revision(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "changedSinceCopied":
-			out.Values[i] = ec._GrantDeckSource_changedSinceCopied(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "presetDeckDeleted":
-			out.Values[i] = ec._GrantDeckSource_presetDeckDeleted(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -26102,11 +25691,6 @@ func (ec *executionContext) _NpcDeck(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "source":
-			out.Values[i] = ec._NpcDeck_source(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "revision":
 			out.Values[i] = ec._NpcDeck_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -26294,54 +25878,6 @@ func (ec *executionContext) _NpcDeckNotFoundError(ctx context.Context, sel ast.S
 			out.Values[i] = graphql.MarshalString("NpcDeckNotFoundError")
 		case "message":
 			out.Values[i] = ec._NpcDeckNotFoundError_message(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var npcDeckSourceImplementors = []string{"NpcDeckSource"}
-
-func (ec *executionContext) _NpcDeckSource(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeckSource) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, npcDeckSourceImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("NpcDeckSource")
-		case "presetDeckId":
-			out.Values[i] = ec._NpcDeckSource_presetDeckId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "revision":
-			out.Values[i] = ec._NpcDeckSource_revision(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "changedSinceCopied":
-			out.Values[i] = ec._NpcDeckSource_changedSinceCopied(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "presetDeckDeleted":
-			out.Values[i] = ec._NpcDeckSource_presetDeckDeleted(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -30940,13 +30476,6 @@ func (ec *executionContext) unmarshalOGrantDeckFilter2ᚖgitlabᚗcomᚋaimerzar
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOGrantDeckSource2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐGrantDeckSource(ctx context.Context, sel ast.SelectionSet, v *model.GrantDeckSource) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._GrantDeckSource(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalOGrantDeckStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐGrantDeckStatusᚄ(ctx context.Context, v any) ([]model.GrantDeckStatus, error) {
 	if v == nil {
 		return nil, nil
@@ -31059,13 +30588,6 @@ func (ec *executionContext) unmarshalONpcDeckFilter2ᚖgitlabᚗcomᚋaimerzaras
 	}
 	res, err := ec.unmarshalInputNpcDeckFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalONpcDeckSource2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckSource(ctx context.Context, sel ast.SelectionSet, v *model.NpcDeckSource) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._NpcDeckSource(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalONpcDeckStatus2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckStatusᚄ(ctx context.Context, v any) ([]model.NpcDeckStatus, error) {

@@ -31,7 +31,11 @@ func (w *DeckWriter) Upsert(ctx context.Context, state readmodel.Deck) error {
 	}
 	deckRef := domain.NewEntityRef(deck.Types().EntityType, state.Deck.Int64())
 	playerRef := domain.NewEntityRef(player.Types().EntityType, state.Player.Int64())
-	publicIDs, err := w.entityRefs.PublicIDs(ctx, []domain.EntityRef{deckRef, playerRef})
+	refs := []domain.EntityRef{deckRef, playerRef}
+	for _, c := range state.Cards {
+		refs = append(refs, domain.NewEntityRef(c.Card.EntityType, c.Card.ID))
+	}
+	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
 		return err
 	}
@@ -44,6 +48,14 @@ func (w *DeckWriter) Upsert(ctx context.Context, state readmodel.Deck) error {
 		return errors.New("repository: player of deck has no public id")
 	}
 	metadata := state.Metadata()
+	metadata.Cards = make([]readmodel.DeckCard, 0, len(state.Cards))
+	for _, c := range state.Cards {
+		cardPublicID, ok := publicIDs[domain.NewEntityRef(c.Card.EntityType, c.Card.ID)]
+		if !ok {
+			return errors.New("repository: card of deck has no public id")
+		}
+		metadata.Cards = append(metadata.Cards, readmodel.DeckCard{CardID: cardPublicID, Count: c.Quantity.Int()})
+	}
 	metadata.ID = deckPublicID
 	metadata.RegisteredBy, metadata.UpdatedBy = playerPublicID, playerPublicID
 	raw, err := json.Marshal(metadata)

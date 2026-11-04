@@ -26,9 +26,9 @@ func (r *fakeGrantDeckReader) list(_ context.Context, condition query.ListGrantD
 	return r.rows, nil
 }
 
-func grantDeckRow(name string, source *query.GrantDeckSource) query.GrantDeckListRow {
+func grantDeckRow(name string) query.GrantDeckListRow {
 	id := uuid.New()
-	deck := query.GrantDeck{ID: id, Name: name, Source: source}
+	deck := query.GrantDeck{ID: id, Name: name}
 	cursor := query.GrantDeckListCursor{SortName: strings.ToLower(name), GrantDeckID: id}
 	return query.GrantDeckListRow{GrantDeck: deck, Cursor: cursor}
 }
@@ -41,7 +41,7 @@ func TestGrantDeckHandler_PassesNormalizedConditionToReader(t *testing.T) {
 		Statuses:     []readmodel.GrantDeckStatus{readmodel.GrantDeckStatusPublished},
 	}
 
-	_, err := query.NewGrantDeckHandler(reader.list, nil, noRevisions).List(t.Context(), filter, ptr(10), nil)
+	_, err := query.NewGrantDeckHandler(reader.list, nil).List(t.Context(), filter, ptr(10), nil)
 
 	require.NoError(t, err)
 	require.Equal(t, query.ListGrantDecksCondition{
@@ -81,7 +81,7 @@ func TestGrantDeckHandler_RejectsInvalidInput(t *testing.T) {
 			reader := &fakeGrantDeckReader{}
 			filter := query.GrantDeckFilter{NameContains: tt.nameContains, Statuses: tt.statuses}
 
-			_, err := query.NewGrantDeckHandler(reader.list, nil, noRevisions).List(t.Context(), filter, tt.first, tt.after)
+			_, err := query.NewGrantDeckHandler(reader.list, nil).List(t.Context(), filter, tt.first, tt.after)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -92,10 +92,10 @@ func TestGrantDeckHandler_RejectsInvalidInput(t *testing.T) {
 }
 
 func TestGrantDeckHandler_ReturnsGrantDecksWithCursorsAndNextPage(t *testing.T) {
-	rows := []query.GrantDeckListRow{grantDeckRow("A", nil), grantDeckRow("B", nil), grantDeckRow("C", nil)}
+	rows := []query.GrantDeckListRow{grantDeckRow("A"), grantDeckRow("B"), grantDeckRow("C")}
 	reader := &fakeGrantDeckReader{rows: rows}
 
-	connection, err := query.NewGrantDeckHandler(reader.list, nil, noRevisions).List(t.Context(), query.GrantDeckFilter{}, ptr(2), nil)
+	connection, err := query.NewGrantDeckHandler(reader.list, nil).List(t.Context(), query.GrantDeckFilter{}, ptr(2), nil)
 
 	require.NoError(t, err)
 	require.Len(t, connection.Edges, 2)
@@ -104,66 +104,12 @@ func TestGrantDeckHandler_ReturnsGrantDecksWithCursorsAndNextPage(t *testing.T) 
 	require.True(t, connection.PageInfo.HasNextPage)
 }
 
-// 写した後に元が変わっていれば changedSinceCopied が true。同じ revision なら false。元が消されていれば比べる相手が無いので
-// changedSinceCopied は false で、presetDeckDeleted が true。空から作ったもの（写し元が無い）は比べない
-func TestGrantDeckHandler_ComparesSourceWithCurrentPresetDeck(t *testing.T) {
-	unchanged, changed, deleted := uuid.New(), uuid.New(), uuid.New()
-	source := func(presetDeckID uuid.UUID) *query.GrantDeckSource {
-		return &query.GrantDeckSource{PresetDeckID: presetDeckID, Revision: 5}
-	}
-	rows := []query.GrantDeckListRow{
-		grantDeckRow("unchanged", source(unchanged)),
-		grantDeckRow("changed", source(changed)),
-		grantDeckRow("deleted", source(deleted)),
-		grantDeckRow("empty", nil),
-	}
-	reader := &fakeGrantDeckReader{rows: rows}
-	revisions := func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error) {
-		require.ElementsMatch(t, []uuid.UUID{unchanged, changed, deleted}, ids)
-		return map[uuid.UUID]int64{unchanged: 5, changed: 6}, nil
-	}
-
-	connection, err := query.NewGrantDeckHandler(reader.list, nil, revisions).List(t.Context(), query.GrantDeckFilter{}, nil, nil)
-
-	require.NoError(t, err)
-	changedSinceCopied := map[string]bool{}
-	presetDeckDeleted := map[string]bool{}
-	for _, edge := range connection.Edges {
-		if edge.Node.Source == nil {
-			continue
-		}
-		changedSinceCopied[edge.Node.Name] = edge.Node.Source.ChangedSinceCopied
-		presetDeckDeleted[edge.Node.Name] = edge.Node.Source.PresetDeckDeleted
-	}
-	require.Equal(t, map[string]bool{"unchanged": false, "changed": true, "deleted": false}, changedSinceCopied)
-	require.Equal(t, map[string]bool{"unchanged": false, "changed": false, "deleted": true}, presetDeckDeleted)
-	require.Nil(t, connection.Edges[3].Node.Source)
-	// 読み出した値を書き換えない
-	require.False(t, rows[1].GrantDeck.Source.ChangedSinceCopied)
-}
-
 func TestGrantDeckHandler_GetReturnsNotFoundForMissingGrantDeck(t *testing.T) {
 	get := func(context.Context, uuid.UUID) (query.GrantDeck, error) {
 		return query.GrantDeck{}, query.ErrGrantDeckNotFound
 	}
 
-	_, err := query.NewGrantDeckHandler(nil, get, noRevisions).Get(t.Context(), uuid.New())
+	_, err := query.NewGrantDeckHandler(nil, get).Get(t.Context(), uuid.New())
 
 	require.ErrorIs(t, err, query.ErrGrantDeckNotFound)
-}
-
-func TestGrantDeckHandler_GetShowsWhetherSourceChanged(t *testing.T) {
-	presetDeckID := uuid.New()
-	get := func(context.Context, uuid.UUID) (query.GrantDeck, error) {
-		return query.GrantDeck{Source: &query.GrantDeckSource{PresetDeckID: presetDeckID, Revision: 2}}, nil
-	}
-	revisions := func(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
-		return map[uuid.UUID]int64{presetDeckID: 3}, nil
-	}
-
-	deck, err := query.NewGrantDeckHandler(nil, get, revisions).Get(t.Context(), uuid.New())
-
-	require.NoError(t, err)
-	require.True(t, deck.Source.ChangedSinceCopied)
-	require.False(t, deck.Source.PresetDeckDeleted)
 }

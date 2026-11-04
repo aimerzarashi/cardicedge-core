@@ -98,7 +98,7 @@ func (c *NPCDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDeckI
 	if err != nil {
 		return ChangedNPCDeck{}, err
 	}
-	source, err := npcdeck.NewSource(preset.PublicID, preset.Version)
+	source, err := npcdeck.NewSource(preset.ID, preset.Version)
 	if err != nil {
 		return ChangedNPCDeck{}, err
 	}
@@ -192,7 +192,7 @@ func (c *NPCDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revisi
 		if err := requireAvailable(ctx, c.cardStatuses, npcDeck.Cards, requested); err != nil {
 			return ChangedNPCDeck{}, err
 		}
-		changed, err := c.decideAndSave(ctx, npcDeck, &npcdeck.SetCardCountsCommand{Counts: requested.counts, Rules: rules.Deck, ChangedBy: changedBy})
+		changed, err := c.decideAndSave(ctx, npcDeck, &npcdeck.SetCardCountsCommand{Set: requested.set, Remove: requested.remove, Rules: rules.Deck, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedNPCDeck{}, err
 		}
@@ -250,8 +250,8 @@ func (c *NPCDeckHandler) checkPublishable(ctx context.Context, npcDeck npcdeck.N
 		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount})
 	}
 	if len(npcDeck.Cards) > 0 {
-		refs := slices.SortedFunc(maps.Keys(npcDeck.Cards), func(a, b presetdeck.CardRef) int {
-			return cmp.Or(cmp.Compare(a.EntityType(), b.EntityType()), cmp.Compare(a.ID(), b.ID()))
+		refs := slices.SortedFunc(maps.Keys(npcDeck.Cards), func(a, b card.Ref) int {
+			return cmp.Or(cmp.Compare(a.EntityType, b.EntityType), cmp.Compare(a.ID, b.ID))
 		})
 		statuses, err := c.cardStatuses(ctx, refs)
 		if err != nil {

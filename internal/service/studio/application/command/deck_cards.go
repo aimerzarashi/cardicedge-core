@@ -10,7 +10,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
 
@@ -22,14 +21,16 @@ type CardCountInput struct {
 	Count  int
 }
 
-// 入力を確かめた後の、カードごとの枚数と、入力の並び（誤りの項目名を入力の位置で返すため）
+// 入力を確かめた後の、枚数を決めるカードと外すカード（入力の 0）と、入力の並び（誤りの項目名を入力の位置で返すため）。
+// 0 は枚数ではなく「デッキから外す」操作なので、DeckQuantity（1 以上）にはせず、入力を読むここで分ける
 type cardCountRequest struct {
-	counts  map[presetdeck.CardRef]presetdeck.CardCount
+	set     map[card.Ref]card.DeckQuantity
+	remove  []card.Ref
 	entries []cardCountEntry
 }
 
 type cardCountEntry struct {
-	ref   presetdeck.CardRef
+	ref   card.Ref
 	field string
 }
 
@@ -38,11 +39,11 @@ type cardCountEntry struct {
 // カードの状態を読むのと保存の間に、ほかの操作がカードを使用不可にする競合は許す。プリセットデッキ・配布デッキはカードの状態を
 // 守る集約ではなく、使用不可は新しく入れないための印で、入ってしまっても残せる決まりなので、状態の変更と枚数の変更を
 // 同じ版に並べるまとめ役の集約を作ってまで防がない（設計メモの「集約をまたぐ制約の守り方」）
-func requireAvailable(ctx context.Context, cardStatuses CardStatusesFunc, current map[presetdeck.CardRef]presetdeck.CardCount, requested cardCountRequest) error {
+func requireAvailable(ctx context.Context, cardStatuses CardStatusesFunc, current map[card.Ref]card.DeckQuantity, requested cardCountRequest) error {
 	var increased []cardCountEntry
-	refs := make([]presetdeck.CardRef, 0, len(requested.entries))
+	refs := make([]card.Ref, 0, len(requested.entries))
 	for _, entry := range requested.entries {
-		if requested.counts[entry.ref].Int() > current[entry.ref].Int() {
+		if requested.set[entry.ref].Int() > current[entry.ref].Int() {
 			increased = append(increased, entry)
 			refs = append(refs, entry.ref)
 		}
@@ -73,42 +74,47 @@ func parseCardCounts(ctx context.Context, entityRefs domain.EntityRefResolver, r
 		return cardCountRequest{}, input.Errors{&input.OutOfRange{Field: "cards", Min: 0, Max: rules.TotalCardCount}}
 	}
 	ids := make([]uuid.UUID, 0, len(cards))
-	for _, card := range cards {
-		ids = append(ids, card.CardID)
+	for _, requested := range cards {
+		ids = append(ids, requested.CardID)
 	}
 	refs, err := entityRefs.ResolveAll(ctx, ids)
 	if err != nil {
 		return cardCountRequest{}, err
 	}
 	invalid := input.Errors{}
-	counts := make(map[presetdeck.CardRef]presetdeck.CardCount, len(cards))
+	set := make(map[card.Ref]card.DeckQuantity, len(cards))
+	var remove []card.Ref
 	entries := make([]cardCountEntry, 0, len(cards))
 	seen := make(map[uuid.UUID]bool, len(cards))
-	for i, card := range cards {
+	for i, requested := range cards {
 		cardField := fmt.Sprintf("cards.%d.cardId", i)
-		if seen[card.CardID] {
+		if seen[requested.CardID] {
 			invalid = append(invalid, &input.Duplicated{Field: cardField})
 		}
-		seen[card.CardID] = true
+		seen[requested.CardID] = true
 		// 行が無い・カードの種類でない、はどちらも、指したカードが無いとして扱う
-		ref, found := refs[card.CardID]
-		cardRef, err := presetdeck.NewCardRef(ref.EntityType(), ref.ID())
-		if !found || errors.Is(err, presetdeck.ErrNotCard) {
+		entityRef, found := refs[requested.CardID]
+		ref, err := card.NewRef(entityRef.EntityType(), entityRef.ID())
+		if !found || errors.Is(err, card.ErrNotCard) {
 			invalid = append(invalid, &input.NotFound{Field: cardField})
 		} else if err != nil {
 			return cardCountRequest{}, err
 		}
-		count, err := presetdeck.NewCardCount(card.Count)
-		if errors.Is(err, presetdeck.ErrCardCountOutOfRange) || card.Count > rules.MaxCardDuplicates {
-			invalid = append(invalid, &input.OutOfRange{Field: fmt.Sprintf("cards.%d.count", i), Min: 0, Max: rules.MaxCardDuplicates})
+		entries = append(entries, cardCountEntry{ref: ref, field: cardField})
+		if requested.Count == 0 {
+			remove = append(remove, ref)
+			continue
+		}
+		quantity, err := card.NewDeckQuantity(requested.Count, rules.MaxCardDuplicates)
+		if errors.Is(err, card.ErrQuantityNotPositive) || errors.Is(err, card.ErrDeckQuantityOverMax) {
+			invalid = append(invalid, &input.OutOfRange{Field: fmt.Sprintf("cards.%d.count", i), Min: 0, Max: rules.MaxCardDuplicates.Int()})
 		} else if err != nil {
 			return cardCountRequest{}, err
 		}
-		counts[cardRef] = count
-		entries = append(entries, cardCountEntry{ref: cardRef, field: cardField})
+		set[ref] = quantity
 	}
 	if len(invalid) > 0 {
 		return cardCountRequest{}, invalid
 	}
-	return cardCountRequest{counts: counts, entries: entries}, nil
+	return cardCountRequest{set: set, remove: remove, entries: entries}, nil
 }

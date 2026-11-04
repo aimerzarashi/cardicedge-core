@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
 // grant_decks.status の値（準備中・公開中・使用不可）。domain の grantdeck.Status を使わない理由は CardStatus と同じ
@@ -43,7 +43,7 @@ type GrantDeck struct {
 	RegisteredBy operator.ID
 	UpdatedBy    operator.ID
 	// 入れたカードと枚数（0 のカードは持たない）。書くときに repository が公開 ID に引き直して Metadata.Cards にする（PresetDeck と同じ）
-	Cards map[presetdeck.CardRef]int
+	Cards map[card.Ref]int
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う
 	IsDeleted bool
 }
@@ -55,19 +55,12 @@ type GrantDeckMetadata struct {
 	Status   GrantDeckStatus `json:"status"`
 	Revision int64           `json:"revision"`
 	// カード名・種類は書き写さない（PresetDeckMetadata と同じ）
-	Cards []DeckCard `json:"cards"`
-	// プリセットデッキから写して作ったときだけ。元は参照にしない（消してよい）ため、公開 ID で持つ
-	Source       *GrantDeckSource `json:"source,omitempty"`
-	RegisteredAt time.Time        `json:"registered_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
+	Cards        []DeckCard `json:"cards"`
+	RegisteredAt time.Time  `json:"registered_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
 	RegisteredBy uuid.UUID `json:"registered_by"`
 	UpdatedBy    uuid.UUID `json:"updated_by"`
-}
-
-type GrantDeckSource struct {
-	PresetDeckID uuid.UUID `json:"preset_deck_id"`
-	Revision     int64     `json:"revision"`
 }
 
 func (state GrantDeck) TotalCount() int {
@@ -92,12 +85,9 @@ func (state GrantDeck) Evolve(event any) GrantDeck {
 		}
 		state.RegisteredBy = e.RegisteredBy
 		state.UpdatedBy = e.RegisteredBy
-		if e.Source != nil {
-			state.Metadata.Source = &GrantDeckSource{PresetDeckID: e.Source.PresetDeckID(), Revision: e.Source.Revision()}
-		}
-		state.Cards = make(map[presetdeck.CardRef]int, len(e.Cards))
+		state.Cards = make(map[card.Ref]int, len(e.Cards))
 		for _, entry := range e.Cards {
-			state.Cards[entry.Card] = entry.Count.Int()
+			state.Cards[entry.Card] = entry.Quantity.Int()
 		}
 	case *grantdeck.RenamedEvent:
 		state.SortName = domain.NormalizeName(e.Name.String())
