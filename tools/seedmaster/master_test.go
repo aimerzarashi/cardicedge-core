@@ -61,13 +61,13 @@ func TestSampleMaster_HasDefaultRulesDifferentFromInitialOnes(t *testing.T) {
 	initial := board.InitialDefaultRules()
 	found := false
 	for _, b := range m.Boards {
-		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic() ||
-			b.DefaultRules.StartingMagic != initial.StartingMagic() ||
-			b.DefaultRules.LapBonus != initial.LapBonus() ||
-			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus() ||
-			b.DefaultRules.RoundLimit != initial.RoundLimit() ||
-			b.DefaultRules.DiceMin != initial.DiceMin() ||
-			b.DefaultRules.DiceMax != initial.DiceMax()
+		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic ||
+			b.DefaultRules.StartingMagic != initial.StartingMagic ||
+			b.DefaultRules.LapBonus != initial.LapBonus ||
+			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus ||
+			b.DefaultRules.RoundLimit != initial.RoundLimit ||
+			b.DefaultRules.DiceMin != initial.DiceMin ||
+			b.DefaultRules.DiceMax != initial.DiceMax
 	}
 	require.True(t, found)
 }

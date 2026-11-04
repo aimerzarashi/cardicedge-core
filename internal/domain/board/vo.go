@@ -2,7 +2,6 @@ package board
 
 import (
 	"cmp"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -119,13 +118,18 @@ const (
 
 // 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
 type DefaultRules struct {
-	targetMagic     int
-	startingMagic   int
-	lapBonus        int
-	checkpointBonus int
-	roundLimit      int
-	diceMin         int
-	diceMax         int
+	// 届いて拠点に戻ると勝ちになる魔力
+	TargetMagic   int `json:"target_magic"`
+	StartingMagic int `json:"starting_magic"`
+	// 拠点に戻ったときに増える魔力
+	LapBonus int `json:"lap_bonus"`
+	// チェックポイントを通ったときに増える魔力
+	CheckpointBonus int `json:"checkpoint_bonus"`
+	// 上限に達したら、その時点で魔力の多い人が勝つ
+	RoundLimit int `json:"round_limit"`
+	// サイコロの目の最小・最大
+	DiceMin int `json:"dice_min"`
+	DiceMax int `json:"dice_max"`
 }
 
 // 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
@@ -160,145 +164,97 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 		return DefaultRules{}, errors.Join(errs...)
 	}
 	return DefaultRules{
-		targetMagic: targetMagic, startingMagic: startingMagic, lapBonus: lapBonus, checkpointBonus: checkpointBonus,
-		roundLimit: roundLimit, diceMin: diceMin, diceMax: diceMax,
+		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
 	}, nil
 }
 
 // 登録の直後の既定のルール。定数が決まりを満たすことはテストで確かめる
 func InitialDefaultRules() DefaultRules {
 	return DefaultRules{
-		targetMagic: DefaultTargetMagic, startingMagic: DefaultStartingMagic,
-		lapBonus: DefaultLapBonus, checkpointBonus: DefaultCheckpointBonus,
-		roundLimit: DefaultRoundLimit, diceMin: DefaultDiceMin, diceMax: DefaultDiceMax,
+		TargetMagic: DefaultTargetMagic, StartingMagic: DefaultStartingMagic,
+		LapBonus: DefaultLapBonus, CheckpointBonus: DefaultCheckpointBonus,
+		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax,
 	}
-}
-
-// 届いて拠点に戻ると勝ちになる魔力
-func (r DefaultRules) TargetMagic() int {
-	return r.targetMagic
-}
-
-func (r DefaultRules) StartingMagic() int {
-	return r.startingMagic
-}
-
-// 拠点に戻ったときに増える魔力
-func (r DefaultRules) LapBonus() int {
-	return r.lapBonus
-}
-
-// チェックポイントを通ったときに増える魔力
-func (r DefaultRules) CheckpointBonus() int {
-	return r.checkpointBonus
-}
-
-// 上限に達したら、その時点で魔力の多い人が勝つ
-func (r DefaultRules) RoundLimit() int {
-	return r.roundLimit
-}
-
-// サイコロの目の最小
-func (r DefaultRules) DiceMin() int {
-	return r.diceMin
-}
-
-// サイコロの目の最大
-func (r DefaultRules) DiceMax() int {
-	return r.diceMax
-}
-
-type defaultRulesJSON struct {
-	TargetMagic     int `json:"target_magic"`
-	StartingMagic   int `json:"starting_magic"`
-	LapBonus        int `json:"lap_bonus"`
-	CheckpointBonus int `json:"checkpoint_bonus"`
-	RoundLimit      int `json:"round_limit"`
-	DiceMin         int `json:"dice_min"`
-	DiceMax         int `json:"dice_max"`
-}
-
-func (r DefaultRules) MarshalJSON() ([]byte, error) {
-	return json.Marshal(defaultRulesJSON{
-		TargetMagic: r.targetMagic, StartingMagic: r.startingMagic, LapBonus: r.lapBonus, CheckpointBonus: r.checkpointBonus,
-		RoundLimit: r.roundLimit, DiceMin: r.diceMin, DiceMax: r.diceMax,
-	})
-}
-
-// 決まりは確かめない（読み出しを決まりの変更に巻き込まないため。決まりは書くときに NewDefaultRules が守る。Size と同じ）
-func (r *DefaultRules) UnmarshalJSON(data []byte) error {
-	var v defaultRulesJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	*r = DefaultRules{
-		targetMagic: v.TargetMagic, startingMagic: v.StartingMagic, lapBonus: v.LapBonus, checkpointBonus: v.CheckpointBonus,
-		roundLimit: v.RoundLimit, diceMin: v.DiceMin, diceMax: v.DiceMax,
-	}
-	return nil
 }
 
 // 登録の直後の大きさ。範囲（studiorules.Board）の外なら、範囲の中に収める。範囲に入れないのは、
 // 下げた後の既存のボードの大きさと関係なく、新しく作るときの初期値でしかないため
 const DefaultSize = 8
 
-type Size struct {
-	width  int
-	height int
-}
-
-// 値の形（1 以上）だけを確かめる。範囲の上限・下限は studio_rules が決め、書くときにコマンドを動かす側が渡す
+// 範囲の上限・下限は studio_rules が決め、書くときにコマンドを動かす側が渡す
 // （ここで確かめると、範囲を変えても、保存済みのボードを読み直す処理まで巻き込むため）
-func NewSize(width, height int) (Size, error) {
-	if width < 1 || height < 1 {
-		return Size{}, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, width, height)
+type Width int
+
+func NewWidth(value int) (Width, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: width %d", ErrSizeOutOfRange, value)
 	}
-	return Size{width: width, height: height}, nil
+	return Width(value), nil
 }
 
-func (s Size) Width() int {
-	return s.width
+func (w Width) Int() int {
+	return int(w)
 }
 
-func (s Size) Height() int {
-	return s.height
-}
+type Height int
 
-type sizeJSON struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
-}
-
-func (s Size) MarshalJSON() ([]byte, error) {
-	return json.Marshal(sizeJSON{Width: s.width, Height: s.height})
-}
-
-// 範囲は確かめない（読み出しをルールの変更に巻き込まないため。範囲は書くときに Decide が守る）
-func (s *Size) UnmarshalJSON(data []byte) error {
-	var v sizeJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
+func NewHeight(value int) (Height, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: height %d", ErrSizeOutOfRange, value)
 	}
-	*s = Size{width: v.Width, height: v.Height}
-	return nil
+	return Height(value), nil
+}
+
+func (h Height) Int() int {
+	return int(h)
+}
+
+type Size struct {
+	Width  Width  `json:"width"`
+	Height Height `json:"height"`
+}
+
+// 列（0 始まり）。格子の中かは大きさとの組なので ValidateLayout が確かめる
+type X int
+
+func NewX(value int) (X, error) {
+	if value < 0 {
+		return 0, fmt.Errorf("%w: x %d", ErrPositionNegative, value)
+	}
+	return X(value), nil
+}
+
+func (x X) Int() int {
+	return int(x)
+}
+
+// 行（0 始まり）
+type Y int
+
+func NewY(value int) (Y, error) {
+	if value < 0 {
+		return 0, fmt.Errorf("%w: y %d", ErrPositionNegative, value)
+	}
+	return Y(value), nil
+}
+
+func (y Y) Int() int {
+	return int(y)
 }
 
 // x が列、y が行（0 始まり）。並べ方は y → x
 type Position struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
-func NewPosition(x, y int) Position {
-	return Position{X: x, Y: y}
+	X X `json:"x"`
+	Y Y `json:"y"`
 }
 
 func (p Position) Compare(other Position) int {
-	return cmp.Or(cmp.Compare(p.Y, other.Y), cmp.Compare(p.X, other.X))
+	return cmp.Or(cmp.Compare(p.Y.Int(), other.Y.Int()), cmp.Compare(p.X.Int(), other.X.Int()))
 }
 
 func (p Position) adjacentTo(other Position) bool {
-	return abs(p.X-other.X)+abs(p.Y-other.Y) == 1
+	return abs(p.X.Int()-other.X.Int())+abs(p.Y.Int()-other.Y.Int()) == 1
 }
 
 func abs(value int) int {
@@ -373,112 +329,44 @@ func (a Attribute) String() string {
 
 // Attribute は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
 type Tile struct {
-	Position  Position
-	Kind      TileKind
-	Attribute Attribute
-}
-
-type tileJSON struct {
-	X         int       `json:"x"`
-	Y         int       `json:"y"`
+	Position  Position  `json:"position"`
 	Kind      TileKind  `json:"kind"`
 	Attribute Attribute `json:"attribute,omitempty"`
 }
 
-// 座標を入れ子にしない。イベントの payload を読みやすくするため
-func (t Tile) MarshalJSON() ([]byte, error) {
-	return json.Marshal(tileJSON{X: t.Position.X, Y: t.Position.Y, Kind: t.Kind, Attribute: t.Attribute})
-}
-
-func (t *Tile) UnmarshalJSON(data []byte) error {
-	var v tileJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	*t = Tile{Position: NewPosition(v.X, v.Y), Kind: v.Kind, Attribute: v.Attribute}
-	return nil
-}
-
 // 向きが無いので、並べ方の小さい方を A にそろえて 1 通りにする（a,b と b,a を同じつながりにし、map の key にできるように）
 type Connection struct {
-	a Position
-	b Position
+	A Position `json:"a"`
+	B Position `json:"b"`
 }
 
 func NewConnection(a, b Position) Connection {
 	if a.Compare(b) > 0 {
 		a, b = b, a
 	}
-	return Connection{a: a, b: b}
-}
-
-func (c Connection) A() Position {
-	return c.a
-}
-
-func (c Connection) B() Position {
-	return c.b
+	return Connection{A: a, B: b}
 }
 
 func (c Connection) Compare(other Connection) int {
-	return cmp.Or(c.a.Compare(other.a), c.b.Compare(other.b))
-}
-
-type connectionJSON struct {
-	A Position `json:"a"`
-	B Position `json:"b"`
-}
-
-func (c Connection) MarshalJSON() ([]byte, error) {
-	return json.Marshal(connectionJSON{A: c.a, B: c.b})
-}
-
-func (c *Connection) UnmarshalJSON(data []byte) error {
-	var v connectionJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	*c = NewConnection(v.A, v.B)
-	return nil
+	return cmp.Or(c.A.Compare(other.A), c.B.Compare(other.B))
 }
 
 // 転送円どうし・橋どうしの対。向きが無いので Connection と同じく並べ方の小さい方を A にそろえる。
 // Connection と型を分けるのは、隣どうしの道（歩数を使う）と、離れていてよい対（転送円・橋）で決まりも意味も違い、取り違えないため
 type Pair struct {
-	a Position
-	b Position
+	A Position `json:"a"`
+	B Position `json:"b"`
 }
 
 func NewPair(a, b Position) Pair {
 	if a.Compare(b) > 0 {
 		a, b = b, a
 	}
-	return Pair{a: a, b: b}
-}
-
-func (p Pair) A() Position {
-	return p.a
-}
-
-func (p Pair) B() Position {
-	return p.b
+	return Pair{A: a, B: b}
 }
 
 func (p Pair) Compare(other Pair) int {
-	return cmp.Or(p.a.Compare(other.a), p.b.Compare(other.b))
-}
-
-func (p Pair) MarshalJSON() ([]byte, error) {
-	return json.Marshal(connectionJSON{A: p.a, B: p.b})
-}
-
-func (p *Pair) UnmarshalJSON(data []byte) error {
-	var v connectionJSON
-	if err := json.Unmarshal(data, &v); err != nil {
-		return err
-	}
-	*p = NewPair(v.A, v.B)
-	return nil
+	return cmp.Or(p.A.Compare(other.A), p.B.Compare(other.B))
 }
 
 // どの要素の、どの部分か
@@ -550,11 +438,11 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 	for i, tile := range tiles {
 		pos := tile.Position
 		inRange := true
-		if pos.X < 0 || pos.X >= size.width {
+		if pos.X.Int() >= size.Width.Int() {
 			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartX, Reason: ReasonOutOfRange})
 			inRange = false
 		}
-		if pos.Y < 0 || pos.Y >= size.height {
+		if pos.Y.Int() >= size.Height.Int() {
 			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartY, Reason: ReasonOutOfRange})
 			inRange = false
 		}
@@ -577,13 +465,13 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 
 	seen := make(map[Connection]struct{}, len(connections))
 	for i, connection := range connections {
-		if _, ok := placed[connection.a]; !ok {
+		if _, ok := placed[connection.A]; !ok {
 			violations = append(violations, LayoutViolation{Subject: SubjectConnection, Index: i, Part: PartA, Reason: ReasonTileNotFound})
 		}
-		if _, ok := placed[connection.b]; !ok {
+		if _, ok := placed[connection.B]; !ok {
 			violations = append(violations, LayoutViolation{Subject: SubjectConnection, Index: i, Part: PartB, Reason: ReasonTileNotFound})
 		}
-		if !connection.a.adjacentTo(connection.b) {
+		if !connection.A.adjacentTo(connection.B) {
 			violations = append(violations, LayoutViolation{Subject: SubjectConnection, Index: i, Part: PartWhole, Reason: ReasonNotAdjacent})
 			continue
 		}
@@ -599,15 +487,15 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 	paired := make(map[Position]struct{}, len(pairs)*2)
 	for i, pair := range pairs {
 		before := len(violations)
-		kindA, okA := placed[pair.a]
-		kindB, okB := placed[pair.b]
+		kindA, okA := placed[pair.A]
+		kindB, okB := placed[pair.B]
 		if !okA {
 			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartA, Reason: ReasonTileNotFound})
 		}
 		if !okB {
 			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartB, Reason: ReasonTileNotFound})
 		}
-		if pair.a == pair.b {
+		if pair.A == pair.B {
 			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartWhole, Reason: ReasonPairedWithSelf})
 			continue
 		}
@@ -628,14 +516,14 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 			continue
 		}
 		seenPairs[pair] = struct{}{}
-		if _, ok := paired[pair.a]; ok {
+		if _, ok := paired[pair.A]; ok {
 			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartA, Reason: ReasonTileAlreadyPaired})
 		}
-		if _, ok := paired[pair.b]; ok {
+		if _, ok := paired[pair.B]; ok {
 			violations = append(violations, LayoutViolation{Subject: SubjectPair, Index: i, Part: PartB, Reason: ReasonTileAlreadyPaired})
 		}
-		paired[pair.a] = struct{}{}
-		paired[pair.b] = struct{}{}
+		paired[pair.A] = struct{}{}
+		paired[pair.B] = struct{}{}
 	}
 	return violations
 }
@@ -780,8 +668,8 @@ func CheckReadiness(tiles []Tile, connections []Connection, pairs []Pair) Readin
 	tilePositions := make(map[Position]struct{}, len(tiles))
 	pairedPositions := make(map[Position]struct{}, len(pairs)*2)
 	for _, pair := range pairs {
-		pairedPositions[pair.a] = struct{}{}
-		pairedPositions[pair.b] = struct{}{}
+		pairedPositions[pair.A] = struct{}{}
+		pairedPositions[pair.B] = struct{}{}
 	}
 	for _, tile := range tiles {
 		tilePositions[tile.Position] = struct{}{}
@@ -804,13 +692,13 @@ func CheckReadiness(tiles []Tile, connections []Connection, pairs []Pair) Readin
 
 	neighbors := make(map[Position][]Position, len(tiles))
 	for _, connection := range connections {
-		neighbors[connection.a] = append(neighbors[connection.a], connection.b)
-		neighbors[connection.b] = append(neighbors[connection.b], connection.a)
+		neighbors[connection.A] = append(neighbors[connection.A], connection.B)
+		neighbors[connection.B] = append(neighbors[connection.B], connection.A)
 	}
 	// 対の 2 マスも、隣どうしと同じに道として数える（転送円は止まれば、橋は通れば相手へ移るため、どちらも行き来がある）
 	for _, pair := range pairs {
-		neighbors[pair.a] = append(neighbors[pair.a], pair.b)
-		neighbors[pair.b] = append(neighbors[pair.b], pair.a)
+		neighbors[pair.A] = append(neighbors[pair.A], pair.B)
+		neighbors[pair.B] = append(neighbors[pair.B], pair.A)
 	}
 	reached := map[Position]struct{}{base: {}}
 	queue := []Position{base}

@@ -376,11 +376,19 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 		return board.Layout{}, invalid
 	}
 	// 範囲の下限は 1 以上（studiorules.New）なので、範囲の中なら失敗しない。失敗するならコードの誤りなので、内部のエラーのまま返す
-	size, err := board.NewSize(layoutInput.Width, layoutInput.Height)
+	width, err := board.NewWidth(layoutInput.Width)
 	if err != nil {
 		return board.Layout{}, err
 	}
+	height, err := board.NewHeight(layoutInput.Height)
+	if err != nil {
+		return board.Layout{}, err
+	}
+	size := board.Size{Width: width, Height: height}
 
+	// 誤りは段階ごとに返す: 大きさ → 座標の形（負でない）→ レイアウトの決まり（ValidateLayout）。前の段階を満たさなければ
+	// 次は確かめない（負の座標は board.X・Y にできず ValidateLayout に渡せないため）。誤りは段階で直すのに要る情報だけを持つ
+	// （座標の形の誤りは下限だけ。盤の大きさや、その位置のマスの有無は次の段階のことなので持たせない）
 	tiles := make([]board.Tile, len(layoutInput.Tiles))
 	for i, tile := range layoutInput.Tiles {
 		kind, err := board.NewTileKind(tile.Kind)
@@ -391,16 +399,28 @@ func newLayout(rules studiorules.Board, layoutInput BoardLayoutInput) (board.Lay
 		if err != nil {
 			return board.Layout{}, err
 		}
-		tiles[i] = board.Tile{Position: board.NewPosition(tile.X, tile.Y), Kind: kind, Attribute: attribute}
+		kindField := fmt.Sprintf("tiles.%d.%s", i, tileInputField(tile.Kind))
+		position, errs := newPosition(kindField, tile.X, tile.Y)
+		invalid = append(invalid, errs...)
+		tiles[i] = board.Tile{Position: position, Kind: kind, Attribute: attribute}
 	}
 	connections := make([]board.Connection, len(layoutInput.Connections))
 	for i, connection := range layoutInput.Connections {
-		connections[i] = board.NewConnection(board.NewPosition(connection.A.X, connection.A.Y), board.NewPosition(connection.B.X, connection.B.Y))
+		a, aErrs := newPosition(fmt.Sprintf("connections.%d.a", i), connection.A.X, connection.A.Y)
+		b, bErrs := newPosition(fmt.Sprintf("connections.%d.b", i), connection.B.X, connection.B.Y)
+		invalid = append(append(invalid, aErrs...), bErrs...)
+		connections[i] = board.NewConnection(a, b)
 	}
 
 	pairs := make([]board.Pair, len(layoutInput.Pairs))
 	for i, pair := range layoutInput.Pairs {
-		pairs[i] = board.NewPair(board.NewPosition(pair.A.X, pair.A.Y), board.NewPosition(pair.B.X, pair.B.Y))
+		a, aErrs := newPosition(fmt.Sprintf("pairs.%d.a", i), pair.A.X, pair.A.Y)
+		b, bErrs := newPosition(fmt.Sprintf("pairs.%d.b", i), pair.B.X, pair.B.Y)
+		invalid = append(append(invalid, aErrs...), bErrs...)
+		pairs[i] = board.NewPair(a, b)
+	}
+	if len(invalid) > 0 {
+		return board.Layout{}, invalid
 	}
 
 	for _, violation := range board.ValidateLayout(size, tiles, connections, pairs) {
@@ -465,9 +485,9 @@ func layoutViolationToInput(violation board.LayoutViolation, size board.Size, la
 			// 座標は、書いた種類の項目（land・base・checkpoint・warp・prophecyShop 等）の中にある
 			kindField := field + "." + tileInputField(layoutInput.Tiles[violation.Index].Kind)
 			if violation.Part == board.PartX {
-				return &input.OutOfRange{Field: kindField + ".x", Min: 0, Max: size.Width() - 1}, nil
+				return &input.OutOfRange{Field: kindField + ".x", Min: 0, Max: size.Width.Int() - 1}, nil
 			}
-			return &input.OutOfRange{Field: kindField + ".y", Min: 0, Max: size.Height() - 1}, nil
+			return &input.OutOfRange{Field: kindField + ".y", Min: 0, Max: size.Height.Int() - 1}, nil
 		case board.ReasonDuplicatedTile:
 			return &input.Duplicated{Field: field}, nil
 		case board.ReasonAttributeRequired, board.ReasonAttributeNotAllowed:
@@ -505,10 +525,24 @@ func layoutViolationToInput(violation board.LayoutViolation, size board.Size, la
 	panic(fmt.Sprintf("unknown layout violation: %+v", violation))
 }
 
+func newPosition(field string, rawX, rawY int) (board.Position, input.Errors) {
+	invalid := input.Errors{}
+	x, err := board.NewX(rawX)
+	if err != nil {
+		invalid = append(invalid, &input.TooSmall{Field: field + ".x", Min: 0})
+	}
+	y, err := board.NewY(rawY)
+	if err != nil {
+		invalid = append(invalid, &input.TooSmall{Field: field + ".y", Min: 0})
+	}
+	return board.Position{X: x, Y: y}, invalid
+}
+
 // ValidateLayout の a・b は並べ方の小さい方が a にそろった後のもの。入力の a・b が入れ替わっていれば、入力の側に戻す
 func inputEnd(part board.Part, connection BoardConnectionInput) board.Part {
-	a := board.NewPosition(connection.A.X, connection.A.Y)
-	b := board.NewPosition(connection.B.X, connection.B.Y)
+	// 入力が確かめを通った後なので、座標は負でない
+	a, _ := newPosition("", connection.A.X, connection.A.Y)
+	b, _ := newPosition("", connection.B.X, connection.B.Y)
 	if a.Compare(b) <= 0 {
 		return part
 	}
@@ -555,7 +589,7 @@ func boardPublishProblems(readiness board.Readiness) []BoardPublishProblem {
 	for _, problem := range problems {
 		positions := make([]BoardPosition, 0, len(problem.Positions))
 		for _, pos := range problem.Positions {
-			positions = append(positions, NewBoardPosition(pos.X, pos.Y))
+			positions = append(positions, NewBoardPosition(pos.X.Int(), pos.Y.Int()))
 		}
 		result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
 	}

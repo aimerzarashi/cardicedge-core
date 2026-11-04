@@ -13,12 +13,20 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if _, ok := state.(UnregisteredBoard); !ok {
 			return nil, ErrInvalidState
 		}
+		width, err := NewWidth(c.Rules.Clamp(DefaultSize))
+		if err != nil {
+			return nil, err
+		}
+		height, err := NewHeight(c.Rules.Clamp(DefaultSize))
+		if err != nil {
+			return nil, err
+		}
 		return []Event{&RegisteredEvent{
 			EventMeta:    EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
 			PublicID:     c.PublicID,
 			Name:         c.Name,
-			Width:        c.Rules.Clamp(DefaultSize),
-			Height:       c.Rules.Clamp(DefaultSize),
+			Width:        width,
+			Height:       height,
 			DefaultRules: InitialDefaultRules(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
@@ -36,8 +44,8 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		if size := c.Layout.Size(); !c.Rules.Contains(size.Width()) || !c.Rules.Contains(size.Height()) {
-			return nil, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, size.Width(), size.Height())
+		if size := c.Layout.Size(); !c.Rules.Contains(size.Width.Int()) || !c.Rules.Contains(size.Height.Int()) {
+			return nil, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, size.Width, size.Height)
 		}
 		event := diffLayout(board.Layout, c.Layout)
 		if event == nil {

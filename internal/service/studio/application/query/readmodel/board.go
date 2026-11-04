@@ -101,8 +101,8 @@ func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus,
 
 func toBoardDefaultRules(rules board.DefaultRules) BoardDefaultRules {
 	return BoardDefaultRules{
-		TargetMagic: rules.TargetMagic(), StartingMagic: rules.StartingMagic(), LapBonus: rules.LapBonus(), CheckpointBonus: rules.CheckpointBonus(),
-		RoundLimit: rules.RoundLimit(), DiceMin: rules.DiceMin(), DiceMax: rules.DiceMax(),
+		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
 	}
 }
 
@@ -216,7 +216,7 @@ func publishProblems(tiles map[board.Position]BoardTile, connections map[board.C
 	for _, problem := range problems {
 		positions := make([]BoardPosition, 0, len(problem.Positions))
 		for _, pos := range problem.Positions {
-			positions = append(positions, NewBoardPosition(pos.X, pos.Y))
+			positions = append(positions, NewBoardPosition(pos.X.Int(), pos.Y.Int()))
 		}
 		result = append(result, BoardPublishProblem{Kind: BoardPublishProblemKind(problem.Kind), Positions: positions})
 	}
@@ -304,7 +304,7 @@ func (state Board) Evolve(event any) Board {
 		state.pairs = map[board.Pair]struct{}{}
 		state.Metadata = BoardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: BoardStatusDraft, Revision: e.GetMeta().AggregateVersion,
-			Width: e.Width, Height: e.Height,
+			Width: e.Width.Int(), Height: e.Height.Int(),
 			Tiles: []BoardTile{}, Connections: []BoardConnection{}, Pairs: []BoardPair{}, DefaultRules: toBoardDefaultRules(e.DefaultRules),
 			PublishProblems: publishProblems(state.tiles, state.connections, state.pairs),
 			RegisteredAt:    occurredAt, UpdatedAt: occurredAt,
@@ -336,8 +336,8 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	connections := maps.Clone(state.connections)
 	pairs := maps.Clone(state.pairs)
 	if e.Size != nil {
-		state.Metadata.Width = e.Size.Width()
-		state.Metadata.Height = e.Size.Height()
+		state.Metadata.Width = e.Size.Width.Int()
+		state.Metadata.Height = e.Size.Height.Int()
 	}
 	for _, pos := range e.RemovedTiles {
 		delete(tiles, pos)
@@ -373,23 +373,23 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 	state.Metadata.Connections = make([]BoardConnection, 0, len(sorted))
 	for _, connection := range sorted {
 		state.Metadata.Connections = append(state.Metadata.Connections, BoardConnection{
-			A: NewBoardPosition(connection.A().X, connection.A().Y),
-			B: NewBoardPosition(connection.B().X, connection.B().Y),
+			A: NewBoardPosition(connection.A.X.Int(), connection.A.Y.Int()),
+			B: NewBoardPosition(connection.B.X.Int(), connection.B.Y.Int()),
 		})
 	}
 	sortedPairs := slices.SortedFunc(maps.Keys(pairs), board.Pair.Compare)
 	state.Metadata.Pairs = make([]BoardPair, 0, len(sortedPairs))
 	for _, pair := range sortedPairs {
 		state.Metadata.Pairs = append(state.Metadata.Pairs, BoardPair{
-			A: NewBoardPosition(pair.A().X, pair.A().Y),
-			B: NewBoardPosition(pair.B().X, pair.B().Y),
+			A: NewBoardPosition(pair.A.X.Int(), pair.A.Y.Int()),
+			B: NewBoardPosition(pair.B.X.Int(), pair.B.Y.Int()),
 		})
 	}
 	return state
 }
 
 func toBoardTile(tile board.Tile) BoardTile {
-	return BoardTile{X: tile.Position.X, Y: tile.Position.Y, Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
+	return BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
 }
 
 func (state Board) changeStatus(status BoardStatus, revision int64, at time.Time, by operator.ID) Board {
