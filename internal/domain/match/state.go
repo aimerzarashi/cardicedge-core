@@ -31,8 +31,6 @@ type Match struct {
 	Board        Board
 	Rules        Rules
 	Participants []ParticipantState
-	// 順番を決めたサイコロ（画面で見せる）
-	TurnOrderRolls []TurnOrderRoll
 	// 順番。決まるまでは空
 	TurnOrder []ParticipantIndex
 	// 今のラウンド（1 始まり）

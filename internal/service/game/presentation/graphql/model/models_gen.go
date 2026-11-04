@@ -650,7 +650,7 @@ func (this LandTile) GetX() int { return this.X }
 func (this LandTile) GetY() int { return this.Y }
 
 // 対戦。参加者は部屋の席の順で返す。
-// 順番は turnOrder（参加者ごと）と turnOrderRolls（決めたサイコロ）で見せる
+// 順番は参加者ごとの turnOrder で見せる（始めるときに無作為に決めたもの）
 type Match struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -664,8 +664,6 @@ type Match struct {
 	Board *MatchBoard `json:"board"`
 	// 参加者（部屋の席の順）
 	Participants []*MatchParticipant `json:"participants"`
-	// 順番を決めたサイコロ（振り直しも含め、振った順）
-	TurnOrderRolls []*MatchTurnOrderRoll `json:"turnOrderRolls"`
 	// 今の番の参加者（Match.participants の何番目か。順番が決まるまでは null）
 	CurrentParticipant *int `json:"currentParticipant,omitempty"`
 }
@@ -756,16 +754,6 @@ type MatchRules struct {
 	MaxHandCards int `json:"maxHandCards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
-}
-
-// 順番を決めたサイコロ 1 回。同じ目の人どうしで振り直すたびに attempt が増える
-type MatchTurnOrderRoll struct {
-	// 振った参加者（Match.participants の何番目か。0 始まり）
-	Participant int `json:"participant"`
-	// 何回目か（1 が最初の 1 回）
-	Attempt int `json:"attempt"`
-	// 出た目
-	Value int `json:"value"`
 }
 
 type Mutation struct {

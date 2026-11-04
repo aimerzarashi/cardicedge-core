@@ -32,11 +32,10 @@ type CreatedEvent struct {
 	Rules        Rules         `json:"rules"`
 }
 
-// 順番を決めたサイコロ（振り直しも含め、振った順）と、決まった順番
+// 無作為に決めた順番（参加者の番号の並び。早い順）。サイコロの振り合いにしないのは、順番を決める場面を画面に出さないため（core#100）
 type TurnOrderDecidedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Rolls       []TurnOrderRoll    `json:"rolls"`
 	Order       []ParticipantIndex `json:"order"`
 }
 

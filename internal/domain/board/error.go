@@ -20,7 +20,7 @@ var (
 	// 座標が負（格子の中かどうかは ValidateLayout が大きさと合わせて確かめる）
 	ErrPositionNegative = errors.New("board: position is negative")
 	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
-	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小より大きい（対戦の順番はサイコロの大きい順で、同じ目の人は振り直して決める。目が 1 種類だと順番が決まらないため。core#71）
+	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小より大きい（最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため。core#71・core#100）
 	ErrTargetMagicTooSmall                    = errors.New("board: target magic is too small")
 	ErrStartingMagicTooSmall                  = errors.New("board: starting magic is too small")
 	ErrLapBonusTooSmall                       = errors.New("board: lap bonus is too small")

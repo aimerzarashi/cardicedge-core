@@ -7,6 +7,4 @@ var (
 	ErrAlreadyCreated = errors.New("match: already created")
 	// 写したボードに拠点が無い（公開したボードは拠点をちょうど 1 つ持つので、写し方の誤り）
 	ErrBaseNotFound = errors.New("match: base not found")
-	// サイコロの目が 1 種類しかない（順番が決まらない）
-	ErrDiceRangeTooNarrow = errors.New("match: dice range too narrow")
 )

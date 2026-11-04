@@ -67,13 +67,6 @@ type MatchParticipant struct {
 	TurnOrder     int
 }
 
-// 順番を決めたサイコロ 1 回。Participant は参加者の席の順
-type MatchTurnOrderRoll struct {
-	Participant int
-	Attempt     int
-	Value       int
-}
-
 // 対戦。read model を作らず、集約の状態から組み立てる。Participants は席の順
 type Match struct {
 	ID                 uuid.UUID
@@ -82,7 +75,6 @@ type Match struct {
 	Rules              MatchPlayRules
 	Board              MatchBoard
 	Participants       []MatchParticipant
-	TurnOrderRolls     []MatchTurnOrderRoll
 	CurrentParticipant *int
 }
 
@@ -231,10 +223,6 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	result := Match{
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
-	}
-	result.TurnOrderRolls = make([]MatchTurnOrderRoll, len(current.TurnOrderRolls))
-	for i, roll := range current.TurnOrderRolls {
-		result.TurnOrderRolls[i] = MatchTurnOrderRoll{Participant: roll.Participant.Int(), Attempt: roll.Attempt, Value: roll.Value}
 	}
 	if turn, ok := current.CurrentParticipant(); ok {
 		index := turn.Int()
