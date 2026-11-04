@@ -10,7 +10,7 @@ import (
 )
 
 func TestGameRulesHandler_ReturnsRulesFromReader(t *testing.T) {
-	match := query.MatchRules{MinPlayers: 2, MaxPlayers: 4, MaxHandCards: 6}
+	match := query.MatchRules{MinPlayers: 2, MaxPlayers: 4, MaxHandCards: 6, StartingHandCards: 5}
 	rules := query.GameRules{Match: match}
 	reader := func(context.Context) (query.GameRules, error) { return rules, nil }
 

@@ -48,7 +48,7 @@ func SeatKind(t testing.TB, value string) room.SeatKind {
 // 全体のルールの人数の範囲
 func PlayersRange(t testing.TB, minPlayers, maxPlayers int) (gamerules.MinPlayers, gamerules.MaxPlayers) {
 	t.Helper()
-	match := gamerulestest.Match(t, minPlayers, maxPlayers, 1)
+	match := gamerulestest.Match(t, minPlayers, maxPlayers, 1, 1)
 	return match.MinPlayers, match.MaxPlayers
 }
 

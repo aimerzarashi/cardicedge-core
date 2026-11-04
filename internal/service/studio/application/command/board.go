@@ -464,8 +464,8 @@ func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules
 	if errors.Is(err, board.ErrDiceMinTooSmall) {
 		invalid = append(invalid, &input.TooSmall{Field: "diceMin", Min: 1})
 	}
-	if errors.Is(err, board.ErrDiceMaxLessThanDiceMin) {
-		invalid = append(invalid, &input.LessThan{Field: "diceMax", Than: "diceMin"})
+	if errors.Is(err, board.ErrDiceMaxNotGreaterThanDiceMin) {
+		invalid = append(invalid, &input.NotGreaterThan{Field: "diceMax", Than: "diceMin"})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）

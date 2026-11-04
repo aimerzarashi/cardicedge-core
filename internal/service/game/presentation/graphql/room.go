@@ -74,6 +74,8 @@ func fromQueryRoom(room query.Room) (*model.Room, error) {
 	}
 	converted := &model.Room{ID: room.ID, Name: room.Name, Revision: int(room.Revision), Status: status, Participants: participants, Seats: seats}
 	if capabilities := room.Capabilities; capabilities != nil {
+		// 対戦は詳細だけが返す（一覧の部屋ごとに対戦を読み直さないため。できる操作と同じ）
+		converted.MatchID = room.Match
 		converted.Capabilities = &model.RoomCapabilities{
 			ChangeSeats: capabilities.ChangeSeats, ChangeMatchRules: capabilities.ChangeMatchRules, Publish: capabilities.Publish,
 			DeclareReady: capabilities.DeclareReady, Close: capabilities.Close, Rename: capabilities.Rename,
@@ -103,6 +105,8 @@ func fromRoomStatus(status query.RoomStatus) (model.RoomStatus, error) {
 		return model.RoomStatusDraft, nil
 	case query.RoomStatusPreparing:
 		return model.RoomStatusPreparing, nil
+	case query.RoomStatusPlaying:
+		return model.RoomStatusPlaying, nil
 	case query.RoomStatusClosed:
 		return model.RoomStatusClosed, nil
 	default:

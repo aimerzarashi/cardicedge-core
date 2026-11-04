@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -120,6 +121,9 @@ func roomRefs(state readmodel.Room) []domain.EntityRef {
 	for _, ready := range state.Ready {
 		refs = append(refs, domain.NewEntityRef(player.Types().EntityType, ready.Int64()))
 	}
+	if state.Match != 0 {
+		refs = append(refs, domain.NewEntityRef(match.Types().EntityType, state.Match.Int64()))
+	}
 	return refs
 }
 
@@ -163,6 +167,10 @@ func roomMetadata(state readmodel.Room, lookup func(domain.EntityRef) (uuid.UUID
 	metadata.ReadyPlayers = make([]uuid.UUID, len(state.Ready))
 	for i, ready := range state.Ready {
 		metadata.ReadyPlayers[i] = publicID(player.Types().EntityType, ready.Int64())
+	}
+	if state.Match != 0 {
+		matchID := publicID(match.Types().EntityType, state.Match.Int64())
+		metadata.Match = &matchID
 	}
 	if err := errors.Join(errs...); err != nil {
 		return readmodel.RoomMetadata{}, err

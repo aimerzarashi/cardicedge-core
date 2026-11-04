@@ -39,3 +39,10 @@ models:
       # npcAvatars は resolver で返す（read model unlocks と、写した npc_avatars・npc_decks から、返すときに読むため）
       npcAvatars:
         resolver: true
+  # match は resolver で返す（集約の状態から読むため）。始まった対戦の公開 ID を持たせるので、型は手書きにする
+  Room:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model.Room
+    fields:
+      match:
+        resolver: true

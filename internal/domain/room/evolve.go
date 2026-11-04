@@ -43,6 +43,9 @@ func Evolve(state State, event Event) (State, error) {
 		current.Status = StatusPreparing
 	case *ReadyDeclaredEvent:
 		current.Ready = append(slices.Clone(current.Ready), e.Player)
+	case *MatchStartedEvent:
+		current.Status = StatusPlaying
+		current.Match = e.Match
 	case *ClosedEvent:
 		current.Status = StatusClosed
 	case *RenamedEvent:

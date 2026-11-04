@@ -3,6 +3,7 @@ package room
 import (
 	"slices"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -35,6 +36,8 @@ type Room struct {
 	MatchRulesLocked bool
 	// 準備完了を申告した人
 	Ready []player.ID
+	// 始まった対戦。始まるまでは 0
+	Match match.ID
 }
 
 func (Room) isRoomState() {}
@@ -54,6 +57,23 @@ func (r Room) HasParticipant(playerID player.ID) bool {
 		}
 	}
 	return false
+}
+
+// その人の準備完了で、部屋に入っている全員が準備完了になるか（対戦が始まるか）。準備完了ができない人なら false
+func (r Room) StartsMatchOnReady(playerID player.ID) bool {
+	if r.checkDeclareReady(playerID) != nil {
+		return false
+	}
+	ready := append(slices.Clone(r.Ready), playerID)
+	if !slices.Contains(ready, r.Owner) {
+		return false
+	}
+	for _, seat := range r.Seats {
+		if seat.Seat.Kind == SeatKindPlayer && !slices.Contains(ready, seat.Seat.Player) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r Room) isReady(playerID player.ID) bool {

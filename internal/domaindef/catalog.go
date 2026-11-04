@@ -123,6 +123,13 @@ var Types = Catalog{
 			{ID: 2907, Name: "ReadyDeclaredEvent"},
 			{ID: 2908, Name: "ClosedEvent"},
 			{ID: 2909, Name: "RenamedEvent"},
+			{ID: 2910, Name: "MatchStartedEvent"},
+		}},
+		{ID: 3000, Name: "match", Events: []EventTypeDef{
+			{ID: 3001, Name: "CreatedEvent"},
+			{ID: 3002, Name: "TurnOrderDecidedEvent"},
+			{ID: 3003, Name: "DecksShuffledEvent"},
+			{ID: 3004, Name: "HandsDealtEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

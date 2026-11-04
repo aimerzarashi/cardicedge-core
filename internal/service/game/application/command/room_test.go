@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -94,6 +95,7 @@ func newRoomFixtureWithRules(t *testing.T, getRules rules.GetRulesFunc) roomFixt
 	f.handler = command.NewRoomHandler(
 		eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 		identifier.New(registry, room.NewID),
+		identifier.New(registry, match.NewID),
 		command.RoomReferences{
 			Avatars: identifier.New(registry, avatar.NewID), Decks: identifier.New(registry, deck.NewID),
 			NPCAvatars: identifier.New(registry, npcavatar.NewID), NPCDecks: identifier.New(registry, npcdeck.NewID),
@@ -347,7 +349,7 @@ func TestRoomChangeMatchRules_ReturnsInputErrorsForValuesAndBoardTogether(t *tes
 		{name: "target_magic_too_small", modify: func(in *command.RoomMatchRulesInput) { in.TargetMagic = 0 }, want: []input.Error{&input.TooSmall{Field: "targetMagic", Min: 1}, &input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"}}},
 		{name: "starting_magic_negative", modify: func(in *command.RoomMatchRulesInput) { in.StartingMagic = -1 }, want: []input.Error{&input.TooSmall{Field: "startingMagic", Min: 0}}},
 		{name: "target_magic_not_greater_than_starting_magic", modify: func(in *command.RoomMatchRulesInput) { in.TargetMagic = 600 }, want: []input.Error{&input.NotGreaterThan{Field: "targetMagic", Than: "startingMagic"}}},
-		{name: "dice_max_less_than_dice_min", modify: func(in *command.RoomMatchRulesInput) { in.DiceMax = 0 }, want: []input.Error{&input.LessThan{Field: "diceMax", Than: "diceMin"}}},
+		{name: "dice_max_less_than_dice_min", modify: func(in *command.RoomMatchRulesInput) { in.DiceMax = 0 }, want: []input.Error{&input.NotGreaterThan{Field: "diceMax", Than: "diceMin"}}},
 		{name: "value_and_board_together", modify: func(in *command.RoomMatchRulesInput) { in.RoundLimit = 0; in.BoardID = uuid.New() }, want: []input.Error{&input.TooSmall{Field: "roundLimit", Min: 1}, &input.NotFound{Field: "boardId"}}},
 	}
 	for _, tt := range tests {
@@ -501,12 +503,43 @@ func TestRoomDeclareReady_DecidesRestInPreparingAndLocksOwnChoicesAfterReady(t *
 
 	require.ErrorIs(t, notDecided, command.ErrRoomConditionsNotDecided)
 	require.NoError(t, err)
-	require.Equal(t, next.Revision+1, ready.Revision)
+	require.Equal(t, next.Revision+2, ready.Revision)
 	require.Equal(t, 9000, f.load(t, current.ID).MatchRules.TargetMagic)
 	require.Len(t, f.load(t, current.ID).Ready, 1)
-	require.ErrorIs(t, afterReadyRules, command.ErrRoomAlreadyReady)
-	require.ErrorIs(t, afterReadyChoice, command.ErrRoomAlreadyReady)
-	require.ErrorIs(t, readyAgain, command.ErrRoomAlreadyReady)
+	// 参加するのが作った人だけなので、準備完了で対戦が始まって対戦中になり、条件の変更も申告し直しも状態で断られる
+	// （申告の後に選び直せない決まり ErrRoomAlreadyReady は、ほかの人が参加できるようになったときに確かめる）
+	require.ErrorIs(t, afterReadyRules, command.ErrRoomStatusNotAllowed)
+	require.ErrorIs(t, afterReadyChoice, command.ErrRoomStatusNotAllowed)
+	require.ErrorIs(t, readyAgain, command.ErrRoomStatusNotAllowed)
+}
+
+func TestRoomDeclareReady_LastReadyMakesRoomPlayingAndLinksMatch(t *testing.T) {
+	f := newRoomFixture(t)
+	current := f.fullyDecided(t)
+	published, err := f.handler.Publish(f.owner, current.ID, current.Revision)
+	require.NoError(t, err)
+
+	ready, err := f.handler.DeclareReady(f.owner, current.ID, published.Revision)
+
+	require.NoError(t, err)
+	loaded := f.load(t, current.ID)
+	require.Equal(t, room.StatusPlaying, loaded.Status)
+	require.Positive(t, loaded.Match.Int64())
+	// 部屋の revision は、準備完了と対戦の開始の 2 つのイベント分進む
+	require.Equal(t, published.Revision+2, ready.Revision)
+}
+
+func TestRoomClose_RejectsRoomInPlaying(t *testing.T) {
+	f := newRoomFixture(t)
+	current := f.fullyDecided(t)
+	published, err := f.handler.Publish(f.owner, current.ID, current.Revision)
+	require.NoError(t, err)
+	ready, err := f.handler.DeclareReady(f.owner, current.ID, published.Revision)
+	require.NoError(t, err)
+
+	_, err = f.handler.Close(f.owner, current.ID, ready.Revision)
+
+	require.ErrorIs(t, err, command.ErrRoomStatusNotAllowed)
 }
 
 func TestRoomDeclareReady_RejectsBeforePublish(t *testing.T) {
@@ -599,6 +632,6 @@ func TestRoomClose_ClosesAndIgnoresSecondClose(t *testing.T) {
 func gamerulestestMatch(t *testing.T, minPlayers, maxPlayers int) gamerules.Match {
 	t.Helper()
 	minValue, maxValue := roomtest.PlayersRange(t, minPlayers, maxPlayers)
-	hand := gamerules.Defaults().Match.MaxHandCards
-	return gamerules.Match{MinPlayers: minValue, MaxPlayers: maxValue, MaxHandCards: hand}
+	defaults := gamerules.Defaults().Match
+	return gamerules.Match{MinPlayers: minValue, MaxPlayers: maxValue, MaxHandCards: defaults.MaxHandCards, StartingHandCards: defaults.StartingHandCards}
 }

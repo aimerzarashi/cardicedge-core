@@ -47,7 +47,7 @@ type ChangeRoomSeatsResult interface {
 	IsChangeRoomSeatsResult()
 }
 
-// closeRoom の結果（作った人だけ。対戦中は閉じられない（対戦中の状態は対戦を作るときに足す））
+// closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError。対戦が終わった後の部屋の動きは先の候補）
 type CloseRoomResult interface {
 	IsCloseRoomResult()
 }
@@ -77,6 +77,11 @@ type FieldError interface {
 // ゲーム全体のルールの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type GameRulesResult interface {
 	IsGameRulesResult()
+}
+
+// 対戦の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchResult interface {
+	IsMatchResult()
 }
 
 // me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError
@@ -542,19 +547,6 @@ func (FieldInvalidFormat) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
 
-// 入力が、別の入力の項目の値より小さい（等しいのは誤りでない。例: サイコロの目の最大が最小より小さい）
-type FieldLessThan struct {
-	// 誤りのある入力の項目
-	Field string `json:"field"`
-	// 下回ってはいけない相手の入力の項目（例: diceMin）
-	Than string `json:"than"`
-}
-
-func (FieldLessThan) IsFieldError() {}
-
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
-func (this FieldLessThan) GetField() string { return this.Field }
-
 // 入力の ID が指すものが、選べるものの中に無い（無い・ほかのプレイヤーのもの・解放していない・公開中でない等。区別しない）
 type FieldNotFound struct {
 	// 誤りのある入力の項目
@@ -566,7 +558,7 @@ func (FieldNotFound) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldNotFound) GetField() string { return this.Field }
 
-// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下）
+// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下、サイコロの目の最大が最小以下）
 type FieldNotGreaterThan struct {
 	// 誤りのある入力の項目
 	Field string `json:"field"`
@@ -657,6 +649,103 @@ func (this LandTile) GetX() int { return this.X }
 // 行
 func (this LandTile) GetY() int { return this.Y }
 
+// 対戦。参加者は部屋の席の順で返す。
+// 順番は turnOrder（参加者ごと）と turnOrderRolls（決めたサイコロ）で見せる
+type Match struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 対戦の版（変える操作に渡す）
+	Revision int `json:"revision"`
+	// 今のラウンド（1 始まり）
+	Round int `json:"round"`
+	// ルール（始めた時点の写し）
+	Rules *MatchPlayRules `json:"rules"`
+	// 盤面（始めた時点の写し）
+	Board *MatchBoard `json:"board"`
+	// 参加者（部屋の席の順）
+	Participants []*MatchParticipant `json:"participants"`
+	// 順番を決めたサイコロ（振り直しも含め、振った順）
+	TurnOrderRolls []*MatchTurnOrderRoll `json:"turnOrderRolls"`
+	// 今の番の参加者（Match.participants の何番目か。順番が決まるまでは null）
+	CurrentParticipant *int `json:"currentParticipant,omitempty"`
+}
+
+func (Match) IsMatchResult() {}
+
+// 参加者のアバターを、公開用の ID と名前で見せる値（名前は読むときに引く）
+type MatchAvatar struct {
+	// 公開用の ID（プレイヤーのアバターか、NPC のアバターか）
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// 対戦の盤面。始めた時点のボードの写し（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）。
+// マス・つながり・対の型は Board と同じ
+type MatchBoard struct {
+	// 幅
+	Width int `json:"width"`
+	// 高さ
+	Height int `json:"height"`
+	// マス（y → x の順）
+	Tiles []BoardTile `json:"tiles"`
+	// マスどうしのつながり
+	Connections []*BoardConnection `json:"connections"`
+	// 転送円どうし・橋どうしの対
+	Pairs []*BoardTilePair `json:"pairs"`
+}
+
+// 自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）
+type MatchNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchNotFoundError) IsMatchResult() {}
+
+// 参加者 1 人
+type MatchParticipant struct {
+	// プレイヤーか NPC か
+	Kind MatchParticipantKind `json:"kind"`
+	// プレイヤーの公開用の ID（プレイヤーだけ。NPC は null）
+	PlayerID *uuid.UUID `json:"playerId,omitempty"`
+	// アバター（プレイヤーのアバター、NPC なら NPC のアバター）
+	Avatar *MatchAvatar `json:"avatar"`
+	// 今いるマスの位置（始めた時点は拠点）
+	Position *BoardPosition `json:"position"`
+	// 魔力
+	Magic int `json:"magic"`
+	// 手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）
+	Hand []*DeckCardInfo `json:"hand"`
+	// 山札の残りの枚数。並びと中身は見せない
+	DrawPileCount int `json:"drawPileCount"`
+	// 順番の何番目か（0 始まり）。順番が早い人ほど小さい
+	TurnOrder int `json:"turnOrder"`
+}
+
+// 対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
+// 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
+type MatchPlayRules struct {
+	// 届いて拠点に戻ると勝ちになる魔力
+	TargetMagic int `json:"targetMagic"`
+	// 始めたときの魔力
+	StartingMagic int `json:"startingMagic"`
+	// 拠点に戻ったときに増える魔力
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントを通ったときに増える魔力
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限。上限に達したら、その時点で魔力の多い人が勝つ
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大
+	DiceMax int `json:"diceMax"`
+	// 手札の上限
+	MaxHandCards int `json:"maxHandCards"`
+	// 始めに配る手札の枚数
+	StartingHandCards int `json:"startingHandCards"`
+}
+
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
 type MatchRules struct {
 	// 対戦に参加できる人数の下限（この値を含む）
@@ -665,6 +754,18 @@ type MatchRules struct {
 	MaxPlayers int `json:"maxPlayers"`
 	// 手札の上限の枚数
 	MaxHandCards int `json:"maxHandCards"`
+	// 対戦の始めに配る手札の枚数
+	StartingHandCards int `json:"startingHandCards"`
+}
+
+// 順番を決めたサイコロ 1 回。同じ目の人どうしで振り直すたびに attempt が増える
+type MatchTurnOrderRoll struct {
+	// 振った参加者（Match.participants の何番目か。0 始まり）
+	Participant int `json:"participant"`
+	// 何回目か（1 が最初の 1 回）
+	Attempt int `json:"attempt"`
+	// 出た目
+	Value int `json:"value"`
 }
 
 type Mutation struct {
@@ -765,6 +866,8 @@ func (PlayerNotRegisteredError) IsBoardResult() {}
 func (PlayerNotRegisteredError) IsDeckResult() {}
 
 func (PlayerNotRegisteredError) IsGameRulesResult() {}
+
+func (PlayerNotRegisteredError) IsMatchResult() {}
 
 func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
 
@@ -889,29 +992,6 @@ func (RevisionConflictError) IsRenameRoomResult() {}
 
 func (RevisionConflictError) IsCloseRoomResult() {}
 
-// 部屋。自分が入っている部屋だけが読める（入っていない人には RoomNotFoundError）。
-// 席・対戦ルール・席の選択は、それぞれ「まだ決まっていない（空の席の並び・null）／決まった」で返す
-type Room struct {
-	// 部屋の公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 部屋の名前（ほかの部屋と同じでもよい）
-	Name string `json:"name"`
-	// 更新の番号（変える操作の revision に渡す。画面は詳細を読み直し、この revision を持つ）
-	Revision int `json:"revision"`
-	// 状態
-	Status RoomStatus `json:"status"`
-	// 部屋に入っている人（作った人が先）と、準備完了の申告
-	Participants []*RoomParticipant `json:"participants"`
-	// 席の並び（まだ決めていなければ空）
-	Seats []*RoomSeat `json:"seats"`
-	// 対戦ルール（まだ決めていなければ null）
-	MatchRules *RoomMatchRules `json:"matchRules,omitempty"`
-	// 見ている人にできる操作。部屋の詳細（room）だけが返し、一覧（myRooms）では null
-	Capabilities *RoomCapabilities `json:"capabilities,omitempty"`
-}
-
-func (Room) IsRoomResult() {}
-
 // 準備完了を申告した後に、自分の担当の分を選び直そうとした、または申告し直そうとした（操作は行われていない）
 type RoomAlreadyReadyError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -935,7 +1015,7 @@ type RoomCapabilities struct {
 	Publish bool `json:"publish"`
 	// 準備完了を押せるか（declareRoomReady）
 	DeclareReady bool `json:"declareReady"`
-	// 閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false
+	// 閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false。対戦中も false
 	Close bool `json:"close"`
 	// 名前を変えられるか（renameRoom）
 	Rename bool `json:"rename"`
@@ -1081,6 +1161,8 @@ func (RoomStatusNotAllowedError) IsPublishRoomResult() {}
 func (RoomStatusNotAllowedError) IsDeclareRoomReadyResult() {}
 
 func (RoomStatusNotAllowedError) IsRenameRoomResult() {}
+
+func (RoomStatusNotAllowedError) IsCloseRoomResult() {}
 
 // 自分の部屋の一覧の 1 ページ（新しい順。閉じた部屋は含まない）
 type RoomsConnection struct {
@@ -1299,6 +1381,64 @@ func (e CardType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// 参加者がプレイヤーか NPC か
+type MatchParticipantKind string
+
+const (
+	// プレイヤー
+	MatchParticipantKindPlayer MatchParticipantKind = "PLAYER"
+	// NPC
+	MatchParticipantKindNpc MatchParticipantKind = "NPC"
+)
+
+var AllMatchParticipantKind = []MatchParticipantKind{
+	MatchParticipantKindPlayer,
+	MatchParticipantKindNpc,
+}
+
+func (e MatchParticipantKind) IsValid() bool {
+	switch e {
+	case MatchParticipantKindPlayer, MatchParticipantKindNpc:
+		return true
+	}
+	return false
+}
+
+func (e MatchParticipantKind) String() string {
+	return string(e)
+}
+
+func (e *MatchParticipantKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchParticipantKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchParticipantKind", str)
+	}
+	return nil
+}
+
+func (e MatchParticipantKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchParticipantKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchParticipantKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // 席に座るのがプレイヤーか NPC か。形式（個人戦／チーム戦）とチームは持たない
 type RoomSeatKind string
 
@@ -1357,7 +1497,7 @@ func (e RoomSeatKind) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）
+// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）。全員が準備完了を申告すると対戦中に進む
 type RoomStatus string
 
 const (
@@ -1365,6 +1505,8 @@ const (
 	RoomStatusDraft RoomStatus = "DRAFT"
 	// 準備中（公開した後、全員の準備完了まで）。公開前に決めなかったものを、担当の人が決める
 	RoomStatusPreparing RoomStatus = "PREPARING"
+	// 対戦中（全員が準備完了を申告して、対戦が始まった）。対戦は Room.match。対戦が終わった後の部屋の動きは先の候補
+	RoomStatusPlaying RoomStatus = "PLAYING"
 	// 閉じた（作った人が閉じた）。一覧には出ない
 	RoomStatusClosed RoomStatus = "CLOSED"
 )
@@ -1372,12 +1514,13 @@ const (
 var AllRoomStatus = []RoomStatus{
 	RoomStatusDraft,
 	RoomStatusPreparing,
+	RoomStatusPlaying,
 	RoomStatusClosed,
 }
 
 func (e RoomStatus) IsValid() bool {
 	switch e {
-	case RoomStatusDraft, RoomStatusPreparing, RoomStatusClosed:
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusClosed:
 		return true
 	}
 	return false

@@ -14,12 +14,13 @@ import (
 // 公開 ID に当たる部屋が、そのプレイヤーの部屋として無い（無い・入っていない部屋。存在を明かさないため区別しない）
 var ErrRoomNotFound = errors.New("query: room not found")
 
-// 部屋の状態。公開しただけの状態は無く、公開は同時に準備中に進む
+// 部屋の状態。公開しただけの状態は無く、公開は同時に準備中に進む。準備中の次の対戦中は、全員の準備完了で対戦が始まってから
 type RoomStatus string
 
 const (
 	RoomStatusDraft     RoomStatus = "draft"
 	RoomStatusPreparing RoomStatus = "preparing"
+	RoomStatusPlaying   RoomStatus = "playing"
 	RoomStatusClosed    RoomStatus = "closed"
 )
 
@@ -73,6 +74,8 @@ type Room struct {
 	Participants []RoomParticipant
 	Seats        []RoomSeat
 	MatchRules   *RoomMatchRules
+	// 始まった対戦の公開用の ID。始まるまでは nil
+	Match *uuid.UUID
 	// 見ている人にできる操作。詳細（Get）だけが付ける（一覧は nil）
 	Capabilities *RoomCapabilities
 }

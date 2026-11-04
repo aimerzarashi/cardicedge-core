@@ -79,7 +79,7 @@ var roomOperations = map[string]struct {
 		"RoomNotFoundError", "RevisionConflictError", "RoomStatusNotAllowedError", "RoomConditionsNotDecidedError", "RoomAlreadyReadyError", "RoomNotResponsibleError",
 	}},
 	"renameRoom": {"RenameRoomInput", []string{"RoomNotFoundError", "RevisionConflictError", "RoomStatusNotAllowedError", "RoomNotResponsibleError"}},
-	"closeRoom":  {"CloseRoomInput", []string{"RoomNotFoundError", "RevisionConflictError", "RoomNotResponsibleError"}},
+	"closeRoom":  {"CloseRoomInput", []string{"RoomNotFoundError", "RevisionConflictError", "RoomStatusNotAllowedError", "RoomNotResponsibleError"}},
 }
 
 const roomValidationFragment = `... on ValidationErrors {
@@ -89,7 +89,6 @@ const roomValidationFragment = `... on ValidationErrors {
 		... on FieldCountMismatch { expected }
 		... on FieldTooSmall { min }
 		... on FieldNotGreaterThan { than }
-		... on FieldLessThan { than }
 	}
 }`
 
@@ -254,7 +253,9 @@ func TestRoom_CreatesDecidesConditionsPublishesAndDeclaresReady(t *testing.T) {
 	require.Equal(t, "PREPARING", preparing["status"])
 	require.Equal(t, published, revision+2)
 	require.Equal(t, []any{map[string]any{"playerId": p.playerID, "owner": true, "ready": false}}, preparing["participants"])
-	require.Equal(t, "PREPARING", afterReady["status"])
+	// 参加するプレイヤーが作った人だけなので、最後の準備完了で対戦が始まり、部屋は対戦中になる
+	require.Equal(t, "PLAYING", afterReady["status"])
+	require.Equal(t, published+2, ready)
 	require.Equal(t, []any{map[string]any{"playerId": p.playerID, "owner": true, "ready": true}}, afterReady["participants"])
 }
 
@@ -291,9 +292,10 @@ func TestRoom_DecidesWhatWasNotDecidedBeforePublishInPreparingAndLocksAfterReady
 	require.Equal(t, "RoomConditionsNotDecidedError", notDecided["__typename"])
 	require.Equal(t, "RoomConditionLockedError", lockedChoice["__typename"])
 	require.Equal(t, "RoomStatusNotAllowedError", lockedSeats["__typename"])
-	require.Equal(t, "RoomAlreadyReadyError", afterReadyChoice["__typename"])
-	require.Equal(t, "RoomAlreadyReadyError", afterReadyRules["__typename"])
-	require.Equal(t, "RoomAlreadyReadyError", readyAgain["__typename"])
+	// 参加するのが作った人だけなので、準備完了の申告で対戦が始まり、部屋は対戦中になる（対戦中は条件を変えられない）
+	require.Equal(t, "RoomStatusNotAllowedError", afterReadyChoice["__typename"])
+	require.Equal(t, "RoomStatusNotAllowedError", afterReadyRules["__typename"])
+	require.Equal(t, "RoomStatusNotAllowedError", readyAgain["__typename"])
 	room := waitRoom(t, p.token, id, revision)
 	require.Equal(t, float64(6000), room["matchRules"].(map[string]any)["targetMagic"])
 }
@@ -399,10 +401,10 @@ func TestRoom_CapabilitiesFollowWhatTheOwnerCanDoThroughTheLifecycle(t *testing.
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomMatchRules", p.rulesInput(id, revision, p.board["id"])), "changeRoomMatchRules")
 	require.Equal(t, want(false, true, false, true, true, true), capabilities(revision, false, true))
 	revision = roomRevision(t, roomOperation(t, p.token, "declareRoomReady", map[string]any{"id": id, "revision": revision}), "declareRoomReady")
-	// 準備完了の後は、自分の担当の分を選び直せない。閉じるのと名前はできる
-	require.Equal(t, want(false, false, false, false, true, true), capabilities(revision, false, false))
-	revision = roomRevision(t, roomOperation(t, p.token, "closeRoom", map[string]any{"id": id, "revision": revision}), "closeRoom")
-	require.Equal(t, want(false, false, false, false, false, false), capabilities(revision, false, false))
+	// 準備完了で対戦が始まり（対戦中）、条件は変えられず、閉じられない。名前は変えられる
+	require.Equal(t, want(false, false, false, false, false, true), capabilities(revision, false, false))
+	closed := roomOperation(t, p.token, "closeRoom", map[string]any{"id": id, "revision": revision})
+	require.Equal(t, "RoomStatusNotAllowedError", closed["__typename"])
 }
 
 func TestRoom_PublishRequiresSeatsButNotChoicesAndMovesToPreparing(t *testing.T) {
@@ -460,7 +462,7 @@ func TestRoom_ChangeMatchRulesReturnsValidationErrorsForValuesAndUnselectableBoa
 	require.Equal(t, "ValidationErrors", values["__typename"])
 	require.ElementsMatch(t, []any{
 		map[string]any{"__typename": "FieldTooSmall", "field": "roundLimit", "min": float64(1)},
-		map[string]any{"__typename": "FieldLessThan", "field": "diceMax", "than": "diceMin"},
+		map[string]any{"__typename": "FieldNotGreaterThan", "field": "diceMax", "than": "diceMin"},
 		map[string]any{"__typename": "FieldNotFound", "field": "boardId"},
 	}, values["errors"])
 	require.Equal(t, []any{map[string]any{"__typename": "FieldNotFound", "field": "boardId"}}, board["errors"])

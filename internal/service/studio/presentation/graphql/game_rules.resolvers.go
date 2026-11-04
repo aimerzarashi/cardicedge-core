@@ -21,5 +21,5 @@ func (r *queryResolver) GameRules(ctx context.Context) (model.GameRulesResult, e
 		return nil, err
 	}
 	match := rules.Match
-	return &model.GameRules{Match: &model.MatchRules{MinPlayers: match.MinPlayers, MaxPlayers: match.MaxPlayers, MaxHandCards: match.MaxHandCards}}, nil
+	return &model.GameRules{Match: &model.MatchRules{MinPlayers: match.MinPlayers, MaxPlayers: match.MaxPlayers, MaxHandCards: match.MaxHandCards, StartingHandCards: match.StartingHandCards}}, nil
 }

@@ -15,6 +15,8 @@ type MatchRules {
   maxPlayers: Int!
   "手札の上限の枚数"
   maxHandCards: Int!
+  "対戦の始めに配る手札の枚数"
+  startingHandCards: Int!
 }
 
 # 起動時に作った直後で、読み出し用の値がまだ用意できていないときは、既定の値を返さず GraphQL の errors にする（待てば直る失敗）

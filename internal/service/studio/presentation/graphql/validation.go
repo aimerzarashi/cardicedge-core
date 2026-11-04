@@ -27,8 +27,6 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldTooSmall{Field: e.Field, Min: e.Min}
 		case *input.NotGreaterThan:
 			fieldErrors[i] = &model.FieldNotGreaterThan{Field: e.Field, Than: e.Than}
-		case *input.LessThan:
-			fieldErrors[i] = &model.FieldLessThan{Field: e.Field, Than: e.Than}
 		case *input.InvalidFormat:
 			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
 		case *input.NotFound:

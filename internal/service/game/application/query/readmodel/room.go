@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 )
@@ -17,6 +18,7 @@ type RoomStatus string
 const (
 	RoomStatusDraft     RoomStatus = "draft"
 	RoomStatusPreparing RoomStatus = "preparing"
+	RoomStatusPlaying   RoomStatus = "playing"
 	RoomStatusClosed    RoomStatus = "closed"
 )
 
@@ -24,7 +26,7 @@ const (
 func NewRoomStatus(value string) (RoomStatus, error) {
 	status := RoomStatus(value)
 	switch status {
-	case RoomStatusDraft, RoomStatusPreparing, RoomStatusClosed:
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusClosed:
 		return status, nil
 	default:
 		return "", fmt.Errorf("readmodel: unknown room status: %q", value)
@@ -42,7 +44,9 @@ type Room struct {
 	Seats      []RoomSeat
 	MatchRules *room.MatchRules
 	// 準備完了を申告した人
-	Ready        []player.ID
+	Ready []player.ID
+	// 始まった対戦。始まるまでは 0
+	Match        match.ID
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
 	// 最後に操作した人
@@ -58,7 +62,7 @@ type RoomSeat struct {
 
 // 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）。表示に使う ID は公開 ID で持つ
 type RoomMetadata struct {
-	// ID・Owner・Seats・MatchRules.Board・ReadyPlayers・RegisteredBy・UpdatedBy は空のまま。書くときに repository が公開 ID を入れる
+	// ID・Owner・Seats・MatchRules.Board・ReadyPlayers・Match・RegisteredBy・UpdatedBy は空のまま。書くときに repository が公開 ID を入れる
 	ID           uuid.UUID               `json:"id"`
 	Name         string                  `json:"name"`
 	Status       RoomStatus              `json:"status"`
@@ -67,10 +71,12 @@ type RoomMetadata struct {
 	Seats        []RoomSeatMetadata      `json:"seats"`
 	MatchRules   *RoomMatchRulesMetadata `json:"match_rules"`
 	ReadyPlayers []uuid.UUID             `json:"ready_players"`
-	RegisteredAt time.Time               `json:"registered_at"`
-	UpdatedAt    time.Time               `json:"updated_at"`
-	RegisteredBy uuid.UUID               `json:"registered_by"`
-	UpdatedBy    uuid.UUID               `json:"updated_by"`
+	// 始まった対戦の公開 ID。始まるまでは null。空のまま、書くときに repository が公開 ID を入れる
+	Match        *uuid.UUID `json:"match"`
+	RegisteredAt time.Time  `json:"registered_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	RegisteredBy uuid.UUID  `json:"registered_by"`
+	UpdatedBy    uuid.UUID  `json:"updated_by"`
 }
 
 // 席 1 つ。座っている人はプレイヤーの席だけ、アバターとデッキはまだ選んでいなければ無い。
@@ -147,6 +153,10 @@ func (state Room) Evolve(event any) Room {
 	case *room.ReadyDeclaredEvent:
 		state.Ready = append(slices.Clone(state.Ready), e.Player)
 		state.touch(e.GetMeta(), e.Player)
+	case *room.MatchStartedEvent:
+		state.Status = RoomStatusPlaying
+		state.Match = e.Match
+		state.touch(e.GetMeta(), state.Owner)
 	case *room.ClosedEvent:
 		state.Status = RoomStatusClosed
 		state.touch(e.GetMeta(), state.Owner)

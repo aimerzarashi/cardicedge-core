@@ -61,9 +61,11 @@ type Match struct {
 	MaxPlayers MaxPlayers `json:"max_players"`
 	// 手札の上限の枚数
 	MaxHandCards MaxHandCards `json:"max_hand_cards"`
+	// 対戦の始めに配る手札の枚数
+	StartingHandCards StartingHandCards `json:"starting_hand_cards"`
 }
 
-// 対戦の値の型は gamerules に置く。対戦の集約（match）がまだ無く、意味の持ち主がこのルールだけのため。対戦の集約を作るときに移す
+// 対戦の値の型は gamerules に置く。対戦の集約（match）は参加者のデッキを写すため npcdeck を読み、npcdeck が gamerules を読むので、match に置くとパッケージが循環する（core#71）
 var ErrMatchValueNotPositive = errors.New("game rules: match value must be at least 1")
 
 // 対戦に参加できる人数の下限。1 以上
@@ -108,12 +110,36 @@ func (m MaxHandCards) Int() int {
 	return int(m)
 }
 
+// 対戦の始めに配る手札の枚数。1 以上
+type StartingHandCards int
+
+func NewStartingHandCards(value int) (StartingHandCards, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: starting hand cards is %d", ErrMatchValueNotPositive, value)
+	}
+	return StartingHandCards(value), nil
+}
+
+func (s StartingHandCards) Int() int {
+	return int(s)
+}
+
 var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
 
-// 項目をまたぐ決まり（人数の最小 ≤ 最大）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
+// 項目をまたぐ決まり（人数の最小 ≤ 最大、配る手札 ≤ 手札の上限・デッキの枚数）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
 func New(player Player, deck Deck, match Match) (Rules, error) {
+	var errs []error
 	if match.MinPlayers.Int() > match.MaxPlayers.Int() {
-		return Rules{}, fmt.Errorf("%w: match.max_players %d is below match.min_players %d", ErrInvalidRules, match.MaxPlayers, match.MinPlayers)
+		errs = append(errs, fmt.Errorf("%w: match.max_players %d is below match.min_players %d", ErrInvalidRules, match.MaxPlayers, match.MinPlayers))
+	}
+	if match.StartingHandCards.Int() > match.MaxHandCards.Int() {
+		errs = append(errs, fmt.Errorf("%w: match.starting_hand_cards %d is above match.max_hand_cards %d", ErrInvalidRules, match.StartingHandCards, match.MaxHandCards))
+	}
+	if match.StartingHandCards.Int() > deck.TotalCardCount.Int() {
+		errs = append(errs, fmt.Errorf("%w: match.starting_hand_cards %d is above deck.total_card_count %d", ErrInvalidRules, match.StartingHandCards, deck.TotalCardCount))
+	}
+	if len(errs) > 0 {
+		return Rules{}, errors.Join(errs...)
 	}
 	return Rules{Player: player, Deck: deck, Match: match}, nil
 }
@@ -141,9 +167,12 @@ func Defaults() Rules {
 	must(err)
 	maxHandCards, err := NewMaxHandCards(6)
 	must(err)
+	// 手札の上限 6 で、最初のターンに 1 枚引くとちょうど上限になる
+	startingHandCards, err := NewStartingHandCards(5)
+	must(err)
 	return Rules{
 		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
 		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
-		Match:  Match{MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards},
+		Match:  Match{MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards},
 	}
 }
