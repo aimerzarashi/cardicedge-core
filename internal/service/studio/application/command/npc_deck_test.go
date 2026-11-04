@@ -268,7 +268,7 @@ func TestRenameNPCDeck_RenamesAndRejectsNameInUse(t *testing.T) {
 // 名前は公開・使用不可でも手放さない（状態によらず、すべての NPC のデッキの中で一意）
 func TestNPCDeckName_StaysReservedWhilePublishedAndRetired(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	npcDeck := fullNPCDeck(t, ctx, commands)
 	name := restoredNPCDeck(t, ctx, npcDeck.ID).Name.String()
 	published, err := commands.Publish(ctx, npcDeck.ID, npcDeck.Revision)
@@ -324,7 +324,7 @@ func TestSetNPCDeckCardCounts_RejectsCardNotPublishedButKeepsRetiredCardInDeck(t
 
 func TestSetNPCDeckCardCounts_RejectsTotalOverRule(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	registered := registerNPCDeck(t, ctx, commands, "初心者デッキ")
 	filled, err := commands.SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 4}})
 	require.NoError(t, err)
@@ -338,7 +338,7 @@ func TestSetNPCDeckCardCounts_RejectsTotalOverRule(t *testing.T) {
 
 func TestPublishNPCDeck_PublishesAndKeepsRevisionWhenAlreadyPublished(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	npcDeck := fullNPCDeck(t, ctx, commands)
 
 	published, err := commands.Publish(ctx, npcDeck.ID, npcDeck.Revision)
@@ -355,7 +355,7 @@ func TestPublishNPCDeck_PublishesAndKeepsRevisionWhenAlreadyPublished(t *testing
 
 func TestPublishNPCDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	short := registerNPCDeck(t, ctx, commands, "少ない")
 	shortFilled, err := commands.SetCardCounts(ctx, short.ID, short.Revision, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 3}})
 	require.NoError(t, err)
@@ -381,7 +381,7 @@ func TestPublishNPCDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testing.
 // 公開中の数の上限は持たない
 func TestPublishNPCDeck_IsNotLimitedByNumberOfPublishedDecks(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 
 	for range 3 {
 		npcDeck := fullNPCDeck(t, ctx, commands)
@@ -392,7 +392,7 @@ func TestPublishNPCDeck_IsNotLimitedByNumberOfPublishedDecks(t *testing.T) {
 
 func TestRetireNPCDeck_RetiresOnlyPublishedAndKeepsRevisionWhenAlreadyRetired(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	npcDeck := fullNPCDeck(t, ctx, commands)
 
 	_, fromDraft := commands.Retire(ctx, npcDeck.ID, npcDeck.Revision)
@@ -410,7 +410,7 @@ func TestRetireNPCDeck_RetiresOnlyPublishedAndKeepsRevisionWhenAlreadyRetired(t 
 
 func TestNPCDeckEditing_IsRejectedUnlessDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	npcDeck := fullNPCDeck(t, ctx, commands)
 	published, err := commands.Publish(ctx, npcDeck.ID, npcDeck.Revision)
 	require.NoError(t, err)
@@ -448,7 +448,7 @@ func TestDeleteNPCDeck_DeletesDraftAndReleasesNameAndReferences(t *testing.T) {
 
 func TestNPCDeckCommands_RejectUnknownAndStaleRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	npcDeck := fullNPCDeck(t, ctx, commands)
 	card := publishedCreature(t, ctx)
 	tests := []struct {

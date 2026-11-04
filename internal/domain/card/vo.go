@@ -112,6 +112,21 @@ func (m MaxDeckQuantity) Int() int {
 	return int(m)
 }
 
+// デッキに入れられるカードの合計の枚数（game_rules の deck.total_card_count。配布デッキ・NPC デッキはちょうど、プリセットデッキは上限）。1 以上。
+// カードをデッキに入れる枚数の決まりの持ち主は card のため、枚数の型（MaxDeckQuantity・DeckQuantity）と並べてここに置く
+type DeckTotalCount int
+
+func NewDeckTotalCount(value int) (DeckTotalCount, error) {
+	if value <= 0 {
+		return 0, ErrDeckTotalCountNotPositive
+	}
+	return DeckTotalCount(value), nil
+}
+
+func (c DeckTotalCount) Int() int {
+	return int(c)
+}
+
 // デッキに入れるカードの枚数。1 以上で、上限を超えない（デッキから外すことは枚数ではなく、コマンドの入力の側で表す）。
 //
 // 上限を確かめるのは作るとき（コマンド）だけで、保存済みのイベントを読み直すときは確かめない（JSON をそのまま読む）。

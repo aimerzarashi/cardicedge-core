@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
@@ -192,9 +193,9 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 }
 
 // 公開までの流れを小さく確かめるルール（合計 4 枚で公開できる）
-func smallRules() gamerules.Rules {
+func smallRules(t *testing.T) gamerules.Rules {
 	rules := gamerules.Defaults()
-	rules.Deck.TotalCardCount = 4
+	rules.Deck.TotalCardCount = cardtest.DeckTotalCount(t, 4)
 	return rules
 }
 

@@ -48,7 +48,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		for _, change := range changes {
 			total += change.Delta
 		}
-		if total > c.Rules.TotalCardCount {
+		if total > c.Rules.TotalCardCount.Int() {
 			return nil, ErrTotalCountTooLarge
 		}
 		return []Event{&CardCountsChangedEvent{EventMeta: nextMeta(deck, now), Changes: changes, ChangedBy: c.ChangedBy}}, nil
@@ -61,7 +61,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil || !changed {
 			return nil, err
 		}
-		if deck.TotalCount() != c.Rules.TotalCardCount {
+		if deck.TotalCount() != c.Rules.TotalCardCount.Int() {
 			return nil, ErrTotalMismatch
 		}
 		return []Event{&PublishedEvent{EventMeta: nextMeta(deck, now), PublishedBy: c.PublishedBy}}, nil

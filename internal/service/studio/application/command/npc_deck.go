@@ -98,10 +98,11 @@ func (c *NPCDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDeckI
 	if err != nil {
 		return ChangedNPCDeck{}, err
 	}
-	source, err := npcdeck.NewSource(preset.ID, preset.Version)
+	revision, err := presetdeck.NewRevision(preset.Version)
 	if err != nil {
 		return ChangedNPCDeck{}, err
 	}
+	source := npcdeck.Source{PresetDeck: preset.ID, Revision: revision}
 	return c.register(ctx, &npcdeck.RegisterCommand{Name: deckName, Source: &source, Cards: preset.Cards, RegisteredBy: registeredBy})
 }
 
@@ -202,7 +203,7 @@ func (c *NPCDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revisi
 		return changedNPCDeck(changed), nil
 	})
 	if errors.Is(err, npcdeck.ErrTotalCountTooLarge) {
-		return ChangedNPCDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount}}
+		return ChangedNPCDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount.Int()}}
 	}
 	return changed, mapNPCDeckError(err)
 }
@@ -246,8 +247,8 @@ func (c *NPCDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision int
 // 合計とカードの誤りは、まとめて input.Errors で返す。カードの状態を読むのと保存の間の競合を許す理由は requireAvailable と同じ
 func (c *NPCDeckHandler) checkPublishable(ctx context.Context, npcDeck npcdeck.NPCDeck, rules gamerules.Deck) error {
 	invalid := input.Errors{}
-	if npcDeck.TotalCount() != rules.TotalCardCount {
-		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount})
+	if npcDeck.TotalCount() != rules.TotalCardCount.Int() {
+		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount.Int()})
 	}
 	if len(npcDeck.Cards) > 0 {
 		refs := slices.SortedFunc(maps.Keys(npcDeck.Cards), func(a, b card.Ref) int {

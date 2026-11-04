@@ -105,19 +105,19 @@ func (f fixture) retireCommand() *grantdeck.RetireCommand {
 }
 
 // 合計 8 枚を満たすルールの値にして、公開までの移り方を小さく確かめる
-func smallRules() gamerules.Deck {
-	return rulesWithTotal(8)
+func smallRules(t *testing.T) gamerules.Deck {
+	return rulesWithTotal(t, 8)
 }
 
-func rulesWithTotal(total int) gamerules.Deck {
+func rulesWithTotal(t *testing.T, total int) gamerules.Deck {
 	rules := gamerules.Defaults().Deck
-	rules.TotalCardCount = total
+	rules.TotalCardCount = cardtest.DeckTotalCount(t, total)
 	return rules
 }
 
 func (f fixture) published(t *testing.T) grantdeck.State {
 	t.Helper()
-	state, _ := apply(t, f.fullDraft(t), f.publishCommand(smallRules()), changedAt)
+	state, _ := apply(t, f.fullDraft(t), f.publishCommand(smallRules(t)), changedAt)
 	return state
 }
 
@@ -204,7 +204,7 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		{name: "same_count", state: withDragon, cmd: f.setCountsCommand(t, map[card.Ref]int{f.dragon: 2})},
 		{name: "zero_count_of_card_not_in_deck", state: withDragon, cmd: f.setCountsCommand(t, map[card.Ref]int{f.potion: 0})},
 		{name: "no_cards", state: withDragon, cmd: f.setCountsCommand(t, map[card.Ref]int{})},
-		{name: "publish_published", state: f.published(t), cmd: f.publishCommand(smallRules())},
+		{name: "publish_published", state: f.published(t), cmd: f.publishCommand(smallRules(t))},
 		{name: "retire_retired", state: f.retired(t), cmd: f.retireCommand()},
 	}
 	for _, tt := range tests {
@@ -237,10 +237,10 @@ func TestDecide_SetCardCountsEmitsDeltasOfChangedCards(t *testing.T) {
 func TestDecide_RejectsTotalCountOverRule(t *testing.T) {
 	f := newFixture(t)
 	cmd := f.setCountsCommand(t, map[card.Ref]int{f.dragon: 3, f.potion: 2})
-	cmd.Rules.TotalCardCount = 5
+	cmd.Rules.TotalCardCount = cardtest.DeckTotalCount(t, 5)
 	state, _ := apply(t, f.register(t), cmd, changedAt)
 	more := f.setCountsCommand(t, map[card.Ref]int{f.potion: 3})
-	more.Rules.TotalCardCount = 5
+	more.Rules.TotalCardCount = cardtest.DeckTotalCount(t, 5)
 
 	_, err := grantdeck.Decide(state, more, changedAt)
 
@@ -284,7 +284,7 @@ func TestEvolve_DoesNotChangeTheGivenState(t *testing.T) {
 func TestDecide_PublishMakesPublishedWhenTotalMatchesRule(t *testing.T) {
 	f := newFixture(t)
 
-	state, events := apply(t, f.fullDraft(t), f.publishCommand(smallRules()), changedAt)
+	state, events := apply(t, f.fullDraft(t), f.publishCommand(smallRules(t)), changedAt)
 
 	require.Equal(t, []grantdeck.Event{&grantdeck.PublishedEvent{
 		EventMeta:   grantdeck.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
@@ -305,7 +305,7 @@ func TestDecide_RejectsPublishUnlessTotalMatchesRule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := grantdeck.Decide(f.fullDraft(t), f.publishCommand(rulesWithTotal(tt.total)), changedAt)
+			_, err := grantdeck.Decide(f.fullDraft(t), f.publishCommand(rulesWithTotal(t, tt.total)), changedAt)
 
 			require.ErrorIs(t, err, grantdeck.ErrTotalMismatch)
 		})
@@ -315,10 +315,10 @@ func TestDecide_RejectsPublishUnlessTotalMatchesRule(t *testing.T) {
 func TestDecide_RetiredCanBePublishedAgainButOnlyWhenRuleIsMet(t *testing.T) {
 	f := newFixture(t)
 
-	_, err := grantdeck.Decide(f.retired(t), f.publishCommand(rulesWithTotal(40)), changedAt)
+	_, err := grantdeck.Decide(f.retired(t), f.publishCommand(rulesWithTotal(t, 40)), changedAt)
 	require.ErrorIs(t, err, grantdeck.ErrTotalMismatch)
 
-	state, _ := apply(t, f.retired(t), f.publishCommand(smallRules()), changedAt)
+	state, _ := apply(t, f.retired(t), f.publishCommand(smallRules(t)), changedAt)
 	require.Equal(t, grantdeck.StatusPublished, state.(grantdeck.GrantDeck).Status)
 }
 
@@ -387,7 +387,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	}{
 		{name: "rename", cmd: &grantdeck.RenameCommand{Name: presetdecktest.Name(t, "水のデッキ"), RenamedBy: f.operatorID}},
 		{name: "set_card_counts", cmd: f.setCountsCommand(t, map[card.Ref]int{f.dragon: 1})},
-		{name: "publish", cmd: f.publishCommand(smallRules())},
+		{name: "publish", cmd: f.publishCommand(smallRules(t))},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: &grantdeck.DeleteCommand{DeletedBy: f.operatorID}},
 	}
@@ -442,13 +442,6 @@ func TestNewStatus_RejectsUnknownValue(t *testing.T) {
 	_, err := grantdeck.NewStatus("archived")
 
 	require.ErrorIs(t, err, grantdeck.ErrStatusUnknown)
-}
-
-func TestNewSource_RejectsMissingIDOrRevision(t *testing.T) {
-	_, err := grantdeck.NewSource(0, 1)
-	require.Error(t, err)
-	_, err = grantdeck.NewSource(presetdecktest.ID(t, 40), 0)
-	require.Error(t, err)
 }
 
 // 公開中の名前だけでなく、状態によらず、すべての配布デッキで比べる。比べ方はカード名と同じ

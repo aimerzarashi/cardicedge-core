@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 )
 
@@ -19,11 +21,9 @@ func ID(t testing.TB, value int64) studiorules.ID {
 }
 
 // ボードの幅・高さの範囲。値の形（下限が 1 以上、上限が下限以上）を満たさない範囲はテストに使えない
-func Board(t testing.TB, minSize, maxSize int) studiorules.Board {
+func Board(t testing.TB, minSize, maxSize int) board.SizeRange {
 	t.Helper()
-	rules, err := studiorules.New(studiorules.Board{MinSize: minSize, MaxSize: maxSize})
-	require.NoError(t, err)
-	return rules.Board
+	return boardtest.SizeRange(t, minSize, maxSize)
 }
 
 func Rules(t testing.TB, minSize, maxSize int) studiorules.Rules {

@@ -21,7 +21,7 @@ func ID(t testing.TB, value int64) npcdeck.ID {
 
 func Source(t testing.TB, presetDeckID presetdeck.ID, revision int64) npcdeck.Source {
 	t.Helper()
-	source, err := npcdeck.NewSource(presetDeckID, revision)
+	rev, err := presetdeck.NewRevision(revision)
 	require.NoError(t, err)
-	return source
+	return npcdeck.Source{PresetDeck: presetDeckID, Revision: rev}
 }

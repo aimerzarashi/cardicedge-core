@@ -178,16 +178,67 @@ func InitialDefaultRules() DefaultRules {
 	}
 }
 
-// 登録の直後の大きさ。範囲（studiorules.Board）の外なら、範囲の中に収める。範囲に入れないのは、
+// 登録の直後の大きさ。範囲（SizeRange）の外なら、範囲の中に収める。範囲に入れないのは、
 // 下げた後の既存のボードの大きさと関係なく、新しく作るときの初期値でしかないため
 const DefaultSize = 8
 
-// 範囲の上限・下限は studio_rules が決め、書くときにコマンドを動かす側が渡す
-// （ここで確かめると、範囲を変えても、保存済みのボードを読み直す処理まで巻き込むため）
+// ボードの幅・高さの下限（studio_rules の board.min_size）。1 以上（0 以下の大きさの格子は作れない）
+type MinSize int
+
+func NewMinSize(value int) (MinSize, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: min size %d", ErrSizeRangeInvalid, value)
+	}
+	return MinSize(value), nil
+}
+
+func (m MinSize) Int() int {
+	return int(m)
+}
+
+// ボードの幅・高さの上限（studio_rules の board.max_size）。1 以上。下限以上かは SizeRange が確かめる
+type MaxSize int
+
+func NewMaxSize(value int) (MaxSize, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: max size %d", ErrSizeRangeInvalid, value)
+	}
+	return MaxSize(value), nil
+}
+
+func (m MaxSize) Int() int {
+	return int(m)
+}
+
+// 幅・高さの範囲（両端を含む）。幅と高さで範囲を分けないのは、縦長・横長のボードを同じ決まりで作れるようにするため。
+// 範囲の意味の持ち主は board のため型をここに置く（studiorules が持つ値の型。studiorules から board へ向く向きにして、循環を避ける）。
+// 上限が下限以上という項目をまたぐ決まりがあるので、生成関数を持つ
+type SizeRange struct {
+	MinSize MinSize `json:"min_size"`
+	MaxSize MaxSize `json:"max_size"`
+}
+
+func NewSizeRange(minSize MinSize, maxSize MaxSize) (SizeRange, error) {
+	if maxSize.Int() < minSize.Int() {
+		return SizeRange{}, fmt.Errorf("%w: max size %d is below min size %d", ErrSizeRangeInvalid, maxSize, minSize)
+	}
+	return SizeRange{MinSize: minSize, MaxSize: maxSize}, nil
+}
+
+func (r SizeRange) Contains(size int) bool {
+	return size >= r.MinSize.Int() && size <= r.MaxSize.Int()
+}
+
+func (r SizeRange) Clamp(size int) int {
+	return min(max(size, r.MinSize.Int()), r.MaxSize.Int())
+}
+
+// 範囲を引数に取るのは、範囲の外の幅・高さを作れないようにするため。確かめるのは書くとき（コマンドを作るとき）だけで、
+// 保存済みのイベントを読み直すときは確かめない（JSON をそのまま読む）。範囲を下げても、すでにあるボードを読めるようにするため
 type Width int
 
-func NewWidth(value int) (Width, error) {
-	if value < 1 {
+func NewWidth(value int, within SizeRange) (Width, error) {
+	if !within.Contains(value) {
 		return 0, fmt.Errorf("%w: width %d", ErrSizeOutOfRange, value)
 	}
 	return Width(value), nil
@@ -199,8 +250,8 @@ func (w Width) Int() int {
 
 type Height int
 
-func NewHeight(value int) (Height, error) {
-	if value < 1 {
+func NewHeight(value int, within SizeRange) (Height, error) {
+	if !within.Contains(value) {
 		return 0, fmt.Errorf("%w: height %d", ErrSizeOutOfRange, value)
 	}
 	return Height(value), nil

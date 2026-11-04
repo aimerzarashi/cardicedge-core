@@ -43,6 +43,6 @@ func (q *GameRulesHandler) Get(ctx context.Context) (GameRules, error) {
 		return GameRules{}, ErrGameRulesNotPublished
 	}
 	match := rules.Match
-	matchRules := MatchRules{MinPlayers: match.MinPlayers, MaxPlayers: match.MaxPlayers, MaxHandCards: match.MaxHandCards}
+	matchRules := MatchRules{MinPlayers: match.MinPlayers.Int(), MaxPlayers: match.MaxPlayers.Int(), MaxHandCards: match.MaxHandCards.Int()}
 	return GameRules{Match: matchRules}, nil
 }

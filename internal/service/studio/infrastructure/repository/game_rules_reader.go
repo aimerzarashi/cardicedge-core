@@ -38,6 +38,6 @@ func (r *GameRulesReader) Get(ctx context.Context) (query.GameRules, error) {
 		return query.GameRules{}, fmt.Errorf("game_rules.metadata of %s: %w", row.GameRulesID, err)
 	}
 	match := metadata.Rules.Match
-	matchRules := query.MatchRules{MinPlayers: match.MinPlayers, MaxPlayers: match.MaxPlayers, MaxHandCards: match.MaxHandCards}
+	matchRules := query.MatchRules{MinPlayers: match.MinPlayers.Int(), MaxPlayers: match.MaxPlayers.Int(), MaxHandCards: match.MaxHandCards.Int()}
 	return query.GameRules{Match: matchRules}, nil
 }

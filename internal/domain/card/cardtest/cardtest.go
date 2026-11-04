@@ -58,3 +58,10 @@ func CreatureRef(t testing.TB, id int64) card.Ref {
 	t.Helper()
 	return Ref(t, card.CreatureEntityType, id)
 }
+
+func DeckTotalCount(t testing.TB, value int) card.DeckTotalCount {
+	t.Helper()
+	count, err := card.NewDeckTotalCount(value)
+	require.NoError(t, err)
+	return count
+}

@@ -37,7 +37,7 @@ func registerNPCAvatar(t *testing.T, ctx context.Context, commands *command.NPCA
 // 公開中の NPC のデッキ（smallRules で公開できるカード 4 枚）
 func publishedNPCDeck(t *testing.T, ctx context.Context) command.ChangedNPCDeck {
 	t.Helper()
-	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	filled := fullNPCDeck(t, ctx, commands)
 	published, err := commands.Publish(ctx, filled.ID, filled.Revision)
 	require.NoError(t, err)
@@ -327,9 +327,9 @@ func TestSetNPCAvatarDecks_ReturnsFieldErrorsForDuplicateUnknownAndUnpublished(t
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
 	published := publishedNPCDeck(t, ctx)
-	draft := fullNPCDeck(t, ctx, newNPCDeckHandlerWithRules(t, ctx, smallRules()))
+	draft := fullNPCDeck(t, ctx, newNPCDeckHandlerWithRules(t, ctx, smallRules(t)))
 	retired := publishedNPCDeck(t, ctx)
-	_, err := newNPCDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, retired.ID, retired.Revision)
+	_, err := newNPCDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, retired.ID, retired.Revision)
 	require.NoError(t, err)
 	deleted := registerNPCDeck(t, ctx, newNPCDeckHandler(t, ctx), "消すデッキ")
 	require.NoError(t, newNPCDeckHandler(t, ctx).Delete(ctx, deleted.ID, deleted.Revision))
@@ -364,7 +364,7 @@ func TestSetNPCAvatarDecks_KeepsAssignedDeckThatWasRetiredAfterwards(t *testing.
 	retired, other := publishedNPCDeck(t, ctx), publishedNPCDeck(t, ctx)
 	assigned, err := commands.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{retired.ID})
 	require.NoError(t, err)
-	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, retired.ID, retired.Revision)
+	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, retired.ID, retired.Revision)
 	require.NoError(t, err)
 
 	_, err = commands.SetDecks(ctx, assigned.ID, assigned.Revision, []uuid.UUID{retired.ID, other.ID})
@@ -393,7 +393,7 @@ func TestPublishNPCAvatar_RequiresAtLeastOnePublishedDeck(t *testing.T) {
 	retiredDeck, otherDeck := publishedNPCDeck(t, ctx), publishedNPCDeck(t, ctx)
 	assigned, err := commands.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{retiredDeck.ID, otherDeck.ID})
 	require.NoError(t, err)
-	decks := newNPCDeckHandlerWithRules(t, ctx, smallRules())
+	decks := newNPCDeckHandlerWithRules(t, ctx, smallRules(t))
 	_, err = decks.Retire(ctx, retiredDeck.ID, retiredDeck.Revision)
 	require.NoError(t, err)
 
@@ -409,7 +409,7 @@ func TestPublishNPCAvatar_RejectsWhenAllAssignedDecksAreRetired(t *testing.T) {
 	deck := publishedNPCDeck(t, ctx)
 	assigned, err := commands.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{deck.ID})
 	require.NoError(t, err)
-	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, deck.ID, deck.Revision)
+	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, deck.ID, deck.Revision)
 	require.NoError(t, err)
 
 	_, err = commands.Publish(ctx, assigned.ID, assigned.Revision)
@@ -429,7 +429,7 @@ func TestPublishNPCAvatar_ChecksDecksAgainWhenPublishingRetiredButNotWhenAlready
 	require.NoError(t, err)
 	published, err := commands.Publish(ctx, assigned.ID, assigned.Revision)
 	require.NoError(t, err)
-	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules()).Retire(ctx, deck.ID, deck.Revision)
+	_, err = newNPCDeckHandlerWithRules(t, ctx, smallRules(t)).Retire(ctx, deck.ID, deck.Revision)
 	require.NoError(t, err)
 
 	again, againErr := commands.Publish(ctx, published.ID, published.Revision)

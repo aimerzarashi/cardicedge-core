@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
@@ -347,8 +348,8 @@ func TestSetPresetDeckCardCounts_RejectsInvalidInput(t *testing.T) {
 func TestSetPresetDeckCardCounts_RejectsTooManyCards(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	deck := registerPresetDeck(t, ctx, "初心者デッキ")
-	cards := make([]command.CardCountInput, 0, defaultRules.TotalCardCount+1)
-	for range defaultRules.TotalCardCount + 1 {
+	cards := make([]command.CardCountInput, 0, defaultRules.TotalCardCount.Int()+1)
+	for range defaultRules.TotalCardCount.Int() + 1 {
 		cards = append(cards, command.CardCountInput{CardID: uuid.New(), Count: 1})
 	}
 
@@ -356,27 +357,27 @@ func TestSetPresetDeckCardCounts_RejectsTooManyCards(t *testing.T) {
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
-	require.Equal(t, []input.Error{&input.OutOfRange{Field: "cards", Min: 0, Max: defaultRules.TotalCardCount}}, []input.Error(invalid))
+	require.Equal(t, []input.Error{&input.OutOfRange{Field: "cards", Min: 0, Max: defaultRules.TotalCardCount.Int()}}, []input.Error(invalid))
 }
 
 // 合計は今のデッキと合わせて確かめ、超えれば何も変えない
 func TestSetPresetDeckCardCounts_RejectsTotalCountOverMax(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	deck := registerPresetDeck(t, ctx, "初心者デッキ")
-	full := make([]command.CardCountInput, 0, defaultRules.TotalCardCount/defaultMaxCardDuplicates)
-	for range defaultRules.TotalCardCount / defaultMaxCardDuplicates {
+	full := make([]command.CardCountInput, 0, defaultRules.TotalCardCount.Int()/defaultMaxCardDuplicates)
+	for range defaultRules.TotalCardCount.Int() / defaultMaxCardDuplicates {
 		full = append(full, command.CardCountInput{CardID: publishedCreature(t, ctx), Count: defaultMaxCardDuplicates})
 	}
 	commands := newPresetDeckHandler(t, ctx)
 	filled, err := commands.SetCardCounts(ctx, deck.ID, deck.Revision, full)
 	require.NoError(t, err)
-	require.Equal(t, defaultRules.TotalCardCount, restoredPresetDeck(t, ctx, deck.ID).TotalCount())
+	require.Equal(t, defaultRules.TotalCardCount.Int(), restoredPresetDeck(t, ctx, deck.ID).TotalCount())
 
 	_, err = commands.SetCardCounts(ctx, filled.ID, filled.Revision, []command.CardCountInput{{CardID: publishedItem(t, ctx), Count: 1}})
 
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
-	require.Equal(t, []input.Error{&input.TotalTooLarge{Field: "cards", Max: defaultRules.TotalCardCount}}, []input.Error(invalid))
+	require.Equal(t, []input.Error{&input.TotalTooLarge{Field: "cards", Max: defaultRules.TotalCardCount.Int()}}, []input.Error(invalid))
 	require.Equal(t, filled.Revision, restoredPresetDeck(t, ctx, deck.ID).Version)
 }
 
@@ -384,8 +385,8 @@ func TestSetPresetDeckCardCounts_RejectsTotalCountOverMax(t *testing.T) {
 func TestSetPresetDeckCardCounts_UsesLimitsOfRules(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	rules := gamerules.Defaults()
-	rules.Deck.TotalCardCount = 3
-	rules.Deck.MaxCardDuplicates = 2
+	rules.Deck.TotalCardCount = cardtest.DeckTotalCount(t, 3)
+	rules.Deck.MaxCardDuplicates = cardtest.MaxDeckQuantity(t, 2)
 	commands := newPresetDeckHandlerWithRules(t, ctx, rules)
 	deck := registerPresetDeck(t, ctx, "初心者デッキ")
 	tests := []struct {

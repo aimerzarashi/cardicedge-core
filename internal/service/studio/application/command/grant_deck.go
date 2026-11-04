@@ -98,10 +98,11 @@ func (c *GrantDeckHandler) RegisterFromPresetDeck(ctx context.Context, presetDec
 	if err != nil {
 		return ChangedGrantDeck{}, err
 	}
-	source, err := grantdeck.NewSource(preset.ID, preset.Version)
+	revision, err := presetdeck.NewRevision(preset.Version)
 	if err != nil {
 		return ChangedGrantDeck{}, err
 	}
+	source := grantdeck.Source{PresetDeck: preset.ID, Revision: revision}
 	return c.register(ctx, &grantdeck.RegisterCommand{Name: deckName, Source: &source, Cards: preset.Cards, RegisteredBy: registeredBy})
 }
 
@@ -202,7 +203,7 @@ func (c *GrantDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, revi
 		return changedGrantDeck(changed), nil
 	})
 	if errors.Is(err, grantdeck.ErrTotalCountTooLarge) {
-		return ChangedGrantDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount}}
+		return ChangedGrantDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount.Int()}}
 	}
 	return changed, mapGrantDeckError(err)
 }
@@ -247,8 +248,8 @@ func (c *GrantDeckHandler) Publish(ctx context.Context, id uuid.UUID, revision i
 // 合計とカードの誤りは、まとめて input.Errors で返す。カードの状態を読むのと保存の間の競合を許す理由は requireAvailable と同じ
 func (c *GrantDeckHandler) checkPublishable(ctx context.Context, deck grantdeck.GrantDeck, rules gamerules.Deck) error {
 	invalid := input.Errors{}
-	if deck.TotalCount() != rules.TotalCardCount {
-		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount})
+	if deck.TotalCount() != rules.TotalCardCount.Int() {
+		invalid = append(invalid, &input.TotalMismatch{Field: "cards", Required: rules.TotalCardCount.Int()})
 	}
 	if len(deck.Cards) > 0 {
 		refs := slices.SortedFunc(maps.Keys(deck.Cards), func(a, b card.Ref) int {

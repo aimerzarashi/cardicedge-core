@@ -258,7 +258,7 @@ func TestRenameGrantDeck_RenamesAndRejectsNameInUse(t *testing.T) {
 // 名前は公開・使用不可でも手放さない（状態によらず、すべての配布デッキの中で一意）
 func TestGrantDeckName_StaysReservedWhilePublishedAndRetired(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	deck := fullGrantDeck(t, ctx, commands)
 	name := restoredGrantDeck(t, ctx, deck.ID).Name.String()
 	published, err := commands.Publish(ctx, deck.ID, deck.Revision)
@@ -314,7 +314,7 @@ func TestSetGrantDeckCardCounts_RejectsCardNotPublishedButKeepsRetiredCardInDeck
 
 func TestSetGrantDeckCardCounts_RejectsTotalOverRule(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	registered := registerGrantDeck(t, ctx, commands, "初心者デッキ")
 	filled, err := commands.SetCardCounts(ctx, registered.ID, registered.Revision, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 4}})
 	require.NoError(t, err)
@@ -328,7 +328,7 @@ func TestSetGrantDeckCardCounts_RejectsTotalOverRule(t *testing.T) {
 
 func TestPublishGrantDeck_PublishesAndKeepsRevisionWhenAlreadyPublished(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	deck := fullGrantDeck(t, ctx, commands)
 
 	published, err := commands.Publish(ctx, deck.ID, deck.Revision)
@@ -345,7 +345,7 @@ func TestPublishGrantDeck_PublishesAndKeepsRevisionWhenAlreadyPublished(t *testi
 
 func TestPublishGrantDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	short := registerGrantDeck(t, ctx, commands, "少ない")
 	shortFilled, err := commands.SetCardCounts(ctx, short.ID, short.Revision, []command.CardCountInput{{CardID: publishedCreature(t, ctx), Count: 3}})
 	require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestPublishGrantDeck_ReturnsFieldErrorsWhenTotalOrCardsAreInvalid(t *testin
 // 公開中の数に上限は持たない（どれを配るかはスターターセットが決めるため）
 func TestPublishGrantDeck_HasNoLimitOnPublishedCount(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 
 	for range 3 {
 		deck := fullGrantDeck(t, ctx, commands)
@@ -383,7 +383,7 @@ func TestPublishGrantDeck_HasNoLimitOnPublishedCount(t *testing.T) {
 
 func TestRetireGrantDeck_RetiresOnlyPublishedAndKeepsRevisionWhenAlreadyRetired(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	deck := fullGrantDeck(t, ctx, commands)
 
 	_, fromDraft := commands.Retire(ctx, deck.ID, deck.Revision)
@@ -401,7 +401,7 @@ func TestRetireGrantDeck_RetiresOnlyPublishedAndKeepsRevisionWhenAlreadyRetired(
 
 func TestGrantDeckEditing_IsRejectedUnlessDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	deck := fullGrantDeck(t, ctx, commands)
 	published, err := commands.Publish(ctx, deck.ID, deck.Revision)
 	require.NoError(t, err)
@@ -439,7 +439,7 @@ func TestDeleteGrantDeck_DeletesDraftAndReleasesNameAndReferences(t *testing.T) 
 
 func TestGrantDeckCommands_RejectUnknownAndStaleRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules())
+	commands := newGrantDeckHandlerWithRules(t, ctx, smallRules(t))
 	deck := fullGrantDeck(t, ctx, commands)
 	card := publishedCreature(t, ctx)
 	tests := []struct {

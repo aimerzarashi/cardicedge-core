@@ -1,7 +1,6 @@
 package board
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -13,11 +12,11 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if _, ok := state.(UnregisteredBoard); !ok {
 			return nil, ErrInvalidState
 		}
-		width, err := NewWidth(c.Rules.Clamp(DefaultSize))
+		width, err := NewWidth(c.Rules.Clamp(DefaultSize), c.Rules)
 		if err != nil {
 			return nil, err
 		}
-		height, err := NewHeight(c.Rules.Clamp(DefaultSize))
+		height, err := NewHeight(c.Rules.Clamp(DefaultSize), c.Rules)
 		if err != nil {
 			return nil, err
 		}
@@ -43,9 +42,6 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		board, err := draft(state)
 		if err != nil {
 			return nil, err
-		}
-		if size := c.Layout.Size(); !c.Rules.Contains(size.Width.Int()) || !c.Rules.Contains(size.Height.Int()) {
-			return nil, fmt.Errorf("%w: %dx%d", ErrSizeOutOfRange, size.Width, size.Height)
 		}
 		event := diffLayout(board.Layout, c.Layout)
 		if event == nil {

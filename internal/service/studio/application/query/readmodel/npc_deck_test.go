@@ -153,7 +153,7 @@ func TestNPCDeck_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 	dragon := cardtest.Ref(t, creature.Types().EntityType, 20)
 	history := newNPCDeckHistory(t, uuid.New(), "炎のデッキ")
 	rules := gamerules.Defaults().Deck
-	rules.TotalCardCount = 4
+	rules.TotalCardCount = cardtest.DeckTotalCount(t, 4)
 	history.apply(&npcdeck.SetCardCountsCommand{
 		Set:   map[card.Ref]card.DeckQuantity{dragon: cardtest.DeckQuantity(t, 4)},
 		Rules: rules, ChangedBy: operatortest.ID(t, 10),

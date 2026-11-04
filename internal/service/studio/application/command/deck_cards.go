@@ -70,8 +70,8 @@ func requireAvailable(ctx context.Context, cardStatuses CardStatusesFunc, curren
 // 誤りは最初の 1 つで止めず、まとめて input.Errors で返す。項目名は cards.<番号>.cardId のように一覧の位置を含める。
 // 一覧が長すぎるときは、1 件ずつの確かめをせずに返す（存在しない ID を大量に送られても、その数だけ処理しないため）
 func parseCardCounts(ctx context.Context, entityRefs domain.EntityRefResolver, rules gamerules.Deck, cards []CardCountInput) (cardCountRequest, error) {
-	if len(cards) > rules.TotalCardCount {
-		return cardCountRequest{}, input.Errors{&input.OutOfRange{Field: "cards", Min: 0, Max: rules.TotalCardCount}}
+	if len(cards) > rules.TotalCardCount.Int() {
+		return cardCountRequest{}, input.Errors{&input.OutOfRange{Field: "cards", Min: 0, Max: rules.TotalCardCount.Int()}}
 	}
 	ids := make([]uuid.UUID, 0, len(cards))
 	for _, requested := range cards {

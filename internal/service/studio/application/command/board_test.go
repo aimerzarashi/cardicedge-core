@@ -88,7 +88,7 @@ func TestRegisterBoard_ReturnsPublicIDAndMakesEmptyDraft(t *testing.T) {
 func TestRegisterBoard_ClampsDefaultSizeIntoStudioRulesRange(t *testing.T) {
 	tests := []struct {
 		name  string
-		board studiorules.Board
+		board board.SizeRange
 		want  int
 	}{
 		{name: "min_above_default", board: studiorulestest.Board(t, 10, 20), want: 10},

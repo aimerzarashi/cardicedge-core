@@ -25,16 +25,34 @@ func Name(t testing.TB, value string) board.Name {
 	return name
 }
 
+// 幅・高さの範囲。値の形（下限が 1 以上、上限が下限以上）を満たさない範囲はテストに使えない
+func SizeRange(t testing.TB, minSize, maxSize int) board.SizeRange {
+	t.Helper()
+	min, err := board.NewMinSize(minSize)
+	require.NoError(t, err)
+	max, err := board.NewMaxSize(maxSize)
+	require.NoError(t, err)
+	sizeRange, err := board.NewSizeRange(min, max)
+	require.NoError(t, err)
+	return sizeRange
+}
+
+// 範囲を気にしないテストが幅・高さを作るための、十分広い範囲。範囲の外を確かめるテストは SizeRange で範囲を作って生成関数を直接呼ぶ
+func wideRange(t testing.TB) board.SizeRange {
+	t.Helper()
+	return SizeRange(t, 1, 1000)
+}
+
 func Width(t testing.TB, value int) board.Width {
 	t.Helper()
-	width, err := board.NewWidth(value)
+	width, err := board.NewWidth(value, wideRange(t))
 	require.NoError(t, err)
 	return width
 }
 
 func Height(t testing.TB, value int) board.Height {
 	t.Helper()
-	height, err := board.NewHeight(value)
+	height, err := board.NewHeight(value, wideRange(t))
 	require.NoError(t, err)
 	return height
 }
@@ -110,4 +128,11 @@ func Layout(t testing.TB, size board.Size, tiles []board.Tile, connections []boa
 func Position(t testing.TB, x, y int) board.Position {
 	t.Helper()
 	return board.Position{X: X(t, x), Y: Y(t, y)}
+}
+
+func MaxSize(t testing.TB, value int) board.MaxSize {
+	t.Helper()
+	max, err := board.NewMaxSize(value)
+	require.NoError(t, err)
+	return max
 }
