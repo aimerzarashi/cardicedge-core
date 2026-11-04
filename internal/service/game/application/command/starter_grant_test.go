@@ -44,8 +44,11 @@ var (
 	boardC = int64(52)
 )
 
+// 配布デッキの合計。決まりの枚数（testRules）と同じにする
+const grantDeckTotal = 7
+
 var publishedDecks = []master.GrantDeck{
-	{Name: "火", Cards: []master.DeckCard{{Card: cardA, Count: 4}, {Card: cardB, Count: 1}}},
+	{Name: "火", Cards: []master.DeckCard{{Card: cardA, Count: 4}, {Card: cardB, Count: 3}}},
 	{Name: "水", Cards: []master.DeckCard{{Card: cardA, Count: 2}, {Card: cardB, Count: 3}, {Card: cardC, Count: 2}}},
 }
 
@@ -168,7 +171,7 @@ func TestStart_DistributesAsManyDecksAsStarterSetHas(t *testing.T) {
 		decks []master.GrantDeck
 	}{
 		{name: "one_deck", decks: publishedDecks[:1]},
-		{name: "three_decks", decks: append(append([]master.GrantDeck{}, publishedDecks...), master.GrantDeck{Name: "風", Cards: []master.DeckCard{{Card: cardC, Count: 4}}})},
+		{name: "three_decks", decks: append(append([]master.GrantDeck{}, publishedDecks...), master.GrantDeck{Name: "風", Cards: []master.DeckCard{{Card: cardC, Count: 4}, {Card: cardB, Count: 3}}})},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

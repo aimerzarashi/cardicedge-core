@@ -72,9 +72,9 @@ func TestMe_ListsOwnDecksWithCardsAfterStarterGrant(t *testing.T) {
 		// 見本のマスタのカードはすべて Creature なので、合計が Creature の枚数になる
 		assert.Equal(c, map[string]any{"creature": float64(7), "item": float64(0), "spell": float64(0)}, decks[0]["typeCounts"])
 		assert.Equal(c, "火", decks[1]["name"])
-		assert.Equal(c, float64(5), decks[1]["totalCount"])
-		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 1}), decks[1]["cards"])
-		assert.Equal(c, map[string]any{"creature": float64(5), "item": float64(0), "spell": float64(0)}, decks[1]["typeCounts"])
+		assert.Equal(c, float64(7), decks[1]["totalCount"])
+		assert.Equal(c, deckCards(map[uuid.UUID]int{master.CardA: 4, master.CardB: 3}), decks[1]["cards"])
+		assert.Equal(c, map[string]any{"creature": float64(7), "item": float64(0), "spell": float64(0)}, decks[1]["typeCounts"])
 		assert.NotEqual(c, decks[0]["id"], decks[1]["id"])
 	})
 }

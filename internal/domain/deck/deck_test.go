@@ -32,6 +32,7 @@ func createCommand(t *testing.T) *deck.CreateCommand {
 		Player:       playertest.ID(t, 10),
 		Name:         decktest.Name(t, "火"),
 		Cards:        []deck.Card{decktest.Card(t, cardA(t), 4)},
+		Total:        cardtest.DeckTotalCount(t, 4),
 		StarterGrant: startergranttest.ID(t, 20),
 		Number:       startergranttest.DeckNumber(t, 1),
 	}
@@ -68,6 +69,25 @@ func TestDecide_RejectsCreateWhenAlreadyCreated(t *testing.T) {
 	_, err := deck.Decide(created, createCommand(t), createdAt)
 
 	require.ErrorIs(t, err, deck.ErrAlreadyCreated)
+}
+
+func TestDecide_RejectsCreateWhenTotalDoesNotMatchRule(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		total int
+	}{
+		{name: "fewer_than_rule", total: 5},
+		{name: "more_than_rule", total: 3},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := createCommand(t)
+			cmd.Total = cardtest.DeckTotalCount(t, tt.total)
+
+			_, err := deck.Decide(deck.InitialState(), cmd, createdAt)
+
+			require.ErrorIs(t, err, deck.ErrTotalMismatch)
+		})
+	}
 }
 
 func TestEvolve_CreatedEventMakesDeck(t *testing.T) {

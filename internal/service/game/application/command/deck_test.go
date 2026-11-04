@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
@@ -24,7 +25,7 @@ func TestCreateDeck_CreatesDeckOfOwnerWithNameAndCardsOfSource(t *testing.T) {
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
 	number := startergranttest.DeckNumber(t, 2)
-	source := startergranttest.Deck(t, "水", startergranttest.DeckCard(t, cardA, 2), startergranttest.DeckCard(t, cardC, 2))
+	source := startergranttest.Deck(t, "水", startergranttest.DeckCard(t, cardA, 2), startergranttest.DeckCard(t, cardB, 3), startergranttest.DeckCard(t, cardC, 2))
 
 	require.NoError(t, newDeckHandler(t, ctx).Create(ctx, playerID, starterGrantID, number, source))
 
@@ -39,7 +40,7 @@ func TestCreateDeck_CreatesDeckOfOwnerWithNameAndCardsOfSource(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &created))
 	require.Equal(t, playerID, created.Player)
 	require.Equal(t, decktest.Name(t, "水"), created.Name)
-	require.Equal(t, []deck.Card{decktest.Card(t, cardA, 2), decktest.Card(t, cardC, 2)}, created.Cards)
+	require.Equal(t, []deck.Card{decktest.Card(t, cardA, 2), decktest.Card(t, cardB, 3), decktest.Card(t, cardC, 2)}, created.Cards)
 	require.Equal(t, starterGrantID, created.StarterGrant)
 	require.Equal(t, number, created.Number)
 }
@@ -51,7 +52,7 @@ func TestCreateDeck_DoesNothingWhenGrantDeckAlreadyExists(t *testing.T) {
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
 	number := startergranttest.DeckNumber(t, 1)
-	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4))
+	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3))
 	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, number, source))
 
 	err := handler.Create(ctx, playerID, starterGrantID, number, source)
@@ -75,7 +76,7 @@ func reservedDecks(t *testing.T, ctx context.Context, playerID player.ID) int {
 func TestCreateDeck_ReservesQuotaOfOwner(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
-	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4))
+	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3))
 
 	require.NoError(t, newDeckHandler(t, ctx).Create(ctx, playerID, startergranttest.ID(t, 10), startergranttest.DeckNumber(t, 1), source))
 
@@ -89,7 +90,7 @@ func TestCreateDeck_DoesNotReserveQuotaAgainWhenGrantDeckAlreadyExists(t *testin
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
 	number := startergranttest.DeckNumber(t, 1)
-	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4))
+	source := startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3))
 	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, number, source))
 
 	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, number, source))
@@ -104,9 +105,9 @@ func TestCreateDeck_RejectsDeckOverLimit(t *testing.T) {
 	handler := newDeckHandlerWithLimit(t, ctx, limit)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
-	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4))))
+	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3))))
 
-	err = handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 2), startergranttest.Deck(t, "水", startergranttest.DeckCard(t, cardA, 4)))
+	err = handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 2), startergranttest.Deck(t, "水", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3)))
 
 	require.ErrorIs(t, err, deck.ErrLimitReached)
 	require.Equal(t, 1, countEventsOf(t, ctx, deckTypeID))
@@ -121,7 +122,7 @@ func TestCreateDeck_RejectsWhenRulesNotPublished(t *testing.T) {
 	})
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 
-	err := handler.Create(ctx, playerID, startergranttest.ID(t, 10), startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4)))
+	err := handler.Create(ctx, playerID, startergranttest.ID(t, 10), startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3)))
 
 	require.ErrorIs(t, err, rules.ErrNotPublished)
 	require.Zero(t, countEventsOf(t, ctx, deckTypeID))
@@ -133,10 +134,27 @@ func TestCreateDeck_RejectsSameNameOfSameOwner(t *testing.T) {
 	handler := newDeckHandler(t, ctx)
 	playerID := playertest.ID(t, issuePlayerID(t, ctx))
 	starterGrantID := startergranttest.ID(t, 10)
-	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4))))
+	require.NoError(t, handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3))))
 
-	err := handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 2), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4)))
+	err := handler.Create(ctx, playerID, starterGrantID, startergranttest.DeckNumber(t, 2), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3)))
 
 	require.ErrorIs(t, err, deck.ErrNameAlreadyInUse)
 	require.Equal(t, 1, reservedDecks(t, ctx, playerID))
+}
+
+// 決まりの枚数は配布を始めた時点の写しではなく、作るときの今のルールで確かめる。何も残さない（トランザクションごと戻る）
+func TestCreateDeck_RejectsWhenTotalOfGrantDeckDiffersFromRule(t *testing.T) {
+	ctx := isolatedDatabase(t)
+	handler := newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
+		values := testRules(t)
+		values.Deck.TotalCardCount = cardtest.DeckTotalCount(t, grantDeckTotal+1)
+		return values, true, nil
+	})
+	playerID := playertest.ID(t, issuePlayerID(t, ctx))
+
+	err := handler.Create(ctx, playerID, startergranttest.ID(t, 10), startergranttest.DeckNumber(t, 1), startergranttest.Deck(t, "火", startergranttest.DeckCard(t, cardA, 4), startergranttest.DeckCard(t, cardB, 3)))
+
+	require.ErrorIs(t, err, deck.ErrTotalMismatch)
+	require.Zero(t, countEventsOf(t, ctx, deckTypeID))
+	require.Zero(t, reservedDecks(t, ctx, playerID))
 }
