@@ -51,6 +51,75 @@ func (e *OutOfRange) InputField() string {
 	return e.Field
 }
 
+// 上限の無い値が下限より小さい（対戦ルールの魔力等）。範囲の上限が決まっている値は OutOfRange
+type TooSmall struct {
+	Field string
+	Min   int
+}
+
+func (e *TooSmall) Error() string {
+	return fmt.Sprintf("%s is smaller than %d", e.Field, e.Min)
+}
+
+func (e *TooSmall) InputField() string {
+	return e.Field
+}
+
+// 別の入力の項目の値より大きくなければならない値が、大きくない（等しいのも含む）。Than はその項目の名前。
+// 下限の値は、相手の項目の値によって変わるので持たない
+type NotGreaterThan struct {
+	Field string
+	Than  string
+}
+
+func (e *NotGreaterThan) Error() string {
+	return fmt.Sprintf("%s is not greater than %s", e.Field, e.Than)
+}
+
+func (e *NotGreaterThan) InputField() string {
+	return e.Field
+}
+
+// 別の入力の項目の値以上でなければならない値が、それより小さい（等しいのは誤りでない。NotGreaterThan と境目が違うので型を分ける）。
+// Than はその項目の名前
+type LessThan struct {
+	Field string
+	Than  string
+}
+
+func (e *LessThan) Error() string {
+	return fmt.Sprintf("%s is less than %s", e.Field, e.Than)
+}
+
+func (e *LessThan) InputField() string {
+	return e.Field
+}
+
+// 入力の ID が指すものが、選べるものの中に無い（無い・ほかのプレイヤーのもの・解放していない・公開中でない等。存在を明かさないため区別しない）
+type NotFound struct{ Field string }
+
+func (e *NotFound) Error() string {
+	return fmt.Sprintf("%s is not found", e.Field)
+}
+
+func (e *NotFound) InputField() string {
+	return e.Field
+}
+
+// 一覧の個数が、決まった個数と違う（部屋のプレイヤーの席の数等）。Expected は決まりの個数
+type CountMismatch struct {
+	Field    string
+	Expected int
+}
+
+func (e *CountMismatch) Error() string {
+	return fmt.Sprintf("%s does not have %d", e.Field, e.Expected)
+}
+
+func (e *CountMismatch) InputField() string {
+	return e.Field
+}
+
 type InvalidFormat struct{ Field string }
 
 func (e *InvalidFormat) Error() string {

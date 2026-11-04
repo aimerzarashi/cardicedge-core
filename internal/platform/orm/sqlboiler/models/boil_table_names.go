@@ -29,6 +29,7 @@ var TableNames = struct {
 	NPCDecks                   string
 	Players                    string
 	PresetDecks                string
+	Rooms                      string
 	StarterSets                string
 	StudioRules                string
 	Unlocks                    string
@@ -58,6 +59,7 @@ var TableNames = struct {
 	NPCDecks:                   "npc_decks",
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
+	Rooms:                      "rooms",
 	StarterSets:                "starter_sets",
 	StudioRules:                "studio_rules",
 	Unlocks:                    "unlocks",

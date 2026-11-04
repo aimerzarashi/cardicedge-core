@@ -71,8 +71,8 @@ seed-master:
 # 表を作り直さずに済むように）
 # starter_sets も grant_decks と同じく全行を状態つきで写し、game は公開中の 1 つだけを読む（配る配布デッキは、そのセットが指す公開 ID で
 # 写した grant_decks の公開中の行から引く。解放するボードは公開 ID のまま持ち、配布のとき game の内部 ID に引き直して解放の集約へ渡す）
-# 写した cards・boards・npc_avatars は、game の domain_entities にも行を作る（公開 ID は studio と同じ。内部 ID は game の連番が振る）。game の集約は、
-# 境界（studio・game）の中の内部 ID で ほかの集約を指すため、写したボードを game の内部 ID で指せるようにする。
+# 写した cards・boards・npc_avatars・npc_decks は、game の domain_entities にも行を作る（公開 ID は studio と同じ。内部 ID は game の連番が振る）。game の集約は、
+# 境界（studio・game）の中の内部 ID で ほかの集約を指すため、写したボード・NPC のアバター・NPC のデッキ（部屋の席の選択が指す）を game の内部 ID で指せるようにする。
 # ON CONFLICT DO NOTHING なので、何度流しても同じ内部 ID は変わらない（TRUNCATE は domain_entities に及ばない）。
 # カードの種類（集約の種別）は、写した cards.card_type（1: Creature、2: Item、3: Spell）から決める
 # npc_avatars も boards と同じ選び方（公開中・使用不可だけ。game が出すのは公開中だけ）
@@ -93,7 +93,7 @@ publish-master:
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_avatars WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
 	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT a.npc_avatar_id, t.id FROM npc_avatars a JOIN domain_entity_types t ON t.name = '"'"'npc_avatar'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_decks FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_decks WHERE npc_deck_id IN (SELECT deck_id::uuid FROM npc_avatars, jsonb_array_elements_text(metadata->'"'"'decks'"'"') AS deck_id WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"'))) TO STDOUT"; \
-	  printf "%s\n" "\\." "\\copy grant_decks FROM STDIN"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = '"'"'npc_deck'"'"' ON CONFLICT DO NOTHING;" "\\copy grant_decks FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy grant_decks TO STDOUT"; \
 	  printf "%s\n" "\\." "\\copy starter_sets FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_sets TO STDOUT"; \
