@@ -197,18 +197,19 @@ func TestMatch_HasPlayerIsTheParticipatingPlayersOnly(t *testing.T) {
 // 保存済みのイベントを読めなくなる変更（payload の形の変更）を検出する。形を変えるときは版を上げ、古い版の golden も残す
 func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	meta := match.EventMeta{EntityID: matchtest.ID(t, 40), AggregateVersion: 2, OccurredAt: startedAt}
+	by := matchtest.Index(t, 1)
 	events := []match.Event{
 		&match.CreatedEvent{EventMeta: meta, Participants: []match.Participant{playerParticipant(t), npcParticipant(t)}, Board: twoTileBoard(t), Rules: matchtest.Rules(t, 1, 6, 5)},
 		&match.TurnOrderDecidedEvent{EventMeta: meta, Order: indexes(t, 1, 0)},
 		&match.DecksShuffledEvent{EventMeta: meta, DrawPiles: [][]card.Ref{refs(t, 102, 101, 101), refs(t, 201, 201, 201)}},
 		&match.HandsDealtEvent{EventMeta: meta, Cards: 5},
-		&match.CardDrawnEvent{EventMeta: meta, Card: cardtest.CreatureRef(t, 101)},
-		&match.CardDiscardedEvent{EventMeta: meta, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
-		&match.DiceRolledEvent{EventMeta: meta, Value: 4},
-		&match.MovedEvent{EventMeta: meta, To: boardtest.Position(t, 1, 0)},
-		&match.CheckpointPassedEvent{EventMeta: meta, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
-		&match.LapCompletedEvent{EventMeta: meta, Magic: 300},
-		&match.TurnEndedEvent{EventMeta: meta},
+		&match.CardDrawnEvent{EventMeta: meta, Participant: by, Card: cardtest.CreatureRef(t, 101)},
+		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
+		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
+		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
+		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
+		&match.LapCompletedEvent{EventMeta: meta, Participant: by, Magic: 300},
+		&match.TurnEndedEvent{EventMeta: meta, Participant: by},
 		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Reason: match.EndReasonRoundLimit},
 	}
 	for _, event := range events {
@@ -446,9 +447,43 @@ func TestDecide_DiscardRejectsHandIndexOutOfRange(t *testing.T) {
 func TestEvolve_RejectsDrawnCardThatIsNotTheTopOfTheDrawPile(t *testing.T) {
 	state := newMatch(t, lineBoard(t), defaultRules(t))
 
-	_, err := match.Evolve(state, &match.CardDrawnEvent{Card: refs(t, 999)[0]})
+	_, err := match.Evolve(state, &match.CardDrawnEvent{Participant: matchtest.Index(t, 1), Card: refs(t, 999)[0]})
 
 	require.ErrorIs(t, err, match.ErrInvalidState)
+}
+
+func TestEvolve_RejectsEventOfParticipantWhoseTurnItIsNot(t *testing.T) {
+	state := newMatch(t, lineBoard(t), defaultRules(t))
+	other := matchtest.Index(t, 0)
+	tests := map[string]match.Event{
+		"card_drawn":        &match.CardDrawnEvent{Participant: other, Card: state.Participants[1].DrawPile[0]},
+		"card_discarded":    &match.CardDiscardedEvent{Participant: other, HandIndex: 0, Card: state.Participants[1].Hand[0]},
+		"dice_rolled":       &match.DiceRolledEvent{Participant: other, Value: 1},
+		"moved":             &match.MovedEvent{Participant: other, To: pos(t, 1, 0)},
+		"checkpoint_passed": &match.CheckpointPassedEvent{Participant: other, Checkpoint: pos(t, 1, 0), Magic: 100},
+		"lap_completed":     &match.LapCompletedEvent{Participant: other, Magic: 300},
+		"turn_ended":        &match.TurnEndedEvent{Participant: other},
+	}
+	for name, event := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := match.Evolve(state, event)
+			require.ErrorIs(t, err, match.ErrInvalidState)
+		})
+	}
+}
+
+func TestDecide_TurnEventsCarryTheParticipantWhoseTurnItIs(t *testing.T) {
+	state := newMatch(t, lineBoard(t), defaultRules(t))
+	by := matchtest.Index(t, 1)
+
+	state, drawn := apply(t, state, matchtest.NewRandom(), &match.DrawCommand{By: by})
+	state, rolled := apply(t, state, matchtest.NewRollingRandom(1), &match.RollCommand{By: by})
+	_, ended := endTurn(t, state, 1)
+
+	require.Equal(t, by, drawn[0].(*match.CardDrawnEvent).Participant)
+	require.Equal(t, by, rolled[0].(*match.DiceRolledEvent).Participant)
+	require.Equal(t, by, rolled[1].(*match.MovedEvent).Participant)
+	require.Equal(t, by, ended[0].(*match.TurnEndedEvent).Participant)
 }
 
 func TestDecide_RollGivesFacesFromDiceMinToDiceMax(t *testing.T) {

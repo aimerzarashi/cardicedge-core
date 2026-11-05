@@ -45,7 +45,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Phase = current.turnStartPhase()
 	case *CardDrawnEvent:
-		index, err := current.currentIndex()
+		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
@@ -58,7 +58,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].DrawPile = participant.DrawPile[1:]
 		current.Phase = current.handLimitPhase(index)
 	case *CardDiscardedEvent:
-		index, err := current.currentIndex()
+		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
@@ -70,11 +70,14 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
 		current.Phase = current.handLimitPhase(index)
 	case *DiceRolledEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
 		current.Dice = e.Value
 		current.RemainingSteps = e.Value
 		current.Phase = current.settle()
 	case *MovedEvent:
-		index, err := current.currentIndex()
+		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
@@ -85,7 +88,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.RemainingSteps--
 		current.Phase = current.settle()
 	case *CheckpointPassedEvent:
-		index, err := current.currentIndex()
+		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
@@ -94,7 +97,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].PassedCheckpoints = append(slices.Clone(participant.PassedCheckpoints), e.Checkpoint)
 		current.Participants[index].Magic += e.Magic
 	case *LapCompletedEvent:
-		index, err := current.currentIndex()
+		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
@@ -102,6 +105,9 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Magic += e.Magic
 		current.Participants[index].PassedCheckpoints = nil
 	case *TurnEndedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
 		if current.Turn+1 < len(current.TurnOrder) {
 			current.Turn++
 		} else {
@@ -118,6 +124,15 @@ func Evolve(state State, event Event) (State, error) {
 		return state, ErrInvalidState
 	}
 	return current, nil
+}
+
+// 読み直しで不整合に気づけるよう、イベントの参加者が今の番と違えば断る
+func (m Match) actor(by ParticipantIndex) (ParticipantIndex, error) {
+	index, err := m.currentIndex()
+	if err != nil || index != by {
+		return 0, ErrInvalidState
+	}
+	return index, nil
 }
 
 func (m Match) currentIndex() (ParticipantIndex, error) {
