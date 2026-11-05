@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
@@ -149,4 +154,234 @@ func deckCards(source []master.DeckCard, maxDuplicates card.MaxDeckQuantity) ([]
 		cards[i] = match.DeckCard{Card: entry.Card, Quantity: quantity}
 	}
 	return cards, nil
+}
+
+// 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）
+type ChangedMatch struct {
+	ID       uuid.UUID
+	Revision int64
+}
+
+// 対戦の番の操作。context のプレイヤーが、今の番の参加者として 1 つ操作する。NPC の番は MatchNPCTurnHandler が進める
+type MatchHandler struct {
+	eventStore domain.EventStore[match.ID, match.Event, match.State]
+	matches    domain.Identifier[match.ID]
+	newRandom  func() match.Random
+	now        func() time.Time
+}
+
+func NewMatchHandler(
+	eventStore domain.EventStore[match.ID, match.Event, match.State],
+	matches domain.Identifier[match.ID],
+	newRandom func() match.Random,
+	now func() time.Time,
+) *MatchHandler {
+	return &MatchHandler{eventStore: eventStore, matches: matches, newRandom: newRandom, now: now}
+}
+
+// カードを引く。以下の操作はどれも、番でなければ ErrMatchNotYourTurn、段階が合わなければ ErrMatchPhaseNotAllowed、
+// 無い・参加していない対戦は ErrMatchNotFound、revision が古ければ ErrRevisionConflict、未登録のプレイヤーは ErrPlayerNotRegistered
+func (c *MatchHandler) Draw(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.DrawCommand{By: by}, nil
+	})
+}
+
+// 手札を 1 枚捨てる。手札の番号が範囲の外なら input.Errors（OutOfRange・項目名 handIndex。番の判定と段階の判定が先）
+func (c *MatchHandler) Discard(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.DiscardCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+func (c *MatchHandler) Roll(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.RollCommand{By: by}, nil
+	})
+}
+
+// 分かれ道で行き先を選ぶ。選べる行き先の中に無ければ input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
+func (c *MatchHandler) ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		// 負の位置は盤面に無く、選べる行き先の中にも無い。Decide まで通さず、選べない行き先と同じ NotFound にそろえる
+		to, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "to"}}
+		}
+		return &match.ChoosePathCommand{By: by, To: to}, nil
+	})
+}
+
+func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.EndTurnCommand{By: by}, nil
+	})
+}
+
+// 対戦を読み、参加しているプレイヤーであることと revision を確かめてから、build が作ったコマンドを動かして保存する
+func (c *MatchHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, build func(current match.Match, by match.ParticipantIndex) (match.Command, error)) (ChangedMatch, error) {
+	actor, ok := authentication.Player(ctx)
+	if !ok {
+		return ChangedMatch{}, ErrPlayerNotRegistered
+	}
+	random := c.newRandom()
+	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedMatch, error) {
+		id, err := c.matches.Resolve(ctx, publicID)
+		if errors.Is(err, domain.ErrEntityNotFound) {
+			return ChangedMatch{}, ErrMatchNotFound
+		}
+		if err != nil {
+			return ChangedMatch{}, err
+		}
+		state, err := c.eventStore.Load(ctx, id)
+		if err != nil {
+			return ChangedMatch{}, err
+		}
+		current, ok := state.(match.Match)
+		if !ok {
+			return ChangedMatch{}, ErrMatchNotFound
+		}
+		by, joined := participantOf(current, actor)
+		if !joined {
+			return ChangedMatch{}, ErrMatchNotFound
+		}
+		// revision を Load の直後に比べる理由は RoomHandler.change と同じ
+		if current.Version != revision {
+			return ChangedMatch{}, ErrRevisionConflict
+		}
+		cmd, err := build(current, by)
+		if err != nil {
+			return ChangedMatch{}, err
+		}
+		events, err := match.Decide(current, cmd, c.now(), random)
+		if err != nil {
+			return ChangedMatch{}, mapMatchError(err, current, by)
+		}
+		if err := c.eventStore.Save(ctx, events); err != nil {
+			return ChangedMatch{}, err
+		}
+		return ChangedMatch{ID: publicID, Revision: events[len(events)-1].GetMeta().AggregateVersion}, nil
+	})
+	return changed, revisionConflict(err)
+}
+
+func newPosition(x, y int) (board.Position, error) {
+	column, err := board.NewX(x)
+	if err != nil {
+		return board.Position{}, err
+	}
+	row, err := board.NewY(y)
+	if err != nil {
+		return board.Position{}, err
+	}
+	return board.Position{X: column, Y: row}, nil
+}
+
+func participantOf(current match.Match, playerID player.ID) (match.ParticipantIndex, bool) {
+	for i, participant := range current.Participants {
+		if p := participant.Participant.Player; p != nil && p.Player == playerID {
+			index, err := match.NewParticipantIndex(i)
+			return index, err == nil
+		}
+	}
+	return 0, false
+}
+
+// presentation 層にドメインのエラーを見せないため、application 層のエラーに変える。
+// 手札の番号の上限は、操作した人の手札の枚数から言う
+func mapMatchError(err error, current match.Match, by match.ParticipantIndex) error {
+	switch {
+	case errors.Is(err, match.ErrNotYourTurn):
+		return ErrMatchNotYourTurn
+	case errors.Is(err, match.ErrPhaseNotAllowed):
+		return ErrMatchPhaseNotAllowed
+	case errors.Is(err, match.ErrHandIndexOutOfRange):
+		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
+	case errors.Is(err, match.ErrPathNotAllowed):
+		return input.Errors{&input.NotFound{Field: "to"}}
+	}
+	return err
+}
+
+// 対戦（match）のイベントを受けて、今の番が NPC なら 1 つ操作するポリシー。操作で出たイベントがまたこのポリシーを動かすので、
+// NPC の番が続いても最後まで進む。待たない（見せる速さは画面が決める）
+type MatchNPCTurnHandler struct {
+	eventStore domain.EventStore[match.ID, match.Event, match.State]
+	newRandom  func() match.Random
+	now        func() time.Time
+}
+
+func NewMatchNPCTurnHandler(
+	eventStore domain.EventStore[match.ID, match.Event, match.State],
+	newRandom func() match.Random,
+	now func() time.Time,
+) *MatchNPCTurnHandler {
+	return &MatchNPCTurnHandler{eventStore: eventStore, newRandom: newRandom, now: now}
+}
+
+func (c *MatchNPCTurnHandler) Handle(ctx context.Context, event any) error {
+	if e, ok := event.(match.Event); ok {
+		meta := e.GetMeta()
+		return c.Play(ctx, meta.EntityID, meta.AggregateVersion)
+	}
+	return nil
+}
+
+// 受けたイベントの版が今の版と違えば何もしない（1 つの操作で出た複数のイベントのうち、最後のイベントでだけ動くため。
+// 前のイベントの分は、後のイベントで動く）。終わった対戦・プレイヤーの番も何もしない。
+// 保存の版の衝突は、ほかが先に進めたものとして成功で返す（ポリシーは二度動くことがある）
+func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventVersion int64) error {
+	random := c.newRandom()
+	_, err := rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
+		state, err := c.eventStore.Load(ctx, matchID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		current, ok := state.(match.Match)
+		if !ok {
+			return struct{}{}, fmt.Errorf("match npc turn: match %d is not created: %w", matchID, match.ErrInvalidState)
+		}
+		if current.Version != eventVersion || current.Phase == match.PhaseEnded {
+			return struct{}{}, nil
+		}
+		by, ok := current.CurrentParticipant()
+		if !ok || current.Participants[by].Participant.NPC == nil {
+			return struct{}{}, nil
+		}
+		cmd, err := npcCommand(current, by, random)
+		if err != nil {
+			return struct{}{}, err
+		}
+		events, err := match.Decide(current, cmd, c.now(), random)
+		if err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, c.eventStore.Save(ctx, events)
+	})
+	if errors.Is(err, domain.ErrVersionConflict) {
+		return nil
+	}
+	return err
+}
+
+// 段階に合う操作を 1 つ選ぶ。手札と行き先は無作為に選ぶ
+func npcCommand(current match.Match, by match.ParticipantIndex, random match.Random) (match.Command, error) {
+	switch current.Phase {
+	case match.PhaseDrawing:
+		return &match.DrawCommand{By: by}, nil
+	case match.PhaseDiscarding:
+		return &match.DiscardCommand{By: by, HandIndex: random.IntN(len(current.Participants[by].Hand))}, nil
+	case match.PhaseRolling:
+		return &match.RollCommand{By: by}, nil
+	case match.PhaseChoosingPath:
+		choices := current.PathChoices()
+		if len(choices) == 0 {
+			return nil, fmt.Errorf("match npc turn: no path choices: %w", match.ErrInvalidState)
+		}
+		return &match.ChoosePathCommand{By: by, To: choices[random.IntN(len(choices))]}, nil
+	case match.PhaseEnding:
+		return &match.EndTurnCommand{By: by}, nil
+	default:
+		return nil, fmt.Errorf("match npc turn: phase %q: %w", current.Phase, match.ErrInvalidState)
+	}
 }

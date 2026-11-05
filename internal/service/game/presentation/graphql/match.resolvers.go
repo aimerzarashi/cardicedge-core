@@ -15,6 +15,87 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model"
 )
 
+// DrawMatchCard is the resolver for the drawMatchCard field.
+func (r *mutationResolver) DrawMatchCard(ctx context.Context, input model.DrawMatchCardInput) (model.DrawMatchCardResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Draw(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.DrawMatchCardResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DrawMatchCardSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// DiscardMatchCard is the resolver for the discardMatchCard field.
+func (r *mutationResolver) DiscardMatchCard(ctx context.Context, input model.DiscardMatchCardInput) (model.DiscardMatchCardResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Discard(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.DiscardMatchCardResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DiscardMatchCardSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// RollMatchDice is the resolver for the rollMatchDice field.
+func (r *mutationResolver) RollMatchDice(ctx context.Context, input model.RollMatchDiceInput) (model.RollMatchDiceResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Roll(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.RollMatchDiceResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.RollMatchDiceSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChooseMatchPath is the resolver for the chooseMatchPath field.
+func (r *mutationResolver) ChooseMatchPath(ctx context.Context, input model.ChooseMatchPathInput) (model.ChooseMatchPathResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ChoosePath(ctx, input.ID, int64(input.Revision), input.To.X, input.To.Y)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ChooseMatchPathResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChooseMatchPathSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// EndMatchTurn is the resolver for the endMatchTurn field.
+func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.EndTurn(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.EndMatchTurnResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.EndMatchTurnSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // Match is the resolver for the match field.
 func (r *queryResolver) Match(ctx context.Context, id uuid.UUID) (model.MatchResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

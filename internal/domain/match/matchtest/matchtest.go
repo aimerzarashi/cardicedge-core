@@ -48,3 +48,49 @@ func Index(t testing.TB, value int) match.ParticipantIndex {
 	require.NoError(t, err)
 	return index
 }
+
+func (Random) IntN(int) int {
+	return 0
+}
+
+// 決めた目を順に返す乱数の元（目の最小が 1 のルール用）。Shuffle は Random と同じ逆順
+type RollingRandom struct {
+	Random
+	faces []int
+}
+
+func NewRollingRandom(faces ...int) *RollingRandom {
+	return &RollingRandom{faces: faces}
+}
+
+func (r *RollingRandom) IntN(int) int {
+	if len(r.faces) == 0 {
+		panic("matchtest: no dice faces left")
+	}
+	face := r.faces[0]
+	r.faces = r.faces[1:]
+	return face - 1
+}
+
+// 最大の目を返す乱数の元
+type HighestRandom struct {
+	Random
+}
+
+func NewHighestRandom() HighestRandom {
+	return HighestRandom{}
+}
+
+func (HighestRandom) IntN(n int) int {
+	return n - 1
+}
+
+// すべての値を指定するルール（ボードの既定の値は board.DefaultRules で受け取る）
+func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, startingHandCards int) match.Rules {
+	t.Helper()
+	return match.NewRules(
+		boardtest.DefaultRules(t, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax),
+		gamerulestest.MaxHandCards(t, 6),
+		gamerulestest.StartingHandCards(t, startingHandCards),
+	)
+}

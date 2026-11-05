@@ -107,6 +107,14 @@ type BoardPosition {
   y: Int!
 }
 
+"格子の座標の入力。BoardPosition と同じ"
+input BoardPositionInput {
+  "列（0 始まり）"
+  x: Int!
+  "行（0 始まり）"
+  y: Int!
+}
+
 # 種類によって null になる項目を作らないため、種類ごとの型に分ける（studio と同じ形）
 "置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
 interface BoardTile {
