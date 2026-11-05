@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
@@ -53,11 +54,77 @@ type HandsDealtEvent struct {
 	Cards       int `json:"cards"`
 }
 
+// 引いたカード。山札の先頭と同じはず（読み直しで食い違えば不整合）
+type CardDrawnEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Card        card.Ref `json:"card"`
+}
+
+// 手札から捨てたカード（手札の何番目か。0 始まり）
+type CardDiscardedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	HandIndex   int      `json:"hand_index"`
+	Card        card.Ref `json:"card"`
+}
+
+// 振った目
+type DiceRolledEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Value       int `json:"value"`
+}
+
+// 1 歩進んで入ったマス
+type MovedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	To          board.Position `json:"to"`
+}
+
+// まだ印の無いチェックポイントに入って印を付け、魔力が増えた（Magic は足した量）
+type CheckpointPassedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Checkpoint  board.Position `json:"checkpoint"`
+	Magic       int            `json:"magic"`
+}
+
+// 全チェックポイントに印を付けて拠点に入り、印を外して魔力が増えた（Magic は足した量）
+type LapCompletedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Magic       int `json:"magic"`
+}
+
+// 今の番の人がターンを終えた（次の人・ラウンドは Evolve が決める）
+type TurnEndedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+}
+
+// 対戦が終わった
+type MatchEndedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Winners     []ParticipantIndex `json:"winners"`
+	Reason      EndReason          `json:"reason"`
+}
+
 var (
 	createdEventType          = domain.NewEventName("CreatedEvent")
 	turnOrderDecidedEventType = domain.NewEventName("TurnOrderDecidedEvent")
 	decksShuffledEventType    = domain.NewEventName("DecksShuffledEvent")
 	handsDealtEventType       = domain.NewEventName("HandsDealtEvent")
+	cardDrawnEventType        = domain.NewEventName("CardDrawnEvent")
+	cardDiscardedEventType    = domain.NewEventName("CardDiscardedEvent")
+	diceRolledEventType       = domain.NewEventName("DiceRolledEvent")
+	movedEventType            = domain.NewEventName("MovedEvent")
+	checkpointPassedEventType = domain.NewEventName("CheckpointPassedEvent")
+	lapCompletedEventType     = domain.NewEventName("LapCompletedEvent")
+	turnEndedEventType        = domain.NewEventName("TurnEndedEvent")
+	matchEndedEventType       = domain.NewEventName("MatchEndedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -93,9 +160,74 @@ func (*HandsDealtEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*CardDrawnEvent) EventType() domain.EventName {
+	return cardDrawnEventType
+}
+
+func (*CardDrawnEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CardDiscardedEvent) EventType() domain.EventName {
+	return cardDiscardedEventType
+}
+
+func (*CardDiscardedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*DiceRolledEvent) EventType() domain.EventName {
+	return diceRolledEventType
+}
+
+func (*DiceRolledEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*MovedEvent) EventType() domain.EventName {
+	return movedEventType
+}
+
+func (*MovedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CheckpointPassedEvent) EventType() domain.EventName {
+	return checkpointPassedEventType
+}
+
+func (*CheckpointPassedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*LapCompletedEvent) EventType() domain.EventName {
+	return lapCompletedEventType
+}
+
+func (*LapCompletedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*TurnEndedEvent) EventType() domain.EventName {
+	return turnEndedEventType
+}
+
+func (*TurnEndedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*MatchEndedEvent) EventType() domain.EventName {
+	return matchEndedEventType
+}
+
+func (*MatchEndedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
+		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 	}}
 }
 
@@ -116,6 +248,22 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &DecksShuffledEvent{EventMeta: meta}
 	case EventType(handsDealtEventType):
 		event = &HandsDealtEvent{EventMeta: meta}
+	case EventType(cardDrawnEventType):
+		event = &CardDrawnEvent{EventMeta: meta}
+	case EventType(cardDiscardedEventType):
+		event = &CardDiscardedEvent{EventMeta: meta}
+	case EventType(diceRolledEventType):
+		event = &DiceRolledEvent{EventMeta: meta}
+	case EventType(movedEventType):
+		event = &MovedEvent{EventMeta: meta}
+	case EventType(checkpointPassedEventType):
+		event = &CheckpointPassedEvent{EventMeta: meta}
+	case EventType(lapCompletedEventType):
+		event = &LapCompletedEvent{EventMeta: meta}
+	case EventType(turnEndedEventType):
+		event = &TurnEndedEvent{EventMeta: meta}
+	case EventType(matchEndedEventType):
+		event = &MatchEndedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

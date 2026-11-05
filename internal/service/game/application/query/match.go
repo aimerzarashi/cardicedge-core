@@ -26,6 +26,31 @@ const (
 	MatchParticipantKindNPC    MatchParticipantKind = "npc"
 )
 
+// 対戦の段階。今の番の人が次にする操作を表す
+type MatchPhase string
+
+const (
+	MatchPhaseDrawing      MatchPhase = "drawing"
+	MatchPhaseDiscarding   MatchPhase = "discarding"
+	MatchPhaseRolling      MatchPhase = "rolling"
+	MatchPhaseChoosingPath MatchPhase = "choosing_path"
+	MatchPhaseEnding       MatchPhase = "ending"
+	MatchPhaseEnded        MatchPhase = "ended"
+)
+
+type MatchEndReason string
+
+const (
+	MatchEndReasonTargetMagic MatchEndReason = "target_magic"
+	MatchEndReasonRoundLimit  MatchEndReason = "round_limit"
+)
+
+// 対戦の結果。勝者は参加者の番号（Match.Participants の何番目か）
+type MatchOutcome struct {
+	Winners []int
+	Reason  MatchEndReason
+}
+
 // 手札のカード 1 枚。名前と種類は写した cards から引く
 type MatchCard struct {
 	ID   uuid.UUID
@@ -65,6 +90,8 @@ type MatchParticipant struct {
 	Hand          []MatchCard
 	DrawPileCount int
 	TurnOrder     int
+	// 拠点を出てから印を付けたチェックポイントの位置
+	PassedCheckpoints []BoardPosition
 }
 
 // 対戦。read model を作らず、集約の状態から組み立てる。Participants は席の順
@@ -76,6 +103,14 @@ type Match struct {
 	Board              MatchBoard
 	Participants       []MatchParticipant
 	CurrentParticipant *int
+	Phase              MatchPhase
+	// このターンに振った目。振る前は nil
+	Dice           *int
+	RemainingSteps int
+	// 今の番の人が選べる行き先。分かれ道で選ぶ段階のときだけ中身がある
+	PathChoices []BoardPosition
+	// 終わるまでは nil
+	Outcome *MatchOutcome
 }
 
 // 名前を引く元（公開 ID）。アバター・NPC のアバターの名前と、カードの名前・種類を、それぞれの read model から 1 回で読む
@@ -162,6 +197,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		converted := MatchParticipant{
 			Position: BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
 			Magic:    participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
+			PassedCheckpoints: fromBoardPositions(participant.PassedCheckpoints),
 		}
 		switch {
 		case participant.Participant.Player != nil:
@@ -220,15 +256,79 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			participant.Hand[j] = found
 		}
 	}
+	phase, err := fromMatchPhase(current.Phase)
+	if err != nil {
+		return Match{}, err
+	}
 	result := Match{
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
+		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{},
 	}
 	if turn, ok := current.CurrentParticipant(); ok {
 		index := turn.Int()
 		result.CurrentParticipant = &index
 	}
+	if current.Dice > 0 {
+		dice := current.Dice
+		result.Dice = &dice
+	}
+	if phase == MatchPhaseChoosingPath {
+		result.PathChoices = fromBoardPositions(current.PathChoices())
+	}
+	if current.Result != nil {
+		outcome, err := fromMatchResult(*current.Result)
+		if err != nil {
+			return Match{}, err
+		}
+		result.Outcome = &outcome
+	}
 	return result, nil
+}
+
+// moving は Decide の途中だけの段階で、保存した状態には出ない。出たらコードの誤り
+func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
+	switch phase {
+	case match.PhaseDrawing:
+		return MatchPhaseDrawing, nil
+	case match.PhaseDiscarding:
+		return MatchPhaseDiscarding, nil
+	case match.PhaseRolling:
+		return MatchPhaseRolling, nil
+	case match.PhaseChoosingPath:
+		return MatchPhaseChoosingPath, nil
+	case match.PhaseEnding:
+		return MatchPhaseEnding, nil
+	case match.PhaseEnded:
+		return MatchPhaseEnded, nil
+	default:
+		return "", fmt.Errorf("query: unexpected match phase: %q", phase)
+	}
+}
+
+func fromMatchResult(result match.Result) (MatchOutcome, error) {
+	var reason MatchEndReason
+	switch result.Reason {
+	case match.EndReasonTargetMagic:
+		reason = MatchEndReasonTargetMagic
+	case match.EndReasonRoundLimit:
+		reason = MatchEndReasonRoundLimit
+	default:
+		return MatchOutcome{}, fmt.Errorf("query: unknown match end reason: %q", result.Reason)
+	}
+	winners := make([]int, len(result.Winners))
+	for i, winner := range result.Winners {
+		winners[i] = winner.Int()
+	}
+	return MatchOutcome{Winners: winners, Reason: reason}, nil
+}
+
+func fromBoardPositions(positions []board.Position) []BoardPosition {
+	converted := make([]BoardPosition, len(positions))
+	for i, position := range positions {
+		converted[i] = NewBoardPosition(position.X.Int(), position.Y.Int())
+	}
+	return converted
 }
 
 func fromMatchPlayRules(rules match.Rules) MatchPlayRules {

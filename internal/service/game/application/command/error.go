@@ -41,6 +41,16 @@ var (
 	ErrRoomConditionsNotDecided = errors.New("command: room conditions not decided")
 )
 
+// 対戦の操作の結果の理由（画面で見た revision と違う場合は、部屋と同じ ErrRevisionConflict）
+var (
+	// 対戦が無い・参加していない対戦（存在を明かさないため区別しない）
+	ErrMatchNotFound = errors.New("command: match not found")
+	// 今の番の参加者ではない
+	ErrMatchNotYourTurn = errors.New("command: not your turn")
+	// 今の段階ではできない操作
+	ErrMatchPhaseNotAllowed = errors.New("command: match phase not allowed")
+)
+
 // スターターの配布を始めるときに、マスタが game に公開されていない。待てば直る失敗（公開すれば直る）なので、
 // ポリシーのやり直しに任せる
 var ErrMasterNotPublished = errors.New("command: master not published")

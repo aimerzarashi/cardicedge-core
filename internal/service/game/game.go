@@ -49,6 +49,8 @@ type Game struct {
 	players        *command.PlayerHandler
 	grants         *command.StarterGrantHandler
 	matchStart     *command.MatchStartHandler
+	matchNPCTurn   *command.MatchNPCTurnHandler
+	matches        *command.MatchHandler
 	matchQuery     *query.MatchHandler
 	playerQuery    *query.PlayerHandler
 	avatars        *command.AvatarHandler
@@ -130,6 +132,17 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			newRandom,
 			now,
 		),
+		matchNPCTurn: command.NewMatchNPCTurnHandler(
+			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+			newRandom,
+			now,
+		),
+		matches: command.NewMatchHandler(
+			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+			identifier.New(registry, match.NewID),
+			newRandom,
+			now,
+		),
 		matchQuery: query.NewMatchHandler(
 			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 			identifier.New(registry, match.NewID),
@@ -195,6 +208,15 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 		Subscriptions: []domain.EntityType{room.Types().EntityType},
 		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
 			return g.matchStart.Handle(ctx, event.Event)
+		},
+	}); err != nil {
+		return err
+	}
+	if err := eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
+		Name:          "match_npc_turn",
+		Subscriptions: []domain.EntityType{match.Types().EntityType},
+		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
+			return g.matchNPCTurn.Handle(ctx, event.Event)
 		},
 	}); err != nil {
 		return err
@@ -285,7 +307,7 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matchQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matches, g.matchQuery), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

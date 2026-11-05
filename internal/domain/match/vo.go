@@ -49,9 +49,37 @@ func (i ParticipantIndex) Int() int {
 
 // 乱数の元（順番と山札を混ぜる）。Decide の中で引かず、time.Now と同じく外から受け取る（テストで並びを固定するため）。
 // 混ぜた結果をコマンドで渡す形にしないのは、山札の並べ方（カードを枚数の分だけ並べる）を Decide の 1 か所に置くため。math/rand/v2 の *rand.Rand が満たす
-// サイコロ（IntN）は、ターンで振るようになるとき（⑥）に足す
 type Random interface {
 	Shuffle(n int, swap func(i, j int))
+	// 0 以上 n 未満の整数（サイコロの目）
+	IntN(n int) int
+}
+
+// 対戦の段階。イベントは事実だけを持ち、段階のイベントは作らず Evolve が状態から決める
+type Phase string
+
+const (
+	PhaseDrawing      Phase = "drawing"
+	PhaseDiscarding   Phase = "discarding"
+	PhaseRolling      Phase = "rolling"
+	PhaseChoosingPath Phase = "choosing_path"
+	PhaseEnding       Phase = "ending"
+	PhaseEnded        Phase = "ended"
+	// 進む途中だけの段階。Decide は進み終えるまで続けるので、保存された最後の状態が moving になることは無い
+	PhaseMoving Phase = "moving"
+)
+
+type EndReason string
+
+const (
+	EndReasonTargetMagic EndReason = "target_magic"
+	EndReasonRoundLimit  EndReason = "round_limit"
+)
+
+// 対戦の結果。勝者は魔力が同じならすべて（参加者の番号の昇順）
+type Result struct {
+	Winners []ParticipantIndex `json:"winners"`
+	Reason  EndReason          `json:"reason"`
 }
 
 // デッキのカード 1 種類。始めた時点のデッキの写し

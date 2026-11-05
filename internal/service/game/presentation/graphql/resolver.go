@@ -72,6 +72,15 @@ type RoomQueries interface {
 	Get(ctx context.Context, playerID uuid.UUID, roomID uuid.UUID) (query.Room, error)
 }
 
+// 実装は command.MatchHandler
+type Matches interface {
+	Draw(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
+	Discard(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	Roll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
+	ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
+	EndTurn(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
+}
+
 // 実装は query.MatchHandler
 type MatchQueries interface {
 	Get(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (query.Match, error)
@@ -94,9 +103,10 @@ type Resolver struct {
 	gameRuleQuery  GameRulesQueries
 	rooms          Rooms
 	roomQuery      RoomQueries
+	matches        Matches
 	matchQuery     MatchQueries
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matchQuery MatchQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matchQuery: matchQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery}
 }
