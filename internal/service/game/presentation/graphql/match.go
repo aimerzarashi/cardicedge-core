@@ -92,7 +92,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		if err != nil {
 			return nil, err
 		}
-		converted.Outcome = &model.MatchOutcome{Winners: outcome.Winners, Reason: reason}
+		converted.Outcome = &model.MatchOutcome{Winners: outcome.Winners, Ranks: outcome.Ranks, Reason: reason}
 	}
 	return converted, nil
 }
@@ -208,7 +208,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Winners: e.Winners, Reason: reason}, nil
+		return &model.MatchEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Winners: e.Winners, Ranks: e.Ranks, Reason: reason}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown match event: %T", event)
 	}

@@ -342,6 +342,7 @@ type ComplexityRoot struct {
 
 	MatchEndedEvent struct {
 		OccurredAt func(childComplexity int) int
+		Ranks      func(childComplexity int) int
 		Reason     func(childComplexity int) int
 		Revision   func(childComplexity int) int
 		Winners    func(childComplexity int) int
@@ -380,6 +381,7 @@ type ComplexityRoot struct {
 	}
 
 	MatchOutcome struct {
+		Ranks   func(childComplexity int) int
 		Reason  func(childComplexity int) int
 		Winners func(childComplexity int) int
 	}
@@ -1670,6 +1672,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchEndedEvent.OccurredAt(childComplexity), true
+	case "MatchEndedEvent.ranks":
+		if e.ComplexityRoot.MatchEndedEvent.Ranks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEndedEvent.Ranks(childComplexity), true
 	case "MatchEndedEvent.reason":
 		if e.ComplexityRoot.MatchEndedEvent.Reason == nil {
 			break
@@ -1779,6 +1787,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchNotYourTurnError.Message(childComplexity), true
 
+	case "MatchOutcome.ranks":
+		if e.ComplexityRoot.MatchOutcome.Ranks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchOutcome.Ranks(childComplexity), true
 	case "MatchOutcome.reason":
 		if e.ComplexityRoot.MatchOutcome.Reason == nil {
 			break
@@ -3200,6 +3214,8 @@ func (ec *executionContext) childFields_MatchOutcome(ctx context.Context, field 
 	switch field.Name {
 	case "winners":
 		return ec.fieldContext_MatchOutcome_winners(ctx, field)
+	case "ranks":
+		return ec.fieldContext_MatchOutcome_ranks(ctx, field)
 	case "reason":
 		return ec.fieldContext_MatchOutcome_reason(ctx, field)
 	}
@@ -7726,6 +7742,29 @@ func (ec *executionContext) fieldContext_MatchEndedEvent_winners(_ context.Conte
 	return graphql.NewScalarFieldContext("MatchEndedEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchEndedEvent_ranks(ctx context.Context, field graphql.CollectedField, obj *model.MatchEndedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEndedEvent_ranks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ranks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
+			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEndedEvent_ranks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEndedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchEndedEvent_reason(ctx context.Context, field graphql.CollectedField, obj *model.MatchEndedEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8109,6 +8148,29 @@ func (ec *executionContext) _MatchOutcome_winners(ctx context.Context, field gra
 	)
 }
 func (ec *executionContext) fieldContext_MatchOutcome_winners(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchOutcome", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchOutcome_ranks(ctx context.Context, field graphql.CollectedField, obj *model.MatchOutcome) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchOutcome_ranks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ranks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
+			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchOutcome_ranks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchOutcome", field, false, false, "Int")
 }
 
@@ -17766,6 +17828,11 @@ func (ec *executionContext) _MatchEndedEvent(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "ranks":
+			out.Values[i] = ec._MatchEndedEvent_ranks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "reason":
 			out.Values[i] = ec._MatchEndedEvent_reason(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -18039,6 +18106,11 @@ func (ec *executionContext) _MatchOutcome(ctx context.Context, sel ast.Selection
 			out.Values[i] = graphql.MarshalString("MatchOutcome")
 		case "winners":
 			out.Values[i] = ec._MatchOutcome_winners(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "ranks":
+			out.Values[i] = ec._MatchOutcome_ranks(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

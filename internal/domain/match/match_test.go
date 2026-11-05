@@ -210,7 +210,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
 		&match.LapCompletedEvent{EventMeta: meta, Participant: by, Magic: 300},
 		&match.TurnEndedEvent{EventMeta: meta, Participant: by},
-		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Reason: match.EndReasonRoundLimit},
+		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -600,7 +600,7 @@ func TestDecide_EnteringTheBaseAtTheTargetMagicWinsEvenWithStepsLeftAndCheckpoin
 
 	require.Equal(t, match.PhaseEnded, state.Phase)
 	require.Equal(t, 1, state.RemainingSteps)
-	require.Equal(t, &match.Result{Winners: indexes(t, 1), Reason: match.EndReasonTargetMagic}, state.Result)
+	require.Equal(t, &match.Result{Winners: indexes(t, 1), Ranks: []int{2, 1}, Reason: match.EndReasonTargetMagic}, state.Result)
 	require.IsType(t, &match.MatchEndedEvent{}, events[len(events)-1])
 }
 
@@ -660,7 +660,7 @@ func TestDecide_EndTurnAtTheRoundLimitEndsTheMatchWithoutAdvancingTheRound(t *te
 	require.Len(t, events, 1)
 	require.IsType(t, &match.MatchEndedEvent{}, events[0])
 	require.Equal(t, 1, state.Round)
-	require.Equal(t, &match.Result{Winners: indexes(t, 0, 1), Reason: match.EndReasonRoundLimit}, state.Result)
+	require.Equal(t, &match.Result{Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit}, state.Result)
 	require.Equal(t, match.PhaseEnded, state.Phase)
 }
 
@@ -676,4 +676,69 @@ func TestDecide_RoundLimitWinnerIsTheParticipantWithTheMostMagic(t *testing.T) {
 	state, _ = endTurn(t, state, 0)
 
 	require.Equal(t, indexes(t, 0), state.Result.Winners)
+}
+
+// 参加者を n 人にした対戦を、ラウンドの上限（1）の最後の人の番の終わりまで進める。magics は終える直前の魔力
+func endAtRoundLimit(t *testing.T, n int, magics []int) match.Match {
+	t.Helper()
+	participants := make([]match.Participant, n)
+	for i := range participants {
+		participants[i] = npcParticipant(t)
+	}
+	cmd := startCommand(t, matchtest.RulesOf(t, 8000, 600, 300, 100, 1, 1, 6, 1), participants...)
+	cmd.Board = lineBoard(t)
+	state, _ := start(t, cmd)
+	order := append([]match.ParticipantIndex(nil), state.TurnOrder...)
+	for i, by := range order {
+		state, _ = drawAndRoll(t, state, by.Int(), 1)
+		if i < len(order)-1 {
+			state, _ = endTurn(t, state, by.Int())
+		}
+	}
+	state.Participants = append([]match.ParticipantState(nil), state.Participants...)
+	for i, magic := range magics {
+		state.Participants[i].Magic = magic
+	}
+	state, _ = endTurn(t, state, order[len(order)-1].Int())
+	return state
+}
+
+func TestDecide_RoundLimitRanksAreTheSameForTheSameMagic(t *testing.T) {
+	state := endAtRoundLimit(t, 4, []int{500, 900, 500, 100})
+
+	require.Equal(t, []int{2, 1, 2, 4}, state.Result.Ranks)
+	require.Equal(t, indexes(t, 1), state.Result.Winners)
+}
+
+func TestDecide_RoundLimitWinnersAreEveryoneRankedFirst(t *testing.T) {
+	state := endAtRoundLimit(t, 3, []int{900, 100, 900})
+
+	require.Equal(t, []int{1, 3, 1}, state.Result.Ranks)
+	require.Equal(t, indexes(t, 0, 2), state.Result.Winners)
+}
+
+func TestDecide_TargetMagicWinnerIsFirstAndOthersStartFromSecondEvenWithTheSameMagic(t *testing.T) {
+	rules := matchtest.RulesOf(t, 700, 600, 0, 100, 30, 1, 6, 1)
+	participants := []match.Participant{npcParticipant(t), npcParticipant(t), npcParticipant(t), npcParticipant(t)}
+	cmd := startCommand(t, rules, participants...)
+	cmd.Board = forkBoard(t)
+	state, _ := start(t, cmd)
+	winner := state.TurnOrder[0].Int()
+	state, _ = drawAndRoll(t, state, winner, 5)
+	state, _ = choose(t, state, winner, 2, 0)
+	state.Participants = append([]match.ParticipantState(nil), state.Participants...)
+	for i := range state.Participants {
+		if i != winner {
+			state.Participants[i].Magic = 500
+		}
+	}
+	state.Participants[(winner+1)%4].Magic = 700
+
+	state, _ = choose(t, state, winner, 0, 0)
+
+	want := []int{3, 3, 3, 3}
+	want[winner] = 1
+	want[(winner+1)%4] = 2
+	require.Equal(t, want, state.Result.Ranks)
+	require.Equal(t, indexes(t, winner), state.Result.Winners)
 }

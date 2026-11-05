@@ -118,7 +118,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Dice = 0
 		current.Phase = current.turnStartPhase()
 	case *MatchEndedEvent:
-		current.Result = &Result{Winners: e.Winners, Reason: e.Reason}
+		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}
 		current.Phase = PhaseEnded
 	default:
 		return state, ErrInvalidState

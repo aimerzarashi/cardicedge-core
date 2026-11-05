@@ -116,6 +116,7 @@ type MatchEndedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Winners     []ParticipantIndex `json:"winners"`
+	Ranks       []int              `json:"ranks"`
 	Reason      EndReason          `json:"reason"`
 }
 

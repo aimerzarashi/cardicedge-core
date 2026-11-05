@@ -20,7 +20,7 @@ const matchQuery = `query ($id: UUID!) {
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
 			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder passedCheckpoints { x y } }
 			currentParticipant
-			phase dice remainingSteps pathChoices { x y } outcome { winners reason }
+			phase dice remainingSteps pathChoices { x y } outcome { winners ranks reason }
 		}
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
@@ -244,6 +244,19 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 		}
 	}
 	require.Equal(t, expected, outcome["winners"])
+	// 順位は魔力の多い順で、同じ魔力は同じ順位（競技の順位）
+	participants := final["participants"].([]any)
+	ranks := make([]any, len(participants))
+	for i, participant := range participants {
+		rank := float64(1)
+		for _, other := range participants {
+			if other.(map[string]any)["magic"].(float64) > participant.(map[string]any)["magic"].(float64) {
+				rank++
+			}
+		}
+		ranks[i] = rank
+	}
+	require.Equal(t, ranks, outcome["ranks"])
 	// 終わった対戦への操作は、段階が合わないものとして断られる
 	ended := matchOperation(t, p.token, "endMatchTurn", map[string]any{"id": matchID, "revision": final["revision"]})
 	require.Equal(t, "MatchPhaseNotAllowedError", ended["__typename"])
@@ -303,7 +316,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
 				... on MatchLapCompletedEvent { participant magic }
 				... on MatchTurnEndedEvent { participant }
-				... on MatchEndedEvent { winners reason }
+				... on MatchEndedEvent { winners ranks reason }
 			}
 		}
 		... on MatchNotFoundError { message }
@@ -519,4 +532,5 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 	require.Positive(t, actors[float64(1)])
 	require.Equal(t, "MatchEndedEvent", last["__typename"])
 	require.Equal(t, "ROUND_LIMIT", last["reason"])
+	require.Len(t, last["ranks"], 2)
 }

@@ -95,6 +95,7 @@ type MatchTurnEndedEvent struct {
 type MatchEndedEvent struct {
 	MatchEventMeta
 	Winners []int
+	Ranks   []int
 	Reason  MatchEndReason
 }
 
@@ -210,11 +211,11 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard) (Ma
 	case *match.TurnEndedEvent:
 		return MatchTurnEndedEvent{meta, e.Participant.Int()}, nil
 	case *match.MatchEndedEvent:
-		outcome, err := fromMatchResult(match.Result{Winners: e.Winners, Reason: e.Reason})
+		outcome, err := fromMatchResult(match.Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason})
 		if err != nil {
 			return nil, err
 		}
-		return MatchEndedEvent{meta, outcome.Winners, outcome.Reason}, nil
+		return MatchEndedEvent{meta, outcome.Winners, outcome.Ranks, outcome.Reason}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
 	}

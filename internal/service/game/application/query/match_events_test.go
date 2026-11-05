@@ -77,7 +77,7 @@ func sampleEvents(t *testing.T) []match.Event {
 		&match.HandsDealtEvent{EventMeta: eventMeta(t, 4), Cards: 5},
 		&match.CardDrawnEvent{EventMeta: eventMeta(t, 5), Participant: by, Card: cardtest.CreatureRef(t, 101)},
 		&match.MovedEvent{EventMeta: eventMeta(t, 6), Participant: by, To: boardtest.Position(t, 2, 3)},
-		&match.MatchEndedEvent{EventMeta: eventMeta(t, 7), Winners: []match.ParticipantIndex{by}, Reason: match.EndReasonRoundLimit},
+		&match.MatchEndedEvent{EventMeta: eventMeta(t, 7), Winners: []match.ParticipantIndex{by}, Ranks: []int{2, 1}, Reason: match.EndReasonRoundLimit},
 	}
 }
 
@@ -92,7 +92,7 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 		query.MatchCardDrawnEvent{MatchEventMeta: metaAt(5), Participant: 1,
 			Card: dragon},
 		query.MatchMovedEvent{MatchEventMeta: metaAt(6), Participant: 1, To: query.NewBoardPosition(2, 3)},
-		query.MatchEndedEvent{MatchEventMeta: metaAt(7), Winners: []int{1}, Reason: query.MatchEndReasonRoundLimit},
+		query.MatchEndedEvent{MatchEventMeta: metaAt(7), Winners: []int{1}, Ranks: []int{2, 1}, Reason: query.MatchEndReasonRoundLimit},
 	}, events)
 }
 

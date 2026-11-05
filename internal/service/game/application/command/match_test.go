@@ -388,7 +388,7 @@ func TestMatchNPCTurn_DoesNothingWhenItIsNotTheTurnOfAnNPCOrTheEventIsOld(t *tes
 		f := newMatchTurnFixture(t, matchtest.NewRandom())
 		start := f.load(t)
 		meta := match.EventMeta{EntityID: f.id, AggregateVersion: start.Version + 1, OccurredAt: time.Now().UTC().Truncate(time.Microsecond)}
-		ended := &match.MatchEndedEvent{EventMeta: meta, Winners: []match.ParticipantIndex{matchtest.Index(t, 0)}, Reason: match.EndReasonRoundLimit}
+		ended := &match.MatchEndedEvent{EventMeta: meta, Winners: []match.ParticipantIndex{matchtest.Index(t, 0)}, Ranks: []int{1, 2}, Reason: match.EndReasonRoundLimit}
 		require.NoError(t, f.store.Save(f.ctx, []match.Event{ended}))
 
 		require.NoError(t, f.npc.Play(f.ctx, f.id, start.Version+1))
