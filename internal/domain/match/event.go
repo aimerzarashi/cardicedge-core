@@ -58,50 +58,57 @@ type HandsDealtEvent struct {
 type CardDrawnEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Card        card.Ref `json:"card"`
+	Participant ParticipantIndex `json:"participant"`
+	Card        card.Ref         `json:"card"`
 }
 
 // 手札から捨てたカード（手札の何番目か。0 始まり）
 type CardDiscardedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	HandIndex   int      `json:"hand_index"`
-	Card        card.Ref `json:"card"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Card        card.Ref         `json:"card"`
 }
 
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Value       int `json:"value"`
+	Participant ParticipantIndex `json:"participant"`
+	Value       int              `json:"value"`
 }
 
 // 1 歩進んで入ったマス
 type MovedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	To          board.Position `json:"to"`
+	Participant ParticipantIndex `json:"participant"`
+	To          board.Position   `json:"to"`
 }
 
 // まだ印の無いチェックポイントに入って印を付け、魔力が増えた（Magic は足した量）
 type CheckpointPassedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Checkpoint  board.Position `json:"checkpoint"`
-	Magic       int            `json:"magic"`
+	Participant ParticipantIndex `json:"participant"`
+	Checkpoint  board.Position   `json:"checkpoint"`
+	Magic       int              `json:"magic"`
 }
 
 // 全チェックポイントに印を付けて拠点に入り、印を外して魔力が増えた（Magic は足した量）
 type LapCompletedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Magic       int `json:"magic"`
+	Participant ParticipantIndex `json:"participant"`
+	Magic       int              `json:"magic"`
 }
 
 // 今の番の人がターンを終えた（次の人・ラウンドは Evolve が決める）
 type TurnEndedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
 }
 
 // 対戦が終わった

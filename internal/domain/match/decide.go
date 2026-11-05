@@ -66,8 +66,10 @@ type recorder struct {
 	now    time.Time
 }
 
-func (r *recorder) record(build func(EventMeta) Event) error {
-	event := build(EventMeta{EntityID: r.state.ID, AggregateVersion: r.state.Version + 1, OccurredAt: r.now})
+// 操作した人は今の番の人。イベントごとに引き直さず、ここで入れる
+func (r *recorder) record(build func(meta EventMeta, by ParticipantIndex) Event) error {
+	by, _ := r.state.CurrentParticipant()
+	event := build(EventMeta{EntityID: r.state.ID, AggregateVersion: r.state.Version + 1, OccurredAt: r.now}, by)
 	next, err := Evolve(r.state, event)
 	if err != nil {
 		return err
@@ -109,7 +111,9 @@ func draw(r *recorder) error {
 	if len(pile) == 0 {
 		return ErrInvalidState
 	}
-	return r.record(func(meta EventMeta) Event { return &CardDrawnEvent{EventMeta: meta, Card: pile[0]} })
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CardDrawnEvent{EventMeta: meta, Participant: by, Card: pile[0]}
+	})
 }
 
 func discard(r *recorder, handIndex int) error {
@@ -117,15 +121,17 @@ func discard(r *recorder, handIndex int) error {
 	if handIndex < 0 || handIndex >= len(hand) {
 		return ErrHandIndexOutOfRange
 	}
-	return r.record(func(meta EventMeta) Event {
-		return &CardDiscardedEvent{EventMeta: meta, HandIndex: handIndex, Card: hand[handIndex]}
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: hand[handIndex]}
 	})
 }
 
 func roll(r *recorder, random Random) error {
 	rules := r.state.Rules
 	value := rules.DiceMin + random.IntN(rules.DiceMax-rules.DiceMin+1)
-	if err := r.record(func(meta EventMeta) Event { return &DiceRolledEvent{EventMeta: meta, Value: value} }); err != nil {
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value}
+	}); err != nil {
 		return err
 	}
 	return advance(r)
@@ -153,7 +159,9 @@ func advance(r *recorder) error {
 
 // 1 歩進み、入ったマスで起きること（通過でも停止でも同じ。拠点を出るときは何も起きない）を続ける
 func step(r *recorder, to board.Position) error {
-	if err := r.record(func(meta EventMeta) Event { return &MovedEvent{EventMeta: meta, To: to} }); err != nil {
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &MovedEvent{EventMeta: meta, Participant: by, To: to}
+	}); err != nil {
 		return err
 	}
 	rules := r.state.Rules
@@ -166,8 +174,8 @@ func step(r *recorder, to board.Position) error {
 			if slices.Contains(r.current().PassedCheckpoints, to) {
 				return nil
 			}
-			return r.record(func(meta EventMeta) Event {
-				return &CheckpointPassedEvent{EventMeta: meta, Checkpoint: to, Magic: rules.CheckpointBonus}
+			return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+				return &CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: to, Magic: rules.CheckpointBonus}
 			})
 		case board.TileKindBase:
 			return enterBase(r)
@@ -178,8 +186,8 @@ func step(r *recorder, to board.Position) error {
 
 func enterBase(r *recorder) error {
 	if r.state.allCheckpointsPassed(r.current()) {
-		if err := r.record(func(meta EventMeta) Event {
-			return &LapCompletedEvent{EventMeta: meta, Magic: r.state.Rules.LapBonus}
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &LapCompletedEvent{EventMeta: meta, Participant: by, Magic: r.state.Rules.LapBonus}
 		}); err != nil {
 			return err
 		}
@@ -187,9 +195,8 @@ func enterBase(r *recorder) error {
 	if r.current().Magic < r.state.Rules.TargetMagic {
 		return nil
 	}
-	index, _ := r.state.CurrentParticipant()
-	return r.record(func(meta EventMeta) Event {
-		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{index}, Reason: EndReasonTargetMagic}
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Reason: EndReasonTargetMagic}
 	})
 }
 
@@ -217,9 +224,11 @@ func endTurn(r *recorder) error {
 				winners = append(winners, ParticipantIndex(i))
 			}
 		}
-		return r.record(func(meta EventMeta) Event {
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Reason: EndReasonRoundLimit}
 		})
 	}
-	return r.record(func(meta EventMeta) Event { return &TurnEndedEvent{EventMeta: meta} })
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TurnEndedEvent{EventMeta: meta, Participant: by}
+	})
 }
