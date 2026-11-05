@@ -41,6 +41,9 @@ import (
 type Config struct {
 	Verifier *idp.Verifier
 	Issuer   string
+	// 対戦の進み（Subscription）を、変わらなくても送り直す間隔。通知の取りこぼしを埋める。環境ごとに変える値ではなく、
+	// テストが短くできるように組み立てで渡す
+	MatchProgressInterval time.Duration
 }
 
 type Game struct {
@@ -52,6 +55,8 @@ type Game struct {
 	matchNPCTurn   *command.MatchNPCTurnHandler
 	matches        *command.MatchHandler
 	matchQuery     *query.MatchHandler
+	matchEvents    *query.MatchEventsHandler
+	matchProgress  *query.MatchProgressBroker
 	playerQuery    *query.PlayerHandler
 	avatars        *command.AvatarHandler
 	avatarQuery    *query.AvatarHandler
@@ -81,6 +86,10 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks)
 	roomReader := repository.NewRoomReader()
 	matchSources := repository.NewMatchSourceReader(entityRefs)
+	matchStore := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
+	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID))
+	matchEventLoader := eventstore.NewEventLoader(registry, match.NewID, match.NewEventType)
+	matchNames := repository.NewMatchNameReader()
 	return &Game{
 		config:     config,
 		entityRefs: entityRefs,
@@ -150,7 +159,19 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			entityRefs,
 			repository.NewMatchNameReader().Load,
 		),
-		playerQuery: query.NewPlayerHandler(repository.NewPlayerReader().GetStarterGrantStatus),
+		matchEvents: query.NewMatchEventsHandler(matchAccess.Authorize, func(ctx context.Context, id match.ID) ([]match.Event, error) {
+			loaded, err := matchEventLoader.LoadEvents(ctx, id.Int64())
+			if err != nil {
+				return nil, err
+			}
+			events := make([]match.Event, len(loaded))
+			for i, event := range loaded {
+				events[i] = event.Event.(match.Event)
+			}
+			return events, nil
+		}, entityRefs, matchNames.Load),
+		matchProgress: query.NewMatchProgressBroker(matchAccess.Authorize, repository.NewMatchHeadReader().Load, config.MatchProgressInterval),
+		playerQuery:   query.NewPlayerHandler(repository.NewPlayerReader().GetStarterGrantStatus),
 		avatars: command.NewAvatarHandler(
 			eventstore.New(registry, avatar.NewID, avatar.NewEventType, avatar.InitialState, avatar.Evolve),
 			identifier.New(registry, avatar.NewID),
@@ -236,6 +257,23 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 	})
 }
 
+// 対戦のイベントの通知を、その台でつないでいる Subscription（対戦の進み）に配る。投影・ポリシーと違い処理の記録を持たない
+// （取りこぼしは配り役が間隔ごとに DB から読み直して埋める）。名前は購読者の一覧に載せない
+func (g *Game) RegisterWatchers(hub *eventdriven.Hub) error {
+	return hub.Watch(match.Types().EntityType, func(ref eventdriven.EventRef) {
+		id, err := match.NewID(ref.EntityID)
+		if err != nil {
+			return
+		}
+		g.matchProgress.Notify(id, ref.AggregateVersion)
+	})
+}
+
+// つないでいる Subscription をすべて閉じる。HTTP を止めるとき先に呼ぶ（つなぎっぱなしの接続でシャットダウンの時間を使い切らないため）
+func (g *Game) CloseSubscriptions() {
+	g.matchProgress.Close()
+}
+
 // players の投影を 2 つに分けるのは、players の行を 2 つの集約（player・starter_grant）から書くため。それぞれ自分の列だけを書き、
 // 行が無ければ作るので、別の集約の間でどちらが先に動いても同じ行になる。名前と購読は internal/wiring の購読者の一覧と照合される
 func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
@@ -307,7 +345,7 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matches, g.matchQuery), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matches, g.matchQuery, g.matchEvents, g.matchProgress), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

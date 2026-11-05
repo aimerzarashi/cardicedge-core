@@ -86,6 +86,16 @@ type MatchQueries interface {
 	Get(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (query.Match, error)
 }
 
+// 実装は query.MatchEventsHandler
+type MatchEventQueries interface {
+	ListAfter(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID, after int64) ([]query.MatchEvent, error)
+}
+
+// 実装は query.MatchProgressBroker
+type MatchProgressSubscriptions interface {
+	Subscribe(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (<-chan query.MatchProgress, error)
+}
+
 // 実装は query.GameRulesHandler
 type GameRulesQueries interface {
 	Get(ctx context.Context) (query.GameRules, error)
@@ -105,8 +115,10 @@ type Resolver struct {
 	roomQuery      RoomQueries
 	matches        Matches
 	matchQuery     MatchQueries
+	matchEvents    MatchEventQueries
+	matchProgress  MatchProgressSubscriptions
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries, matchEvents MatchEventQueries, matchProgress MatchProgressSubscriptions) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery, matchEvents: matchEvents, matchProgress: matchProgress}
 }

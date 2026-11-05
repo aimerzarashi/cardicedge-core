@@ -36,6 +36,9 @@ const (
 	// 待てば直る失敗（マスタの未読み込み等）を 10 分ほど待てる値
 	policyRetryInterval = time.Minute
 	policyMaxFailures   = 10
+	// 対戦の進みを、変わらなくても送り直す間隔。何も流れない時間で切る中継（envoy の stream の上限・Cloudflare の Tunnel のおよそ 100 秒）に
+	// 切られないよう、それより十分短くする。変えたくなったら環境変数に出す
+	matchProgressInterval = 5 * time.Second
 )
 
 var (
@@ -119,7 +122,7 @@ func run(ctx context.Context) error {
 	}
 
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: cfg.Studio.Issuer}
-	gameConfig := game.Config{Verifier: gameVerifier, Issuer: cfg.Game.Issuer}
+	gameConfig := game.Config{Verifier: gameVerifier, Issuer: cfg.Game.Issuer, MatchProgressInterval: matchProgressInterval}
 	eventDriven := eventdriven.Options{WorkerCount: projectionWorkerCount, PollInterval: pollInterval, RetryInterval: policyRetryInterval, MaxFailures: policyMaxFailures}
 	app, err := wiring.Start(ctx, wiring.Config{
 		StudioDB:             studioDB,
@@ -144,6 +147,7 @@ func run(ctx context.Context) error {
 	}
 
 	server := &http.Server{Handler: app.Handler}
+	server.RegisterOnShutdown(app.CloseSubscriptions)
 	slog.Info("HTTP server started", "addr", ln.Addr().String(), "version", version)
 
 	return serve(ctx, server, ln, shutdownTimeout-telemetryFlushTimeout)

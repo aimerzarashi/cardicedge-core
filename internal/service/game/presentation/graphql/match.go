@@ -145,3 +145,79 @@ func fromMatchParticipantKind(kind query.MatchParticipantKind) (model.MatchParti
 		return "", fmt.Errorf("graphql: unknown match participant kind: %q", kind)
 	}
 }
+
+// 1 つだけ送って閉じるチャネル（結果の型で返す誤りを、Subscription では 1 回送って閉じる）
+func singleResult[T any](result T) <-chan T {
+	results := make(chan T, 1)
+	results <- result
+	close(results)
+	return results
+}
+
+func fromQueryMatchEvents(events []query.MatchEvent) (*model.MatchEventList, error) {
+	converted := make([]model.MatchEvent, 0, len(events))
+	for _, event := range events {
+		item, err := fromQueryMatchEvent(event)
+		if err != nil {
+			return nil, err
+		}
+		converted = append(converted, item)
+	}
+	return &model.MatchEventList{Events: converted}, nil
+}
+
+func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
+	meta := event.Meta()
+	revision := int(meta.Revision)
+	switch e := event.(type) {
+	case query.MatchCreatedEvent:
+		return &model.MatchCreatedEvent{Revision: revision, OccurredAt: meta.OccurredAt}, nil
+	case query.MatchTurnOrderDecidedEvent:
+		return &model.MatchTurnOrderDecidedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Order: e.Order}, nil
+	case query.MatchDecksShuffledEvent:
+		return &model.MatchDecksShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt}, nil
+	case query.MatchHandsDealtEvent:
+		return &model.MatchHandsDealtEvent{Revision: revision, OccurredAt: meta.OccurredAt, Cards: e.Cards}, nil
+	case query.MatchCardDrawnEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCardDrawnEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Card: card}, nil
+	case query.MatchCardDiscardedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCardDiscardedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, HandIndex: e.HandIndex, Card: card}, nil
+	case query.MatchDiceRolledEvent:
+		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Value: e.Value}, nil
+	case query.MatchMovedEvent:
+		return &model.MatchMovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}}, nil
+	case query.MatchCheckpointPassedEvent:
+		return &model.MatchCheckpointPassedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant,
+			Checkpoint: &model.BoardPosition{X: e.Checkpoint.X, Y: e.Checkpoint.Y}, Magic: e.Magic,
+		}, nil
+	case query.MatchLapCompletedEvent:
+		return &model.MatchLapCompletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Magic: e.Magic}, nil
+	case query.MatchTurnEndedEvent:
+		return &model.MatchTurnEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant}, nil
+	case query.MatchEndedEvent:
+		reason, err := fromMatchEndReason(e.Reason)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Winners: e.Winners, Reason: reason}, nil
+	default:
+		return nil, fmt.Errorf("graphql: unknown match event: %T", event)
+	}
+}
+
+func fromMatchCard(card query.MatchCard) (*model.DeckCardInfo, error) {
+	cardType, err := fromCardType(card.Type)
+	if err != nil {
+		return nil, err
+	}
+	return &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}, nil
+}

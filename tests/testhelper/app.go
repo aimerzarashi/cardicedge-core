@@ -15,6 +15,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/wiring"
 )
 
+// 対戦の進みを送り直す間隔。本番（5 秒）では待てないので短くする
+const MatchProgressInterval = 300 * time.Millisecond
+
 // 結合テストの TestMain が、本番と同じ組み立て（internal/wiring）で起動したアプリ。studio・game の入口の両方を持つ
 // （入口ごとに組み立てを分けると、本番と違う組み立てでテストすることになるため）
 type App struct {
@@ -63,7 +66,7 @@ func (a *App) start(ctx context.Context) error {
 		return err
 	}
 	studioConfig := studio.Config{Verifier: studioVerifier, Issuer: idptest.Issuer}
-	gameConfig := game.Config{Verifier: gameVerifier, Issuer: idptest.GameIssuer}
+	gameConfig := game.Config{Verifier: gameVerifier, Issuer: idptest.GameIssuer, MatchProgressInterval: MatchProgressInterval}
 	// ポリシーの待てば直る失敗（マスタの公開前に登録した場合等）を短い間隔で確かめるため、やり直しの間隔を短くし、
 	// その分デッドレターにならないよう回数を増やす（本番の設定とは別）
 	eventDriven := eventdriven.Options{WorkerCount: 4, PollInterval: time.Second, RetryInterval: 100 * time.Millisecond, MaxFailures: 100}
@@ -85,6 +88,8 @@ func (a *App) start(ctx context.Context) error {
 	server := httptest.NewServer(app.Handler)
 	// HTTP を止めてから Hub を止める（cmd/app と同じ順）
 	a.cleanup = append(a.cleanup, server.Close)
+	// つないだままの Subscription を先に閉じる（httptest のサーバーは、つないでいる接続が終わるまで閉じられない）
+	a.cleanup = append(a.cleanup, app.CloseSubscriptions)
 	a.URL, a.StudioDB, a.GameDB, a.Key = server.URL, studioDB, gameDB, key
 	return nil
 }
