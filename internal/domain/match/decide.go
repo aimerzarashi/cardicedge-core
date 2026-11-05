@@ -196,8 +196,35 @@ func enterBase(r *recorder) error {
 		return nil
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Reason: EndReasonTargetMagic}
+		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Ranks: ranksWithWinner(r.state.Participants, by), Reason: EndReasonTargetMagic}
 	})
+}
+
+// 競技の順位（同じ魔力は同じ順位で、次は人数分あく。1, 2, 2, 4）。順位の決まりはここだけ
+func ranksByMagic(participants []ParticipantState) []int {
+	return ranksFrom(participants, 1, -1)
+}
+
+// 目標の魔力で終わったときは、勝った人が 1 位で、ほかの人は勝った人を除いて 2 位から
+// （勝った人と同じ魔力の人も 2 位以下にするため、ranksByMagic は使えない）
+func ranksWithWinner(participants []ParticipantState, winner ParticipantIndex) []int {
+	ranks := ranksFrom(participants, 2, winner.Int())
+	ranks[winner.Int()] = 1
+	return ranks
+}
+
+func ranksFrom(participants []ParticipantState, first int, skip int) []int {
+	ranks := make([]int, len(participants))
+	for i, participant := range participants {
+		rank := first
+		for j, other := range participants {
+			if j != skip && other.Magic > participant.Magic {
+				rank++
+			}
+		}
+		ranks[i] = rank
+	}
+	return ranks
 }
 
 func (m Match) allCheckpointsPassed(participant ParticipantState) bool {
@@ -225,7 +252,7 @@ func endTurn(r *recorder) error {
 			}
 		}
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Reason: EndReasonRoundLimit}
+			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Ranks: ranksByMagic(r.state.Participants), Reason: EndReasonRoundLimit}
 		})
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {

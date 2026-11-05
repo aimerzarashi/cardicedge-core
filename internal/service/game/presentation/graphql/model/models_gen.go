@@ -957,6 +957,8 @@ type MatchEndedEvent struct {
 	OccurredAt time.Time `json:"occurredAt"`
 	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
 	Winners []int `json:"winners"`
+	// 参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下
+	Ranks []int `json:"ranks"`
 	// 終わった理由
 	Reason MatchEndReason `json:"reason"`
 }
@@ -1077,6 +1079,8 @@ func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
 type MatchOutcome struct {
 	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
 	Winners []int `json:"winners"`
+	// 参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下
+	Ranks []int `json:"ranks"`
 	// 終わった理由
 	Reason MatchEndReason `json:"reason"`
 }

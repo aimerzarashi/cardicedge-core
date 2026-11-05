@@ -79,7 +79,9 @@ const (
 // 対戦の結果。勝者は魔力が同じならすべて（参加者の番号の昇順）
 type Result struct {
 	Winners []ParticipantIndex `json:"winners"`
-	Reason  EndReason          `json:"reason"`
+	// 参加者の番号（席の順）ごとの順位（1 始まり）。決め方は終わり方で違う（decide.go の ranksByMagic・ranksWithWinner）
+	Ranks  []int     `json:"ranks"`
+	Reason EndReason `json:"reason"`
 }
 
 // デッキのカード 1 種類。始めた時点のデッキの写し

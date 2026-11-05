@@ -48,6 +48,7 @@ const (
 // 対戦の結果。勝者は参加者の番号（Match.Participants の何番目か）
 type MatchOutcome struct {
 	Winners []int
+	Ranks   []int
 	Reason  MatchEndReason
 }
 
@@ -303,7 +304,7 @@ func fromMatchResult(result match.Result) (MatchOutcome, error) {
 	for i, winner := range result.Winners {
 		winners[i] = winner.Int()
 	}
-	return MatchOutcome{Winners: winners, Reason: reason}, nil
+	return MatchOutcome{Winners: winners, Ranks: slices.Clone(result.Ranks), Reason: reason}, nil
 }
 
 func fromBoardPositions(positions []board.Position) []BoardPosition {
