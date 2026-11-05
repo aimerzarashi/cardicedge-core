@@ -125,9 +125,7 @@ type LoadMatchNamesFunc func(ctx context.Context, avatarIDs, npcAvatarIDs, cardI
 // 対戦を、read model ではなくイベントストアから読み直した集約の状態から返す（対戦に read model を作らない。組み立ての決まりを 1 か所にするため）。
 // 参加者のプレイヤーだけが読める
 type MatchHandler struct {
-	eventStore domain.EventStore[match.ID, match.Event, match.State]
-	matches    domain.Identifier[match.ID]
-	players    domain.Identifier[player.ID]
+	access     *MatchAccess
 	entityRefs domain.EntityRefResolver
 	loadNames  LoadMatchNamesFunc
 }
@@ -139,29 +137,14 @@ func NewMatchHandler(
 	entityRefs domain.EntityRefResolver,
 	loadNames LoadMatchNamesFunc,
 ) *MatchHandler {
-	return &MatchHandler{eventStore: eventStore, matches: matches, players: players, entityRefs: entityRefs, loadNames: loadNames}
+	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players), entityRefs: entityRefs, loadNames: loadNames}
 }
 
 // 参加していない対戦も、無いのと同じ ErrMatchNotFound にする
 func (q *MatchHandler) Get(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (Match, error) {
-	id, err := q.matches.Resolve(ctx, matchID)
-	if errors.Is(err, domain.ErrEntityNotFound) {
-		return Match{}, ErrMatchNotFound
-	}
+	_, current, err := q.access.Open(ctx, playerID, matchID)
 	if err != nil {
 		return Match{}, err
-	}
-	viewer, err := q.players.Resolve(ctx, playerID)
-	if err != nil {
-		return Match{}, err
-	}
-	state, err := q.eventStore.Load(ctx, id)
-	if err != nil {
-		return Match{}, err
-	}
-	current, ok := state.(match.Match)
-	if !ok || !current.HasPlayer(viewer) {
-		return Match{}, ErrMatchNotFound
 	}
 	return q.build(ctx, matchID, current)
 }

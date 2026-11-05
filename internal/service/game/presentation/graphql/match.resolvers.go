@@ -117,3 +117,59 @@ func (r *queryResolver) Match(ctx context.Context, id uuid.UUID) (model.MatchRes
 	}
 	return fromQueryMatch(found)
 }
+
+// MatchEvents is the resolver for the matchEvents field.
+func (r *queryResolver) MatchEvents(ctx context.Context, id uuid.UUID, after int) (model.MatchEventsResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	me, err := r.players.Me(ctx)
+	if errors.Is(err, command.ErrPlayerNotRegistered) {
+		return &model.PlayerNotRegisteredError{Message: "player not registered"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	found, err := r.matchEvents.ListAfter(ctx, me.ID, id, int64(after))
+	if errors.Is(err, query.ErrMatchNotFound) {
+		return &model.MatchNotFoundError{Message: "match not found"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return fromQueryMatchEvents(found)
+}
+
+// MatchProgress is the resolver for the matchProgress field.
+func (r *subscriptionResolver) MatchProgress(ctx context.Context, id uuid.UUID) (<-chan model.MatchProgressResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return singleResult[model.MatchProgressResult](notRegistered), nil
+	}
+	me, err := r.players.Me(ctx)
+	if errors.Is(err, command.ErrPlayerNotRegistered) {
+		return singleResult[model.MatchProgressResult](&model.PlayerNotRegisteredError{Message: "player not registered"}), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	progress, err := r.matchProgress.Subscribe(ctx, me.ID, id)
+	if errors.Is(err, query.ErrMatchNotFound) {
+		return singleResult[model.MatchProgressResult](&model.MatchNotFoundError{Message: "match not found"}), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	// 型の変換を挟むのは、配り役が application の型で送るため（presentation の型を application に持たせない）
+	results := make(chan model.MatchProgressResult)
+	go func() {
+		defer close(results)
+		for p := range progress {
+			select {
+			case results <- &model.MatchProgress{ID: p.ID, Revision: int(p.Revision), OccurredAt: p.OccurredAt}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return results, nil
+}

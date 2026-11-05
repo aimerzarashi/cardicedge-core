@@ -56,6 +56,7 @@ type Config struct {
 type App struct {
 	Handler http.Handler
 	hubs    []*eventdriven.Hub
+	game    *game.Game
 }
 
 // HTTP の入口を返す前に LISTEN を張る（コマンドが commit したイベントの知らせを受け取るため）。
@@ -96,7 +97,7 @@ func Start(ctx context.Context, config Config) (*App, error) {
 	mux := NewRouter(config.Version)
 	studioPrepared.studio.Mount(mux, config.StudioDB)
 	gamePrepared.game.Mount(mux, config.GameDB)
-	return &App{Handler: telemetry.HTTP(mux), hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}}, nil
+	return &App{Handler: telemetry.HTTP(mux), hubs: []*eventdriven.Hub{studioPrepared.hub, gamePrepared.hub}, game: gamePrepared.game}, nil
 }
 
 type prepared struct {
@@ -140,6 +141,9 @@ func prepareGame(ctx context.Context, config Config) (prepared, error) {
 		return prepared{}, err
 	}
 	if err := gameParts.RegisterProjections(hub); err != nil {
+		return prepared{}, err
+	}
+	if err := gameParts.RegisterWatchers(hub); err != nil {
 		return prepared{}, err
 	}
 	if err := hub.Sync(ctx); err != nil {
@@ -186,6 +190,12 @@ func syncTypes(ctx context.Context) (*domaindef.Registry, error) {
 		return nil, fmt.Errorf("quota types do not match catalog: %w", err)
 	}
 	return registry, nil
+}
+
+// つないでいる Subscription を閉じる。HTTP を止めるとき先に呼ぶ（http.Server.Shutdown はつなぎっぱなしの接続が終わるまで待つため、
+// 閉じないとシャットダウンの時間を使い切る）。続けて Stop を呼ぶ
+func (a *App) CloseSubscriptions() {
+	a.game.CloseSubscriptions()
 }
 
 // HTTP を止めた後に呼ぶ

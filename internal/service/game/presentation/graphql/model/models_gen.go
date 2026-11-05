@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -97,6 +98,26 @@ type FieldError interface {
 // ゲーム全体のルールの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type GameRulesResult interface {
 	IsGameRulesResult()
+}
+
+// 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
+// 誰が（participant）は Match.participants の何番目か
+type MatchEvent interface {
+	IsMatchEvent()
+	// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+	GetRevision() int
+	// 起きた時刻
+	GetOccurredAt() time.Time
+}
+
+// 対戦のイベントの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchEventsResult interface {
+	IsMatchEventsResult()
+}
+
+// 対戦の進みの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchProgressResult interface {
+	IsMatchProgressResult()
 }
 
 // 対戦の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
@@ -812,6 +833,208 @@ type MatchBoard struct {
 	Pairs []*BoardTilePair `json:"pairs"`
 }
 
+// 手札を 1 枚捨てた
+type MatchCardDiscardedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 捨てた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 捨てた手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 捨てたカード
+	Card *DeckCardInfo `json:"card"`
+}
+
+func (MatchCardDiscardedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCardDiscardedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCardDiscardedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// カードを引いた
+type MatchCardDrawnEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 引いた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 引いたカード
+	Card *DeckCardInfo `json:"card"`
+}
+
+func (MatchCardDrawnEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCardDrawnEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// まだ印の無いチェックポイントに入り、印を付けて魔力が増えた
+type MatchCheckpointPassedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 通った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 印を付けたチェックポイントの位置
+	Checkpoint *BoardPosition `json:"checkpoint"`
+	// 増えた魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchCheckpointPassedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCheckpointPassedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCheckpointPassedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 対戦が始まった（参加者・盤面・ルールは match で読む）
+type MatchCreatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchCreatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 山札が混ざった（並びは見せないので、項目を持たない）
+type MatchDecksShuffledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchDecksShuffledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDecksShuffledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// サイコロを振った
+type MatchDiceRolledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 振った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 出た目
+	Value int `json:"value"`
+}
+
+func (MatchDiceRolledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDiceRolledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDiceRolledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 対戦が終わった
+type MatchEndedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
+	Winners []int `json:"winners"`
+	// 終わった理由
+	Reason MatchEndReason `json:"reason"`
+}
+
+func (MatchEndedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchEndedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 指した版より後の対戦のイベント
+type MatchEventList struct {
+	// 古い順にすべて（対戦の長さはラウンドの上限で決まるので、ページ分けしない）
+	Events []MatchEvent `json:"events"`
+}
+
+func (MatchEventList) IsMatchEventsResult() {}
+
+// 全員に手札が配られた
+type MatchHandsDealtEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 全員に配った枚数（山札が足りなければ、ある分だけ）
+	Cards int `json:"cards"`
+}
+
+func (MatchHandsDealtEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchHandsDealtEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchHandsDealtEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
+type MatchLapCompletedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 周回を終えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 増えた魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchLapCompletedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchLapCompletedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 1 マス進んだ
+type MatchMovedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 進んだ参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 入ったマスの位置
+	To *BoardPosition `json:"to"`
+}
+
+func (MatchMovedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchMovedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchMovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
 // 自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）
 type MatchNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -829,6 +1052,10 @@ func (MatchNotFoundError) IsRollMatchDiceResult() {}
 func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
+
+func (MatchNotFoundError) IsMatchProgressResult() {}
+
+func (MatchNotFoundError) IsMatchEventsResult() {}
 
 // 今の番の参加者ではない（NPC の番も含む）
 type MatchNotYourTurnError struct {
@@ -915,6 +1142,19 @@ type MatchPlayRules struct {
 	StartingHandCards int `json:"startingHandCards"`
 }
 
+// 対戦の進み。画面は手元の版（revision）と比べ、進んでいれば matchEvents で差分を、match で今の状態を読む。
+// 版だけを送るのは、見せてよいものの絞り込みを query の側だけで行うため
+type MatchProgress struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 対戦の最新の版（Match.revision と同じ。抜けなく 1 から続く）
+	Revision int `json:"revision"`
+	// その版のイベントの起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchProgress) IsMatchProgressResult() {}
+
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
 type MatchRules struct {
 	// 対戦に参加できる人数の下限（この値を含む）
@@ -926,6 +1166,42 @@ type MatchRules struct {
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
 }
+
+// ターンを終えた
+type MatchTurnEndedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// ターンを終えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchTurnEndedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTurnEndedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTurnEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 順番が決まった
+type MatchTurnOrderDecidedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 参加者の番号（Match.participants の何番目か）を、順番の早い順に並べたもの
+	Order []int `json:"order"`
+}
+
+func (MatchTurnOrderDecidedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTurnOrderDecidedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTurnOrderDecidedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 type Mutation struct {
 }
@@ -1037,6 +1313,10 @@ func (PlayerNotRegisteredError) IsRollMatchDiceResult() {}
 func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
 
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
+
+func (PlayerNotRegisteredError) IsMatchProgressResult() {}
+
+func (PlayerNotRegisteredError) IsMatchEventsResult() {}
 
 func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
 
@@ -1410,6 +1690,9 @@ func (this ShrineTile) GetX() int { return this.X }
 
 // 行
 func (this ShrineTile) GetY() int { return this.Y }
+
+type Subscription struct {
+}
 
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {

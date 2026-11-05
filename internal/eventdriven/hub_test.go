@@ -658,3 +658,52 @@ func TestHub_ProjectionSpanRecordsFailure(t *testing.T) {
 	assert.Equal(t, codes.Error, span.Status().Code)
 	assert.NotEmpty(t, span.Events())
 }
+
+// 見る口は、投影とは別に、知らせた EventRef をそのまま受け取る（commit したイベントの知らせが Listener から届く）
+func TestHub_WatchReceivesNotificationsOfItsEntityType(t *testing.T) {
+	f := newHubFixture(t, testOptions(1))
+	watched := make(chan eventdriven.EventRef, 1)
+	require.NoError(t, f.hub.Watch(operator.Types().EntityType, func(ref eventdriven.EventRef) { watched <- ref }))
+	f.start(t)
+
+	id := f.register(t)
+
+	select {
+	case ref := <-watched:
+		require.Equal(t, id.Int64(), ref.EntityID)
+		require.Equal(t, int64(1), ref.AggregateVersion)
+	case <-time.After(receiveTimeout):
+		require.Fail(t, "watcher was not called")
+	}
+}
+
+func TestHub_WatchIsNotCalledForOtherEntityTypes(t *testing.T) {
+	f := newHubFixture(t, testOptions(1))
+	called := false
+	require.NoError(t, f.hub.Watch(operator.Types().EntityType, func(eventdriven.EventRef) { called = true }))
+
+	f.hub.HandleEvent(eventdriven.EventRef{EntityTypeID: domaindef.NewEntityTypeID(32000), EntityID: 1, AggregateVersion: 1})
+
+	require.False(t, called)
+}
+
+// 見る側の誤りで受信が止まらないこと（止まると全種別の知らせが止まる）
+func TestHub_WatchPanicDoesNotStopHandlingEvents(t *testing.T) {
+	f := newHubFixture(t, testOptions(1))
+	called := 0
+	require.NoError(t, f.hub.Watch(operator.Types().EntityType, func(eventdriven.EventRef) { called++; panic("boom") }))
+
+	require.NotPanics(t, func() { f.notify(t, 9001) })
+	require.NotPanics(t, func() { f.notify(t, 9002) })
+
+	require.Equal(t, 2, called)
+}
+
+func TestHub_RejectsWatchAfterStart(t *testing.T) {
+	f := newHubFixture(t, testOptions(1))
+	f.start(t)
+
+	err := f.hub.Watch(operator.Types().EntityType, func(eventdriven.EventRef) {})
+
+	require.ErrorContains(t, err, "after Start")
+}

@@ -7,8 +7,13 @@ type Query
 
 type Mutation
 
+type Subscription
+
 "公開用の ID（UUID の文字列）。core の内部の ID は返さない"
 scalar UUID
+
+"日時（RFC 3339 の文字列。例: 2026-10-17T09:00:00Z）"
+scalar DateTime
 
 # 入力の誤り。理由ごとに型を分け、その理由に要る値だけを必須で持つ（理由によって null になる項目を作らないため）。
 # 文言は返さない（言い回し・項目の呼び方は画面の都合なので、game が __typename と値から作る）

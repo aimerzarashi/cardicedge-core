@@ -22,6 +22,9 @@ models:
   UUID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID
+  DateTime:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
   # starterGrant は resolver で返す（read model players から、返すときに読むため）
   Player:
     fields:

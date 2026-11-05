@@ -278,3 +278,245 @@ func assertOperationsAreRejected(t *testing.T, token, strangerToken, matchID str
 		require.Equal(t, "MatchPhaseNotAllowedError", unselectable["__typename"])
 	}
 }
+
+const matchProgressSubscription = `subscription ($id: UUID!) {
+	matchProgress(id: $id) {
+		__typename
+		... on MatchProgress { id revision occurredAt }
+		... on MatchNotFoundError { message }
+		... on PlayerNotRegisteredError { message }
+	}
+}`
+
+const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
+	matchEvents(id: $id, after: $after) {
+		__typename
+		... on MatchEventList {
+			events {
+				__typename revision occurredAt
+				... on MatchTurnOrderDecidedEvent { order }
+				... on MatchHandsDealtEvent { cards }
+				... on MatchCardDrawnEvent { participant card { id name type } }
+				... on MatchCardDiscardedEvent { participant handIndex card { id name type } }
+				... on MatchDiceRolledEvent { participant value }
+				... on MatchMovedEvent { participant to { x y } }
+				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
+				... on MatchLapCompletedEvent { participant magic }
+				... on MatchTurnEndedEvent { participant }
+				... on MatchEndedEvent { winners reason }
+			}
+		}
+		... on MatchNotFoundError { message }
+		... on PlayerNotRegisteredError { message }
+	}
+}`
+
+func matchEvents(t *testing.T, token, matchID string, after int) map[string]any {
+	t.Helper()
+	return client.Data(t, token, matchEventsQuery, map[string]any{"id": matchID, "after": after}, "matchEvents")
+}
+
+// 自分の番まで進める（NPC が先なら、その番が済むのを待つ）
+func waitMyTurn(t *testing.T, token, matchID string) map[string]any {
+	t.Helper()
+	return waitMatch(t, token, matchID, func(m map[string]any) bool { return m["currentParticipant"] == float64(0) })
+}
+
+// つないだ直後に今の版が届き、プレイヤーの操作で版が進めばすぐ届き、変わらなくても間隔ごとに届く
+func TestMatchProgress_SendsTheCurrentRevisionThenEachAdvanceAndRepeatsWhenUnchanged(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, nil)
+	before := waitMyTurn(t, p.token, matchID)
+	stream := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
+
+	first := stream.Next(t, "matchProgress")
+	repeated := stream.Next(t, "matchProgress")
+	next := matchRevision(t, matchOperation(t, p.token, "drawMatchCard", map[string]any{"id": matchID, "revision": before["revision"]}), "drawMatchCard")
+	// 操作の前に送り直された分は、まだ古い版
+	var advanced map[string]any
+	for {
+		advanced = stream.Next(t, "matchProgress")
+		if advanced["revision"] == float64(next) {
+			break
+		}
+		require.Equal(t, before["revision"], advanced["revision"])
+	}
+
+	require.Equal(t, "MatchProgress", first["__typename"])
+	require.Equal(t, matchID, first["id"])
+	require.Equal(t, before["revision"], first["revision"])
+	require.NotEmpty(t, first["occurredAt"])
+	require.Equal(t, first, repeated)
+	require.Equal(t, matchID, advanced["id"])
+	require.NotEqual(t, first["occurredAt"], advanced["occurredAt"])
+}
+
+// 参加していない・無い対戦は、MatchNotFoundError を 1 回送って閉じる
+func TestMatchProgress_SendsMatchNotFoundOnceAndClosesForNonParticipantsAndUnknownMatches(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, nil)
+	stranger := newPlayerToken(t)
+	registerPlayer(t, stranger)
+	tests := []struct {
+		name  string
+		token string
+		id    string
+	}{
+		{name: "not_a_participant", token: stranger, id: matchID},
+		{name: "unknown_match", token: p.token, id: "00000000-0000-4000-8000-000000000000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := client.Subscribe(t, tt.token, matchProgressSubscription, map[string]any{"id": tt.id})
+
+			result := stream.Next(t, "matchProgress")
+
+			require.Equal(t, "MatchNotFoundError", result["__typename"])
+			stream.RequireCompleted(t)
+		})
+	}
+}
+
+func TestMatchProgress_RejectsConnectionsWithoutAValidToken(t *testing.T) {
+	t.Parallel()
+
+	status, stream, err := client.SubscribeTry(t.Context(), "", matchProgressSubscription, map[string]any{"id": "00000000-0000-4000-8000-000000000000"})
+
+	require.NoError(t, err)
+	require.Equal(t, 401, status)
+	require.Nil(t, stream)
+}
+
+// 終わった版を送ってから閉じる。つないだままの購読も、終わった後につないだ購読も同じ
+func TestMatchProgress_SendsTheEndedRevisionAndClosesWhenTheMatchEnds(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 1 })
+	live := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
+	live.Next(t, "matchProgress")
+
+	for step := 0; ; step++ {
+		require.Less(t, step, 300)
+		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
+			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+		})
+		if m["phase"] == "ENDED" {
+			break
+		}
+		playMatchPhase(t, p.token, matchID, m)
+	}
+	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+
+	var last map[string]any
+	for {
+		next := live.Next(t, "matchProgress")
+		if last != nil {
+			require.GreaterOrEqual(t, next["revision"], last["revision"])
+		}
+		last = next
+		if last["revision"] == final["revision"] {
+			break
+		}
+	}
+	live.RequireCompleted(t)
+	late := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
+	lateFirst := late.Next(t, "matchProgress")
+	late.RequireCompleted(t)
+	require.Equal(t, final["revision"], lateFirst["revision"])
+}
+
+// 手元の版より後のイベントだけが古い順に読め、誰が（参加者の番号）と引いたカードが付く。参加していない人は読めない
+func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, nil)
+	before := waitMyTurn(t, p.token, matchID)
+	revision := int(before["revision"].(float64))
+	stranger := newPlayerToken(t)
+	registerPlayer(t, stranger)
+
+	all := matchEvents(t, p.token, matchID, 0)
+	next := matchRevision(t, matchOperation(t, p.token, "drawMatchCard", map[string]any{"id": matchID, "revision": revision}), "drawMatchCard")
+	after := matchEvents(t, p.token, matchID, revision)
+	hidden := matchEvents(t, stranger, matchID, 0)
+	nothing := matchEvents(t, p.token, matchID, next)
+
+	events := all["events"].([]any)
+	require.GreaterOrEqual(t, len(events), 4)
+	// 始まりの 4 つ（版は 1 から抜けなく続く）
+	for i, name := range []string{"MatchCreatedEvent", "MatchTurnOrderDecidedEvent", "MatchDecksShuffledEvent", "MatchHandsDealtEvent"} {
+		event := events[i].(map[string]any)
+		require.Equal(t, name, event["__typename"])
+		require.Equal(t, float64(i+1), event["revision"])
+		require.NotEmpty(t, event["occurredAt"])
+	}
+	require.ElementsMatch(t, []any{float64(0), float64(1)}, events[1].(map[string]any)["order"])
+	require.Equal(t, float64(5), events[3].(map[string]any)["cards"])
+	for i, event := range events {
+		require.Equal(t, float64(i+1), event.(map[string]any)["revision"])
+	}
+
+	require.Equal(t, "MatchEventList", after["__typename"])
+	drawn := after["events"].([]any)
+	require.Len(t, drawn, 1)
+	event := drawn[0].(map[string]any)
+	require.Equal(t, "MatchCardDrawnEvent", event["__typename"])
+	require.Equal(t, float64(next), event["revision"])
+	require.Equal(t, float64(0), event["participant"])
+	card := event["card"].(map[string]any)
+	require.NotEmpty(t, card["id"])
+	require.NotEmpty(t, card["name"])
+	require.NotEmpty(t, card["type"])
+	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
+	require.Empty(t, nothing["events"])
+}
+
+// 山札の並びは見せない（イベントの型が項目を持たないので、読もうとすると問い合わせが検証で断られる）
+func TestMatchEvents_DecksShuffledEventHasNoFieldsToShow(t *testing.T) {
+	t.Parallel()
+	token := newPlayerToken(t)
+	registerPlayer(t, token)
+
+	status, body := client.Post(t, token, `query ($id: UUID!) {
+		matchEvents(id: $id, after: 0) { ... on MatchEventList { events { ... on MatchDecksShuffledEvent { drawPiles } } } }
+	}`, map[string]any{"id": "00000000-0000-4000-8000-000000000000"})
+
+	require.Equal(t, 422, status)
+	require.Contains(t, body["errors"].([]any)[0].(map[string]any)["message"], "drawPiles")
+}
+
+// ターンのイベントは操作した参加者を持ち、NPC の番の分は NPC の番号になる
+func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 1 })
+	for step := 0; ; step++ {
+		require.Less(t, step, 300)
+		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
+			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+		})
+		if m["phase"] == "ENDED" {
+			break
+		}
+		playMatchPhase(t, p.token, matchID, m)
+	}
+
+	events := matchEvents(t, p.token, matchID, 0)["events"].([]any)
+
+	actors := map[any]int{}
+	var last map[string]any
+	for _, raw := range events {
+		event := raw.(map[string]any)
+		if participant, ok := event["participant"]; ok {
+			actors[participant]++
+		}
+		last = event
+	}
+	// プレイヤー（0）も NPC（1）もターンを行っている
+	require.Positive(t, actors[float64(0)])
+	require.Positive(t, actors[float64(1)])
+	require.Equal(t, "MatchEndedEvent", last["__typename"])
+	require.Equal(t, "ROUND_LIMIT", last["reason"])
+}
