@@ -1,6 +1,9 @@
 package match
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 type Command interface {
 	isMatchCommand()
@@ -49,3 +52,13 @@ type EndTurnCommand struct {
 }
 
 func (*EndTurnCommand) isMatchCommand() {}
+
+// 終わった後に、プレイヤーが戦利品のパックを選ぶ。番は無い（全員が同時に選べる）。
+// 候補はそのときの公開中のカード（呼ぶ側が読んで渡す。始めるときに一覧を写さないため）
+type ChooseRewardPackCommand struct {
+	By         ParticipantIndex
+	Pack       PackKey
+	Candidates []card.Ref
+}
+
+func (*ChooseRewardPackCommand) isMatchCommand() {}

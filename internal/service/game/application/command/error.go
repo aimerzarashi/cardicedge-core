@@ -49,6 +49,8 @@ var (
 	ErrMatchNotYourTurn = errors.New("command: not your turn")
 	// 今の段階ではできない操作
 	ErrMatchPhaseNotAllowed = errors.New("command: match phase not allowed")
+	// 戦利品のパックはもう選んで受け取った
+	ErrMatchRewardAlreadyReceived = errors.New("command: match reward already received")
 )
 
 // スターターの配布を始めるときに、マスタが game に公開されていない。待てば直る失敗（公開すれば直る）なので、

@@ -26,6 +26,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
 	case *EndTurnCommand:
 		return playTurn(state, c.By, PhaseEnding, now, endTurn)
+	case *ChooseRewardPackCommand:
+		return chooseRewardPack(state, c, now, random)
 	default:
 		return nil, ErrInvalidState
 	}
@@ -258,4 +260,46 @@ func endTurn(r *recorder) error {
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TurnEndedEvent{EventMeta: meta, Participant: by}
 	})
+}
+
+// 終わった後のプレイヤーが 1 回だけ、順位の枚数を候補から重ならずに引く。受け取り済みを先に断るのは、引き直しで結果を変えられないため。
+// 引き方はパックのルールで決める。今は既定のパック（等しい出やすさ）だけで、種類・属性ごとの出やすさは、パックのマスタを作るときにここへ足す
+func chooseRewardPack(state State, c *ChooseRewardPackCommand, now time.Time, random Random) ([]Event, error) {
+	current, ok := state.(Match)
+	if !ok {
+		return nil, ErrInvalidState
+	}
+	if current.Phase != PhaseEnded {
+		return nil, ErrPhaseNotAllowed
+	}
+	if current.Result == nil || len(current.Result.Ranks) != len(current.Participants) || len(current.Rules.RewardCardsByRank) == 0 || int(c.By) >= len(current.Participants) {
+		return nil, ErrInvalidState
+	}
+	participant := current.Participants[c.By]
+	switch {
+	case participant.Participant.Player == nil:
+		return nil, ErrRewardNotForNPC
+	case participant.Reward != nil:
+		return nil, ErrRewardAlreadyReceived
+	case !current.Rules.hasRewardPack(c.Pack):
+		return nil, ErrRewardPackNotAvailable
+	}
+	pool := slices.Clone(c.Candidates)
+	slices.SortFunc(pool, card.Ref.Compare)
+	pool = slices.Compact(pool)
+	random.Shuffle(len(pool), func(a, b int) { pool[a], pool[b] = pool[b], pool[a] })
+	drawn := make([]card.Ref, min(current.Rules.rewardCards(current.Result.Ranks[c.By]), len(pool)))
+	copy(drawn, pool)
+	meta := func(version int64) EventMeta {
+		return EventMeta{EntityID: current.ID, AggregateVersion: version, OccurredAt: now}
+	}
+	events := []Event{&RewardDrawnEvent{EventMeta: meta(current.Version + 1), Participant: c.By, Pack: c.Pack, Cards: drawn}}
+	next, err := Evolve(current, events[0])
+	if err != nil {
+		return nil, err
+	}
+	if next.(Match).allPlayersRewarded() {
+		events = append(events, &RewardsCompletedEvent{EventMeta: meta(current.Version + 2)})
+	}
+	return events, nil
 }

@@ -1,13 +1,21 @@
 package game_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
@@ -18,9 +26,9 @@ const matchQuery = `query ($id: UUID!) {
 			id revision round
 			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder passedCheckpoints { x y } }
+			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { id name type } }
 			currentParticipant
-			phase dice remainingSteps pathChoices { x y } outcome { winners ranks reason }
+			phase dice remainingSteps pathChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
 		}
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
@@ -121,6 +129,10 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(0), found["remainingSteps"])
 	require.Empty(t, found["pathChoices"])
 	require.Nil(t, found["outcome"])
+	// 戦利品は終わるまで受け取れない
+	require.Equal(t, false, player["rewardReceived"])
+	require.Empty(t, player["rewardCards"])
+	require.Empty(t, found["rewardPacks"])
 	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
 }
 
@@ -143,8 +155,13 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
+	}
+	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
+	notYourTurn, alreadyReceived := "... on MatchNotYourTurnError { message }", ""
+	if name == "chooseMatchRewardPack" {
+		notYourTurn, alreadyReceived = "", "... on MatchRewardAlreadyReceivedError { message }"
 	}
 	return fmt.Sprintf(`mutation ($input: %sInput!) {
 		%s(input: $input) {
@@ -152,12 +169,13 @@ func matchOperationQuery(name string) string {
 			... on %sSuccess { id revision }
 			%s
 			... on MatchNotFoundError { message }
-			... on MatchNotYourTurnError { message }
+			%s
 			... on MatchPhaseNotAllowedError { message }
+			%s
 			... on RevisionConflictError { message }
 			... on PlayerNotRegisteredError { message }
 		}
-	}`, upper, name, upper, validation)
+	}`, upper, name, upper, validation, notYourTurn, alreadyReceived)
 }
 
 func matchOperation(t *testing.T, token, name string, input map[string]any) map[string]any {
@@ -317,6 +335,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchLapCompletedEvent { participant magic }
 				... on MatchTurnEndedEvent { participant }
 				... on MatchEndedEvent { winners ranks reason }
+				... on MatchRewardDrawnEvent { participant pack rewardCards { id name type } }
 			}
 		}
 		... on MatchNotFoundError { message }
@@ -402,42 +421,129 @@ func TestMatchProgress_RejectsConnectionsWithoutAValidToken(t *testing.T) {
 	require.Nil(t, stream)
 }
 
-// 終わった版を送ってから閉じる。つないだままの購読も、終わった後につないだ購読も同じ
-func TestMatchProgress_SendsTheEndedRevisionAndClosesWhenTheMatchEnds(t *testing.T) {
+// 対戦が終わっただけでは閉じず、全員（プレイヤー）が戦利品を受け取った版を送ってから閉じる。つないだままの購読も、受け取った後につないだ購読も同じ
+func TestMatchProgress_ClosesAfterSendingTheRevisionWhereEveryPlayerReceivedTheReward(t *testing.T) {
 	t.Parallel()
 	p := newRoomPlayer(t)
 	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 1 })
 	live := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
 	live.Next(t, "matchProgress")
 
+	ended := playUntilEnded(t, p, matchID)
+	var last map[string]any
+	for last == nil || last["revision"] != ended["revision"] {
+		next := live.Next(t, "matchProgress")
+		if last != nil {
+			require.GreaterOrEqual(t, next["revision"], last["revision"])
+		}
+		last = next
+	}
+	// 終わっても、受け取るまでは閉じない
+	require.Equal(t, "MatchPhaseNotAllowedError", matchOperation(t, p.token, "endMatchTurn", map[string]any{"id": matchID, "revision": ended["revision"]})["__typename"])
+	rewarded := matchRevision(t, matchOperation(t, p.token, "chooseMatchRewardPack", map[string]any{"id": matchID, "revision": ended["revision"], "pack": "default"}), "chooseMatchRewardPack")
+	for {
+		next := live.Next(t, "matchProgress")
+		if int(next["revision"].(float64)) == rewarded {
+			break
+		}
+		require.Less(t, int(next["revision"].(float64)), rewarded)
+	}
+	live.RequireCompleted(t)
+	late := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
+	lateFirst := late.Next(t, "matchProgress")
+	late.RequireCompleted(t)
+	require.Equal(t, float64(rewarded), lateFirst["revision"])
+}
+
+// 終わるまで進める（プレイヤーの番は GraphQL の操作、NPC の番はポリシー）。終わった対戦の状態を返す
+func playUntilEnded(t *testing.T, p roomPlayer, matchID string) map[string]any {
+	t.Helper()
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
 			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
-			break
+			return m
 		}
 		playMatchPhase(t, p.token, matchID, m)
 	}
-	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+}
 
-	var last map[string]any
-	for {
-		next := live.Next(t, "matchProgress")
-		if last != nil {
-			require.GreaterOrEqual(t, next["revision"], last["revision"])
-		}
-		last = next
-		if last["revision"] == final["revision"] {
-			break
-		}
+// 終わった後にパックを選ぶと、順位の枚数のカードが重ならずに対戦に残り、ポリシーが所持品に出どころつきで足す。1 回だけ選べる
+func TestMatch_PlayerChoosesRewardPackAfterTheMatchAndReceivesTheCardsInTheCollection(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 1 })
+	ended := playUntilEnded(t, p, matchID)
+	revision := int(ended["revision"].(float64))
+	rank := int(ended["outcome"].(map[string]any)["ranks"].([]any)[0].(float64))
+	wantCards := min([]int{3, 2, 1, 1}[min(rank, 4)-1], 3)
+	require.Equal(t, []any{map[string]any{"key": "default", "name": "通常パック"}}, ended["rewardPacks"])
+
+	unknown := matchOperation(t, p.token, "chooseMatchRewardPack", map[string]any{"id": matchID, "revision": revision, "pack": "unknown"})
+	chosen := matchOperation(t, p.token, "chooseMatchRewardPack", map[string]any{"id": matchID, "revision": revision, "pack": "default"})
+	next := matchRevision(t, chosen, "chooseMatchRewardPack")
+	again := matchOperation(t, p.token, "chooseMatchRewardPack", map[string]any{"id": matchID, "revision": next, "pack": "default"})
+	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return int(m["revision"].(float64)) == next })
+
+	require.Equal(t, "ValidationErrors", unknown["__typename"])
+	require.Equal(t, "FieldNotFound", unknown["errors"].([]any)[0].(map[string]any)["__typename"])
+	require.Equal(t, "pack", unknown["errors"].([]any)[0].(map[string]any)["field"])
+	require.Equal(t, "MatchRewardAlreadyReceivedError", again["__typename"])
+	// 受け取り済みの後は、選べるパックが出ない。段階は終わったまま
+	require.Equal(t, "ENDED", final["phase"])
+	require.Empty(t, final["rewardPacks"])
+	player := final["participants"].([]any)[0].(map[string]any)
+	npc := final["participants"].([]any)[1].(map[string]any)
+	require.Equal(t, true, player["rewardReceived"])
+	require.Equal(t, false, npc["rewardReceived"])
+	require.Empty(t, npc["rewardCards"])
+	cards := player["rewardCards"].([]any)
+	require.Len(t, cards, wantCards)
+	ids := map[any]bool{}
+	for _, c := range cards {
+		ids[c.(map[string]any)["id"]] = true
 	}
-	live.RequireCompleted(t)
-	late := client.Subscribe(t, p.token, matchProgressSubscription, map[string]any{"id": matchID})
-	lateFirst := late.Next(t, "matchProgress")
-	late.RequireCompleted(t)
-	require.Equal(t, final["revision"], lateFirst["revision"])
+	require.Len(t, ids, wantCards)
+
+	events := matchEvents(t, p.token, matchID, revision)["events"].([]any)
+	require.Len(t, events, 2)
+	drawn := events[0].(map[string]any)
+	require.Equal(t, "MatchRewardDrawnEvent", drawn["__typename"])
+	require.Equal(t, float64(0), drawn["participant"])
+	require.Equal(t, "default", drawn["pack"])
+	require.Len(t, drawn["rewardCards"], wantCards)
+	require.Equal(t, "MatchRewardsCompletedEvent", events[1].(map[string]any)["__typename"])
+
+	requireCollectionReceived(t, p, matchID, wantCards)
+}
+
+// 所持品に、この対戦の戦利品が出どころつきで 1 回だけ足されている（ポリシーの処理を待つ）
+func requireCollectionReceived(t *testing.T, p roomPlayer, matchID string, wantCards int) {
+	t.Helper()
+	ctx := rdb.WithDB(t.Context(), gameDB)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	playerID := resolvePlayer(t, gameDB, p.playerID)
+	collectionID, err := collection.NewID(constrainttest.Owner(t, ctx, collection.PlayerKey(playerID)))
+	require.NoError(t, err)
+	matchInternalID, err := identifier.New(registry, match.NewID).Resolve(ctx, uuid.MustParse(matchID))
+	require.NoError(t, err)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		var raw []byte
+		err := gameDB.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 2`, collectionID.Int64()).Scan(&raw)
+		if !assert.NoError(c, err) {
+			return
+		}
+		var acquired collection.CardsAcquiredEvent
+		assert.NoError(c, json.Unmarshal(raw, &acquired))
+		assert.Equal(c, collection.NewMatchRewardSource(matchInternalID), acquired.Source)
+		assert.Len(c, acquired.Cards, wantCards)
+	})
+	var count int
+	require.NoError(t, gameDB.QueryRowContext(ctx, `SELECT count(*) FROM domain_events WHERE entity_id = $1`, collectionID.Int64()).Scan(&count))
+	require.Equal(t, 2, count)
 }
 
 // 手元の版より後のイベントだけが古い順に読め、誰が（参加者の番号）と引いたカードが付く。参加していない人は読めない

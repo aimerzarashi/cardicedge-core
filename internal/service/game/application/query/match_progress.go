@@ -20,11 +20,11 @@ type MatchProgress struct {
 	OccurredAt time.Time
 }
 
-// 対戦の最新のイベント。Ended は、それが対戦の終わりか
+// 対戦の最新のイベント。RewardsCompleted は、それが全員の戦利品の受け取りが済んだ（対戦の流れの終わり）か
 type MatchHead struct {
-	Revision   int64
-	OccurredAt time.Time
-	Ended      bool
+	Revision         int64
+	OccurredAt       time.Time
+	RewardsCompleted bool
 }
 
 // DB から対戦の最新のイベントを読み直す。通知を待たずに読むので、通知の取りこぼしを埋められる
@@ -61,7 +61,7 @@ type matchProgressSubscriber struct {
 }
 
 // 参加していない・無い対戦は ErrMatchNotFound。返したチャネルへ、つないだ直後に今の版を、その後は進むたびと interval ごとに送る。
-// 対戦が終わったら、終わった版を送ってから閉じる。ctx が終わるか配り役を閉じても閉じる。
+// 全員が戦利品を受け取り終えたら、その版を送ってから閉じる。ctx が終わるか配り役を閉じても閉じる。
 // 受け手は、チャネルが閉じるまで読み続けること（読まなくなると送る側が待つので、ctx を取り消して止める）
 func (b *MatchProgressBroker) Subscribe(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (<-chan MatchProgress, error) {
 	id, err := b.authorize(ctx, playerID, matchID)
@@ -116,7 +116,7 @@ func (b *MatchProgressBroker) serve(ctx context.Context, id match.ID, matchID uu
 				return
 			}
 		}
-		if head.Ended {
+		if head.RewardsCompleted {
 			return
 		}
 		timer.Reset(b.interval)

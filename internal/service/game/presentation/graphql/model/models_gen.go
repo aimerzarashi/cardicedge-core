@@ -53,6 +53,11 @@ type ChooseMatchPathResult interface {
 	IsChooseMatchPathResult()
 }
 
+// chooseMatchRewardPack の結果（ENDED の段階の、まだ受け取っていないプレイヤーだけ。番は問わない。終わっていなければ MatchPhaseNotAllowedError、受け取り済みなら MatchRewardAlreadyReceivedError。参加していない対戦は MatchNotFoundError）
+type ChooseMatchRewardPackResult interface {
+	IsChooseMatchRewardPackResult()
+}
+
 // closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError。対戦が終わった後の部屋の動きは先の候補）
 type CloseRoomResult interface {
 	IsCloseRoomResult()
@@ -493,6 +498,26 @@ type ChooseMatchPathSuccess struct {
 
 func (ChooseMatchPathSuccess) IsChooseMatchPathResult() {}
 
+// 戦利品のパックを選ぶ入力
+type ChooseMatchRewardPackInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 選ぶパックのキー（Match.rewardPacks の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）
+	Pack string `json:"pack"`
+}
+
+// 戦利品のパックを選んでカードを引いた（成功したら対戦の revision が進む。カードは Match.participants の rewardCards で読み、所持品へはポリシーが足す）
+type ChooseMatchRewardPackSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (ChooseMatchRewardPackSuccess) IsChooseMatchRewardPackResult() {}
+
 // 部屋を閉じる入力
 type CloseRoomInput struct {
 	// 部屋の公開用の ID
@@ -806,6 +831,8 @@ type Match struct {
 	PathChoices []*BoardPosition `json:"pathChoices"`
 	// 対戦の結果（終わるまでは null）
 	Outcome *MatchOutcome `json:"outcome,omitempty"`
+	// 自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）
+	RewardPacks []*MatchRewardPack `json:"rewardPacks"`
 }
 
 func (Match) IsMatchResult() {}
@@ -1055,6 +1082,8 @@ func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
 
+func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
+
 func (MatchNotFoundError) IsMatchProgressResult() {}
 
 func (MatchNotFoundError) IsMatchEventsResult() {}
@@ -1105,6 +1134,10 @@ type MatchParticipant struct {
 	TurnOrder int `json:"turnOrder"`
 	// 拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）
 	PassedCheckpoints []*BoardPosition `json:"passedCheckpoints"`
+	// 戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）
+	RewardReceived bool `json:"rewardReceived"`
+	// 受け取った戦利品のカード（受け取るまでは空）。引いた順で、同じカードは重ならない
+	RewardCards []*DeckCardInfo `json:"rewardCards"`
 }
 
 // 今の段階ではできない操作（終わった対戦への操作も含む）
@@ -1122,6 +1155,8 @@ func (MatchPhaseNotAllowedError) IsRollMatchDiceResult() {}
 func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
 
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
+
+func (MatchPhaseNotAllowedError) IsChooseMatchRewardPackResult() {}
 
 // 対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
 // 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
@@ -1158,6 +1193,60 @@ type MatchProgress struct {
 }
 
 func (MatchProgress) IsMatchProgressResult() {}
+
+// 戦利品はもう受け取った
+type MatchRewardAlreadyReceivedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchRewardAlreadyReceivedError) IsChooseMatchRewardPackResult() {}
+
+// 戦利品のパックから引いた
+type MatchRewardDrawnEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 引いた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 選んだパックのキー
+	Pack string `json:"pack"`
+	// 引いたカード（重ならない。候補が足りなければ順位の枚数より少ない）。cards にしないのは、MatchHandsDealtEvent.cards（Int）と同じ名前で型が食い違い、問い合わせを検証で断られるため
+	RewardCards []*DeckCardInfo `json:"rewardCards"`
+}
+
+func (MatchRewardDrawnEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchRewardDrawnEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchRewardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 戦利品に選べるパック
+type MatchRewardPack struct {
+	// 選ぶときに渡すキー（chooseMatchRewardPack の pack）
+	Key string `json:"key"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
+type MatchRewardsCompletedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchRewardsCompletedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchRewardsCompletedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchRewardsCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
 type MatchRules struct {
@@ -1318,6 +1407,8 @@ func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
 
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
 
+func (PlayerNotRegisteredError) IsChooseMatchRewardPackResult() {}
+
 func (PlayerNotRegisteredError) IsMatchProgressResult() {}
 
 func (PlayerNotRegisteredError) IsMatchEventsResult() {}
@@ -1440,6 +1531,8 @@ func (RevisionConflictError) IsRollMatchDiceResult() {}
 func (RevisionConflictError) IsChooseMatchPathResult() {}
 
 func (RevisionConflictError) IsEndMatchTurnResult() {}
+
+func (RevisionConflictError) IsChooseMatchRewardPackResult() {}
 
 func (RevisionConflictError) IsChangeRoomSeatsResult() {}
 
@@ -1711,6 +1804,8 @@ func (ValidationErrors) IsBoardsResult() {}
 func (ValidationErrors) IsDiscardMatchCardResult() {}
 
 func (ValidationErrors) IsChooseMatchPathResult() {}
+
+func (ValidationErrors) IsChooseMatchRewardPackResult() {}
 
 func (ValidationErrors) IsMyRoomsResult() {}
 
@@ -1999,7 +2094,7 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// ターンを終える段階（endMatchTurn）
 	MatchPhaseEnding MatchPhase = "ENDING"
-	// 対戦が終わった
+	// 対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）
 	MatchPhaseEnded MatchPhase = "ENDED"
 )
 

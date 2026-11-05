@@ -79,6 +79,10 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	if !found {
 		return rules.ErrNotPublished
 	}
+	// 戦利品の枚数を足す前に写した全体のルールは、枚数が空のまま。既定の枚数に黙って戻さず（写し忘れに気づけない）、写し直せば直る失敗にする
+	if len(gameRules.Match.RewardCardsByRank) == 0 {
+		return fmt.Errorf("match start: game rules have no reward cards by rank: %w", rules.ErrNotPublished)
+	}
 	participants := make([]match.Participant, len(current.Seats))
 	for i, seat := range current.Seats {
 		if participants[i], err = c.participant(ctx, seat, gameRules.Deck.MaxCardDuplicates); err != nil {
@@ -97,7 +101,7 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	}
 	cmd := &match.StartCommand{
 		ID: matchID, Participants: participants, Board: snapshot,
-		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards),
+		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks()),
 	}
 	random := c.newRandom()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
@@ -164,45 +168,47 @@ type ChangedMatch struct {
 
 // 対戦の番の操作。context のプレイヤーが、今の番の参加者として 1 つ操作する。NPC の番は MatchNPCTurnHandler が進める
 type MatchHandler struct {
-	eventStore domain.EventStore[match.ID, match.Event, match.State]
-	matches    domain.Identifier[match.ID]
-	newRandom  func() match.Random
-	now        func() time.Time
+	eventStore    domain.EventStore[match.ID, match.Event, match.State]
+	matches       domain.Identifier[match.ID]
+	getCandidates master.GetPublishedCardsFunc
+	newRandom     func() match.Random
+	now           func() time.Time
 }
 
 func NewMatchHandler(
 	eventStore domain.EventStore[match.ID, match.Event, match.State],
 	matches domain.Identifier[match.ID],
+	getCandidates master.GetPublishedCardsFunc,
 	newRandom func() match.Random,
 	now func() time.Time,
 ) *MatchHandler {
-	return &MatchHandler{eventStore: eventStore, matches: matches, newRandom: newRandom, now: now}
+	return &MatchHandler{eventStore: eventStore, matches: matches, getCandidates: getCandidates, newRandom: newRandom, now: now}
 }
 
 // カードを引く。以下の操作はどれも、番でなければ ErrMatchNotYourTurn、段階が合わなければ ErrMatchPhaseNotAllowed、
 // 無い・参加していない対戦は ErrMatchNotFound、revision が古ければ ErrRevisionConflict、未登録のプレイヤーは ErrPlayerNotRegistered
 func (c *MatchHandler) Draw(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.DrawCommand{By: by}, nil
 	})
 }
 
 // 手札を 1 枚捨てる。手札の番号が範囲の外なら input.Errors（OutOfRange・項目名 handIndex。番の判定と段階の判定が先）
 func (c *MatchHandler) Discard(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.DiscardCommand{By: by, HandIndex: handIndex}, nil
 	})
 }
 
 func (c *MatchHandler) Roll(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.RollCommand{By: by}, nil
 	})
 }
 
 // 分かれ道で行き先を選ぶ。選べる行き先の中に無ければ input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
 func (c *MatchHandler) ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		// 負の位置は盤面に無く、選べる行き先の中にも無い。Decide まで通さず、選べない行き先と同じ NotFound にそろえる
 		to, err := newPosition(x, y)
 		if err != nil {
@@ -213,13 +219,30 @@ func (c *MatchHandler) ChoosePath(ctx context.Context, id uuid.UUID, revision in
 }
 
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ match.Match, by match.ParticipantIndex) (match.Command, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
 	})
 }
 
+// 終わった後に、戦利品のパックを選ぶ（番は無く、受け取っていないプレイヤーが 1 回だけ。NPC は使えない）。
+// 終わっていなければ ErrMatchPhaseNotAllowed、受け取り済みなら ErrMatchRewardAlreadyReceived、選べないパックは input.Errors（NotFound・項目名 pack）。
+// 引くカードの候補は、そのときの公開中のカード
+func (c *MatchHandler) ChooseRewardPack(ctx context.Context, id uuid.UUID, revision int64, pack string) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(ctx context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		key, err := match.NewPackKey(pack)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "pack"}}
+		}
+		candidates, err := c.getCandidates(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &match.ChooseRewardPackCommand{By: by, Pack: key, Candidates: candidates}, nil
+	})
+}
+
 // 対戦を読み、参加しているプレイヤーであることと revision を確かめてから、build が作ったコマンドを動かして保存する
-func (c *MatchHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, build func(current match.Match, by match.ParticipantIndex) (match.Command, error)) (ChangedMatch, error) {
+func (c *MatchHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, build func(ctx context.Context, current match.Match, by match.ParticipantIndex) (match.Command, error)) (ChangedMatch, error) {
 	actor, ok := authentication.Player(ctx)
 	if !ok {
 		return ChangedMatch{}, ErrPlayerNotRegistered
@@ -249,7 +272,7 @@ func (c *MatchHandler) change(ctx context.Context, publicID uuid.UUID, revision 
 		if current.Version != revision {
 			return ChangedMatch{}, ErrRevisionConflict
 		}
-		cmd, err := build(current, by)
+		cmd, err := build(ctx, current, by)
 		if err != nil {
 			return ChangedMatch{}, err
 		}
@@ -299,6 +322,10 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
+	case errors.Is(err, match.ErrRewardAlreadyReceived):
+		return ErrMatchRewardAlreadyReceived
+	case errors.Is(err, match.ErrRewardPackNotAvailable):
+		return input.Errors{&input.NotFound{Field: "pack"}}
 	}
 	return err
 }

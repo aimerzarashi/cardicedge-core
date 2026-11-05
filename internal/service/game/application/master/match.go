@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
@@ -21,3 +22,7 @@ type GetPlayerDeckCardsFunc func(ctx context.Context, id deck.ID) ([]DeckCard, e
 
 // NPC のデッキのカード（プレイヤーのデッキと同じ）
 type GetNPCDeckCardsFunc func(ctx context.Context, id npcdeck.ID) ([]DeckCard, error)
+
+// 戦利品の候補にするカード。そのときの公開中のカードすべて（始めるときに一覧を写さず、引くときに読む）。
+// 使用不可のカードは含めない（game の cards には使用不可のカードも写してあるが、戦利品にはしない）
+type GetPublishedCardsFunc func(ctx context.Context) ([]card.Ref, error)

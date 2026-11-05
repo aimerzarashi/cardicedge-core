@@ -18,6 +18,8 @@ func matchError(err error) any {
 		return &model.MatchNotYourTurnError{Message: "not your turn"}
 	case errors.Is(err, command.ErrMatchPhaseNotAllowed):
 		return &model.MatchPhaseNotAllowedError{Message: "match phase not allowed"}
+	case errors.Is(err, command.ErrMatchRewardAlreadyReceived):
+		return &model.MatchRewardAlreadyReceivedError{Message: "match reward already received"}
 	case errors.Is(err, command.ErrRevisionConflict):
 		return &model.RevisionConflictError{Message: "revision conflict"}
 	case errors.Is(err, command.ErrPlayerNotRegistered):
@@ -63,7 +65,16 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			}
 			hand[j] = &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}
 		}
+		rewardCards := make([]*model.DeckCardInfo, len(participant.RewardCards))
+		for j, card := range participant.RewardCards {
+			cardType, err := fromCardType(card.Type)
+			if err != nil {
+				return nil, err
+			}
+			rewardCards[j] = &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}
+		}
 		participants[i] = &model.MatchParticipant{
+			RewardReceived: participant.RewardReceived, RewardCards: rewardCards,
 			Kind: kind, PlayerID: participant.Player,
 			Avatar:   &model.MatchAvatar{ID: participant.Avatar.ID, Name: participant.Avatar.Name},
 			Position: &model.BoardPosition{X: participant.Position.X, Y: participant.Position.Y},
@@ -85,7 +96,8 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		},
 		Board:        &model.MatchBoard{Width: match.Board.Width, Height: match.Board.Height, Tiles: tiles, Connections: connections, Pairs: pairs},
 		Participants: participants, CurrentParticipant: match.CurrentParticipant,
-		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
+		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
+		Phase:       phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 	}
 	if outcome := match.Outcome; outcome != nil {
 		reason, err := fromMatchEndReason(outcome.Reason)
@@ -95,6 +107,14 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		converted.Outcome = &model.MatchOutcome{Winners: outcome.Winners, Ranks: outcome.Ranks, Reason: reason}
 	}
 	return converted, nil
+}
+
+func fromQueryRewardPacks(packs []query.MatchRewardPack) []*model.MatchRewardPack {
+	converted := make([]*model.MatchRewardPack, len(packs))
+	for i, pack := range packs {
+		converted[i] = &model.MatchRewardPack{Key: pack.Key, Name: pack.Name}
+	}
+	return converted
 }
 
 func fromQueryPositions(positions []query.BoardPosition) []*model.BoardPosition {
@@ -209,6 +229,18 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Winners: e.Winners, Ranks: e.Ranks, Reason: reason}, nil
+	case query.MatchRewardDrawnEvent:
+		cards := make([]*model.DeckCardInfo, len(e.Cards))
+		for i, drawn := range e.Cards {
+			converted, err := fromMatchCard(drawn)
+			if err != nil {
+				return nil, err
+			}
+			cards[i] = converted
+		}
+		return &model.MatchRewardDrawnEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Pack: e.Pack, RewardCards: cards}, nil
+	case query.MatchRewardsCompletedEvent:
+		return &model.MatchRewardsCompletedEvent{Revision: revision, OccurredAt: meta.OccurredAt}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown match event: %T", event)
 	}

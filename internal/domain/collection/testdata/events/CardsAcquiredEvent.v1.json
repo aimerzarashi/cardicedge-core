@@ -1,0 +1,4 @@
+{
+  "cards": [{"card": {"entity_type": "creature", "id": 1}, "quantity": 1}],
+  "source": {"match_reward": {"match": 40}}
+}

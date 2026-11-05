@@ -17,3 +17,11 @@ type CreateCommand struct {
 }
 
 func (*CreateCommand) isCollectionCommand() {}
+
+// カードを所持品に足す。足す理由は出どころで表す
+type AcquireCommand struct {
+	Cards  []Card
+	Source Source
+}
+
+func (*AcquireCommand) isCollectionCommand() {}

@@ -1,7 +1,9 @@
 # 対戦（部屋の全員が準備完了を申告すると、部屋の条件の写しで始まる集約）。始まった時点で、順番が決まり、山札が混ざり、手札が配られている。
 # read model を持たず、集約の状態から返す。参加者のプレイヤーだけが読める。
 # 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ → ターンを終える）。
-# NPC の番はポリシーが進める。カードを使う操作は先のマイルストーンで足す
+# NPC の番はポリシーが進める。カードを使う操作は先のマイルストーンで足す。
+# 終わった後は、プレイヤーが戦利品のパックを選ぶ（chooseMatchRewardPack。番は無く、1 人 1 回）。引いたカードはポリシーが所持品に足す。
+# 全員が受け取るまで、段階は ENDED のまま
 
 "対戦の段階。今の番の人が次にする操作を表す"
 enum MatchPhase {
@@ -15,7 +17,7 @@ enum MatchPhase {
   CHOOSING_PATH
   "ターンを終える段階（endMatchTurn）"
   ENDING
-  "対戦が終わった"
+  "対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）"
   ENDED
 }
 
@@ -105,6 +107,18 @@ type MatchParticipant {
   turnOrder: Int!
   "拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）"
   passedCheckpoints: [BoardPosition!]!
+  "戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）"
+  rewardReceived: Boolean!
+  "受け取った戦利品のカード（受け取るまでは空）。引いた順で、同じカードは重ならない"
+  rewardCards: [DeckCardInfo!]!
+}
+
+"戦利品に選べるパック"
+type MatchRewardPack {
+  "選ぶときに渡すキー（chooseMatchRewardPack の pack）"
+  key: String!
+  "名前"
+  name: String!
 }
 
 "対戦の結果。終わった対戦だけが持つ"
@@ -147,6 +161,8 @@ type Match {
   pathChoices: [BoardPosition!]!
   "対戦の結果（終わるまでは null）"
   outcome: MatchOutcome
+  "自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）"
+  rewardPacks: [MatchRewardPack!]!
 }
 
 "自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）"
@@ -309,6 +325,40 @@ union EndMatchTurnResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"戦利品のパックを選ぶ入力"
+input ChooseMatchRewardPackInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "選ぶパックのキー（Match.rewardPacks の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）"
+  pack: String!
+}
+
+"戦利品のパックを選んでカードを引いた（成功したら対戦の revision が進む。カードは Match.participants の rewardCards で読み、所持品へはポリシーが足す）"
+type ChooseMatchRewardPackSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"戦利品はもう受け取った"
+type MatchRewardAlreadyReceivedError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"chooseMatchRewardPack の結果（ENDED の段階の、まだ受け取っていないプレイヤーだけ。番は問わない。終わっていなければ MatchPhaseNotAllowedError、受け取り済みなら MatchRewardAlreadyReceivedError。参加していない対戦は MatchNotFoundError）"
+union ChooseMatchRewardPackResult =
+    ChooseMatchRewardPackSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchPhaseNotAllowedError
+  | MatchRewardAlreadyReceivedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 extend type Mutation {
   "カードを引く"
   drawMatchCard(input: DrawMatchCardInput!): DrawMatchCardResult!
@@ -320,6 +370,8 @@ extend type Mutation {
   chooseMatchPath(input: ChooseMatchPathInput!): ChooseMatchPathResult!
   "ターンを終える"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
+  "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
+  chooseMatchRewardPack(input: ChooseMatchRewardPackInput!): ChooseMatchRewardPackResult!
 }
 
 """
@@ -341,7 +393,8 @@ union MatchProgressResult = MatchProgress | MatchNotFoundError | PlayerNotRegist
 extend type Subscription {
   """
   自分が参加している対戦の進み（登録済みのプレイヤーだけ）。つないだ直後に今の版を送り、版が進んだらすぐ、
-  変わらなくても数秒ごとに送る（つながっていることの確認も兼ねる）。対戦が終わったら、終わった版を送ってから閉じる。
+  変わらなくても数秒ごとに送る（つながっていることの確認も兼ねる）。全員が戦利品を受け取り終えたら、その版を送ってから閉じる
+  （対戦が終わっただけでは閉じない。受け取らないまま離れた人がいると閉じない）。
   無い・参加していない対戦は MatchNotFoundError を 1 回送って閉じる。SSE（graphql-sse）でつなぐ
   """
   matchProgress(
@@ -495,6 +548,28 @@ type MatchEndedEvent implements MatchEvent {
   ranks: [Int!]!
   "終わった理由"
   reason: MatchEndReason!
+}
+
+"戦利品のパックから引いた"
+type MatchRewardDrawnEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "引いた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "選んだパックのキー"
+  pack: String!
+  "引いたカード（重ならない。候補が足りなければ順位の枚数より少ない）。cards にしないのは、MatchHandsDealtEvent.cards（Int）と同じ名前で型が食い違い、問い合わせを検証で断られるため"
+  rewardCards: [DeckCardInfo!]!
+}
+
+"プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）"
+type MatchRewardsCompletedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
 }
 
 "指した版より後の対戦のイベント"

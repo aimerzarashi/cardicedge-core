@@ -55,6 +55,28 @@ func TestDefaults_HaveCurrentValues(t *testing.T) {
 	require.Equal(t, 4, defaults.Match.MaxPlayers.Int())
 	require.Equal(t, 6, defaults.Match.MaxHandCards.Int())
 	require.Equal(t, 5, defaults.Match.StartingHandCards.Int())
+	require.Equal(t, gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), defaults.Match.RewardCardsByRank)
+}
+
+func TestNew_RejectsEmptyRewardCardsByRank(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match.RewardCardsByRank = nil
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrRewardCardsByRankEmpty)
+}
+
+func TestNewRewardCardsByRank_RejectsEmpty(t *testing.T) {
+	_, err := gamerules.NewRewardCardsByRank()
+
+	require.ErrorIs(t, err, gamerules.ErrRewardCardsByRankEmpty)
+}
+
+func TestNewRewardCardsByRank_RejectsZero(t *testing.T) {
+	_, err := gamerules.NewRewardCardsByRank(3, 0)
+
+	require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
 }
 
 func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {

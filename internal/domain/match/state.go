@@ -28,6 +28,14 @@ type ParticipantState struct {
 	Previous *board.Position
 	// 拠点を出てから印を付けたチェックポイント
 	PassedCheckpoints []board.Position
+	// 受け取った戦利品。終わった後にパックを選ぶまでは nil（NPC は受け取らない）
+	Reward *Reward
+}
+
+// 受け取った戦利品
+type Reward struct {
+	Pack  PackKey
+	Cards []card.Ref
 }
 
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
@@ -50,6 +58,8 @@ type Match struct {
 	Dice int
 	// 終わるまでは nil
 	Result *Result
+	// 戦利品を、プレイヤー全員が受け取った。終わっても段階は ended のままで、これで受け取りまで済んだことを表す
+	RewardsCompleted bool
 }
 
 func (Match) isMatchState() {}
@@ -107,4 +117,22 @@ func (m Match) PathChoices() []board.Position {
 		return []board.Position{*participant.Previous}
 	}
 	return choices
+}
+
+// 終わった後に、この参加者がまだパックを選べるか（受け取っていないプレイヤー）
+func (m Match) CanChooseRewardPack(index ParticipantIndex) bool {
+	if m.Phase != PhaseEnded || int(index) >= len(m.Participants) {
+		return false
+	}
+	participant := m.Participants[index]
+	return participant.Participant.Player != nil && participant.Reward == nil
+}
+
+func (m Match) allPlayersRewarded() bool {
+	for _, participant := range m.Participants {
+		if participant.Participant.Player != nil && participant.Reward == nil {
+			return false
+		}
+	}
+	return true
 }

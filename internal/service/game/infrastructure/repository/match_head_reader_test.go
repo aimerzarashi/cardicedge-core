@@ -40,10 +40,10 @@ func TestMatchHeadReader_ReadsTheLastEventOfTheMatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), head.Revision)
 	require.True(t, at.Add(time.Second).Equal(head.OccurredAt))
-	require.False(t, head.Ended)
+	require.False(t, head.RewardsCompleted)
 }
 
-func TestMatchHeadReader_ReportsEndedWhenTheLastEventIsMatchEnded(t *testing.T) {
+func TestMatchHeadReader_DoesNotReportRewardsCompletedWhenTheLastEventIsMatchEnded(t *testing.T) {
 	f := newPlayerFixture(t)
 	id, _ := issueEntity(t, f, match.NewID)
 	at := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
@@ -53,8 +53,21 @@ func TestMatchHeadReader_ReportsEndedWhenTheLastEventIsMatchEnded(t *testing.T) 
 	head, err := repository.NewMatchHeadReader().Load(f.ctx, id)
 
 	require.NoError(t, err)
+	require.False(t, head.RewardsCompleted)
+}
+
+func TestMatchHeadReader_ReportsRewardsCompletedWhenTheLastEventIsRewardsCompleted(t *testing.T) {
+	f := newPlayerFixture(t)
+	id, _ := issueEntity(t, f, match.NewID)
+	at := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+	insertMatchEvent(t, f, id, 1, (&match.CreatedEvent{}).EventType(), at)
+	insertMatchEvent(t, f, id, 2, (&match.RewardsCompletedEvent{}).EventType(), at.Add(time.Second))
+
+	head, err := repository.NewMatchHeadReader().Load(f.ctx, id)
+
+	require.NoError(t, err)
 	require.Equal(t, int64(2), head.Revision)
-	require.True(t, head.Ended)
+	require.True(t, head.RewardsCompleted)
 }
 
 func TestMatchHeadReader_FailsForAMatchWithoutEvents(t *testing.T) {

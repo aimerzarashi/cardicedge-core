@@ -63,6 +63,8 @@ type Match struct {
 	MaxHandCards MaxHandCards `json:"max_hand_cards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards StartingHandCards `json:"starting_hand_cards"`
+	// 順位（1 位から）ごとの戦利品のカードの枚数。順位より値が少なければ、下の順位は最後の値を使う
+	RewardCardsByRank RewardCardsByRank `json:"reward_cards_by_rank"`
 }
 
 // 対戦の値の型は gamerules に置く。対戦の集約（match）は参加者のデッキを写すため npcdeck を読み、npcdeck が gamerules を読むので、match に置くとパッケージが循環する（core#71）
@@ -124,6 +126,40 @@ func (s StartingHandCards) Int() int {
 	return int(s)
 }
 
+// 戦利品のカードの枚数（1 つの順位の分）。1 以上
+type RewardCards int
+
+func NewRewardCards(value int) (RewardCards, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: reward cards is %d", ErrMatchValueNotPositive, value)
+	}
+	return RewardCards(value), nil
+}
+
+func (r RewardCards) Int() int {
+	return int(r)
+}
+
+// 順位ごとの戦利品の枚数（1 位から）。1 つ以上
+type RewardCardsByRank []RewardCards
+
+var ErrRewardCardsByRankEmpty = errors.New("game rules: reward cards by rank must not be empty")
+
+func NewRewardCardsByRank(values ...int) (RewardCardsByRank, error) {
+	if len(values) == 0 {
+		return nil, ErrRewardCardsByRankEmpty
+	}
+	counts := make(RewardCardsByRank, len(values))
+	for i, value := range values {
+		count, err := NewRewardCards(value)
+		if err != nil {
+			return nil, err
+		}
+		counts[i] = count
+	}
+	return counts, nil
+}
+
 var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
 
 // 項目をまたぐ決まり（人数の最小 ≤ 最大、配る手札 ≤ 手札の上限・デッキの枚数）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
@@ -137,6 +173,10 @@ func New(player Player, deck Deck, match Match) (Rules, error) {
 	}
 	if match.StartingHandCards.Int() > deck.TotalCardCount.Int() {
 		errs = append(errs, fmt.Errorf("%w: match.starting_hand_cards %d is above deck.total_card_count %d", ErrInvalidRules, match.StartingHandCards, deck.TotalCardCount))
+	}
+	// 保存済みの JSON を読むときは通らないので、足す前に作られた全体のルールは空のまま読める。使う側（対戦を始める）が空を断る
+	if len(match.RewardCardsByRank) == 0 {
+		errs = append(errs, ErrRewardCardsByRankEmpty)
 	}
 	if len(errs) > 0 {
 		return Rules{}, errors.Join(errs...)
@@ -170,9 +210,15 @@ func Defaults() Rules {
 	// 手札の上限 6 で、最初のターンに 1 枚引くとちょうど上限になる
 	startingHandCards, err := NewStartingHandCards(5)
 	must(err)
+	// 仮の値（目標の魔力と順位で決める式は次のマイルストーン）。4 位以下は 1 枚
+	rewardCardsByRank, err := NewRewardCardsByRank(3, 2, 1, 1)
+	must(err)
 	return Rules{
 		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
 		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
-		Match:  Match{MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards},
+		Match: Match{
+			MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
+			RewardCardsByRank: rewardCardsByRank,
+		},
 	}
 }

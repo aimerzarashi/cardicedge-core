@@ -120,6 +120,22 @@ type MatchEndedEvent struct {
 	Reason      EndReason          `json:"reason"`
 }
 
+// プレイヤーが戦利品のパックから引いたカード（重ならない。候補が足りなければある分だけ）。
+// 引いた結果をイベントに残すのは、読み直しても同じ状態にし、ポリシーが所持品に配るときの元にするため
+type RewardDrawnEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Pack        PackKey          `json:"pack"`
+	Cards       []card.Ref       `json:"cards"`
+}
+
+// プレイヤー全員が戦利品を受け取った
+type RewardsCompletedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+}
+
 var (
 	createdEventType          = domain.NewEventName("CreatedEvent")
 	turnOrderDecidedEventType = domain.NewEventName("TurnOrderDecidedEvent")
@@ -133,6 +149,8 @@ var (
 	lapCompletedEventType     = domain.NewEventName("LapCompletedEvent")
 	turnEndedEventType        = domain.NewEventName("TurnEndedEvent")
 	matchEndedEventType       = domain.NewEventName("MatchEndedEvent")
+	rewardDrawnEventType      = domain.NewEventName("RewardDrawnEvent")
+	rewardsCompletedEventType = domain.NewEventName("RewardsCompletedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -232,10 +250,27 @@ func (*MatchEndedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*RewardDrawnEvent) EventType() domain.EventName {
+	return rewardDrawnEventType
+}
+
+func (*RewardDrawnEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*RewardsCompletedEvent) EventType() domain.EventName {
+	return rewardsCompletedEventType
+}
+
+func (*RewardsCompletedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
+		rewardDrawnEventType, rewardsCompletedEventType,
 	}}
 }
 
@@ -272,6 +307,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TurnEndedEvent{EventMeta: meta}
 	case EventType(matchEndedEventType):
 		event = &MatchEndedEvent{EventMeta: meta}
+	case EventType(rewardDrawnEventType):
+		event = &RewardDrawnEvent{EventMeta: meta}
+	case EventType(rewardsCompletedEventType):
+		event = &RewardsCompletedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

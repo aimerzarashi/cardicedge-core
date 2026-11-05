@@ -225,3 +225,38 @@ func toMatchBoard(id board.ID, metadata boardMetadata) (match.Board, error) {
 	}
 	return snapshot, nil
 }
+
+// 公開中のカードの内部 ID（game の domain_entities）。公開 ID から引き直す
+func (r *MatchSourceReader) PublishedCards(ctx context.Context) ([]card.Ref, error) {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := models.Cards(models.CardWhere.Status.EQ("published")).All(ctx, exec)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(rows))
+	for i, row := range rows {
+		if ids[i], err = uuid.Parse(row.CardID); err != nil {
+			return nil, fmt.Errorf("cards.card_id %q: %w", row.CardID, err)
+		}
+	}
+	resolved, err := r.entityRefs.ResolveAll(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	cards := make([]card.Ref, 0, len(ids))
+	for _, id := range ids {
+		entityRef, ok := resolved[id]
+		if !ok {
+			return nil, fmt.Errorf("cards of %s: %w", id, domain.ErrEntityNotFound)
+		}
+		ref, err := card.NewRef(entityRef.EntityType(), entityRef.ID())
+		if err != nil {
+			return nil, fmt.Errorf("cards of %s: %w", id, err)
+		}
+		cards = append(cards, ref)
+	}
+	return cards, nil
+}
