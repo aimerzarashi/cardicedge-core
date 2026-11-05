@@ -11,7 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 )
 
-// 対戦の最新のイベント（版・起きた時刻・終わりか）を domain_events の最後の 1 行から読む。
+// 対戦の最新のイベント（版・起きた時刻・戦利品の受け取りが済んだか）を domain_events の最後の 1 行から読む。
 // 集約を畳み込まないのは、進みの送り直しが間隔ごと・購読者ごとに走るため（集約のイベントすべてを読み直さない）
 type MatchHeadReader struct{}
 
@@ -41,6 +41,6 @@ func (r *MatchHeadReader) Load(ctx context.Context, id match.ID) (query.MatchHea
 	if err != nil {
 		return query.MatchHead{}, err
 	}
-	head.Ended = eventName == (&match.MatchEndedEvent{}).EventType().String()
+	head.RewardsCompleted = eventName == (&match.RewardsCompletedEvent{}).EventType().String()
 	return head, nil
 }

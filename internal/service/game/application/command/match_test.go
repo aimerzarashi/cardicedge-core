@@ -30,6 +30,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
 )
 
 // 対戦中になった部屋（最後の準備完了まで進めたもの）と、その部屋から対戦を始めるハンドラー
@@ -97,11 +98,31 @@ func TestMatchStart_CreatesMatchWithIDOfRoomEventFromRoomConditions(t *testing.T
 	require.NotNil(t, started.Participants[1].Participant.NPC)
 	require.Equal(t, f.room.MatchRules.Board, started.Board.ID)
 	require.Equal(t, f.room.MatchRules.TargetMagic, started.Rules.TargetMagic)
+	require.Equal(t, gamerules.Defaults().Match.RewardCardsByRank, started.Rules.RewardCardsByRank)
+	require.Equal(t, match.DefaultRewardPacks(), started.Rules.RewardPacks)
 	// 山札の枚数は、デッキの枚数から配った手札を引いた数
 	require.Len(t, started.Participants[0].Hand, 5)
 	require.Len(t, started.Participants[0].DrawPile, 2)
 	require.Len(t, started.Participants[1].Hand, 2)
 	require.Empty(t, started.Participants[1].DrawPile)
+}
+
+func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
+	f := newMatchStartFixture(t)
+	old := gamerules.Defaults()
+	old.Match.RewardCardsByRank = nil
+	handler := command.NewMatchStartHandler(
+		eventstore.New(f.registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
+		eventstore.New(f.registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+		func(context.Context) (gamerules.Rules, bool, error) { return old, true, nil },
+		nil, nil, nil, nil, nil,
+	)
+
+	err := handler.Start(f.ctx, f.room.ID, f.room.Match)
+
+	require.ErrorIs(t, err, rules.ErrNotPublished)
+	_, uncreated := f.matches(t).(match.UncreatedMatch)
+	require.True(t, uncreated)
 }
 
 func TestMatchStart_IsIdempotent(t *testing.T) {
@@ -163,6 +184,7 @@ func forkBoard(t *testing.T) match.Board {
 type matchTurnFixture struct {
 	ctx      context.Context
 	player   context.Context
+	registry *domaindef.Registry
 	handler  *command.MatchHandler
 	npc      *command.MatchNPCTurnHandler
 	store    domain.EventStore[match.ID, match.Event, match.State]
@@ -174,6 +196,11 @@ type matchTurnFixture struct {
 // NPC の山札は手札だけで空なので、NPC の番は引かずに振る段階から始まる
 func newMatchTurnFixture(t *testing.T, startRandom match.Random) matchTurnFixture {
 	t.Helper()
+	return newMatchTurnFixtureWithRoundLimit(t, startRandom, 30)
+}
+
+func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, roundLimit int) matchTurnFixture {
+	t.Helper()
 	ctx := isolatedDatabase(t)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -183,7 +210,7 @@ func newMatchTurnFixture(t *testing.T, startRandom match.Random) matchTurnFixtur
 	store := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
 	id, publicID, err := identifier.New(registry, match.NewID).Issue(ctx)
 	require.NoError(t, err)
-	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, 1, 6), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6))
+	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, roundLimit, 1, 6), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6), gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), match.DefaultRewardPacks())
 	events, err := match.Decide(match.InitialState(), &match.StartCommand{
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
@@ -197,8 +224,8 @@ func newMatchTurnFixture(t *testing.T, startRandom match.Random) matchTurnFixtur
 	// サイコロは 1 を引いて目 2 になり、拠点から (1,0) に進んで分かれ道で止まる
 	random := func() match.Random { return orderedRandom{roll: 1, pick: 1} }
 	return matchTurnFixture{
-		ctx: ctx, player: player, store: store, id: id, publicID: publicID,
-		handler: command.NewMatchHandler(store, identifier.New(registry, match.NewID), random, now),
+		ctx: ctx, player: player, registry: registry, store: store, id: id, publicID: publicID,
+		handler: command.NewMatchHandler(store, identifier.New(registry, match.NewID), rewardCandidates(t), random, now),
 		npc:     command.NewMatchNPCTurnHandler(store, random, now),
 	}
 }

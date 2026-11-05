@@ -28,7 +28,14 @@ func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards
 	require.NoError(t, err)
 	starting, err := gamerules.NewStartingHandCards(startingHandCards)
 	require.NoError(t, err)
-	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting}
+	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1)}
+}
+
+func RewardCardsByRank(t testing.TB, values ...int) gamerules.RewardCardsByRank {
+	t.Helper()
+	counts, err := gamerules.NewRewardCardsByRank(values...)
+	require.NoError(t, err)
+	return counts
 }
 
 func MaxHandCards(t testing.TB, value int) gamerules.MaxHandCards {

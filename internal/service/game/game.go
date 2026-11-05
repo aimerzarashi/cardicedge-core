@@ -53,6 +53,7 @@ type Game struct {
 	grants         *command.StarterGrantHandler
 	matchStart     *command.MatchStartHandler
 	matchNPCTurn   *command.MatchNPCTurnHandler
+	matchReward    *command.MatchRewardHandler
 	matches        *command.MatchHandler
 	matchQuery     *query.MatchHandler
 	matchEvents    *query.MatchEventsHandler
@@ -90,6 +91,13 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID))
 	matchEventLoader := eventstore.NewEventLoader(registry, match.NewID, match.NewEventType)
 	matchNames := repository.NewMatchNameReader()
+	collections := command.NewCollectionHandler(
+		eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
+		identifier.New(registry, collection.NewID),
+		constraint.UpdateCollectionPlayer,
+		constraint.FindCollectionByPlayer,
+		now,
+	)
 	return &Game{
 		config:     config,
 		entityRefs: entityRefs,
@@ -106,12 +114,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			constraint.UpdateStarterGrantPlayer,
 			repository.NewStarterSetReader(repository.NewGrantDeckReader(entityRefs), identifier.New(registry, board.NewID), identifier.New(registry, npcavatar.NewID)).GetPublished,
 			repository.NewGameRulesReader().Get,
-			command.NewCollectionHandler(
-				eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
-				identifier.New(registry, collection.NewID),
-				constraint.UpdateCollectionPlayer,
-				now,
-			),
+			collections,
 			command.NewUnlockHandler(
 				eventstore.New(registry, unlock.NewID, unlock.NewEventType, unlock.InitialState, unlock.Evolve),
 				identifier.New(registry, unlock.NewID),
@@ -146,9 +149,14 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			newRandom,
 			now,
 		),
+		matchReward: command.NewMatchRewardHandler(
+			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
+			collections,
+		),
 		matches: command.NewMatchHandler(
 			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 			identifier.New(registry, match.NewID),
+			matchSources.PublishedCards,
 			newRandom,
 			now,
 		),
@@ -238,6 +246,15 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 		Subscriptions: []domain.EntityType{match.Types().EntityType},
 		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
 			return g.matchNPCTurn.Handle(ctx, event.Event)
+		},
+	}); err != nil {
+		return err
+	}
+	if err := eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
+		Name:          "match_reward",
+		Subscriptions: []domain.EntityType{match.Types().EntityType},
+		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
+			return g.matchReward.Handle(ctx, event.Event)
 		},
 	}); err != nil {
 		return err

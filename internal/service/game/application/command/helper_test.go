@@ -102,6 +102,7 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 		eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 		identifier.New(registry, collection.NewID),
 		constraint.UpdateCollectionPlayer,
+		constraint.FindCollectionByPlayer,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

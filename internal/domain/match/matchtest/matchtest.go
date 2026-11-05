@@ -26,6 +26,8 @@ func Rules(t testing.TB, diceMin, diceMax, startingHandCards int) match.Rules {
 		boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, diceMin, diceMax),
 		gamerulestest.MaxHandCards(t, 6),
 		gamerulestest.StartingHandCards(t, startingHandCards),
+		gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1),
+		match.DefaultRewardPacks(),
 	)
 }
 
@@ -92,5 +94,7 @@ func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus
 		boardtest.DefaultRules(t, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax),
 		gamerulestest.MaxHandCards(t, 6),
 		gamerulestest.StartingHandCards(t, startingHandCards),
+		gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1),
+		match.DefaultRewardPacks(),
 	)
 }

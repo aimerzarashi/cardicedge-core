@@ -32,7 +32,26 @@ type CreatedEvent struct {
 	StarterGrant startergrant.ID `json:"starter_grant"`
 }
 
-var createdEventType = domain.NewEventName("CreatedEvent")
+// 所持品に足したカードと、その出どころ。足すだけで、枚数の合計は持たない
+type CardsAcquiredEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Cards       []Card `json:"cards"`
+	Source      Source `json:"source"`
+}
+
+var (
+	createdEventType       = domain.NewEventName("CreatedEvent")
+	cardsAcquiredEventType = domain.NewEventName("CardsAcquiredEvent")
+)
+
+func (*CardsAcquiredEvent) EventType() domain.EventName {
+	return cardsAcquiredEventType
+}
+
+func (*CardsAcquiredEvent) SchemaVersion() int {
+	return 1
+}
 
 func (*CreatedEvent) EventType() domain.EventName {
 	return createdEventType
@@ -44,7 +63,7 @@ func (*CreatedEvent) SchemaVersion() int {
 }
 
 func Types() domain.AggregateTypes {
-	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{createdEventType}}
+	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{createdEventType, cardsAcquiredEventType}}
 }
 
 type EventType domain.EventName
@@ -58,6 +77,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 	switch t {
 	case EventType(createdEventType):
 		event = &CreatedEvent{EventMeta: meta}
+	case EventType(cardsAcquiredEventType):
+		event = &CardsAcquiredEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

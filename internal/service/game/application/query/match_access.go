@@ -29,31 +29,32 @@ func NewMatchAccess(
 	return &MatchAccess{eventStore: eventStore, matches: matches, players: players}
 }
 
-func (a *MatchAccess) Open(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (match.ID, match.Match, error) {
+// 見ているプレイヤーの内部の ID も返す（参加者の何番目かを割り出して、その人に見せるものを決めるため）
+func (a *MatchAccess) Open(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (match.ID, match.Match, player.ID, error) {
 	id, err := a.matches.Resolve(ctx, matchID)
 	if errors.Is(err, domain.ErrEntityNotFound) {
-		return 0, match.Match{}, ErrMatchNotFound
+		return 0, match.Match{}, 0, ErrMatchNotFound
 	}
 	if err != nil {
-		return 0, match.Match{}, err
+		return 0, match.Match{}, 0, err
 	}
 	viewer, err := a.players.Resolve(ctx, playerID)
 	if err != nil {
-		return 0, match.Match{}, err
+		return 0, match.Match{}, 0, err
 	}
 	state, err := a.eventStore.Load(ctx, id)
 	if err != nil {
-		return 0, match.Match{}, err
+		return 0, match.Match{}, 0, err
 	}
 	current, ok := state.(match.Match)
 	if !ok || !current.HasPlayer(viewer) {
-		return 0, match.Match{}, ErrMatchNotFound
+		return 0, match.Match{}, 0, ErrMatchNotFound
 	}
-	return id, current, nil
+	return id, current, viewer, nil
 }
 
 // AuthorizeMatchFunc として渡す
 func (a *MatchAccess) Authorize(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (match.ID, error) {
-	id, _, err := a.Open(ctx, playerID, matchID)
+	id, _, _, err := a.Open(ctx, playerID, matchID)
 	return id, err
 }

@@ -127,3 +127,20 @@ func TestMatchEventsHandler_RejectsViewersWhoDoNotParticipate(t *testing.T) {
 
 	require.ErrorIs(t, err, query.ErrMatchNotFound)
 }
+
+func TestMatchEventsHandler_ShowsTheRewardDrawnWithTheCardsAndTheCompletion(t *testing.T) {
+	by := matchtest.Index(t, 0)
+	f := newEventsFixture(t, []match.Event{
+		&match.RewardDrawnEvent{EventMeta: eventMeta(t, 8), Participant: by, Pack: match.DefaultPackKey, Cards: []card.Ref{cardtest.CreatureRef(t, 101)}},
+		&match.RewardsCompletedEvent{EventMeta: eventMeta(t, 9)},
+	})
+	dragon := query.MatchCard{ID: f.cardID, Name: "ドラゴン", Type: query.CardTypeCreature}
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 7)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchRewardDrawnEvent{MatchEventMeta: metaAt(8), Participant: 0, Pack: "default", Cards: []query.MatchCard{dragon}},
+		query.MatchRewardsCompletedEvent{MatchEventMeta: metaAt(9)},
+	}, events)
+}

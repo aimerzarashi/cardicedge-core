@@ -211,6 +211,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.LapCompletedEvent{EventMeta: meta, Participant: by, Magic: 300},
 		&match.TurnEndedEvent{EventMeta: meta, Participant: by},
 		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit},
+		&match.RewardDrawnEvent{EventMeta: meta, Participant: by, Pack: match.DefaultPackKey, Cards: refs(t, 301, 302)},
+		&match.RewardsCompletedEvent{EventMeta: meta},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -685,6 +687,11 @@ func endAtRoundLimit(t *testing.T, n int, magics []int) match.Match {
 	for i := range participants {
 		participants[i] = npcParticipant(t)
 	}
+	return endAtRoundLimitWith(t, participants, magics)
+}
+
+func endAtRoundLimitWith(t *testing.T, participants []match.Participant, magics []int) match.Match {
+	t.Helper()
 	cmd := startCommand(t, matchtest.RulesOf(t, 8000, 600, 300, 100, 1, 1, 6, 1), participants...)
 	cmd.Board = lineBoard(t)
 	state, _ := start(t, cmd)
@@ -741,4 +748,195 @@ func TestDecide_TargetMagicWinnerIsFirstAndOthersStartFromSecondEvenWithTheSameM
 	want[(winner+1)%4] = 2
 	require.Equal(t, want, state.Result.Ranks)
 	require.Equal(t, indexes(t, winner), state.Result.Winners)
+}
+
+func secondPlayerParticipant(t *testing.T) match.Participant {
+	t.Helper()
+	return match.NewPlayerParticipant(playertest.ID(t, 11), avatartest.ID(t, 3), decktest.ID(t, 4), []match.DeckCard{deckCard(t, 103, 3)})
+}
+
+// プレイヤー A（0）・プレイヤー B（1）・NPC（2）が、魔力 900・500・100 で上限のラウンドを終えた対戦（順位は 1・2・3）
+func endedWithTwoPlayers(t *testing.T) match.Match {
+	t.Helper()
+	return endAtRoundLimitWith(t, []match.Participant{playerParticipant(t), secondPlayerParticipant(t), npcParticipant(t)}, []int{900, 500, 100})
+}
+
+func chooseReward(t *testing.T, by int, candidates []card.Ref) *match.ChooseRewardPackCommand {
+	return &match.ChooseRewardPackCommand{By: matchtest.Index(t, by), Pack: match.DefaultPackKey, Candidates: candidates}
+}
+
+func rewardDrawn(t *testing.T, events []match.Event) *match.RewardDrawnEvent {
+	t.Helper()
+	for _, event := range events {
+		if drawn, ok := event.(*match.RewardDrawnEvent); ok {
+			return drawn
+		}
+	}
+	require.Fail(t, "no RewardDrawnEvent")
+	return nil
+}
+
+func TestDecide_ChooseRewardPackDrawsTheCardsOfTheRankWithoutRepeats(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+	candidates := refs(t, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2)
+
+	_, first := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, candidates))
+	_, second := apply(t, state, matchtest.NewRandom(), chooseReward(t, 1, candidates))
+
+	require.Len(t, rewardDrawn(t, first).Cards, 3)
+	require.Len(t, rewardDrawn(t, second).Cards, 2)
+	require.Len(t, uniqueCards(rewardDrawn(t, first).Cards), 3)
+	require.Len(t, uniqueCards(rewardDrawn(t, second).Cards), 2)
+	require.Equal(t, matchtest.Index(t, 0), rewardDrawn(t, first).Participant)
+	require.Equal(t, match.DefaultPackKey, rewardDrawn(t, first).Pack)
+}
+
+func uniqueCards(cards []card.Ref) []card.Ref {
+	seen := map[card.Ref]bool{}
+	var unique []card.Ref
+	for _, c := range cards {
+		if !seen[c] {
+			seen[c] = true
+			unique = append(unique, c)
+		}
+	}
+	return unique
+}
+
+func TestDecide_ChooseRewardPackDrawsFromTheCandidatesOnly(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+	candidates := refs(t, 11, 12, 13, 14)
+
+	_, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, candidates))
+
+	for _, drawn := range rewardDrawn(t, events).Cards {
+		require.Contains(t, candidates, drawn)
+	}
+}
+
+func TestDecide_ChooseRewardPackDrawsOnlyWhatTheCandidatesHaveWhenTheyAreFewer(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	_, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, refs(t, 11, 12)))
+
+	require.ElementsMatch(t, refs(t, 11, 12), rewardDrawn(t, events).Cards)
+}
+
+func TestDecide_ChooseRewardPackDrawsNothingWithoutCandidatesButStillCountsAsReceived(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	state, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, nil))
+
+	require.Empty(t, rewardDrawn(t, events).Cards)
+	require.NotNil(t, state.Participants[0].Reward)
+}
+
+// 順位の一覧は 3, 2, 1, 1 で、5 位以下は最後の値の 1 枚
+func TestDecide_ChooseRewardPackUsesTheLastCountForLowerRanks(t *testing.T) {
+	participants := make([]match.Participant, 5)
+	for i := range participants {
+		participants[i] = playerParticipant(t)
+	}
+	state := endAtRoundLimitWith(t, participants, []int{900, 800, 700, 600, 500})
+	require.Equal(t, []int{1, 2, 3, 4, 5}, state.Result.Ranks)
+
+	_, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 4, refs(t, 1, 2, 3, 4, 5)))
+
+	require.Len(t, rewardDrawn(t, events).Cards, 1)
+}
+
+func TestDecide_ChooseRewardPackGivesTheSameRankTheSameCount(t *testing.T) {
+	state := endAtRoundLimitWith(t, []match.Participant{playerParticipant(t), secondPlayerParticipant(t)}, []int{500, 500})
+
+	_, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 1, refs(t, 1, 2, 3, 4, 5)))
+
+	require.Len(t, rewardDrawn(t, events).Cards, 3)
+}
+
+func TestDecide_ChooseRewardPackRejectsBeforeTheMatchEnded(t *testing.T) {
+	state := newMatch(t, lineBoard(t), defaultRules(t))
+
+	require.ErrorIs(t, decideErr(t, state, chooseReward(t, 0, refs(t, 1))), match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_ChooseRewardPackRejectsNPC(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	require.ErrorIs(t, decideErr(t, state, chooseReward(t, 2, refs(t, 1))), match.ErrRewardNotForNPC)
+}
+
+func TestDecide_ChooseRewardPackRejectsSecondChoiceOfTheSamePlayer(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+	state, _ = apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, refs(t, 1, 2, 3)))
+
+	require.ErrorIs(t, decideErr(t, state, chooseReward(t, 0, refs(t, 1, 2, 3))), match.ErrRewardAlreadyReceived)
+}
+
+func TestDecide_ChooseRewardPackRejectsPackThatCannotBeChosen(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+	cmd := chooseReward(t, 0, refs(t, 1))
+	cmd.Pack = "unknown"
+
+	require.ErrorIs(t, decideErr(t, state, cmd), match.ErrRewardPackNotAvailable)
+}
+
+func TestDecide_ChooseRewardPackDoesNotNeedTheTurn(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	for _, by := range []int{0, 1} {
+		_, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, by, refs(t, 1, 2, 3)))
+		require.Equal(t, matchtest.Index(t, by), rewardDrawn(t, events).Participant)
+	}
+}
+
+func TestDecide_RewardsCompleteWhenTheLastPlayerHasChosen(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	state, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, refs(t, 1, 2, 3)))
+	require.Len(t, events, 1)
+	require.False(t, state.RewardsCompleted)
+
+	state, events = apply(t, state, matchtest.NewRandom(), chooseReward(t, 1, refs(t, 1, 2, 3)))
+	require.Len(t, events, 2)
+	require.IsType(t, &match.RewardsCompletedEvent{}, events[1])
+	require.Equal(t, events[0].GetMeta().AggregateVersion+1, events[1].GetMeta().AggregateVersion)
+	require.True(t, state.RewardsCompleted)
+	require.Equal(t, match.PhaseEnded, state.Phase)
+}
+
+func TestEvolve_RewardDrawnKeepsTheCardsOfThePlayer(t *testing.T) {
+	state := endedWithTwoPlayers(t)
+
+	state, events := apply(t, state, matchtest.NewRandom(), chooseReward(t, 0, refs(t, 1, 2, 3)))
+
+	require.Equal(t, &match.Reward{Pack: match.DefaultPackKey, Cards: rewardDrawn(t, events).Cards}, state.Participants[0].Reward)
+	require.Nil(t, state.Participants[1].Reward)
+	require.False(t, state.CanChooseRewardPack(matchtest.Index(t, 0)))
+	require.True(t, state.CanChooseRewardPack(matchtest.Index(t, 1)))
+	require.False(t, state.CanChooseRewardPack(matchtest.Index(t, 2)))
+}
+
+func TestEvolve_RejectsRewardEventsThatDoNotFit(t *testing.T) {
+	ended := endedWithTwoPlayers(t)
+	meta := match.EventMeta{EntityID: ended.ID, AggregateVersion: ended.Version + 1, OccurredAt: startedAt}
+	playing := newMatch(t, lineBoard(t), defaultRules(t))
+	drawn := func(by int) match.Event {
+		return &match.RewardDrawnEvent{EventMeta: meta, Participant: matchtest.Index(t, by), Pack: match.DefaultPackKey}
+	}
+	received, _ := apply(t, ended, matchtest.NewRandom(), chooseReward(t, 0, refs(t, 1)))
+	tests := map[string]struct {
+		state match.Match
+		event match.Event
+	}{
+		"drawn_before_end":          {playing, drawn(0)},
+		"drawn_for_npc":             {ended, drawn(2)},
+		"drawn_twice":               {received, drawn(0)},
+		"completed_before_everyone": {received, &match.RewardsCompletedEvent{EventMeta: meta}},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := match.Evolve(tt.state, tt.event)
+			require.ErrorIs(t, err, match.ErrInvalidState)
+		})
+	}
 }

@@ -93,6 +93,16 @@ type MatchParticipant struct {
 	TurnOrder     int
 	// 拠点を出てから印を付けたチェックポイントの位置
 	PassedCheckpoints []BoardPosition
+	// 戦利品を受け取ったか（プレイヤーだけ。NPC は受け取らないので、いつも false）
+	RewardReceived bool
+	// 受け取った戦利品のカード（受け取るまでは空）
+	RewardCards []MatchCard
+}
+
+// 戦利品に選べるパック。キーを選ぶ操作に渡す
+type MatchRewardPack struct {
+	Key  string
+	Name string
 }
 
 // 対戦。read model を作らず、集約の状態から組み立てる。Participants は席の順
@@ -112,6 +122,8 @@ type Match struct {
 	PathChoices []BoardPosition
 	// 終わるまでは nil
 	Outcome *MatchOutcome
+	// 見ているプレイヤーが今選べる戦利品のパック。終わった後で、まだ受け取っていないときだけ中身がある
+	RewardPacks []MatchRewardPack
 }
 
 // 名前を引く元（公開 ID）。アバター・NPC のアバターの名前と、カードの名前・種類を、それぞれの read model から 1 回で読む
@@ -143,14 +155,14 @@ func NewMatchHandler(
 
 // 参加していない対戦も、無いのと同じ ErrMatchNotFound にする
 func (q *MatchHandler) Get(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (Match, error) {
-	_, current, err := q.access.Open(ctx, playerID, matchID)
+	_, current, viewer, err := q.access.Open(ctx, playerID, matchID)
 	if err != nil {
 		return Match{}, err
 	}
-	return q.build(ctx, matchID, current)
+	return q.build(ctx, matchID, current, viewer)
 }
 
-func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current match.Match) (Match, error) {
+func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current match.Match, viewer player.ID) (Match, error) {
 	var refs []domain.EntityRef
 	for _, participant := range current.Participants {
 		switch {
@@ -162,6 +174,11 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		}
 		for _, hand := range participant.Hand {
 			refs = append(refs, domain.NewEntityRef(hand.EntityType, hand.ID))
+		}
+		if participant.Reward != nil {
+			for _, reward := range participant.Reward.Cards {
+				refs = append(refs, domain.NewEntityRef(reward.EntityType, reward.ID))
+			}
 		}
 	}
 	publicIDs, err := q.entityRefs.PublicIDs(ctx, refs)
@@ -215,6 +232,18 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			converted.Hand[j].ID = cardID
 			cardIDs = append(cardIDs, cardID)
 		}
+		converted.RewardCards = []MatchCard{}
+		if participant.Reward != nil {
+			converted.RewardReceived = true
+			for _, reward := range participant.Reward.Cards {
+				cardID, err := publicIDOf(reward.EntityType, reward.ID)
+				if err != nil {
+					return Match{}, err
+				}
+				converted.RewardCards = append(converted.RewardCards, MatchCard{ID: cardID})
+				cardIDs = append(cardIDs, cardID)
+			}
+		}
 		participants[i] = converted
 	}
 	names, err := q.loadNames(ctx, avatarIDs, npcAvatarIDs, cardIDs)
@@ -239,6 +268,13 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			}
 			participant.Hand[j] = found
 		}
+		for j := range participant.RewardCards {
+			found, ok := names.Cards[participant.RewardCards[j].ID]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match reward is not found", participant.RewardCards[j].ID)
+			}
+			participant.RewardCards[j] = found
+		}
 	}
 	phase, err := fromMatchPhase(current.Phase)
 	if err != nil {
@@ -247,7 +283,18 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	result := Match{
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
-		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{},
+		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
+	}
+	for i, participant := range current.Participants {
+		index, err := match.NewParticipantIndex(i)
+		if err != nil {
+			return Match{}, err
+		}
+		if p := participant.Participant.Player; p != nil && p.Player == viewer && current.CanChooseRewardPack(index) {
+			for _, pack := range current.Rules.RewardPacks {
+				result.RewardPacks = append(result.RewardPacks, MatchRewardPack{Key: string(pack.Key), Name: pack.Name})
+			}
+		}
 	}
 	if turn, ok := current.CurrentParticipant(); ok {
 		index := turn.Int()

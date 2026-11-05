@@ -15,3 +15,10 @@ var (
 	ErrHandIndexOutOfRange = errors.New("match: hand index out of range")
 	ErrPathNotAllowed      = errors.New("match: path not allowed")
 )
+
+var (
+	// 戦利品は NPC には配らない
+	ErrRewardNotForNPC        = errors.New("match: reward is not for npc")
+	ErrRewardAlreadyReceived  = errors.New("match: reward already received")
+	ErrRewardPackNotAvailable = errors.New("match: reward pack not available")
+)

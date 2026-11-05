@@ -120,6 +120,17 @@ func Evolve(state State, event Event) (State, error) {
 	case *MatchEndedEvent:
 		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}
 		current.Phase = PhaseEnded
+	case *RewardDrawnEvent:
+		if current.Phase != PhaseEnded || int(e.Participant) >= len(current.Participants) || !current.CanChooseRewardPack(e.Participant) {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Participant].Reward = &Reward{Pack: e.Pack, Cards: e.Cards}
+	case *RewardsCompletedEvent:
+		if current.Phase != PhaseEnded || current.RewardsCompleted || !current.allPlayersRewarded() {
+			return state, ErrInvalidState
+		}
+		current.RewardsCompleted = true
 	default:
 		return state, ErrInvalidState
 	}

@@ -48,6 +48,7 @@ var Types = Catalog{
 		}},
 		{ID: 1800, Name: "collection", Events: []EventTypeDef{
 			{ID: 1801, Name: "CreatedEvent"},
+			{ID: 1802, Name: "CardsAcquiredEvent"},
 		}},
 		{ID: 1900, Name: "deck", Events: []EventTypeDef{
 			{ID: 1901, Name: "CreatedEvent"},
@@ -138,6 +139,8 @@ var Types = Catalog{
 			{ID: 3010, Name: "LapCompletedEvent"},
 			{ID: 3011, Name: "TurnEndedEvent"},
 			{ID: 3012, Name: "MatchEndedEvent"},
+			{ID: 3013, Name: "RewardDrawnEvent"},
+			{ID: 3014, Name: "RewardsCompletedEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

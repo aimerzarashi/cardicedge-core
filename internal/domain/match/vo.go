@@ -2,6 +2,7 @@ package match
 
 import (
 	"errors"
+	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
@@ -90,6 +91,30 @@ type DeckCard struct {
 	Quantity card.DeckQuantity `json:"quantity"`
 }
 
+// 戦利品のパックを指す名前（キー）。パックのマスタ（次のマイルストーン）ができるまでは、決まった名前で表す
+type PackKey string
+
+const DefaultPackKey PackKey = "default"
+
+// 空のキーは作れない（選べるパックの中に無いものと同じ扱いにするため、呼ぶ側は作れなかったら選べないパックとして断る）
+func NewPackKey(value string) (PackKey, error) {
+	if value == "" {
+		return "", errors.New("pack key must not be empty")
+	}
+	return PackKey(value), nil
+}
+
+// 選べる戦利品のパック。始めた時点の写し（パックの引き方は Decide がキーから決める）
+type RewardPack struct {
+	Key  PackKey `json:"key"`
+	Name string  `json:"name"`
+}
+
+// 今選べるパックは既定の 1 つだけ（公開中のカード全体から等しい出やすさで引く）
+func DefaultRewardPacks() []RewardPack {
+	return []RewardPack{{Key: DefaultPackKey, Name: "通常パック"}}
+}
+
 type PlayerParticipant struct {
 	Player player.ID `json:"player"`
 	Avatar avatar.ID `json:"avatar"`
@@ -159,12 +184,26 @@ type Rules struct {
 	DiceMax           int                         `json:"dice_max"`
 	MaxHandCards      gamerules.MaxHandCards      `json:"max_hand_cards"`
 	StartingHandCards gamerules.StartingHandCards `json:"starting_hand_cards"`
+	// 順位（1 位から）ごとの戦利品の枚数。全体のルールの写しで、数え方は rewardCards の 1 か所
+	RewardCardsByRank gamerules.RewardCardsByRank `json:"reward_cards_by_rank"`
+	// 戦利品に選べるパック
+	RewardPacks []RewardPack `json:"reward_packs"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
 		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
+		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
 	}
+}
+
+// 順位（1 位から）の戦利品の枚数。順位が一覧より下なら最後の値を使う（4 人より多い対戦でも、順位ごとの値を人数分そろえずに済むため）
+func (r Rules) rewardCards(rank int) int {
+	return r.RewardCardsByRank[min(max(rank, 1), len(r.RewardCardsByRank))-1].Int()
+}
+
+func (r Rules) hasRewardPack(key PackKey) bool {
+	return slices.ContainsFunc(r.RewardPacks, func(pack RewardPack) bool { return pack.Key == key })
 }

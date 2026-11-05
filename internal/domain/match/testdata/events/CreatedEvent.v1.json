@@ -84,6 +84,18 @@
     "dice_min": 1,
     "dice_max": 6,
     "max_hand_cards": 6,
-    "starting_hand_cards": 5
+    "starting_hand_cards": 5,
+    "reward_cards_by_rank": [
+      3,
+      2,
+      1,
+      1
+    ],
+    "reward_packs": [
+      {
+        "key": "default",
+        "name": "通常パック"
+      }
+    ]
   }
 }

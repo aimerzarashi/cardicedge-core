@@ -143,7 +143,8 @@ func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
 		if err != nil {
 			return Master{}, err
 		}
-		card := models.Card{CardID: id.String(), CardType: int16(readmodel.CardTypeCreature), SortName: id.String(), Metadata: metadata}
+		// 公開中にするのは、戦利品の候補（公開中のカード）になるため。make publish-master は準備中を写さない
+		card := models.Card{CardID: id.String(), CardType: int16(readmodel.CardTypeCreature), SortName: id.String(), Metadata: metadata, Status: "published"}
 		if err := card.Insert(ctx, gameDB, boil.Infer()); err != nil {
 			return Master{}, err
 		}

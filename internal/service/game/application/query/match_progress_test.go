@@ -27,10 +27,10 @@ type fakeMatchHead struct {
 	loads int
 }
 
-func (f *fakeMatchHead) set(revision int64, ended bool) {
+func (f *fakeMatchHead) set(revision int64, rewardsCompleted bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.head = query.MatchHead{Revision: revision, OccurredAt: progressBase.Add(time.Duration(revision) * time.Second), Ended: ended}
+	f.head = query.MatchHead{Revision: revision, OccurredAt: progressBase.Add(time.Duration(revision) * time.Second), RewardsCompleted: rewardsCompleted}
 }
 
 func (f *fakeMatchHead) setErr(err error) {
@@ -196,7 +196,7 @@ func TestMatchProgressBroker_OnlyNotifiesSubscribersOfThatMatch(t *testing.T) {
 	requireNothing(t, updates, 50*time.Millisecond)
 }
 
-func TestMatchProgressBroker_ClosesAfterSendingTheEndedRevision(t *testing.T) {
+func TestMatchProgressBroker_ClosesAfterSendingTheRewardsCompletedRevision(t *testing.T) {
 	f := newProgressFixture(t, time.Hour)
 	updates := f.subscribe(t.Context())
 	receive(t, updates)
@@ -208,7 +208,7 @@ func TestMatchProgressBroker_ClosesAfterSendingTheEndedRevision(t *testing.T) {
 	requireClosed(t, updates)
 }
 
-func TestMatchProgressBroker_SendsTheEndedRevisionAndClosesForAMatchThatHasAlreadyEnded(t *testing.T) {
+func TestMatchProgressBroker_SendsTheRevisionAndClosesForAMatchWhoseRewardsAreAlreadyCompleted(t *testing.T) {
 	f := newProgressFixture(t, time.Hour)
 	f.head.set(10, true)
 

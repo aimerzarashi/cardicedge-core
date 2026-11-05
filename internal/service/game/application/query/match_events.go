@@ -99,6 +99,17 @@ type MatchEndedEvent struct {
 	Reason  MatchEndReason
 }
 
+// 戦利品のパックから引いた
+type MatchRewardDrawnEvent struct {
+	MatchEventMeta
+	Participant int
+	Pack        string
+	Cards       []MatchCard
+}
+
+// プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
+type MatchRewardsCompletedEvent struct{ MatchEventMeta }
+
 // 「この版より後のイベント」を返す差分の query。対戦は read model を作らず、イベントストアから読んで写す。
 // 参加者のプレイヤーだけが読める
 type MatchEventsHandler struct {
@@ -153,6 +164,10 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event) 
 			refs = append(refs, domain.NewEntityRef(e.Card.EntityType, e.Card.ID))
 		case *match.CardDiscardedEvent:
 			refs = append(refs, domain.NewEntityRef(e.Card.EntityType, e.Card.ID))
+		case *match.RewardDrawnEvent:
+			for _, reward := range e.Cards {
+				refs = append(refs, domain.NewEntityRef(reward.EntityType, reward.ID))
+			}
 		}
 	}
 	if len(refs) == 0 {
@@ -216,6 +231,14 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard) (Ma
 			return nil, err
 		}
 		return MatchEndedEvent{meta, outcome.Winners, outcome.Ranks, outcome.Reason}, nil
+	case *match.RewardDrawnEvent:
+		drawn := make([]MatchCard, len(e.Cards))
+		for i, reward := range e.Cards {
+			drawn[i] = cards[domain.NewEntityRef(reward.EntityType, reward.ID)]
+		}
+		return MatchRewardDrawnEvent{meta, e.Participant.Int(), string(e.Pack), drawn}, nil
+	case *match.RewardsCompletedEvent:
+		return MatchRewardsCompletedEvent{meta}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
 	}

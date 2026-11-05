@@ -96,6 +96,24 @@ func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatc
 	return &model.EndMatchTurnSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ChooseMatchRewardPack is the resolver for the chooseMatchRewardPack field.
+func (r *mutationResolver) ChooseMatchRewardPack(ctx context.Context, input model.ChooseMatchRewardPackInput) (model.ChooseMatchRewardPackResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ChooseRewardPack(ctx, input.ID, int64(input.Revision), input.Pack)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ChooseMatchRewardPackResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChooseMatchRewardPackSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // Match is the resolver for the match field.
 func (r *queryResolver) Match(ctx context.Context, id uuid.UUID) (model.MatchResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
