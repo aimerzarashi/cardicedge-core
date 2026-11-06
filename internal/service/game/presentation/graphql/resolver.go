@@ -63,6 +63,8 @@ type Rooms interface {
 	ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID) (command.ChangedRoom, error)
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
 	DeclareReady(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
+	DeclareNext(ctx context.Context, id uuid.UUID, revision int64, continues bool) (command.ChangedRoom, error)
+	Resume(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
 	Close(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
 }
 

@@ -29,6 +29,8 @@ func roomError(err error) any {
 		return &model.RoomNotResponsibleError{Message: "room operation is not yours"}
 	case errors.Is(err, command.ErrRoomAlreadyReady):
 		return &model.RoomAlreadyReadyError{Message: "room already ready"}
+	case errors.Is(err, command.ErrRoomAlreadyDeclaredNext):
+		return &model.RoomAlreadyDeclaredNextError{Message: "room already declared next"}
 	case errors.Is(err, command.ErrRoomConditionsNotDecided):
 		return &model.RoomConditionsNotDecidedError{Message: "room conditions not decided"}
 	}
@@ -57,7 +59,7 @@ func fromQueryRoom(room query.Room) (*model.Room, error) {
 	}
 	participants := make([]*model.RoomParticipant, len(room.Participants))
 	for i, participant := range room.Participants {
-		participants[i] = &model.RoomParticipant{PlayerID: participant.PlayerID, Owner: participant.Owner, Ready: participant.Ready}
+		participants[i] = &model.RoomParticipant{PlayerID: participant.PlayerID, Owner: participant.Owner, Ready: participant.Ready, Continues: participant.Continue}
 	}
 	seats := make([]*model.RoomSeat, len(room.Seats))
 	for i, seat := range room.Seats {
@@ -72,13 +74,17 @@ func fromQueryRoom(room query.Room) (*model.Room, error) {
 			seats[i].ChoiceChangeable = &changeable
 		}
 	}
-	converted := &model.Room{ID: room.ID, Name: room.Name, Revision: int(room.Revision), Status: status, Participants: participants, Seats: seats}
+	matches := make([]*model.RoomMatch, len(room.Matches))
+	for i, id := range room.Matches {
+		matches[i] = &model.RoomMatch{ID: id, Number: i + 1}
+	}
+	converted := &model.Room{ID: room.ID, Name: room.Name, Revision: int(room.Revision), Status: status, Participants: participants, Seats: seats, Matches: matches}
 	if capabilities := room.Capabilities; capabilities != nil {
 		// 対戦は詳細だけが返す（一覧の部屋ごとに対戦を読み直さないため。できる操作と同じ）
 		converted.MatchID = room.Match
 		converted.Capabilities = &model.RoomCapabilities{
 			ChangeSeats: capabilities.ChangeSeats, ChangeMatchRules: capabilities.ChangeMatchRules, Publish: capabilities.Publish,
-			DeclareReady: capabilities.DeclareReady, Close: capabilities.Close, Rename: capabilities.Rename,
+			DeclareReady: capabilities.DeclareReady, DeclareNext: capabilities.DeclareNext, Resume: capabilities.Resume, Close: capabilities.Close, Rename: capabilities.Rename,
 		}
 	}
 	if rules := room.MatchRules; rules != nil {
@@ -107,6 +113,10 @@ func fromRoomStatus(status query.RoomStatus) (model.RoomStatus, error) {
 		return model.RoomStatusPreparing, nil
 	case query.RoomStatusPlaying:
 		return model.RoomStatusPlaying, nil
+	case query.RoomStatusDecidingNext:
+		return model.RoomStatusDecidingNext, nil
+	case query.RoomStatusPaused:
+		return model.RoomStatusPaused, nil
 	case query.RoomStatusClosed:
 		return model.RoomStatusClosed, nil
 	default:

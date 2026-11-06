@@ -139,6 +139,36 @@ func (r *mutationResolver) DeclareRoomReady(ctx context.Context, input model.Dec
 	return &model.DeclareRoomReadySuccess{ID: declared.ID, Revision: int(declared.Revision)}, nil
 }
 
+// DeclareRoomNext is the resolver for the declareRoomNext field.
+func (r *mutationResolver) DeclareRoomNext(ctx context.Context, input model.DeclareRoomNextInput) (model.DeclareRoomNextResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	declared, err := r.rooms.DeclareNext(ctx, input.ID, int64(input.Revision), input.Continue)
+	if result, ok := roomError(err).(model.DeclareRoomNextResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DeclareRoomNextSuccess{ID: declared.ID, Revision: int(declared.Revision)}, nil
+}
+
+// ResumeRoom is the resolver for the resumeRoom field.
+func (r *mutationResolver) ResumeRoom(ctx context.Context, input model.ResumeRoomInput) (model.ResumeRoomResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	resumed, err := r.rooms.Resume(ctx, input.ID, int64(input.Revision))
+	if result, ok := roomError(err).(model.ResumeRoomResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ResumeRoomSuccess{ID: resumed.ID, Revision: int(resumed.Revision)}, nil
+}
+
 // CloseRoom is the resolver for the closeRoom field.
 func (r *mutationResolver) CloseRoom(ctx context.Context, input model.CloseRoomInput) (model.CloseRoomResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

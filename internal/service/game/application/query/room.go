@@ -21,7 +21,11 @@ const (
 	RoomStatusDraft     RoomStatus = "draft"
 	RoomStatusPreparing RoomStatus = "preparing"
 	RoomStatusPlaying   RoomStatus = "playing"
-	RoomStatusClosed    RoomStatus = "closed"
+	// 対戦が終わり、続けるか終えるかを意思表示する間
+	RoomStatusDecidingNext RoomStatus = "deciding_next"
+	// 対戦の後に誰かが終えた。一覧に残り、再開すると準備中に戻る
+	RoomStatusPaused RoomStatus = "paused"
+	RoomStatusClosed RoomStatus = "closed"
 )
 
 type RoomSeatKind string
@@ -42,6 +46,8 @@ type RoomParticipant struct {
 	PlayerID uuid.UUID
 	Owner    bool
 	Ready    bool
+	// 対戦の後の意思表示（続けるなら true、終えるなら false）。していなければ nil
+	Continue *bool
 }
 
 // 席 1 つ。座っている人はプレイヤーの席だけ。アバターとデッキは、まだ選んでいなければ nil（プレイヤーの席は自分のアバターとデッキ、
@@ -76,6 +82,8 @@ type Room struct {
 	MatchRules   *RoomMatchRules
 	// 始まった対戦の公開用の ID。始まるまでは nil
 	Match *uuid.UUID
+	// この部屋で始めた対戦の公開用の ID（始めた順。何戦目かは並びの位置）
+	Matches []uuid.UUID
 	// 見ている人にできる操作。詳細（Get）だけが付ける（一覧は nil）
 	Capabilities *RoomCapabilities
 }
@@ -108,6 +116,10 @@ type ListRoomsByPlayerFunc func(ctx context.Context, playerID uuid.UUID, conditi
 
 // そのプレイヤーが入っている部屋 1 件（閉じた部屋も返す）。無い・入っていなければ ErrRoomNotFound
 type GetRoomFunc func(ctx context.Context, playerID uuid.UUID, roomID uuid.UUID) (Room, error)
+
+// 対戦の公開 ID から、その対戦を始めた部屋の公開 ID と何戦目か（1 始まり）を引く。どの部屋にも無ければ found が false
+// （部屋の投影が遅れている間は無い）
+type FindRoomByMatchFunc func(ctx context.Context, matchID uuid.UUID) (roomID uuid.UUID, number int, found bool, err error)
 
 type RoomHandler struct {
 	listByPlayer ListRoomsByPlayerFunc

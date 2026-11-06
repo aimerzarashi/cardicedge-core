@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
@@ -32,7 +33,7 @@ func TestRoom_CreatedMakesDraftRowWithoutSeatsOwnedByPlayer(t *testing.T) {
 
 	require.Equal(t, readmodel.Room{
 		Room: roomtest.ID(t, 3), Owner: owner, Name: roomtest.Name(t, "部屋"), Status: readmodel.RoomStatusDraft, Revision: 1,
-		Seats: []readmodel.RoomSeat{}, Ready: []player.ID{},
+		Seats: []readmodel.RoomSeat{}, Ready: []player.ID{}, Matches: []match.ID{}, NextDeclarations: []readmodel.RoomNextDeclaration{},
 		RegisteredAt: roomCreatedAt, UpdatedAt: roomCreatedAt, UpdatedBy: owner,
 	}, state)
 	require.False(t, state.IsTerminal())
@@ -88,6 +89,51 @@ func TestRoom_MatchStartedMakesRowPlayingAndLinksMatch(t *testing.T) {
 	require.Equal(t, readmodel.RoomStatusPlaying, playing.Status)
 	require.Equal(t, matchtest.ID(t, 9), playing.Match)
 	require.Equal(t, int64(3), playing.Revision)
+}
+
+// 部屋の MatchStartedEvent だけから、始めた対戦の一覧を始めた順に積む（対戦のイベントは扱わない）
+func TestRoom_MatchStartedAccumulatesStartedMatchesInOrder(t *testing.T) {
+	owner := playertest.ID(t, 7)
+	first := readmodel.Room{}.
+		Evolve(&room.CreatedEvent{EventMeta: roomMeta(t, 1, roomCreatedAt), Player: owner, Name: roomtest.Name(t, "部屋")}).
+		Evolve(&room.MatchStartedEvent{EventMeta: roomMeta(t, 2, roomChangedAt), Match: matchtest.ID(t, 9)})
+
+	second := first.
+		Evolve(&room.MatchFinishedEvent{EventMeta: roomMeta(t, 3, roomChangedAt), Match: matchtest.ID(t, 9)}).
+		Evolve(&room.NextDeclaredEvent{EventMeta: roomMeta(t, 4, roomChangedAt), Player: owner, Continue: true}).
+		Evolve(&room.PreparationRestartedEvent{EventMeta: roomMeta(t, 5, roomChangedAt)}).
+		Evolve(&room.MatchStartedEvent{EventMeta: roomMeta(t, 6, roomChangedAt), Match: matchtest.ID(t, 10)})
+
+	require.Equal(t, []match.ID{matchtest.ID(t, 9)}, first.Matches)
+	require.Equal(t, []match.ID{matchtest.ID(t, 9), matchtest.ID(t, 10)}, second.Matches)
+	require.Equal(t, matchtest.ID(t, 10), second.Match)
+}
+
+func TestRoom_DecidingNextRecordsDeclarationsAndContinuingReturnsToPreparingAndEndingPauses(t *testing.T) {
+	owner := playertest.ID(t, 7)
+	playing := readmodel.Room{}.
+		Evolve(&room.CreatedEvent{EventMeta: roomMeta(t, 1, roomCreatedAt), Player: owner, Name: roomtest.Name(t, "部屋")}).
+		Evolve(&room.ReadyDeclaredEvent{EventMeta: roomMeta(t, 2, roomChangedAt), Player: owner}).
+		Evolve(&room.MatchStartedEvent{EventMeta: roomMeta(t, 3, roomChangedAt), Match: matchtest.ID(t, 9)})
+
+	deciding := playing.Evolve(&room.MatchFinishedEvent{EventMeta: roomMeta(t, 4, roomChangedAt), Match: matchtest.ID(t, 9)})
+	declared := deciding.Evolve(&room.NextDeclaredEvent{EventMeta: roomMeta(t, 5, roomChangedAt), Player: owner, Continue: true})
+	restarted := declared.Evolve(&room.PreparationRestartedEvent{EventMeta: roomMeta(t, 6, roomChangedAt)})
+	paused := deciding.
+		Evolve(&room.NextDeclaredEvent{EventMeta: roomMeta(t, 5, roomChangedAt), Player: owner, Continue: false}).
+		Evolve(&room.PausedEvent{EventMeta: roomMeta(t, 6, roomChangedAt)})
+	resumed := paused.Evolve(&room.PreparationRestartedEvent{EventMeta: roomMeta(t, 7, roomChangedAt)})
+
+	require.Equal(t, readmodel.RoomStatusDecidingNext, deciding.Status)
+	require.Equal(t, []readmodel.RoomNextDeclaration{{Player: owner, Continue: true}}, declared.NextDeclarations)
+	require.Equal(t, readmodel.RoomStatusPreparing, restarted.Status)
+	require.Empty(t, restarted.Ready)
+	require.Empty(t, restarted.NextDeclarations)
+	require.Equal(t, readmodel.RoomStatusPaused, paused.Status)
+	require.Equal(t, int64(6), paused.Revision)
+	require.Equal(t, readmodel.RoomStatusPreparing, resumed.Status)
+	require.Empty(t, resumed.NextDeclarations)
+	require.Equal(t, int64(6), restarted.Revision)
 }
 
 func TestRoom_ChangingSeatsClearsChoicesAndClosedEventClosesRowWithoutDeleting(t *testing.T) {

@@ -209,6 +209,11 @@ type ComplexityRoot struct {
 		Spell    func(childComplexity int) int
 	}
 
+	DeclareRoomNextSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	DeclareRoomReadySuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
@@ -282,6 +287,7 @@ type ComplexityRoot struct {
 		CurrentParticipant func(childComplexity int) int
 		Dice               func(childComplexity int) int
 		ID                 func(childComplexity int) int
+		Number             func(childComplexity int) int
 		Outcome            func(childComplexity int) int
 		Participants       func(childComplexity int) int
 		PathChoices        func(childComplexity int) int
@@ -289,6 +295,7 @@ type ComplexityRoot struct {
 		RemainingSteps     func(childComplexity int) int
 		Revision           func(childComplexity int) int
 		RewardPacks        func(childComplexity int) int
+		RoomID             func(childComplexity int) int
 		Round              func(childComplexity int) int
 		Rules              func(childComplexity int) int
 	}
@@ -477,6 +484,7 @@ type ComplexityRoot struct {
 		ChooseMatchRewardPack func(childComplexity int, input model.ChooseMatchRewardPackInput) int
 		CloseRoom             func(childComplexity int, input model.CloseRoomInput) int
 		CreateRoom            func(childComplexity int, input model.CreateRoomInput) int
+		DeclareRoomNext       func(childComplexity int, input model.DeclareRoomNextInput) int
 		DeclareRoomReady      func(childComplexity int, input model.DeclareRoomReadyInput) int
 		DiscardMatchCard      func(childComplexity int, input model.DiscardMatchCardInput) int
 		DrawMatchCard         func(childComplexity int, input model.DrawMatchCardInput) int
@@ -485,6 +493,7 @@ type ComplexityRoot struct {
 		RegisterAvatar        func(childComplexity int, input model.RegisterAvatarInput) int
 		RegisterPlayer        func(childComplexity int) int
 		RenameRoom            func(childComplexity int, input model.RenameRoomInput) int
+		ResumeRoom            func(childComplexity int, input model.ResumeRoomInput) int
 		RollMatchDice         func(childComplexity int, input model.RollMatchDiceInput) int
 	}
 
@@ -572,6 +581,11 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	ResumeRoomSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	RevisionConflictError struct {
 		Message func(childComplexity int) int
 	}
@@ -586,11 +600,16 @@ type ComplexityRoot struct {
 		ID           func(childComplexity int) int
 		Match        func(childComplexity int) int
 		MatchRules   func(childComplexity int) int
+		Matches      func(childComplexity int) int
 		Name         func(childComplexity int) int
 		Participants func(childComplexity int) int
 		Revision     func(childComplexity int) int
 		Seats        func(childComplexity int) int
 		Status       func(childComplexity int) int
+	}
+
+	RoomAlreadyDeclaredNextError struct {
+		Message func(childComplexity int) int
 	}
 
 	RoomAlreadyReadyError struct {
@@ -601,9 +620,11 @@ type ComplexityRoot struct {
 		ChangeMatchRules func(childComplexity int) int
 		ChangeSeats      func(childComplexity int) int
 		Close            func(childComplexity int) int
+		DeclareNext      func(childComplexity int) int
 		DeclareReady     func(childComplexity int) int
 		Publish          func(childComplexity int) int
 		Rename           func(childComplexity int) int
+		Resume           func(childComplexity int) int
 	}
 
 	RoomConditionLockedError struct {
@@ -612,6 +633,11 @@ type ComplexityRoot struct {
 
 	RoomConditionsNotDecidedError struct {
 		Message func(childComplexity int) int
+	}
+
+	RoomMatch struct {
+		ID     func(childComplexity int) int
+		Number func(childComplexity int) int
 	}
 
 	RoomMatchRules struct {
@@ -639,9 +665,10 @@ type ComplexityRoot struct {
 	}
 
 	RoomParticipant struct {
-		Owner    func(childComplexity int) int
-		PlayerID func(childComplexity int) int
-		Ready    func(childComplexity int) int
+		Continues func(childComplexity int) int
+		Owner     func(childComplexity int) int
+		PlayerID  func(childComplexity int) int
+		Ready     func(childComplexity int) int
 	}
 
 	RoomSeat struct {
@@ -714,6 +741,8 @@ type MutationResolver interface {
 	ChangeRoomSeatChoice(ctx context.Context, input model.ChangeRoomSeatChoiceInput) (model.ChangeRoomSeatChoiceResult, error)
 	PublishRoom(ctx context.Context, input model.PublishRoomInput) (model.PublishRoomResult, error)
 	DeclareRoomReady(ctx context.Context, input model.DeclareRoomReadyInput) (model.DeclareRoomReadyResult, error)
+	DeclareRoomNext(ctx context.Context, input model.DeclareRoomNextInput) (model.DeclareRoomNextResult, error)
+	ResumeRoom(ctx context.Context, input model.ResumeRoomInput) (model.ResumeRoomResult, error)
 	CloseRoom(ctx context.Context, input model.CloseRoomInput) (model.CloseRoomResult, error)
 }
 type PlayerResolver interface {
@@ -1286,6 +1315,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.DeckTypeCounts.Spell(childComplexity), true
 
+	case "DeclareRoomNextSuccess.id":
+		if e.ComplexityRoot.DeclareRoomNextSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeclareRoomNextSuccess.ID(childComplexity), true
+	case "DeclareRoomNextSuccess.revision":
+		if e.ComplexityRoot.DeclareRoomNextSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeclareRoomNextSuccess.Revision(childComplexity), true
+
 	case "DeclareRoomReadySuccess.id":
 		if e.ComplexityRoot.DeclareRoomReadySuccess.ID == nil {
 			break
@@ -1480,6 +1522,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.ID(childComplexity), true
+	case "Match.number":
+		if e.ComplexityRoot.Match.Number == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.Number(childComplexity), true
 	case "Match.outcome":
 		if e.ComplexityRoot.Match.Outcome == nil {
 			break
@@ -1522,6 +1570,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.RewardPacks(childComplexity), true
+	case "Match.roomId":
+		if e.ComplexityRoot.Match.RoomID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.RoomID(childComplexity), true
 	case "Match.round":
 		if e.ComplexityRoot.Match.Round == nil {
 			break
@@ -2209,6 +2263,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateRoom(childComplexity, args["input"].(model.CreateRoomInput)), true
+	case "Mutation.declareRoomNext":
+		if e.ComplexityRoot.Mutation.DeclareRoomNext == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_declareRoomNext_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeclareRoomNext(childComplexity, args["input"].(model.DeclareRoomNextInput)), true
 	case "Mutation.declareRoomReady":
 		if e.ComplexityRoot.Mutation.DeclareRoomReady == nil {
 			break
@@ -2292,6 +2357,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RenameRoom(childComplexity, args["input"].(model.RenameRoomInput)), true
+	case "Mutation.resumeRoom":
+		if e.ComplexityRoot.Mutation.ResumeRoom == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_resumeRoom_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ResumeRoom(childComplexity, args["input"].(model.ResumeRoomInput)), true
 	case "Mutation.rollMatchDice":
 		if e.ComplexityRoot.Mutation.RollMatchDice == nil {
 			break
@@ -2611,6 +2687,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RenameRoomSuccess.Revision(childComplexity), true
 
+	case "ResumeRoomSuccess.id":
+		if e.ComplexityRoot.ResumeRoomSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ResumeRoomSuccess.ID(childComplexity), true
+	case "ResumeRoomSuccess.revision":
+		if e.ComplexityRoot.ResumeRoomSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ResumeRoomSuccess.Revision(childComplexity), true
+
 	case "RevisionConflictError.message":
 		if e.ComplexityRoot.RevisionConflictError.Message == nil {
 			break
@@ -2655,6 +2744,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Room.MatchRules(childComplexity), true
+	case "Room.matches":
+		if e.ComplexityRoot.Room.Matches == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Room.Matches(childComplexity), true
 	case "Room.name":
 		if e.ComplexityRoot.Room.Name == nil {
 			break
@@ -2686,6 +2781,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Room.Status(childComplexity), true
 
+	case "RoomAlreadyDeclaredNextError.message":
+		if e.ComplexityRoot.RoomAlreadyDeclaredNextError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomAlreadyDeclaredNextError.Message(childComplexity), true
+
 	case "RoomAlreadyReadyError.message":
 		if e.ComplexityRoot.RoomAlreadyReadyError.Message == nil {
 			break
@@ -2711,6 +2813,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomCapabilities.Close(childComplexity), true
+	case "RoomCapabilities.declareNext":
+		if e.ComplexityRoot.RoomCapabilities.DeclareNext == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomCapabilities.DeclareNext(childComplexity), true
 	case "RoomCapabilities.declareReady":
 		if e.ComplexityRoot.RoomCapabilities.DeclareReady == nil {
 			break
@@ -2729,6 +2837,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomCapabilities.Rename(childComplexity), true
+	case "RoomCapabilities.resume":
+		if e.ComplexityRoot.RoomCapabilities.Resume == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomCapabilities.Resume(childComplexity), true
 
 	case "RoomConditionLockedError.message":
 		if e.ComplexityRoot.RoomConditionLockedError.Message == nil {
@@ -2743,6 +2857,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomConditionsNotDecidedError.Message(childComplexity), true
+
+	case "RoomMatch.id":
+		if e.ComplexityRoot.RoomMatch.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomMatch.ID(childComplexity), true
+	case "RoomMatch.number":
+		if e.ComplexityRoot.RoomMatch.Number == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomMatch.Number(childComplexity), true
 
 	case "RoomMatchRules.board":
 		if e.ComplexityRoot.RoomMatchRules.Board == nil {
@@ -2820,6 +2947,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RoomNotResponsibleError.Message(childComplexity), true
 
+	case "RoomParticipant.continues":
+		if e.ComplexityRoot.RoomParticipant.Continues == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomParticipant.Continues(childComplexity), true
 	case "RoomParticipant.owner":
 		if e.ComplexityRoot.RoomParticipant.Owner == nil {
 			break
@@ -2985,6 +3118,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChooseMatchRewardPackInput", ec.unmarshalInputChooseMatchRewardPackInput),
 			graphql.NewInputUnmarshaler("CloseRoomInput", ec.unmarshalInputCloseRoomInput),
 			graphql.NewInputUnmarshaler("CreateRoomInput", ec.unmarshalInputCreateRoomInput),
+			graphql.NewInputUnmarshaler("DeclareRoomNextInput", ec.unmarshalInputDeclareRoomNextInput),
 			graphql.NewInputUnmarshaler("DeclareRoomReadyInput", ec.unmarshalInputDeclareRoomReadyInput),
 			graphql.NewInputUnmarshaler("DiscardMatchCardInput", ec.unmarshalInputDiscardMatchCardInput),
 			graphql.NewInputUnmarshaler("DrawMatchCardInput", ec.unmarshalInputDrawMatchCardInput),
@@ -2992,6 +3126,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("PublishRoomInput", ec.unmarshalInputPublishRoomInput),
 			graphql.NewInputUnmarshaler("RegisterAvatarInput", ec.unmarshalInputRegisterAvatarInput),
 			graphql.NewInputUnmarshaler("RenameRoomInput", ec.unmarshalInputRenameRoomInput),
+			graphql.NewInputUnmarshaler("ResumeRoomInput", ec.unmarshalInputResumeRoomInput),
 			graphql.NewInputUnmarshaler("RollMatchDiceInput", ec.unmarshalInputRollMatchDiceInput),
 		)
 	}
@@ -3321,6 +3456,10 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_outcome(ctx, field)
 	case "rewardPacks":
 		return ec.fieldContext_Match_rewardPacks(ctx, field)
+	case "roomId":
+		return ec.fieldContext_Match_roomId(ctx, field)
+	case "number":
+		return ec.fieldContext_Match_number(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Match", field.Name)
 }
@@ -3537,6 +3676,8 @@ func (ec *executionContext) childFields_Room(ctx context.Context, field graphql.
 		return ec.fieldContext_Room_matchRules(ctx, field)
 	case "capabilities":
 		return ec.fieldContext_Room_capabilities(ctx, field)
+	case "matches":
+		return ec.fieldContext_Room_matches(ctx, field)
 	case "match":
 		return ec.fieldContext_Room_match(ctx, field)
 	}
@@ -3553,12 +3694,26 @@ func (ec *executionContext) childFields_RoomCapabilities(ctx context.Context, fi
 		return ec.fieldContext_RoomCapabilities_publish(ctx, field)
 	case "declareReady":
 		return ec.fieldContext_RoomCapabilities_declareReady(ctx, field)
+	case "declareNext":
+		return ec.fieldContext_RoomCapabilities_declareNext(ctx, field)
+	case "resume":
+		return ec.fieldContext_RoomCapabilities_resume(ctx, field)
 	case "close":
 		return ec.fieldContext_RoomCapabilities_close(ctx, field)
 	case "rename":
 		return ec.fieldContext_RoomCapabilities_rename(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RoomCapabilities", field.Name)
+}
+
+func (ec *executionContext) childFields_RoomMatch(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_RoomMatch_id(ctx, field)
+	case "number":
+		return ec.fieldContext_RoomMatch_number(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RoomMatch", field.Name)
 }
 
 func (ec *executionContext) childFields_RoomMatchRules(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3601,6 +3756,8 @@ func (ec *executionContext) childFields_RoomParticipant(ctx context.Context, fie
 		return ec.fieldContext_RoomParticipant_owner(ctx, field)
 	case "ready":
 		return ec.fieldContext_RoomParticipant_ready(ctx, field)
+	case "continues":
+		return ec.fieldContext_RoomParticipant_continues(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RoomParticipant", field.Name)
 }
@@ -3845,6 +4002,20 @@ func (ec *executionContext) field_Mutation_createRoom_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_declareRoomNext_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.DeclareRoomNextInput, error) {
+			return ec.unmarshalNDeclareRoomNextInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeclareRoomNextInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_declareRoomReady_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -3935,6 +4106,20 @@ func (ec *executionContext) field_Mutation_renameRoom_args(ctx context.Context, 
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.RenameRoomInput, error) {
 			return ec.unmarshalNRenameRoomInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRenameRoomInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_resumeRoom_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ResumeRoomInput, error) {
+			return ec.unmarshalNResumeRoomInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐResumeRoomInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -6239,6 +6424,52 @@ func (ec *executionContext) fieldContext_DeckTypeCounts_spell(_ context.Context,
 	return graphql.NewScalarFieldContext("DeckTypeCounts", field, false, false, "Int")
 }
 
+func (ec *executionContext) _DeclareRoomNextSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.DeclareRoomNextSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeclareRoomNextSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeclareRoomNextSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeclareRoomNextSuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _DeclareRoomNextSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.DeclareRoomNextSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeclareRoomNextSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeclareRoomNextSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeclareRoomNextSuccess", field, false, false, "Int")
+}
+
 func (ec *executionContext) _DeclareRoomReadySuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.DeclareRoomReadySuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7197,6 +7428,52 @@ func (ec *executionContext) fieldContext_Match_rewardPacks(_ context.Context, fi
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Match_roomId(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_roomId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RoomID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *uuid.UUID) graphql.Marshaler {
+			return ec.marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Match_roomId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Match", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _Match_number(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_number(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Number, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Match_number(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Match", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchAvatar_id(ctx context.Context, field graphql.CollectedField, obj *model.MatchAvatar) (ret graphql.Marshaler) {
@@ -10149,6 +10426,94 @@ func (ec *executionContext) fieldContext_Mutation_declareRoomReady(ctx context.C
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_declareRoomNext(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_declareRoomNext(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeclareRoomNext(ctx, fc.Args["input"].(model.DeclareRoomNextInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.DeclareRoomNextResult) graphql.Marshaler {
+			return ec.marshalNDeclareRoomNextResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeclareRoomNextResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_declareRoomNext(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type DeclareRoomNextResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_declareRoomNext_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_resumeRoom(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_resumeRoom(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ResumeRoom(ctx, fc.Args["input"].(model.ResumeRoomInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ResumeRoomResult) graphql.Marshaler {
+			return ec.marshalNResumeRoomResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐResumeRoomResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_resumeRoom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ResumeRoomResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_resumeRoom_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_closeRoom(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11484,6 +11849,52 @@ func (ec *executionContext) fieldContext_RenameRoomSuccess_revision(_ context.Co
 	return graphql.NewScalarFieldContext("RenameRoomSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ResumeRoomSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ResumeRoomSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ResumeRoomSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ResumeRoomSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ResumeRoomSuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ResumeRoomSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ResumeRoomSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ResumeRoomSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ResumeRoomSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ResumeRoomSuccess", field, false, false, "Int")
+}
+
 func (ec *executionContext) _RevisionConflictError_message(ctx context.Context, field graphql.CollectedField, obj *model.RevisionConflictError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11773,6 +12184,38 @@ func (ec *executionContext) fieldContext_Room_capabilities(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Room_matches(ctx context.Context, field graphql.CollectedField, obj *model.Room) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Room_matches(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Matches, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.RoomMatch) graphql.Marshaler {
+			return ec.marshalNRoomMatch2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomMatchᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Room_matches(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Room",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RoomMatch(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Room_match(ctx context.Context, field graphql.CollectedField, obj *model.Room) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11803,6 +12246,29 @@ func (ec *executionContext) fieldContext_Room_match(_ context.Context, field gra
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _RoomAlreadyDeclaredNextError_message(ctx context.Context, field graphql.CollectedField, obj *model.RoomAlreadyDeclaredNextError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomAlreadyDeclaredNextError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomAlreadyDeclaredNextError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomAlreadyDeclaredNextError", field, false, false, "String")
 }
 
 func (ec *executionContext) _RoomAlreadyReadyError_message(ctx context.Context, field graphql.CollectedField, obj *model.RoomAlreadyReadyError) (ret graphql.Marshaler) {
@@ -11920,6 +12386,52 @@ func (ec *executionContext) fieldContext_RoomCapabilities_declareReady(_ context
 	return graphql.NewScalarFieldContext("RoomCapabilities", field, false, false, "Boolean")
 }
 
+func (ec *executionContext) _RoomCapabilities_declareNext(ctx context.Context, field graphql.CollectedField, obj *model.RoomCapabilities) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomCapabilities_declareNext(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DeclareNext, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomCapabilities_declareNext(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomCapabilities", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _RoomCapabilities_resume(ctx context.Context, field graphql.CollectedField, obj *model.RoomCapabilities) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomCapabilities_resume(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Resume, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomCapabilities_resume(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomCapabilities", field, false, false, "Boolean")
+}
+
 func (ec *executionContext) _RoomCapabilities_close(ctx context.Context, field graphql.CollectedField, obj *model.RoomCapabilities) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12010,6 +12522,52 @@ func (ec *executionContext) _RoomConditionsNotDecidedError_message(ctx context.C
 }
 func (ec *executionContext) fieldContext_RoomConditionsNotDecidedError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RoomConditionsNotDecidedError", field, false, false, "String")
+}
+
+func (ec *executionContext) _RoomMatch_id(ctx context.Context, field graphql.CollectedField, obj *model.RoomMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomMatch_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomMatch_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomMatch", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _RoomMatch_number(ctx context.Context, field graphql.CollectedField, obj *model.RoomMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomMatch_number(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Number, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomMatch_number(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomMatch", field, false, false, "Int")
 }
 
 func (ec *executionContext) _RoomMatchRules_board(ctx context.Context, field graphql.CollectedField, obj *model.RoomMatchRules) (ret graphql.Marshaler) {
@@ -12363,6 +12921,29 @@ func (ec *executionContext) _RoomParticipant_ready(ctx context.Context, field gr
 	)
 }
 func (ec *executionContext) fieldContext_RoomParticipant_ready(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomParticipant", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _RoomParticipant_continues(ctx context.Context, field graphql.CollectedField, obj *model.RoomParticipant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomParticipant_continues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Continues, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomParticipant_continues(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RoomParticipant", field, false, false, "Boolean")
 }
 
@@ -14434,6 +15015,62 @@ func UnmarshalCreateRoomInput(ctx context.Context, raw any) (model.CreateRoomInp
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputDeclareRoomNextInput(ctx context.Context, obj any) (model.DeclareRoomNextInput, error) {
+	var it model.DeclareRoomNextInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "continue"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "continue":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("continue"))
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Continue = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalDeclareRoomNextInput unmarshals raw into the DeclareRoomNextInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalDeclareRoomNextInput(ctx context.Context, raw any) (model.DeclareRoomNextInput, error) {
+	var out model.DeclareRoomNextInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "DeclareRoomNextInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputDeclareRoomReadyInput(ctx context.Context, obj any) (model.DeclareRoomReadyInput, error) {
 	var it model.DeclareRoomReadyInput
 	if obj == nil {
@@ -14781,6 +15418,55 @@ func (ec *executionContext) unmarshalInputRenameRoomInput(ctx context.Context, o
 func UnmarshalRenameRoomInput(ctx context.Context, raw any) (model.RenameRoomInput, error) {
 	var out model.RenameRoomInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "RenameRoomInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputResumeRoomInput(ctx context.Context, obj any) (model.ResumeRoomInput, error) {
+	var it model.ResumeRoomInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalResumeRoomInput unmarshals raw into the ResumeRoomInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalResumeRoomInput(ctx context.Context, raw any) (model.ResumeRoomInput, error) {
+	var out model.ResumeRoomInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ResumeRoomInput", raw, &out)
 	return out, err
 }
 
@@ -15445,6 +16131,61 @@ func (ec *executionContext) _DeckResult(ctx context.Context, sel ast.SelectionSe
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of DeckResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _DeclareRoomNextResult(ctx context.Context, sel ast.SelectionSet, obj model.DeclareRoomNextResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RoomStatusNotAllowedError:
+		return ec._RoomStatusNotAllowedError(ctx, sel, &obj)
+	case *model.RoomStatusNotAllowedError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomStatusNotAllowedError(ctx, sel, obj)
+	case model.RoomNotFoundError:
+		return ec._RoomNotFoundError(ctx, sel, &obj)
+	case *model.RoomNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomNotFoundError(ctx, sel, obj)
+	case model.RoomAlreadyDeclaredNextError:
+		return ec._RoomAlreadyDeclaredNextError(ctx, sel, &obj)
+	case *model.RoomAlreadyDeclaredNextError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomAlreadyDeclaredNextError(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.DeclareRoomNextSuccess:
+		return ec._DeclareRoomNextSuccess(ctx, sel, &obj)
+	case *model.DeclareRoomNextSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._DeclareRoomNextSuccess(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of DeclareRoomNextResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -16282,6 +17023,61 @@ func (ec *executionContext) _RenameRoomResult(ctx context.Context, sel ast.Selec
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of RenameRoomResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ResumeRoomResult(ctx context.Context, sel ast.SelectionSet, obj model.ResumeRoomResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.RoomStatusNotAllowedError:
+		return ec._RoomStatusNotAllowedError(ctx, sel, &obj)
+	case *model.RoomStatusNotAllowedError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomStatusNotAllowedError(ctx, sel, obj)
+	case model.RoomNotResponsibleError:
+		return ec._RoomNotResponsibleError(ctx, sel, &obj)
+	case *model.RoomNotResponsibleError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomNotResponsibleError(ctx, sel, obj)
+	case model.RoomNotFoundError:
+		return ec._RoomNotFoundError(ctx, sel, &obj)
+	case *model.RoomNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomNotFoundError(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ResumeRoomSuccess:
+		return ec._ResumeRoomSuccess(ctx, sel, &obj)
+	case *model.ResumeRoomSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ResumeRoomSuccess(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ResumeRoomResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -17578,6 +18374,44 @@ func (ec *executionContext) _DeckTypeCounts(ctx context.Context, sel ast.Selecti
 	return out
 }
 
+var declareRoomNextSuccessImplementors = []string{"DeclareRoomNextSuccess", "DeclareRoomNextResult"}
+
+func (ec *executionContext) _DeclareRoomNextSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.DeclareRoomNextSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, declareRoomNextSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeclareRoomNextSuccess")
+		case "id":
+			out.Values[i] = ec._DeclareRoomNextSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._DeclareRoomNextSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var declareRoomReadySuccessImplementors = []string{"DeclareRoomReadySuccess", "DeclareRoomReadyResult"}
 
 func (ec *executionContext) _DeclareRoomReadySuccess(ctx context.Context, sel ast.SelectionSet, obj *model.DeclareRoomReadySuccess) graphql.Marshaler {
@@ -18174,6 +19008,16 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 		case "rewardPacks":
 			out.Values[i] = ec._Match_rewardPacks(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "roomId":
+			out.Values[i] = ec._Match_roomId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "number":
+			out.Values[i] = ec._Match_number(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -19548,6 +20392,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "declareRoomNext":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_declareRoomNext(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "resumeRoom":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_resumeRoom(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "closeRoom":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_closeRoom(ctx, field)
@@ -19888,7 +20746,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "RenameRoomResult", "CloseRoomResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -20211,7 +21069,45 @@ func (ec *executionContext) _RenameRoomSuccess(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "RenameRoomResult", "CloseRoomResult"}
+var resumeRoomSuccessImplementors = []string{"ResumeRoomSuccess", "ResumeRoomResult"}
+
+func (ec *executionContext) _ResumeRoomSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ResumeRoomSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, resumeRoomSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ResumeRoomSuccess")
+		case "id":
+			out.Values[i] = ec._ResumeRoomSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ResumeRoomSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -20333,12 +21229,50 @@ func (ec *executionContext) _Room(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "matches":
+			out.Values[i] = ec._Room_matches(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "match":
 			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
 				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Room_match(ctx, field, obj)
 				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var roomAlreadyDeclaredNextErrorImplementors = []string{"RoomAlreadyDeclaredNextError", "DeclareRoomNextResult"}
+
+func (ec *executionContext) _RoomAlreadyDeclaredNextError(ctx context.Context, sel ast.SelectionSet, obj *model.RoomAlreadyDeclaredNextError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, roomAlreadyDeclaredNextErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoomAlreadyDeclaredNextError")
+		case "message":
+			out.Values[i] = ec._RoomAlreadyDeclaredNextError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -20420,6 +21354,16 @@ func (ec *executionContext) _RoomCapabilities(ctx context.Context, sel ast.Selec
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "declareNext":
+			out.Values[i] = ec._RoomCapabilities_declareNext(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "resume":
+			out.Values[i] = ec._RoomCapabilities_resume(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "close":
 			out.Values[i] = ec._RoomCapabilities_close(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -20493,6 +21437,44 @@ func (ec *executionContext) _RoomConditionsNotDecidedError(ctx context.Context, 
 			out.Values[i] = graphql.MarshalString("RoomConditionsNotDecidedError")
 		case "message":
 			out.Values[i] = ec._RoomConditionsNotDecidedError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var roomMatchImplementors = []string{"RoomMatch"}
+
+func (ec *executionContext) _RoomMatch(ctx context.Context, sel ast.SelectionSet, obj *model.RoomMatch) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, roomMatchImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoomMatch")
+		case "id":
+			out.Values[i] = ec._RoomMatch_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "number":
+			out.Values[i] = ec._RoomMatch_number(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20619,7 +21601,7 @@ func (ec *executionContext) _RoomNamed(ctx context.Context, sel ast.SelectionSet
 	return out
 }
 
-var roomNotFoundErrorImplementors = []string{"RoomNotFoundError", "RoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "RenameRoomResult", "CloseRoomResult"}
+var roomNotFoundErrorImplementors = []string{"RoomNotFoundError", "RoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RoomNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.RoomNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, roomNotFoundErrorImplementors)
@@ -20652,7 +21634,7 @@ func (ec *executionContext) _RoomNotFoundError(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var roomNotResponsibleErrorImplementors = []string{"RoomNotResponsibleError", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "RenameRoomResult", "CloseRoomResult"}
+var roomNotResponsibleErrorImplementors = []string{"RoomNotResponsibleError", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RoomNotResponsibleError(ctx context.Context, sel ast.SelectionSet, obj *model.RoomNotResponsibleError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, roomNotResponsibleErrorImplementors)
@@ -20709,6 +21691,11 @@ func (ec *executionContext) _RoomParticipant(ctx context.Context, sel ast.Select
 		case "ready":
 			out.Values[i] = ec._RoomParticipant_ready(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "continues":
+			out.Values[i] = ec._RoomParticipant_continues(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -20814,7 +21801,7 @@ func (ec *executionContext) _RoomSeatsNotDecidedError(ctx context.Context, sel a
 	return out
 }
 
-var roomStatusNotAllowedErrorImplementors = []string{"RoomStatusNotAllowedError", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "RenameRoomResult", "CloseRoomResult"}
+var roomStatusNotAllowedErrorImplementors = []string{"RoomStatusNotAllowedError", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RoomStatusNotAllowedError(ctx context.Context, sel ast.SelectionSet, obj *model.RoomStatusNotAllowedError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, roomStatusNotAllowedErrorImplementors)
@@ -21884,6 +22871,19 @@ func (ec *executionContext) marshalNDeckTypeCounts2ᚖgitlabᚗcomᚋaimerzarash
 	return ec._DeckTypeCounts(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNDeclareRoomNextInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeclareRoomNextInput(ctx context.Context, v any) (model.DeclareRoomNextInput, error) {
+	res, err := ec.unmarshalInputDeclareRoomNextInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDeclareRoomNextResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeclareRoomNextResult(ctx context.Context, sel ast.SelectionSet, v model.DeclareRoomNextResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "DeclareRoomNextResult!")
+		return graphql.Null
+	}
+	return ec._DeclareRoomNextResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNDeclareRoomReadyInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeclareRoomReadyInput(ctx context.Context, v any) (model.DeclareRoomReadyInput, error) {
 	res, err := ec.unmarshalInputDeclareRoomReadyInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22336,6 +23336,19 @@ func (ec *executionContext) marshalNRenameRoomResult2gitlabᚗcomᚋaimerzarashi
 	return ec._RenameRoomResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNResumeRoomInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐResumeRoomInput(ctx context.Context, v any) (model.ResumeRoomInput, error) {
+	res, err := ec.unmarshalInputResumeRoomInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNResumeRoomResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐResumeRoomResult(ctx context.Context, sel ast.SelectionSet, v model.ResumeRoomResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ResumeRoomResult!")
+		return graphql.Null
+	}
+	return ec._ResumeRoomResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNRollMatchDiceInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRollMatchDiceInput(ctx context.Context, v any) (model.RollMatchDiceInput, error) {
 	res, err := ec.unmarshalInputRollMatchDiceInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22355,6 +23368,30 @@ func (ec *executionContext) marshalNRoom2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecar
 		return graphql.Null
 	}
 	return ec._Room(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNRoomMatch2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomMatchᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoomMatch) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNRoomMatch2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomMatch(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNRoomMatch2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomMatch(ctx context.Context, sel ast.SelectionSet, v *model.RoomMatch) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "RoomMatch!")
+		return graphql.Null
+	}
+	return ec._RoomMatch(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNRoomNamed2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomNamed(ctx context.Context, sel ast.SelectionSet, v *model.RoomNamed) graphql.Marshaler {

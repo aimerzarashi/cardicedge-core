@@ -372,6 +372,23 @@ func (c *RoomHandler) DeclareReady(ctx context.Context, id uuid.UUID, revision i
 	})
 }
 
+// 対戦の後に、context のプレイヤーが続けるか終えるかを意思表示する（次を決める間だけ。部屋に入っている人が 1 人 1 回。変え直しは無い）。
+// 誰かが終えるなら休止中に、全員が続けるなら準備中に戻る（準備完了と公開前に決めた印が外れ、条件を今の担当の決まりで変え直せる）。
+// すでに意思表示していれば ErrRoomAlreadyDeclaredNext、次を決める間でなければ ErrRoomStatusNotAllowed。ほかのエラーは ChangeSeats と同じ
+func (c *RoomHandler) DeclareNext(ctx context.Context, id uuid.UUID, revision int64, continues bool) (ChangedRoom, error) {
+	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
+		return &room.DeclareNextCommand{Player: actor, Continue: continues}, nil
+	})
+}
+
+// 休止中の部屋を再開し、準備中に戻す（作った人だけ）。戻った後は、全員が続けたときと同じ。
+// 休止中でなければ ErrRoomStatusNotAllowed、作った人でなければ ErrRoomNotResponsible。ほかのエラーは ChangeSeats と同じ
+func (c *RoomHandler) Resume(ctx context.Context, id uuid.UUID, revision int64) (ChangedRoom, error) {
+	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
+		return &room.ResumeCommand{ResumedBy: actor}, nil
+	})
+}
+
 // 部屋の名前を変える（作った人だけ。閉じる前まで。公開の後にも変えられる）。同じ名前なら何も変えず成功する。
 // 名前の誤りは input.Errors（Create と同じ）。閉じた部屋は ErrRoomStatusNotAllowed。ほかのエラーは ChangeSeats と同じ
 func (c *RoomHandler) Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (ChangedRoom, error) {
@@ -467,6 +484,8 @@ func mapRoomError(err error) error {
 		return ErrRoomAlreadyReady
 	case errors.Is(err, room.ErrConditionsNotDecided):
 		return ErrRoomConditionsNotDecided
+	case errors.Is(err, room.ErrAlreadyDeclaredNext):
+		return ErrRoomAlreadyDeclaredNext
 	}
 	return revisionConflict(err)
 }

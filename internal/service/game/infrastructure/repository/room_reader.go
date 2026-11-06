@@ -230,8 +230,11 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 	if err != nil {
 		return query.Room{}, err
 	}
-	result := query.Room{ID: metadata.ID, Name: metadata.Name, Revision: metadata.Revision, Status: status, Match: metadata.Match}
-	result.Participants = []query.RoomParticipant{{PlayerID: metadata.Owner, Owner: true, Ready: slices.Contains(metadata.ReadyPlayers, metadata.Owner)}}
+	result := query.Room{ID: metadata.ID, Name: metadata.Name, Revision: metadata.Revision, Status: status, Match: metadata.Match, Matches: metadata.Matches}
+	if result.Matches == nil {
+		result.Matches = []uuid.UUID{}
+	}
+	result.Participants = []query.RoomParticipant{{PlayerID: metadata.Owner, Owner: true, Ready: slices.Contains(metadata.ReadyPlayers, metadata.Owner), Continue: continueOf(metadata, metadata.Owner)}}
 	for _, seat := range metadata.Seats {
 		kind, err := toRoomSeatKind(seat.Kind)
 		if err != nil {
@@ -239,7 +242,7 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 		}
 		converted := query.RoomSeat{Kind: kind, Player: seat.Player}
 		if seat.Player != nil && !containsParticipant(result.Participants, *seat.Player) {
-			result.Participants = append(result.Participants, query.RoomParticipant{PlayerID: *seat.Player, Ready: slices.Contains(metadata.ReadyPlayers, *seat.Player)})
+			result.Participants = append(result.Participants, query.RoomParticipant{PlayerID: *seat.Player, Ready: slices.Contains(metadata.ReadyPlayers, *seat.Player), Continue: continueOf(metadata, *seat.Player)})
 		}
 		if seat.Avatar != nil && seat.Deck != nil {
 			avatarNames, deckNames := names.avatars, names.decks
@@ -277,6 +280,50 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 	return result, nil
 }
 
+func continueOf(metadata readmodel.RoomMetadata, playerID uuid.UUID) *bool {
+	for _, declaration := range metadata.NextDeclarations {
+		if declaration.Player == playerID {
+			value := declaration.Continue
+			return &value
+		}
+	}
+	return nil
+}
+
+// 対戦の公開 ID から、その対戦を始めた部屋と何戦目かを引く。索引（idx_rooms_matches）に合わせ、metadata -> 'matches' の包含で探す
+// （部屋に列を足さないのは、1 つの部屋が対戦を何度も持つため。部屋の持ち主で絞らない:
+// 対戦の参加者かは対戦の側が確かめ、ここは部屋の ID と順を返すだけ）
+func (r *RoomReader) FindByMatch(ctx context.Context, matchID uuid.UUID) (uuid.UUID, int, bool, error) {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return uuid.Nil, 0, false, err
+	}
+	contained, err := json.Marshal([]uuid.UUID{matchID})
+	if err != nil {
+		return uuid.Nil, 0, false, err
+	}
+	var (
+		roomID uuid.UUID
+		raw    []byte
+	)
+	err = exec.QueryRowContext(ctx, "SELECT room_id, metadata -> 'matches' FROM rooms WHERE metadata -> 'matches' @> $1::jsonb", string(contained)).Scan(&roomID, &raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return uuid.Nil, 0, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, 0, false, err
+	}
+	var matches []uuid.UUID
+	if err := json.Unmarshal(raw, &matches); err != nil {
+		return uuid.Nil, 0, false, fmt.Errorf("rooms.metadata matches of %s: %w", roomID, err)
+	}
+	index := slices.Index(matches, matchID)
+	if index < 0 {
+		return uuid.Nil, 0, false, fmt.Errorf("rooms.metadata matches of %s does not contain %s", roomID, matchID)
+	}
+	return roomID, index + 1, true, nil
+}
+
 func toRoomStatus(status readmodel.RoomStatus) (query.RoomStatus, error) {
 	switch status {
 	case readmodel.RoomStatusDraft:
@@ -285,6 +332,10 @@ func toRoomStatus(status readmodel.RoomStatus) (query.RoomStatus, error) {
 		return query.RoomStatusPreparing, nil
 	case readmodel.RoomStatusPlaying:
 		return query.RoomStatusPlaying, nil
+	case readmodel.RoomStatusDecidingNext:
+		return query.RoomStatusDecidingNext, nil
+	case readmodel.RoomStatusPaused:
+		return query.RoomStatusPaused, nil
 	case readmodel.RoomStatusClosed:
 		return query.RoomStatusClosed, nil
 	default:

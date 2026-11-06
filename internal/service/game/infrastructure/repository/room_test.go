@@ -126,7 +126,7 @@ func TestRoomWriter_WritesPublicIDsOfEveryInternalIDInColumnsAndMetadata(t *test
 			Board: seeded.boardPublicID, TargetMagic: matchRules.TargetMagic, StartingMagic: matchRules.StartingMagic, LapBonus: matchRules.LapBonus,
 			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax,
 		},
-		ReadyPlayers: []uuid.UUID{ownerPublicID},
+		ReadyPlayers: []uuid.UUID{ownerPublicID}, Matches: []uuid.UUID{}, NextDeclarations: []readmodel.RoomNextDeclarationMetadata{},
 		RegisteredAt: roomBase, UpdatedAt: roomBase.Add(time.Minute), RegisteredBy: ownerPublicID, UpdatedBy: ownerPublicID,
 	}, metadata)
 }
@@ -206,7 +206,7 @@ func TestRoomReader_GetReturnsRoomWithNamesJoinedAtReadTime(t *testing.T) {
 	boardNamed := query.RoomNamed{ID: seeded.boardPublicID, Name: "チュートリアル"}
 	require.Equal(t, query.Room{
 		ID: seeded.roomPublicID, Name: "ゴリガンと対戦", Revision: 8, Status: query.RoomStatusPreparing,
-		Participants: []query.RoomParticipant{{PlayerID: ownerPublicID, Owner: true, Ready: true}},
+		Participants: []query.RoomParticipant{{PlayerID: ownerPublicID, Owner: true, Ready: true}}, Matches: []uuid.UUID{},
 		Seats: []query.RoomSeat{
 			{Kind: query.RoomSeatKindPlayer, Player: &ownerPublicID, Avatar: &query.RoomNamed{ID: seeded.avatarPublicID, Name: "アリス"}, Deck: &query.RoomNamed{ID: seeded.deckPublicID, Name: "火のデッキ"}},
 			{Kind: query.RoomSeatKindNPC, Avatar: &query.RoomNamed{ID: seeded.npcAvatarPublicID, Name: "ゴリガン"}, Deck: &query.RoomNamed{ID: seeded.npcDeckPublicID, Name: "ゴリガンのデッキ"}},
@@ -233,6 +233,68 @@ func TestRoomWriterAndReader_PlayingRoomCarriesPublicIDOfMatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, query.RoomStatusPlaying, got.Status)
 	require.Equal(t, &matchPublicID, got.Match)
+}
+
+func TestRoomWriterAndReader_RoomCarriesStartedMatchesInOrderAndDeclarationsOfNext(t *testing.T) {
+	f := newPlayerFixture(t)
+	owner, ownerPublicID := f.issuePlayer(t)
+	seeded := seedRoom(t, f, owner, ownerPublicID, roomBase)
+	first, firstPublicID := issueEntity(t, f, match.NewID)
+	second, secondPublicID := issueEntity(t, f, match.NewID)
+	state := seeded.state
+	state.Status, state.Match, state.Matches = readmodel.RoomStatusDecidingNext, second, []match.ID{first, second}
+	state.NextDeclarations = []readmodel.RoomNextDeclaration{{Player: owner, Continue: true}}
+	require.NoError(t, roomWriter(f).Upsert(f.ctx, state))
+
+	got, err := repository.NewRoomReader().Get(f.ctx, ownerPublicID, seeded.roomPublicID)
+
+	require.NoError(t, err)
+	require.Equal(t, query.RoomStatusDecidingNext, got.Status)
+	require.Equal(t, []uuid.UUID{firstPublicID, secondPublicID}, got.Matches)
+	require.Equal(t, []query.RoomParticipant{{PlayerID: ownerPublicID, Owner: true, Ready: true, Continue: new(true)}}, got.Participants)
+}
+
+func TestRoomReader_FindByMatchReturnsRoomAndNumberOfTheMatch(t *testing.T) {
+	f := newPlayerFixture(t)
+	owner, ownerPublicID := f.issuePlayer(t)
+	seeded := seedRoom(t, f, owner, ownerPublicID, roomBase)
+	first, firstPublicID := issueEntity(t, f, match.NewID)
+	second, secondPublicID := issueEntity(t, f, match.NewID)
+	state := seeded.state
+	state.Matches = []match.ID{first, second}
+	require.NoError(t, roomWriter(f).Upsert(f.ctx, state))
+	otherOwner, otherOwnerPublicID := f.issuePlayer(t)
+	other := seedRoom(t, f, otherOwner, otherOwnerPublicID, roomBase)
+	third, thirdPublicID := issueEntity(t, f, match.NewID)
+	otherState := other.state
+	otherState.Matches = []match.ID{third}
+	require.NoError(t, roomWriter(f).Upsert(f.ctx, otherState))
+	reader := repository.NewRoomReader()
+
+	roomID1, number1, found1, err1 := reader.FindByMatch(f.ctx, firstPublicID)
+	roomID2, number2, found2, err2 := reader.FindByMatch(f.ctx, secondPublicID)
+	roomID3, number3, found3, err3 := reader.FindByMatch(f.ctx, thirdPublicID)
+
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	require.NoError(t, err3)
+	require.True(t, found1 && found2 && found3)
+	require.Equal(t, seeded.roomPublicID, roomID1)
+	require.Equal(t, 1, number1)
+	require.Equal(t, seeded.roomPublicID, roomID2)
+	require.Equal(t, 2, number2)
+	require.Equal(t, other.roomPublicID, roomID3)
+	require.Equal(t, 1, number3)
+}
+
+func TestRoomReader_FindByMatchReportsNotFoundForMatchOfNoRoom(t *testing.T) {
+	f := newPlayerFixture(t)
+	_, unknown := issueEntity(t, f, match.NewID)
+
+	_, _, found, err := repository.NewRoomReader().FindByMatch(f.ctx, unknown)
+
+	require.NoError(t, err)
+	require.False(t, found)
 }
 
 func TestRoomReader_GetReturnsNotFoundForRoomOfOtherPlayerAndUnknownRoom(t *testing.T) {

@@ -81,6 +81,35 @@ type MatchStartedEvent struct {
 	Match       match.ID `json:"match"`
 }
 
+// 今の対戦が終わり（全員が戦利品を受け取り終え）、続けるか終えるかを決める状態（次を決める）に進んだ
+type MatchFinishedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Match       match.ID `json:"match"`
+}
+
+// 対戦の後の意思表示。誰がどちらを選んだかを残す。終えるなら続けて PausedEvent、全員が続けるなら続けて PreparationRestartedEvent が出る
+type NextDeclaredEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Player      player.ID `json:"player"`
+	Continue    bool      `json:"continue"`
+}
+
+// 準備中に戻った（全員が続けると決めた、または休止中の部屋を再開した）。準備完了と公開前に決めた印が外れ、
+// ボード・対戦ルール・席の選びを今の担当の決まりで変え直せる。戻り方でイベントを分けないのは、戻った後が同じで、
+// どちらからかは直前のイベント（NextDeclaredEvent か PausedEvent か）で分かるため
+type PreparationRestartedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+}
+
+// 対戦の後に誰かが終えて、休止中になった。誰が終えたかは直前の NextDeclaredEvent が持つ
+type PausedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+}
+
 type ClosedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -94,16 +123,20 @@ type RenamedEvent struct {
 }
 
 var (
-	createdEventType            = domain.NewEventName("CreatedEvent")
-	seatsChangedEventType       = domain.NewEventName("SeatsChangedEvent")
-	matchRulesChangedEventType  = domain.NewEventName("MatchRulesChangedEvent")
-	seatChoiceChangedEventType  = domain.NewEventName("SeatChoiceChangedEvent")
-	publishedEventType          = domain.NewEventName("PublishedEvent")
-	preparationStartedEventType = domain.NewEventName("PreparationStartedEvent")
-	readyDeclaredEventType      = domain.NewEventName("ReadyDeclaredEvent")
-	matchStartedEventType       = domain.NewEventName("MatchStartedEvent")
-	closedEventType             = domain.NewEventName("ClosedEvent")
-	renamedEventType            = domain.NewEventName("RenamedEvent")
+	createdEventType              = domain.NewEventName("CreatedEvent")
+	seatsChangedEventType         = domain.NewEventName("SeatsChangedEvent")
+	matchRulesChangedEventType    = domain.NewEventName("MatchRulesChangedEvent")
+	seatChoiceChangedEventType    = domain.NewEventName("SeatChoiceChangedEvent")
+	publishedEventType            = domain.NewEventName("PublishedEvent")
+	preparationStartedEventType   = domain.NewEventName("PreparationStartedEvent")
+	readyDeclaredEventType        = domain.NewEventName("ReadyDeclaredEvent")
+	matchStartedEventType         = domain.NewEventName("MatchStartedEvent")
+	matchFinishedEventType        = domain.NewEventName("MatchFinishedEvent")
+	nextDeclaredEventType         = domain.NewEventName("NextDeclaredEvent")
+	preparationRestartedEventType = domain.NewEventName("PreparationRestartedEvent")
+	closedEventType               = domain.NewEventName("ClosedEvent")
+	pausedEventType               = domain.NewEventName("PausedEvent")
+	renamedEventType              = domain.NewEventName("RenamedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -138,8 +171,24 @@ func (*MatchStartedEvent) EventType() domain.EventName {
 	return matchStartedEventType
 }
 
+func (*MatchFinishedEvent) EventType() domain.EventName {
+	return matchFinishedEventType
+}
+
+func (*NextDeclaredEvent) EventType() domain.EventName {
+	return nextDeclaredEventType
+}
+
+func (*PreparationRestartedEvent) EventType() domain.EventName {
+	return preparationRestartedEventType
+}
+
 func (*ClosedEvent) EventType() domain.EventName {
 	return closedEventType
+}
+
+func (*PausedEvent) EventType() domain.EventName {
+	return pausedEventType
 }
 
 func (*RenamedEvent) EventType() domain.EventName {
@@ -179,7 +228,23 @@ func (*MatchStartedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*MatchFinishedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*NextDeclaredEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*PreparationRestartedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*ClosedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*PausedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -191,6 +256,7 @@ func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, seatsChangedEventType, matchRulesChangedEventType, seatChoiceChangedEventType,
 		publishedEventType, preparationStartedEventType, readyDeclaredEventType, closedEventType, renamedEventType, matchStartedEventType,
+		matchFinishedEventType, nextDeclaredEventType, preparationRestartedEventType, pausedEventType,
 	}}
 }
 
@@ -219,8 +285,16 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ReadyDeclaredEvent{EventMeta: meta}
 	case EventType(matchStartedEventType):
 		event = &MatchStartedEvent{EventMeta: meta}
+	case EventType(matchFinishedEventType):
+		event = &MatchFinishedEvent{EventMeta: meta}
+	case EventType(nextDeclaredEventType):
+		event = &NextDeclaredEvent{EventMeta: meta}
+	case EventType(preparationRestartedEventType):
+		event = &PreparationRestartedEvent{EventMeta: meta}
 	case EventType(closedEventType):
 		event = &ClosedEvent{EventMeta: meta}
+	case EventType(pausedEventType):
+		event = &PausedEvent{EventMeta: meta}
 	case EventType(renamedEventType):
 		event = &RenamedEvent{EventMeta: meta}
 	default:

@@ -28,6 +28,8 @@ var (
 	ErrAlreadyReady = errors.New("room: already ready")
 	// 自分の担当の分に、まだ決まっていないものがある
 	ErrConditionsNotDecided = errors.New("room: conditions not decided")
+	// 対戦の後の意思表示を、すでにした人がもう一度しようとした（変え直しは無い）
+	ErrAlreadyDeclaredNext = errors.New("room: already declared next")
 	// 最後の準備完了なのに、対戦の ID が渡されていない（呼ぶ側の誤り）
 	ErrMatchIDMissing = errors.New("room: match id missing")
 )

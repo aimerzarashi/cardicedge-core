@@ -163,6 +163,10 @@ type Match {
   outcome: MatchOutcome
   "自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）"
   rewardPacks: [MatchRewardPack!]!
+  "この対戦を始めた部屋の公開用の ID（部屋の一覧の投影が遅れて引けない間は null）"
+  roomId: UUID
+  "その部屋で何戦目か（1 始まり。roomId が null の間は null）"
+  number: Int
 }
 
 "自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）"

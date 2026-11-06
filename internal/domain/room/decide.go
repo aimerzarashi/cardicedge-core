@@ -89,6 +89,28 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			events = append(events, &MatchStartedEvent{EventMeta: metaAt(current, current.Version+2, now), Match: c.Match})
 		}
 		return events, nil
+	case *FinishMatchCommand:
+		if current.Status != StatusPlaying || current.Match != c.Match {
+			return nil, nil
+		}
+		return []Event{&MatchFinishedEvent{EventMeta: nextMeta(current, now), Match: c.Match}}, nil
+	case *DeclareNextCommand:
+		if err := current.checkDeclareNext(c.Player); err != nil {
+			return nil, err
+		}
+		events := []Event{&NextDeclaredEvent{EventMeta: nextMeta(current, now), Player: c.Player, Continue: c.Continue}}
+		switch {
+		case !c.Continue:
+			events = append(events, &PausedEvent{EventMeta: metaAt(current, current.Version+2, now)})
+		case current.allContinueNow():
+			events = append(events, &PreparationRestartedEvent{EventMeta: metaAt(current, current.Version+2, now)})
+		}
+		return events, nil
+	case *ResumeCommand:
+		if err := current.checkResume(c.ResumedBy); err != nil {
+			return nil, err
+		}
+		return []Event{&PreparationRestartedEvent{EventMeta: nextMeta(current, now)}}, nil
 	case *RenameCommand:
 		if err := current.checkRename(c.RenamedBy); err != nil {
 			return nil, err
@@ -162,6 +184,30 @@ func (r Room) checkDeclareReady(actor player.ID) error {
 	return nil
 }
 
+func (r Room) checkDeclareNext(actor player.ID) error {
+	if r.Status != StatusDecidingNext {
+		return ErrStatusNotAllowed
+	}
+	if !r.HasParticipant(actor) {
+		return ErrNotParticipant
+	}
+	if r.hasDeclaredNext(actor) {
+		return ErrAlreadyDeclaredNext
+	}
+	return nil
+}
+
+// 再開は作った人だけ（閉じる・対戦ルールを決めるのと同じ人。誰が再開できるかは、人が参加できるようになったときに「終える」の意味と一緒に決め直す）
+func (r Room) checkResume(actor player.ID) error {
+	if actor != r.Owner {
+		return ErrNotOwner
+	}
+	if r.Status != StatusPaused {
+		return ErrStatusNotAllowed
+	}
+	return nil
+}
+
 // 閉じた部屋の名前は変えられない（閉じた部屋を閉じ直すのと違い、成功にしない。閉じた後は何も変えない部屋だから）
 func (r Room) checkRename(actor player.ID) error {
 	if actor != r.Owner {
@@ -194,8 +240,12 @@ type Capabilities struct {
 	ChangeSeatChoice []bool
 	Publish          bool
 	DeclareReady     bool
-	Close            bool
-	Rename           bool
+	// 対戦の後に、続ける・終えるを意思表示できるか（どちらを選んでも同じ条件）
+	DeclareNext bool
+	// 休止中の部屋を再開できるか
+	Resume bool
+	Close  bool
+	Rename bool
 }
 
 func CapabilitiesOf(state State, viewer player.ID) Capabilities {
@@ -209,6 +259,8 @@ func CapabilitiesOf(state State, viewer player.ID) Capabilities {
 		ChangeSeatChoice: make([]bool, len(current.Seats)),
 		Publish:          current.checkPublish(viewer) == nil,
 		DeclareReady:     current.checkDeclareReady(viewer) == nil,
+		DeclareNext:      current.checkDeclareNext(viewer) == nil,
+		Resume:           current.checkResume(viewer) == nil,
 		Close:            current.checkClose(viewer) == nil && current.Status != StatusClosed,
 		Rename:           current.checkRename(viewer) == nil,
 	}

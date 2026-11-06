@@ -58,7 +58,7 @@ type ChooseMatchRewardPackResult interface {
 	IsChooseMatchRewardPackResult()
 }
 
-// closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError。対戦が終わった後の部屋の動きは先の候補）
+// closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError)
 type CloseRoomResult interface {
 	IsCloseRoomResult()
 }
@@ -71,6 +71,11 @@ type CreateRoomResult interface {
 // デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type DeckResult interface {
 	IsDeckResult()
+}
+
+// declareRoomNext の結果（次を決める間だけ。部屋に入っている人が 1 人 1 回。変え直しは無い）
+type DeclareRoomNextResult interface {
+	IsDeclareRoomNextResult()
 }
 
 // declareRoomReady の結果（準備中だけ。自分の担当の分がすべて決まっているときだけ）
@@ -163,6 +168,11 @@ type RegisterPlayerResult interface {
 // renameRoom の結果（作った人だけ。閉じる前まで。公開の後にも変えられる。閉じた部屋は RoomStatusNotAllowedError）
 type RenameRoomResult interface {
 	IsRenameRoomResult()
+}
+
+// resumeRoom の結果（休止中だけ。作った人だけ）
+type ResumeRoomResult interface {
+	IsResumeRoomResult()
 }
 
 // rollMatchDice の結果（ROLLING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
@@ -604,6 +614,27 @@ type DeckTypeCounts struct {
 	Spell int `json:"spell"`
 }
 
+// 対戦の後の意思表示の入力
+type DeclareRoomNextInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 続けるなら true、終えるなら false
+	Continue bool `json:"continue"`
+}
+
+// 対戦の後の意思表示をした。終えるなら部屋は休止中になり、全員が続けるなら準備中に戻る（準備完了と、公開前に決めた印が外れ、
+// ボード・対戦ルール・席の選びを今の担当の決まりで変え直せる）。ほかの人がまだなら、次を決める状態のまま
+type DeclareRoomNextSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 意思表示をした部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (DeclareRoomNextSuccess) IsDeclareRoomNextResult() {}
+
 // 準備完了を申告する入力
 type DeclareRoomReadyInput struct {
 	// 部屋の公開用の ID
@@ -833,6 +864,10 @@ type Match struct {
 	Outcome *MatchOutcome `json:"outcome,omitempty"`
 	// 自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）
 	RewardPacks []*MatchRewardPack `json:"rewardPacks"`
+	// この対戦を始めた部屋の公開用の ID（部屋の一覧の投影が遅れて引けない間は null）
+	RoomID *uuid.UUID `json:"roomId,omitempty"`
+	// その部屋で何戦目か（1 始まり。roomId が null の間は null）
+	Number *int `json:"number,omitempty"`
 }
 
 func (Match) IsMatchResult() {}
@@ -1433,6 +1468,10 @@ func (PlayerNotRegisteredError) IsPublishRoomResult() {}
 
 func (PlayerNotRegisteredError) IsDeclareRoomReadyResult() {}
 
+func (PlayerNotRegisteredError) IsDeclareRoomNextResult() {}
+
+func (PlayerNotRegisteredError) IsResumeRoomResult() {}
+
 func (PlayerNotRegisteredError) IsRenameRoomResult() {}
 
 func (PlayerNotRegisteredError) IsCloseRoomResult() {}
@@ -1516,6 +1555,25 @@ type RenameRoomSuccess struct {
 
 func (RenameRoomSuccess) IsRenameRoomResult() {}
 
+// 休止中の部屋を再開する入力
+type ResumeRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 休止中の部屋を再開し、準備中に戻した（全員が続けたときと同じく、準備完了と公開前に決めた印が外れ、
+// ボード・対戦ルール・席の選びを今の担当の決まりで変え直せる）
+type ResumeRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 再開した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ResumeRoomSuccess) IsResumeRoomResult() {}
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1544,6 +1602,10 @@ func (RevisionConflictError) IsPublishRoomResult() {}
 
 func (RevisionConflictError) IsDeclareRoomReadyResult() {}
 
+func (RevisionConflictError) IsDeclareRoomNextResult() {}
+
+func (RevisionConflictError) IsResumeRoomResult() {}
+
 func (RevisionConflictError) IsRenameRoomResult() {}
 
 func (RevisionConflictError) IsCloseRoomResult() {}
@@ -1565,6 +1627,14 @@ type RollMatchDiceSuccess struct {
 }
 
 func (RollMatchDiceSuccess) IsRollMatchDiceResult() {}
+
+// 対戦の後の意思表示を、すでにした（変え直しは無い。操作は行われていない）
+type RoomAlreadyDeclaredNextError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomAlreadyDeclaredNextError) IsDeclareRoomNextResult() {}
 
 // 準備完了を申告した後に、自分の担当の分を選び直そうとした、または申告し直そうとした（操作は行われていない）
 type RoomAlreadyReadyError struct {
@@ -1589,6 +1659,10 @@ type RoomCapabilities struct {
 	Publish bool `json:"publish"`
 	// 準備完了を押せるか（declareRoomReady）
 	DeclareReady bool `json:"declareReady"`
+	// 対戦の後に、続ける・終えるを選べるか（declareRoomNext。次を決める間の、まだ選んでいない人だけ）
+	DeclareNext bool `json:"declareNext"`
+	// 休止中の部屋を再開できるか（resumeRoom。作った人だけ）
+	Resume bool `json:"resume"`
 	// 閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false。対戦中も false
 	Close bool `json:"close"`
 	// 名前を変えられるか（renameRoom）
@@ -1612,6 +1686,14 @@ type RoomConditionsNotDecidedError struct {
 }
 
 func (RoomConditionsNotDecidedError) IsDeclareRoomReadyResult() {}
+
+// この部屋で始めた対戦 1 つ（中身は match(id) で読む）
+type RoomMatch struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// この部屋で何戦目か（1 始まり）
+	Number int `json:"number"`
+}
 
 // 部屋の対戦ルール。ボードと 7 つの値で、7 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
 // 部屋では既定ではなく、ボードごと決める値なので、入れ子にせず並べる
@@ -1660,6 +1742,10 @@ func (RoomNotFoundError) IsPublishRoomResult() {}
 
 func (RoomNotFoundError) IsDeclareRoomReadyResult() {}
 
+func (RoomNotFoundError) IsDeclareRoomNextResult() {}
+
+func (RoomNotFoundError) IsResumeRoomResult() {}
+
 func (RoomNotFoundError) IsRenameRoomResult() {}
 
 func (RoomNotFoundError) IsCloseRoomResult() {}
@@ -1680,6 +1766,8 @@ func (RoomNotResponsibleError) IsPublishRoomResult() {}
 
 func (RoomNotResponsibleError) IsDeclareRoomReadyResult() {}
 
+func (RoomNotResponsibleError) IsResumeRoomResult() {}
+
 func (RoomNotResponsibleError) IsRenameRoomResult() {}
 
 func (RoomNotResponsibleError) IsCloseRoomResult() {}
@@ -1692,6 +1780,8 @@ type RoomParticipant struct {
 	Owner bool `json:"owner"`
 	// 準備完了を申告したか
 	Ready bool `json:"ready"`
+	// 対戦の後の意思表示（続けるなら true、終えるなら false。まだしていない人と、次を決める間でないときは null）
+	Continues *bool `json:"continues,omitempty"`
 }
 
 // 席 1 つ。席の並びの順に返す
@@ -1733,6 +1823,10 @@ func (RoomStatusNotAllowedError) IsChangeRoomSeatChoiceResult() {}
 func (RoomStatusNotAllowedError) IsPublishRoomResult() {}
 
 func (RoomStatusNotAllowedError) IsDeclareRoomReadyResult() {}
+
+func (RoomStatusNotAllowedError) IsDeclareRoomNextResult() {}
+
+func (RoomStatusNotAllowedError) IsResumeRoomResult() {}
 
 func (RoomStatusNotAllowedError) IsRenameRoomResult() {}
 
@@ -2208,7 +2302,7 @@ func (e RoomSeatKind) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）。全員が準備完了を申告すると対戦中に進む
+// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）。全員が準備完了を申告すると対戦中に進み、対戦が終わると次を決める状態に進む
 type RoomStatus string
 
 const (
@@ -2216,8 +2310,12 @@ const (
 	RoomStatusDraft RoomStatus = "DRAFT"
 	// 準備中（公開した後、全員の準備完了まで）。公開前に決めなかったものを、担当の人が決める
 	RoomStatusPreparing RoomStatus = "PREPARING"
-	// 対戦中（全員が準備完了を申告して、対戦が始まった）。対戦は Room.match。対戦が終わった後の部屋の動きは先の候補
+	// 対戦中（全員が準備完了を申告して、対戦が始まった）。対戦は Room.match
 	RoomStatusPlaying RoomStatus = "PLAYING"
+	// 次を決める（対戦が終わり、全員が戦利品を受け取り終えた後）。参加している人が declareRoomNext で続けるか終えるかを選ぶ。誰かが終えるなら休止中、全員が続けるなら準備中に戻る
+	RoomStatusDecidingNext RoomStatus = "DECIDING_NEXT"
+	// 休止中（対戦の後に誰かが終えた。今日はここまで）。一覧に残り、作った人が resumeRoom で再開すると準備中に戻る
+	RoomStatusPaused RoomStatus = "PAUSED"
 	// 閉じた（作った人が閉じた）。一覧には出ない
 	RoomStatusClosed RoomStatus = "CLOSED"
 )
@@ -2226,12 +2324,14 @@ var AllRoomStatus = []RoomStatus{
 	RoomStatusDraft,
 	RoomStatusPreparing,
 	RoomStatusPlaying,
+	RoomStatusDecidingNext,
+	RoomStatusPaused,
 	RoomStatusClosed,
 }
 
 func (e RoomStatus) IsValid() bool {
 	switch e {
-	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusClosed:
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusDecidingNext, RoomStatusPaused, RoomStatusClosed:
 		return true
 	}
 	return false

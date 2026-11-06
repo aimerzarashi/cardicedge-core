@@ -19,14 +19,18 @@ const (
 	RoomStatusDraft     RoomStatus = "draft"
 	RoomStatusPreparing RoomStatus = "preparing"
 	RoomStatusPlaying   RoomStatus = "playing"
-	RoomStatusClosed    RoomStatus = "closed"
+	// 対戦が終わり、続けるか終えるかを意思表示する間
+	RoomStatusDecidingNext RoomStatus = "deciding_next"
+	// 対戦の後に誰かが終えた。一覧に残り、再開すると準備中に戻る
+	RoomStatusPaused RoomStatus = "paused"
+	RoomStatusClosed RoomStatus = "closed"
 )
 
 // DB の rooms.status など、外から来た値を状態にする
 func NewRoomStatus(value string) (RoomStatus, error) {
 	status := RoomStatus(value)
 	switch status {
-	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusClosed:
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusDecidingNext, RoomStatusPaused, RoomStatusClosed:
 		return status, nil
 	default:
 		return "", fmt.Errorf("readmodel: unknown room status: %q", value)
@@ -45,10 +49,14 @@ type Room struct {
 	MatchRules *room.MatchRules
 	// 準備完了を申告した人
 	Ready []player.ID
-	// 始まった対戦。始まるまでは 0
-	Match        match.ID
-	RegisteredAt time.Time
-	UpdatedAt    time.Time
+	// 今の対戦。始まるまでは 0
+	Match match.ID
+	// この部屋で始めた対戦（始めた順）。部屋の MatchStartedEvent だけから作り、対戦のイベントは購読しない（結果は対戦が持つ）
+	Matches []match.ID
+	// 対戦の後の意思表示（次を決める間だけ。準備中に戻ったら空に戻す）
+	NextDeclarations []RoomNextDeclaration
+	RegisteredAt     time.Time
+	UpdatedAt        time.Time
 	// 最後に操作した人
 	UpdatedBy player.ID
 }
@@ -58,6 +66,12 @@ type RoomSeat struct {
 	Kind   room.SeatKind
 	Player player.ID
 	Choice *room.SeatChoice
+}
+
+// 対戦の後の意思表示 1 つ。続けるなら Continue
+type RoomNextDeclaration struct {
+	Player   player.ID
+	Continue bool
 }
 
 // 日時はイベントの発生時刻から作る（DB の現在時刻は使わない）。表示に使う ID は公開 ID で持つ
@@ -72,11 +86,21 @@ type RoomMetadata struct {
 	MatchRules   *RoomMatchRulesMetadata `json:"match_rules"`
 	ReadyPlayers []uuid.UUID             `json:"ready_players"`
 	// 始まった対戦の公開 ID。始まるまでは null。空のまま、書くときに repository が公開 ID を入れる
-	Match        *uuid.UUID `json:"match"`
-	RegisteredAt time.Time  `json:"registered_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	RegisteredBy uuid.UUID  `json:"registered_by"`
-	UpdatedBy    uuid.UUID  `json:"updated_by"`
+	Match *uuid.UUID `json:"match"`
+	// この部屋で始めた対戦の公開 ID（始めた順）。対戦の ID から部屋を引く（RoomReader.FindByMatch）のに使うため、順を変えない。
+	// 空のまま、書くときに repository が公開 ID を入れる
+	Matches []uuid.UUID `json:"matches"`
+	// 対戦の後の意思表示。人は公開 ID（空のまま、書くときに repository が入れる）
+	NextDeclarations []RoomNextDeclarationMetadata `json:"next_declarations"`
+	RegisteredAt     time.Time                     `json:"registered_at"`
+	UpdatedAt        time.Time                     `json:"updated_at"`
+	RegisteredBy     uuid.UUID                     `json:"registered_by"`
+	UpdatedBy        uuid.UUID                     `json:"updated_by"`
+}
+
+type RoomNextDeclarationMetadata struct {
+	Player   uuid.UUID `json:"player"`
+	Continue bool      `json:"continue"`
 }
 
 // 席 1 つ。座っている人はプレイヤーの席だけ、アバターとデッキはまだ選んでいなければ無い。
@@ -126,6 +150,8 @@ func (state Room) Evolve(event any) Room {
 		state.Status = RoomStatusDraft
 		state.Seats = []RoomSeat{}
 		state.Ready = []player.ID{}
+		state.Matches = []match.ID{}
+		state.NextDeclarations = []RoomNextDeclaration{}
 		state.RegisteredAt = occurredAt
 		state.touch(e.GetMeta(), e.Player)
 	case *room.SeatsChangedEvent:
@@ -156,6 +182,21 @@ func (state Room) Evolve(event any) Room {
 	case *room.MatchStartedEvent:
 		state.Status = RoomStatusPlaying
 		state.Match = e.Match
+		state.Matches = append(slices.Clone(state.Matches), e.Match)
+		state.touch(e.GetMeta(), state.Owner)
+	case *room.MatchFinishedEvent:
+		state.Status = RoomStatusDecidingNext
+		state.touch(e.GetMeta(), state.Owner)
+	case *room.NextDeclaredEvent:
+		state.NextDeclarations = append(slices.Clone(state.NextDeclarations), RoomNextDeclaration{Player: e.Player, Continue: e.Continue})
+		state.touch(e.GetMeta(), e.Player)
+	case *room.PreparationRestartedEvent:
+		state.Status = RoomStatusPreparing
+		state.Ready = []player.ID{}
+		state.NextDeclarations = []RoomNextDeclaration{}
+		state.touch(e.GetMeta(), state.Owner)
+	case *room.PausedEvent:
+		state.Status = RoomStatusPaused
 		state.touch(e.GetMeta(), state.Owner)
 	case *room.ClosedEvent:
 		state.Status = RoomStatusClosed

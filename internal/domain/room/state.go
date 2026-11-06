@@ -36,8 +36,16 @@ type Room struct {
 	MatchRulesLocked bool
 	// 準備完了を申告した人
 	Ready []player.ID
-	// 始まった対戦。始まるまでは 0
+	// 始まった対戦（今の対戦。前の対戦は残さない）。始まるまでは 0
 	Match match.ID
+	// 対戦の後の意思表示（次を決める間だけ。準備中に戻ったら空に戻す）
+	NextDeclarations []NextDeclaration
+}
+
+// 対戦の後の意思表示 1 つ。続けるなら Continue
+type NextDeclaration struct {
+	Player   player.ID
+	Continue bool
 }
 
 func (Room) isRoomState() {}
@@ -74,6 +82,27 @@ func (r Room) StartsMatchOnReady(playerID player.ID) bool {
 		}
 	}
 	return true
+}
+
+// 対戦の後に意思表示をする人。部屋に入っている全員（作った人と、プレイヤーの席に座っている人。重ねて数えない）
+func (r Room) participants() []player.ID {
+	participants := []player.ID{r.Owner}
+	for _, seat := range r.Seats {
+		if seat.Seat.Kind == SeatKindPlayer && !slices.Contains(participants, seat.Seat.Player) {
+			participants = append(participants, seat.Seat.Player)
+		}
+	}
+	return participants
+}
+
+// いま続けると意思表示する人で、残りの全員がそろうか（準備中に戻るか）。誰かが終えれば部屋は閉じるので、
+// 意思表示が残っているのは続ける人だけ
+func (r Room) allContinueNow() bool {
+	return len(r.NextDeclarations)+1 == len(r.participants())
+}
+
+func (r Room) hasDeclaredNext(playerID player.ID) bool {
+	return slices.ContainsFunc(r.NextDeclarations, func(d NextDeclaration) bool { return d.Player == playerID })
 }
 
 func (r Room) isReady(playerID player.ID) bool {
