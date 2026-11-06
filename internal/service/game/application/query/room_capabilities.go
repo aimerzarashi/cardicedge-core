@@ -19,6 +19,8 @@ type RoomCapabilities struct {
 	ChangeSeatChoice []bool
 	Publish          bool
 	DeclareReady     bool
+	DeclareNext      bool
+	Resume           bool
 	Close            bool
 	Rename           bool
 }

@@ -39,6 +39,8 @@ var (
 	ErrRoomAlreadyReady = errors.New("command: room already ready")
 	// 自分の担当の分に、まだ決まっていないものがある
 	ErrRoomConditionsNotDecided = errors.New("command: room conditions not decided")
+	// 対戦の後の意思表示を、すでにした人がもう一度しようとした（変え直しは無い）
+	ErrRoomAlreadyDeclaredNext = errors.New("command: room already declared next")
 )
 
 // 対戦の操作の結果の理由（画面で見た revision と違う場合は、部屋と同じ ErrRevisionConflict）

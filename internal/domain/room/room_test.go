@@ -669,6 +669,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&room.PreparationStartedEvent{EventMeta: meta},
 		&room.ReadyDeclaredEvent{EventMeta: meta, Player: owner(t)},
 		&room.MatchStartedEvent{EventMeta: meta, Match: matchID(t)},
+		&room.MatchFinishedEvent{EventMeta: meta, Match: matchID(t)},
+		&room.NextDeclaredEvent{EventMeta: meta, Player: owner(t), Continue: true},
+		&room.PreparationRestartedEvent{EventMeta: meta},
+		&room.PausedEvent{EventMeta: meta},
 		&room.ClosedEvent{EventMeta: meta},
 		&room.RenamedEvent{EventMeta: meta, Name: roomtest.Name(t, "新しい名前")},
 	}
@@ -758,6 +762,8 @@ func TestDecide_RenameRejectsAnyoneButOwnerAndClosedRoom(t *testing.T) {
 // 見ている人にできる操作は、Decide と同じ関数で判断する。2 つがずれないことを、状態 × 見ている人 × 操作の全部の組で確かめる
 func TestCapabilitiesOf_AgreesWithDecideForEveryStateViewerAndOperation(t *testing.T) {
 	closed, _ := apply(t, fullyDecided(t), &room.CloseCommand{ClosedBy: owner(t)})
+	deciding := decidingNext(t, 1)
+	paused, _ := apply(t, deciding, &room.DeclareNextCommand{Player: guest(t), Continue: false})
 	playing, _ := apply(t, evolveChoicesInPreparing(t), &room.DeclareReadyCommand{Player: owner(t), Match: matchID(t)})
 	readyGuest, _ := apply(t, evolveChoice(t, preparingWithGuestSeat(t), guest(t), 0, playerChoice(t)), &room.DeclareReadyCommand{Player: guest(t)})
 	states := map[string]room.State{
@@ -770,6 +776,8 @@ func TestCapabilitiesOf_AgreesWithDecideForEveryStateViewerAndOperation(t *testi
 		"preparing_guest":    preparingWithGuestSeat(t),
 		"preparing_ready":    readyGuest,
 		"playing":            playing,
+		"deciding_next":      deciding,
+		"paused":             paused,
 		"closed":             closed,
 	}
 	viewers := map[string]player.ID{"owner": owner(t), "guest": guest(t), "outsider": playertest.ID(t, 12)}
@@ -790,6 +798,9 @@ func TestCapabilitiesOf_AgreesWithDecideForEveryStateViewerAndOperation(t *testi
 				require.Equal(t, allowedEvenIfNothingChanges(&room.ChangeMatchRulesCommand{ChangedBy: viewer, MatchRules: matchRules(t)}), got.ChangeMatchRules)
 				require.Equal(t, allowedEvenIfNothingChanges(&room.PublishCommand{PublishedBy: viewer}), got.Publish)
 				require.Equal(t, allowedEvenIfNothingChanges(&room.DeclareReadyCommand{Player: viewer, Match: matchID(t)}), got.DeclareReady)
+				require.Equal(t, allowedEvenIfNothingChanges(&room.DeclareNextCommand{Player: viewer, Continue: true}), got.DeclareNext)
+				require.Equal(t, allowedEvenIfNothingChanges(&room.DeclareNextCommand{Player: viewer, Continue: false}), got.DeclareNext)
+				require.Equal(t, allowedEvenIfNothingChanges(&room.ResumeCommand{ResumedBy: viewer}), got.Resume)
 				require.Equal(t, allowedEvenIfNothingChanges(&room.RenameCommand{RenamedBy: viewer, Name: roomtest.Name(t, "x")}), got.Rename)
 				// 閉じた部屋を閉じ直すのは成功するが何も変わらないので、できる操作には数えない
 				require.Equal(t, allowed(&room.CloseCommand{ClosedBy: viewer}), got.Close)
@@ -833,4 +844,205 @@ func TestCapabilitiesOf_ShowsWhatTheOwnerCanDoAcrossTheLifecycle(t *testing.T) {
 	require.Equal(t, room.Capabilities{ChangeSeatChoice: []bool{false, false}, DeclareReady: true, Close: true, Rename: true}, locked)
 	require.Equal(t, room.Capabilities{ChangeMatchRules: true, ChangeSeatChoice: []bool{true, true}, DeclareReady: true, Close: true, Rename: true}, decided)
 	require.Equal(t, room.Capabilities{ChangeSeatChoice: []bool{false, false}}, room.CapabilitiesOf(closed, owner(t)))
+}
+
+// 対戦が始まって終わった（次を決める）部屋。guests が 1 なら、作った人と guest の 2 人がプレイヤーの席に座る
+func decidingNext(t *testing.T, guests int) room.State {
+	t.Helper()
+	var state room.State
+	if guests == 0 {
+		state, _ = apply(t, publish(t, fullyDecided(t)), &room.DeclareReadyCommand{Player: owner(t), Match: matchID(t)})
+	} else {
+		state = evolveChoice(t, preparingWithGuestSeat(t), guest(t), 0, playerChoice(t))
+		state, _ = apply(t, state, &room.DeclareReadyCommand{Player: guest(t)})
+		state = evolve(t, state, &room.ReadyDeclaredEvent{EventMeta: room.EventMeta{EntityID: roomtest.ID(t, 30), AggregateVersion: state.(room.Room).Version + 1, OccurredAt: changedAt}, Player: owner(t)})
+		state = evolve(t, state, &room.MatchStartedEvent{EventMeta: room.EventMeta{EntityID: roomtest.ID(t, 30), AggregateVersion: state.(room.Room).Version + 1, OccurredAt: changedAt}, Match: matchID(t)})
+	}
+	state, _ = apply(t, state, &room.FinishMatchCommand{Match: matchID(t)})
+	return state
+}
+
+func TestDecide_FinishMatchMovesPlayingRoomToDecidingNext(t *testing.T) {
+	playing, _ := apply(t, publish(t, fullyDecided(t)), &room.DeclareReadyCommand{Player: owner(t), Match: matchID(t)})
+
+	finished, events := apply(t, playing, &room.FinishMatchCommand{Match: matchID(t)})
+
+	require.Equal(t, []room.Event{
+		&room.MatchFinishedEvent{EventMeta: room.EventMeta{EntityID: roomtest.ID(t, 30), AggregateVersion: 10, OccurredAt: changedAt}, Match: matchID(t)},
+	}, events)
+	require.Equal(t, room.StatusDecidingNext, finished.(room.Room).Status)
+}
+
+func TestDecide_FinishMatchEmitsNothingUnlessItIsThePlayingRoomsCurrentMatch(t *testing.T) {
+	playing, _ := apply(t, publish(t, fullyDecided(t)), &room.DeclareReadyCommand{Player: owner(t), Match: matchID(t)})
+	tests := []struct {
+		name  string
+		state room.State
+		match match.ID
+	}{
+		{name: "another_match", state: playing, match: matchtest.ID(t, 41)},
+		{name: "second_time", state: decidingNext(t, 0), match: matchID(t)},
+		{name: "preparing", state: publish(t, fullyDecided(t)), match: matchID(t)},
+		{name: "draft", state: fullyDecided(t), match: matchID(t)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			events, err := room.Decide(tt.state, &room.FinishMatchCommand{Match: tt.match}, changedAt)
+
+			require.NoError(t, err)
+			require.Empty(t, events)
+		})
+	}
+}
+
+func TestDecide_DeclareNextDecidesAtOnceWhenOnlyOnePlayerIsInTheRoom(t *testing.T) {
+	deciding := decidingNext(t, 0)
+
+	paused, pauseEvents := apply(t, deciding, &room.DeclareNextCommand{Player: owner(t), Continue: false})
+	restarted, restartEvents := apply(t, deciding, &room.DeclareNextCommand{Player: owner(t), Continue: true})
+
+	version := deciding.(room.Room).Version
+	meta := func(offset int64) room.EventMeta {
+		return room.EventMeta{EntityID: roomtest.ID(t, 30), AggregateVersion: version + offset, OccurredAt: changedAt}
+	}
+	require.Equal(t, []room.Event{
+		&room.NextDeclaredEvent{EventMeta: meta(1), Player: owner(t), Continue: false},
+		&room.PausedEvent{EventMeta: meta(2)},
+	}, pauseEvents)
+	require.Equal(t, room.StatusPaused, paused.(room.Room).Status)
+	require.Equal(t, []room.Event{
+		&room.NextDeclaredEvent{EventMeta: meta(1), Player: owner(t), Continue: true},
+		&room.PreparationRestartedEvent{EventMeta: meta(2)},
+	}, restartEvents)
+	require.Equal(t, room.StatusPreparing, restarted.(room.Room).Status)
+}
+
+func TestDecide_DeclareNextWaitsForEveryoneToContinueButPausesAsSoonAsSomeoneEnds(t *testing.T) {
+	deciding := decidingNext(t, 1)
+
+	waiting, events := apply(t, deciding, &room.DeclareNextCommand{Player: owner(t), Continue: true})
+	restarted, _ := apply(t, waiting, &room.DeclareNextCommand{Player: guest(t), Continue: true})
+	paused, _ := apply(t, deciding, &room.DeclareNextCommand{Player: guest(t), Continue: false})
+
+	require.Len(t, events, 1)
+	require.Equal(t, room.StatusDecidingNext, waiting.(room.Room).Status)
+	require.Equal(t, []room.NextDeclaration{{Player: owner(t), Continue: true}}, waiting.(room.Room).NextDeclarations)
+	require.Equal(t, room.StatusPreparing, restarted.(room.Room).Status)
+	require.Equal(t, room.StatusPaused, paused.(room.Room).Status)
+}
+
+func TestDecide_DeclareNextRejectsOutsidersRepeatsAndOtherStatuses(t *testing.T) {
+	waiting, _ := apply(t, decidingNext(t, 1), &room.DeclareNextCommand{Player: owner(t), Continue: true})
+	playing, _ := apply(t, publish(t, fullyDecided(t)), &room.DeclareReadyCommand{Player: owner(t), Match: matchID(t)})
+	tests := []struct {
+		name   string
+		state  room.State
+		player player.ID
+		want   error
+	}{
+		{name: "not_participant", state: decidingNext(t, 0), player: guest(t), want: room.ErrNotParticipant},
+		{name: "already_declared", state: waiting, player: owner(t), want: room.ErrAlreadyDeclaredNext},
+		{name: "playing", state: playing, player: owner(t), want: room.ErrStatusNotAllowed},
+		{name: "preparing", state: publish(t, fullyDecided(t)), player: owner(t), want: room.ErrStatusNotAllowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := room.Decide(tt.state, &room.DeclareNextCommand{Player: tt.player, Continue: true}, changedAt)
+
+			require.ErrorIs(t, err, tt.want)
+		})
+	}
+}
+
+func TestDecide_ContinuingReturnsToPreparingWithReadyAndLocksCleared(t *testing.T) {
+	restarted, _ := apply(t, decidingNext(t, 0), &room.DeclareNextCommand{Player: owner(t), Continue: true})
+
+	current := restarted.(room.Room)
+
+	require.Empty(t, current.Ready)
+	require.Empty(t, current.NextDeclarations)
+	require.False(t, current.MatchRulesLocked)
+	for _, seat := range current.Seats {
+		require.False(t, seat.ChoiceLocked)
+		require.NotNil(t, seat.Choice)
+	}
+}
+
+func TestDecide_AfterContinuingConditionsCanBeChangedByTheirOwnersAndTheNextMatchCanStart(t *testing.T) {
+	restarted, _ := apply(t, decidingNext(t, 0), &room.DeclareNextCommand{Player: owner(t), Continue: true})
+	otherRules := roomtest.MatchRules(t, boardtest.ID(t, 6))
+
+	state, rulesEvents := apply(t, restarted, &room.ChangeMatchRulesCommand{ChangedBy: owner(t), MatchRules: otherRules})
+	state, choiceEvents := apply(t, state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 0), Choice: roomtest.PlayerChoice(t, 8, 9)})
+	_, seatsErr := room.Decide(state, &room.ChangeSeatsCommand{ChangedBy: owner(t), Seats: seatKinds(t)}, changedAt)
+	state, startEvents := apply(t, state, &room.DeclareReadyCommand{Player: owner(t), Match: matchtest.ID(t, 41)})
+
+	require.Len(t, rulesEvents, 1)
+	require.Len(t, choiceEvents, 1)
+	require.ErrorIs(t, seatsErr, room.ErrStatusNotAllowed)
+	require.Len(t, startEvents, 2)
+	require.Equal(t, room.StatusPlaying, state.(room.Room).Status)
+	require.Equal(t, matchtest.ID(t, 41), state.(room.Room).Match)
+}
+
+func TestCapabilitiesOf_ShowsDeclareNextOnlyToThoseWhoHaveNotDeclaredYet(t *testing.T) {
+	waiting, _ := apply(t, decidingNext(t, 1), &room.DeclareNextCommand{Player: owner(t), Continue: true})
+
+	require.Equal(t, room.Capabilities{ChangeSeatChoice: []bool{false, false}, DeclareNext: true, Close: true, Rename: true}, room.CapabilitiesOf(decidingNext(t, 1), owner(t)))
+	require.False(t, room.CapabilitiesOf(waiting, owner(t)).DeclareNext)
+	require.True(t, room.CapabilitiesOf(waiting, guest(t)).DeclareNext)
+}
+
+// 終えた部屋（休止中）。guests が 1 なら、作った人と guest の 2 人がプレイヤーの席に座る
+func paused(t *testing.T, guests int) room.State {
+	t.Helper()
+	state, _ := apply(t, decidingNext(t, guests), &room.DeclareNextCommand{Player: owner(t), Continue: false})
+	return state
+}
+
+func TestDecide_ResumeReturnsPausedRoomToPreparingAsContinuingDoes(t *testing.T) {
+	before := paused(t, 0)
+
+	resumed, events := apply(t, before, &room.ResumeCommand{ResumedBy: owner(t)})
+	continued, _ := apply(t, decidingNext(t, 0), &room.DeclareNextCommand{Player: owner(t), Continue: true})
+
+	require.Equal(t, []room.Event{
+		&room.PreparationRestartedEvent{EventMeta: room.EventMeta{EntityID: roomtest.ID(t, 30), AggregateVersion: before.(room.Room).Version + 1, OccurredAt: changedAt}},
+	}, events)
+	current := resumed.(room.Room)
+	require.Equal(t, room.StatusPreparing, current.Status)
+	require.Empty(t, current.Ready)
+	require.Empty(t, current.NextDeclarations)
+	require.False(t, current.MatchRulesLocked)
+	require.Equal(t, continued.(room.Room).Seats, current.Seats)
+}
+
+func TestDecide_ResumeRejectsAnyoneButTheOwnerAndRoomsThatAreNotPaused(t *testing.T) {
+	tests := []struct {
+		name   string
+		state  room.State
+		player player.ID
+		want   error
+	}{
+		{name: "guest", state: paused(t, 1), player: guest(t), want: room.ErrNotOwner},
+		{name: "deciding_next", state: decidingNext(t, 0), player: owner(t), want: room.ErrStatusNotAllowed},
+		{name: "preparing", state: publish(t, fullyDecided(t)), player: owner(t), want: room.ErrStatusNotAllowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := room.Decide(tt.state, &room.ResumeCommand{ResumedBy: tt.player}, changedAt)
+
+			require.ErrorIs(t, err, tt.want)
+		})
+	}
+}
+
+// 休止中は一覧に残る部屋で、閉じるのは作った人の閉じる操作だけ
+func TestDecide_PausedRoomIsClosedOnlyByTheOwnersClose(t *testing.T) {
+	closed, events := apply(t, paused(t, 0), &room.CloseCommand{ClosedBy: owner(t)})
+
+	require.Len(t, events, 1)
+	require.IsType(t, &room.ClosedEvent{}, events[0])
+	require.Equal(t, room.StatusClosed, closed.(room.Room).Status)
+	require.Equal(t, room.Capabilities{ChangeSeatChoice: []bool{false, false}, Resume: true, Close: true, Rename: true}, room.CapabilitiesOf(paused(t, 0), owner(t)))
 }

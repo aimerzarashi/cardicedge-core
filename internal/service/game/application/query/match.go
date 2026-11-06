@@ -124,6 +124,10 @@ type Match struct {
 	Outcome *MatchOutcome
 	// 見ているプレイヤーが今選べる戦利品のパック。終わった後で、まだ受け取っていないときだけ中身がある
 	RewardPacks []MatchRewardPack
+	// 始めた部屋の公開用の ID と、その部屋で何戦目か（1 始まり）。対戦の集約は部屋を持たない（パッケージが循環するため）ので、
+	// 部屋の read model から引く。部屋の投影が遅れて引けない間は nil
+	RoomID *uuid.UUID
+	Number *int
 }
 
 // 名前を引く元（公開 ID）。アバター・NPC のアバターの名前と、カードの名前・種類を、それぞれの read model から 1 回で読む
@@ -141,6 +145,7 @@ type MatchHandler struct {
 	access     *MatchAccess
 	entityRefs domain.EntityRefResolver
 	loadNames  LoadMatchNamesFunc
+	findRoom   FindRoomByMatchFunc
 }
 
 func NewMatchHandler(
@@ -149,8 +154,9 @@ func NewMatchHandler(
 	players domain.Identifier[player.ID],
 	entityRefs domain.EntityRefResolver,
 	loadNames LoadMatchNamesFunc,
+	findRoom FindRoomByMatchFunc,
 ) *MatchHandler {
-	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players), entityRefs: entityRefs, loadNames: loadNames}
+	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players), entityRefs: entityRefs, loadNames: loadNames, findRoom: findRoom}
 }
 
 // 参加していない対戦も、無いのと同じ ErrMatchNotFound にする
@@ -159,7 +165,18 @@ func (q *MatchHandler) Get(ctx context.Context, playerID uuid.UUID, matchID uuid
 	if err != nil {
 		return Match{}, err
 	}
-	return q.build(ctx, matchID, current, viewer)
+	found, err := q.build(ctx, matchID, current, viewer)
+	if err != nil {
+		return Match{}, err
+	}
+	roomID, number, ok, err := q.findRoom(ctx, matchID)
+	if err != nil {
+		return Match{}, err
+	}
+	if ok {
+		found.RoomID, found.Number = &roomID, &number
+	}
+	return found, nil
 }
 
 func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current match.Match, viewer player.ID) (Match, error) {

@@ -46,6 +46,21 @@ func Evolve(state State, event Event) (State, error) {
 	case *MatchStartedEvent:
 		current.Status = StatusPlaying
 		current.Match = e.Match
+	case *MatchFinishedEvent:
+		current.Status = StatusDecidingNext
+	case *NextDeclaredEvent:
+		current.NextDeclarations = append(slices.Clone(current.NextDeclarations), NextDeclaration{Player: e.Player, Continue: e.Continue})
+	case *PreparationRestartedEvent:
+		current.Status = StatusPreparing
+		current.Ready = nil
+		current.NextDeclarations = nil
+		current.MatchRulesLocked = false
+		current.Seats = slices.Clone(current.Seats)
+		for i := range current.Seats {
+			current.Seats[i].ChoiceLocked = false
+		}
+	case *PausedEvent:
+		current.Status = StatusPaused
 	case *ClosedEvent:
 		current.Status = StatusClosed
 	case *RenamedEvent:

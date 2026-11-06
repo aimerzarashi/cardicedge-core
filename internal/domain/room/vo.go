@@ -66,9 +66,13 @@ type Status string
 const (
 	StatusDraft     Status = "draft"
 	StatusPreparing Status = "preparing"
-	// 全員の準備完了で対戦が始まってから、対戦が終わるまで。終わった後の部屋の動きは ⑦ で決める
+	// 全員の準備完了で対戦が始まってから、対戦が終わる（全員が戦利品を受け取り終える）まで
 	StatusPlaying Status = "playing"
-	StatusClosed  Status = "closed"
+	// 対戦が終わり、参加している人が続けるか終えるかを意思表示する間。全員が続けるなら準備中に戻り、誰かが終えるなら休止中になる
+	StatusDecidingNext Status = "deciding_next"
+	// 対戦の後に誰かが終えた（今日はここまで）。部屋は一覧に残り、再開すると準備中に戻る。閉じるのは作った人の閉じる操作だけ
+	StatusPaused Status = "paused"
+	StatusClosed Status = "closed"
 )
 
 func (s Status) String() string {

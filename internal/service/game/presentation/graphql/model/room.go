@@ -12,6 +12,7 @@ type Room struct {
 	Participants []*RoomParticipant `json:"participants"`
 	Seats        []*RoomSeat        `json:"seats"`
 	MatchRules   *RoomMatchRules    `json:"matchRules,omitempty"`
+	Matches      []*RoomMatch       `json:"matches"`
 	Capabilities *RoomCapabilities  `json:"capabilities,omitempty"`
 	MatchID      *uuid.UUID
 }

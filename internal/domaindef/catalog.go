@@ -125,6 +125,10 @@ var Types = Catalog{
 			{ID: 2908, Name: "ClosedEvent"},
 			{ID: 2909, Name: "RenamedEvent"},
 			{ID: 2910, Name: "MatchStartedEvent"},
+			{ID: 2911, Name: "MatchFinishedEvent"},
+			{ID: 2912, Name: "NextDeclaredEvent"},
+			{ID: 2913, Name: "PreparationRestartedEvent"},
+			{ID: 2914, Name: "PausedEvent"},
 		}},
 		{ID: 3000, Name: "match", Events: []EventTypeDef{
 			{ID: 3001, Name: "CreatedEvent"},

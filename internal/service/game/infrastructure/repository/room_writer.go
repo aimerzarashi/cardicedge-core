@@ -124,6 +124,12 @@ func roomRefs(state readmodel.Room) []domain.EntityRef {
 	if state.Match != 0 {
 		refs = append(refs, domain.NewEntityRef(match.Types().EntityType, state.Match.Int64()))
 	}
+	for _, started := range state.Matches {
+		refs = append(refs, domain.NewEntityRef(match.Types().EntityType, started.Int64()))
+	}
+	for _, declaration := range state.NextDeclarations {
+		refs = append(refs, domain.NewEntityRef(player.Types().EntityType, declaration.Player.Int64()))
+	}
 	return refs
 }
 
@@ -171,6 +177,14 @@ func roomMetadata(state readmodel.Room, lookup func(domain.EntityRef) (uuid.UUID
 	if state.Match != 0 {
 		matchID := publicID(match.Types().EntityType, state.Match.Int64())
 		metadata.Match = &matchID
+	}
+	metadata.Matches = make([]uuid.UUID, len(state.Matches))
+	for i, started := range state.Matches {
+		metadata.Matches[i] = publicID(match.Types().EntityType, started.Int64())
+	}
+	metadata.NextDeclarations = make([]readmodel.RoomNextDeclarationMetadata, len(state.NextDeclarations))
+	for i, declaration := range state.NextDeclarations {
+		metadata.NextDeclarations[i] = readmodel.RoomNextDeclarationMetadata{Player: publicID(player.Types().EntityType, declaration.Player.Int64()), Continue: declaration.Continue}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return readmodel.RoomMetadata{}, err

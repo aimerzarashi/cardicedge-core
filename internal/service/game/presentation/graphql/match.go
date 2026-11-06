@@ -97,7 +97,8 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Board:        &model.MatchBoard{Width: match.Board.Width, Height: match.Board.Height, Tiles: tiles, Connections: connections, Pairs: pairs},
 		Participants: participants, CurrentParticipant: match.CurrentParticipant,
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
-		Phase:       phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
+		RoomID:      match.RoomID, Number: match.Number,
+		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 	}
 	if outcome := match.Outcome; outcome != nil {
 		reason, err := fromMatchEndReason(outcome.Reason)

@@ -52,6 +52,23 @@ type RenameCommand struct {
 	Name      Name
 }
 
+// 部屋の今の対戦が終わった（全員が戦利品を受け取り終えた）ことを知らせ、次を決める状態に進める。
+// 対戦中でなければ、またはその部屋の今の対戦でなければ何もしない（知らせを受けるポリシーは二度動くことがあるため）
+type FinishMatchCommand struct {
+	Match match.ID
+}
+
+// 対戦の後に、続けるか終えるかを意思表示する（1 人 1 回。変え直しは無い）。誰かが終えるなら休止中に、全員が続けるなら準備中に戻る
+type DeclareNextCommand struct {
+	Player   player.ID
+	Continue bool
+}
+
+// 休止中の部屋を再開し、準備中に戻す（作った人だけ。閉じる・対戦ルールを決めるのと同じ人）
+type ResumeCommand struct {
+	ResumedBy player.ID
+}
+
 type CloseCommand struct {
 	ClosedBy player.ID
 }
@@ -62,5 +79,8 @@ func (*ChangeMatchRulesCommand) isRoomCommand() {}
 func (*ChangeSeatChoiceCommand) isRoomCommand() {}
 func (*PublishCommand) isRoomCommand()          {}
 func (*DeclareReadyCommand) isRoomCommand()     {}
+func (*FinishMatchCommand) isRoomCommand()      {}
+func (*DeclareNextCommand) isRoomCommand()      {}
+func (*ResumeCommand) isRoomCommand()           {}
 func (*CloseCommand) isRoomCommand()            {}
 func (*RenameCommand) isRoomCommand()           {}

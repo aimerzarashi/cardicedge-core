@@ -47,27 +47,28 @@ type Config struct {
 }
 
 type Game struct {
-	config         Config
-	entityRefs     domain.EntityRefResolver
-	players        *command.PlayerHandler
-	grants         *command.StarterGrantHandler
-	matchStart     *command.MatchStartHandler
-	matchNPCTurn   *command.MatchNPCTurnHandler
-	matchReward    *command.MatchRewardHandler
-	matches        *command.MatchHandler
-	matchQuery     *query.MatchHandler
-	matchEvents    *query.MatchEventsHandler
-	matchProgress  *query.MatchProgressBroker
-	playerQuery    *query.PlayerHandler
-	avatars        *command.AvatarHandler
-	avatarQuery    *query.AvatarHandler
-	deckQuery      *query.DeckHandler
-	unlockQuery    *query.UnlockHandler
-	boardQuery     *query.BoardHandler
-	gameRuleQuery  *query.GameRulesHandler
-	npcAvatarQuery *query.NPCAvatarHandler
-	rooms          *command.RoomHandler
-	roomQuery      *query.RoomHandler
+	config          Config
+	entityRefs      domain.EntityRefResolver
+	players         *command.PlayerHandler
+	grants          *command.StarterGrantHandler
+	matchStart      *command.MatchStartHandler
+	matchNPCTurn    *command.MatchNPCTurnHandler
+	matchReward     *command.MatchRewardHandler
+	roomMatchFinish *command.RoomMatchFinishHandler
+	matches         *command.MatchHandler
+	matchQuery      *query.MatchHandler
+	matchEvents     *query.MatchEventsHandler
+	matchProgress   *query.MatchProgressBroker
+	playerQuery     *query.PlayerHandler
+	avatars         *command.AvatarHandler
+	avatarQuery     *query.AvatarHandler
+	deckQuery       *query.DeckHandler
+	unlockQuery     *query.UnlockHandler
+	boardQuery      *query.BoardHandler
+	gameRuleQuery   *query.GameRulesHandler
+	npcAvatarQuery  *query.NPCAvatarHandler
+	rooms           *command.RoomHandler
+	roomQuery       *query.RoomHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Game {
@@ -153,6 +154,13 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 			collections,
 		),
+		roomMatchFinish: command.NewRoomMatchFinishHandler(
+			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
+			identifier.New(registry, room.NewID),
+			entityRefs,
+			roomReader.FindByMatch,
+			now,
+		),
 		matches: command.NewMatchHandler(
 			eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 			identifier.New(registry, match.NewID),
@@ -166,6 +174,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			identifier.New(registry, player.NewID),
 			entityRefs,
 			repository.NewMatchNameReader().Load,
+			roomReader.FindByMatch,
 		),
 		matchEvents: query.NewMatchEventsHandler(matchAccess.Authorize, func(ctx context.Context, id match.ID) ([]match.Event, error) {
 			loaded, err := matchEventLoader.LoadEvents(ctx, id.Int64())
@@ -255,6 +264,15 @@ func (g *Game) RegisterPolicies(hub *eventdriven.Hub) error {
 		Subscriptions: []domain.EntityType{match.Types().EntityType},
 		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
 			return g.matchReward.Handle(ctx, event.Event)
+		},
+	}); err != nil {
+		return err
+	}
+	if err := eventdriven.RegisterPolicy(hub, eventdriven.PolicySpec{
+		Name:          "room_match_finish",
+		Subscriptions: []domain.EntityType{match.Types().EntityType},
+		Handle: func(ctx context.Context, event eventstore.LoadedEvent) error {
+			return g.roomMatchFinish.Handle(ctx, event.Event)
 		},
 	}); err != nil {
 		return err
