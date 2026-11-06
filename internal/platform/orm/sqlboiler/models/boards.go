@@ -30,7 +30,7 @@ type Board struct {
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`
 	// ボードの状態（draft: 準備中、published: 公開中、retired: 使用不可）
 	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
-	// 表示に使う値（イベントの値。名前・状態・更新の番号（集約の版）・日時・幅と高さ（width・height）、マス（tiles: [{x, y, kind}]。y → x の順）、つながり（connections: [{a: {x, y}, b: {x, y}}]。a → b の順））
+	// 値（JSON）。項目と形は studio の readmodel.BoardMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *boardR `boil:"-" json:"-" toml:"-" yaml:"-"`

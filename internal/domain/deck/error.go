@@ -12,4 +12,6 @@ var (
 	ErrNameAlreadyInUse = errors.New("deck: name already in use")
 	// プレイヤーが持てるデッキの数の上限に達している
 	ErrLimitReached = errors.New("deck: limit reached")
+	// カードの枚数の合計が、決まりの枚数と違う
+	ErrTotalMismatch = errors.New("deck: total card count does not match the rule")
 )

@@ -24,7 +24,7 @@ func TestStudioRules_EvolvesFromCreated(t *testing.T) {
 
 	state := readmodel.StudioRules{}.Evolve(event)
 
-	require.Equal(t, readmodel.StudioRules{StudioRulesID: publicID, Revision: 1, UpdatedAt: at, Rules: rules}, state)
+	require.Equal(t, readmodel.StudioRules{StudioRulesID: publicID, Revision: 1, RegisteredAt: at, UpdatedAt: at, Rules: rules}, state)
 	require.False(t, state.IsTerminal())
 }
 

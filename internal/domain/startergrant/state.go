@@ -1,6 +1,10 @@
 package startergrant
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+)
 
 type State interface {
 	isStarterGrantState()
@@ -15,9 +19,12 @@ type InProgressStarterGrant struct {
 	ID                 ID
 	Version            int64
 	Player             player.ID
-	Cards              []CardCount
+	Cards              []CollectionCard
 	Decks              []Deck
+	UnlockBoards       []board.ID
+	UnlockNPCAvatars   []npcavatar.ID
 	CollectionRecorded bool
+	UnlockRecorded     bool
 	// 添字は DeckNumber - 1。長さは配るデッキの数（Decks と同じ）
 	DeckRecorded []bool
 }
@@ -25,7 +32,7 @@ type InProgressStarterGrant struct {
 func (InProgressStarterGrant) isStarterGrantState() {}
 
 func (s InProgressStarterGrant) allRecorded() bool {
-	if !s.CollectionRecorded {
+	if !s.CollectionRecorded || !s.UnlockRecorded {
 		return false
 	}
 	for _, recorded := range s.DeckRecorded {
@@ -36,10 +43,10 @@ func (s InProgressStarterGrant) allRecorded() bool {
 	return true
 }
 
+// 済んだ後は何も配らないので、持ち主・中身は持たない（Distribute は Completed なら何もしない）
 type CompletedStarterGrant struct {
 	ID      ID
 	Version int64
-	Player  player.ID
 }
 
 func (CompletedStarterGrant) isStarterGrantState() {}

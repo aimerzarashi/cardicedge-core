@@ -79,21 +79,6 @@ func (e *NotGreaterThan) InputField() string {
 	return e.Field
 }
 
-// 別の入力の項目の値以上でなければならない値が、それより小さい（等しいのは誤りでない。NotGreaterThan と境目が違うので型を分ける）。
-// Than はその項目の名前
-type LessThan struct {
-	Field string
-	Than  string
-}
-
-func (e *LessThan) Error() string {
-	return fmt.Sprintf("%s is less than %s", e.Field, e.Than)
-}
-
-func (e *LessThan) InputField() string {
-	return e.Field
-}
-
 type InvalidFormat struct{ Field string }
 
 func (e *InvalidFormat) Error() string {
@@ -152,7 +137,7 @@ func (e *TotalTooLarge) InputField() string {
 	return e.Field
 }
 
-// 合計がちょうど決まった値でない（公開するスターターデッキの枚数の合計等）。多すぎるのも足りないのも同じ理由なので、
+// 合計がちょうど決まった値でない（公開する配布デッキの枚数の合計等）。多すぎるのも足りないのも同じ理由なので、
 // TotalTooLarge と分ける
 type TotalMismatch struct {
 	Field    string

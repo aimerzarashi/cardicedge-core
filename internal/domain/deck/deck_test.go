@@ -7,21 +7,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
 )
 
-var (
-	createdAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
-	cardA     = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-)
+var createdAt = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+
+func cardA(t *testing.T) card.Ref {
+	t.Helper()
+	return cardtest.CreatureRef(t, 1)
+}
 
 func createCommand(t *testing.T) *deck.CreateCommand {
 	t.Helper()
@@ -29,7 +31,8 @@ func createCommand(t *testing.T) *deck.CreateCommand {
 		ID:           decktest.ID(t, 40),
 		Player:       playertest.ID(t, 10),
 		Name:         decktest.Name(t, "火"),
-		Cards:        []startergrant.CardCount{startergranttest.CardCount(t, cardA, 4)},
+		Cards:        []deck.Card{decktest.Card(t, cardA(t), 4)},
+		Total:        cardtest.DeckTotalCount(t, 4),
 		StarterGrant: startergranttest.ID(t, 20),
 		Number:       startergranttest.DeckNumber(t, 1),
 	}
@@ -68,12 +71,31 @@ func TestDecide_RejectsCreateWhenAlreadyCreated(t *testing.T) {
 	require.ErrorIs(t, err, deck.ErrAlreadyCreated)
 }
 
+func TestDecide_RejectsCreateWhenTotalDoesNotMatchRule(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		total int
+	}{
+		{name: "fewer_than_rule", total: 5},
+		{name: "more_than_rule", total: 3},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := createCommand(t)
+			cmd.Total = cardtest.DeckTotalCount(t, tt.total)
+
+			_, err := deck.Decide(deck.InitialState(), cmd, createdAt)
+
+			require.ErrorIs(t, err, deck.ErrTotalMismatch)
+		})
+	}
+}
+
 func TestEvolve_CreatedEventMakesDeck(t *testing.T) {
 	cmd := createCommand(t)
 
 	state, _ := create(t)
 
-	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1, Player: cmd.Player, Name: cmd.Name, Cards: cmd.Cards, StarterGrant: cmd.StarterGrant, Number: cmd.Number}, state)
+	require.Equal(t, deck.Deck{ID: cmd.ID, Version: 1}, state)
 }
 
 func TestEvolve_RejectsCreatedEventWhenAlreadyCreated(t *testing.T) {

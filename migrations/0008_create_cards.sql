@@ -20,7 +20,7 @@ COMMENT ON TABLE cards IS 'カード（Creature・Item・Spell）の一覧と、
 COMMENT ON COLUMN cards.card_id IS 'カードの公開 ID（creature・item・spell の domain_entities.public_id）';
 COMMENT ON COLUMN cards.card_type IS 'カードの種類。並び順の値（1: Creature、2: Item、3: Spell）';
 COMMENT ON COLUMN cards.sort_name IS '並べ替え・名前の部分一致に使う、正規化した名前（card.NormalizeName）';
-COMMENT ON COLUMN cards.metadata IS '表示に使う値（イベントの値）';
+COMMENT ON COLUMN cards.metadata IS '値（JSON）。項目と形は studio の readmodel.CardMetadata の json のタグが決める（項目を足しても表は変えない）';
 COMMENT ON COLUMN cards.status IS 'カードの状態（draft: 準備中、published: 公開中、retired: 使用不可）。make publish-master は準備中を game に写さない';
 
 -- 一覧の並び（種類 → 名前）と、カーソルで続きを取る位置。同じ順位の決め手を内部の ID にしないのは、

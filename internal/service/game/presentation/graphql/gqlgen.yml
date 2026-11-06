@@ -22,6 +22,9 @@ models:
   UUID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID
+  DateTime:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
   # starterGrant は resolver で返す（read model players から、返すときに読むため）
   Player:
     fields:
@@ -29,4 +32,23 @@ models:
         resolver: true
       # avatars は resolver で返す（read model avatars から、返すときに読むため）
       avatars:
+        resolver: true
+      # decks は resolver で返す（read model decks から、返すときに読むため）
+      decks:
+        resolver: true
+      # boards は resolver で返す（read model unlocks と、写した boards から、返すときに読むため）
+      boards:
+        resolver: true
+      # npcAvatars は resolver で返す（read model unlocks と、写した npc_avatars・npc_decks から、返すときに読むため）
+      npcAvatars:
+        resolver: true
+      # roomRequirements は resolver で返す（書く側の数の記録から、返すときに読むため。部屋を作る操作と同じ判断）
+      roomRequirements:
+        resolver: true
+  # match は resolver で返す（集約の状態から読むため）。始まった対戦の公開 ID を持たせるので、型は手書きにする
+  Room:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model.Room
+    fields:
+      match:
         resolver: true

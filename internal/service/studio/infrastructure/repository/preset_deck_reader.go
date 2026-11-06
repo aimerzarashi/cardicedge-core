@@ -18,7 +18,7 @@ import (
 
 // 並び順は索引（sort_name, preset_deck_id）と同じにし、続きは行の比べ方で取る（理由は ListCards と同じ）。
 // sqlboiler を使わない理由も ListCards と同じ
-// preset_decks を読む（一覧・詳細と、スターターデッキが比べる今の revision）
+// preset_decks を読む（一覧・詳細と、配布デッキが比べる今の revision）
 type PresetDeckReader struct{}
 
 func NewPresetDeckReader() *PresetDeckReader {
@@ -101,33 +101,6 @@ func toPresetDeck(id uuid.UUID, totalCount int, raw []byte) (query.PresetDeck, e
 	return query.PresetDeck{
 		ID: metadata.ID, Name: metadata.Name, Cards: cards, TotalCount: totalCount,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, UpdatedAt: metadata.UpdatedAt,
+		RegisteredBy: metadata.RegisteredBy, UpdatedBy: metadata.UpdatedBy,
 	}, nil
-}
-
-// 公開 ID で引く。無い（削除した）プリセットデッキは結果に含めない
-func (r *PresetDeckReader) Revisions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int64, error) {
-	revisions := make(map[uuid.UUID]int64, len(ids))
-	if len(ids) == 0 {
-		return revisions, nil
-	}
-	exec, err := rdb.GetExecutor(ctx)
-	if err != nil {
-		return nil, err
-	}
-	keys := make([]string, 0, len(ids))
-	for _, id := range ids {
-		keys = append(keys, id.String())
-	}
-	rows, err := models.PresetDecks(models.PresetDeckWhere.PresetDeckID.IN(keys)).All(ctx, exec)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range rows {
-		var metadata readmodel.PresetDeckMetadata
-		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
-			return nil, fmt.Errorf("preset_decks.metadata of %s: %w", row.PresetDeckID, err)
-		}
-		revisions[metadata.ID] = metadata.Revision
-	}
-	return revisions, nil
 }

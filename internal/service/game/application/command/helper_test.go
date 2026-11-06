@@ -11,11 +11,14 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -72,7 +75,7 @@ func countEventsOf(t *testing.T, ctx context.Context, entityTypeID int) int {
 	return count
 }
 
-func newStarterGrantHandler(t *testing.T, ctx context.Context, listStarterDecks master.ListPublishedStarterDecksFunc) *command.StarterGrantHandler {
+func newStarterGrantHandler(t *testing.T, ctx context.Context, getStarterSet master.GetPublishedStarterSetFunc) *command.StarterGrantHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -81,8 +84,11 @@ func newStarterGrantHandler(t *testing.T, ctx context.Context, listStarterDecks 
 		eventstore.New(registry, startergrant.NewID, startergrant.NewEventType, startergrant.InitialState, startergrant.Evolve),
 		identifier.New(registry, startergrant.NewID),
 		constraint.UpdateStarterGrantPlayer,
-		listStarterDecks,
+		getStarterSet,
+		func(context.Context) (gamerules.Rules, bool, error) { return testRules(t), true, nil },
 		newCollectionHandler(t, ctx),
+		newUnlockHandler(t, ctx),
+		constraint.FindStarterGrantByPlayer,
 		newDeckHandler(t, ctx),
 		now,
 	)
@@ -96,13 +102,34 @@ func newCollectionHandler(t *testing.T, ctx context.Context) *command.Collection
 		eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve),
 		identifier.New(registry, collection.NewID),
 		constraint.UpdateCollectionPlayer,
+		constraint.FindCollectionByPlayer,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
 
+func newUnlockHandler(t *testing.T, ctx context.Context) *command.UnlockHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewUnlockHandler(
+		eventstore.New(registry, unlock.NewID, unlock.NewEventType, unlock.InitialState, unlock.Evolve),
+		identifier.New(registry, unlock.NewID),
+		constraint.UpdateUnlockPlayer,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+// 見本の配布デッキ（publishedDecks）の合計に合わせたルール。本番も、公開された配布デッキの合計は決まりの枚数とちょうど同じ
+func testRules(t *testing.T) gamerules.Rules {
+	t.Helper()
+	values := gamerules.Defaults()
+	values.Deck.TotalCardCount = cardtest.DeckTotalCount(t, grantDeckTotal)
+	return values
+}
+
 func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 	t.Helper()
-	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks)
+	limit, err := domain.NewQuotaLimit(gamerules.Defaults().Player.MaxDecks.Int())
 	require.NoError(t, err)
 	return newDeckHandlerWithLimit(t, ctx, limit)
 }
@@ -111,8 +138,8 @@ func newDeckHandler(t *testing.T, ctx context.Context) *command.DeckHandler {
 func newDeckHandlerWithLimit(t *testing.T, ctx context.Context, limit domain.QuotaLimit) *command.DeckHandler {
 	t.Helper()
 	return newDeckHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
-		values := gamerules.Defaults()
-		values.Player.MaxDecks = limit.Int()
+		values := testRules(t)
+		values.Player.MaxDecks = playertest.MaxDecks(t, limit.Int())
 		return values, true, nil
 	})
 }
@@ -128,6 +155,7 @@ func newDeckHandlerWithRules(t *testing.T, ctx context.Context, getRules rules.G
 		constraint.UpdateDeckName,
 		constraint.ReserveDeckQuota,
 		rules.FromPublished(getRules),
+		getRules,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
@@ -161,7 +189,7 @@ func newAvatarHandlerWithMax(t *testing.T, ctx context.Context, maxAvatars int) 
 	t.Helper()
 	return newAvatarHandlerWithRules(t, ctx, func(context.Context) (gamerules.Rules, bool, error) {
 		values := gamerules.Defaults()
-		values.Player.MaxAvatars = maxAvatars
+		values.Player.MaxAvatars = playertest.MaxAvatars(t, maxAvatars)
 		return values, true, nil
 	})
 }

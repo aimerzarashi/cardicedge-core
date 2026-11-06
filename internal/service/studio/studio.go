@@ -15,11 +15,14 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventdriven"
@@ -53,13 +56,20 @@ type Studio struct {
 	presetDecks     *command.PresetDeckHandler
 	cards           *query.CardHandler
 	presetDeckList  *query.PresetDeckHandler
-	starterDecks    *command.StarterDeckHandler
-	starterDeckList *query.StarterDeckHandler
+	grantDecks      *command.GrantDeckHandler
+	grantDeckList   *query.GrantDeckHandler
 	boards          *command.BoardHandler
 	boardList       *query.BoardHandler
 	gameRules       *command.GameRulesHandler
 	studioRules     *command.StudioRulesHandler
 	studioRulesList *query.StudioRulesHandler
+	gameRulesList   *query.GameRulesHandler
+	npcAvatars      *command.NPCAvatarHandler
+	npcAvatarList   *query.NPCAvatarHandler
+	npcDecks        *command.NPCDeckHandler
+	npcDeckList     *query.NPCDeckHandler
+	starterSets     *command.StarterSetHandler
+	starterSetList  *query.StarterSetHandler
 }
 
 func New(registry *domaindef.Registry, config Config) *Studio {
@@ -71,8 +81,11 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 	entityRefs := identifier.NewEntityRefResolver(registry)
 	cardReader := repository.NewCardReader()
 	presetDeckReader := repository.NewPresetDeckReader()
-	starterDeckReader := repository.NewStarterDeckReader()
+	grantDeckReader := repository.NewGrantDeckReader()
 	boardReader := repository.NewBoardReader()
+	npcAvatarReader := repository.NewNPCAvatarReader()
+	npcDeckReader := repository.NewNPCDeckReader()
+	starterSetReader := repository.NewStarterSetReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
 	spellStore := eventstore.New(registry, spell.NewID, spell.NewEventType, spell.InitialState, spell.Evolve)
@@ -98,6 +111,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		gameRules:       gameRules,
 		studioRules:     studioRules,
 		studioRulesList: query.NewStudioRulesHandler(repository.NewStudioRulesReader().Get),
+		gameRulesList:   query.NewGameRulesHandler(repository.NewGameRulesReader().Get),
 		entityRefs:      entityRefs,
 		operators: command.NewOperatorHandler(
 			eventstore.New(registry, operator.NewID, operator.NewEventType, operator.InitialState, operator.Evolve),
@@ -125,22 +139,19 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		),
 		cards:          query.NewCardHandler(cardReader.List, cardReader.Get),
 		presetDeckList: query.NewPresetDeckHandler(presetDeckReader.List, presetDeckReader.Get),
-		starterDecks: command.NewStarterDeckHandler(
-			eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve),
-			identifier.New(registry, starterdeck.NewID),
+		grantDecks: command.NewGrantDeckHandler(
+			eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve),
+			identifier.New(registry, grantdeck.NewID),
 			entityRefs,
-			constraint.UpdateStarterDeckName,
-			constraint.UpdateStarterDeckCardReferences,
+			constraint.UpdateGrantDeckName,
+			constraint.UpdateGrantDeckCardReferences,
 			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
-			constraint.FindGameRules,
-			constraint.ReserveStarterDeckQuota,
-			constraint.ReleaseStarterDeckQuota,
 			gameRules.Get,
 			now,
 		),
-		starterDeckList: query.NewStarterDeckHandler(starterDeckReader.List, starterDeckReader.Get, presetDeckReader.Revisions),
+		grantDeckList: query.NewGrantDeckHandler(grantDeckReader.List, grantDeckReader.Get),
 		boards: command.NewBoardHandler(
 			eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve),
 			identifier.New(registry, board.NewID),
@@ -149,6 +160,46 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 			now,
 		),
 		boardList: query.NewBoardHandler(boardReader.List, boardReader.Get),
+		npcAvatars: command.NewNPCAvatarHandler(
+			eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve),
+			identifier.New(registry, npcavatar.NewID),
+			entityRefs,
+			constraint.UpdateNPCAvatarName,
+			constraint.UpdateNPCAvatarDeckReferences,
+			command.NewNPCDeckStatusReader(eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)).Statuses,
+			now,
+		),
+		npcAvatarList: query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
+		npcDecks: command.NewNPCDeckHandler(
+			eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve),
+			identifier.New(registry, npcdeck.NewID),
+			entityRefs,
+			constraint.UpdateNPCDeckName,
+			constraint.UpdateNPCDeckCardReferences,
+			command.NewCardStatusReader(creatureStore, itemStore, spellStore).Statuses,
+			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
+			identifier.New(registry, presetdeck.NewID),
+			gameRules.Get,
+			now,
+		),
+		npcDeckList: query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get),
+		starterSets: command.NewStarterSetHandler(
+			eventstore.New(registry, starterset.NewID, starterset.NewEventType, starterset.InitialState, starterset.Evolve),
+			identifier.New(registry, starterset.NewID),
+			entityRefs,
+			constraint.UpdateStarterSetName,
+			constraint.UpdateStarterSetGrantDeckReferences,
+			constraint.UpdateStarterSetBoardReferences,
+			constraint.UpdateStarterSetNPCAvatarReferences,
+			command.NewGrantDeckStatusReader(eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve)).Statuses,
+			command.NewBoardStatusReader(eventstore.New(registry, board.NewID, board.NewEventType, board.InitialState, board.Evolve)).Statuses,
+			command.NewNPCAvatarStatusReader(eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve)).Statuses,
+			constraint.FindGameRules,
+			constraint.ReserveStarterSetQuota,
+			constraint.ReleaseStarterSetQuota,
+			now,
+		),
+		starterSetList: query.NewStarterSetHandler(starterSetReader.List, starterSetReader.Get),
 	}
 }
 
@@ -191,7 +242,7 @@ func (c *Studio) CreateInitialStudioRules(ctx context.Context, db *sql.DB) error
 
 // 名前と購読は migrations の event_subscribers・event_subscriptions と照合される
 func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
-	cards := repository.NewCardWriter()
+	cards := repository.NewCardWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Card]{
 		Name: "cards",
 		Subscriptions: []domain.EntityType{
@@ -215,18 +266,18 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 	}); err != nil {
 		return err
 	}
-	starterDecks := repository.NewStarterDeckWriter(c.entityRefs)
-	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterDeck]{
-		Name: "starter_decks",
+	grantDecks := repository.NewGrantDeckWriter(c.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.GrantDeck]{
+		Name: "grant_decks",
 		Subscriptions: []domain.EntityType{
-			starterdeck.Types().EntityType,
+			grantdeck.Types().EntityType,
 		},
-		Upsert: starterDecks.Upsert,
-		Delete: starterDecks.Delete,
+		Upsert: grantDecks.Upsert,
+		Delete: grantDecks.Delete,
 	}); err != nil {
 		return err
 	}
-	boards := repository.NewBoardWriter()
+	boards := repository.NewBoardWriter(c.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Board]{
 		Name: "boards",
 		Subscriptions: []domain.EntityType{
@@ -249,18 +300,51 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 		return err
 	}
 	studioRules := repository.NewStudioRulesWriter()
-	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StudioRules]{
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StudioRules]{
 		Name: "studio_rules",
 		Subscriptions: []domain.EntityType{
 			studiorules.Types().EntityType,
 		},
 		Upsert: studioRules.Upsert,
 		Delete: studioRules.Delete,
+	}); err != nil {
+		return err
+	}
+	npcAvatars := repository.NewNPCAvatarWriter(c.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.NPCAvatar]{
+		Name: "npc_avatars",
+		Subscriptions: []domain.EntityType{
+			npcavatar.Types().EntityType,
+		},
+		Upsert: npcAvatars.Upsert,
+		Delete: npcAvatars.Delete,
+	}); err != nil {
+		return err
+	}
+	npcDecks := repository.NewNPCDeckWriter(c.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.NPCDeck]{
+		Name: "npc_decks",
+		Subscriptions: []domain.EntityType{
+			npcdeck.Types().EntityType,
+		},
+		Upsert: npcDecks.Upsert,
+		Delete: npcDecks.Delete,
+	}); err != nil {
+		return err
+	}
+	starterSets := repository.NewStarterSetWriter(c.entityRefs)
+	return eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.StarterSet]{
+		Name: "starter_sets",
+		Subscriptions: []domain.EntityType{
+			starterset.Types().EntityType,
+		},
+		Upsert: starterSets.Upsert,
+		Delete: starterSets.Delete,
 	})
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.starterDecks, c.starterDeckList, c.boards, c.boardList, c.studioRulesList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.grantDecks, c.grantDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList, c.starterSets, c.starterSetList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

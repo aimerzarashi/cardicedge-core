@@ -38,7 +38,7 @@ func create(t *testing.T) (gamerules.State, gamerules.Event) {
 func TestDefaults_AreValid(t *testing.T) {
 	defaults := gamerules.Defaults()
 
-	got, err := gamerules.New(defaults.Player, defaults.Deck, defaults.StarterDeck)
+	got, err := gamerules.New(defaults.Player, defaults.Deck, defaults.Match)
 
 	require.NoError(t, err)
 	require.Equal(t, defaults, got)
@@ -47,34 +47,81 @@ func TestDefaults_AreValid(t *testing.T) {
 func TestDefaults_HaveCurrentValues(t *testing.T) {
 	defaults := gamerules.Defaults()
 
-	require.Equal(t, 40, defaults.Deck.TotalCardCount)
-	require.Equal(t, 4, defaults.Deck.MaxCardDuplicates)
-	require.Equal(t, 2, defaults.StarterDeck.MaxPublished)
-	require.Equal(t, 10, defaults.Player.MaxDecks)
-	require.Equal(t, 5, defaults.Player.MaxAvatars)
+	require.Equal(t, 40, defaults.Deck.TotalCardCount.Int())
+	require.Equal(t, 4, defaults.Deck.MaxCardDuplicates.Int())
+	require.Equal(t, 10, defaults.Player.MaxDecks.Int())
+	require.Equal(t, 5, defaults.Player.MaxAvatars.Int())
+	require.Equal(t, 2, defaults.Match.MinPlayers.Int())
+	require.Equal(t, 4, defaults.Match.MaxPlayers.Int())
+	require.Equal(t, 6, defaults.Match.MaxHandCards.Int())
+	require.Equal(t, 5, defaults.Match.StartingHandCards.Int())
+	require.Equal(t, gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), defaults.Match.RewardCardsByRank)
 }
 
-func TestNew_RejectsValueBelowOne(t *testing.T) {
-	tests := []struct {
-		name   string
-		modify func(*gamerules.Rules)
-	}{
-		{name: "zero_total_card_count", modify: func(r *gamerules.Rules) { r.Deck.TotalCardCount = 0 }},
-		{name: "zero_max_card_duplicates", modify: func(r *gamerules.Rules) { r.Deck.MaxCardDuplicates = 0 }},
-		{name: "zero_max_published", modify: func(r *gamerules.Rules) { r.StarterDeck.MaxPublished = 0 }},
-		{name: "zero_max_decks", modify: func(r *gamerules.Rules) { r.Player.MaxDecks = 0 }},
-		{name: "negative_max_avatars", modify: func(r *gamerules.Rules) { r.Player.MaxAvatars = -1 }},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rules := gamerules.Defaults()
-			tt.modify(&rules)
+func TestNew_RejectsEmptyRewardCardsByRank(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match.RewardCardsByRank = nil
 
-			_, err := gamerules.New(rules.Player, rules.Deck, rules.StarterDeck)
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
 
-			require.ErrorIs(t, err, gamerules.ErrInvalidRules)
-		})
-	}
+	require.ErrorIs(t, err, gamerules.ErrRewardCardsByRankEmpty)
+}
+
+func TestNewRewardCardsByRank_RejectsEmpty(t *testing.T) {
+	_, err := gamerules.NewRewardCardsByRank()
+
+	require.ErrorIs(t, err, gamerules.ErrRewardCardsByRankEmpty)
+}
+
+func TestNewRewardCardsByRank_RejectsZero(t *testing.T) {
+	_, err := gamerules.NewRewardCardsByRank(3, 0)
+
+	require.ErrorIs(t, err, gamerules.ErrMatchValueNotPositive)
+}
+
+func TestNew_RejectsMinPlayersAboveMaxPlayers(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 5, 4, 6, 5)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_RejectsStartingHandCardsAboveMaxHandCards(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 6, 7)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_AcceptsStartingHandCardsEqualToMaxHandCards(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 6, 6)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.NoError(t, err)
+}
+
+func TestNew_RejectsStartingHandCardsAboveDeckTotalCardCount(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 2, 4, 50, 41)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.ErrorIs(t, err, gamerules.ErrInvalidRules)
+}
+
+func TestNew_AcceptsMinPlayersEqualToMaxPlayers(t *testing.T) {
+	rules := gamerules.Defaults()
+	rules.Match = gamerulestest.Match(t, 3, 3, 6, 5)
+
+	_, err := gamerules.New(rules.Player, rules.Deck, rules.Match)
+
+	require.NoError(t, err)
 }
 
 func TestDecide_CreateEmitsCreatedEvent(t *testing.T) {

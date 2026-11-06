@@ -31,7 +31,10 @@ type PlayerAuthenticator interface {
 // issuer は verifier が確かめる iss と同じ値
 func NewHandler(mux chi.Router, resolver *Resolver, db *sql.DB, verifier TokenVerifier, issuer string, players PlayerAuthenticator) {
 	srv := handler.New(NewExecutableSchema(Config{Resolvers: resolver}))
-	// GET（クエリ文字列）は受け付けない（ミューテーションを GET で実行させる CSRF を防ぐため。game のサーバーは POST で呼ぶ）
+	// GET（クエリ文字列）は受け付けない（ミューテーションを GET で実行させる CSRF を防ぐため。game のサーバーは POST で呼ぶ）。
+	// SSE（graphql-sse）も POST だけで、Subscription は Authorization ヘッダーの JWT を今の認証のミドルウェアで確かめる
+	// （WebSocket は接続の最初のメッセージで確かめる別の作りが要るため採らなかった）
+	srv.AddTransport(transport.SSE{})
 	srv.AddTransport(transport.POST{})
 	srv.Use(gqltrace.New())
 

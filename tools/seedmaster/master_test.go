@@ -1,11 +1,14 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 )
 
 func TestSampleMaster_IsValid(t *testing.T) {
@@ -58,13 +61,13 @@ func TestSampleMaster_HasDefaultRulesDifferentFromInitialOnes(t *testing.T) {
 	initial := board.InitialDefaultRules()
 	found := false
 	for _, b := range m.Boards {
-		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic() ||
-			b.DefaultRules.StartingMagic != initial.StartingMagic() ||
-			b.DefaultRules.LapBonus != initial.LapBonus() ||
-			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus() ||
-			b.DefaultRules.RoundLimit != initial.RoundLimit() ||
-			b.DefaultRules.DiceMin != initial.DiceMin() ||
-			b.DefaultRules.DiceMax != initial.DiceMax()
+		found = found || b.DefaultRules.TargetMagic != initial.TargetMagic ||
+			b.DefaultRules.StartingMagic != initial.StartingMagic ||
+			b.DefaultRules.LapBonus != initial.LapBonus ||
+			b.DefaultRules.CheckpointBonus != initial.CheckpointBonus ||
+			b.DefaultRules.RoundLimit != initial.RoundLimit ||
+			b.DefaultRules.DiceMin != initial.DiceMin ||
+			b.DefaultRules.DiceMax != initial.DiceMax
 	}
 	require.True(t, found)
 }
@@ -106,6 +109,111 @@ func TestSampleMaster_HasEverySpecialTile(t *testing.T) {
 	require.True(t, found)
 }
 
+// 見本のファイルに NPC のアバターが 4 つあり（ゴリガンは、スターターセットが解放する）、どれも名前の決まりを満たし、見本の NPC のデッキを使う（始める前に確かめる流れが、見本で必ず通るように）
+func TestSampleMaster_HasFourNPCAvatarsUsingNPCDecks(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []masterNPCAvatar{
+		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}},
+		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}},
+		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}},
+		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ", "水・風属性デッキ"}},
+	}, m.NPCAvatars)
+}
+
+func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
+	fireDeck := []string{"火・地属性デッキ"}
+	tests := []struct {
+		name       string
+		npcAvatars []masterNPCAvatar
+	}{
+		{name: "blank_name", npcAvatars: []masterNPCAvatar{{Name: " ", Decks: fireDeck}}},
+		{name: "too_long_name", npcAvatars: []masterNPCAvatar{{Name: strings.Repeat("あ", npcavatar.MaxNameLength+1), Decks: fireDeck}}},
+		{name: "duplicated_name", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: fireDeck}, {Name: "森の番人", Decks: fireDeck}}},
+		{name: "duplicated_after_normalization", npcAvatars: []masterNPCAvatar{{Name: "ＡＢＣ", Decks: fireDeck}, {Name: " abc", Decks: fireDeck}}},
+		{name: "no_decks", npcAvatars: []masterNPCAvatar{{Name: "森の番人"}}},
+		{name: "unknown_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{"x"}}}},
+		{name: "duplicated_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{fireDeck[0], fireDeck[0]}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.NPCAvatars = tt.npcAvatars
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+// 見本のファイルの NPC のデッキは、プリセットデッキの名前で書く（同じ名前で写して公開する）
+func TestSampleMaster_HasNPCDecksFromPresetDecks(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"火・地属性デッキ", "水・風属性デッキ"}, m.NPCDecks)
+}
+
+func TestLoadMaster_RejectsInvalidNPCDecks(t *testing.T) {
+	tests := []struct {
+		name     string
+		npcDecks []string
+	}{
+		{name: "unknown_preset_deck", npcDecks: []string{"x"}},
+		{name: "duplicated_preset_deck", npcDecks: []string{"火・地属性デッキ", "火・地属性デッキ"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.NPCDecks = tt.npcDecks
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+// 見本のスターターセットは、見本の配布デッキを今の順にすべて配り、チュートリアルのボードを解放する
+func TestSampleMaster_HasStarterSetWithGrantDecksAndTutorialBoard(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	require.Equal(t, []masterStarterSet{
+		{Name: "スターターセット", GrantDecks: []string{"火・地属性デッキ", "水・風属性デッキ"}, UnlockBoards: []string{"チュートリアル"}, UnlockNPCAvatars: []string{"ゴリガン"}},
+	}, m.StarterSets)
+	require.Equal(t, m.GrantDecks, m.StarterSets[0].GrantDecks)
+}
+
+func TestLoadMaster_RejectsInvalidStarterSets(t *testing.T) {
+	grantDecks := []string{"火・地属性デッキ"}
+	tests := []struct {
+		name        string
+		starterSets []masterStarterSet
+	}{
+		{name: "blank_name", starterSets: []masterStarterSet{{Name: " ", GrantDecks: grantDecks}}},
+		{name: "too_long_name", starterSets: []masterStarterSet{{Name: strings.Repeat("あ", starterset.MaxNameLength+1), GrantDecks: grantDecks}}},
+		{name: "duplicated_name", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks}, {Name: "a", GrantDecks: grantDecks}}},
+		{name: "more_than_publishable_at_once", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks}, {Name: "b", GrantDecks: grantDecks}}},
+		{name: "no_grant_decks", starterSets: []masterStarterSet{{Name: "a"}}},
+		{name: "unknown_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{"x"}}}},
+		{name: "duplicated_grant_deck", starterSets: []masterStarterSet{{Name: "a", GrantDecks: []string{grantDecks[0], grantDecks[0]}}}},
+		{name: "unknown_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"x"}}}},
+		{name: "unknown_unlock_npc_avatar", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockNPCAvatars: []string{"x"}}}},
+		{name: "duplicated_unlock_npc_avatar", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockNPCAvatars: []string{"ゴリガン", "ゴリガン"}}}},
+		{name: "duplicated_unlock_board", starterSets: []masterStarterSet{{Name: "a", GrantDecks: grantDecks, UnlockBoards: []string{"チュートリアル", "チュートリアル"}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.StarterSets = tt.starterSets
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
 func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 	tests := []struct {
 		name string
@@ -121,8 +229,8 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
 		{name: "board_with_zero_round_limit", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":0,"dice_min":1,"dice_max":6}`)},
 		{name: "board_with_dice_max_below_dice_min", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":4,"dice_max":3}`)},
-		{name: "no_starter_decks", json: `{"cards":[],"starter_decks":[]}`},
-		{name: "unknown_preset_deck_for_starter_deck", json: `{"cards":[],"starter_decks":["x"]}`},
+		{name: "no_grant_decks", json: `{"cards":[],"grant_decks":[]}`},
+		{name: "unknown_preset_deck_for_grant_deck", json: `{"cards":[],"grant_decks":["x"]}`},
 		{name: "blank_board_name", json: boardJSON("", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
 		{name: "board_tile_outside_grid", json: boardJSON("b", `{"x":8,"y":0,"kind":"base"}`, ``)},
 		{name: "board_without_checkpoint", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"}`, ``)},
@@ -131,7 +239,7 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "land_without_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
 		{name: "base_with_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base","attribute":"fire"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
 		{name: "unknown_board_tile_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land","attribute":"light"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
-		{name: "duplicated_board_name", json: `{"cards":[],"starter_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
+		{name: "duplicated_board_name", json: `{"cards":[],"grant_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,12 +252,12 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 
 // 8×8 の盤面を 1 つ持つ見本の JSON。tiles・connections は中身だけを渡す
 func boardJSON(name, tiles, connections string) string {
-	return `{"cards":[],"starter_decks":[],"boards":[` + boardBodyWith(name, tiles, connections) + `]}`
+	return `{"cards":[],"grant_decks":[],"boards":[` + boardBodyWith(name, tiles, connections) + `]}`
 }
 
 func boardWithRulesJSON(defaultRules string) string {
 	body := boardBodyWithRules("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`, defaultRules)
-	return `{"cards":[],"starter_decks":[],"boards":[` + body + `]}`
+	return `{"cards":[],"grant_decks":[],"boards":[` + body + `]}`
 }
 
 func boardBody(name string) string {

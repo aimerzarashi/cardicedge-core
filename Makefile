@@ -53,33 +53,50 @@ gen-api:
 	docker compose exec core sh -c 'cd internal/service/game/presentation/graphql && go tool gqlgen generate'
 	docker compose exec core go mod tidy
 
-# 開発で触る見本のマスタ（カード・プリセットデッキ・スターターデッキ）を、初期オペレーターとして studio のコマンドで登録する。
-# スターターデッキはプリセットデッキから写して作って公開する。作成済みなら飛ばすので、何度流しても同じ結果になる。
-# 終わりに core の投影が starter_decks を書くまで待つので、続けて publish-master を流せる（core#37）
+# 開発で触る見本のマスタ（カード・プリセットデッキ・配布デッキ・ボード・NPC・スターターセット）を、初期オペレーターとして studio のコマンドで登録する。
+# 配布デッキはプリセットデッキから写して作って公開する。スターターセットは見本の配布デッキとボードを指定して公開する。作成済みなら飛ばすので、何度流しても同じ結果になる。
+# 終わりに core の投影が grant_decks を書くまで待つので、続けて publish-master を流せる（core#37）
 .PHONY: seed-master
 seed-master:
 	docker compose exec core go run ./tools/seedmaster
 
-# マスタ（studio の read model の cards・starter_decks・game_rules・boards）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
+# マスタ（studio の read model の cards・grant_decks・starter_sets・game_rules・boards・npc_avatars・npc_decks）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
 # そのまま core_game の \copy に渡し、1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
 # cards は公開中・使用不可のカードだけを写す（準備中は studio の中の作りかけで、game に出さない。使用不可はプレイヤーが持っているので写す）。
 # pg_dump は行で絞れないため使わない。流し込む前に全体を一時ファイルに作るのは、読む側が途中で失敗しても、書く側が途中までの入力で
 # 空にして確定してしまわないため。
 # boards は cards と同じ選び方（公開中・使用不可だけ。準備中は写さない。使用不可は game が一覧にも詳細にも出さないが、後で対戦中のボードの元を
 # 表示したくなっても表を作り直さずに済むよう写す）
-# starter_decks は全行（準備中・使用不可も、状態つき）を写し、game は公開中だけを読む（後で配り済みのデッキの元を表示したくなっても、
+# grant_decks は全行（準備中・使用不可も、状態つき）を写し、game は公開中だけを読む（後で配り済みのデッキの元を表示したくなっても、
 # 表を作り直さずに済むように）
-# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 4 つの表が公開用の ID だけで
+# starter_sets も grant_decks と同じく全行を状態つきで写し、game は公開中の 1 つだけを読む（配る配布デッキは、そのセットが指す公開 ID で
+# 写した grant_decks の公開中の行から引く。解放するボードは公開 ID のまま持ち、配布のとき game の内部 ID に引き直して解放の集約へ渡す）
+# 写した cards・boards・npc_avatars・npc_decks は、game の domain_entities にも行を作る（公開 ID は studio と同じ。内部 ID は game の連番が振る）。game の集約は、
+# 境界（studio・game）の中の内部 ID で ほかの集約を指すため、写したボード・NPC のアバター・NPC のデッキ（部屋の席の選択が指す）を game の内部 ID で指せるようにする。
+# ON CONFLICT DO NOTHING なので、何度流しても同じ内部 ID は変わらない（TRUNCATE は domain_entities に及ばない）。
+# カードの種類（集約の種別）は、写した cards.card_type（1: Creature、2: Item、3: Spell）から決める
+# npc_avatars も boards と同じ選び方（公開中・使用不可だけ。game が出すのは公開中だけ）
+# npc_decks は、写した npc_avatars の metadata の decks（使うデッキの公開 ID）に入っているものだけを、状態によらず写す（core#63）。
+# NPC のデッキは単独では使わず、アバターを通してだけ使う（game が公開中のデッキだけを出す）ため、どのアバターにも使われていないデッキ
+# （準備中の作りかけを含む）を game に出す理由が無い。アバターを公開中・使用不可に絞った結果から導くので、写さないアバターのデッキも写らない。
+# 状態で絞らないのは、grant_decks と同じく状態つきで写して game が公開中だけを読めばよく、使用不可のデッキも後で表示したくなったときに表を作り直さずに済むため
+# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 7 つの表が公開用の ID だけで
 # 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
 .PHONY: publish-master
 publish-master:
 	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
-	  printf "%s\n" "TRUNCATE cards, boards, starter_decks, game_rules;" "\\copy cards FROM STDIN"; \
+	  printf "%s\n" "TRUNCATE cards, boards, grant_decks, starter_sets, game_rules, npc_avatars, npc_decks;" "\\copy cards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
-	  printf "%s\n" "\\." "\\copy boards FROM STDIN"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT c.card_id, t.id FROM cards c JOIN domain_entity_types t ON t.name = CASE c.card_type WHEN 1 THEN '"'"'creature'"'"' WHEN 2 THEN '"'"'item'"'"' WHEN 3 THEN '"'"'spell'"'"' END ON CONFLICT DO NOTHING;" "\\copy boards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM boards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
-	  printf "%s\n" "\\." "\\copy starter_decks FROM STDIN"; \
-	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_decks TO STDOUT"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT b.board_id, t.id FROM boards b JOIN domain_entity_types t ON t.name = '"'"'board'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_avatars FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_avatars WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT a.npc_avatar_id, t.id FROM npc_avatars a JOIN domain_entity_types t ON t.name = '"'"'npc_avatar'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_decks FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_decks WHERE npc_deck_id IN (SELECT deck_id::uuid FROM npc_avatars, jsonb_array_elements_text(metadata->'"'"'decks'"'"') AS deck_id WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"'))) TO STDOUT"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = '"'"'npc_deck'"'"' ON CONFLICT DO NOTHING;" "\\copy grant_decks FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy grant_decks TO STDOUT"; \
+	  printf "%s\n" "\\." "\\copy starter_sets FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_sets TO STDOUT"; \
 	  printf "%s\n" "\\." "\\copy game_rules FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy game_rules TO STDOUT"; \
 	  printf "%s\n" "\\."; \

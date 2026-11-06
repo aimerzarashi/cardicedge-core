@@ -13,10 +13,14 @@ var (
 	ErrStatusUnknown    = errors.New("board: unknown status")
 	ErrTileKindUnknown  = errors.New("board: unknown tile kind")
 	ErrAttributeUnknown = errors.New("board: unknown attribute")
-	// 幅・高さが 1 未満、または studio_rules の範囲の外
+	// 幅・高さが studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
+	// 範囲の下限・上限が 1 未満、または上限が下限未満
+	ErrSizeRangeInvalid = errors.New("board: size range is invalid")
+	// 座標が負（格子の中かどうかは ValidateLayout が大きさと合わせて確かめる）
+	ErrPositionNegative = errors.New("board: position is negative")
 	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
-	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小以上
+	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小より大きい（最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため。core#71・core#100）
 	ErrTargetMagicTooSmall                    = errors.New("board: target magic is too small")
 	ErrStartingMagicTooSmall                  = errors.New("board: starting magic is too small")
 	ErrLapBonusTooSmall                       = errors.New("board: lap bonus is too small")
@@ -24,7 +28,7 @@ var (
 	ErrTargetMagicNotGreaterThanStartingMagic = errors.New("board: target magic is not greater than starting magic")
 	ErrRoundLimitTooSmall                     = errors.New("board: round limit is too small")
 	ErrDiceMinTooSmall                        = errors.New("board: dice min is too small")
-	ErrDiceMaxLessThanDiceMin                 = errors.New("board: dice max is less than dice min")
+	ErrDiceMaxNotGreaterThanDiceMin           = errors.New("board: dice max is not greater than dice min")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")
 	// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした

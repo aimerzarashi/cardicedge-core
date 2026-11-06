@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
@@ -62,6 +63,9 @@ type Card struct {
 	Status   CardStatus
 	SortName string
 	Metadata CardMetadata
+	// イベントはオペレーターを内部 ID で持つため、内部 ID で持ち、書くときに公開 ID に引き直す（NPCAvatar と同じ）
+	RegisteredBy operator.ID
+	UpdatedBy    operator.ID
 	// 集約が削除された。DB には持たず、投影が行を消すかを決めるのに使う。削除のイベントを足したら Evolve で立てる
 	IsDeleted bool
 }
@@ -75,6 +79,9 @@ type CardMetadata struct {
 	Revision     int64     `json:"revision"`
 	RegisteredAt time.Time `json:"registered_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
+	RegisteredBy uuid.UUID `json:"registered_by"`
+	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
 // Creature・Item・Spell のイベントだけを扱い、ほかは状態をそのまま返す
@@ -90,6 +97,8 @@ func (state Card) Evolve(event any) Card {
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 	case *item.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
@@ -100,6 +109,8 @@ func (state Card) Evolve(event any) Card {
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 	case *spell.RegisteredEvent:
 		occurredAt := e.GetMeta().OccurredAt
 		state.CardID = e.PublicID
@@ -110,28 +121,31 @@ func (state Card) Evolve(event any) Card {
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
+		state.RegisteredBy = e.RegisteredBy
+		state.UpdatedBy = e.RegisteredBy
 	case *creature.PublishedEvent:
-		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *creature.RetiredEvent:
-		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
 	case *item.PublishedEvent:
-		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *item.RetiredEvent:
-		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
 	case *spell.PublishedEvent:
-		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *spell.RetiredEvent:
-		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt)
+		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
 	}
 	return state
 }
 
-// 3 種類のイベントの EventMeta は型が別（集約の ID の型が違う）なので、使う値（版と発生時刻）だけ受け取る
-func (state Card) changeStatus(status CardStatus, revision int64, occurredAt time.Time) Card {
+// 3 種類のイベントの EventMeta は型が別（集約の ID の型が違う）なので、使う値（版・発生時刻・操作した人）だけ受け取る
+func (state Card) changeStatus(status CardStatus, revision int64, occurredAt time.Time, by operator.ID) Card {
 	state.Status = status
 	state.Metadata.Status = status
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = occurredAt
+	state.UpdatedBy = by
 	return state
 }
 

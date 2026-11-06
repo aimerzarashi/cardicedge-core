@@ -107,6 +107,14 @@ type BoardPosition {
   y: Int!
 }
 
+"格子の座標の入力。BoardPosition と同じ"
+input BoardPositionInput {
+  "列（0 始まり）"
+  x: Int!
+  "行（0 始まり）"
+  y: Int!
+}
+
 # 種類によって null になる項目を作らないため、種類ごとの型に分ける（studio と同じ形）
 "置いてあるマス（LandTile・BaseTile・CheckpointTile・WarpTile・BridgeTile・SanctuaryTile・ShrineTile・ProphecyShopTile・CardShopTile）。種類は __typename で見分け、種類ごとの項目は断片（... on LandTile 等）で取る"
 interface BoardTile {
@@ -235,6 +243,12 @@ union BoardsResult = BoardsConnection | ValidationErrors | PlayerNotRegisteredEr
 
 "ボードの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
 union BoardResult = Board | BoardNotFoundError | PlayerNotRegisteredError
+
+extend type Player {
+  # 解放したボードは、プレイヤーの解放（スターターの配布で作る）の公開 ID の順に、写した boards から読む。実績で足す操作はまだ無い
+  "このプレイヤーが解放したボード（解放した順。公開中のものだけで、使用不可になったボードは含まれない。まだ解放が届いていなければ空）"
+  boards: [Board!]!
+}
 
 extend type Query {
   "公開中のボードの一覧（登録済みのプレイヤーだけ）"

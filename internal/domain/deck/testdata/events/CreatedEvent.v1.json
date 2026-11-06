@@ -1,7 +1,7 @@
 {
   "player": 10,
   "name": "火",
-  "cards": [{"card_id": "00000000-0000-0000-0000-000000000001", "count": 4}],
+  "cards": [{"card": {"entity_type": "creature", "id": 1}, "quantity": 4}],
   "starter_grant": 20,
   "number": 1
 }

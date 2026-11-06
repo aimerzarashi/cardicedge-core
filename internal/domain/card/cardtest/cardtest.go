@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
@@ -16,4 +17,51 @@ func Name(t testing.TB, value string) card.Name {
 	name, err := card.NewName(value)
 	require.NoError(t, err)
 	return name
+}
+
+func OwnedQuantity(t testing.TB, value int) card.OwnedQuantity {
+	t.Helper()
+	quantity, err := card.NewOwnedQuantity(value)
+	require.NoError(t, err)
+	return quantity
+}
+
+func MaxDeckQuantity(t testing.TB, value int) card.MaxDeckQuantity {
+	t.Helper()
+	max, err := card.NewMaxDeckQuantity(value)
+	require.NoError(t, err)
+	return max
+}
+
+// 上限は、テストで超えることを確かめない限り、既定のルールと同じ 4 にそろえる
+func DeckQuantity(t testing.TB, value int) card.DeckQuantity {
+	t.Helper()
+	return DeckQuantityWithin(t, value, MaxDeckQuantity(t, 4))
+}
+
+func DeckQuantityWithin(t testing.TB, value int, max card.MaxDeckQuantity) card.DeckQuantity {
+	t.Helper()
+	quantity, err := card.NewDeckQuantity(value, max)
+	require.NoError(t, err)
+	return quantity
+}
+
+func Ref(t testing.TB, entityType domain.EntityType, id int64) card.Ref {
+	t.Helper()
+	ref, err := card.NewRef(entityType, id)
+	require.NoError(t, err)
+	return ref
+}
+
+// Creature の内部 ID で指す
+func CreatureRef(t testing.TB, id int64) card.Ref {
+	t.Helper()
+	return Ref(t, card.CreatureEntityType, id)
+}
+
+func DeckTotalCount(t testing.TB, value int) card.DeckTotalCount {
+	t.Helper()
+	count, err := card.NewDeckTotalCount(value)
+	require.NoError(t, err)
+	return count
 }

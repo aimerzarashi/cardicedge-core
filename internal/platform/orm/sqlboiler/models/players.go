@@ -26,7 +26,7 @@ import (
 type Player struct {
 	// プレイヤーの公開用の ID（domain_entities.public_id）
 	PlayerID string `boil:"player_id" json:"player_id" toml:"player_id" yaml:"player_id"`
-	// 表示に使う値。starter_grant: スターターの配布の状態（IN_PROGRESS・COMPLETED。player_starter_grants の投影だけが書く。無ければ配布がまだ始まっていない（読む側は IN_PROGRESS と同じに扱う））
+	// 値（JSON）。項目と形は game の player_writer.go・player_starter_grant_writer.go（配布の状態 starter_grant） の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *playerR `boil:"-" json:"-" toml:"-" yaml:"-"`

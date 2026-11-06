@@ -16,19 +16,17 @@ var (
 	// Creature・Item・Spell のどれかが同じ名前を使っている
 	ErrCardNameAlreadyInUse = errors.New("command: card name already in use")
 	// ほかのプリセットデッキが同じ名前を使っている
-	ErrPresetDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
+	ErrPresetDeckNameAlreadyInUse = errors.New("command: grant deck name already in use")
 	// 公開 ID に当たるプリセットデッキが無い（削除したものを含む）
-	ErrPresetDeckNotFound = errors.New("command: starter deck not found")
-	// ほかのスターターデッキが同じ名前を使っている（状態によらない）
-	ErrStarterDeckNameAlreadyInUse = errors.New("command: starter deck name already in use")
-	// 公開 ID に当たるスターターデッキが無い（削除したものを含む）
-	ErrStarterDeckNotFound = errors.New("command: starter deck not found")
-	// 準備中のスターターデッキを使用不可にしようとした
-	ErrInvalidStarterDeckStatusTransition = errors.New("command: invalid starter deck status transition")
-	// 準備中でないスターターデッキの名前・枚数を変える、または削除しようとした
-	ErrStarterDeckNotDraft = errors.New("command: starter deck is not draft")
-	// 公開中のスターターデッキの数の上限に達している。上限の値は LimitReachedError で受け取る
-	ErrStarterDeckLimitReached = errors.New("command: starter deck limit reached")
+	ErrPresetDeckNotFound = errors.New("command: grant deck not found")
+	// ほかの配布デッキが同じ名前を使っている（状態によらない）
+	ErrGrantDeckNameAlreadyInUse = errors.New("command: grant deck name already in use")
+	// 公開 ID に当たる配布デッキが無い（削除したものを含む）
+	ErrGrantDeckNotFound = errors.New("command: grant deck not found")
+	// 準備中の配布デッキを使用不可にしようとした
+	ErrInvalidGrantDeckStatusTransition = errors.New("command: invalid grant deck status transition")
+	// 準備中でない配布デッキの名前・枚数を変える、または削除しようとした
+	ErrGrantDeckNotDraft = errors.New("command: grant deck is not draft")
 	// ほかのボードが同じ名前を使っている（状態によらない）
 	ErrBoardNameAlreadyInUse = errors.New("command: board name already in use")
 	// 公開 ID に当たるボードが無い（削除したものを含む）
@@ -39,6 +37,32 @@ var (
 	ErrBoardNotDraft = errors.New("command: board is not draft")
 	// 公開の条件（拠点・チェックポイント・拠点から行けること）を満たしていない。理由は BoardNotPublishableError で受け取る
 	ErrBoardNotPublishable = errors.New("command: board is not publishable")
+	// ほかのスターターセットが同じ名前を使っている（状態によらない）
+	ErrStarterSetNameAlreadyInUse = errors.New("command: starter set name already in use")
+	// 公開 ID に当たるスターターセットが無い（削除したものを含む）
+	ErrStarterSetNotFound = errors.New("command: starter set not found")
+	// 準備中のスターターセットを使用不可にしようとした
+	ErrInvalidStarterSetStatusTransition = errors.New("command: invalid starter set status transition")
+	// 準備中でないスターターセットの名前・配るデッキ・解放するボードを変える、または削除しようとした
+	ErrStarterSetNotDraft = errors.New("command: starter set is not draft")
+	// 公開中のスターターセットの数の上限に達している。上限の値は LimitReachedError で受け取る
+	ErrStarterSetLimitReached = errors.New("command: starter set limit reached")
+	// ほかの NPC のアバターが同じ名前を使っている（状態によらない）
+	ErrNPCAvatarNameAlreadyInUse = errors.New("command: npc avatar name already in use")
+	// 公開 ID に当たる NPC のアバターが無い（削除したものを含む）
+	ErrNPCAvatarNotFound = errors.New("command: npc avatar not found")
+	// 準備中の NPC のアバターを使用不可にしようとした
+	ErrInvalidNPCAvatarStatusTransition = errors.New("command: invalid npc avatar status transition")
+	// 準備中でない NPC のアバターの名前を変える、または削除しようとした
+	ErrNPCAvatarNotDraft = errors.New("command: npc avatar is not draft")
+	// ほかの NPC のデッキが同じ名前を使っている（状態によらない）
+	ErrNPCDeckNameAlreadyInUse = errors.New("command: npc deck name already in use")
+	// 公開 ID に当たる NPC のデッキが無い（削除したものを含む）
+	ErrNPCDeckNotFound = errors.New("command: npc deck not found")
+	// 準備中の NPC のデッキを使用不可にしようとした
+	ErrInvalidNPCDeckStatusTransition = errors.New("command: invalid npc deck status transition")
+	// 準備中でない NPC のデッキの名前・枚数を変える、または削除しようとした
+	ErrNPCDeckNotDraft = errors.New("command: npc deck is not draft")
 	// 公開 ID に当たるカード（Creature・Item・Spell）が無い（カードでないものを含む）
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした

@@ -46,7 +46,7 @@ func (h *boardHistory) apply(cmd board.Command, at time.Time) {
 
 func (h *boardHistory) changeLayout(layout board.Layout) {
 	h.t.Helper()
-	h.apply(&board.ChangeLayoutCommand{Layout: layout, Rules: studiorules.Defaults().Board, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
+	h.apply(&board.ChangeLayoutCommand{Layout: layout, ChangedBy: operatortest.ID(h.t, 10)}, boardChangedAt)
 }
 
 func (h *boardHistory) project() readmodel.Board {
@@ -75,12 +75,15 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 		},
 		RegisteredAt: boardRegisteredAt, UpdatedAt: boardRegisteredAt,
 	}, state.Metadata)
+	// 登録の直後は、更新した人も登録した人
+	require.Equal(t, operatortest.ID(t, 10), state.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 10), state.UpdatedBy)
 	require.False(t, state.IsTerminal())
 }
 
 func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.apply(&board.RenameCommand{Name: boardtest.Name(t, "Ｓand"), RenamedBy: operatortest.ID(t, 10)}, boardChangedAt)
+	h.apply(&board.RenameCommand{Name: boardtest.Name(t, "Ｓand"), RenamedBy: operatortest.ID(t, 11)}, boardChangedAt)
 
 	state := h.project()
 
@@ -88,17 +91,20 @@ func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 	require.Equal(t, "Ｓand", state.Metadata.Name)
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
+	require.Equal(t, operatortest.ID(t, 10), state.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 11), state.UpdatedBy)
 }
 
 func TestBoard_DefaultRulesChangeReplacesAllValues(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8), ChangedBy: operatortest.ID(t, 10)}, boardChangedAt)
+	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8), ChangedBy: operatortest.ID(t, 12)}, boardChangedAt)
 
 	state := h.project()
 
 	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8), state.Metadata.DefaultRules)
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
+	require.Equal(t, operatortest.ID(t, 12), state.UpdatedBy)
 }
 
 // マスは y → x、つながりは a → b の順に並べる。差分を当てた結果が、入れた順によらず同じ並びになる
@@ -106,7 +112,7 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 1, 1, "land", "fire"), boardtest.Tile(t, 2, 0, "base", ""), boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "fire")},
-		[]board.Connection{boardtest.Connection(1, 1, 1, 0), boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 1, 1, 1, 0), boardtest.Connection(t, 0, 0, 1, 0)}))
 
 	state := h.project()
 
@@ -153,11 +159,11 @@ func TestBoard_LayoutChangeRecomputesPublishProblems(t *testing.T) {
 	twoBases := h.project().Metadata.PublishProblems
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", ""), boardtest.Tile(t, 2, 2, "land", "fire")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 	unreachable := h.project().Metadata.PublishProblems
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 	publishable := h.project().Metadata.PublishProblems
 
 	require.Equal(t, []readmodel.BoardPublishProblem{
@@ -179,13 +185,13 @@ func TestBoard_LayoutChangeAppliesPairsAndRecomputesUnpairedProblem(t *testing.T
 		boardtest.Tile(t, 2, 1, "sanctuary", ""), boardtest.Tile(t, 3, 1, "card_shop", ""),
 	}
 	connections := []board.Connection{
-		boardtest.Connection(0, 0, 1, 0), boardtest.Connection(0, 0, 0, 1), boardtest.Connection(0, 1, 1, 1),
-		boardtest.Connection(1, 0, 2, 0), boardtest.Connection(2, 0, 2, 1), boardtest.Connection(3, 0, 3, 1),
+		boardtest.Connection(t, 0, 0, 1, 0), boardtest.Connection(t, 0, 0, 0, 1), boardtest.Connection(t, 0, 1, 1, 1),
+		boardtest.Connection(t, 1, 0, 2, 0), boardtest.Connection(t, 2, 0, 2, 1), boardtest.Connection(t, 3, 0, 3, 1),
 	}
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(3, 0, 2, 0), boardtest.Pair(0, 1, 1, 1)))
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(t, 3, 0, 2, 0), boardtest.Pair(t, 0, 1, 1, 1)))
 	paired := h.project().Metadata
-	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(2, 0, 3, 0)))
+	h.changeLayout(boardtest.Layout(t, size, tiles, connections, boardtest.Pair(t, 2, 0, 3, 0)))
 	unpaired := h.project().Metadata
 
 	require.Equal(t, []readmodel.BoardPair{
@@ -204,7 +210,7 @@ func TestBoard_LayoutChangeAppliesPairsAndRecomputesUnpairedProblem(t *testing.T
 func TestBoard_LayoutChangeDropsPairOfRemovedTile(t *testing.T) {
 	size := boardtest.Size(t, 3, 1)
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")}, nil, boardtest.Pair(0, 0, 2, 0)))
+	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", ""), boardtest.Tile(t, 2, 0, "warp", "")}, nil, boardtest.Pair(t, 0, 0, 2, 0)))
 	h.changeLayout(boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "warp", "")}, nil))
 
 	state := h.project()
@@ -233,10 +239,10 @@ func TestBoard_LayoutChangeRemovesChangesAndResizes(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 3, 3),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "land", "fire"), boardtest.Tile(t, 2, 0, "land", "fire")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0), boardtest.Connection(1, 0, 2, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0), boardtest.Connection(t, 1, 0, 2, 0)}))
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 2),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")},
-		[]board.Connection{boardtest.Connection(0, 0, 1, 0)}))
+		[]board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
 
 	state := h.project()
 
@@ -265,18 +271,21 @@ func TestBoard_DoesNotChangeTheGivenState(t *testing.T) {
 func TestBoard_StatusEventsChangeStatusAndRevision(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
-		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")}, []board.Connection{boardtest.Connection(0, 0, 1, 0)}))
-	h.apply(&board.PublishCommand{PublishedBy: operatortest.ID(t, 10)}, boardChangedAt)
+		[]board.Tile{boardtest.Tile(t, 0, 0, "base", ""), boardtest.Tile(t, 1, 0, "checkpoint", "")}, []board.Connection{boardtest.Connection(t, 0, 0, 1, 0)}))
+	h.apply(&board.PublishCommand{PublishedBy: operatortest.ID(t, 11)}, boardChangedAt)
 	published := h.project()
-	h.apply(&board.RetireCommand{RetiredBy: operatortest.ID(t, 10)}, boardChangedAt)
+	h.apply(&board.RetireCommand{RetiredBy: operatortest.ID(t, 13)}, boardChangedAt)
 	retired := h.project()
 
 	require.Equal(t, readmodel.BoardStatusPublished, published.Status)
 	require.Equal(t, readmodel.BoardStatusPublished, published.Metadata.Status)
 	require.Equal(t, int64(3), published.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 11), published.UpdatedBy)
 	require.Equal(t, readmodel.BoardStatusRetired, retired.Status)
 	require.Equal(t, readmodel.BoardStatusRetired, retired.Metadata.Status)
 	require.Equal(t, int64(4), retired.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 13), retired.UpdatedBy)
+	require.Equal(t, operatortest.ID(t, 10), retired.RegisteredBy)
 }
 
 func TestBoard_DeletedEventMakesTerminal(t *testing.T) {

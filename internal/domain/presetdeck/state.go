@@ -1,11 +1,9 @@
 package presetdeck
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 type State interface {
@@ -16,16 +14,14 @@ type UnregisteredPresetDeck struct{}
 
 func (UnregisteredPresetDeck) isPresetDeckState() {}
 
+// 登録した人・日時は持たない（Decide が使わず、画面に出す値は read model がイベントから作るため）
 type PresetDeck struct {
 	ID       ID
 	Version  int64
 	PublicID uuid.UUID
 	Name     Name
-	// 枚数が 0 のカードは持たない
-	Cards        map[CardRef]CardCount
-	RegisteredBy operator.ID
-	RegisteredAt time.Time
-	UpdatedAt    time.Time
+	// 枚数が 0 のカードは持たない（DeckQuantity は 1 以上）
+	Cards map[card.Ref]card.DeckQuantity
 }
 
 func (PresetDeck) isPresetDeckState() {}

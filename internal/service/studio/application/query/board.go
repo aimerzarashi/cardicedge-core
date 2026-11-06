@@ -16,7 +16,7 @@ import (
 var ErrBoardNotFound = errors.New("query: board not found")
 
 // presentation 層に read model の作りを見せず、表示に要る値だけを返す。マスは y → x、つながりは a → b の順。
-// 一覧の要素にもマスとつながりを持たせる（スターターデッキの一覧が入れたカードを持つのと同じ。最大 32×32 でも、
+// 一覧の要素にもマスとつながりを持たせる（配布デッキの一覧が入れたカードを持つのと同じ。最大 32×32 でも、
 // 1 ページ 100 件までなので、別に引き直す仕組みは作らなかった）
 type Board struct {
 	ID     uuid.UUID
@@ -36,6 +36,10 @@ type Board struct {
 	Revision     int64
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
+	// 操作したオペレーターの公開 ID。GraphQL にはまだ出さない（オペレーターの read model と、何を見せるかが決まっていないため）。
+	// この変更の前に投影した行は、次のイベントで投影し直すまでゼロ値
+	RegisteredBy uuid.UUID
+	UpdatedBy    uuid.UUID
 }
 
 // Statuses が nil なら絞り込まない。空のリストは入力の誤り（CardFilter と同じ）

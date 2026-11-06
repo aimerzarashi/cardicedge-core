@@ -147,7 +147,7 @@ func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, rev
 		if err := requireAvailable(ctx, c.cardStatuses, deck.Cards, requested); err != nil {
 			return ChangedPresetDeck{}, err
 		}
-		changed, err := c.decideAndSave(ctx, deck, &presetdeck.SetCardCountsCommand{Counts: requested.counts, Rules: rules.Deck, ChangedBy: changedBy})
+		changed, err := c.decideAndSave(ctx, deck, &presetdeck.SetCardCountsCommand{Set: requested.set, Remove: requested.remove, Rules: rules.Deck, ChangedBy: changedBy})
 		if err != nil {
 			return ChangedPresetDeck{}, err
 		}
@@ -158,7 +158,7 @@ func (c *PresetDeckHandler) SetCardCounts(ctx context.Context, id uuid.UUID, rev
 		return changedPresetDeck(changed), nil
 	})
 	if errors.Is(err, presetdeck.ErrTotalCountTooLarge) {
-		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount}}
+		return ChangedPresetDeck{}, input.Errors{&input.TotalTooLarge{Field: "cards", Max: rules.Deck.TotalCardCount.Int()}}
 	}
 	return changed, revisionConflict(err)
 }

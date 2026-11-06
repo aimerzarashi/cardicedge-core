@@ -3,6 +3,7 @@ package constraint
 import (
 	"context"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 )
 
@@ -15,10 +16,10 @@ func UpdatePresetDeckName(ctx context.Context, id presetdeck.ID, name presetdeck
 	return updateUniqueKey(ctx, id.Int64(), presetdeck.NameKey(name), presetdeck.ErrNameAlreadyInUse)
 }
 
-func UpdatePresetDeckCardReferences(ctx context.Context, id presetdeck.ID, cards []presetdeck.CardRef) error {
+func UpdatePresetDeckCardReferences(ctx context.Context, id presetdeck.ID, cards []card.Ref) error {
 	ids := make([]int64, 0, len(cards))
-	for _, card := range cards {
-		ids = append(ids, card.ID())
+	for _, ref := range cards {
+		ids = append(ids, ref.ID)
 	}
 	return updateReferences(ctx, presetdeck.CardReferenceType(), id.Int64(), ids)
 }

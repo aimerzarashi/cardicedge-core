@@ -23,6 +23,14 @@ func validationErrors(err error) *model.ValidationErrors {
 			fieldErrors[i] = &model.FieldTooLong{Field: e.Field, Max: e.Max}
 		case *input.OutOfRange:
 			fieldErrors[i] = &model.FieldOutOfRange{Field: e.Field, Min: e.Min, Max: e.Max}
+		case *input.TooSmall:
+			fieldErrors[i] = &model.FieldTooSmall{Field: e.Field, Min: e.Min}
+		case *input.NotGreaterThan:
+			fieldErrors[i] = &model.FieldNotGreaterThan{Field: e.Field, Than: e.Than}
+		case *input.NotFound:
+			fieldErrors[i] = &model.FieldNotFound{Field: e.Field}
+		case *input.CountMismatch:
+			fieldErrors[i] = &model.FieldCountMismatch{Field: e.Field, Expected: e.Expected}
 		case *input.InvalidFormat:
 			fieldErrors[i] = &model.FieldInvalidFormat{Field: e.Field}
 		default:

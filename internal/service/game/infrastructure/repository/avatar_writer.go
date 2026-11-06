@@ -37,7 +37,9 @@ func (w *AvatarWriter) Upsert(ctx context.Context, avatar readmodel.Avatar) erro
 	if !ok {
 		return errors.New("repository: player of avatar has no public id")
 	}
-	raw, err := json.Marshal(avatar.Metadata())
+	metadata := avatar.Metadata()
+	metadata.RegisteredBy, metadata.UpdatedBy = playerPublicID, playerPublicID
+	raw, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}

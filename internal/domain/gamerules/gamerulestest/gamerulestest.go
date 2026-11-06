@@ -17,3 +17,37 @@ func ID(t testing.TB, value int64) gamerules.ID {
 	require.NoError(t, err)
 	return id
 }
+
+func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards int) gamerules.Match {
+	t.Helper()
+	min, err := gamerules.NewMinPlayers(minPlayers)
+	require.NoError(t, err)
+	max, err := gamerules.NewMaxPlayers(maxPlayers)
+	require.NoError(t, err)
+	hand, err := gamerules.NewMaxHandCards(maxHandCards)
+	require.NoError(t, err)
+	starting, err := gamerules.NewStartingHandCards(startingHandCards)
+	require.NoError(t, err)
+	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1)}
+}
+
+func RewardCardsByRank(t testing.TB, values ...int) gamerules.RewardCardsByRank {
+	t.Helper()
+	counts, err := gamerules.NewRewardCardsByRank(values...)
+	require.NoError(t, err)
+	return counts
+}
+
+func MaxHandCards(t testing.TB, value int) gamerules.MaxHandCards {
+	t.Helper()
+	hand, err := gamerules.NewMaxHandCards(value)
+	require.NoError(t, err)
+	return hand
+}
+
+func StartingHandCards(t testing.TB, value int) gamerules.StartingHandCards {
+	t.Helper()
+	starting, err := gamerules.NewStartingHandCards(value)
+	require.NoError(t, err)
+	return starting
+}

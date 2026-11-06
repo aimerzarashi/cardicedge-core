@@ -26,7 +26,7 @@ type gameRulesMetadata struct {
 }
 
 // 行はゲーム全体で 1 行（写されていなければ無い）なので、条件を付けずに 1 行読む。
-// 値は読むときにも確かめる（写した行が壊れていて、上限が 0 などで動くのを防ぐため）
+// 値は確かめずに JSON のまま読む（確かめたのは、イベントを作る書くときだけ。ルールを変えても、写した行を読めるようにするため）
 func (r *GameRulesReader) Get(ctx context.Context) (gamerules.Rules, bool, error) {
 	exec, err := rdb.GetExecutor(ctx)
 	if err != nil {
@@ -43,9 +43,5 @@ func (r *GameRulesReader) Get(ctx context.Context) (gamerules.Rules, bool, error
 	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 		return gamerules.Rules{}, false, fmt.Errorf("game_rules.metadata of %s: %w", row.GameRulesID, err)
 	}
-	rules, err := gamerules.New(metadata.Rules.Player, metadata.Rules.Deck, metadata.Rules.StarterDeck)
-	if err != nil {
-		return gamerules.Rules{}, false, fmt.Errorf("game_rules.metadata of %s: %w", row.GameRulesID, err)
-	}
-	return rules, true, nil
+	return metadata.Rules, true, nil
 }

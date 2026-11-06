@@ -10,7 +10,6 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -49,7 +48,7 @@ func restoredCardStatus(t *testing.T, ctx context.Context, publicID uuid.UUID) c
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	ref := cardRef(t, ctx, publicID)
-	statuses, err := newCardStatusReader(registry).Statuses(ctx, []presetdeck.CardRef{ref})
+	statuses, err := newCardStatusReader(registry).Statuses(ctx, []card.Ref{ref})
 	require.NoError(t, err)
 	status, found := statuses[ref]
 	require.True(t, found)
@@ -214,26 +213,26 @@ func TestCardStatusReader_ReturnsStatusOfEachKind(t *testing.T) {
 	creatureRef := cardRef(t, ctx, creatureID)
 	itemRef := cardRef(t, ctx, itemID)
 	spellRef := cardRef(t, ctx, spellRegistered.ID)
-	statuses, err := newCardStatusReader(registry).Statuses(ctx, []presetdeck.CardRef{creatureRef, itemRef, spellRef})
+	statuses, err := newCardStatusReader(registry).Statuses(ctx, []card.Ref{creatureRef, itemRef, spellRef})
 
 	require.NoError(t, err)
-	require.Equal(t, map[presetdeck.CardRef]card.Status{
+	require.Equal(t, map[card.Ref]card.Status{
 		creatureRef: card.StatusPublished,
 		itemRef:     card.StatusPublished,
 		spellRef:    card.StatusDraft,
 	}, statuses)
-	require.Equal(t, creature.Types().EntityType, creatureRef.EntityType())
-	require.Equal(t, item.Types().EntityType, itemRef.EntityType())
-	require.Equal(t, spell.Types().EntityType, spellRef.EntityType())
+	require.Equal(t, creature.Types().EntityType, creatureRef.EntityType)
+	require.Equal(t, item.Types().EntityType, itemRef.EntityType)
+	require.Equal(t, spell.Types().EntityType, spellRef.EntityType)
 }
 
-func cardRef(t *testing.T, ctx context.Context, publicID uuid.UUID) presetdeck.CardRef {
+func cardRef(t *testing.T, ctx context.Context, publicID uuid.UUID) card.Ref {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
 	ref, err := identifier.NewEntityRefResolver(registry).Resolve(ctx, publicID)
 	require.NoError(t, err)
-	cardRef, err := presetdeck.NewCardRef(ref.EntityType(), ref.ID())
+	cardRef, err := card.NewRef(ref.EntityType(), ref.ID())
 	require.NoError(t, err)
 	return cardRef
 }

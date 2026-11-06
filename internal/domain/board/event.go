@@ -30,8 +30,8 @@ type RegisteredEvent struct {
 	eventMarker  `json:"-"`
 	PublicID     uuid.UUID    `json:"public_id"`
 	Name         Name         `json:"name"`
-	Width        int          `json:"width"`
-	Height       int          `json:"height"`
+	Width        Width        `json:"width"`
+	Height       Height       `json:"height"`
 	DefaultRules DefaultRules `json:"default_rules"`
 	RegisteredBy operator.ID  `json:"registered_by"`
 }

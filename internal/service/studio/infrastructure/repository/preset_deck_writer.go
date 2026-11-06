@@ -33,17 +33,17 @@ func (w *PresetDeckWriter) Upsert(ctx context.Context, deck readmodel.PresetDeck
 	}
 	refs := make([]domain.EntityRef, 0, len(deck.Cards))
 	for card := range deck.Cards {
-		refs = append(refs, domain.NewEntityRef(card.EntityType(), card.ID()))
+		refs = append(refs, domain.NewEntityRef(card.EntityType, card.ID))
 	}
-	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
+	registeredBy, updatedBy, publicIDs, err := operatorPublicIDs(ctx, w.entityRefs, deck.RegisteredBy, deck.UpdatedBy, refs...)
 	if err != nil {
 		return err
 	}
 	cards := make([]readmodel.DeckCard, 0, len(deck.Cards))
 	for card, count := range deck.Cards {
-		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType(), card.ID())]
+		publicID, ok := publicIDs[domain.NewEntityRef(card.EntityType, card.ID)]
 		if !ok {
-			return errors.New("repository: card in starter deck has no public id")
+			return errors.New("repository: card in grant deck has no public id")
 		}
 		cards = append(cards, readmodel.DeckCard{CardID: publicID, Count: count})
 	}
@@ -52,6 +52,7 @@ func (w *PresetDeckWriter) Upsert(ctx context.Context, deck readmodel.PresetDeck
 	})
 	metadata := deck.Metadata
 	metadata.Cards = cards
+	metadata.RegisteredBy, metadata.UpdatedBy = registeredBy, updatedBy
 	raw, err := json.Marshal(metadata)
 	if err != nil {
 		return err

@@ -38,6 +38,8 @@ func TestCard_EvolvesFromCreatureRegistered(t *testing.T) {
 		// 並べ替え・検索は正規化した名前、表示は入力どおりの名前
 		SortName: "dragon",
 		Metadata: metadata,
+		// 登録の直後は、更新した人も登録した人
+		RegisteredBy: operatortest.ID(t, 10), UpdatedBy: operatortest.ID(t, 10),
 	}, state)
 	require.False(t, state.IsTerminal())
 }
@@ -63,11 +65,12 @@ func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 
 	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
-		CardID:   publicID,
-		CardType: readmodel.CardTypeItem,
-		Status:   readmodel.CardStatusDraft,
-		SortName: "potion",
-		Metadata: metadata,
+		CardID:       publicID,
+		CardType:     readmodel.CardTypeItem,
+		Status:       readmodel.CardStatusDraft,
+		SortName:     "potion",
+		Metadata:     metadata,
+		RegisteredBy: operatortest.ID(t, 10), UpdatedBy: operatortest.ID(t, 10),
 	}, state)
 	require.False(t, state.IsTerminal())
 }
@@ -93,11 +96,12 @@ func TestCard_EvolvesFromSpellRegistered(t *testing.T) {
 
 	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｆireball", Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
-		CardID:   publicID,
-		CardType: readmodel.CardTypeSpell,
-		Status:   readmodel.CardStatusDraft,
-		SortName: "fireball",
-		Metadata: metadata,
+		CardID:       publicID,
+		CardType:     readmodel.CardTypeSpell,
+		Status:       readmodel.CardStatusDraft,
+		SortName:     "fireball",
+		Metadata:     metadata,
+		RegisteredBy: operatortest.ID(t, 10), UpdatedBy: operatortest.ID(t, 10),
 	}, state)
 	require.False(t, state.IsTerminal())
 }
@@ -110,7 +114,7 @@ func TestCard_IgnoresEventsOfOtherAggregates(t *testing.T) {
 	require.Equal(t, state, evolved)
 }
 
-// 公開・使用不可のイベントは、状態の列と metadata の状態・revision・最後に変更した日時を変える（登録した日時は変えない）
+// 公開・使用不可のイベントは、状態の列と metadata の状態・revision・最後に変更した日時と人を変える（登録した日時と人は変えない）
 func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 	registeredAt := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
 	publishedAt := registeredAt.Add(time.Hour)
@@ -118,11 +122,11 @@ func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 	publicID := uuid.New()
 	state := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
 	registered := creature.Creature{ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft}
-	published, err := creature.Decide(registered, &creature.PublishCommand{PublishedBy: operatortest.ID(t, 10)}, publishedAt)
+	published, err := creature.Decide(registered, &creature.PublishCommand{PublishedBy: operatortest.ID(t, 11)}, publishedAt)
 	require.NoError(t, err)
 	publishedState, err := creature.Evolve(registered, published[0])
 	require.NoError(t, err)
-	retired, err := creature.Decide(publishedState, &creature.RetireCommand{RetiredBy: operatortest.ID(t, 10)}, retiredAt)
+	retired, err := creature.Decide(publishedState, &creature.RetireCommand{RetiredBy: operatortest.ID(t, 12)}, retiredAt)
 	require.NoError(t, err)
 
 	afterPublished := state.Evolve(published[0])
@@ -136,6 +140,10 @@ func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 	require.Equal(t, readmodel.CardMetadata{
 		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
 	}, afterRetired.Metadata)
+	require.Equal(t, operatortest.ID(t, 10), afterPublished.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 11), afterPublished.UpdatedBy)
+	require.Equal(t, operatortest.ID(t, 10), afterRetired.RegisteredBy)
+	require.Equal(t, operatortest.ID(t, 12), afterRetired.UpdatedBy)
 	require.False(t, afterRetired.IsTerminal())
 }
 

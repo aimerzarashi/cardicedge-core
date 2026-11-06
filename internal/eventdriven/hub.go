@@ -49,7 +49,9 @@ type Hub struct {
 	loaders        map[domaindef.EntityTypeID]eventstore.EventLoader
 	registered     map[int16]*registeredSubscriber
 	// 集約の種別 → その種別を購読する購読者（投影・ポリシー）の id
-	routes    map[domaindef.EntityTypeID][]int16
+	routes map[domaindef.EntityTypeID][]int16
+	// 集約の種別 → 通知を見るだけの口（Watch）
+	watchers  map[domaindef.EntityTypeID][]func(EventRef)
 	scheduler *scheduler
 	// 複数台で、1 つの単位を 1 台だけが処理するためのロック（lock.go）
 	locks unitLocks
@@ -97,6 +99,7 @@ func NewHub(subscribers []SubscriberDef, registry *domaindef.Registry, options O
 		loaders:        make(map[domaindef.EntityTypeID]eventstore.EventLoader, len(loaders)),
 		registered:     make(map[int16]*registeredSubscriber),
 		routes:         make(map[domaindef.EntityTypeID][]int16),
+		watchers:       make(map[domaindef.EntityTypeID][]func(EventRef)),
 		scheduler:      newScheduler(),
 		pollNow:        make(chan struct{}, 1),
 	}
@@ -173,6 +176,21 @@ func (h *Hub) register(sub *registeredSubscriber, subscriptions []domain.EntityT
 	return nil
 }
 
+// 集約の種別の通知（EventRef）を見るだけの口を足す。投影・ポリシーと違い、やることの表・チェックポイント・失敗の記録を持たず、
+// 知らせが届いた台で呼ぶだけ（取りこぼしは見る側が自分で読み直して埋める）。watch は Listener の受信を止めないよう、待たずに返すこと
+// （Listener は 1 本で全種別の通知を受けるため、待つと投影・ポリシーへの知らせも止まる）。Start の前に足す
+func (h *Hub) Watch(entityType domain.EntityType, watch func(EventRef)) error {
+	if h.started.Load() {
+		return fmt.Errorf("eventdriven: watcher of %s is registered after Start", entityType)
+	}
+	entityTypeID, err := h.registry.EntityTypeID(entityType)
+	if err != nil {
+		return fmt.Errorf("eventdriven: watcher: %w", err)
+	}
+	h.watchers[entityTypeID] = append(h.watchers[entityTypeID], watch)
+	return nil
+}
+
 // ctx には rdb.WithDB で DB を載せる（ワーカーがトランザクションを始めるのに使う）。LISTEN を張り終えてから返す
 // （張る前に commit されたイベントの知らせは届かないため）。投影はすべて Start の前に登録する
 func (h *Hub) Start(ctx context.Context, listener *Listener) error {
@@ -221,9 +239,22 @@ func (h *Hub) Stop() {
 
 // ListenerHandler。Listener から呼ばれる
 func (h *Hub) HandleEvent(ref EventRef) {
+	for _, watch := range h.watchers[ref.EntityTypeID] {
+		callWatcher(watch, ref)
+	}
 	for _, subscriberID := range h.routes[ref.EntityTypeID] {
 		h.scheduler.enqueue(workKey{subscriberID: subscriberID, entityTypeID: ref.EntityTypeID, entityID: ref.EntityID})
 	}
+}
+
+// 見る側の誤りで Listener の受信ループを落とさない（落ちると全種別の通知が止まる）
+func callWatcher(watch func(EventRef), ref EventRef) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("eventdriven: watcher panicked", "entity_type_id", ref.EntityTypeID, "entity_id", ref.EntityID, "panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+	watch(ref)
 }
 
 // ListenerHandler。つながり直す間の知らせは失われているため、間隔を待たずにやることの表を読む

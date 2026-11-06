@@ -349,7 +349,7 @@
       ]
     }
   ],
-  "starter_decks": [
+  "grant_decks": [
     "火・地属性デッキ",
     "水・風属性デッキ"
   ],
@@ -434,7 +434,7 @@
       ]
     },
     {
-      "name": "四角の周回ボード",
+      "name": "チュートリアル",
       "width": 5,
       "height": 6,
       "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6},
@@ -480,5 +480,15 @@
       ],
       "pairs": []
     }
+  ],
+  "npc_avatars": [
+    { "name": "見習いの魔術師", "decks": ["水・風属性デッキ"] },
+    { "name": "森の番人", "decks": ["火・地属性デッキ"] },
+    { "name": "炎の剣士", "decks": ["火・地属性デッキ"] },
+    { "name": "ゴリガン", "decks": ["火・地属性デッキ", "水・風属性デッキ"] }
+  ],
+  "npc_decks": ["火・地属性デッキ", "水・風属性デッキ"],
+  "starter_sets": [
+    { "name": "スターターセット", "grant_decks": ["火・地属性デッキ", "水・風属性デッキ"], "unlock_boards": ["チュートリアル"], "unlock_npc_avatars": ["ゴリガン"] }
   ]
 }

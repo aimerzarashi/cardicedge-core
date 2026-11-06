@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -30,6 +31,73 @@ type BoardsResult interface {
 	IsBoardsResult()
 }
 
+// changeRoomMatchRules の結果（公開前、または公開前に決めていなければ準備中。決めるのは作った人）。
+// 入力の誤りは ValidationErrors（段階ごと。7 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
+type ChangeRoomMatchRulesResult interface {
+	IsChangeRoomMatchRulesResult()
+}
+
+// changeRoomSeatChoice の結果（公開前、または公開前に決めていなければ準備中）。選んだ時の 1 回だけ、選べるものかを確かめる（準備完了の時には確かめ直さない）。
+// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキを確かめる）
+type ChangeRoomSeatChoiceResult interface {
+	IsChangeRoomSeatChoiceResult()
+}
+
+// changeRoomSeats の結果（公開前だけ。作った人だけ）
+type ChangeRoomSeatsResult interface {
+	IsChangeRoomSeatsResult()
+}
+
+// chooseMatchPath の結果（CHOOSING_PATH の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type ChooseMatchPathResult interface {
+	IsChooseMatchPathResult()
+}
+
+// chooseMatchRewardPack の結果（ENDED の段階の、まだ受け取っていないプレイヤーだけ。番は問わない。終わっていなければ MatchPhaseNotAllowedError、受け取り済みなら MatchRewardAlreadyReceivedError。参加していない対戦は MatchNotFoundError）
+type ChooseMatchRewardPackResult interface {
+	IsChooseMatchRewardPackResult()
+}
+
+// closeRoom の結果（作った人だけ。対戦中は閉じられないので RoomStatusNotAllowedError)
+type CloseRoomResult interface {
+	IsCloseRoomResult()
+}
+
+// createRoom の結果。名前の誤りは ValidationErrors（項目名 name）。アバターかデッキが無ければ RoomRequirementsNotMetError（足りないものの一覧）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type CreateRoomResult interface {
+	IsCreateRoomResult()
+}
+
+// デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type DeckResult interface {
+	IsDeckResult()
+}
+
+// declareRoomNext の結果（次を決める間だけ。部屋に入っている人が 1 人 1 回。変え直しは無い）
+type DeclareRoomNextResult interface {
+	IsDeclareRoomNextResult()
+}
+
+// declareRoomReady の結果（準備中だけ。自分の担当の分がすべて決まっているときだけ）
+type DeclareRoomReadyResult interface {
+	IsDeclareRoomReadyResult()
+}
+
+// discardMatchCard の結果（DISCARDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type DiscardMatchCardResult interface {
+	IsDiscardMatchCardResult()
+}
+
+// drawMatchCard の結果（DRAWING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type DrawMatchCardResult interface {
+	IsDrawMatchCardResult()
+}
+
+// endMatchTurn の結果（ENDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type EndMatchTurnResult interface {
+	IsEndMatchTurnResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -37,9 +105,54 @@ type FieldError interface {
 	GetField() string
 }
 
+// ゲーム全体のルールの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type GameRulesResult interface {
+	IsGameRulesResult()
+}
+
+// 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
+// 誰が（participant）は Match.participants の何番目か
+type MatchEvent interface {
+	IsMatchEvent()
+	// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+	GetRevision() int
+	// 起きた時刻
+	GetOccurredAt() time.Time
+}
+
+// 対戦のイベントの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchEventsResult interface {
+	IsMatchEventsResult()
+}
+
+// 対戦の進みの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchProgressResult interface {
+	IsMatchProgressResult()
+}
+
+// 対戦の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MatchResult interface {
+	IsMatchResult()
+}
+
 // me の結果。登録済みなら Player、未登録なら PlayerNotRegisteredError
 type MeResult interface {
 	IsMeResult()
+}
+
+// 自分の部屋の一覧の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type MyRoomsResult interface {
+	IsMyRoomsResult()
+}
+
+// NPC のアバターの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type NpcAvatarResult interface {
+	IsNpcAvatarResult()
+}
+
+// publishRoom の結果（公開前だけ。作った人だけ。席の並びが決まっていなければ RoomSeatsNotDecidedError。対戦ルールと席の選択は、決まっていなくても公開できる）
+type PublishRoomResult interface {
+	IsPublishRoomResult()
 }
 
 // registerAvatar の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
@@ -50,6 +163,26 @@ type RegisterAvatarResult interface {
 // registerPlayer の結果
 type RegisterPlayerResult interface {
 	IsRegisterPlayerResult()
+}
+
+// renameRoom の結果（作った人だけ。閉じる前まで。公開の後にも変えられる。閉じた部屋は RoomStatusNotAllowedError）
+type RenameRoomResult interface {
+	IsRenameRoomResult()
+}
+
+// resumeRoom の結果（休止中だけ。作った人だけ）
+type ResumeRoomResult interface {
+	IsResumeRoomResult()
+}
+
+// rollMatchDice の結果（ROLLING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type RollMatchDiceResult interface {
+	IsRollMatchDiceResult()
+}
+
+// 部屋の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+type RoomResult interface {
+	IsRoomResult()
 }
 
 // プレイヤーのアバター。ほかのプレイヤーにも見える名前を持つ
@@ -161,6 +294,14 @@ type BoardPosition struct {
 	Y int `json:"y"`
 }
 
+// 格子の座標の入力。BoardPosition と同じ
+type BoardPositionInput struct {
+	// 列（0 始まり）
+	X int `json:"x"`
+	// 行（0 始まり）
+	Y int `json:"y"`
+}
+
 // ボードのマスの数（read model の投影のときに数える）。土地だけが属性を持つので、属性ごとの数の和が土地の数になる
 type BoardTileCounts struct {
 	// 土地の数（属性ごとの数の和）
@@ -253,6 +394,84 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
+// 対戦ルールを決める入力。7 つの値の名前と決まりは、ボードの既定のルールと同じ
+type ChangeRoomMatchRulesInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// ボードの公開用の ID（作った人が解放した公開中のもの。Player.boards に出るもの）
+	BoardID uuid.UUID `json:"boardId"`
+	// 目標の魔力（1 以上、開始時の魔力より大きい）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（0 以上）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（0 以上）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（0 以上）
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（1 以上）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上）
+	DiceMax int `json:"diceMax"`
+}
+
+// 対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）
+type ChangeRoomMatchRulesSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomMatchRulesSuccess) IsChangeRoomMatchRulesResult() {}
+
+// 席のアバターとデッキを選ぶ入力。席の種類で、選ぶものが変わる
+type ChangeRoomSeatChoiceInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 席の番号（席の並びの何番目か。0 始まり）
+	Seat int `json:"seat"`
+	// アバターの公開用の ID（プレイヤーの席は座っている人のアバター（Player.avatars に出るもの）、NPC の席は作った人が解放した公開中の NPC のアバター（Player.npcAvatars に出るもの））
+	AvatarID uuid.UUID `json:"avatarId"`
+	// デッキの公開用の ID（プレイヤーの席は座っている人のデッキ（Player.decks に出るもの）、NPC の席は選んだ NPC のアバターに割り当てた公開中のデッキ（Player.npcAvatars の decks に出るもの））
+	DeckID uuid.UUID `json:"deckId"`
+}
+
+// 席のアバターとデッキを選んだ（同じ選択なら何も変えず、revision も進まない）
+type ChangeRoomSeatChoiceSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomSeatChoiceSuccess) IsChangeRoomSeatChoiceResult() {}
+
+// 席の並びを決める入力
+type ChangeRoomSeatsInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる
+	Seats []RoomSeatKind `json:"seats"`
+}
+
+// 席の並びを決めた（同じ並びなら何も変えず、revision も進まない）
+type ChangeRoomSeatsSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeRoomSeatsSuccess) IsChangeRoomSeatsResult() {}
+
 // チェックポイント
 type CheckpointTile struct {
 	// 列
@@ -269,6 +488,240 @@ func (this CheckpointTile) GetX() int { return this.X }
 // 行
 func (this CheckpointTile) GetY() int { return this.Y }
 
+// 分かれ道で行き先を選ぶ入力
+type ChooseMatchPathInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 行き先の位置（Match.pathChoices の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）
+	To *BoardPositionInput `json:"to"`
+}
+
+// 分かれ道で行き先を選ぶ（成功したら対戦の revision が進む）
+type ChooseMatchPathSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (ChooseMatchPathSuccess) IsChooseMatchPathResult() {}
+
+// 戦利品のパックを選ぶ入力
+type ChooseMatchRewardPackInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 選ぶパックのキー（Match.rewardPacks の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）
+	Pack string `json:"pack"`
+}
+
+// 戦利品のパックを選んでカードを引いた（成功したら対戦の revision が進む。カードは Match.participants の rewardCards で読み、所持品へはポリシーが足す）
+type ChooseMatchRewardPackSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (ChooseMatchRewardPackSuccess) IsChooseMatchRewardPackResult() {}
+
+// 部屋を閉じる入力
+type CloseRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 部屋を閉じた（閉じた部屋をもう一度閉じても、何も変えず成功する）
+type CloseRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 閉じた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (CloseRoomSuccess) IsCloseRoomResult() {}
+
+// 部屋を作る入力
+type CreateRoomInput struct {
+	// 部屋の名前（前後の空白を除いて 1〜20 文字。FieldRequired・FieldTooLong の max。ほかの部屋と同じでもよい）
+	Name string `json:"name"`
+}
+
+// 部屋を作った（公開前。席は 0）
+type CreateRoomSuccess struct {
+	// 作った部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 作った部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (CreateRoomSuccess) IsCreateRoomResult() {}
+
+// プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）
+type Deck struct {
+	// デッキの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない
+	Cards []*DeckCard `json:"cards"`
+	// カードの枚数の合計
+	TotalCount int `json:"totalCount"`
+	// カードの種類ごとの枚数の合計（種類の数ではなく、枚数の和。入っていない種類は 0）
+	TypeCounts *DeckTypeCounts `json:"typeCounts"`
+}
+
+func (Deck) IsDeckResult() {}
+
+// デッキに入っているカードと、その枚数
+type DeckCard struct {
+	// カード
+	Card *DeckCardInfo `json:"card"`
+	// 枚数
+	Count int `json:"count"`
+}
+
+// デッキに入っているカードの、見せるのに要る項目
+type DeckCardInfo struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 種類
+	Type CardType `json:"type"`
+}
+
+// 自分のものとしてデッキが無い（無い・ほかのプレイヤーのもの。存在を明かさないため区別しない）
+type DeckNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (DeckNotFoundError) IsDeckResult() {}
+
+// デッキに入っているカードの、種類ごとの枚数の合計（デッキの read model から返すときに数える）
+type DeckTypeCounts struct {
+	// Creature の枚数
+	Creature int `json:"creature"`
+	// Item の枚数
+	Item int `json:"item"`
+	// Spell の枚数
+	Spell int `json:"spell"`
+}
+
+// 対戦の後の意思表示の入力
+type DeclareRoomNextInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 続けるなら true、終えるなら false
+	Continue bool `json:"continue"`
+}
+
+// 対戦の後の意思表示をした。終えるなら部屋は休止中になり、全員が続けるなら準備中に戻る（準備完了と、公開前に決めた印が外れ、
+// ボード・対戦ルール・席の選びを今の担当の決まりで変え直せる）。ほかの人がまだなら、次を決める状態のまま
+type DeclareRoomNextSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 意思表示をした部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (DeclareRoomNextSuccess) IsDeclareRoomNextResult() {}
+
+// 準備完了を申告する入力
+type DeclareRoomReadyInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 準備完了を申告した（以後、自分の担当の分を選び直せない。取り消す操作は無い）
+type DeclareRoomReadySuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 申告した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (DeclareRoomReadySuccess) IsDeclareRoomReadyResult() {}
+
+// 手札を 1 枚捨てる入力
+type DiscardMatchCardInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 捨てる手札の番号（0 始まり。自分の手札の枚数の範囲。範囲の外は ValidationErrors の FieldOutOfRange）
+	HandIndex int `json:"handIndex"`
+}
+
+// 手札を 1 枚捨てる（成功したら対戦の revision が進む）
+type DiscardMatchCardSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (DiscardMatchCardSuccess) IsDiscardMatchCardResult() {}
+
+// カードを引く入力
+type DrawMatchCardInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+}
+
+// カードを引く（成功したら対戦の revision が進む）
+type DrawMatchCardSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (DrawMatchCardSuccess) IsDrawMatchCardResult() {}
+
+// ターンを終える入力
+type EndMatchTurnInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+}
+
+// ターンを終える（成功したら対戦の revision が進む）
+type EndMatchTurnSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (EndMatchTurnSuccess) IsEndMatchTurnResult() {}
+
+// 入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）
+type FieldCountMismatch struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 決まりの個数
+	Expected int `json:"expected"`
+}
+
+func (FieldCountMismatch) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldCountMismatch) GetField() string { return this.Field }
+
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -279,6 +732,30 @@ func (FieldInvalidFormat) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldInvalidFormat) GetField() string { return this.Field }
+
+// 入力の ID が指すものが、選べるものの中に無い（無い・ほかのプレイヤーのもの・解放していない・公開中でない等。区別しない）
+type FieldNotFound struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+}
+
+func (FieldNotFound) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotFound) GetField() string { return this.Field }
+
+// 入力が、別の入力の項目の値より大きくない（等しいのも含む。例: 目標の魔力が開始時の魔力以下、サイコロの目の最大が最小以下）
+type FieldNotGreaterThan struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 大きくなければならない相手の入力の項目（例: startingMagic）
+	Than string `json:"than"`
+}
+
+func (FieldNotGreaterThan) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldNotGreaterThan) GetField() string { return this.Field }
 
 // 入力が範囲の外
 type FieldOutOfRange struct {
@@ -319,6 +796,27 @@ func (FieldTooLong) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
 
+// 入力が下限より小さい（上限は無い）
+type FieldTooSmall struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 下限（この値を含む）
+	Min int `json:"min"`
+}
+
+func (FieldTooSmall) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooSmall) GetField() string { return this.Field }
+
+// ゲーム全体のルール
+type GameRules struct {
+	// 対戦の決まり
+	Match *MatchRules `json:"match"`
+}
+
+func (GameRules) IsGameRulesResult() {}
+
 // 土地（ふつうのマス）
 type LandTile struct {
 	// 列
@@ -337,7 +835,553 @@ func (this LandTile) GetX() int { return this.X }
 // 行
 func (this LandTile) GetY() int { return this.Y }
 
+// 対戦。参加者は部屋の席の順で返す。
+// 順番は参加者ごとの turnOrder で見せる（始めるときに無作為に決めたもの）
+type Match struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 対戦の版（変える操作に渡す）
+	Revision int `json:"revision"`
+	// 今のラウンド（1 始まり）
+	Round int `json:"round"`
+	// ルール（始めた時点の写し）
+	Rules *MatchPlayRules `json:"rules"`
+	// 盤面（始めた時点の写し）
+	Board *MatchBoard `json:"board"`
+	// 参加者（部屋の席の順）
+	Participants []*MatchParticipant `json:"participants"`
+	// 今の番の参加者（Match.participants の何番目か。順番が決まるまでは null）
+	CurrentParticipant *int `json:"currentParticipant,omitempty"`
+	// 対戦の段階。今の番の人が次にする操作を表す
+	Phase MatchPhase `json:"phase"`
+	// このターンに振ったサイコロの目（振る前は null）
+	Dice *int `json:"dice,omitempty"`
+	// このターンに残っている歩数
+	RemainingSteps int `json:"remainingSteps"`
+	// 今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）
+	PathChoices []*BoardPosition `json:"pathChoices"`
+	// 対戦の結果（終わるまでは null）
+	Outcome *MatchOutcome `json:"outcome,omitempty"`
+	// 自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）
+	RewardPacks []*MatchRewardPack `json:"rewardPacks"`
+	// この対戦を始めた部屋の公開用の ID（部屋の一覧の投影が遅れて引けない間は null）
+	RoomID *uuid.UUID `json:"roomId,omitempty"`
+	// その部屋で何戦目か（1 始まり。roomId が null の間は null）
+	Number *int `json:"number,omitempty"`
+}
+
+func (Match) IsMatchResult() {}
+
+// 参加者のアバターを、公開用の ID と名前で見せる値（名前は読むときに引く）
+type MatchAvatar struct {
+	// 公開用の ID（プレイヤーのアバターか、NPC のアバターか）
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// 対戦の盤面。始めた時点のボードの写し（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）。
+// マス・つながり・対の型は Board と同じ
+type MatchBoard struct {
+	// 幅
+	Width int `json:"width"`
+	// 高さ
+	Height int `json:"height"`
+	// マス（y → x の順）
+	Tiles []BoardTile `json:"tiles"`
+	// マスどうしのつながり
+	Connections []*BoardConnection `json:"connections"`
+	// 転送円どうし・橋どうしの対
+	Pairs []*BoardTilePair `json:"pairs"`
+}
+
+// 手札を 1 枚捨てた
+type MatchCardDiscardedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 捨てた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 捨てた手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 捨てたカード
+	Card *DeckCardInfo `json:"card"`
+}
+
+func (MatchCardDiscardedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCardDiscardedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCardDiscardedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// カードを引いた
+type MatchCardDrawnEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 引いた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 引いたカード
+	Card *DeckCardInfo `json:"card"`
+}
+
+func (MatchCardDrawnEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCardDrawnEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// まだ印の無いチェックポイントに入り、印を付けて魔力が増えた
+type MatchCheckpointPassedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 通った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 印を付けたチェックポイントの位置
+	Checkpoint *BoardPosition `json:"checkpoint"`
+	// 増えた魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchCheckpointPassedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCheckpointPassedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCheckpointPassedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 対戦が始まった（参加者・盤面・ルールは match で読む）
+type MatchCreatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchCreatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 山札が混ざった（並びは見せないので、項目を持たない）
+type MatchDecksShuffledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchDecksShuffledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDecksShuffledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// サイコロを振った
+type MatchDiceRolledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 振った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 出た目
+	Value int `json:"value"`
+}
+
+func (MatchDiceRolledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDiceRolledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDiceRolledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 対戦が終わった
+type MatchEndedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
+	Winners []int `json:"winners"`
+	// 参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下
+	Ranks []int `json:"ranks"`
+	// 終わった理由
+	Reason MatchEndReason `json:"reason"`
+}
+
+func (MatchEndedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchEndedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 指した版より後の対戦のイベント
+type MatchEventList struct {
+	// 古い順にすべて（対戦の長さはラウンドの上限で決まるので、ページ分けしない）
+	Events []MatchEvent `json:"events"`
+}
+
+func (MatchEventList) IsMatchEventsResult() {}
+
+// 全員に手札が配られた
+type MatchHandsDealtEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 全員に配った枚数（山札が足りなければ、ある分だけ）
+	Cards int `json:"cards"`
+}
+
+func (MatchHandsDealtEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchHandsDealtEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchHandsDealtEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
+type MatchLapCompletedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 周回を終えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 増えた魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchLapCompletedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchLapCompletedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 1 マス進んだ
+type MatchMovedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 進んだ参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 入ったマスの位置
+	To *BoardPosition `json:"to"`
+}
+
+func (MatchMovedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchMovedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchMovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）
+type MatchNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchNotFoundError) IsMatchResult() {}
+
+func (MatchNotFoundError) IsDrawMatchCardResult() {}
+
+func (MatchNotFoundError) IsDiscardMatchCardResult() {}
+
+func (MatchNotFoundError) IsRollMatchDiceResult() {}
+
+func (MatchNotFoundError) IsChooseMatchPathResult() {}
+
+func (MatchNotFoundError) IsEndMatchTurnResult() {}
+
+func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
+
+func (MatchNotFoundError) IsMatchProgressResult() {}
+
+func (MatchNotFoundError) IsMatchEventsResult() {}
+
+// 今の番の参加者ではない（NPC の番も含む）
+type MatchNotYourTurnError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchNotYourTurnError) IsDrawMatchCardResult() {}
+
+func (MatchNotYourTurnError) IsDiscardMatchCardResult() {}
+
+func (MatchNotYourTurnError) IsRollMatchDiceResult() {}
+
+func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
+
+func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
+
+// 対戦の結果。終わった対戦だけが持つ
+type MatchOutcome struct {
+	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
+	Winners []int `json:"winners"`
+	// 参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下
+	Ranks []int `json:"ranks"`
+	// 終わった理由
+	Reason MatchEndReason `json:"reason"`
+}
+
+// 参加者 1 人
+type MatchParticipant struct {
+	// プレイヤーか NPC か
+	Kind MatchParticipantKind `json:"kind"`
+	// プレイヤーの公開用の ID（プレイヤーだけ。NPC は null）
+	PlayerID *uuid.UUID `json:"playerId,omitempty"`
+	// アバター（プレイヤーのアバター、NPC なら NPC のアバター）
+	Avatar *MatchAvatar `json:"avatar"`
+	// 今いるマスの位置（始めた時点は拠点）
+	Position *BoardPosition `json:"position"`
+	// 魔力
+	Magic int `json:"magic"`
+	// 手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）
+	Hand []*DeckCardInfo `json:"hand"`
+	// 山札の残りの枚数。並びと中身は見せない
+	DrawPileCount int `json:"drawPileCount"`
+	// 順番の何番目か（0 始まり）。順番が早い人ほど小さい
+	TurnOrder int `json:"turnOrder"`
+	// 拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）
+	PassedCheckpoints []*BoardPosition `json:"passedCheckpoints"`
+	// 戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）
+	RewardReceived bool `json:"rewardReceived"`
+	// 受け取った戦利品のカード（受け取るまでは空）。引いた順で、同じカードは重ならない
+	RewardCards []*DeckCardInfo `json:"rewardCards"`
+}
+
+// 今の段階ではできない操作（終わった対戦への操作も含む）
+type MatchPhaseNotAllowedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchPhaseNotAllowedError) IsDrawMatchCardResult() {}
+
+func (MatchPhaseNotAllowedError) IsDiscardMatchCardResult() {}
+
+func (MatchPhaseNotAllowedError) IsRollMatchDiceResult() {}
+
+func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
+
+func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
+
+func (MatchPhaseNotAllowedError) IsChooseMatchRewardPackResult() {}
+
+// 対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
+// 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
+type MatchPlayRules struct {
+	// 届いて拠点に戻ると勝ちになる魔力
+	TargetMagic int `json:"targetMagic"`
+	// 始めたときの魔力
+	StartingMagic int `json:"startingMagic"`
+	// 拠点に戻ったときに増える魔力
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントを通ったときに増える魔力
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限。上限に達したら、その時点で魔力の多い人が勝つ
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大
+	DiceMax int `json:"diceMax"`
+	// 手札の上限
+	MaxHandCards int `json:"maxHandCards"`
+	// 始めに配る手札の枚数
+	StartingHandCards int `json:"startingHandCards"`
+}
+
+// 対戦の進み。画面は手元の版（revision）と比べ、進んでいれば matchEvents で差分を、match で今の状態を読む。
+// 版だけを送るのは、見せてよいものの絞り込みを query の側だけで行うため
+type MatchProgress struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 対戦の最新の版（Match.revision と同じ。抜けなく 1 から続く）
+	Revision int `json:"revision"`
+	// その版のイベントの起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchProgress) IsMatchProgressResult() {}
+
+// 戦利品はもう受け取った
+type MatchRewardAlreadyReceivedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (MatchRewardAlreadyReceivedError) IsChooseMatchRewardPackResult() {}
+
+// 戦利品のパックから引いた
+type MatchRewardDrawnEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 引いた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 選んだパックのキー
+	Pack string `json:"pack"`
+	// 引いたカード（重ならない。候補が足りなければ順位の枚数より少ない）。cards にしないのは、MatchHandsDealtEvent.cards（Int）と同じ名前で型が食い違い、問い合わせを検証で断られるため
+	RewardCards []*DeckCardInfo `json:"rewardCards"`
+}
+
+func (MatchRewardDrawnEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchRewardDrawnEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchRewardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 戦利品に選べるパック
+type MatchRewardPack struct {
+	// 選ぶときに渡すキー（chooseMatchRewardPack の pack）
+	Key string `json:"key"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
+type MatchRewardsCompletedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+}
+
+func (MatchRewardsCompletedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchRewardsCompletedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchRewardsCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
+type MatchRules struct {
+	// 対戦に参加できる人数の下限（この値を含む）
+	MinPlayers int `json:"minPlayers"`
+	// 対戦に参加できる人数の上限（この値を含む）
+	MaxPlayers int `json:"maxPlayers"`
+	// 手札の上限の枚数
+	MaxHandCards int `json:"maxHandCards"`
+	// 対戦の始めに配る手札の枚数
+	StartingHandCards int `json:"startingHandCards"`
+}
+
+// ターンを終えた
+type MatchTurnEndedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// ターンを終えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchTurnEndedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTurnEndedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTurnEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 順番が決まった
+type MatchTurnOrderDecidedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 参加者の番号（Match.participants の何番目か）を、順番の早い順に並べたもの
+	Order []int `json:"order"`
+}
+
+func (MatchTurnOrderDecidedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTurnOrderDecidedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTurnOrderDecidedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
 type Mutation struct {
+}
+
+// NPC のアバター（プレイヤーが解放した公開中のもの）
+type NpcAvatar struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 使うデッキ（割り当てた順。公開中のものだけ）
+	Decks []*NpcDeck `json:"decks"`
+}
+
+func (NpcAvatar) IsNpcAvatarResult() {}
+
+// 解放した公開中の NPC のアバターが無い（解放していない・公開中でないものを含む。区別しない）
+type NpcAvatarNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
+
+// NPC のデッキ（公開中のもの）。NPC のアバターを通してだけ出る
+type NpcDeck struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない
+	Cards []*NpcDeckCard `json:"cards"`
+	// カードの枚数の合計
+	TotalCount int `json:"totalCount"`
+}
+
+// NPC のデッキに入っているカードと、その枚数
+type NpcDeckCard struct {
+	// カード
+	Card *NpcDeckCardInfo `json:"card"`
+	// 枚数
+	Count int `json:"count"`
+}
+
+// NPC のデッキに入っているカードの、見せるのに要る項目
+type NpcDeckCardInfo struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+	// 種類
+	Type CardType `json:"type"`
 }
 
 // ページの情報
@@ -360,6 +1404,14 @@ type Player struct {
 	StarterGrant StarterGrantStatus `json:"starterGrant"`
 	// このプレイヤーのアバター（作った順。上限があるので、ページ分けしないリスト）
 	Avatars []*Avatar `json:"avatars"`
+	// このプレイヤーが解放したボード（解放した順。公開中のものだけで、使用不可になったボードは含まれない。まだ解放が届いていなければ空）
+	Boards []*Board `json:"boards"`
+	// このプレイヤーのデッキ（作った順。スターターの配布で作る数だけなので、ページ分けしないリスト）
+	Decks []*Deck `json:"decks"`
+	// このプレイヤーが解放した NPC のアバター（解放した順。公開中のものだけで、使用不可になったアバターは含まれない。まだ解放が届いていなければ空）
+	NpcAvatars []*NpcAvatar `json:"npcAvatars"`
+	// 部屋を作るのに足りないもの（アバター → デッキの、先に作る順）。空なら作れる。createRoom が断るときの RoomRequirementsNotMetError と同じ判断
+	RoomRequirements []RoomRequirement `json:"roomRequirements"`
 }
 
 func (Player) IsMeResult() {}
@@ -376,7 +1428,55 @@ func (PlayerNotRegisteredError) IsBoardsResult() {}
 
 func (PlayerNotRegisteredError) IsBoardResult() {}
 
+func (PlayerNotRegisteredError) IsDeckResult() {}
+
+func (PlayerNotRegisteredError) IsGameRulesResult() {}
+
+func (PlayerNotRegisteredError) IsMatchResult() {}
+
+func (PlayerNotRegisteredError) IsDrawMatchCardResult() {}
+
+func (PlayerNotRegisteredError) IsDiscardMatchCardResult() {}
+
+func (PlayerNotRegisteredError) IsRollMatchDiceResult() {}
+
+func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
+
+func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
+
+func (PlayerNotRegisteredError) IsChooseMatchRewardPackResult() {}
+
+func (PlayerNotRegisteredError) IsMatchProgressResult() {}
+
+func (PlayerNotRegisteredError) IsMatchEventsResult() {}
+
+func (PlayerNotRegisteredError) IsNpcAvatarResult() {}
+
 func (PlayerNotRegisteredError) IsMeResult() {}
+
+func (PlayerNotRegisteredError) IsMyRoomsResult() {}
+
+func (PlayerNotRegisteredError) IsRoomResult() {}
+
+func (PlayerNotRegisteredError) IsCreateRoomResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomSeatsResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomMatchRulesResult() {}
+
+func (PlayerNotRegisteredError) IsChangeRoomSeatChoiceResult() {}
+
+func (PlayerNotRegisteredError) IsPublishRoomResult() {}
+
+func (PlayerNotRegisteredError) IsDeclareRoomReadyResult() {}
+
+func (PlayerNotRegisteredError) IsDeclareRoomNextResult() {}
+
+func (PlayerNotRegisteredError) IsResumeRoomResult() {}
+
+func (PlayerNotRegisteredError) IsRenameRoomResult() {}
+
+func (PlayerNotRegisteredError) IsCloseRoomResult() {}
 
 // 占い館（止まると、選んだ種類のカードを自分の山札から 1 枚引ける）。属性は持たない
 type ProphecyShopTile struct {
@@ -393,6 +1493,24 @@ func (this ProphecyShopTile) GetX() int { return this.X }
 
 // 行
 func (this ProphecyShopTile) GetY() int { return this.Y }
+
+// 部屋を公開する入力
+type PublishRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 部屋を公開した（プレイヤーの席が定員なので、そのまま準備中に進む。公開前に決めたものは、準備中に変えられなくなる）
+type PublishRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (PublishRoomSuccess) IsPublishRoomResult() {}
 
 type Query struct {
 }
@@ -418,6 +1536,331 @@ type RegisterPlayerSuccess struct {
 }
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
+
+// 部屋の名前を変える入力
+type RenameRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+	// 新しい名前（前後の空白を除いて 1〜20 文字。FieldRequired・FieldTooLong の max）
+	Name string `json:"name"`
+}
+
+// 部屋の名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (RenameRoomSuccess) IsRenameRoomResult() {}
+
+// 休止中の部屋を再開する入力
+type ResumeRoomInput struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた部屋の revision
+	Revision int `json:"revision"`
+}
+
+// 休止中の部屋を再開し、準備中に戻した（全員が続けたときと同じく、準備完了と公開前に決めた印が外れ、
+// ボード・対戦ルール・席の選びを今の担当の決まりで変え直せる）
+type ResumeRoomSuccess struct {
+	// 部屋の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 再開した部屋の revision
+	Revision int `json:"revision"`
+}
+
+func (ResumeRoomSuccess) IsResumeRoomResult() {}
+
+// 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
+type RevisionConflictError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RevisionConflictError) IsDrawMatchCardResult() {}
+
+func (RevisionConflictError) IsDiscardMatchCardResult() {}
+
+func (RevisionConflictError) IsRollMatchDiceResult() {}
+
+func (RevisionConflictError) IsChooseMatchPathResult() {}
+
+func (RevisionConflictError) IsEndMatchTurnResult() {}
+
+func (RevisionConflictError) IsChooseMatchRewardPackResult() {}
+
+func (RevisionConflictError) IsChangeRoomSeatsResult() {}
+
+func (RevisionConflictError) IsChangeRoomMatchRulesResult() {}
+
+func (RevisionConflictError) IsChangeRoomSeatChoiceResult() {}
+
+func (RevisionConflictError) IsPublishRoomResult() {}
+
+func (RevisionConflictError) IsDeclareRoomReadyResult() {}
+
+func (RevisionConflictError) IsDeclareRoomNextResult() {}
+
+func (RevisionConflictError) IsResumeRoomResult() {}
+
+func (RevisionConflictError) IsRenameRoomResult() {}
+
+func (RevisionConflictError) IsCloseRoomResult() {}
+
+// サイコロを振る入力
+type RollMatchDiceInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+}
+
+// サイコロを振る（成功したら対戦の revision が進む）
+type RollMatchDiceSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (RollMatchDiceSuccess) IsRollMatchDiceResult() {}
+
+// 対戦の後の意思表示を、すでにした（変え直しは無い。操作は行われていない）
+type RoomAlreadyDeclaredNextError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomAlreadyDeclaredNextError) IsDeclareRoomNextResult() {}
+
+// 準備完了を申告した後に、自分の担当の分を選び直そうとした、または申告し直そうとした（操作は行われていない）
+type RoomAlreadyReadyError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomAlreadyReadyError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomAlreadyReadyError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomAlreadyReadyError) IsDeclareRoomReadyResult() {}
+
+// 見ている人にできる操作。core の Decide と同じ関数で判断した値で、画面は担当・公開前に決めたものの固定・準備完了の条件を自分で判断せず、
+// この値で出し分けるだけにする。席ごとの選び直しは RoomSeat.choiceChangeable
+type RoomCapabilities struct {
+	// 席の並びを変えられるか（changeRoomSeats）
+	ChangeSeats bool `json:"changeSeats"`
+	// 対戦ルールを変えられるか（changeRoomMatchRules）
+	ChangeMatchRules bool `json:"changeMatchRules"`
+	// 公開できるか（publishRoom）
+	Publish bool `json:"publish"`
+	// 準備完了を押せるか（declareRoomReady）
+	DeclareReady bool `json:"declareReady"`
+	// 対戦の後に、続ける・終えるを選べるか（declareRoomNext。次を決める間の、まだ選んでいない人だけ）
+	DeclareNext bool `json:"declareNext"`
+	// 休止中の部屋を再開できるか（resumeRoom。作った人だけ）
+	Resume bool `json:"resume"`
+	// 閉じられるか（closeRoom）。閉じた部屋は、閉じ直しても何も変わらないので false。対戦中も false
+	Close bool `json:"close"`
+	// 名前を変えられるか（renameRoom）
+	Rename bool `json:"rename"`
+}
+
+// 公開前に決めたものを、準備中に変えようとした（操作は行われていない）
+type RoomConditionLockedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomConditionLockedError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomConditionLockedError) IsChangeRoomSeatChoiceResult() {}
+
+// 自分の担当の分に、まだ決まっていないものがある（準備完了は押せない。操作は行われていない）
+type RoomConditionsNotDecidedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomConditionsNotDecidedError) IsDeclareRoomReadyResult() {}
+
+// この部屋で始めた対戦 1 つ（中身は match(id) で読む）
+type RoomMatch struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// この部屋で何戦目か（1 始まり）
+	Number int `json:"number"`
+}
+
+// 部屋の対戦ルール。ボードと 7 つの値で、7 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
+// 部屋では既定ではなく、ボードごと決める値なので、入れ子にせず並べる
+type RoomMatchRules struct {
+	// ボード（作った人が解放した公開中のもの）
+	Board *RoomNamed `json:"board"`
+	// 目標の魔力（魔力がこの値に届いて拠点に戻ると勝ち。1 以上、開始時の魔力より大きい）
+	TargetMagic int `json:"targetMagic"`
+	// 開始時の魔力（0 以上）
+	StartingMagic int `json:"startingMagic"`
+	// 周回のボーナス（拠点に戻ったときに増える魔力。0 以上）
+	LapBonus int `json:"lapBonus"`
+	// チェックポイントのボーナス（チェックポイントを通ったときに増える魔力。0 以上）
+	CheckpointBonus int `json:"checkpointBonus"`
+	// ラウンドの上限（上限に達したら、その時点で魔力の多い人が勝つ。1 以上）
+	RoundLimit int `json:"roundLimit"`
+	// サイコロの目の最小（1 以上）
+	DiceMin int `json:"diceMin"`
+	// サイコロの目の最大（最小以上）
+	DiceMax int `json:"diceMax"`
+}
+
+// アバター・デッキ・ボードを、公開用の ID と名前で見せる値（名前は読むときに引く）
+type RoomNamed struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
+}
+
+// 部屋が無い（無い・入っていない部屋。区別しない）
+type RoomNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomNotFoundError) IsRoomResult() {}
+
+func (RoomNotFoundError) IsChangeRoomSeatsResult() {}
+
+func (RoomNotFoundError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomNotFoundError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomNotFoundError) IsPublishRoomResult() {}
+
+func (RoomNotFoundError) IsDeclareRoomReadyResult() {}
+
+func (RoomNotFoundError) IsDeclareRoomNextResult() {}
+
+func (RoomNotFoundError) IsResumeRoomResult() {}
+
+func (RoomNotFoundError) IsRenameRoomResult() {}
+
+func (RoomNotFoundError) IsCloseRoomResult() {}
+
+// その操作の担当ではない（作った人だけの操作、ほかの人の席の選択。操作は行われていない）
+type RoomNotResponsibleError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomNotResponsibleError) IsChangeRoomSeatsResult() {}
+
+func (RoomNotResponsibleError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomNotResponsibleError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomNotResponsibleError) IsPublishRoomResult() {}
+
+func (RoomNotResponsibleError) IsDeclareRoomReadyResult() {}
+
+func (RoomNotResponsibleError) IsResumeRoomResult() {}
+
+func (RoomNotResponsibleError) IsRenameRoomResult() {}
+
+func (RoomNotResponsibleError) IsCloseRoomResult() {}
+
+// 部屋に入っている人と、準備完了の申告
+type RoomParticipant struct {
+	// プレイヤーの公開用の ID
+	PlayerID uuid.UUID `json:"playerId"`
+	// 部屋を作った人か
+	Owner bool `json:"owner"`
+	// 準備完了を申告したか
+	Ready bool `json:"ready"`
+	// 対戦の後の意思表示（続けるなら true、終えるなら false。まだしていない人と、次を決める間でないときは null）
+	Continues *bool `json:"continues,omitempty"`
+}
+
+// 部屋を作るのに要るもの（アバター・デッキ）が足りない（部屋は作られていない）
+type RoomRequirementsNotMetError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 足りないもの（先に作る順）
+	Missing []RoomRequirement `json:"missing"`
+}
+
+func (RoomRequirementsNotMetError) IsCreateRoomResult() {}
+
+// 席 1 つ。席の並びの順に返す
+type RoomSeat struct {
+	// 席の種類
+	Kind RoomSeatKind `json:"kind"`
+	// 座っているプレイヤーの公開用の ID（プレイヤーの席だけ。NPC の席は null）
+	PlayerID *uuid.UUID `json:"playerId,omitempty"`
+	// 選んだアバター（プレイヤーの席は座っている人のアバター、NPC の席は NPC のアバター。まだ選んでいなければ null）
+	Avatar *RoomNamed `json:"avatar,omitempty"`
+	// 選んだデッキ（プレイヤーの席は座っている人のデッキ、NPC の席は NPC のアバターに割り当てたデッキ。まだ選んでいなければ null）
+	Deck *RoomNamed `json:"deck,omitempty"`
+	// 見ている人がこの席のアバターとデッキを選び直せるか（changeRoomSeatChoice）。部屋の詳細（room）だけが返し、一覧（myRooms）では null
+	ChoiceChangeable *bool `json:"choiceChangeable,omitempty"`
+}
+
+// 席の並びがまだ決まっていない（公開と、席の選択はできない。操作は行われていない）
+type RoomSeatsNotDecidedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomSeatsNotDecidedError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomSeatsNotDecidedError) IsPublishRoomResult() {}
+
+// 今の状態ではできない操作（席の並びと公開は公開前だけ、条件を選ぶのは公開前か準備中だけ、準備完了は準備中だけ。操作は行われていない）
+type RoomStatusNotAllowedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (RoomStatusNotAllowedError) IsChangeRoomSeatsResult() {}
+
+func (RoomStatusNotAllowedError) IsChangeRoomMatchRulesResult() {}
+
+func (RoomStatusNotAllowedError) IsChangeRoomSeatChoiceResult() {}
+
+func (RoomStatusNotAllowedError) IsPublishRoomResult() {}
+
+func (RoomStatusNotAllowedError) IsDeclareRoomReadyResult() {}
+
+func (RoomStatusNotAllowedError) IsDeclareRoomNextResult() {}
+
+func (RoomStatusNotAllowedError) IsResumeRoomResult() {}
+
+func (RoomStatusNotAllowedError) IsRenameRoomResult() {}
+
+func (RoomStatusNotAllowedError) IsCloseRoomResult() {}
+
+// 自分の部屋の一覧の 1 ページ（新しい順。閉じた部屋は含まない）
+type RoomsConnection struct {
+	// このページの部屋
+	Edges []*RoomsEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (RoomsConnection) IsMyRoomsResult() {}
+
+// 自分の部屋の一覧の 1 件と、その位置
+type RoomsEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// 部屋
+	Node *Room `json:"node"`
+}
 
 // 聖堂（通る・止まると、属性ごとの品物を売り買いできる）。属性は持たない
 type SanctuaryTile struct {
@@ -451,6 +1894,9 @@ func (this ShrineTile) GetX() int { return this.X }
 // 行
 func (this ShrineTile) GetY() int { return this.Y }
 
+type Subscription struct {
+}
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -460,6 +1906,24 @@ type ValidationErrors struct {
 func (ValidationErrors) IsRegisterAvatarResult() {}
 
 func (ValidationErrors) IsBoardsResult() {}
+
+func (ValidationErrors) IsDiscardMatchCardResult() {}
+
+func (ValidationErrors) IsChooseMatchPathResult() {}
+
+func (ValidationErrors) IsChooseMatchRewardPackResult() {}
+
+func (ValidationErrors) IsMyRoomsResult() {}
+
+func (ValidationErrors) IsCreateRoomResult() {}
+
+func (ValidationErrors) IsChangeRoomSeatsResult() {}
+
+func (ValidationErrors) IsChangeRoomMatchRulesResult() {}
+
+func (ValidationErrors) IsChangeRoomSeatChoiceResult() {}
+
+func (ValidationErrors) IsRenameRoomResult() {}
 
 // 転送円（ぴったり止まると、対の相手の転送円へ移る。通り過ぎるだけなら移らない）。属性は持たない
 type WarpTile struct {
@@ -548,13 +2012,443 @@ func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// カードの種類
+type CardType string
+
+const (
+	CardTypeCreature CardType = "CREATURE"
+	CardTypeItem     CardType = "ITEM"
+	CardTypeSpell    CardType = "SPELL"
+)
+
+var AllCardType = []CardType{
+	CardTypeCreature,
+	CardTypeItem,
+	CardTypeSpell,
+}
+
+func (e CardType) IsValid() bool {
+	switch e {
+	case CardTypeCreature, CardTypeItem, CardTypeSpell:
+		return true
+	}
+	return false
+}
+
+func (e CardType) String() string {
+	return string(e)
+}
+
+func (e *CardType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardType", str)
+	}
+	return nil
+}
+
+func (e CardType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 対戦が終わった理由
+type MatchEndReason string
+
+const (
+	// 目標の魔力に届いて拠点に戻った
+	MatchEndReasonTargetMagic MatchEndReason = "TARGET_MAGIC"
+	// ラウンドの上限に達した
+	MatchEndReasonRoundLimit MatchEndReason = "ROUND_LIMIT"
+)
+
+var AllMatchEndReason = []MatchEndReason{
+	MatchEndReasonTargetMagic,
+	MatchEndReasonRoundLimit,
+}
+
+func (e MatchEndReason) IsValid() bool {
+	switch e {
+	case MatchEndReasonTargetMagic, MatchEndReasonRoundLimit:
+		return true
+	}
+	return false
+}
+
+func (e MatchEndReason) String() string {
+	return string(e)
+}
+
+func (e *MatchEndReason) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchEndReason(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchEndReason", str)
+	}
+	return nil
+}
+
+func (e MatchEndReason) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchEndReason) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchEndReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 参加者がプレイヤーか NPC か
+type MatchParticipantKind string
+
+const (
+	// プレイヤー
+	MatchParticipantKindPlayer MatchParticipantKind = "PLAYER"
+	// NPC
+	MatchParticipantKindNpc MatchParticipantKind = "NPC"
+)
+
+var AllMatchParticipantKind = []MatchParticipantKind{
+	MatchParticipantKindPlayer,
+	MatchParticipantKindNpc,
+}
+
+func (e MatchParticipantKind) IsValid() bool {
+	switch e {
+	case MatchParticipantKindPlayer, MatchParticipantKindNpc:
+		return true
+	}
+	return false
+}
+
+func (e MatchParticipantKind) String() string {
+	return string(e)
+}
+
+func (e *MatchParticipantKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchParticipantKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchParticipantKind", str)
+	}
+	return nil
+}
+
+func (e MatchParticipantKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchParticipantKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchParticipantKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 対戦の段階。今の番の人が次にする操作を表す
+type MatchPhase string
+
+const (
+	// カードを引く段階（drawMatchCard）
+	MatchPhaseDrawing MatchPhase = "DRAWING"
+	// 手札が上限を超えているので捨てる段階（discardMatchCard）
+	MatchPhaseDiscarding MatchPhase = "DISCARDING"
+	// サイコロを振る段階（rollMatchDice）
+	MatchPhaseRolling MatchPhase = "ROLLING"
+	// 分かれ道で行き先を選ぶ段階（chooseMatchPath）
+	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
+	// ターンを終える段階（endMatchTurn）
+	MatchPhaseEnding MatchPhase = "ENDING"
+	// 対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）
+	MatchPhaseEnded MatchPhase = "ENDED"
+)
+
+var AllMatchPhase = []MatchPhase{
+	MatchPhaseDrawing,
+	MatchPhaseDiscarding,
+	MatchPhaseRolling,
+	MatchPhaseChoosingPath,
+	MatchPhaseEnding,
+	MatchPhaseEnded,
+}
+
+func (e MatchPhase) IsValid() bool {
+	switch e {
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseEnding, MatchPhaseEnded:
+		return true
+	}
+	return false
+}
+
+func (e MatchPhase) String() string {
+	return string(e)
+}
+
+func (e *MatchPhase) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchPhase(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchPhase", str)
+	}
+	return nil
+}
+
+func (e MatchPhase) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchPhase) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchPhase) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 部屋を作るのに、作る人が先に持っていなければならないもの
+type RoomRequirement string
+
+const (
+	// アバター（自分の席に座るアバター）
+	RoomRequirementAvatar RoomRequirement = "AVATAR"
+	// デッキ（自分の席で使うデッキ。スターターの配布が終わると持つ）
+	RoomRequirementDeck RoomRequirement = "DECK"
+)
+
+var AllRoomRequirement = []RoomRequirement{
+	RoomRequirementAvatar,
+	RoomRequirementDeck,
+}
+
+func (e RoomRequirement) IsValid() bool {
+	switch e {
+	case RoomRequirementAvatar, RoomRequirementDeck:
+		return true
+	}
+	return false
+}
+
+func (e RoomRequirement) String() string {
+	return string(e)
+}
+
+func (e *RoomRequirement) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomRequirement(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomRequirement", str)
+	}
+	return nil
+}
+
+func (e RoomRequirement) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomRequirement) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomRequirement) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 席に座るのがプレイヤーか NPC か。形式（個人戦／チーム戦）とチームは持たない
+type RoomSeatKind string
+
+const (
+	// プレイヤーの席。今は 1 つで、作った人が座る
+	RoomSeatKindPlayer RoomSeatKind = "PLAYER"
+	// NPC の席
+	RoomSeatKindNpc RoomSeatKind = "NPC"
+)
+
+var AllRoomSeatKind = []RoomSeatKind{
+	RoomSeatKindPlayer,
+	RoomSeatKindNpc,
+}
+
+func (e RoomSeatKind) IsValid() bool {
+	switch e {
+	case RoomSeatKindPlayer, RoomSeatKindNpc:
+		return true
+	}
+	return false
+}
+
+func (e RoomSeatKind) String() string {
+	return string(e)
+}
+
+func (e *RoomSeatKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomSeatKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomSeatKind", str)
+	}
+	return nil
+}
+
+func (e RoomSeatKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomSeatKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomSeatKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 部屋の状態。公開は同時に準備中に進む（今は公開しただけの状態を持たない）。全員が準備完了を申告すると対戦中に進み、対戦が終わると次を決める状態に進む
+type RoomStatus string
+
+const (
+	// 公開前（マスタの「準備中」と分けて、公開前と呼ぶ）。席・対戦ルール・席の選択を何でも決められる
+	RoomStatusDraft RoomStatus = "DRAFT"
+	// 準備中（公開した後、全員の準備完了まで）。公開前に決めなかったものを、担当の人が決める
+	RoomStatusPreparing RoomStatus = "PREPARING"
+	// 対戦中（全員が準備完了を申告して、対戦が始まった）。対戦は Room.match
+	RoomStatusPlaying RoomStatus = "PLAYING"
+	// 次を決める（対戦が終わり、全員が戦利品を受け取り終えた後）。参加している人が declareRoomNext で続けるか終えるかを選ぶ。誰かが終えるなら休止中、全員が続けるなら準備中に戻る
+	RoomStatusDecidingNext RoomStatus = "DECIDING_NEXT"
+	// 休止中（対戦の後に誰かが終えた。今日はここまで）。一覧に残り、作った人が resumeRoom で再開すると準備中に戻る
+	RoomStatusPaused RoomStatus = "PAUSED"
+	// 閉じた（作った人が閉じた）。一覧には出ない
+	RoomStatusClosed RoomStatus = "CLOSED"
+)
+
+var AllRoomStatus = []RoomStatus{
+	RoomStatusDraft,
+	RoomStatusPreparing,
+	RoomStatusPlaying,
+	RoomStatusDecidingNext,
+	RoomStatusPaused,
+	RoomStatusClosed,
+}
+
+func (e RoomStatus) IsValid() bool {
+	switch e {
+	case RoomStatusDraft, RoomStatusPreparing, RoomStatusPlaying, RoomStatusDecidingNext, RoomStatusPaused, RoomStatusClosed:
+		return true
+	}
+	return false
+}
+
+func (e RoomStatus) String() string {
+	return string(e)
+}
+
+func (e *RoomStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomStatus", str)
+	}
+	return nil
+}
+
+func (e RoomStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // スターターの配布の状態
 type StarterGrantStatus string
 
 const (
 	// まだ届いていない（登録の直後で配布が始まっていない・配っている途中を含む）
 	StarterGrantStatusInProgress StarterGrantStatus = "IN_PROGRESS"
-	// 所持カードとデッキがそろった
+	// 所持カード・デッキ・解放がそろった
 	StarterGrantStatusCompleted StarterGrantStatus = "COMPLETED"
 )
 

@@ -67,7 +67,7 @@ func TestEvolve_RegisteredEventMakesPlayer(t *testing.T) {
 	state, _ := register(t)
 
 	require.Equal(t, player.Player{
-		ID: cmd.ID, Version: 1, PublicID: publicID, Issuer: cmd.Issuer, Subject: cmd.Subject, RegisteredAt: registeredAt,
+		ID: cmd.ID, Version: 1, PublicID: publicID,
 	}, state)
 }
 

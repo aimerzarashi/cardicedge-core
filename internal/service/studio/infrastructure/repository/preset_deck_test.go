@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/infrastructure/repository"
 )
@@ -31,7 +31,7 @@ func TestPresetDeck_GetsUpsertedPresetDeckWithCardPublicIDs(t *testing.T) {
 	f := newPresetDeckFixture(t)
 	dragon, dragonID := f.issueCreature(t)
 	potion, potionID := f.issueItem(t)
-	list := presetDeckList("fire", "Ｆire", map[presetdeck.CardRef]int{dragon: 3, potion: 1})
+	list := f.presetDeckList("fire", "Ｆire", map[card.Ref]int{dragon: 3, potion: 1})
 
 	require.NoError(t, f.writer.Upsert(f.ctx, list))
 	deck, err := repository.NewPresetDeckReader().Get(f.ctx, list.PresetDeckID)
@@ -44,6 +44,8 @@ func TestPresetDeck_GetsUpsertedPresetDeckWithCardPublicIDs(t *testing.T) {
 	require.Equal(t, int64(3), deck.Revision)
 	require.Equal(t, list.Metadata.RegisteredAt, deck.RegisteredAt.UTC())
 	require.Equal(t, list.Metadata.UpdatedAt, deck.UpdatedAt.UTC())
+	require.Equal(t, f.registeredByPublicID, deck.RegisteredBy)
+	require.Equal(t, f.updatedByPublicID, deck.UpdatedBy)
 }
 
 func TestPresetDeck_GetFailsForMissingPresetDeck(t *testing.T) {
@@ -60,7 +62,7 @@ func TestPresetDeck_UpsertOverwritesSamePresetDeck(t *testing.T) {
 	list := f.put(t, "fire", "Fire")
 	list.SortName = "water"
 	list.Metadata.Name = "Water"
-	list.Cards = map[presetdeck.CardRef]int{dragon: 2}
+	list.Cards = map[card.Ref]int{dragon: 2}
 
 	require.NoError(t, f.writer.Upsert(f.ctx, list))
 
@@ -83,7 +85,7 @@ func TestPresetDeck_DeleteRemovesPresetDeck(t *testing.T) {
 func TestPresetDeck_DeleteAcceptsMissingPresetDeck(t *testing.T) {
 	f := newPresetDeckFixture(t)
 
-	err := f.writer.Delete(f.ctx, presetDeckList("fire", "Fire", map[presetdeck.CardRef]int{}))
+	err := f.writer.Delete(f.ctx, f.presetDeckList("fire", "Fire", map[card.Ref]int{}))
 
 	require.NoError(t, err)
 }

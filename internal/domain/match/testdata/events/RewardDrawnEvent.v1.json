@@ -1,0 +1,14 @@
+{
+  "participant": 1,
+  "pack": "default",
+  "cards": [
+    {
+      "entity_type": "creature",
+      "id": 301
+    },
+    {
+      "entity_type": "creature",
+      "id": 302
+    }
+  ]
+}

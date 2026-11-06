@@ -3,6 +3,7 @@ package game_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strconv"
 	"testing"
 
@@ -11,11 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection/collectiontest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant/startergranttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/unlock"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -58,7 +64,7 @@ func resolvePlayer(t *testing.T, db *sql.DB, publicID string) player.ID {
 	return id
 }
 
-// 配られた所持カードとデッキ 2 つ（公開中のスターターデッキだけ）が、マスタの中身どおりか確かめる
+// 配られた所持カード・デッキ 2 つ・解放（公開中のスターターセットが指す、公開中の配布デッキとボードだけ）が、マスタの中身どおりか確かめる
 func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID player.ID) {
 	t.Helper()
 	ctx := rdb.WithDB(t.Context(), db)
@@ -73,37 +79,60 @@ func requireDistributed(t *testing.T, db *sql.DB, m testhelper.Master, playerID 
 
 	collectionID, err := collection.NewID(constrainttest.Owner(t, ctx, collection.PlayerKey(playerID)))
 	require.NoError(t, err)
-	owned, err := eventstore.New(registry, collection.NewID, collection.NewEventType, collection.InitialState, collection.Evolve).Load(ctx, collectionID)
-	require.NoError(t, err)
+	var raw []byte
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, collectionID.Int64()).Scan(&raw))
+	var owned collection.CreatedEvent
+	require.NoError(t, json.Unmarshal(raw, &owned))
 	// 並びはカードの ID の順（ランダムな ID のため、テストでは順を問わない）
-	require.ElementsMatch(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, m.CardA, 4),
-		startergranttest.CardCount(t, m.CardB, 3),
-		startergranttest.CardCount(t, m.CardC, 2),
-	}, owned.(collection.Collection).Cards)
+	require.ElementsMatch(t, []collection.Card{
+		collectiontest.Card(t, m.InternalCardA, 4),
+		collectiontest.Card(t, m.InternalCardB, 3),
+		collectiontest.Card(t, m.InternalCardC, 2),
+	}, owned.Cards)
 
 	var deckCount int
 	require.NoError(t, db.QueryRowContext(ctx, `
 		SELECT count(*) FROM domain_unique_keys u JOIN domain_unique_key_types t ON t.id = u.unique_key_type_id
 		WHERE t.name = 'deck.starter' AND u.key LIKE $1`, strconv.FormatInt(grantID.Int64(), 10)+":%").Scan(&deckCount))
 	require.Equal(t, 2, deckCount)
-	first := loadDeck(t, ctx, registry, grantID, 1)
-	second := loadDeck(t, ctx, registry, grantID, 2)
-	require.Equal(t, "火", first.Name.String())
-	require.Equal(t, []startergrant.CardCount{startergranttest.CardCount(t, m.CardA, 4), startergranttest.CardCount(t, m.CardB, 1)}, first.Cards)
-	require.Equal(t, "水", second.Name.String())
-	require.Equal(t, []startergrant.CardCount{
-		startergranttest.CardCount(t, m.CardA, 2), startergranttest.CardCount(t, m.CardB, 3), startergranttest.CardCount(t, m.CardC, 2),
-	}, second.Cards)
+	first := loadDeck(t, ctx, grantID, 1)
+	second := loadDeck(t, ctx, grantID, 2)
+	// セットが指す順（水・使用不可・火）のうち、公開中のものが順に配られる
+	require.Equal(t, "水", first.Name.String())
+	require.Equal(t, []deck.Card{
+		decktest.Card(t, m.InternalCardA, 2), decktest.Card(t, m.InternalCardB, 3), decktest.Card(t, m.InternalCardC, 2),
+	}, first.Cards)
+	require.Equal(t, "火", second.Name.String())
+	require.Equal(t, []deck.Card{decktest.Card(t, m.InternalCardA, 4), decktest.Card(t, m.InternalCardB, 3)}, second.Cards)
+
+	// 解放は、セットが指すボードの内部 ID をそのまま、指す順に持つ（公開中かは読むときに見る）。作った後の 2 つ目のイベントで解放する
+	unlockID, err := unlock.NewID(constrainttest.Owner(t, ctx, unlock.PlayerKey(playerID)))
+	require.NoError(t, err)
+	var unlockRaw []byte
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 2`, unlockID.Int64()).Scan(&unlockRaw))
+	var unlocked unlock.BoardsUnlockedEvent
+	require.NoError(t, json.Unmarshal(unlockRaw, &unlocked))
+	require.Equal(t, []board.ID{m.Boards.InternalPublishedB, m.Boards.InternalRetired, m.Boards.InternalPublishedA}, unlocked.Boards)
+	// NPC のアバターも同じ（種類ごとの 3 つ目のイベント）
+	var npcUnlockedRaw []byte
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 3`, unlockID.Int64()).Scan(&npcUnlockedRaw))
+	var npcUnlocked unlock.NPCAvatarsUnlockedEvent
+	require.NoError(t, json.Unmarshal(npcUnlockedRaw, &npcUnlocked))
+	require.Equal(t, []npcavatar.ID{m.NPCAvatars.InternalPublishedB, m.NPCAvatars.InternalRetired, m.NPCAvatars.InternalPublishedA}, npcUnlocked.NPCAvatars)
 }
 
-func loadDeck(t *testing.T, ctx context.Context, registry *domaindef.Registry, grantID startergrant.ID, number int) deck.Deck {
+// State は名前・カードを持たない（Decide が使わないため）ので、作成のイベントの payload から読む
+func loadDeck(t *testing.T, ctx context.Context, grantID startergrant.ID, number int) deck.CreatedEvent {
 	t.Helper()
 	id, err := deck.NewID(constrainttest.Owner(t, ctx, deck.StarterKey(grantID, startergranttest.DeckNumber(t, number))))
 	require.NoError(t, err)
-	state, err := eventstore.New(registry, deck.NewID, deck.NewEventType, deck.InitialState, deck.Evolve).Load(ctx, id)
+	exec, err := rdb.GetExecutor(ctx)
 	require.NoError(t, err)
-	return state.(deck.Deck)
+	var raw []byte
+	require.NoError(t, exec.QueryRowContext(ctx, `SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, id.Int64()).Scan(&raw))
+	var created deck.CreatedEvent
+	require.NoError(t, json.Unmarshal(raw, &created))
+	return created
 }
 
 func TestRegisterPlayer_GrantsStarterCollectionAndDecks(t *testing.T) {
@@ -173,8 +202,8 @@ func TestRegisterPlayer_WaitsForGameRulesToBePublished(t *testing.T) {
 	requireDistributed(t, app.GameDB, published, playerID)
 }
 
-// 公開中のスターターデッキが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
-func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
+// 公開中のスターターセットが 1 つも無ければ（準備中・使用不可だけでは）配布は始まらず、公開中のものが写されると配られる
+func TestRegisterPlayer_WaitsForPublishedStarterSet(t *testing.T) {
 	t.Parallel()
 	app, err := testhelper.StartApp(t.Context())
 	require.NoError(t, err)
@@ -185,7 +214,7 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 	registered := isolated.Data(t, app.Key.Sign(t, claims), registerPlayerMutation, nil, "registerPlayer")
 	playerID := resolvePlayer(t, app.GameDB, registeredPlayerID(t, registered))
 	ctx := rdb.WithDB(t.Context(), app.GameDB)
-	published, err := testhelper.PublishMasterWithoutPublishedStarterDecks(ctx, app.GameDB)
+	published, err := testhelper.PublishMasterWithoutPublishedStarterSet(ctx, app.GameDB)
 	require.NoError(t, err)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		var failures int
@@ -196,7 +225,7 @@ func TestRegisterPlayer_WaitsForPublishedStarterDeck(t *testing.T) {
 	require.NoError(t, app.GameDB.QueryRowContext(ctx, `SELECT count(*) FROM domain_events WHERE entity_type_id = 1700`).Scan(&grants))
 	require.Zero(t, grants)
 
-	require.NoError(t, testhelper.PublishStarterDecks(ctx, app.GameDB, published))
+	require.NoError(t, testhelper.PublishStarterSet(ctx, app.GameDB, published))
 
 	waitStarterGrantCompleted(t, app.GameDB, playerID)
 	requireDistributed(t, app.GameDB, published, playerID)

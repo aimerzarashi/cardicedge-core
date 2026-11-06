@@ -10,4 +10,4 @@ CREATE TABLE players (
 
 COMMENT ON TABLE players IS 'プレイヤーの read model。players の投影が行を作り、player_starter_grants の投影が metadata の starter_grant だけを書く（どちらが先でも同じ行になる）';
 COMMENT ON COLUMN players.player_id IS 'プレイヤーの公開用の ID（domain_entities.public_id）';
-COMMENT ON COLUMN players.metadata IS '表示に使う値。starter_grant: スターターの配布の状態（IN_PROGRESS・COMPLETED。player_starter_grants の投影だけが書く。無ければ配布がまだ始まっていない（読む側は IN_PROGRESS と同じに扱う））';
+COMMENT ON COLUMN players.metadata IS '値（JSON）。項目と形は game の player_writer.go・player_starter_grant_writer.go（配布の状態 starter_grant） の json のタグが決める（項目を足しても表は変えない）';

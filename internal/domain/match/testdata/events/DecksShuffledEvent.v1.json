@@ -1,0 +1,32 @@
+{
+  "draw_piles": [
+    [
+      {
+        "entity_type": "creature",
+        "id": 102
+      },
+      {
+        "entity_type": "creature",
+        "id": 101
+      },
+      {
+        "entity_type": "creature",
+        "id": 101
+      }
+    ],
+    [
+      {
+        "entity_type": "creature",
+        "id": 201
+      },
+      {
+        "entity_type": "creature",
+        "id": 201
+      },
+      {
+        "entity_type": "creature",
+        "id": 201
+      }
+    ]
+  ]
+}

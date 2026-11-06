@@ -1,19 +1,21 @@
 {
   "player": 10,
   "cards": [
-    {"card_id": "00000000-0000-0000-0000-000000000001", "count": 4},
-    {"card_id": "00000000-0000-0000-0000-000000000002", "count": 3},
-    {"card_id": "00000000-0000-0000-0000-000000000003", "count": 2}
+    {"card": {"entity_type": "creature", "id": 1}, "quantity": 4},
+    {"card": {"entity_type": "creature", "id": 2}, "quantity": 3},
+    {"card": {"entity_type": "creature", "id": 3}, "quantity": 2}
   ],
   "decks": [
     {"name": "火", "cards": [
-      {"card_id": "00000000-0000-0000-0000-000000000001", "count": 4},
-      {"card_id": "00000000-0000-0000-0000-000000000002", "count": 1}
+      {"card": {"entity_type": "creature", "id": 1}, "quantity": 4},
+      {"card": {"entity_type": "creature", "id": 2}, "quantity": 1}
     ]},
     {"name": "水", "cards": [
-      {"card_id": "00000000-0000-0000-0000-000000000001", "count": 2},
-      {"card_id": "00000000-0000-0000-0000-000000000002", "count": 3},
-      {"card_id": "00000000-0000-0000-0000-000000000003", "count": 2}
+      {"card": {"entity_type": "creature", "id": 1}, "quantity": 2},
+      {"card": {"entity_type": "creature", "id": 2}, "quantity": 3},
+      {"card": {"entity_type": "creature", "id": 3}, "quantity": 2}
     ]}
-  ]
+  ],
+  "unlock_boards": [50, 51],
+  "unlock_npc_avatars": [60]
 }

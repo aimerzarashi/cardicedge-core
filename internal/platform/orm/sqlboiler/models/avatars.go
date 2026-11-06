@@ -30,7 +30,7 @@ type Avatar struct {
 	PlayerID string `boil:"player_id" json:"player_id" toml:"player_id" yaml:"player_id"`
 	// 作った日時（イベントの発生時刻）。プレイヤーの一覧を作った順に並べるのに使う
 	RegisteredAt time.Time `boil:"registered_at" json:"registered_at" toml:"registered_at" yaml:"registered_at"`
-	// 表示に使う値（イベントの値。id・name・registered_at）
+	// 値（JSON）。項目と形は game の readmodel.AvatarMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 
 	R *avatarR `boil:"-" json:"-" toml:"-" yaml:"-"`

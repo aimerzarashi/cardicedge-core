@@ -34,10 +34,7 @@ func TestSaveAndLoad_RestoresStateFromEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, operator.Operator{
 		ID: id, Version: 1, PublicID: publicID,
-		Email: operatortest.Email(t, "operator@example.com"),
-		// occurred_at には DB の現在時刻ではなく発生時刻が残る
-		RegisteredAt: occurredAt,
-	}, normalize(state))
+	}, state)
 }
 
 // 保存のログは、トランザクションが確定したあとに、イベントごとに 1 行出る
@@ -300,13 +297,4 @@ func TestEntityRefResolver_ReturnsPublicIDsOfKnownRefs(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, map[domain.EntityRef]uuid.UUID{creatureRef: creaturePublicID, itemRef: itemPublicID}, publicIDs)
-}
-
-// DB から読んだ時刻は Location が UTC と異なりうるため、比較のために UTC にそろえる
-func normalize(state operator.State) operator.State {
-	if op, ok := state.(operator.Operator); ok {
-		op.RegisteredAt = op.RegisteredAt.UTC()
-		return op
-	}
-	return state
 }

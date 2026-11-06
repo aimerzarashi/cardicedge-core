@@ -1,0 +1,74 @@
+# NPC のアバター（対戦の相手になるコンピューターのキャラクター）と、使う NPC のデッキ。studio が決めて make publish-master で写したもののうち、
+# プレイヤーが解放した公開中のものだけを読む（解放していないもの・準備中・使用不可は一覧にも詳細にも出さない。core#93）。
+# NPC のデッキは単独では使わず、アバターを通してだけ出す（core#63）。状態・更新の番号・日時は game で使わないので持たない
+
+"NPC のアバター（プレイヤーが解放した公開中のもの）"
+type NpcAvatar {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うデッキ（割り当てた順。公開中のものだけ）"
+  decks: [NpcDeck!]!
+}
+
+"NPC のデッキ（公開中のもの）。NPC のアバターを通してだけ出る"
+type NpcDeck {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "入っているカードと枚数（種類 → 名前の順。種類は Creature → Item → Spell）。枚数が 0 のカードは含まない"
+  cards: [NpcDeckCard!]!
+  "カードの枚数の合計"
+  totalCount: Int!
+}
+
+"NPC のデッキに入っているカードと、その枚数"
+type NpcDeckCard {
+  "カード"
+  card: NpcDeckCardInfo!
+  "枚数"
+  count: Int!
+}
+
+# game にはカードの一覧・詳細の問い合わせが無いので、NPC のデッキを見せるのに要る項目だけにする
+"NPC のデッキに入っているカードの、見せるのに要る項目"
+type NpcDeckCardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "種類"
+  type: CardType!
+}
+
+"カードの種類"
+enum CardType {
+  CREATURE
+  ITEM
+  SPELL
+}
+
+"解放した公開中の NPC のアバターが無い（解放していない・公開中でないものを含む。区別しない）"
+type NpcAvatarNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"NPC のアバターの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union NpcAvatarResult = NpcAvatar | NpcAvatarNotFoundError | PlayerNotRegisteredError
+
+extend type Player {
+  # 解放した NPC のアバターは、プレイヤーの解放（スターターの配布で作る）の公開 ID の順に、写した npc_avatars から読む。実績で足す操作はまだ無い
+  "このプレイヤーが解放した NPC のアバター（解放した順。公開中のものだけで、使用不可になったアバターは含まれない。まだ解放が届いていなければ空）"
+  npcAvatars: [NpcAvatar!]!
+}
+
+extend type Query {
+  "解放した公開中の NPC のアバターの詳細（登録済みのプレイヤーだけ）。解放していない・公開中でなければ NpcAvatarNotFoundError"
+  npcAvatar(
+    "NPC のアバターの公開用の ID"
+    id: UUID!
+  ): NpcAvatarResult!
+}

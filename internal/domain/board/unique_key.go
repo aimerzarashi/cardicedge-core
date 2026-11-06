@@ -6,14 +6,14 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 )
 
-// domain_unique_key_types の名前。ボードどうしで名前を一意にする（状態によらない。スターターデッキの名前と同じ扱い）
+// domain_unique_key_types の名前。ボードどうしで名前を一意にする（状態によらない。配布デッキの名前と同じ扱い）
 var nameKeyType = domain.NewUniqueKeyType("board.name")
 
 func UniqueKeyTypes() []domain.UniqueKeyType {
 	return []domain.UniqueKeyType{nameKeyType}
 }
 
-// 比べ方はカード名・スターターデッキと同じ（domain.NormalizeName）
+// 比べ方はカード名・配布デッキと同じ（domain.NormalizeName）
 func NameKey(name Name) domain.UniqueKey {
 	return domain.NewUniqueKey(nameKeyType, domain.NormalizeName(name.String()))
 }

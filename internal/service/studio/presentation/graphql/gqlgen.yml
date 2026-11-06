@@ -33,9 +33,33 @@ models:
     fields:
       cards:
         resolver: true
-  StarterDeck:
+  GrantDeck:
     model:
-      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.StarterDeck
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.GrantDeck
+    fields:
+      cards:
+        resolver: true
+  # decks は resolver で返す（公開 ID から NPC のデッキを引いてから並べるため。core#87）
+  NpcAvatar:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcAvatar
+    fields:
+      decks:
+        resolver: true
+  # grantDecks・unlockBoards は resolver で返す（公開 ID から配布デッキ・ボードを引いてから並べるため。core#92）
+  StarterSet:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.StarterSet
+    fields:
+      grantDecks:
+        resolver: true
+      unlockBoards:
+        resolver: true
+      unlockNpcAvatars:
+        resolver: true
+  NpcDeck:
+    model:
+      - gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model.NpcDeck
     fields:
       cards:
         resolver: true

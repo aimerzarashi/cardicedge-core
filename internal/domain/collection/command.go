@@ -12,8 +12,16 @@ type Command interface {
 type CreateCommand struct {
 	ID           ID
 	Player       player.ID
-	Cards        []startergrant.CardCount
+	Cards        []Card
 	StarterGrant startergrant.ID
 }
 
 func (*CreateCommand) isCollectionCommand() {}
+
+// カードを所持品に足す。足す理由は出どころで表す
+type AcquireCommand struct {
+	Cards  []Card
+	Source Source
+}
+
+func (*AcquireCommand) isCollectionCommand() {}

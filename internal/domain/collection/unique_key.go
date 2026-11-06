@@ -8,7 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
-// domain_unique_key_types の名前。プレイヤーの所持カードを 1 つにする
+// domain_unique_key_types の名前。プレイヤーの所持品を 1 つにする
 var PlayerKeyType = domain.NewUniqueKeyType("collection.player")
 
 func UniqueKeyTypes() []domain.UniqueKeyType {
@@ -19,5 +19,5 @@ func PlayerKey(playerID player.ID) domain.UniqueKey {
 	return domain.NewUniqueKey(PlayerKeyType, strconv.FormatInt(playerID.Int64(), 10))
 }
 
-// そのプレイヤーの所持カードがもうあれば ErrAlreadyCreated
+// そのプレイヤーの所持品がもうあれば ErrAlreadyCreated
 type UpdatePlayerFunc func(ctx context.Context, id ID, playerID player.ID) error

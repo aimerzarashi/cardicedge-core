@@ -30,7 +30,7 @@ type Card struct {
 	CardType int16 `boil:"card_type" json:"card_type" toml:"card_type" yaml:"card_type"`
 	// 並べ替え・名前の部分一致に使う、正規化した名前（card.NormalizeName）
 	SortName string `boil:"sort_name" json:"sort_name" toml:"sort_name" yaml:"sort_name"`
-	// 表示に使う値（イベントの値）
+	// 値（JSON）。項目と形は studio の readmodel.CardMetadata の json のタグが決める（項目を足しても表は変えない）
 	Metadata types.JSON `boil:"metadata" json:"metadata" toml:"metadata" yaml:"metadata"`
 	// カードの状態（draft: 準備中、published: 公開中、retired: 使用不可）。make publish-master は準備中を game に写さない
 	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`

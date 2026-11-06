@@ -9,9 +9,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
 
-// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら StarterDeckConnection）
-const starterDecksQuery = `query {
-	starterDecks {
+// 認証のテストは、入口を通ったかを __typename で見る（オペレーターでなければ ForbiddenError、オペレーターなら GrantDeckConnection）
+const grantDecksQuery = `query {
+	grantDecks {
 		__typename
 	}
 }`
@@ -170,4 +170,9 @@ func waitPresetDeck(t *testing.T, token string, id any, revision int) map[string
 		}
 	})
 	return deck
+}
+
+// 次の操作の入力に渡せるよう、{id, revision} に直す
+func ref(result map[string]any) map[string]any {
+	return map[string]any{"id": result["id"], "revision": result["revision"]}
 }

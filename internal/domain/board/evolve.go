@@ -10,8 +10,8 @@ func Evolve(state State, event Event) (State, error) {
 		if _, ok := state.(UnregisteredBoard); !ok {
 			return state, ErrInvalidState
 		}
-		// NewSize を通さない（範囲を後で下げても、保存済みのボードを読み直せるように。Size の UnmarshalJSON と同じ）
-		size := Size{width: e.Width, height: e.Height}
+		// 範囲を確かめない（範囲を後で下げても、保存済みのボードを読み直せるように。JSON から戻すときと同じ）
+		size := Size{Width: e.Width, Height: e.Height}
 		return Board{
 			ID:           meta.EntityID,
 			Version:      meta.AggregateVersion,
@@ -20,9 +20,6 @@ func Evolve(state State, event Event) (State, error) {
 			Status:       StatusDraft,
 			Layout:       EmptyLayout(size),
 			DefaultRules: e.DefaultRules,
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
-			UpdatedAt:    meta.OccurredAt,
 		}, nil
 	case *RenamedEvent:
 		board, ok := state.(Board)
@@ -141,6 +138,5 @@ func pairsOf(pairs map[Pair]struct{}) []Pair {
 
 func touched(board Board, meta EventMeta) Board {
 	board.Version = meta.AggregateVersion
-	board.UpdatedAt = meta.OccurredAt
 	return board
 }

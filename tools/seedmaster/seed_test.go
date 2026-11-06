@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
@@ -52,14 +53,13 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	for _, deck := range decks {
 		require.Equal(t, deckTotalCount, deck.TotalCount)
 	}
-	starterDecks, err := s.listStarterDecks(ctx)
+	grantDecks, err := s.listGrantDecks(ctx)
 	require.NoError(t, err)
-	require.Len(t, starterDecks, len(m.StarterDecks))
-	for _, name := range m.StarterDecks {
-		deck := starterDecks[domain.NormalizeName(name)]
-		require.Equal(t, readmodel.StarterDeckStatusPublished, deck.Status)
+	require.Len(t, grantDecks, len(m.GrantDecks))
+	for _, name := range m.GrantDecks {
+		deck := grantDecks[domain.NormalizeName(name)]
+		require.Equal(t, readmodel.GrantDeckStatusPublished, deck.Status)
 		require.Equal(t, deckTotalCount, deck.TotalCount)
-		require.NotNil(t, deck.Source)
 	}
 	boards, err := s.listBoards(ctx)
 	require.NoError(t, err)
@@ -82,6 +82,48 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
 			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax,
 		}, board.DefaultRules)
+	}
+	npcAvatars, err := s.listNPCAvatars(ctx)
+	require.NoError(t, err)
+	require.Len(t, npcAvatars, len(m.NPCAvatars))
+	npcDecks, err := s.listNPCDecks(ctx)
+	require.NoError(t, err)
+	for _, avatar := range m.NPCAvatars {
+		npcAvatar := npcAvatars[domain.NormalizeName(avatar.Name)]
+		require.Equal(t, readmodel.NPCAvatarStatusPublished, npcAvatar.Status)
+		wantDecks := make([]uuid.UUID, 0, len(avatar.Decks))
+		for _, deck := range avatar.Decks {
+			wantDecks = append(wantDecks, npcDecks[domain.NormalizeName(deck)].ID)
+		}
+		require.Equal(t, wantDecks, npcAvatar.Decks)
+	}
+	starterSets, err := s.listStarterSets(ctx)
+	require.NoError(t, err)
+	require.Len(t, starterSets, len(m.StarterSets))
+	for _, set := range m.StarterSets {
+		starterSet := starterSets[domain.NormalizeName(set.Name)]
+		require.Equal(t, readmodel.StarterSetStatusPublished, starterSet.Status)
+		wantGrantDecks := make([]uuid.UUID, 0, len(set.GrantDecks))
+		for _, name := range set.GrantDecks {
+			wantGrantDecks = append(wantGrantDecks, grantDecks[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantGrantDecks, starterSet.GrantDecks)
+		wantBoards := make([]uuid.UUID, 0, len(set.UnlockBoards))
+		for _, name := range set.UnlockBoards {
+			wantBoards = append(wantBoards, boards[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantBoards, starterSet.UnlockBoards)
+		wantNPCAvatars := make([]uuid.UUID, 0, len(set.UnlockNPCAvatars))
+		for _, name := range set.UnlockNPCAvatars {
+			wantNPCAvatars = append(wantNPCAvatars, npcAvatars[domain.NormalizeName(name)].ID)
+		}
+		require.Equal(t, wantNPCAvatars, starterSet.UnlockNPCAvatars)
+	}
+	require.Len(t, npcDecks, len(m.NPCDecks))
+	for _, name := range m.NPCDecks {
+		npcDeck := npcDecks[domain.NormalizeName(name)]
+		require.Equal(t, readmodel.NPCDeckStatusPublished, npcDeck.Status)
+		require.Equal(t, deckTotalCount, npcDeck.TotalCount)
 	}
 }
 
@@ -125,23 +167,23 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			_, err = s.seedPresetDecks(ctx, m.PresetDecks[:1], cardIDs)
 			require.NoError(t, err)
 		}},
-		{name: "starter_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+		{name: "grant_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			cardIDs, err := s.seedCards(ctx, m.Cards)
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			_, err = s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[m.StarterDecks[0]])
+			_, err = s.grantDecks.RegisterFromPresetDeck(ctx, deckIDs[m.GrantDecks[0]], m.GrantDecks[0])
 			require.NoError(t, err)
 		}},
-		{name: "starter_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+		{name: "grant_decks_just_published", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
 			cardIDs, err := s.seedCards(ctx, m.Cards)
 			require.NoError(t, err)
 			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
 			require.NoError(t, err)
-			for _, name := range m.StarterDecks {
-				copied, err := s.starterDecks.RegisterFromPresetDeck(ctx, deckIDs[name])
+			for _, name := range m.GrantDecks {
+				copied, err := s.grantDecks.RegisterFromPresetDeck(ctx, deckIDs[name], name)
 				require.NoError(t, err)
-				_, err = s.starterDecks.Publish(ctx, copied.ID, copied.Revision)
+				_, err = s.grantDecks.Publish(ctx, copied.ID, copied.Revision)
 				require.NoError(t, err)
 			}
 		}},
@@ -161,6 +203,66 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			changed, err := s.boards.ChangeLayout(ctx, registered.ID, registered.Revision, m.Boards[0].layoutInput())
 			require.NoError(t, err)
 			_, err = s.boards.ChangeDefaultRules(ctx, registered.ID, changed.Revision, m.Boards[0].defaultRulesInput())
+			require.NoError(t, err)
+		}},
+		{name: "npc_avatar_registered_without_decks", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0].Name)
+			require.NoError(t, err)
+		}},
+		{name: "npc_avatar_decks_assigned_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			npcDeckIDs, err := s.seedNPCDecks(ctx, m.NPCDecks, deckIDs)
+			require.NoError(t, err)
+			registered, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0].Name)
+			require.NoError(t, err)
+			_, err = s.npcAvatars.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{npcDeckIDs[m.NPCAvatars[0].Decks[0]]})
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_registered_without_contents", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.starterSets.Register(ctx, m.StarterSets[0].Name)
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_grant_decks_assigned_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			require.NoError(t, s.seedGrantDecks(ctx, m.GrantDecks, deckIDs))
+			grantDecks, err := s.listGrantDecks(ctx)
+			require.NoError(t, err)
+			registered, err := s.starterSets.Register(ctx, m.StarterSets[0].Name)
+			require.NoError(t, err)
+			_, err = s.starterSets.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{grantDecks[domain.NormalizeName(m.StarterSets[0].GrantDecks[0])].ID})
+			require.NoError(t, err)
+		}},
+		{name: "starter_set_unlock_boards_assigned_without_unlock_npc_avatars", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			require.NoError(t, s.seedGrantDecks(ctx, m.GrantDecks, deckIDs))
+			require.NoError(t, s.seedBoards(ctx, m.Boards))
+			grantDecks, err := s.listGrantDecks(ctx)
+			require.NoError(t, err)
+			boards, err := s.listBoards(ctx)
+			require.NoError(t, err)
+			set := m.StarterSets[0]
+			registered, err := s.starterSets.Register(ctx, set.Name)
+			require.NoError(t, err)
+			withDecks, err := s.starterSets.SetGrantDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{grantDecks[domain.NormalizeName(set.GrantDecks[0])].ID})
+			require.NoError(t, err)
+			_, err = s.starterSets.SetUnlockBoards(ctx, withDecks.ID, withDecks.Revision, []uuid.UUID{boards[domain.NormalizeName(set.UnlockBoards[0])].ID})
+			require.NoError(t, err)
+		}},
+		{name: "npc_deck_registered_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			cardIDs, err := s.seedCards(ctx, m.Cards)
+			require.NoError(t, err)
+			deckIDs, err := s.seedPresetDecks(ctx, m.PresetDecks, cardIDs)
+			require.NoError(t, err)
+			_, err = s.npcDecks.RegisterFromPresetDeck(ctx, deckIDs[m.NPCDecks[0]], m.NPCDecks[0])
 			require.NoError(t, err)
 		}},
 	}

@@ -2,9 +2,9 @@ package studiorules
 
 import (
 	"errors"
-	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 )
 
 type ID int64
@@ -28,39 +28,26 @@ func NewID(value int64) (ID, error) {
 
 // studio でマスタを作るときの決まりの値。何の決まりかで分ける（gamerules.Rules と同じ）。
 // game でも使う決まり（カード名の長さ等）は、game の画面に響くため入れない
+// 範囲の型と「上限 ≥ 下限」の決まりは board.SizeRange が持つ。Rules は部品を持つだけなので生成関数は無い
 type Rules struct {
-	Board Board `json:"board"`
-}
-
-// 幅と高さで範囲を分けないのは、縦長・横長のボードを同じ決まりで作れるようにするため
-type Board struct {
-	MinSize int `json:"min_size"`
-	MaxSize int `json:"max_size"`
-}
-
-func (b Board) Contains(size int) bool {
-	return size >= b.MinSize && size <= b.MaxSize
-}
-
-func (b Board) Clamp(size int) int {
-	return min(max(size, b.MinSize), b.MaxSize)
-}
-
-var ErrInvalidRules = errors.New("studio rules: invalid value")
-
-// 値の形として確かめるのは、下限が 1 以上（0 以下の大きさの格子は作れない）と、上限が下限以上（範囲が空にならない）だけ
-func New(board Board) (Rules, error) {
-	if board.MinSize < 1 {
-		return Rules{}, fmt.Errorf("%w: board.min_size is %d", ErrInvalidRules, board.MinSize)
-	}
-	if board.MaxSize < board.MinSize {
-		return Rules{}, fmt.Errorf("%w: board.max_size %d is below board.min_size %d", ErrInvalidRules, board.MaxSize, board.MinSize)
-	}
-	return Rules{Board: board}, nil
+	Board board.SizeRange `json:"board"`
 }
 
 // 作るときの値。値の変更は core#23 で作るまで、これが全体のルールになる。
 // 作るとき（とテストの用意）のほかは、この値を直接読まず studio_rules から読む（ここを読むと、値を変えても効かない所ができるため）
 func Defaults() Rules {
-	return Rules{Board: Board{MinSize: 1, MaxSize: 32}}
+	// 定数で失敗しないため、呼ぶ側に error を返さず panic にする
+	minSize, err := board.NewMinSize(1)
+	if err != nil {
+		panic(err)
+	}
+	maxSize, err := board.NewMaxSize(32)
+	if err != nil {
+		panic(err)
+	}
+	boardRange, err := board.NewSizeRange(minSize, maxSize)
+	if err != nil {
+		panic(err)
+	}
+	return Rules{Board: boardRange}
 }

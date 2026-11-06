@@ -37,6 +37,6 @@ func (r *StudioRulesReader) Get(ctx context.Context) (query.StudioRules, error) 
 	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
 		return query.StudioRules{}, fmt.Errorf("studio_rules.metadata of %s: %w", row.StudioRulesID, err)
 	}
-	board := query.BoardRules{MinSize: metadata.Rules.Board.MinSize, MaxSize: metadata.Rules.Board.MaxSize}
+	board := query.BoardRules{MinSize: metadata.Rules.Board.MinSize.Int(), MaxSize: metadata.Rules.Board.MaxSize.Int()}
 	return query.StudioRules{Board: board}, nil
 }

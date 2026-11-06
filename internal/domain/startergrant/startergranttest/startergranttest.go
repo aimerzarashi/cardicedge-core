@@ -3,9 +3,10 @@ package startergranttest
 import (
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
 )
 
@@ -26,19 +27,7 @@ func DeckNumber(t testing.TB, value int) startergrant.DeckNumber {
 	return number
 }
 
-func Count(t testing.TB, value int) startergrant.Count {
-	t.Helper()
-	count, err := startergrant.NewCount(value)
-	require.NoError(t, err)
-	return count
-}
-
-func CardCount(t testing.TB, cardID uuid.UUID, count int) startergrant.CardCount {
-	t.Helper()
-	return startergrant.CardCount{CardID: cardID, Count: Count(t, count)}
-}
-
-func Deck(t testing.TB, name string, cards ...startergrant.CardCount) startergrant.Deck {
+func Deck(t testing.TB, name string, cards ...startergrant.DeckCard) startergrant.Deck {
 	t.Helper()
 	return startergrant.Deck{Name: DeckName(t, name), Cards: cards}
 }
@@ -48,4 +37,14 @@ func DeckName(t testing.TB, value string) startergrant.DeckName {
 	name, err := startergrant.NewDeckName(value)
 	require.NoError(t, err)
 	return name
+}
+
+func DeckCard(t testing.TB, ref card.Ref, quantity int) startergrant.DeckCard {
+	t.Helper()
+	return startergrant.DeckCard{Card: ref, Quantity: cardtest.DeckQuantity(t, quantity)}
+}
+
+func CollectionCard(t testing.TB, ref card.Ref, quantity int) startergrant.CollectionCard {
+	t.Helper()
+	return startergrant.CollectionCard{Card: ref, Quantity: cardtest.OwnedQuantity(t, quantity)}
 }

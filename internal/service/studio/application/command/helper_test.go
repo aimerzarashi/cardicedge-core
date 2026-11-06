@@ -2,6 +2,7 @@ package command_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -11,14 +12,18 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/grantdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
@@ -50,6 +55,9 @@ func registrant(t *testing.T) operator.ID {
 }
 
 var defaultRules = gamerules.Defaults().Deck
+
+// Count などの int と比べるため、型を外した値
+var defaultMaxCardDuplicates = defaultRules.MaxCardDuplicates.Int()
 
 // 既定のルールで動かす。値を小さくして確かめるときは newPresetDeckHandlerWithRules
 func newPresetDeckHandler(t *testing.T, ctx context.Context) *command.PresetDeckHandler {
@@ -184,37 +192,39 @@ func registerPresetDeck(t *testing.T, ctx context.Context, name string) command.
 	return registered
 }
 
-func starterDeckStore(registry *domaindef.Registry) domain.EventStore[starterdeck.ID, starterdeck.Event, starterdeck.State] {
-	return eventstore.New(registry, starterdeck.NewID, starterdeck.NewEventType, starterdeck.InitialState, starterdeck.Evolve)
+// 公開までの流れを小さく確かめるルール（合計 4 枚で公開できる）
+func smallRules(t *testing.T) gamerules.Rules {
+	rules := gamerules.Defaults()
+	rules.Deck.TotalCardCount = cardtest.DeckTotalCount(t, 4)
+	return rules
 }
 
-// 公開中の数の持ち主（ゲーム全体のルール）が要るため、無ければ作る。ルールの値は固定する（値を小さくして確かめるため）
-func newStarterDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.StarterDeckHandler {
+func grantDeckStore(registry *domaindef.Registry) domain.EventStore[grantdeck.ID, grantdeck.Event, grantdeck.State] {
+	return eventstore.New(registry, grantdeck.NewID, grantdeck.NewEventType, grantdeck.InitialState, grantdeck.Evolve)
+}
+
+// ルールの値は固定する（値を小さくして確かめるため）
+func newGrantDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.GrantDeckHandler {
 	t.Helper()
-	_, err := newGameRulesHandler(t, ctx).CreateInitial(ctx)
-	require.NoError(t, err)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
-	return command.NewStarterDeckHandler(
-		starterDeckStore(registry),
-		identifier.New(registry, starterdeck.NewID),
+	return command.NewGrantDeckHandler(
+		grantDeckStore(registry),
+		identifier.New(registry, grantdeck.NewID),
 		identifier.NewEntityRefResolver(registry),
-		constraint.UpdateStarterDeckName,
-		constraint.UpdateStarterDeckCardReferences,
+		constraint.UpdateGrantDeckName,
+		constraint.UpdateGrantDeckCardReferences,
 		newCardStatusReader(registry).Statuses,
 		presetDeckStore(registry),
 		identifier.New(registry, presetdeck.NewID),
-		constraint.FindGameRules,
-		constraint.ReserveStarterDeckQuota,
-		constraint.ReleaseStarterDeckQuota,
 		fixedRules(rules),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }
 
-func newStarterDeckHandler(t *testing.T, ctx context.Context) *command.StarterDeckHandler {
+func newGrantDeckHandler(t *testing.T, ctx context.Context) *command.GrantDeckHandler {
 	t.Helper()
-	return newStarterDeckHandlerWithRules(t, ctx, gamerules.Defaults())
+	return newGrantDeckHandlerWithRules(t, ctx, gamerules.Defaults())
 }
 
 func newCreatureHandler(t *testing.T, ctx context.Context) *command.CreatureHandler {
@@ -262,4 +272,102 @@ func newBoardHandlerWithRules(t *testing.T, ctx context.Context, rules studiorul
 		fixedStudioRules(rules),
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
+}
+
+func npcAvatarStore(registry *domaindef.Registry) domain.EventStore[npcavatar.ID, npcavatar.Event, npcavatar.State] {
+	return eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve)
+}
+
+func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewNPCAvatarHandler(
+		npcAvatarStore(registry),
+		identifier.New(registry, npcavatar.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateNPCAvatarName,
+		constraint.UpdateNPCAvatarDeckReferences,
+		command.NewNPCDeckStatusReader(npcDeckStore(registry)).Statuses,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func starterSetStore(registry *domaindef.Registry) domain.EventStore[starterset.ID, starterset.Event, starterset.State] {
+	return eventstore.New(registry, starterset.NewID, starterset.NewEventType, starterset.InitialState, starterset.Evolve)
+}
+
+// 公開中の数の持ち主（ゲーム全体のルール）が要るため、無ければ作る
+func newStarterSetHandler(t *testing.T, ctx context.Context) *command.StarterSetHandler {
+	t.Helper()
+	_, err := newGameRulesHandler(t, ctx).CreateInitial(ctx)
+	require.NoError(t, err)
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewStarterSetHandler(
+		starterSetStore(registry),
+		identifier.New(registry, starterset.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateStarterSetName,
+		constraint.UpdateStarterSetGrantDeckReferences,
+		constraint.UpdateStarterSetBoardReferences,
+		constraint.UpdateStarterSetNPCAvatarReferences,
+		command.NewGrantDeckStatusReader(grantDeckStore(registry)).Statuses,
+		command.NewBoardStatusReader(boardStore(registry)).Statuses,
+		command.NewNPCAvatarStatusReader(npcAvatarStore(registry)).Statuses,
+		constraint.FindGameRules,
+		constraint.ReserveStarterSetQuota,
+		constraint.ReleaseStarterSetQuota,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func npcDeckStore(registry *domaindef.Registry) domain.EventStore[npcdeck.ID, npcdeck.Event, npcdeck.State] {
+	return eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)
+}
+
+// ルールの値は固定する（値を小さくして確かめるため）
+func newNPCDeckHandlerWithRules(t *testing.T, ctx context.Context, rules gamerules.Rules) *command.NPCDeckHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewNPCDeckHandler(
+		npcDeckStore(registry),
+		identifier.New(registry, npcdeck.NewID),
+		identifier.NewEntityRefResolver(registry),
+		constraint.UpdateNPCDeckName,
+		constraint.UpdateNPCDeckCardReferences,
+		newCardStatusReader(registry).Statuses,
+		presetDeckStore(registry),
+		identifier.New(registry, presetdeck.NewID),
+		fixedRules(rules),
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
+func newNPCDeckHandler(t *testing.T, ctx context.Context) *command.NPCDeckHandler {
+	t.Helper()
+	return newNPCDeckHandlerWithRules(t, ctx, gamerules.Defaults())
+}
+
+// State は写し元を持たない（Decide が使わないため）ので、登録のイベントの payload から読む。写して作らなければ nil。
+// 写し元のプリセットデッキは内部 ID で持つ
+func registeredSource(t *testing.T, ctx context.Context, publicID uuid.UUID) *struct {
+	PresetDeckID int64 `json:"preset_deck"`
+	Revision     int64 `json:"revision"`
+} {
+	t.Helper()
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	var raw []byte
+	require.NoError(t, exec.QueryRowContext(ctx,
+		`SELECT payload FROM domain_events WHERE entity_id = $1 AND aggregate_version = 1`, internalID(t, ctx, publicID)).Scan(&raw))
+	var payload struct {
+		Source *struct {
+			PresetDeckID int64 `json:"preset_deck"`
+			Revision     int64 `json:"revision"`
+		} `json:"source"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &payload))
+	return payload.Source
 }

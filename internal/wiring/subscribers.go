@@ -12,10 +12,20 @@ var subscribers = []serviceSubscriber{
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1004, "players")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1005, "player_starter_grants")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1006, "game_rules")},
-	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1007, "starter_decks")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1007, "grant_decks")},
 	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1008, "avatars")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1009, "boards")},
 	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1010, "studio_rules")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1011, "npc_avatars")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1012, "npc_decks")},
+	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1013, "decks")},
+	{service: serviceStudio, def: eventdriven.ProjectionSubscriber(1014, "starter_sets")},
+	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1015, "unlocks")},
+	{service: serviceGame, def: eventdriven.ProjectionSubscriber(1016, "rooms")},
+	{service: serviceGame, def: eventdriven.PolicySubscriber(1017, "match_start")},
+	{service: serviceGame, def: eventdriven.PolicySubscriber(1018, "match_npc_turn")},
+	{service: serviceGame, def: eventdriven.PolicySubscriber(1019, "match_reward")},
+	{service: serviceGame, def: eventdriven.PolicySubscriber(1020, "room_match_finish")},
 }
 
 const (

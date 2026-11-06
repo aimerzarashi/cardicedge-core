@@ -3,6 +3,6 @@
   "rules": {
     "player": {"max_decks": 10, "max_avatars": 5},
     "deck": {"total_card_count": 40, "max_card_duplicates": 4},
-    "starter_deck": {"max_published": 2}
+    "match": {"min_players": 2, "max_players": 4, "max_hand_cards": 6, "starting_hand_cards": 5, "reward_cards_by_rank": [3, 2, 1, 1]}
   }
 }

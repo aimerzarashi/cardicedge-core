@@ -16,7 +16,7 @@ func TestPlayerStarterGrant_EvolvesStatusThroughGrant(t *testing.T) {
 	meta := func(version int64) startergrant.EventMeta {
 		return startergrant.EventMeta{EntityID: startergranttest.ID(t, 1), AggregateVersion: version}
 	}
-	started := &startergrant.StartedEvent{EventMeta: meta(1), Player: playerID, Cards: []startergrant.CardCount{}, Decks: []startergrant.Deck{}}
+	started := &startergrant.StartedEvent{EventMeta: meta(1), Player: playerID, Cards: []startergrant.CollectionCard{}, Decks: []startergrant.Deck{}}
 	collection := &startergrant.CollectionRecordedEvent{EventMeta: meta(2)}
 	deck := &startergrant.DeckRecordedEvent{EventMeta: meta(3), Number: startergranttest.DeckNumber(t, 1)}
 	completed := &startergrant.CompletedEvent{EventMeta: meta(4)}

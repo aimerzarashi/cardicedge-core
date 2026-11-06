@@ -69,7 +69,7 @@ func TestEvolve_RegisteredEventMakesAvatar(t *testing.T) {
 	state, _ := register(t)
 
 	require.Equal(t, avatar.Avatar{
-		ID: cmd.ID, Version: 1, PublicID: cmd.PublicID, Player: cmd.Player, Name: cmd.Name, RegisteredAt: registeredAt,
+		ID: cmd.ID, Version: 1, PublicID: cmd.PublicID,
 	}, state)
 }
 

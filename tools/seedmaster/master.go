@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"unicode/utf8"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 )
 
-// テスト用の値ではなく、開発で触る見本。本番に近い中身（火・地と水・風の属性のスターターデッキ）にし、ファイル名で見本と分かるようにする
+// テスト用の値ではなく、開発で触る見本。本番に近い中身（火・地と水・風の属性の配布デッキ）にし、ファイル名で見本と分かるようにする
 //
 //go:embed sample_master.json
 var sampleMasterJSON []byte
@@ -20,9 +24,30 @@ type master struct {
 	// 名前はカードの名前で指す（登録して初めて公開 ID が決まるため、ファイルに ID は書けない）
 	PresetDecks []masterPresetDeck `json:"preset_decks"`
 	// 写して作るプリセットデッキの名前。作って公開する（名前はプリセットデッキの名前のまま）
-	StarterDecks []string `json:"starter_decks"`
+	GrantDecks []string `json:"grant_decks"`
 	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
 	Boards []masterBoard `json:"boards"`
+	// 登録して使う NPC のデッキを割り当て、公開する NPC のアバター
+	NPCAvatars []masterNPCAvatar `json:"npc_avatars"`
+	// プリセットデッキから、元と同じ名前を指定して写して、公開する NPC のデッキ。プリセットデッキの名前で書く
+	NPCDecks []string `json:"npc_decks"`
+	// 登録して配るデッキ（grant_decks に書いた名前）と解放するボード（boards に書いた名前）を指定し、公開するスターターセット。
+	// 公開中にできるのは同時に 1 つだけなので、公開するのは 1 つだけ書く
+	StarterSets []masterStarterSet `json:"starter_sets"`
+}
+
+type masterStarterSet struct {
+	Name         string   `json:"name"`
+	GrantDecks   []string `json:"grant_decks"`
+	UnlockBoards []string `json:"unlock_boards"`
+	// npc_avatars に書いた名前。解放する NPC のアバター
+	UnlockNPCAvatars []string `json:"unlock_npc_avatars"`
+}
+
+// 公開するには公開中のデッキが 1 つ以上要るため、デッキは 1 つ以上書く。NPC のデッキの名前（npc_decks に書いたもの）で指す
+type masterNPCAvatar struct {
+	Name  string   `json:"name"`
+	Decks []string `json:"decks"`
 }
 
 type masterCard struct {
@@ -136,20 +161,86 @@ func (m master) validate() error {
 			return fmt.Errorf("preset deck %q: total %d is not %d", d.Name, total, deckTotalCount)
 		}
 	}
-	if len(m.StarterDecks) == 0 {
-		return fmt.Errorf("starter decks: at least one is required")
+	if len(m.GrantDecks) == 0 {
+		return fmt.Errorf("grant decks: at least one is required")
 	}
 	starterNames := map[string]bool{}
-	for _, name := range m.StarterDecks {
+	for _, name := range m.GrantDecks {
 		if !deckNames[name] {
-			return fmt.Errorf("starter decks: unknown preset deck %q", name)
+			return fmt.Errorf("grant decks: unknown preset deck %q", name)
 		}
 		if starterNames[name] {
-			return fmt.Errorf("starter decks: %q is duplicated", name)
+			return fmt.Errorf("grant decks: %q is duplicated", name)
 		}
 		starterNames[name] = true
 	}
-	return m.validateBoards()
+	if err := m.validateBoards(); err != nil {
+		return err
+	}
+	npcDeckNames, err := m.validateNPCDecks(deckNames)
+	if err != nil {
+		return err
+	}
+	if err := m.validateNPCAvatars(npcDeckNames); err != nil {
+		return err
+	}
+	return m.validateStarterSets(starterNames)
+}
+
+// 名前の決まりは domain の starterset.NewName で確かめる。公開中の数の上限は、コマンドが守る決まり（quota）なので、
+// 見本のファイルでも 1 つだけにする（2 つ書くと、流すたびに 2 つ目の公開で止まるため）
+func (m master) validateStarterSets(grantDeckNames map[string]bool) error {
+	if len(m.StarterSets) > starterset.MaxPublished {
+		return fmt.Errorf("starter sets: at most %d can be published", starterset.MaxPublished)
+	}
+	boardNames := map[string]bool{}
+	for _, b := range m.Boards {
+		boardNames[b.Name] = true
+	}
+	npcAvatarNames := map[string]bool{}
+	for _, a := range m.NPCAvatars {
+		npcAvatarNames[a.Name] = true
+	}
+	names := map[string]bool{}
+	for _, set := range m.StarterSets {
+		validName, err := starterset.NewName(set.Name)
+		if err != nil {
+			return fmt.Errorf("starter set %q: %w", set.Name, err)
+		}
+		key := domain.NormalizeName(validName.String())
+		if names[key] {
+			return fmt.Errorf("starter set %q: duplicated", set.Name)
+		}
+		names[key] = true
+		if len(set.GrantDecks) == 0 {
+			return fmt.Errorf("starter set %q: at least one grant deck is required", set.Name)
+		}
+		if err := checkReferences(set.GrantDecks, grantDeckNames); err != nil {
+			return fmt.Errorf("starter set %q: grant decks: %w", set.Name, err)
+		}
+		if err := checkReferences(set.UnlockBoards, boardNames); err != nil {
+			return fmt.Errorf("starter set %q: unlock boards: %w", set.Name, err)
+		}
+		if err := checkReferences(set.UnlockNPCAvatars, npcAvatarNames); err != nil {
+			return fmt.Errorf("starter set %q: unlock npc avatars: %w", set.Name, err)
+		}
+	}
+	return nil
+}
+
+// names の名前が、known にあって重ならないこと
+func checkReferences(names []string, known map[string]bool) error {
+	seen := map[string]bool{}
+	for _, name := range names {
+		if !known[name] {
+			return fmt.Errorf("unknown %q", name)
+		}
+		if seen[name] {
+			return fmt.Errorf("%q is duplicated", name)
+		}
+		seen[name] = true
+	}
+	return nil
 }
 
 // レイアウトの決まりと公開の条件は、コマンドと同じ domain の関数で確かめる（ここに書き写さない）。公開できないボードを見本に
@@ -180,18 +271,75 @@ func (m master) validateBoards() error {
 	return nil
 }
 
+// 名前の決まりは domain の npcavatar.NewName で確かめる（ここに長さを書き写さない）。重なりは登録の入口と同じ比べ方で見つける
+func (m master) validateNPCAvatars(npcDeckNames map[string]bool) error {
+	names := map[string]bool{}
+	for _, a := range m.NPCAvatars {
+		validName, err := npcavatar.NewName(a.Name)
+		if err != nil {
+			return fmt.Errorf("npc avatar %q: %w", a.Name, err)
+		}
+		key := domain.NormalizeName(validName.String())
+		if names[key] {
+			return fmt.Errorf("npc avatar %q: duplicated", a.Name)
+		}
+		names[key] = true
+		if len(a.Decks) == 0 {
+			return fmt.Errorf("npc avatar %q: at least one deck is required", a.Name)
+		}
+		decks := map[string]bool{}
+		for _, deck := range a.Decks {
+			if !npcDeckNames[deck] {
+				return fmt.Errorf("npc avatar %q: unknown npc deck %q", a.Name, deck)
+			}
+			if decks[deck] {
+				return fmt.Errorf("npc avatar %q: deck %q is duplicated", a.Name, deck)
+			}
+			decks[deck] = true
+		}
+	}
+	return nil
+}
+
+// 確かめた NPC のデッキの名前の集まりを返す（NPC のアバターが指すため）
+func (m master) validateNPCDecks(presetDeckNames map[string]bool) (map[string]bool, error) {
+	names := map[string]bool{}
+	for _, name := range m.NPCDecks {
+		if !presetDeckNames[name] {
+			return nil, fmt.Errorf("npc decks: unknown preset deck %q", name)
+		}
+		if names[name] {
+			return nil, fmt.Errorf("npc decks: %q is duplicated", name)
+		}
+		names[name] = true
+	}
+	return names, nil
+}
+
+// 幅・高さの範囲は、ファイルの確かめでは studio_rules の既定の値を使う（実際の範囲は適用時にコマンドが studio_rules から読んで確かめる。
+// ここは適用の前に、ファイルの誤りを早く見つけるための確かめ）
 func (b masterBoard) layout() (board.Layout, error) {
-	size, err := board.NewSize(b.Width, b.Height)
+	within := studiorules.Defaults().Board
+	width, err := board.NewWidth(b.Width, within)
 	if err != nil {
 		return board.Layout{}, err
 	}
+	height, err := board.NewHeight(b.Height, within)
+	if err != nil {
+		return board.Layout{}, err
+	}
+	size := board.Size{Width: width, Height: height}
 	tiles := make([]board.Tile, 0, len(b.Tiles))
 	for _, t := range b.Tiles {
 		kind, err := board.NewTileKind(t.Kind)
 		if err != nil {
 			return board.Layout{}, err
 		}
-		tile := board.Tile{Position: board.NewPosition(t.X, t.Y), Kind: kind}
+		position, err := newPosition(t.X, t.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		tile := board.Tile{Position: position, Kind: kind}
 		if t.Attribute != "" {
 			tile.Attribute, err = board.NewAttribute(t.Attribute)
 			if err != nil {
@@ -202,13 +350,41 @@ func (b masterBoard) layout() (board.Layout, error) {
 	}
 	connections := make([]board.Connection, 0, len(b.Connections))
 	for _, c := range b.Connections {
-		connections = append(connections, board.NewConnection(board.NewPosition(c.A.X, c.A.Y), board.NewPosition(c.B.X, c.B.Y)))
+		a, err := newPosition(c.A.X, c.A.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		b, err := newPosition(c.B.X, c.B.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		connections = append(connections, board.NewConnection(a, b))
 	}
 	pairs := make([]board.Pair, 0, len(b.Pairs))
 	for _, p := range b.Pairs {
-		pairs = append(pairs, board.NewPair(board.NewPosition(p.A.X, p.A.Y), board.NewPosition(p.B.X, p.B.Y)))
+		a, err := newPosition(p.A.X, p.A.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		b, err := newPosition(p.B.X, p.B.Y)
+		if err != nil {
+			return board.Layout{}, err
+		}
+		pairs = append(pairs, board.NewPair(a, b))
 	}
 	return board.NewLayout(size, tiles, connections, pairs)
+}
+
+func newPosition(x, y int) (board.Position, error) {
+	px, err := board.NewX(x)
+	if err != nil {
+		return board.Position{}, err
+	}
+	py, err := board.NewY(y)
+	if err != nil {
+		return board.Position{}, err
+	}
+	return board.Position{X: px, Y: py}, nil
 }
 
 func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {

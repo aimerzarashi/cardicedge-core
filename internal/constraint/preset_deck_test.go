@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck/presetdecktest"
@@ -67,9 +68,9 @@ func TestUpdatePresetDeckCardReferences_MatchesGivenCards(t *testing.T) {
 	f := setup(t)
 	deck := f.issuePresetDeckID(t)
 	dragon, goblin, slime := f.issueCreatureID(t), f.issueCreatureID(t), f.issueCreatureID(t)
-	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, dragon), f.cardRef(t, goblin)}))
+	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, dragon), f.cardRef(t, goblin)}))
 
-	err := constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, goblin), f.cardRef(t, slime)})
+	err := constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, goblin), f.cardRef(t, slime)})
 
 	require.NoError(t, err)
 	require.Equal(t, []int64{goblin.Int64(), slime.Int64()}, f.referencedCards(t, deck))
@@ -78,9 +79,9 @@ func TestUpdatePresetDeckCardReferences_MatchesGivenCards(t *testing.T) {
 func TestUpdatePresetDeckCardReferences_RemovesAllWhenNoCards(t *testing.T) {
 	f := setup(t)
 	deck := f.issuePresetDeckID(t)
-	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, f.issueCreatureID(t))}))
+	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, f.issueCreatureID(t))}))
 
-	err := constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{})
+	err := constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []card.Ref{})
 
 	require.NoError(t, err)
 	require.Empty(t, f.referencedCards(t, deck))
@@ -89,10 +90,10 @@ func TestUpdatePresetDeckCardReferences_RemovesAllWhenNoCards(t *testing.T) {
 // 参照されているカードの識別子は消せない（参照を確かめ忘れたコマンドがあっても、投影などが壊れないように）
 func TestUpdatePresetDeckCardReferences_PreventsDeletingReferencedCard(t *testing.T) {
 	f := setup(t)
-	card := f.issueCreatureID(t)
-	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, f.issuePresetDeckID(t), []presetdeck.CardRef{f.cardRef(t, card)}))
+	creatureID := f.issueCreatureID(t)
+	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, f.issuePresetDeckID(t), []card.Ref{f.cardRef(t, creatureID)}))
 
-	err := identifier.New(f.registry, creature.NewID).Delete(f.ctx, card)
+	err := identifier.New(f.registry, creature.NewID).Delete(f.ctx, creatureID)
 
 	// 失敗した文でトランザクションは中断されるが、テストの最後なので続けて使わない
 	var pgErr *pq.Error
@@ -103,11 +104,11 @@ func TestUpdatePresetDeckCardReferences_PreventsDeletingReferencedCard(t *testin
 // 参照する側を消すと参照も消え、参照されていたカードを消せるようになる
 func TestUpdatePresetDeckCardReferences_ReleasedWhenPresetDeckIsDeleted(t *testing.T) {
 	f := setup(t)
-	deck, card := f.issuePresetDeckID(t), f.issueCreatureID(t)
-	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []presetdeck.CardRef{f.cardRef(t, card)}))
+	deck, creatureID := f.issuePresetDeckID(t), f.issueCreatureID(t)
+	require.NoError(t, constraint.UpdatePresetDeckCardReferences(f.ctx, deck, []card.Ref{f.cardRef(t, creatureID)}))
 
 	require.NoError(t, identifier.New(f.registry, presetdeck.NewID).Delete(f.ctx, deck))
 
 	require.Empty(t, f.referencedCards(t, deck))
-	require.NoError(t, identifier.New(f.registry, creature.NewID).Delete(f.ctx, card))
+	require.NoError(t, identifier.New(f.registry, creature.NewID).Delete(f.ctx, creatureID))
 }

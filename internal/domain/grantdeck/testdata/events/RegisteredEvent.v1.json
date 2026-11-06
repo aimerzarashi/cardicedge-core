@@ -1,0 +1,25 @@
+{
+  "public_id": "11111111-2222-3333-4444-555555555555",
+  "name": "炎のデッキ",
+  "source": {
+    "preset_deck": 40,
+    "revision": 3
+  },
+  "cards": [
+    {
+      "card": {
+        "entity_type": "creature",
+        "id": 20
+      },
+      "quantity": 2
+    },
+    {
+      "card": {
+        "entity_type": "item",
+        "id": 21
+      },
+      "quantity": 3
+    }
+  ],
+  "registered_by": 10
+}

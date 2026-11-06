@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 )
 
 type ID int64
@@ -47,4 +48,10 @@ func NewName(value string) (Name, error) {
 
 func (n Name) String() string {
 	return string(n)
+}
+
+// デッキに入れるカードと枚数。カードは game の内部 ID で指す
+type Card struct {
+	Card     card.Ref          `json:"card"`
+	Quantity card.DeckQuantity `json:"quantity"`
 }

@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -149,4 +150,26 @@ func TestUpdateDeckName_RejectsSameNormalizedNameOfSameOwnerOnly(t *testing.T) {
 
 	require.ErrorIs(t, err, deck.ErrNameAlreadyInUse)
 	require.NoError(t, constraint.UpdateDeckName(f.ctx, f.issueDeck(t), f.issuePlayer(t), decktest.Name(t, "ABC")))
+}
+
+// まだ確保していない持ち主は 0。数えるのは種類と持ち主ごとで、ほかの種類・ほかの持ち主の数は混ざらない
+func TestCountQuota_CountsUsedPerTypeAndOwnerAndZeroBeforeReserving(t *testing.T) {
+	f := setup(t)
+	playerID := f.issuePlayer(t)
+	other := f.issuePlayer(t)
+	before, err := constraint.CountQuota(f.ctx, deck.PlayerQuota(playerID))
+	require.NoError(t, err)
+	for range 2 {
+		require.NoError(t, constraint.ReserveDeckQuota(f.ctx, deck.PlayerQuota(playerID), quotaLimit(t, 5)))
+	}
+	require.NoError(t, constraint.ReserveDeckQuota(f.ctx, deck.PlayerQuota(other), quotaLimit(t, 5)))
+
+	decks, err := constraint.CountQuota(f.ctx, deck.PlayerQuota(playerID))
+	require.NoError(t, err)
+	avatars, err := constraint.CountQuota(f.ctx, avatar.PlayerQuota(playerID))
+	require.NoError(t, err)
+
+	require.Equal(t, 0, before)
+	require.Equal(t, 2, decks)
+	require.Equal(t, 0, avatars)
 }

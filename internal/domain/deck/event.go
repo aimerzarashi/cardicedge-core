@@ -23,15 +23,15 @@ type Event interface {
 
 type EventMeta = domain.EventMeta[ID]
 
-// 持ち主と配布は、ほかの集約なので内部 ID で持つ。カードは公開 ID（理由は startergrant.CardCount）。何番目かは、同じ配布の 2 つのデッキを見分ける
+// 持ち主と配布は、ほかの集約なので内部 ID で持つ。カードは game の内部 ID。何番目かは、同じ配布の 2 つのデッキを見分ける
 type CreatedEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
-	Player       player.ID                `json:"player"`
-	Name         Name                     `json:"name"`
-	Cards        []startergrant.CardCount `json:"cards"`
-	StarterGrant startergrant.ID          `json:"starter_grant"`
-	Number       startergrant.DeckNumber  `json:"number"`
+	Player       player.ID               `json:"player"`
+	Name         Name                    `json:"name"`
+	Cards        []Card                  `json:"cards"`
+	StarterGrant startergrant.ID         `json:"starter_grant"`
+	Number       startergrant.DeckNumber `json:"number"`
 }
 
 var createdEventType = domain.NewEventName("CreatedEvent")

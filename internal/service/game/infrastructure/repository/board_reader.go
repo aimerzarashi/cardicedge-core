@@ -16,7 +16,7 @@ import (
 )
 
 // core_game の boards（make publish-master が studio の read model から公開中・使用不可の行を写した表）のうち、公開中だけを読む。
-// 使用不可も写してあるのは、スターターデッキと同じく、後で対戦中のボードの元を表示したくなっても表を作り直さずに済むようにするため
+// 使用不可も写してあるのは、配布デッキと同じく、後で対戦中のボードの元を表示したくなっても表を作り直さずに済むようにするため
 type BoardReader struct{}
 
 func NewBoardReader() *BoardReader {
@@ -26,7 +26,7 @@ func NewBoardReader() *BoardReader {
 const boardStatusPublished = "published"
 
 // 写した表の metadata のうち、盤面に要る項目。studio の read model の型を import せず、この JSON の形だけを契約にする
-// （StarterDeckReader と同じ）
+// （GrantDeckReader と同じ）
 type boardMetadata struct {
 	Name   string `json:"name"`
 	Width  int    `json:"width"`

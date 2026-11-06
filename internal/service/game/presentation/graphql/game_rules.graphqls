@@ -1,0 +1,29 @@
+# ゲーム全体のルール（運営が決める、プレイヤーによらない値）のうち、画面が読む項目。studio が決めて make publish-master で写したものを読む。
+# 部屋の条件（人数・手札の上限）が読んで見せる
+
+"ゲーム全体のルール"
+type GameRules {
+  "対戦の決まり"
+  match: MatchRules!
+}
+
+"対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）"
+type MatchRules {
+  "対戦に参加できる人数の下限（この値を含む）"
+  minPlayers: Int!
+  "対戦に参加できる人数の上限（この値を含む）"
+  maxPlayers: Int!
+  "手札の上限の枚数"
+  maxHandCards: Int!
+  "対戦の始めに配る手札の枚数"
+  startingHandCards: Int!
+}
+
+# 写されていないときは、既定の値を返さず GraphQL の errors にする（写されれば直る失敗）
+"ゲーム全体のルールの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union GameRulesResult = GameRules | PlayerNotRegisteredError
+
+extend type Query {
+  "ゲーム全体のルール"
+  gameRules: GameRulesResult!
+}

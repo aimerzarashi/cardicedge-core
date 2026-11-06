@@ -7,6 +7,7 @@ var TableNames = struct {
 	Avatars                    string
 	Boards                     string
 	Cards                      string
+	Decks                      string
 	DomainEntities             string
 	DomainEntityTypes          string
 	DomainEventTypes           string
@@ -23,14 +24,20 @@ var TableNames = struct {
 	EventSubscribers           string
 	EventSubscriptions         string
 	GameRules                  string
+	GrantDecks                 string
+	NPCAvatars                 string
+	NPCDecks                   string
 	Players                    string
 	PresetDecks                string
-	StarterDecks               string
+	Rooms                      string
+	StarterSets                string
 	StudioRules                string
+	Unlocks                    string
 }{
 	Avatars:                    "avatars",
 	Boards:                     "boards",
 	Cards:                      "cards",
+	Decks:                      "decks",
 	DomainEntities:             "domain_entities",
 	DomainEntityTypes:          "domain_entity_types",
 	DomainEventTypes:           "domain_event_types",
@@ -47,8 +54,13 @@ var TableNames = struct {
 	EventSubscribers:           "event_subscribers",
 	EventSubscriptions:         "event_subscriptions",
 	GameRules:                  "game_rules",
+	GrantDecks:                 "grant_decks",
+	NPCAvatars:                 "npc_avatars",
+	NPCDecks:                   "npc_decks",
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
-	StarterDecks:               "starter_decks",
+	Rooms:                      "rooms",
+	StarterSets:                "starter_sets",
 	StudioRules:                "studio_rules",
+	Unlocks:                    "unlocks",
 }

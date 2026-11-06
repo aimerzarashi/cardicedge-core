@@ -35,9 +35,9 @@ func FromPublished(get GetRulesFunc) GetQuotaLimitFunc {
 		}
 		switch quotaType {
 		case deck.PlayerQuotaType:
-			return domain.NewQuotaLimit(rules.Player.MaxDecks)
+			return domain.NewQuotaLimit(rules.Player.MaxDecks.Int())
 		case avatar.PlayerQuotaType:
-			return domain.NewQuotaLimit(rules.Player.MaxAvatars)
+			return domain.NewQuotaLimit(rules.Player.MaxAvatars.Int())
 		default:
 			return 0, fmt.Errorf("quota limit is not defined: %s", quotaType)
 		}

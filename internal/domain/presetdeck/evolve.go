@@ -1,6 +1,10 @@
 package presetdeck
 
-import "maps"
+import (
+	"maps"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 // 状態を書き換えないよう、カードの一覧は写してから変える
 func Evolve(state State, event Event) (State, error) {
@@ -11,14 +15,11 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		return PresetDeck{
-			ID:           meta.EntityID,
-			Version:      meta.AggregateVersion,
-			PublicID:     e.PublicID,
-			Name:         e.Name,
-			Cards:        map[CardRef]CardCount{},
-			RegisteredBy: e.RegisteredBy,
-			RegisteredAt: meta.OccurredAt,
-			UpdatedAt:    meta.OccurredAt,
+			ID:       meta.EntityID,
+			Version:  meta.AggregateVersion,
+			PublicID: e.PublicID,
+			Name:     e.Name,
+			Cards:    map[card.Ref]card.DeckQuantity{},
 		}, nil
 	case *RenamedEvent:
 		deck, ok := state.(PresetDeck)
@@ -34,14 +35,14 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		cards := maps.Clone(deck.Cards)
 		for _, change := range e.Changes {
-			count, err := NewCardCount(cards[change.Card].Int() + change.Delta)
+			quantity, remains, err := cards[change.Card].Add(change.Delta)
 			if err != nil {
 				return state, err
 			}
-			if count == 0 {
-				delete(cards, change.Card)
+			if remains {
+				cards[change.Card] = quantity
 			} else {
-				cards[change.Card] = count
+				delete(cards, change.Card)
 			}
 		}
 		deck.Cards = cards
@@ -59,6 +60,5 @@ func Evolve(state State, event Event) (State, error) {
 
 func touched(deck PresetDeck, meta EventMeta) PresetDeck {
 	deck.Version = meta.AggregateVersion
-	deck.UpdatedAt = meta.OccurredAt
 	return deck
 }
