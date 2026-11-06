@@ -24,6 +24,10 @@ func (r *mutationResolver) CreateRoom(ctx context.Context, input model.CreateRoo
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
+	var notMet *command.RoomRequirementsNotMetError
+	if errors.As(err, &notMet) {
+		return roomRequirementsNotMet(notMet)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +186,15 @@ func (r *mutationResolver) CloseRoom(ctx context.Context, input model.CloseRoomI
 		return nil, err
 	}
 	return &model.CloseRoomSuccess{ID: closed.ID, Revision: int(closed.Revision)}, nil
+}
+
+// RoomRequirements is the resolver for the roomRequirements field.
+func (r *playerResolver) RoomRequirements(ctx context.Context, obj *model.Player) ([]model.RoomRequirement, error) {
+	requirements, err := r.roomQuery.Requirements(ctx, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	return roomRequirements(requirements)
 }
 
 // MyRooms is the resolver for the myRooms field.

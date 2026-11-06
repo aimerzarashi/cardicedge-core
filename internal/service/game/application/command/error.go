@@ -41,7 +41,31 @@ var (
 	ErrRoomConditionsNotDecided = errors.New("command: room conditions not decided")
 	// 対戦の後の意思表示を、すでにした人がもう一度しようとした（変え直しは無い）
 	ErrRoomAlreadyDeclaredNext = errors.New("command: room already declared next")
+	// 部屋を作るのに要るもの（アバター・デッキ）が足りない。足りないものは RoomRequirementsNotMetError が持つ
+	ErrRoomRequirementsNotMet = errors.New("command: room requirements not met")
 )
+
+// 部屋を作るのに先に持っていなければならないもの
+type RoomRequirement string
+
+const (
+	RoomRequirementAvatar RoomRequirement = "avatar"
+	RoomRequirementDeck   RoomRequirement = "deck"
+)
+
+// 部屋を作るのに足りないもの（先に作る順）。画面が「先にアバター（デッキ）を作る」を出せるよう、理由ごとに分けず一覧で持つ
+// （新しいプレイヤーは両方足りないことが多く、問い合わせ Player.roomRequirements と同じ値にそろえるため）。errors.Is は ErrRoomRequirementsNotMet と一致する
+type RoomRequirementsNotMetError struct {
+	Missing []RoomRequirement
+}
+
+func (e *RoomRequirementsNotMetError) Error() string {
+	return ErrRoomRequirementsNotMet.Error()
+}
+
+func (e *RoomRequirementsNotMetError) Unwrap() error {
+	return ErrRoomRequirementsNotMet
+}
 
 // 対戦の操作の結果の理由（画面で見た revision と違う場合は、部屋と同じ ErrRevisionConflict）
 var (

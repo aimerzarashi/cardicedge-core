@@ -15,6 +15,9 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if _, uncreated := state.(UncreatedRoom); !uncreated {
 			return nil, ErrAlreadyCreated
 		}
+		if missing := MissingRequirements(create.Avatars, create.Decks); len(missing) > 0 {
+			return nil, &RequirementsNotMetError{Missing: missing}
+		}
 		return []Event{&CreatedEvent{
 			EventMeta: EventMeta{EntityID: create.ID, AggregateVersion: 1, OccurredAt: now},
 			Player:    create.Owner,
@@ -130,6 +133,19 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 	default:
 		return nil, ErrInvalidState
 	}
+}
+
+// 部屋を作るのに足りないもの（アバター → デッキの、先に作る順）。部屋を作る Decide と、画面に「先に作るもの」を出す問い合わせが
+// 同じ関数を通り、決まりが 2 か所にならないようにする。空なら作れる
+func MissingRequirements(avatars, decks int) []Requirement {
+	missing := []Requirement{}
+	if avatars < 1 {
+		missing = append(missing, RequirementAvatar)
+	}
+	if decks < 1 {
+		missing = append(missing, RequirementDeck)
+	}
+	return missing
 }
 
 // 操作ごとの「その人にできるか」。Decide と Capabilities（見ている人にできる操作）が同じ関数を通り、決まりが 2 か所にならないようにする。

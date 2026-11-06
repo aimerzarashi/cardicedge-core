@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/rules"
@@ -104,9 +106,23 @@ func newRoomFixtureWithRules(t *testing.T, getRules rules.GetRulesFunc) roomFixt
 		identifier.NewEntityRefResolver(registry),
 		f.selectable,
 		getRules,
+		constraint.CountQuota,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
+	// 部屋を作るには、アバターとデッキを 1 つ以上持っている（書く側の数の記録に数えてある）ことが要る
+	ownAvatarAndDeck(t, f.owner)
 	return f
+}
+
+// 部屋を作るのに要るアバターとデッキを、書く側の数の記録に 1 つずつ数える（部屋のテストはアバター・デッキの中身を使わない）
+func ownAvatarAndDeck(t *testing.T, ctx context.Context) {
+	t.Helper()
+	owner, ok := authentication.Player(ctx)
+	require.True(t, ok)
+	limit, err := domain.NewQuotaLimit(5)
+	require.NoError(t, err)
+	require.NoError(t, constraint.ReserveAvatarQuota(ctx, avatar.PlayerQuota(owner), limit))
+	require.NoError(t, constraint.ReserveDeckQuota(ctx, deck.PlayerQuota(owner), limit))
 }
 
 // 識別子を発行し、選べるものの集合に入れる（game の domain_entities の行は、publish-master や配布の流れが作る）
@@ -634,4 +650,29 @@ func gamerulestestMatch(t *testing.T, minPlayers, maxPlayers int) gamerules.Matc
 	minValue, maxValue := roomtest.PlayersRange(t, minPlayers, maxPlayers)
 	defaults := gamerules.Defaults().Match
 	return gamerules.Match{MinPlayers: minValue, MaxPlayers: maxValue, MaxHandCards: defaults.MaxHandCards, StartingHandCards: defaults.StartingHandCards}
+}
+
+// アバターかデッキが無ければ作らず、足りないものを先に作る順で返す。数は書く側の記録から読むので、数えた直後から作れる
+func TestRoomCreate_RejectsPlayerWithoutAvatarOrDeckAndListsWhatIsMissing(t *testing.T) {
+	f := newRoomFixture(t)
+	newcomer := registeredPlayer(t, f.ctx, "newcomer")
+	owner, ok := authentication.Player(newcomer)
+	require.True(t, ok)
+	limit, err := domain.NewQuotaLimit(5)
+	require.NoError(t, err)
+
+	_, nothing := f.handler.Create(newcomer, "部屋")
+	require.NoError(t, constraint.ReserveAvatarQuota(newcomer, avatar.PlayerQuota(owner), limit))
+	_, avatarOnly := f.handler.Create(newcomer, "部屋")
+	require.NoError(t, constraint.ReserveDeckQuota(newcomer, deck.PlayerQuota(owner), limit))
+	created, both := f.handler.Create(newcomer, "部屋")
+
+	var notMet *command.RoomRequirementsNotMetError
+	require.ErrorAs(t, nothing, &notMet)
+	require.Equal(t, []command.RoomRequirement{command.RoomRequirementAvatar, command.RoomRequirementDeck}, notMet.Missing)
+	require.ErrorAs(t, avatarOnly, &notMet)
+	require.Equal(t, []command.RoomRequirement{command.RoomRequirementDeck}, notMet.Missing)
+	require.ErrorIs(t, avatarOnly, command.ErrRoomRequirementsNotMet)
+	require.NoError(t, both)
+	require.Equal(t, int64(1), created.Revision)
 }

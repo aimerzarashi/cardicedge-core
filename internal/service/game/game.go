@@ -218,6 +218,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			// 席・対戦ルールに選べるものは、画面の選択肢を出す query（Player.avatars・decks・npcAvatars・boards）と同じハンドラーを通して調べる
 			query.NewRoomSelectable(avatarQuery, deckQuery, npcAvatarQuery, unlockQuery),
 			gameRulesReader.Get,
+			constraint.CountQuota,
 			now,
 		),
 		// できる操作は Decide と同じ関数で答えるため、read model ではなくイベントストアから読む集約の状態を使う
@@ -225,7 +226,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 			identifier.New(registry, room.NewID),
 			identifier.New(registry, player.NewID),
-		).Get),
+		).Get, query.NewRoomRequirementsLoader(constraint.CountQuota, identifier.New(registry, player.NewID)).Get),
 	}
 }
 

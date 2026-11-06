@@ -152,3 +152,34 @@ func toRoomsConnection(connection pagination.Connection[query.Room]) (*model.Roo
 	}
 	return &model.RoomsConnection{Edges: edges, PageInfo: pageInfo}, nil
 }
+
+func roomRequirements(requirements []query.RoomRequirement) ([]model.RoomRequirement, error) {
+	list := make([]model.RoomRequirement, len(requirements))
+	for i, requirement := range requirements {
+		switch requirement {
+		case query.RoomRequirementAvatar:
+			list[i] = model.RoomRequirementAvatar
+		case query.RoomRequirementDeck:
+			list[i] = model.RoomRequirementDeck
+		default:
+			return nil, fmt.Errorf("graphql: unknown room requirement: %q", requirement)
+		}
+	}
+	return list, nil
+}
+
+// command と query は層の中で型を分けているので、写し方もそれぞれに持つ
+func roomRequirementsNotMet(err *command.RoomRequirementsNotMetError) (*model.RoomRequirementsNotMetError, error) {
+	list := make([]model.RoomRequirement, len(err.Missing))
+	for i, requirement := range err.Missing {
+		switch requirement {
+		case command.RoomRequirementAvatar:
+			list[i] = model.RoomRequirementAvatar
+		case command.RoomRequirementDeck:
+			list[i] = model.RoomRequirementDeck
+		default:
+			return nil, fmt.Errorf("graphql: unknown room requirement: %q", requirement)
+		}
+	}
+	return &model.RoomRequirementsNotMetError{Message: "room requirements not met", Missing: list}, nil
+}

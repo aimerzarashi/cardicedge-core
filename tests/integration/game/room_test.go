@@ -47,6 +47,7 @@ const createRoomMutation = `mutation ($input: CreateRoomInput!) {
 		__typename
 		... on CreateRoomSuccess { id revision }
 		` + roomNameValidationFragment + `
+		... on RoomRequirementsNotMetError { missing }
 		... on PlayerNotRegisteredError { message }
 	}
 }`
@@ -127,6 +128,27 @@ func roomRevision(t *testing.T, result map[string]any, name string) int {
 	t.Helper()
 	require.Equal(t, strings.ToUpper(name[:1])+name[1:]+"Success", result["__typename"])
 	return int(result["revision"].(float64))
+}
+
+const roomRequirementsQuery = `query { me { __typename ... on Player { roomRequirements } } }`
+
+// 部屋を作れる（アバターとデッキを持つ）プレイヤーのトークン。デッキはスターターの配布で届くので、足りないものが無くなるまで待つ
+func roomOwnerToken(t *testing.T) string {
+	t.Helper()
+	token := registeredPlayerToken(t)
+	registerAvatar(t, token, "ルーム")
+	waitRoomRequirements(t, token, []any{})
+	return token
+}
+
+func waitRoomRequirements(t *testing.T, token string, want []any) {
+	t.Helper()
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		result, err := client.TryData(t.Context(), token, roomRequirementsQuery, nil, "me")
+		if assert.NoError(c, err) {
+			assert.Equal(c, want, result["roomRequirements"])
+		}
+	})
 }
 
 func createRoom(t *testing.T, token string) (id string, revision int) {
@@ -302,7 +324,7 @@ func TestRoom_DecidesWhatWasNotDecidedBeforePublishInPreparingAndLocksAfterReady
 
 func TestRoom_CreateReturnsValidationErrorsForNameAndAllowsSameName(t *testing.T) {
 	t.Parallel()
-	token := registeredPlayerToken(t)
+	token := roomOwnerToken(t)
 	create := func(name string) map[string]any {
 		return client.Data(t, token, createRoomMutation, map[string]any{"input": map[string]any{"name": name}}, "createRoom")
 	}
@@ -322,7 +344,7 @@ func TestRoom_CreateReturnsValidationErrorsForNameAndAllowsSameName(t *testing.T
 // 名前は閉じる前まで、作った人が変えられる（公開の後にも）。同じ名前は何も変えず、閉じた後は変えられない。一覧と詳細に出る
 func TestRoom_RenameChangesNameUntilClosedAndShowsItInListAndDetail(t *testing.T) {
 	t.Parallel()
-	token := registeredPlayerToken(t)
+	token := roomOwnerToken(t)
 	id, revision := createNamedRoom(t, token, "最初の名前")
 	revision = roomRevision(t, roomOperation(t, token, "changeRoomSeats", map[string]any{"id": id, "revision": revision, "seats": []string{"PLAYER", "NPC"}}), "changeRoomSeats")
 	revision = roomRevision(t, roomOperation(t, token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
@@ -520,7 +542,7 @@ func TestRoom_RejectsStaleRevisionAndRoomsOfOtherPlayers(t *testing.T) {
 
 func TestRoom_CloseHidesRoomFromMyRoomsButStillReadableAndIsIdempotent(t *testing.T) {
 	t.Parallel()
-	token := registeredPlayerToken(t)
+	token := roomOwnerToken(t)
 	openID, _ := createRoom(t, token)
 	closedID, revision := createRoom(t, token)
 
@@ -550,8 +572,8 @@ func roomIDsOf(connection map[string]any) []string {
 
 func TestRoom_MyRoomsListsOwnRoomsNewestFirstWithCursorPaging(t *testing.T) {
 	t.Parallel()
-	token := registeredPlayerToken(t)
-	other := registeredPlayerToken(t)
+	token := roomOwnerToken(t)
+	other := roomOwnerToken(t)
 	first, _ := createRoom(t, token)
 	second, _ := createRoom(t, token)
 	third, _ := createRoom(t, token)
@@ -601,4 +623,22 @@ func TestRoom_ReturnsPlayerNotRegisteredForUnregisteredPlayer(t *testing.T) {
 		require.Equal(t, "PlayerNotRegisteredError", result["__typename"])
 		require.NotEmpty(t, result["message"])
 	}
+}
+
+// アバターかデッキが無いと部屋を作れず、足りないものの一覧が返る。Player.roomRequirements も同じものを返す
+func TestRoom_CreateRequiresAnAvatarAndADeckAndRoomRequirementsTellsWhatIsMissing(t *testing.T) {
+	t.Parallel()
+	token := registeredPlayerToken(t)
+	// デッキはスターターの配布で届く。届くまで待ってから、アバターだけが無い状態を確かめる
+	waitRoomRequirements(t, token, []any{"AVATAR"})
+
+	refused := client.Data(t, token, createRoomMutation, map[string]any{"input": map[string]any{"name": "ルーム"}}, "createRoom")
+	registerAvatar(t, token, "ルーム")
+	// 数は書く側の記録から読むので、アバターを作った直後から作れる
+	created := client.Data(t, token, createRoomMutation, map[string]any{"input": map[string]any{"name": "ルーム"}}, "createRoom")
+	requirements := client.Data(t, token, roomRequirementsQuery, nil, "me")
+
+	require.Equal(t, map[string]any{"__typename": "RoomRequirementsNotMetError", "missing": []any{"AVATAR"}}, refused)
+	require.Equal(t, "CreateRoomSuccess", created["__typename"])
+	require.Equal(t, []any{}, requirements["roomRequirements"])
 }

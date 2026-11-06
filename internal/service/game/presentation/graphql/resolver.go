@@ -72,6 +72,7 @@ type Rooms interface {
 type RoomQueries interface {
 	ListByPlayer(ctx context.Context, playerID uuid.UUID, first *int, after *string) (pagination.Connection[query.Room], error)
 	Get(ctx context.Context, playerID uuid.UUID, roomID uuid.UUID) (query.Room, error)
+	Requirements(ctx context.Context, playerID uuid.UUID) ([]query.RoomRequirement, error)
 }
 
 // 実装は command.MatchHandler

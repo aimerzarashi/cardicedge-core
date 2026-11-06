@@ -58,3 +58,25 @@ func releaseQuota(ctx context.Context, quota domain.Quota) error {
 	_, err = exec.ExecContext(ctx, releaseQuotaQuery, quota.Type().String(), quota.OwnerID())
 	return err
 }
+
+const countQuotaQuery = `
+	SELECT q.used
+	FROM domain_quotas q
+	JOIN domain_quota_types t ON t.id = q.quota_type_id
+	WHERE t.name = $1 AND q.owner_id = $2
+`
+
+// 持ち主が今使っている数（domain.CountQuotaFunc）。まだ 1 つも確保していなければ行が無いので 0。
+// 種類ごとの関数にしないのは、数えるだけで、上限のエラー（種類ごとに違う）を返さないため
+func CountQuota(ctx context.Context, quota domain.Quota) (int, error) {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var used int
+	err = exec.QueryRowContext(ctx, countQuotaQuery, quota.Type().String(), quota.OwnerID()).Scan(&used)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return used, err
+}

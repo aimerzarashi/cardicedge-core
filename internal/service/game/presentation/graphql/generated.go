@@ -533,12 +533,13 @@ type ComplexityRoot struct {
 	}
 
 	Player struct {
-		Avatars      func(childComplexity int) int
-		Boards       func(childComplexity int) int
-		Decks        func(childComplexity int) int
-		ID           func(childComplexity int) int
-		NpcAvatars   func(childComplexity int) int
-		StarterGrant func(childComplexity int) int
+		Avatars          func(childComplexity int) int
+		Boards           func(childComplexity int) int
+		Decks            func(childComplexity int) int
+		ID               func(childComplexity int) int
+		NpcAvatars       func(childComplexity int) int
+		RoomRequirements func(childComplexity int) int
+		StarterGrant     func(childComplexity int) int
 	}
 
 	PlayerNotRegisteredError struct {
@@ -671,6 +672,11 @@ type ComplexityRoot struct {
 		Ready     func(childComplexity int) int
 	}
 
+	RoomRequirementsNotMetError struct {
+		Message func(childComplexity int) int
+		Missing func(childComplexity int) int
+	}
+
 	RoomSeat struct {
 		Avatar           func(childComplexity int) int
 		ChoiceChangeable func(childComplexity int) int
@@ -751,6 +757,7 @@ type PlayerResolver interface {
 	Boards(ctx context.Context, obj *model.Player) ([]*model.Board, error)
 	Decks(ctx context.Context, obj *model.Player) ([]*model.Deck, error)
 	NpcAvatars(ctx context.Context, obj *model.Player) ([]*model.NpcAvatar, error)
+	RoomRequirements(ctx context.Context, obj *model.Player) ([]model.RoomRequirement, error)
 }
 type QueryResolver interface {
 	Boards(ctx context.Context, first *int, after *string) (model.BoardsResult, error)
@@ -2518,6 +2525,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Player.NpcAvatars(childComplexity), true
+	case "Player.roomRequirements":
+		if e.ComplexityRoot.Player.RoomRequirements == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Player.RoomRequirements(childComplexity), true
 	case "Player.starterGrant":
 		if e.ComplexityRoot.Player.StarterGrant == nil {
 			break
@@ -2971,6 +2984,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomParticipant.Ready(childComplexity), true
+
+	case "RoomRequirementsNotMetError.message":
+		if e.ComplexityRoot.RoomRequirementsNotMetError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomRequirementsNotMetError.Message(childComplexity), true
+	case "RoomRequirementsNotMetError.missing":
+		if e.ComplexityRoot.RoomRequirementsNotMetError.Missing == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomRequirementsNotMetError.Missing(childComplexity), true
 
 	case "RoomSeat.avatar":
 		if e.ComplexityRoot.RoomSeat.Avatar == nil {
@@ -3654,6 +3680,8 @@ func (ec *executionContext) childFields_Player(ctx context.Context, field graphq
 		return ec.fieldContext_Player_decks(ctx, field)
 	case "npcAvatars":
 		return ec.fieldContext_Player_npcAvatars(ctx, field)
+	case "roomRequirements":
+		return ec.fieldContext_Player_roomRequirements(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Player", field.Name)
 }
@@ -11150,6 +11178,29 @@ func (ec *executionContext) fieldContext_Player_npcAvatars(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Player_roomRequirements(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_roomRequirements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Player().RoomRequirements(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.RoomRequirement) graphql.Marshaler {
+			return ec.marshalNRoomRequirement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_roomRequirements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Player", field, true, true, "RoomRequirement")
+}
+
 func (ec *executionContext) _PlayerNotRegisteredError_message(ctx context.Context, field graphql.CollectedField, obj *model.PlayerNotRegisteredError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12945,6 +12996,52 @@ func (ec *executionContext) _RoomParticipant_continues(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_RoomParticipant_continues(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RoomParticipant", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _RoomRequirementsNotMetError_message(ctx context.Context, field graphql.CollectedField, obj *model.RoomRequirementsNotMetError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomRequirementsNotMetError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomRequirementsNotMetError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomRequirementsNotMetError", field, false, false, "String")
+}
+
+func (ec *executionContext) _RoomRequirementsNotMetError_missing(ctx context.Context, field graphql.CollectedField, obj *model.RoomRequirementsNotMetError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomRequirementsNotMetError_missing(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Missing, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.RoomRequirement) graphql.Marshaler {
+			return ec.marshalNRoomRequirement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomRequirementsNotMetError_missing(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomRequirementsNotMetError", field, false, false, "RoomRequirement")
 }
 
 func (ec *executionContext) _RoomSeat_kind(ctx context.Context, field graphql.CollectedField, obj *model.RoomSeat) (ret graphql.Marshaler) {
@@ -16078,6 +16175,13 @@ func (ec *executionContext) _CreateRoomResult(ctx context.Context, sel ast.Selec
 			return graphql.Null
 		}
 		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RoomRequirementsNotMetError:
+		return ec._RoomRequirementsNotMetError(ctx, sel, &obj)
+	case *model.RoomRequirementsNotMetError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RoomRequirementsNotMetError(ctx, sel, obj)
 	case model.PlayerNotRegisteredError:
 		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
 	case *model.PlayerNotRegisteredError:
@@ -20729,6 +20833,12 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Player_npcAvatars(ctx, field, obj)
 				})
+		case "roomRequirements":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Player_roomRequirements(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -21696,6 +21806,44 @@ func (ec *executionContext) _RoomParticipant(ctx context.Context, sel ast.Select
 		case "continues":
 			out.Values[i] = ec._RoomParticipant_continues(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var roomRequirementsNotMetErrorImplementors = []string{"RoomRequirementsNotMetError", "CreateRoomResult"}
+
+func (ec *executionContext) _RoomRequirementsNotMetError(ctx context.Context, sel ast.SelectionSet, obj *model.RoomRequirementsNotMetError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, roomRequirementsNotMetErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoomRequirementsNotMetError")
+		case "message":
+			out.Values[i] = ec._RoomRequirementsNotMetError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "missing":
+			out.Values[i] = ec._RoomRequirementsNotMetError_missing(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -23424,6 +23572,46 @@ func (ec *executionContext) marshalNRoomParticipant2ᚖgitlabᚗcomᚋaimerzaras
 		return graphql.Null
 	}
 	return ec._RoomParticipant(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRoomRequirement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirement(ctx context.Context, v any) (model.RoomRequirement, error) {
+	var res model.RoomRequirement
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRoomRequirement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirement(ctx context.Context, sel ast.SelectionSet, v model.RoomRequirement) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNRoomRequirement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirementᚄ(ctx context.Context, v any) ([]model.RoomRequirement, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.RoomRequirement, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNRoomRequirement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirement(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNRoomRequirement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirementᚄ(ctx context.Context, sel ast.SelectionSet, v []model.RoomRequirement) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNRoomRequirement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomRequirement(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNRoomResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomResult(ctx context.Context, sel ast.SelectionSet, v model.RoomResult) graphql.Marshaler {

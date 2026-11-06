@@ -10,10 +10,14 @@ type Command interface {
 }
 
 // 部屋を作る。作った人が持ち主で、プレイヤーの席に座る。席の並びを決めるまでは席が 0 の部屋
+// 部屋を作る。Avatars・Decks は作る人が今持っている数で、呼ぶ側が書く側の記録（数の上限の記録）から読んで入れる
+// （Decide の中では読めないため。read model から読むと、作った直後のアバター・デッキが投影の遅れで数に入らない）
 type CreateCommand struct {
-	ID    ID
-	Owner player.ID
-	Name  Name
+	ID      ID
+	Owner   player.ID
+	Name    Name
+	Avatars int
+	Decks   int
 }
 
 // 席の並びを決める（公開前だけ）。席の並びを変えたら、席ごとの選択はすべて外す

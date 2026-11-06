@@ -51,6 +51,7 @@ type RoomHandler struct {
 	entityRefs domain.EntityRefResolver
 	selectable RoomSelectable
 	getRules   rules.GetRulesFunc
+	countQuota domain.CountQuotaFunc
 	now        func() time.Time
 }
 
@@ -62,11 +63,12 @@ func NewRoomHandler(
 	entityRefs domain.EntityRefResolver,
 	selectable RoomSelectable,
 	getRules rules.GetRulesFunc,
+	countQuota domain.CountQuotaFunc,
 	now func() time.Time,
 ) *RoomHandler {
 	return &RoomHandler{
 		eventStore: eventStore, identifier: identifier, matches: matches, references: references, entityRefs: entityRefs,
-		selectable: selectable, getRules: getRules, now: now,
+		selectable: selectable, getRules: getRules, countQuota: countQuota, now: now,
 	}
 }
 
@@ -127,9 +129,13 @@ func (c *RoomHandler) Create(ctx context.Context, name string) (ChangedRoom, err
 		if err != nil {
 			return ChangedRoom{}, err
 		}
-		events, err := room.Decide(room.InitialState(), &room.CreateCommand{ID: id, Owner: owner, Name: roomName}, c.now())
+		avatars, decks, err := ownedForRoom(ctx, c.countQuota, owner)
 		if err != nil {
 			return ChangedRoom{}, err
+		}
+		events, err := room.Decide(room.InitialState(), &room.CreateCommand{ID: id, Owner: owner, Name: roomName, Avatars: avatars, Decks: decks}, c.now())
+		if err != nil {
+			return ChangedRoom{}, mapRoomError(err)
 		}
 		if err := c.eventStore.Save(ctx, events); err != nil {
 			return ChangedRoom{}, err
@@ -469,8 +475,30 @@ func (c *RoomHandler) playerPublicID(ctx context.Context, id player.ID) (uuid.UU
 	return publicID, nil
 }
 
+// 部屋を作るのに要るアバター・デッキの、持っている数。書く側の数の記録（作るたびに同じトランザクションで数える）から読む。
+// read model から読まないのは、作った直後のアバター・デッキが投影の遅れで数に入らず、断られるのを避けるため
+func ownedForRoom(ctx context.Context, countQuota domain.CountQuotaFunc, owner player.ID) (avatars, decks int, err error) {
+	avatars, err = countQuota(ctx, avatar.PlayerQuota(owner))
+	if err != nil {
+		return 0, 0, err
+	}
+	decks, err = countQuota(ctx, deck.PlayerQuota(owner))
+	if err != nil {
+		return 0, 0, err
+	}
+	return avatars, decks, nil
+}
+
 // presentation 層にドメインのエラーを見せないため、application 層のエラーに変える
 func mapRoomError(err error) error {
+	var notMet *room.RequirementsNotMetError
+	if errors.As(err, &notMet) {
+		missing := make([]RoomRequirement, len(notMet.Missing))
+		for i, requirement := range notMet.Missing {
+			missing[i] = RoomRequirement(requirement)
+		}
+		return &RoomRequirementsNotMetError{Missing: missing}
+	}
 	switch {
 	case errors.Is(err, room.ErrStatusNotAllowed):
 		return ErrRoomStatusNotAllowed
