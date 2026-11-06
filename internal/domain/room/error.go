@@ -32,4 +32,19 @@ var (
 	ErrAlreadyDeclaredNext = errors.New("room: already declared next")
 	// 最後の準備完了なのに、対戦の ID が渡されていない（呼ぶ側の誤り）
 	ErrMatchIDMissing = errors.New("room: match id missing")
+	// 部屋を作るのに要るもの（アバター・デッキ）が足りない。足りないものは RequirementsNotMetError が持つ
+	ErrRequirementsNotMet = errors.New("room: requirements not met")
 )
+
+// 部屋を作るのに足りないもの（Requirement の並び。先に作る順）。errors.Is で ErrRequirementsNotMet と比べられる
+type RequirementsNotMetError struct {
+	Missing []Requirement
+}
+
+func (e *RequirementsNotMetError) Error() string {
+	return ErrRequirementsNotMet.Error()
+}
+
+func (e *RequirementsNotMetError) Is(target error) bool {
+	return target == ErrRequirementsNotMet
+}

@@ -71,7 +71,7 @@ func evolve(t *testing.T, state room.State, events ...room.Event) room.State {
 
 func created(t *testing.T) room.State {
 	t.Helper()
-	events, err := room.Decide(room.InitialState(), &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "はじめての部屋")}, createdAt)
+	events, err := room.Decide(room.InitialState(), &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "はじめての部屋"), Avatars: 1, Decks: 1}, createdAt)
 	require.NoError(t, err)
 	return evolve(t, room.InitialState(), events...)
 }
@@ -120,7 +120,7 @@ func preparing(t *testing.T) room.State {
 }
 
 func TestDecide_CreateEmitsCreatedEventAndStartsDraftWithoutSeats(t *testing.T) {
-	cmd := &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "はじめての部屋")}
+	cmd := &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "はじめての部屋"), Avatars: 1, Decks: 1}
 
 	events, err := room.Decide(room.InitialState(), cmd, createdAt)
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestDecide_CreateEmitsCreatedEventAndStartsDraftWithoutSeats(t *testing.T) 
 }
 
 func TestDecide_RejectsCreateWhenAlreadyCreated(t *testing.T) {
-	_, err := room.Decide(created(t), &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "ふたつめ")}, createdAt)
+	_, err := room.Decide(created(t), &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "ふたつめ"), Avatars: 1, Decks: 1}, createdAt)
 
 	require.ErrorIs(t, err, room.ErrAlreadyCreated)
 }
@@ -1045,4 +1045,36 @@ func TestDecide_PausedRoomIsClosedOnlyByTheOwnersClose(t *testing.T) {
 	require.IsType(t, &room.ClosedEvent{}, events[0])
 	require.Equal(t, room.StatusClosed, closed.(room.Room).Status)
 	require.Equal(t, room.Capabilities{ChangeSeatChoice: []bool{false, false}, Resume: true, Close: true, Rename: true}, room.CapabilitiesOf(paused(t, 0), owner(t)))
+}
+
+func TestDecide_CreateRequiresAnAvatarAndADeckAndListsWhatIsMissing(t *testing.T) {
+	tests := []struct {
+		name    string
+		avatars int
+		decks   int
+		want    []room.Requirement
+	}{
+		{name: "neither", avatars: 0, decks: 0, want: []room.Requirement{room.RequirementAvatar, room.RequirementDeck}},
+		{name: "no_deck", avatars: 1, decks: 0, want: []room.Requirement{room.RequirementDeck}},
+		{name: "both_owned", avatars: 2, decks: 3, want: nil},
+		{name: "no_avatar", avatars: 0, decks: 1, want: []room.Requirement{room.RequirementAvatar}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			events, err := room.Decide(room.InitialState(), &room.CreateCommand{ID: roomtest.ID(t, 30), Owner: owner(t), Name: roomtest.Name(t, "部屋"), Avatars: tt.avatars, Decks: tt.decks}, changedAt)
+
+			if tt.want == nil {
+				require.NoError(t, err)
+				require.Len(t, events, 1)
+				require.Empty(t, room.MissingRequirements(tt.avatars, tt.decks))
+				return
+			}
+			var notMet *room.RequirementsNotMetError
+			require.ErrorAs(t, err, &notMet)
+			require.ErrorIs(t, err, room.ErrRequirementsNotMet)
+			require.Equal(t, tt.want, notMet.Missing)
+			require.Equal(t, tt.want, room.MissingRequirements(tt.avatars, tt.decks))
+			require.Empty(t, events)
+		})
+	}
 }

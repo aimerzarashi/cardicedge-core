@@ -125,10 +125,19 @@ type RoomHandler struct {
 	listByPlayer ListRoomsByPlayerFunc
 	get          GetRoomFunc
 	capabilities GetRoomCapabilitiesFunc
+	requirements GetRoomRequirementsFunc
 }
 
-func NewRoomHandler(listByPlayer ListRoomsByPlayerFunc, get GetRoomFunc, capabilities GetRoomCapabilitiesFunc) *RoomHandler {
-	return &RoomHandler{listByPlayer: listByPlayer, get: get, capabilities: capabilities}
+// 部屋を作るのに足りないもの（実装は RoomRequirementsLoader.Get）
+type GetRoomRequirementsFunc func(ctx context.Context, playerID uuid.UUID) ([]RoomRequirement, error)
+
+func NewRoomHandler(listByPlayer ListRoomsByPlayerFunc, get GetRoomFunc, capabilities GetRoomCapabilitiesFunc, requirements GetRoomRequirementsFunc) *RoomHandler {
+	return &RoomHandler{listByPlayer: listByPlayer, get: get, capabilities: capabilities, requirements: requirements}
+}
+
+// 部屋を作るのに足りないもの（アバター → デッキの、先に作る順）。空なら作れる
+func (q *RoomHandler) Requirements(ctx context.Context, playerID uuid.UUID) ([]RoomRequirement, error) {
+	return q.requirements(ctx, playerID)
 }
 
 // 入力の誤りは input.Errors（まとめて返す）。項目名は GraphQL の引数名。投影が遅れて 1 件も無いときは、空のページを返す

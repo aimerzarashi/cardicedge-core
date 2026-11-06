@@ -1,6 +1,9 @@
 package domain
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 // 上限の種別（domain_quota_types の名前。何の数を数えるか）。数える集約だけが生成関数で宣言する。
 // ほかの名前と同じ string にしない理由は UniqueKeyType と同じ
@@ -32,6 +35,10 @@ func (q Quota) Type() QuotaType {
 func (q Quota) OwnerID() int64 {
 	return q.ownerID
 }
+
+// 持ち主が今使っている数（行が無ければ 0）。書く側の記録なので、作った直後のものも数に入る（read model の投影の遅れを受けない）。
+// 確保・解放と同じトランザクションで読めば、その時点の数になる
+type CountQuotaFunc func(ctx context.Context, quota Quota) (int, error)
 
 var ErrInvalidQuotaLimit = errors.New("domain: quota limit must be at least 1")
 

@@ -51,7 +51,7 @@ func TestRoomHandler_ListReadsOneMoreThanFirstForTheGivenPlayer(t *testing.T) {
 	reader := &fakeRoomReader{}
 	playerID := uuid.New()
 
-	_, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities).ListByPlayer(t.Context(), playerID, intPtr(10), nil)
+	_, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities, nil).ListByPlayer(t.Context(), playerID, intPtr(10), nil)
 
 	require.NoError(t, err)
 	require.Equal(t, playerID, reader.playerID)
@@ -72,7 +72,7 @@ func TestRoomHandler_ListRejectsInvalidInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeRoomReader{}
 
-			_, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities).ListByPlayer(t.Context(), uuid.New(), tt.first, tt.after)
+			_, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities, nil).ListByPlayer(t.Context(), uuid.New(), tt.first, tt.after)
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -86,7 +86,7 @@ func TestRoomHandler_ListPagesWithCursorOfLastRoomAndContinuesFromIt(t *testing.
 	base := time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC)
 	rows := []query.RoomListRow{roomRow(base.Add(2 * time.Second)), roomRow(base.Add(time.Second)), roomRow(base)}
 	reader := &fakeRoomReader{rows: rows}
-	handler := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities)
+	handler := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities, nil)
 
 	connection, err := handler.ListByPlayer(t.Context(), uuid.New(), intPtr(2), nil)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestRoomHandler_ListPagesWithCursorOfLastRoomAndContinuesFromIt(t *testing.
 func TestRoomHandler_ListReturnsEmptyEdgesWhenThereIsNoRoom(t *testing.T) {
 	reader := &fakeRoomReader{}
 
-	connection, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities).ListByPlayer(t.Context(), uuid.New(), nil, nil)
+	connection, err := query.NewRoomHandler(reader.list, reader.get, reader.getCapabilities, nil).ListByPlayer(t.Context(), uuid.New(), nil, nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, connection.Edges)
@@ -117,8 +117,8 @@ func TestRoomHandler_GetReturnsRoomOrNotFound(t *testing.T) {
 	found := &fakeRoomReader{room: room, capabilities: capabilities}
 	missing := &fakeRoomReader{err: query.ErrRoomNotFound}
 
-	got, err := query.NewRoomHandler(found.list, found.get, found.getCapabilities).Get(t.Context(), uuid.New(), uuid.New())
-	_, notFound := query.NewRoomHandler(missing.list, missing.get, missing.getCapabilities).Get(t.Context(), uuid.New(), uuid.New())
+	got, err := query.NewRoomHandler(found.list, found.get, found.getCapabilities, nil).Get(t.Context(), uuid.New(), uuid.New())
+	_, notFound := query.NewRoomHandler(missing.list, missing.get, missing.getCapabilities, nil).Get(t.Context(), uuid.New(), uuid.New())
 
 	require.NoError(t, err)
 	want := found.room
@@ -131,8 +131,8 @@ func TestRoomHandler_GetDoesNotAskCapabilitiesOfRoomThatIsNotFoundAndListHasNone
 	missing := &fakeRoomReader{err: query.ErrRoomNotFound, capabilitiesErr: errors.New("must not be called")}
 	listed := &fakeRoomReader{rows: []query.RoomListRow{roomRow(time.Now())}}
 
-	_, notFound := query.NewRoomHandler(missing.list, missing.get, missing.getCapabilities).Get(t.Context(), uuid.New(), uuid.New())
-	connection, err := query.NewRoomHandler(listed.list, listed.get, listed.getCapabilities).ListByPlayer(t.Context(), uuid.New(), nil, nil)
+	_, notFound := query.NewRoomHandler(missing.list, missing.get, missing.getCapabilities, nil).Get(t.Context(), uuid.New(), uuid.New())
+	connection, err := query.NewRoomHandler(listed.list, listed.get, listed.getCapabilities, nil).ListByPlayer(t.Context(), uuid.New(), nil, nil)
 
 	require.ErrorIs(t, notFound, query.ErrRoomNotFound)
 	require.NoError(t, err)

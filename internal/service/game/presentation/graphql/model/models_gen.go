@@ -63,7 +63,7 @@ type CloseRoomResult interface {
 	IsCloseRoomResult()
 }
 
-// createRoom の結果。名前の誤りは ValidationErrors（項目名 name）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
+// createRoom の結果。名前の誤りは ValidationErrors（項目名 name）。アバターかデッキが無ければ RoomRequirementsNotMetError（足りないものの一覧）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type CreateRoomResult interface {
 	IsCreateRoomResult()
 }
@@ -1410,6 +1410,8 @@ type Player struct {
 	Decks []*Deck `json:"decks"`
 	// このプレイヤーが解放した NPC のアバター（解放した順。公開中のものだけで、使用不可になったアバターは含まれない。まだ解放が届いていなければ空）
 	NpcAvatars []*NpcAvatar `json:"npcAvatars"`
+	// 部屋を作るのに足りないもの（アバター → デッキの、先に作る順）。空なら作れる。createRoom が断るときの RoomRequirementsNotMetError と同じ判断
+	RoomRequirements []RoomRequirement `json:"roomRequirements"`
 }
 
 func (Player) IsMeResult() {}
@@ -1783,6 +1785,16 @@ type RoomParticipant struct {
 	// 対戦の後の意思表示（続けるなら true、終えるなら false。まだしていない人と、次を決める間でないときは null）
 	Continues *bool `json:"continues,omitempty"`
 }
+
+// 部屋を作るのに要るもの（アバター・デッキ）が足りない（部屋は作られていない）
+type RoomRequirementsNotMetError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+	// 足りないもの（先に作る順）
+	Missing []RoomRequirement `json:"missing"`
+}
+
+func (RoomRequirementsNotMetError) IsCreateRoomResult() {}
 
 // 席 1 つ。席の並びの順に返す
 type RoomSeat struct {
@@ -2239,6 +2251,64 @@ func (e *MatchPhase) UnmarshalJSON(b []byte) error {
 }
 
 func (e MatchPhase) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 部屋を作るのに、作る人が先に持っていなければならないもの
+type RoomRequirement string
+
+const (
+	// アバター（自分の席に座るアバター）
+	RoomRequirementAvatar RoomRequirement = "AVATAR"
+	// デッキ（自分の席で使うデッキ。スターターの配布が終わると持つ）
+	RoomRequirementDeck RoomRequirement = "DECK"
+)
+
+var AllRoomRequirement = []RoomRequirement{
+	RoomRequirementAvatar,
+	RoomRequirementDeck,
+}
+
+func (e RoomRequirement) IsValid() bool {
+	switch e {
+	case RoomRequirementAvatar, RoomRequirementDeck:
+		return true
+	}
+	return false
+}
+
+func (e RoomRequirement) String() string {
+	return string(e)
+}
+
+func (e *RoomRequirement) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomRequirement(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomRequirement", str)
+	}
+	return nil
+}
+
+func (e RoomRequirement) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomRequirement) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomRequirement) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

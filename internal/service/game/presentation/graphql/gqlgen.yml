@@ -42,6 +42,9 @@ models:
       # npcAvatars は resolver で返す（read model unlocks と、写した npc_avatars・npc_decks から、返すときに読むため）
       npcAvatars:
         resolver: true
+      # roomRequirements は resolver で返す（書く側の数の記録から、返すときに読むため。部屋を作る操作と同じ判断）
+      roomRequirements:
+        resolver: true
   # match は resolver で返す（集約の状態から読むため）。始まった対戦の公開 ID を持たせるので、型は手書きにする
   Room:
     model:

@@ -75,6 +75,14 @@ const (
 	StatusClosed Status = "closed"
 )
 
+// 部屋を作るのに、作る人が先に持っていなければならないもの。無いまま作ると、自分の席に選べるものが無く準備完了まで進めない
+type Requirement string
+
+const (
+	RequirementAvatar Requirement = "avatar"
+	RequirementDeck   Requirement = "deck"
+)
+
 func (s Status) String() string {
 	return string(s)
 }
