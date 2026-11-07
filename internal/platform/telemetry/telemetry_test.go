@@ -47,9 +47,11 @@ func (r *receiver) received() []string {
 func restoreGlobals(t *testing.T) {
 	t.Helper()
 	tracerProvider := otel.GetTracerProvider()
+	meterProvider := otel.GetMeterProvider()
 	propagator := otel.GetTextMapPropagator()
 	t.Cleanup(func() {
 		otel.SetTracerProvider(tracerProvider)
+		otel.SetMeterProvider(meterProvider)
 		otel.SetTextMapPropagator(propagator)
 		otel.SetErrorHandler(otel.ErrorHandlerFunc(func(error) {}))
 	})
@@ -69,6 +71,7 @@ func TestSetup_SendsNothingWithoutEndpoint(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", rcv.server.URL+"/v1/traces")
 	t.Setenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", rcv.server.URL+"/v1/logs")
+	t.Setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", rcv.server.URL+"/v1/metrics")
 
 	var out bytes.Buffer
 	tel, err := telemetry.Setup(t.Context(), "test", slog.NewJSONHandler(&out, nil))
@@ -80,7 +83,7 @@ func TestSetup_SendsNothingWithoutEndpoint(t *testing.T) {
 	require.Empty(t, rcv.received())
 }
 
-func TestSetup_SendsTracesAndLogsWithEndpoint(t *testing.T) {
+func TestSetup_SendsTracesLogsAndMetricsWithEndpoint(t *testing.T) {
 	restoreGlobals(t)
 	rcv := startReceiver(t)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", rcv.server.URL)
@@ -94,7 +97,7 @@ func TestSetup_SendsTracesAndLogsWithEndpoint(t *testing.T) {
 	span.End()
 	shutdown(t, tel)
 
-	require.ElementsMatch(t, []string{"/v1/traces", "/v1/logs"}, rcv.received())
+	require.ElementsMatch(t, []string{"/v1/traces", "/v1/logs", "/v1/metrics"}, rcv.received())
 	require.Contains(t, out.String(), span.SpanContext().TraceID().String())
 }
 
