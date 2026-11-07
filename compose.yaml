@@ -170,6 +170,11 @@ services:
       # core-db のログ（遅い SQL・実行計画）を読む設定を、otel-lgtm の中の Collector に足す（core#83）。イメージの起動の手順（run-otelcol.sh）が
       # この変数を Collector の引数に足し、Collector は --config を複数渡すと重ね合わせる。別の Collector のコンテナを置く案は、コンテナと版が
       # 1 つ増えるため採らなかった。元の設定（otelcol-config.yaml）は書き換えない
+      # 受け手のデータは 3 日だけ残す（core#122。開発中にすぐ気づいてすぐ直すための受け手で、長く残す必要が無いため。Tempo は tempo-config.yaml）。
+      # Loki は既定では消さず、Prometheus は既定で 15 日残す。Prometheus の --storage.tsdb.retention.time は非推奨と表示されるが、推奨の
+      # 設定ファイルに書く形は元のファイルを写すことになるため、今の版で効く引数で渡す（otel-lgtm の版を上げたら、効いているかを確かめる）
+      LOKI_EXTRA_ARGS: -compactor.retention-enabled=true -store.retention=72h -compactor.delete-request-store=filesystem
+      PROMETHEUS_EXTRA_ARGS: --storage.tsdb.retention.time=3d
       # Tempo・Loki 自身の指標を読む設定（core#121）も同じ形で重ねる
       OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml --config=file:/otel-lgtm/extra/otelcol-backends.yaml
     # 衝突する場合は OTEL_GRAFANA_PORT・OTEL_GRPC_PORT・OTEL_HTTP_PORT で変更する
