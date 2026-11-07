@@ -170,7 +170,8 @@ services:
       # core-db のログ（遅い SQL・実行計画）を読む設定を、otel-lgtm の中の Collector に足す（core#83）。イメージの起動の手順（run-otelcol.sh）が
       # この変数を Collector の引数に足し、Collector は --config を複数渡すと重ね合わせる。別の Collector のコンテナを置く案は、コンテナと版が
       # 1 つ増えるため採らなかった。元の設定（otelcol-config.yaml）は書き換えない
-      OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml
+      # Tempo・Loki 自身の指標を読む設定（core#121）も同じ形で重ねる
+      OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml --config=file:/otel-lgtm/extra/otelcol-backends.yaml
     # 衝突する場合は OTEL_GRAFANA_PORT・OTEL_GRPC_PORT・OTEL_HTTP_PORT で変更する
     ports:
       - 127.0.0.1:${OTEL_GRAFANA_PORT:-3002}:3000
@@ -182,6 +183,7 @@ services:
     volumes:
       - otel-lgtm-data:/data
       - ./local/otel-lgtm/otelcol-core-db.yaml:/otel-lgtm/extra/otelcol-core-db.yaml:ro
+      - ./local/otel-lgtm/otelcol-backends.yaml:/otel-lgtm/extra/otelcol-backends.yaml:ro
       # Tempo の設定は、元のファイルの写しに印（core#120）を足したものに置き換える（重ねられないため。local/otel-lgtm/tempo-config.yaml の注記）
       - ./local/otel-lgtm/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
       - core-db-log:/var/log/postgresql:ro
