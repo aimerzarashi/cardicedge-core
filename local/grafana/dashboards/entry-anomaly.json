@@ -494,7 +494,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 11,
         "w": 24,
         "h": 1
       },
@@ -511,7 +511,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 12,
         "w": 6,
         "h": 6
       },
@@ -599,7 +599,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 7,
+        "y": 12,
         "w": 9,
         "h": 6
       },
@@ -673,7 +673,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 24,
         "w": 24,
         "h": 1
       },
@@ -690,7 +690,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 25,
         "w": 5,
         "h": 5
       },
@@ -767,7 +767,7 @@
       },
       "gridPos": {
         "x": 5,
-        "y": 14,
+        "y": 25,
         "w": 5,
         "h": 5
       },
@@ -844,7 +844,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 14,
+        "y": 25,
         "w": 5,
         "h": 5
       },
@@ -921,7 +921,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 14,
+        "y": 25,
         "w": 5,
         "h": 5
       },
@@ -1003,7 +1003,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 14,
+        "y": 25,
         "w": 4,
         "h": 5
       },
@@ -1069,7 +1069,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 30,
         "w": 5,
         "h": 5
       },
@@ -1171,7 +1171,7 @@
       },
       "gridPos": {
         "x": 5,
-        "y": 19,
+        "y": 30,
         "w": 6,
         "h": 5
       },
@@ -1250,7 +1250,7 @@
       },
       "gridPos": {
         "x": 11,
-        "y": 19,
+        "y": 30,
         "w": 7,
         "h": 5
       },
@@ -1352,7 +1352,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 19,
+        "y": 30,
         "w": 6,
         "h": 5
       },
@@ -1543,7 +1543,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 7,
+        "y": 12,
         "w": 9,
         "h": 6
       },
@@ -1609,6 +1609,300 @@
           },
           "expr": "topk(5, histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_server_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range]))))",
           "legendFormat": "{{client}} → {{server}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "type": "stat",
+      "title": "ページの誤り",
+      "description": "studio・game のページ（SERVER のスパン）に誤りの印が付いた数（時間の範囲の中）。どのページかは詳細 · studio・game",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "studio",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "game",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "type": "stat",
+      "title": "core の呼び出しの誤り",
+      "description": "studio・game が core の GraphQL を呼んで誤りになった数（CLIENT のスパン。時間の範囲の中）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 6,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "studio",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "game",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "type": "bargauge",
+      "title": "遅いページ（上位 5）",
+      "description": "studio・game のページごとの時間の 95 パーセンタイル（時間の範囲の中）の上位 5。0.5 秒で黄色、1 秒で赤。開発の環境（next dev）は、初めて開いたページを組み立てる時間も入るので遅く出やすい",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "min": 0,
+          "noValue": "なし（0 件）",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left"
+      },
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(5, histogram_quantile(0.95, sum by (le, service, span_name) (increase(traces_spanmetrics_latency_bucket{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range]))))",
+          "legendFormat": "{{service}} {{span_name}}",
           "instant": true,
           "range": false
         }
