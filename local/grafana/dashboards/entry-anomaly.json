@@ -74,7 +74,7 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 7,
+        "w": 6,
         "h": 5
       },
       "fieldConfig": {
@@ -200,9 +200,9 @@
         "uid": "loki"
       },
       "gridPos": {
-        "x": 7,
+        "x": 6,
         "y": 1,
-        "w": 7,
+        "w": 6,
         "h": 5
       },
       "fieldConfig": {
@@ -328,9 +328,9 @@
         "uid": "loki"
       },
       "gridPos": {
-        "x": 14,
+        "x": 12,
         "y": 1,
-        "w": 5,
+        "w": 4,
         "h": 5
       },
       "fieldConfig": {
@@ -412,9 +412,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 19,
+        "x": 16,
         "y": 1,
-        "w": 5,
+        "w": 4,
         "h": 5
       },
       "fieldConfig": {
@@ -512,7 +512,7 @@
       "gridPos": {
         "x": 0,
         "y": 7,
-        "w": 7,
+        "w": 6,
         "h": 6
       },
       "fieldConfig": {
@@ -598,9 +598,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 7,
+        "x": 6,
         "y": 7,
-        "w": 17,
+        "w": 9,
         "h": 6
       },
       "fieldConfig": {
@@ -1438,6 +1438,177 @@
           },
           "expr": "(sum(increase(loki_request_duration_seconds_count{status_code=~\"5..\", route!=\"ready\"}[$__range])) or vector(0)) + (sum(increase(loki_panic_total[$__range])) or vector(0))",
           "legendFormat": "Loki",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "stat",
+      "title": "つながりの失敗",
+      "description": "サービスのあいだの呼び出し（ブラウザ・studio・game → core 等）が失敗した数（Tempo がスパンから作るつながりの指標。時間の範囲の中）。どのつながりかは入口 · 正常の表、全体の図は Tempo の Service Graph（core#110）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "すべて"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "つながりの表（入口 · 正常）",
+          "url": "/d/entry-normal?${__url_time_range}&${env:queryparam}"
+        },
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_service_graph_request_failed_total{deployment_environment_name=~\"$env\"}[$__range])) or vector(0)",
+          "legendFormat": "すべて",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "bargauge",
+      "title": "遅いつながり（上位 5）",
+      "description": "つながりごとの、呼ばれる側の時間の 95 パーセンタイル（時間の範囲の中）の上位 5。0.5 秒で黄色、1 秒で赤（GraphQL の操作と同じ）。user は計装していない呼び出し元（ブラウザ・テストの前準備）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 7,
+        "w": 9,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "min": 0,
+          "noValue": "なし（0 件）",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left"
+      },
+      "links": [
+        {
+          "title": "つながりの表（入口 · 正常）",
+          "url": "/d/entry-normal?${__url_time_range}&${env:queryparam}"
+        },
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(5, histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_server_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range]))))",
+          "legendFormat": "{{client}} → {{server}}",
           "instant": true,
           "range": false
         }
