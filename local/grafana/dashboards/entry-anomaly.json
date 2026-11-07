@@ -1842,7 +1842,7 @@
       "gridPos": {
         "x": 0,
         "y": 18,
-        "w": 24,
+        "w": 18,
         "h": 6
       },
       "fieldConfig": {
@@ -1905,6 +1905,112 @@
           "legendFormat": "{{service}} {{span_name}}",
           "instant": true,
           "range": false
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "type": "stat",
+      "title": "遅い SQL",
+      "description": "開発の core-db で 100ms 以上かかったアプリの SQL の数（時間の範囲の中。DB ごと）。テストの DB の分は詳細 · core-db で見る。どの SQL かは詳細 · core-db の「遅い SQL（SQL の形ごと）」（core#106）",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 18,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core_studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core_game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "詳細 · core-db",
+          "url": "/d/detail-core-db?${__url_time_range}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "(sum(count_over_time({service_name=\"core-db\"} | dbname=\"core_studio\" | kind=~\"statement|execute .*\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" [$__range])) or vector(0))",
+          "legendFormat": "core_studio",
+          "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "(sum(count_over_time({service_name=\"core-db\"} | dbname=\"core_game\" | kind=~\"statement|execute .*\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" [$__range])) or vector(0))",
+          "legendFormat": "core_game",
+          "queryType": "instant"
         }
       ]
     }

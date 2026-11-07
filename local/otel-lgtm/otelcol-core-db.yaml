@@ -35,6 +35,19 @@ receivers:
             warn: WARNING
             error: ERROR
             fatal: [FATAL, PANIC]
+      # json_parser は数を小数で読むので、query_id（64 ビットの整数）の下の桁が丸まる（例 6908343216554934051 → 6908343216554934000）。
+      # 丸まると pg_stat_statements の queryid と突き合わせられないので、元の行から数字のまま読み直して置き換える（core#106）
+      - type: regex_parser
+        if: 'body matches "query_id.: *-?[0-9]+"'
+        parse_from: body
+        regex: '"query_id": *(?P<query_id_exact>-?[0-9]+)'
+      - type: remove
+        if: 'attributes.query_id_exact != nil'
+        field: attributes.query_id
+      - type: move
+        if: 'attributes.query_id_exact != nil'
+        from: attributes.query_id_exact
+        to: attributes.query_id
       # log_min_duration_statement は「duration: 200.1 ms  statement: <SQL>」（拡張問い合わせは execute <名前>: <SQL>）、auto_explain は
       # 「duration: 200.1 ms  plan:\n<JSON>」。時間・種類・本文を項目に分け、Loki で時間の絞り込みや SQL の表示ができるようにする
       - type: regex_parser
@@ -50,6 +63,29 @@ receivers:
         if: 'attributes.text != nil'
         from: attributes.text
         to: attributes.sql
+      # core が SQL の後ろに足した traceparent のコメント（internal/platform/rdb/tracecomment.go。core#106）から、ログに trace_id・span_id を付ける。
+      # 遅い SQL・実行計画から、その SQL を出したリクエストのトレースへ移れるようにするため。実行計画の JSON の Query Text にも同じコメントが入る。
+      # 取り出した値はログの trace_id・span_id にして属性からは消す（Loki で同じ名前の項目が 2 つ並ばないように）
+      - type: regex_parser
+        if: 'attributes.message != nil and attributes.message matches "traceparent=.00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}"'
+        parse_from: attributes.message
+        regex: "traceparent='00-(?P<traceparent_trace_id>[0-9a-f]{32})-(?P<traceparent_span_id>[0-9a-f]{16})-(?P<traceparent_flags>[0-9a-f]{2})'"
+        trace:
+          trace_id:
+            parse_from: attributes.traceparent_trace_id
+          span_id:
+            parse_from: attributes.traceparent_span_id
+          trace_flags:
+            parse_from: attributes.traceparent_flags
+      - type: remove
+        if: 'attributes.traceparent_trace_id != nil'
+        field: attributes.traceparent_trace_id
+      - type: remove
+        if: 'attributes.traceparent_span_id != nil'
+        field: attributes.traceparent_span_id
+      - type: remove
+        if: 'attributes.traceparent_flags != nil'
+        field: attributes.traceparent_flags
 
 service:
   extensions: [health_check, file_storage/core_db]

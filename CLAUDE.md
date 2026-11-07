@@ -34,7 +34,7 @@
 | internal/domaindef | domain_entity_types・domain_event_types・domain_unique_key_types・domain_reference_types・domain_quota_types の id と名前の一覧（catalog.go の `Types`）と、それを DB に合わせる `Sync`。起動時に合わせて読み込み、ドメインの宣言と照合する |
 | internal/eventdriven | イベントを受けて投影（Projection）とポリシー（Policy。イベントを 1 つずつ受けてコマンドを動かす。失敗の記録・間隔・上限・デッドレター）を動かす仕組み（Listener・Hub・Poller・チェックポイント・やることの表・失敗の記録・複数台で単位を分け合うアドバイザリーロック）。投影・ポリシーとは別に、通知を見るだけの口（`Hub.Watch`）も持つ。構成は README |
 | internal/platform/pagination | 前向きのカーソルによるページ分け（first・after）の部品 |
-| internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）と、確定のあとに動かす処理（`AfterCommit`。取り消されたら動かさない。イベントを保存したログが使う）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
+| internal/platform/rdb | PostgreSQL への接続、トランザクション（`Transact`）と、確定のあとに動かす処理（`AfterCommit`。取り消されたら動かさない。イベントを保存したログが使う）。`GetExecutor` の返す口は、ctx のスパンの traceparent を SQL の後ろにコメントで足す（tracecomment.go。遅い SQL・実行計画のログからリクエストのトレースへ移るため。core#106）。`rdbtest` はテストの道具（`TEST_DB_DSN` のサーバーだけを使う。`Tx` は共有の core_test で最後に rollback する。`NewDatabase` はテンプレート core_template から自分だけの DB を複製する。core_test に commit する道具は出さない） |
 | internal/platform/logtest | テストで slog の既定を差し替えてログを貯め、項目を確かめる道具（`Capture`・`Find`） |
 | internal/platform/idp | JWT の検証（発行元ごと）。`idptest` はテストで JWKS・JWT を作る道具 |
 | internal/platform/config | 環境変数（すべて必須。例外は OpenTelemetry の標準の環境変数（`OTEL_*`）で、任意にして config に読み込まず SDK が読む。core#75） |

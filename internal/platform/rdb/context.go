@@ -38,12 +38,13 @@ type Executor interface {
 	QueryRow(query string, args ...any) *sql.Row
 }
 
+// 返す口は、ctx のスパンの traceparent を SQL のコメントに足す（tracecomment.go）
 func GetExecutor(ctx context.Context) (Executor, error) {
 	if tx, ok := txFromContext(ctx); ok {
-		return tx, nil
+		return traceCommentExecutor{tx}, nil
 	}
 	if db, ok := dbFromContext(ctx); ok {
-		return db, nil
+		return traceCommentExecutor{db}, nil
 	}
 	return nil, ErrNoDBConnection
 }

@@ -63,9 +63,9 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## 入口のダッシュボード（異常・正常。core#111）
 
-http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「詳細 · studio・game」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常は誤り・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（飽和は core#119、つながり等の欄は core#110・#109・#106・#108 で足す）。
+http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「詳細 · studio・game」「詳細 · core-db」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常は誤り・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（飽和は core#119、つながり等の欄は core#110・#109・#106・#108 で足す）。
 
-ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。「core-db の SQL」は、作り直す core#106 でこの形に変える。
+ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。
 
 - 異常: 0 なら正常のもの。何かおかしいときに最初に開く
 - 正常: いつもの量と時間。動いているか（ハートビート）もここで見る
@@ -77,6 +77,7 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 異常 | core-db のログのファイル | `otelcol_fileconsumer_open_files` | この欄だけは 0 が異常。0 なら core-db のログ（遅い SQL・実行計画）を読めていない |
 | 異常 | つながりの失敗（誤り）・遅いつながり（遅延） | 下の正常のつながりの指標と同じ | 0 でなければ、どこかのつながりで失敗している。どれかは入口 · 正常の表で見る（core#110） |
 | 異常 | ページの誤り・core の呼び出しの誤り（誤り）・遅いページ（遅延） | studio・game のスパンから Tempo が作る指標（ページは SERVER のスパンのうち経路の付いた名前、core の呼び出しは /graphql への fetch の CLIENT のスパン） | 0 でなければ、画面の側で失敗している。どのページかは詳細 · studio・game（core#109） |
+| 異常 | 遅い SQL（遅延） | 開発の core-db の 100ms 以上のアプリの SQL のログの数（core_studio・core_game） | 0 でなければ遅い SQL がある。どの SQL かは詳細 · core-db（core#106） |
 | 異常 | Tempo・Loki が動いているか | Tempo・Loki の指標を読めたか（`up`。Collector が 15 秒ごとに読む。core#121） | この欄は 0 が異常。0 なら止まっているか応答していない |
 | 異常 | Tempo の索引・一覧の誤り | `tempodb_blocklist_tenant_index_errors_total`・`tempodb_blocklist_poll_errors_total`（公式の監視のひな形の TempoTenantIndexFailures・TempoPollsFailing） | 0 でなければ、古いトレースを引けなくなっているおそれがある。Tempo が一覧を読み直すのは数分おきなので、壊れてから出るまで 10 分ほどかかる。直し方は下 |
 | 異常 | 捨てたスパン・ログ | `tempo_discarded_spans_total`・`loki_discarded_samples_total` | 受け付けの上限などで捨てた数。0 でなければ取りこぼしている |
@@ -112,21 +113,28 @@ AI は画面ではなく Grafana の API で、入口の数から trace id・ロ
    - 投影・ポリシー・ERROR・WARN: ログの `trace_id`（`query_range` で `{service_name="core"} | subscriber_name="<名前>"` 等を引く）
 4. トレースとログを読む: `curl -s $G/api/datasources/proxy/uid/tempo/api/traces/<trace id>`、同じ trace id のログは `{service_name=~"core|studio|game"} | trace_id="<trace id>"`
 
-## 重い SQL・遅い SQL と実行計画（core#83）
+## 詳細 · core-db（重い SQL・遅い SQL と実行計画。core#83・core#106）
 
-開発の core-db は PostgreSQL 自身に SQL の集計とログを取らせ、Grafana（上の otel-lgtm）で見る。アプリのコードは関係しない。開発の環境だけで、compose.test.yaml・リリース確認の環境には入れない。
+開発の core-db は PostgreSQL 自身に SQL の集計とログを取らせ、Grafana（上の otel-lgtm）で見る。開発の環境だけで、compose.test.yaml・リリース確認の環境には入れない。core は SQL の後ろに、そのときのスパンの traceparent をコメントで足す（`/*traceparent='00-…'*/`。OpenTelemetry の sqlcommenter と同じ形。internal/platform/rdb の tracecomment.go）。遅い SQL・実行計画のログに SQL の本文ごと残るので、遅い SQL から、それを出したリクエストのトレースへ移れる。
 
 | 部品 | 役目 |
 |---|---|
 | core-db（compose.yaml の `command`・local/core-db/extensions.sql） | pg_stat_statements（SQL の形ごとの回数・時間の集計。core_studio・core_game それぞれ）、100ms 以上の SQL のログ（log_min_duration_statement）、その実行計画（auto_explain。JSON）を有効にする。ログは JSON の行で名前つきのボリューム（`diecardomain-core-db-log`）に書く |
-| otel-lgtm の中の Collector（足す設定は local/otel-lgtm/otelcol-core-db.yaml。compose.yaml の OTELCOL_EXTRA_ARGS で渡す） | ボリュームを読み取り専用で受け、JSON の行を読んで otel-lgtm の Loki に送る（`service_name="core-db"`。時間は `duration_ms`、種類は `kind`（`statement`・`plan` 等）、SQL は `sql`、実行計画は `plan`）。読んだ位置は otel-lgtm の /data に残し、作り直しても重ねて送らない |
-| otel-lgtm（local/grafana） | provisioning のディレクトリにファイルで足したデータソース（`core-db core_studio`・`core-db core_game`）とダッシュボード「core-db の SQL」 |
+| core（internal/platform/rdb の `GetExecutor`） | 返す口が、ctx のスパンの traceparent を SQL のコメントに足す。context を受け取らない口（`Exec` 等）と、スパンの無い SQL には足さない |
+| otel-lgtm の中の Collector（足す設定は local/otel-lgtm/otelcol-core-db.yaml。compose.yaml の OTELCOL_EXTRA_ARGS で渡す） | ボリュームを読み取り専用で受け、JSON の行を読んで otel-lgtm の Loki に送る（`service_name="core-db"`。時間は `duration_ms`、種類は `kind`（`statement`・`execute <名前>`・`plan` 等。core の SQL は拡張問い合わせのため `execute <unnamed>` になり、`statement` は psql 等の単純な問い合わせだけ）、SQL は `sql`、実行計画は `plan`、SQL の形の番号は `query_id`）。SQL のコメントの traceparent をログの `trace_id`・`span_id` にする。`query_id` は元の行から数字のまま読む（JSON を読むと 64 ビットの整数の下の桁が丸まり、pg_stat_statements の queryid と合わなくなるため）。読んだ位置は otel-lgtm の /data に残し、作り直しても重ねて送らない |
+| otel-lgtm（local/grafana） | provisioning のディレクトリにファイルで足したデータソース（`core-db core_studio`・`core-db core_game`）とダッシュボード「詳細 · core-db」 |
 
-見方: http://localhost:3002 のダッシュボード「core-db の SQL」（上の変数 DB で core_studio・core_game を選ぶ）。
+見方: http://localhost:3002 のダッシュボード「詳細 · core-db」。入口 · 異常の「遅い SQL」（core_studio・core_game の数）から移ってくる。行は 4 つの黄金シグナルの誤り・遅延・量（飽和は core#119）。変数「DB（ログ）」で core_studio・core_game・テスト（テストごとの DB `test_*` とテンプレート）を絞り、「DB（重い SQL）」で pg_stat_statements を読む DB を選ぶ。
 
-- 重い SQL: pg_stat_statements の表（合計時間・呼ばれた回数・平均・最大・行数。列の見出しで並べ替える）。起動してからの累計で、リセットは `SELECT pg_stat_statements_reset()`
-- 遅い SQL: Loki の `{service_name="core-db"} | duration_ms != "" | kind != "plan"`（時刻・時間・SQL）
-- 実行計画: Loki の `{service_name="core-db"} | kind = "plan"`（auto_explain。計画の JSON に `Query Text` が入る）
+| 行 | 欄 | 見ること |
+|---|---|---|
+| 誤り | ERROR のログ | core-db の ERROR・FATAL・PANIC のログ（SQL の誤り・接続の失敗など） |
+| 遅延 | 遅い SQL（SQL の形ごと） | 100ms 以上かかった SQL を、SQL の形（`query_id`）ごとにまとめた回数・最大・95 パーセンタイル。回数が多ければいつも遅い、1 回だけなら一時的。SQL は core が足したコメントを外したもの。テストの DB はテストごとに名前が違うので「テスト」にまとめる。SQL の形の番号から、その SQL の 1 件ずつの遅い SQL・実行計画を Loki で見られる |
+| 遅延 | 遅い SQL（1 件ずつ） | 新しい順。`trace_id` から、その SQL を出したリクエストのトレースを Tempo で開ける（core が足す前の SQL と、core 以外（Grafana・道具）の SQL は「―」） |
+| 遅延 | 実行計画 | auto_explain の計画（JSON。`Query Text` に SQL）。1 行目は時間・DB・`query_id`・`trace_id` |
+| 量 | 重い SQL（pg_stat_statements） | 起動してからの累計の回数・合計・平均・最大・行数（合計の多い順）。リセットは `SELECT pg_stat_statements_reset()`。SQL の形の番号は遅い SQL のログの `query_id` と同じで、そこから実行計画を Loki で見られる（番号は文字で読む。Grafana は 64 ビットの整数を丸めるため） |
+
+- どの欄も、テストの DB の作成・削除（`CREATE DATABASE`・`DROP DATABASE`）と、Grafana・マイグレーションがシステムの表を読む SQL（pg_stat_statements・information_schema・pg_catalog）は外す（アプリの SQL を見るため）
 - 閾値は compose.yaml の core-db の `log_min_duration_statement`・`auto_explain.log_min_duration`（100ms）。調べるときに下げる（反映は core-db の作り直し）
 - 起動の設定は、次の `make up` で core-db のコンテナが作り直されて効く（docker compose は名前の無いボリュームを引き継ぐので、データは消えない）。拡張を作る初期化の SQL（local/core-db/extensions.sql）は新しい DB でしか流れないので、すでにある DB には `docker exec core-core-db-1 psql -U core_user -d core_studio -f /docker-entrypoint-initdb.d/extensions.sql` で手で流す（`make down` で DB を作り直したときは自動で流れる。そのときは `make seed-master`・`make publish-master` で見本のマスタを入れ直す）。ログのボリュームは `make down` では残り、`make clean` で消える
 - PostgreSQL のログは標準エラーに出なくなるので、`docker logs core-core-db-1` には出ない（Grafana か、ボリュームのファイルで見る）
