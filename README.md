@@ -63,7 +63,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## 入口のダッシュボード（異常・正常。core#111）
 
-http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常は誤り・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（飽和は core#119、つながり等の欄は core#110・#109・#106・#108 で足す）。
+http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「詳細 · studio・game」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常は誤り・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（飽和は core#119、つながり等の欄は core#110・#109・#106・#108 で足す）。
 
 ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。「core-db の SQL」は、作り直す core#106 でこの形に変える。
 
@@ -76,12 +76,14 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 異常 | 送り待ち（容量に対する割合） | `otelcol_exporter_queue_size` ÷ `otelcol_exporter_queue_capacity` の最大 | 送る途中で少し溜まるのは普通。50% で黄色、80% で赤。容量を超えた分は捨てられる |
 | 異常 | core-db のログのファイル | `otelcol_fileconsumer_open_files` | この欄だけは 0 が異常。0 なら core-db のログ（遅い SQL・実行計画）を読めていない |
 | 異常 | つながりの失敗（誤り）・遅いつながり（遅延） | 下の正常のつながりの指標と同じ | 0 でなければ、どこかのつながりで失敗している。どれかは入口 · 正常の表で見る（core#110） |
+| 異常 | ページの誤り・core の呼び出しの誤り（誤り）・遅いページ（遅延） | studio・game のスパンから Tempo が作る指標（ページは SERVER のスパンのうち経路の付いた名前、core の呼び出しは /graphql への fetch の CLIENT のスパン） | 0 でなければ、画面の側で失敗している。どのページかは詳細 · studio・game（core#109） |
 | 異常 | Tempo・Loki が動いているか | Tempo・Loki の指標を読めたか（`up`。Collector が 15 秒ごとに読む。core#121） | この欄は 0 が異常。0 なら止まっているか応答していない |
 | 異常 | Tempo の索引・一覧の誤り | `tempodb_blocklist_tenant_index_errors_total`・`tempodb_blocklist_poll_errors_total`（公式の監視のひな形の TempoTenantIndexFailures・TempoPollsFailing） | 0 でなければ、古いトレースを引けなくなっているおそれがある。Tempo が一覧を読み直すのは数分おきなので、壊れてから出るまで 10 分ほどかかる。直し方は下 |
 | 異常 | 捨てたスパン・ログ | `tempo_discarded_spans_total`・`loki_discarded_samples_total` | 受け付けの上限などで捨てた数。0 でなければ取りこぼしている |
 | 異常 | Tempo・Loki の誤り | Tempo の `tempodb_compaction_errors_total`・`tempo_metrics_generator_registry_collections_failed_total`、Loki の 5xx の応答（起動直後の ready の 503 は除く）・`loki_panic_total` | 圧縮・指標の作成・ログの受け付けの失敗 |
 | 正常 | つながりごとの呼び出し（量） | Tempo がスパンから作るつながりの指標（`traces_service_graph_request_total`・`..._failed_total`。client・server のラベル）の、時間の範囲の中の増え方 | どこからどこへ、何回呼び、何回失敗したか（core#110）。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は、欄のリンクから Tempo の Service Graph で見る |
 | 正常 | つながりごとの時間（遅延） | `traces_service_graph_request_server_seconds_bucket`（呼ばれる側の時間）・`..._client_seconds_bucket`（呼ぶ側から見た時間。間の envoy を含む）の 95 パーセンタイル | 遅いつながり。0.5 秒で黄色、1 秒で赤（GraphQL の操作と同じ）。時間の区切り（バケット）が粗いので、近い値がそろって出る（目安） |
+| 正常 | ページの回数と時間（量） | 上と同じ studio・game のページの指標 | よく開かれるページと、その時間。行からそのページのトレースを Tempo で探せる（core#109） |
 | 正常 | ハートビート | core は指標の `target_info`、studio・game は Tempo が数えたスパン（healthcheck のリクエスト）、core-db は読んでいるログのファイル。直近 3 分に届いていれば「届いている」 | 「途切れた」なら、そのサービスが止まっているか、受け手に届いていない。止めてから 3 分ほどで切り替わり、それより短い停止は出ない。動かしていないサービスは途切れたと出る（異常の入口に置かないのはこのため） |
 | 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・誤りのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
 
@@ -145,6 +147,23 @@ http://localhost:3002 のダッシュボード「詳細 · core」。core を詳
 - 閾値（遅れの 1 秒・5 秒、GraphQL の 0.5 秒・1 秒）は、2026-11-07 に測った値から決めた（遅れの 95 パーセンタイルは 75ms、テストが重なったときの最大が 2.5 秒。GraphQL は全体の 95 パーセンタイルが 38ms、一番遅い操作で 0.33 秒）
 - 入口 · 異常の「誤り」の行（ERROR・WARN のログはサービスごと、投影・ポリシーの失敗、GraphQL の誤り）と「遅延」の行（投影・ポリシーの最大の遅れ、遅い GraphQL の操作の上位 5）も、同じデータから数える。WARN はすぐ直すものとは限らないので黄色
 - テスト用の環境の分は、変数「環境」で test を選ぶと見える（例: studio のテスト用の環境の core が game-envoy の JWKS を取りに行けない ERROR。game を起動しないので想定どおり）
+
+## 詳細 · studio・game（core#109）
+
+http://localhost:3002 のダッシュボード「詳細 · studio・game」。studio・game の画面を詳しく調べる（上の変数「画面」で切り替える）。入口 · 異常のページの誤り・遅いページの欄から移ってくる。行は 4 つの黄金シグナルの誤り・遅延・量（飽和は core#119）。表の行の名前から、そのページ・呼び出しのトレースを Tempo で探せる（誤りの表からは、誤りの付いたトレースだけ）。
+
+| 行 | 欄 | 元のデータ | 見ること |
+|---|---|---|---|
+| 誤り | ページの誤り | ページ（SERVER のスパンのうち、経路の付いた名前 `RSC GET /cards` 等）の誤りの印（`traces_spanmetrics_calls_total` の `status_code="STATUS_CODE_ERROR"`） | 描画・Server Action が失敗したページ。理由は同じ時刻の ERROR・WARN のログか、トレース |
+| 誤り | core の呼び出しの誤り | /graphql への fetch（CLIENT のスパン）の誤りの印 | core に届かない・core が誤りを返した呼び出し。core の側の誤りは詳細 · core |
+| 誤り | ERROR・WARN のログ | 選んだ画面のログ（Loki） | 新しい順。開くと trace_id からトレースに移れる |
+| 遅延 | ページの時間 | ページの時間の 95 パーセンタイルと回数 | 遅いページ。0.5 秒で黄色、1 秒で赤。開発の環境（next dev）は、初めて開いたページを組み立てる時間も入るので遅く出やすい |
+| 遅延 | core の呼び出しの時間 | /graphql への fetch の時間の 95 パーセンタイル（間の envoy を含む） | ページが遅いとき、ここも遅ければ core の側（詳細 · core の GraphQL の操作の時間）を見る |
+| 量 | ページの回数 | ページの回数 | よく開かれるページ。`GET /api/auth/[...all]` には healthcheck（/api/auth/ok）も入る |
+
+- 経路の無い名前の SERVER のスパン（`GET`・`RSC GET`）は数えない。同じリクエストの外側のスパンで、数えると重なるため
+- core の呼び出しを /graphql に絞るのは、開発のサーバー（next dev）が npm の版を確かめに行く fetch（CLIENT のスパン）も出すため
+- 認証（better-auth）の時間の欄は置かない。遅ければページの時間とトレースに出るため（2026-11-07 オーナーと見直し）
 
 ## core のトレースとログ（OpenTelemetry。core#75）
 
