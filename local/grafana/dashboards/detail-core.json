@@ -28,7 +28,23 @@
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "env",
+        "label": "環境",
+        "type": "custom",
+        "query": "development,test",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "development",
+          "value": "development"
+        },
+        "options": [],
+        "description": "開発の環境（development）とテスト用の環境（test。make test）のどちらを見るか（core#120）。ハートビートと受け手（Collector）の欄は、この選択によらない"
+      }
+    ]
   },
   "annotations": {
     "list": []
@@ -82,7 +98,7 @@
                 "value": [
                   {
                     "title": "この処理のログを Loki で見る",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%2C%20deployment_environment_name%3D%5C%22${env}%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -127,7 +143,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\"} | result=\"failure\" [$__range]))",
+          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | result=\"failure\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
         }
@@ -180,7 +196,7 @@
                 "value": [
                   {
                     "title": "このトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -237,7 +253,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"core\", span_name=~\"graphql .+\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0, \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "expr": "label_replace(sum by (span_name) (increase(traces_spanmetrics_calls_total{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0, \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -277,11 +293,17 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service_name=\"core\"} | detected_level=~\"error|warn\"",
+          "expr": "{service_name=\"core\", deployment_environment_name=~\"$env\"} | detected_level=~\"error|warn\"",
           "legendFormat": "",
           "queryType": "range"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "なし（0 件）"
+        },
+        "overrides": []
+      }
     },
     {
       "id": 5,
@@ -331,7 +353,7 @@
                 "value": [
                   {
                     "title": "この処理のログを Loki で見る",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%2C%20deployment_environment_name%3D%5C%22${env}%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -480,7 +502,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "quantile_over_time(0.95, {service_name=\"core\"} | subscriber_name!=\"\" | unwrap lag_ms [$__range]) by (subscriber_name)",
+          "expr": "quantile_over_time(0.95, {service_name=\"core\", deployment_environment_name=~\"$env\"} | subscriber_name!=\"\" | unwrap lag_ms [$__range]) by (subscriber_name)",
           "legendFormat": "",
           "queryType": "instant"
         },
@@ -490,7 +512,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "max_over_time({service_name=\"core\"} | subscriber_name!=\"\" | unwrap lag_ms [$__range]) by (subscriber_name)",
+          "expr": "max_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | subscriber_name!=\"\" | unwrap lag_ms [$__range]) by (subscriber_name)",
           "legendFormat": "",
           "queryType": "instant"
         },
@@ -500,7 +522,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "quantile_over_time(0.95, {service_name=\"core\"} | subscriber_name!=\"\" | unwrap duration_ms [$__range]) by (subscriber_name)",
+          "expr": "quantile_over_time(0.95, {service_name=\"core\", deployment_environment_name=~\"$env\"} | subscriber_name!=\"\" | unwrap duration_ms [$__range]) by (subscriber_name)",
           "legendFormat": "",
           "queryType": "instant"
         }
@@ -553,7 +575,7 @@
                 "value": [
                   {
                     "title": "このトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -656,7 +678,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(histogram_quantile(0.95, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "expr": "label_replace(histogram_quantile(0.95, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -668,7 +690,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(histogram_quantile(1, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "expr": "label_replace(histogram_quantile(1, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -736,7 +758,7 @@
                 "value": [
                   {
                     "title": "このトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -793,7 +815,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "label_replace(sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"core\", span_name=~\"graphql .+\"}[$__range])) > 0, \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "expr": "label_replace(sum by (span_name) (increase(traces_spanmetrics_calls_total{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range])) > 0, \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -836,7 +858,7 @@
                 "value": [
                   {
                     "title": "この処理のログを Loki で見る",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%2C%20deployment_environment_name%3D%5C%22${env}%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -881,7 +903,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\"} | subscriber_name!=\"\" [$__range]))",
+          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | subscriber_name!=\"\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
         }

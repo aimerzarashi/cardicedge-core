@@ -51,6 +51,8 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_SERVICE_NAME: core
+      # 開発の環境の印。テスト用の環境（compose.test.yaml）は test。同じ受け手に同じサービス名で送るので、これで見分ける（core#120）
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=development
     # ネットワークに入れず、ホストの口へ届ける理由は otel-lgtm の注記（core#74）
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -180,6 +182,8 @@ services:
     volumes:
       - otel-lgtm-data:/data
       - ./local/otel-lgtm/otelcol-core-db.yaml:/otel-lgtm/extra/otelcol-core-db.yaml:ro
+      # Tempo の設定は、元のファイルの写しに印（core#120）を足したものに置き換える（重ねられないため。local/otel-lgtm/tempo-config.yaml の注記）
+      - ./local/otel-lgtm/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
       - core-db-log:/var/log/postgresql:ro
       - ./local/grafana/provisioning/datasources/core-db.yaml:/otel-lgtm/grafana/conf/provisioning/datasources/core-db.yaml:ro
       - ./local/grafana/provisioning/dashboards/diecardomain.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/diecardomain.yaml:ro

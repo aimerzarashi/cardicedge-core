@@ -53,6 +53,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+- Tempo の設定は、otel-lgtm の元のファイルの写し（local/otel-lgtm/tempo-config.yaml）に、スパンから作る指標の次元 `deployment.environment.name` を足したものに置き換えている（core#120）。Tempo は設定のファイルを重ねられず、テナントごとの上書き（`-config.per-user-override-config`）は書かなかった受け付けの上限まで 0 にしてトレースを受け付けなくなったため。otel-lgtm の版を上げたら、新しい版の `/otel-lgtm/tempo-config.yaml` を `docker exec` で取り出して写し直し、「core#120 で足した」の 2 か所だけを足す。渡す前に `tempo -config.file=<ファイル> -config.verify=true` で確かめる（終了コードが 0 なら正しい）
 
 ## 入口のダッシュボード（異常・正常。core#111）
 
@@ -72,13 +73,13 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・誤りのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
 
 - ハートビートを、操作のログ・スパンではなく決まった間隔で必ず届く信号にしているのは、操作が無いときと止まったときを見分けるため。core は `/health` をスパンにしない（数秒おきでノイズになる）ので、指標を 60 秒ごとに送ってハートビートにしている（OTEL_METRIC_EXPORT_INTERVAL で変えられる）
-- 開発の環境とテスト用の環境（studio・game の `make test`）は同じ受け手に同じサービス名で送るので、テストを流すとログ・スパンの数が大きく伸びる。ハートビートも見分けないので、テストを流している間は、開発の環境のサービスが止まっていても「届いている」と出る（開発の studio を止めている間に studio の `make test` が始まり、「届いている」に戻ったことで気づいた）
+- 開発の環境とテスト用の環境（`make test`）は、同じ受け手に同じサービス名で送る。見分けるのは印 `deployment.environment.name`（開発は development、テストは test。各プロジェクトの compose.yaml・compose.test.yaml の `OTEL_RESOURCE_ATTRIBUTES`。core#120）で、Loki・Prometheus では `deployment_environment_name` のラベルになる。ダッシュボードは上の変数「環境」（既定は development）で絞る。ハートビートは変数によらず開発の分だけを見る（テストを流しても、止まっている開発のサービスが「届いている」にならない）。受け手（Collector）の欄は、環境を見分けない（受け手は 1 つのため）。印を付ける前（2026-11-07 より前）のデータには印が無いので、どちらの環境を選んでも出ない
 
 ### AI の調べ方（Grafana の API。core#107）
 
-AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことと、テストの分が混ざっていること（core#120 まで）を前提に読む。
+AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことを前提に読む。
 
-1. 入口の欄の問い合わせを読む: `curl -s $G/api/dashboards/uid/entry-anomaly`（`dashboard.panels[].targets[]` の `datasource.uid` と `expr`。`$__range` は調べる範囲（例 `1h`）に置き換える）
+1. 入口の欄の問い合わせを読む: `curl -s $G/api/dashboards/uid/entry-anomaly`（`dashboard.panels[].targets[]` の `datasource.uid` と `expr`。`$__range` は調べる範囲（例 `1h`）に、`$env` は `development`（テストを調べるなら `test`）に置き換える）
 2. 同じ問い合わせを流す: Loki は `curl -s -G $G/api/datasources/proxy/uid/loki/loki/api/v1/query --data-urlencode 'query=<expr>'`、Prometheus は `.../uid/prometheus/api/v1/query`。数が 0 でなければ、詳細 · core（`detail-core`）の同じ行の欄で「どれが」（操作・投影・ポリシー）を引く
 3. 実例の trace id を取る:
    - GraphQL の操作（遅い・誤り）: exemplar（指標に付いた trace id の見本）を引く。`curl -s -G $G/api/datasources/proxy/uid/prometheus/api/v1/query_exemplars --data-urlencode 'query=traces_spanmetrics_latency_bucket{service="core", span_name="graphql mutation <操作>"}' --data-urlencode start=<UNIX 秒> --data-urlencode end=<UNIX 秒>` の `exemplars[].labels.traceID`（`value` が時間の秒。大きいものが遅い実例）。exemplar は全部のスパンには付かないので、無ければ Tempo を名前で探す（`.../uid/tempo/api/search --data-urlencode 'q={resource.service.name="core" && name="graphql mutation <操作>"}'`）
@@ -119,7 +120,7 @@ http://localhost:3002 のダッシュボード「詳細 · core」。core を詳
 
 - 閾値（遅れの 1 秒・5 秒、GraphQL の 0.5 秒・1 秒）は、2026-11-07 に測った値から決めた（遅れの 95 パーセンタイルは 75ms、テストが重なったときの最大が 2.5 秒。GraphQL は全体の 95 パーセンタイルが 38ms、一番遅い操作で 0.33 秒）
 - 入口 · 異常の「誤り」の行（ERROR・WARN のログはサービスごと、投影・ポリシーの失敗、GraphQL の誤り）と「遅延」の行（投影・ポリシーの最大の遅れ、遅い GraphQL の操作の上位 5）も、同じデータから数える。WARN はすぐ直すものとは限らないので黄色
-- 開発の環境とテスト用の環境は同じサービス名で送るので、テストを流すと、テスト用の環境の分（例: studio のテスト用の環境の core が game-envoy の JWKS を取りに行けない ERROR。game を起動しないので想定どおり）も数に入る。core のログは `service_version`（開発は none、テストは版の番号か local）で見分けられる（見分ける仕組みは core#120）
+- テスト用の環境の分は、変数「環境」で test を選ぶと見える（例: studio のテスト用の環境の core が game-envoy の JWKS を取りに行けない ERROR。game を起動しないので想定どおり）
 
 ## core のトレースとログ（OpenTelemetry。core#75）
 
