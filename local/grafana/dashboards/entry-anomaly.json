@@ -1,7 +1,7 @@
 {
   "uid": "entry-anomaly",
   "title": "入口 · 異常",
-  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く（core#111。誤り・遅さの行は core#107・#109・#106 で足す）",
+  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く。行は 4 つの黄金シグナルの誤り・遅延・飽和（core#119）と、届いていない（core#111・core#107。studio・game の画面の分は core#109、遅い SQL は core#106 で足す）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -34,13 +34,630 @@
   },
   "panels": [
     {
+      "id": 10,
+      "type": "row",
+      "title": "誤り",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "ERROR のログ",
+      "description": "サービスごとの ERROR のログの数（時間の範囲の中）。どれが出したかは Explore（Loki）で `{service_name=\"<サービス>\"} | detected_level=\"error\"` を引く",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 7,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"core\"} | detected_level=\"error\" [$__range])) or vector(0)",
+          "legendFormat": "core",
+          "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"studio\"} | detected_level=\"error\" [$__range])) or vector(0)",
+          "legendFormat": "studio",
+          "queryType": "instant"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"game\"} | detected_level=\"error\" [$__range])) or vector(0)",
+          "legendFormat": "game",
+          "queryType": "instant"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "WARN のログ",
+      "description": "サービスごとの WARN のログの数（時間の範囲の中）。すぐ直すものとは限らないので黄色",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 1,
+        "w": 7,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"core\"} | detected_level=\"warn\" [$__range])) or vector(0)",
+          "legendFormat": "core",
+          "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"studio\"} | detected_level=\"warn\" [$__range])) or vector(0)",
+          "legendFormat": "studio",
+          "queryType": "instant"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"game\"} | detected_level=\"warn\" [$__range])) or vector(0)",
+          "legendFormat": "game",
+          "queryType": "instant"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "投影・ポリシーの失敗",
+      "description": "core の投影・ポリシーの処理が失敗した数（処理のログの result=failure。時間の範囲の中）。どれが失敗したかは詳細 · core",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"core\"} | result=\"failure\" [$__range])) or vector(0)",
+          "legendFormat": "core",
+          "queryType": "instant"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "GraphQL の誤り",
+      "description": "core の GraphQL の応答に誤りが入った数（操作のスパンの誤りの印。時間の範囲の中）。想定内の誤り（名前の重複等）は結果の型で返すので入らない",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 19,
+        "y": 1,
+        "w": 5,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"core\", span_name=~\"graphql .+\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "core",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "遅延",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "投影・ポリシーの最大の遅れ",
+      "description": "core の投影・ポリシーの、イベントの発生から処理が終わるまでの遅れ（lag_ms）の最大（時間の範囲の中）。1 秒で黄色、5 秒で赤（2026-11-07 に測ると 95 パーセンタイルは 75ms、テストが重なったときの最大が 2.5 秒）。遅れると、画面やテストが read model を待ちきれない",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 7,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "max(max_over_time({service_name=\"core\"} | subscriber_name!=\"\" | unwrap lag_ms [$__range])) or vector(0)",
+          "legendFormat": "core",
+          "queryType": "instant"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "bargauge",
+      "title": "遅い GraphQL の操作（上位 5）",
+      "description": "core の GraphQL の操作ごとの時間の 95 パーセンタイル（時間の範囲の中）の上位 5。0.5 秒で黄色、1 秒で赤（2026-11-07 に測ると、全体の 95 パーセンタイルは 38ms、一番遅い操作で 0.33 秒）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 7,
+        "w": 17,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "min": 0,
+          "noValue": "なし（0 件）",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left"
+      },
+      "links": [
+        {
+          "title": "詳細 · core",
+          "url": "/d/detail-core?${__url_time_range}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(5, label_replace(histogram_quantile(0.95, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\"))",
+          "legendFormat": "{{operation}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
       "id": 1,
       "type": "row",
       "title": "届いていない（受け手の Collector）",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 13,
         "w": 24,
         "h": 1
       },
@@ -57,7 +674,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 14,
         "w": 5,
         "h": 5
       },
@@ -134,7 +751,7 @@
       },
       "gridPos": {
         "x": 5,
-        "y": 1,
+        "y": 14,
         "w": 5,
         "h": 5
       },
@@ -211,7 +828,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 1,
+        "y": 14,
         "w": 5,
         "h": 5
       },
@@ -288,7 +905,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 1,
+        "y": 14,
         "w": 5,
         "h": 5
       },
@@ -370,7 +987,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 1,
+        "y": 14,
         "w": 4,
         "h": 5
       },
