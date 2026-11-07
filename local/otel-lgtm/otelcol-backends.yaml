@@ -1,0 +1,36 @@
+# otel-lgtm の中の Collector に重ねる設定（core#121）。compose.yaml の OTELCOL_EXTRA_ARGS で --config に足す。
+# 受け手そのもの（Tempo・Loki）の不具合に気づけるよう、それぞれの指標を読んで Prometheus に送る（メタ監視）。2026-11-05 から Tempo が索引を
+# 作り直せずに古いトレースを引けなくなっていたのに、2 日近く誰も気づかなかったため。
+# 読むのは入口 · 異常の「届いていない」の行で使う指標だけにする（Tempo は指標をとても多く出し、全部を入れると Prometheus の系列が増えすぎるため）。
+# 選び方は Grafana の公式の監視のひな形（tempo-mixin・loki-mixin）の決まりのうち、1 つにまとまった otel-lgtm の構成で出るもの。
+# 索引の古さ（tempodb_blocklist_tenant_index_age_seconds。ひな形の TempoTenantIndexTooOld）は読まない: この構成では索引を作る役と読む役が同じで、
+# 索引の作り直しに失敗し続けても 0 のままだった（2026-11-07 に 0 バイトのブロックを置いて確かめた）
+# 元の設定の名前に頼るところ: processor の batch、exporter の otlp_http/metrics（Prometheus）。otel-lgtm の版を上げたら、名前が変わっていないかを確かめる
+
+receivers:
+  prometheus/backends:
+    config:
+      scrape_configs:
+        - job_name: tempo
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["127.0.0.1:3200"]
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              action: keep
+              regex: "tempodb_blocklist_tenant_index_errors_total|tempodb_blocklist_poll_errors_total|tempo_discarded_spans_total|tempodb_compaction_errors_total|tempo_metrics_generator_registry_collections_failed_total"
+        - job_name: loki
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["127.0.0.1:3100"]
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              action: keep
+              regex: "loki_discarded_samples_total|loki_request_duration_seconds_count|loki_panic_total"
+
+service:
+  pipelines:
+    metrics/backends:
+      receivers: [prometheus/backends]
+      processors: [batch]
+      exporters: [otlp_http/metrics]

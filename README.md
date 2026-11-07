@@ -69,11 +69,26 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 異常 | 断った・受け取りに失敗・送れなかった | Collector の `otelcol_receiver_refused_*`・`otelcol_receiver_failed_*`・`otelcol_exporter_send_failed_*`（時間の範囲の中の増え方） | 0 でなければ、ログ・スパンを取りこぼしている。形の壊れた送信（読めない OTLP）は 400 で断るが、この数には入らない（読めた記録だけを数えるため） |
 | 異常 | 送り待ち（容量に対する割合） | `otelcol_exporter_queue_size` ÷ `otelcol_exporter_queue_capacity` の最大 | 送る途中で少し溜まるのは普通。50% で黄色、80% で赤。容量を超えた分は捨てられる |
 | 異常 | core-db のログのファイル | `otelcol_fileconsumer_open_files` | この欄だけは 0 が異常。0 なら core-db のログ（遅い SQL・実行計画）を読めていない |
+| 異常 | Tempo・Loki が動いているか | Tempo・Loki の指標を読めたか（`up`。Collector が 15 秒ごとに読む。core#121） | この欄は 0 が異常。0 なら止まっているか応答していない |
+| 異常 | Tempo の索引・一覧の誤り | `tempodb_blocklist_tenant_index_errors_total`・`tempodb_blocklist_poll_errors_total`（公式の監視のひな形の TempoTenantIndexFailures・TempoPollsFailing） | 0 でなければ、古いトレースを引けなくなっているおそれがある。Tempo が一覧を読み直すのは数分おきなので、壊れてから出るまで 10 分ほどかかる。直し方は下 |
+| 異常 | 捨てたスパン・ログ | `tempo_discarded_spans_total`・`loki_discarded_samples_total` | 受け付けの上限などで捨てた数。0 でなければ取りこぼしている |
+| 異常 | Tempo・Loki の誤り | Tempo の `tempodb_compaction_errors_total`・`tempo_metrics_generator_registry_collections_failed_total`、Loki の 5xx の応答（起動直後の ready の 503 は除く）・`loki_panic_total` | 圧縮・指標の作成・ログの受け付けの失敗 |
 | 正常 | ハートビート | core は指標の `target_info`、studio・game は Tempo が数えたスパン（healthcheck のリクエスト）、core-db は読んでいるログのファイル。直近 3 分に届いていれば「届いている」 | 「途切れた」なら、そのサービスが止まっているか、受け手に届いていない。止めてから 3 分ほどで切り替わり、それより短い停止は出ない。動かしていないサービスは途切れたと出る（異常の入口に置かないのはこのため） |
 | 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・誤りのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
 
 - ハートビートを、操作のログ・スパンではなく決まった間隔で必ず届く信号にしているのは、操作が無いときと止まったときを見分けるため。core は `/health` をスパンにしない（数秒おきでノイズになる）ので、指標を 60 秒ごとに送ってハートビートにしている（OTEL_METRIC_EXPORT_INTERVAL で変えられる）
 - 開発の環境とテスト用の環境（`make test`）は、同じ受け手に同じサービス名で送る。見分けるのは印 `deployment.environment.name`（開発は development、テストは test。各プロジェクトの compose.yaml・compose.test.yaml の `OTEL_RESOURCE_ATTRIBUTES`。core#120）で、Loki・Prometheus では `deployment_environment_name` のラベルになる。ダッシュボードは上の変数「環境」（既定は development）で絞る。ハートビートは変数によらず開発の分だけを見る（テストを流しても、止まっている開発のサービスが「届いている」にならない）。受け手（Collector）の欄は、環境を見分けない（受け手は 1 つのため）。印を付ける前（2026-11-07 より前）のデータには印が無いので、どちらの環境を選んでも出ない
+
+- Tempo・Loki の指標は、otel-lgtm の中の Collector に重ねた設定（local/otel-lgtm/otelcol-backends.yaml）で読み、上の欄で使うものだけを Prometheus に入れる（Tempo は指標をとても多く出すため）。公式のひな形の索引の古さ（TempoTenantIndexTooOld）は使わない。この構成では索引を作る役と読む役が同じで、索引の作り直しに失敗し続けても 0 のままだった
+- Tempo・Loki のログは、otel-lgtm の既定のまま捨てている（上の欄で気づけるため）。調べるときだけ、compose.yaml の otel-lgtm の環境変数に `ENABLE_LOGS_TEMPO: "true"`（Loki は `ENABLE_LOGS_LOKI`）を足して作り直し、`docker logs core-otel-lgtm-1` で読む
+
+#### Tempo の索引・一覧の誤りが出たとき（壊れたブロックの直し方）
+
+2026-11-05 に、PC・WSL が急に止まったときに書きかけのまま残ったと思われる、すべてのファイルが 0 バイトのブロックで、索引を作り直せなくなった（core#121）。
+
+1. 0 バイトのファイルしかないブロックを探す: `docker exec core-otel-lgtm-1 sh -c 'cd /data/tempo/blocks/single-tenant; for b in */; do [ -f "$b/meta.json" ] && [ ! -s "$b/meta.json" ] && echo "$b"; done'`
+2. 見つかったブロックの中が、すべて 0 バイトであることを確かめてから、そのディレクトリだけを消す（`rm -rf /data/tempo/blocks/single-tenant/<ブロック>`）。ボリュームは消さない
+3. 数分で索引が作り直される（`/data/tempo/blocks/single-tenant/index.json.gz` の時刻が新しくなる）。誤りの数が増えなくなり、古いトレースを trace id で引けることを確かめる
 
 ### AI の調べ方（Grafana の API。core#107）
 

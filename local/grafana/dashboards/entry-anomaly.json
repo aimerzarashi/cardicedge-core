@@ -914,7 +914,7 @@
       "id": 5,
       "type": "stat",
       "title": "送り待ち（容量に対する割合）",
-      "description": "受け手が Loki・Tempo へ送る前に溜めている数の、容量に対する最大の割合（時間の範囲の中）。送る途中で少し溜まるのは普通で、容量に近づいたら詰まっている（容量を超えた分は捨てられる）。50% で黄色、80% で赤",
+      "description": "受け手が Loki・Tempo へ送る前に溜めている数の、容量に対する最大の割合（時間の範囲の中）。送る途中で少し溜まるのは普通で、容量に近づいたら詰まっている（容量を超えた分は捨てられる）。50% で黄色、80% で赤。受け手を作り直すと、古い Collector と新しい Collector の系列がしばらく重なるので、exporter ごとにまとめてから割る（core#121 で直した）。受け手を作り直すと、古い Collector と新しい Collector の系列がしばらく重なるので、exporter ごとにまとめてから割る（core#121 で直した）",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -974,7 +974,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(max_over_time(otelcol_exporter_queue_size{data_type=\"logs\"}[$__range]) / on (exporter, data_type) group_left otelcol_exporter_queue_capacity) or vector(0)",
+          "expr": "max(max by (exporter, data_type) (max_over_time(otelcol_exporter_queue_size{data_type=\"logs\"}[$__range])) / on (exporter, data_type) max by (exporter, data_type) (otelcol_exporter_queue_capacity)) or vector(0)",
           "legendFormat": "ログ",
           "instant": true,
           "range": false
@@ -985,7 +985,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(max_over_time(otelcol_exporter_queue_size{data_type=\"traces\"}[$__range]) / on (exporter, data_type) group_left otelcol_exporter_queue_capacity) or vector(0)",
+          "expr": "max(max by (exporter, data_type) (max_over_time(otelcol_exporter_queue_size{data_type=\"traces\"}[$__range])) / on (exporter, data_type) max by (exporter, data_type) (otelcol_exporter_queue_capacity)) or vector(0)",
           "legendFormat": "スパン",
           "instant": true,
           "range": false
@@ -1053,6 +1053,391 @@
           },
           "expr": "min(otelcol_fileconsumer_open_files) or vector(0)",
           "legendFormat": "読んでいる",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "Tempo・Loki が動いているか",
+      "description": "受け手の中の Tempo・Loki の指標を読めているか（up）。この欄は 0 が異常で、0 なら止まっているか応答していない（core#121）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 5,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tempo"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Loki"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(up{job=\"tempo\"}) or vector(0)",
+          "legendFormat": "Tempo",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(up{job=\"loki\"}) or vector(0)",
+          "legendFormat": "Loki",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Tempo の索引・一覧の誤り",
+      "description": "Tempo がブロックの一覧の読み込み・索引の作り直しに失敗した数（時間の範囲の中）。0 でなければ、古いトレースを引けなくなっているおそれがある（2026-11-05 の書きかけのブロックで起きた。公式のひな形の TempoTenantIndexFailures・TempoPollsFailing。直し方は README）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tempo"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(tempodb_blocklist_tenant_index_errors_total[$__range])) or vector(0)) + (sum(increase(tempodb_blocklist_poll_errors_total[$__range])) or vector(0))",
+          "legendFormat": "Tempo",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "捨てたスパン・ログ",
+      "description": "Tempo・Loki が受け付けの上限などで捨てたスパン・ログの数（時間の範囲の中）。0 でなければ取りこぼしている（2026-11-07 に Tempo の受け付けの上限が 0 になったときに当たる）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 11,
+        "y": 19,
+        "w": 7,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "スパン"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ログ"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(tempo_discarded_spans_total[$__range])) or vector(0))",
+          "legendFormat": "スパン",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(loki_discarded_samples_total[$__range])) or vector(0))",
+          "legendFormat": "ログ",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Tempo・Loki の誤り",
+      "description": "Tempo の圧縮・指標の作成の失敗と、Loki の 5xx の応答（起動直後の ready の 503 は除く）・panic の数（時間の範囲の中）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 19,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tempo"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Loki"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(tempodb_compaction_errors_total[$__range])) or vector(0)) + (sum(increase(tempo_metrics_generator_registry_collections_failed_total[$__range])) or vector(0))",
+          "legendFormat": "Tempo",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(loki_request_duration_seconds_count{status_code=~\"5..\", route!=\"ready\"}[$__range])) or vector(0)) + (sum(increase(loki_panic_total[$__range])) or vector(0))",
+          "legendFormat": "Loki",
           "instant": true,
           "range": false
         }
