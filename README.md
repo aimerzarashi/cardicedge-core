@@ -56,9 +56,9 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## 入口のダッシュボード（異常・正常。core#111）
 
-http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「core の処理」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」（誤り・遅さ・つながり等の行は core#107・#110・#109・#106・#108 で足す）。
+http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常は誤り・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（飽和は core#119、つながり等の欄は core#110・#109・#106・#108 で足す）。
 
-ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。今の「core の処理」「core-db の SQL」は、作り直す core#107・core#106 でこの形に変える。
+ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。「core-db の SQL」は、作り直す core#106 でこの形に変える。
 
 - 異常: 0 なら正常のもの。何かおかしいときに最初に開く
 - 正常: いつもの量と時間。動いているか（ハートビート）もここで見る
@@ -73,6 +73,17 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 
 - ハートビートを、操作のログ・スパンではなく決まった間隔で必ず届く信号にしているのは、操作が無いときと止まったときを見分けるため。core は `/health` をスパンにしない（数秒おきでノイズになる）ので、指標を 60 秒ごとに送ってハートビートにしている（OTEL_METRIC_EXPORT_INTERVAL で変えられる）
 - 開発の環境とテスト用の環境（studio・game の `make test`）は同じ受け手に同じサービス名で送るので、テストを流すとログ・スパンの数が大きく伸びる。ハートビートも見分けないので、テストを流している間は、開発の環境のサービスが止まっていても「届いている」と出る（開発の studio を止めている間に studio の `make test` が始まり、「届いている」に戻ったことで気づいた）
+
+### AI の調べ方（Grafana の API。core#107）
+
+AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことと、テストの分が混ざっていること（core#120 まで）を前提に読む。
+
+1. 入口の欄の問い合わせを読む: `curl -s $G/api/dashboards/uid/entry-anomaly`（`dashboard.panels[].targets[]` の `datasource.uid` と `expr`。`$__range` は調べる範囲（例 `1h`）に置き換える）
+2. 同じ問い合わせを流す: Loki は `curl -s -G $G/api/datasources/proxy/uid/loki/loki/api/v1/query --data-urlencode 'query=<expr>'`、Prometheus は `.../uid/prometheus/api/v1/query`。数が 0 でなければ、詳細 · core（`detail-core`）の同じ行の欄で「どれが」（操作・投影・ポリシー）を引く
+3. 実例の trace id を取る:
+   - GraphQL の操作（遅い・誤り）: exemplar（指標に付いた trace id の見本）を引く。`curl -s -G $G/api/datasources/proxy/uid/prometheus/api/v1/query_exemplars --data-urlencode 'query=traces_spanmetrics_latency_bucket{service="core", span_name="graphql mutation <操作>"}' --data-urlencode start=<UNIX 秒> --data-urlencode end=<UNIX 秒>` の `exemplars[].labels.traceID`（`value` が時間の秒。大きいものが遅い実例）。exemplar は全部のスパンには付かないので、無ければ Tempo を名前で探す（`.../uid/tempo/api/search --data-urlencode 'q={resource.service.name="core" && name="graphql mutation <操作>"}'`）
+   - 投影・ポリシー・ERROR・WARN: ログの `trace_id`（`query_range` で `{service_name="core"} | subscriber_name="<名前>"` 等を引く）
+4. トレースとログを読む: `curl -s $G/api/datasources/proxy/uid/tempo/api/traces/<trace id>`、同じ trace id のログは `{service_name=~"core|studio|game"} | trace_id="<trace id>"`
 
 ## 重い SQL・遅い SQL と実行計画（core#83）
 
@@ -93,17 +104,22 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 - 起動の設定は、次の `make up` で core-db のコンテナが作り直されて効く（docker compose は名前の無いボリュームを引き継ぐので、データは消えない）。拡張を作る初期化の SQL（local/core-db/extensions.sql）は新しい DB でしか流れないので、すでにある DB には `docker exec core-core-db-1 psql -U core_user -d core_studio -f /docker-entrypoint-initdb.d/extensions.sql` で手で流す（`make down` で DB を作り直したときは自動で流れる。そのときは `make seed-master`・`make publish-master` で見本のマスタを入れ直す）。ログのボリュームは `make down` では残り、`make clean` で消える
 - PostgreSQL のログは標準エラーに出なくなるので、`docker logs core-core-db-1` には出ない（Grafana か、ボリュームのファイルで見る）
 
-## 処理の遅れ・誤り・GraphQL の時間（core#84）
+## 詳細 · core（core#84・core#107）
 
-http://localhost:3002 のダッシュボード「core の処理（遅れ・誤り・GraphQL の時間）」。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。タグに `diecardomain` を付け（Grafana の一覧で、otel-lgtm に最初から入っている見本のダッシュボードと分けて絞り込むため）、中身を表すタグ（`core`・`core-db` 等）を添える。
+http://localhost:3002 のダッシュボード「詳細 · core」。core を詳しく調べる。入口 · 異常の誤り・遅延の欄から移ってくる。行は 4 つの黄金シグナルの誤り・遅延・量（飽和は core#119）。テストや操作の後に遅いもの・失敗したものを探す使い方なので、時系列のグラフではなく、時間の範囲の中の値の表（遅い順・多い順）にしている。表の行の名前を押すと、GraphQL の操作は Tempo のその操作のトレースの検索、投影・ポリシーは Loki のその処理のログに移る。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。名前・uid・タグの付け方は「入口のダッシュボード」の節。
 
-| 欄 | 元のデータ | 見ること |
-|---|---|---|
-| 投影・ポリシーの遅れ | core の処理のログの `lag_ms`（Loki）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる |
-| 投影・ポリシーの処理の時間 | 同じログの `duration_ms` | 処理そのものが遅いか（遅れが大きく処理の時間が短ければ、待ちが原因） |
-| 投影・ポリシーの失敗の数 | 同じログの `result="failure"` | 失敗の理由は、同じ時刻の ERROR・WARN のログで見る |
-| ERROR・WARN のログの数 | core・studio・game のログ（Loki）の `detected_level` | 中身は Explore で `{service_name="core"} \| detected_level="error"` のように引く |
-| GraphQL の操作ごとの時間・呼び出しの数 | トレースから otel-lgtm が作る指標（Prometheus の `traces_spanmetrics_*`） | 遅い操作は、Tempo で個々のトレースを見る |
+| 行 | 欄 | 元のデータ | 見ること |
+|---|---|---|---|
+| 誤り | 投影・ポリシーの失敗 | core の処理のログ（Loki）の `result="failure"` の数 | 失敗した投影・ポリシー。理由は、その処理のログか、同じ時刻の ERROR・WARN のログで見る |
+| 誤り | GraphQL の誤り | 操作のスパンの誤りの印（`status_code="STATUS_CODE_ERROR"`。Prometheus の `traces_spanmetrics_calls_total`） | 応答に誤りが入った操作。想定内の誤り（名前の重複等）は結果の型で返すので入らない |
+| 誤り | ERROR・WARN のログ | core のログ（Loki）の `detected_level` | 新しい順のログ。開くと trace_id からトレースに移れる |
+| 遅延 | 投影・ポリシーの遅れと処理の時間 | 処理のログの `lag_ms`（発生から処理が終わるまで）の 95 パーセンタイル・最大と、`duration_ms`（処理そのもの）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる。遅れが大きく処理の時間が小さければ、処理の前に待っている。遅れは 1 秒で黄色、5 秒で赤 |
+| 遅延 | GraphQL の操作の時間 | トレースから Tempo が作る指標（`traces_spanmetrics_latency_bucket`）の 95 パーセンタイルと、最大の目安（時間の区切りの上限で、正確な最大ではない） | 遅い操作。0.5 秒で黄色、1 秒で赤 |
+| 量 | GraphQL の操作の呼び出しの数・投影・ポリシーの処理の数 | `traces_spanmetrics_calls_total`・処理のログの数 | 多い操作・処理 |
+
+- 閾値（遅れの 1 秒・5 秒、GraphQL の 0.5 秒・1 秒）は、2026-11-07 に測った値から決めた（遅れの 95 パーセンタイルは 75ms、テストが重なったときの最大が 2.5 秒。GraphQL は全体の 95 パーセンタイルが 38ms、一番遅い操作で 0.33 秒）
+- 入口 · 異常の「誤り」の行（ERROR・WARN のログはサービスごと、投影・ポリシーの失敗、GraphQL の誤り）と「遅延」の行（投影・ポリシーの最大の遅れ、遅い GraphQL の操作の上位 5）も、同じデータから数える。WARN はすぐ直すものとは限らないので黄色
+- 開発の環境とテスト用の環境は同じサービス名で送るので、テストを流すと、テスト用の環境の分（例: studio のテスト用の環境の core が game-envoy の JWKS を取りに行けない ERROR。game を起動しないので想定どおり）も数に入る。core のログは `service_version`（開発は none、テストは版の番号か local）で見分けられる（見分ける仕組みは core#120）
 
 ## core のトレースとログ（OpenTelemetry。core#75）
 
