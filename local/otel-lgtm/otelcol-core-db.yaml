@@ -20,6 +20,8 @@ receivers:
     storage: file_storage/core_db
     resource:
       service.name: core-db
+      # 読むのは開発の環境の core-db のログだけ（テスト用の環境の core-db のログは読まない）。core・studio・game と同じ印で絞れるようにする（core#120）
+      deployment.environment.name: development
     operators:
       - type: json_parser
         timestamp:

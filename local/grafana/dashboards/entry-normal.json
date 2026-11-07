@@ -46,6 +46,21 @@
           ]
         },
         "options": []
+      },
+      {
+        "name": "env",
+        "label": "環境",
+        "type": "custom",
+        "query": "development,test",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "development",
+          "value": "development"
+        },
+        "options": [],
+        "description": "開発の環境（development）とテスト用の環境（test。make test）のどちらを見るか（core#120）。ハートビートと受け手（Collector）の欄は、この選択によらない"
       }
     ]
   },
@@ -70,7 +85,7 @@
       "id": 2,
       "type": "state-timeline",
       "title": "ハートビート",
-      "description": "決まった間隔で必ず届く信号が、直近 3 分に届いているか。途切れたら、そのサービスが止まっているか、受け手に届いていない。core は指標（60 秒ごと）、studio・game は healthcheck のリクエストのスパン、core-db は受け手が読んでいるログのファイル。動かしていないサービスは途切れたと出る",
+      "description": "決まった間隔で必ず届く信号が、直近 3 分に届いているか。途切れたら、そのサービスが止まっているか、受け手に届いていない。core は指標（60 秒ごと）、studio・game は healthcheck のリクエストのスパン、core-db は受け手が読んでいるログのファイル。動かしていないサービスは途切れたと出る 開発の環境の分だけを見る（テスト用の環境が同じサービス名で送っても、届いているにならない。core#120）",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -137,7 +152,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(sum(count_over_time(target_info{job=\"core\"}[3m])) > bool 0) or vector(0)",
+          "expr": "(sum(count_over_time(target_info{job=\"core\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
           "legendFormat": "core"
         },
         {
@@ -155,7 +170,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"studio\"}[3m])) > bool 0) or vector(0)",
+          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
           "legendFormat": "studio"
         },
         {
@@ -164,7 +179,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"game\"}[3m])) > bool 0) or vector(0)",
+          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
           "legendFormat": "game"
         }
       ]
@@ -218,7 +233,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service_name) (count_over_time({service_name=~\"$service\"}[$__auto]))",
+          "expr": "sum by (service_name) (count_over_time({service_name=~\"$service\", deployment_environment_name=~\"$env\"}[$__auto]))",
           "legendFormat": "{{service_name}}"
         }
       ]
@@ -272,7 +287,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (service) (increase(traces_spanmetrics_calls_total{service=~\"$service\"}[$__rate_interval]))",
+          "expr": "sum by (service) (increase(traces_spanmetrics_calls_total{deployment_environment_name=~\"$env\", service=~\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{service}}"
         }
       ]

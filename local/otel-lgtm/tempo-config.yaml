@@ -1,0 +1,56 @@
+# otel-lgtm 0.39.0 の /otel-lgtm/tempo-config.yaml の写しに、印（core#120）の 2 か所だけを足したもの。compose.yaml で元のファイルの代わりに渡す。
+# Tempo は設定のファイルを重ねられず、テナントごとの上書き（-config.per-user-override-config）は書かなかった受け付けの上限まで 0 にして
+# トレースを受け付けなくなった（2026-11-07 に試して止まった）ため、写しを渡す。core#83 の「元の設定は書き換えない」の例外。
+# otel-lgtm の版を上げたら、新しい版の元のファイルと比べ、違いが「core#120 で足した」の 2 か所だけになるように写し直す（README の手順）
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9096
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "127.0.0.1:4417"
+        http:
+          endpoint: "127.0.0.1:4418"
+
+memberlist:
+  bind_addr: [127.0.0.1]
+  bind_port: 7947
+
+querier:
+  frontend_worker:
+    frontend_address: 127.0.0.1:9096
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /data/tempo/wal
+    local:
+      path: /data/tempo/blocks
+
+metrics_generator:
+  processor:
+    span_metrics:
+      dimensions:
+        - service_name
+        - operation
+        - status_code
+        # core#120 で足した: 開発の環境とテスト用の環境を見分ける印
+        - deployment.environment.name
+    service_graphs:
+      # core#120 で足した: 開発の環境とテスト用の環境を見分ける印
+      dimensions:
+        - deployment.environment.name
+  storage:
+    path: /data/tempo/generator/wal
+    remote_write:
+      - url: http://127.0.0.1:9090/api/v1/write
+        send_exemplars: true
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]
