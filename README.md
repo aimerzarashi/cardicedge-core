@@ -43,7 +43,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## トレースとログの受け手（grafana/otel-lgtm）
 
-`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。消すときは `make clean`。core は core#75 で送るようにした（指標は core#111）。studio・game は、トレースを studio#50・game#25、ログを studio#69・game#47 で送るようにした。指標（Prometheus）は、core の Go の実行時の値（メモリ・goroutine 等。60 秒ごと）と、受け手が数えたもの（Tempo がスパンから作る `traces_spanmetrics_*`、Collector 自身の `otelcol_*`）。
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。残すのは 3 日まで（core#122）。消すときは `make clean`。core は core#75 で送るようにした（指標は core#111）。studio・game は、トレースを studio#50・game#25、ログを studio#69・game#47 で送るようにした。指標（Prometheus）は、core の Go の実行時の値（メモリ・goroutine 等。60 秒ごと）と、受け手が数えたもの（Tempo がスパンから作る `traces_spanmetrics_*`、Collector 自身の `otelcol_*`）。
 
 | 用途 | 場所（既定のポート） | 変える環境変数 |
 |---|---|---|
@@ -53,7 +53,13 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
-- Tempo の設定は、otel-lgtm の元のファイルの写し（local/otel-lgtm/tempo-config.yaml）に、スパンから作る指標の次元 `deployment.environment.name` を足したものに置き換えている（core#120）。Tempo は設定のファイルを重ねられず、テナントごとの上書き（`-config.per-user-override-config`）は書かなかった受け付けの上限まで 0 にしてトレースを受け付けなくなったため。otel-lgtm の版を上げたら、新しい版の `/otel-lgtm/tempo-config.yaml` を `docker exec` で取り出して写し直し、「core#120 で足した」の 2 か所だけを足す。渡す前に `tempo -config.file=<ファイル> -config.verify=true` で確かめる（終了コードが 0 なら正しい）
+- 保持の期間は 3 日（core#122）。開発中にすぐ気づいてすぐ直すための受け手で、長く残す必要が無いため（2026-11-07 オーナー）。otel-lgtm の既定のままだと、Tempo は 14 日、Prometheus は 15 日残し、Loki は消さない。溜めておくほどディスクを使い（2026-11-06 に C ドライブの空きが 0 になった）、壊れたもの（core#121 の書きかけのブロック）も残り続ける
+  - Tempo: local/otel-lgtm/tempo-config.yaml の `overrides.defaults.compaction.block_retention`（この版では保持の期間はテナントの決まりにある）。消すのは 1 時間おき
+  - Loki: compose.yaml の `LOKI_EXTRA_ARGS`（`-compactor.retention-enabled=true -store.retention=72h -compactor.delete-request-store=filesystem`。3 つとも要る）。消すのは圧縮（10 分おき）の後、さらに 2 時間待ってから
+  - Prometheus: compose.yaml の `PROMETHEUS_EXTRA_ARGS` の `--storage.tsdb.retention.time=3d`。非推奨と表示されるが、推奨の設定ファイルに書く形は元のファイルを写すことになるため、今の版で効く引数で渡す。otel-lgtm の版を上げたら、効いているか（`curl -s localhost:9090/api/v1/status/flags` を otel-lgtm の中で）を確かめる
+  - 効いているかの確かめ方（otel-lgtm の中で）: Tempo は `curl -s localhost:3200/metrics | grep 'tempo_limits_defaults{limit_name="block_retention"}'`（259200 秒）、Loki は `curl -s localhost:3100/config | grep retention`
+  - /data/grafana（約 600MB）はほとんどが Grafana のプラグインで、溜まり続けるデータではないので触らない
+- Tempo の設定は、otel-lgtm の元のファイルの写し（local/otel-lgtm/tempo-config.yaml）に、スパンから作る指標の次元 `deployment.environment.name` を足したものに置き換えている（core#120）。Tempo は設定のファイルを重ねられず、テナントごとの上書き（`-config.per-user-override-config`）は書かなかった受け付けの上限まで 0 にしてトレースを受け付けなくなったため。otel-lgtm の版を上げたら、新しい版の `/otel-lgtm/tempo-config.yaml` を `docker exec` で取り出して写し直し、「core#120 で足した」「core#122 で足した」の 3 か所だけを足す。渡す前に `tempo -config.file=<ファイル> -config.verify=true` で確かめる（終了コードが 0 なら正しい）
 
 ## 入口のダッシュボード（異常・正常。core#111）
 

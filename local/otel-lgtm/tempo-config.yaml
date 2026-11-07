@@ -1,7 +1,7 @@
-# otel-lgtm 0.39.0 の /otel-lgtm/tempo-config.yaml の写しに、印（core#120）の 2 か所だけを足したもの。compose.yaml で元のファイルの代わりに渡す。
+# otel-lgtm 0.39.0 の /otel-lgtm/tempo-config.yaml の写しに、印（core#120）の 2 か所と、保持の期間（core#122）の 1 か所を足したもの。compose.yaml で元のファイルの代わりに渡す。
 # Tempo は設定のファイルを重ねられず、テナントごとの上書き（-config.per-user-override-config）は書かなかった受け付けの上限まで 0 にして
 # トレースを受け付けなくなった（2026-11-07 に試して止まった）ため、写しを渡す。core#83 の「元の設定は書き換えない」の例外。
-# otel-lgtm の版を上げたら、新しい版の元のファイルと比べ、違いが「core#120 で足した」の 2 か所だけになるように写し直す（README の手順）
+# otel-lgtm の版を上げたら、新しい版の元のファイルと比べ、違いが「core#120 で足した」「core#122 で足した」の 3 か所だけになるように写し直す（README の手順）
 server:
   http_listen_port: 3200
   grpc_listen_port: 9096
@@ -52,5 +52,8 @@ metrics_generator:
 
 overrides:
   defaults:
+    # core#122 で足した: 開発中にすぐ気づいてすぐ直すための受け手なので、3 日だけ残す（既定は 14 日。この版では保持の期間はテナントの決まりにある）
+    compaction:
+      block_retention: 72h
     metrics_generator:
       processors: [service-graphs, span-metrics]
