@@ -75,10 +75,13 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 異常 | 断った・受け取りに失敗・送れなかった | Collector の `otelcol_receiver_refused_*`・`otelcol_receiver_failed_*`・`otelcol_exporter_send_failed_*`（時間の範囲の中の増え方） | 0 でなければ、ログ・スパンを取りこぼしている。形の壊れた送信（読めない OTLP）は 400 で断るが、この数には入らない（読めた記録だけを数えるため） |
 | 異常 | 送り待ち（容量に対する割合） | `otelcol_exporter_queue_size` ÷ `otelcol_exporter_queue_capacity` の最大 | 送る途中で少し溜まるのは普通。50% で黄色、80% で赤。容量を超えた分は捨てられる |
 | 異常 | core-db のログのファイル | `otelcol_fileconsumer_open_files` | この欄だけは 0 が異常。0 なら core-db のログ（遅い SQL・実行計画）を読めていない |
+| 異常 | つながりの失敗（誤り）・遅いつながり（遅延） | 下の正常のつながりの指標と同じ | 0 でなければ、どこかのつながりで失敗している。どれかは入口 · 正常の表で見る（core#110） |
 | 異常 | Tempo・Loki が動いているか | Tempo・Loki の指標を読めたか（`up`。Collector が 15 秒ごとに読む。core#121） | この欄は 0 が異常。0 なら止まっているか応答していない |
 | 異常 | Tempo の索引・一覧の誤り | `tempodb_blocklist_tenant_index_errors_total`・`tempodb_blocklist_poll_errors_total`（公式の監視のひな形の TempoTenantIndexFailures・TempoPollsFailing） | 0 でなければ、古いトレースを引けなくなっているおそれがある。Tempo が一覧を読み直すのは数分おきなので、壊れてから出るまで 10 分ほどかかる。直し方は下 |
 | 異常 | 捨てたスパン・ログ | `tempo_discarded_spans_total`・`loki_discarded_samples_total` | 受け付けの上限などで捨てた数。0 でなければ取りこぼしている |
 | 異常 | Tempo・Loki の誤り | Tempo の `tempodb_compaction_errors_total`・`tempo_metrics_generator_registry_collections_failed_total`、Loki の 5xx の応答（起動直後の ready の 503 は除く）・`loki_panic_total` | 圧縮・指標の作成・ログの受け付けの失敗 |
+| 正常 | つながりごとの呼び出し（量） | Tempo がスパンから作るつながりの指標（`traces_service_graph_request_total`・`..._failed_total`。client・server のラベル）の、時間の範囲の中の増え方 | どこからどこへ、何回呼び、何回失敗したか（core#110）。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は、欄のリンクから Tempo の Service Graph で見る |
+| 正常 | つながりごとの時間（遅延） | `traces_service_graph_request_server_seconds_bucket`（呼ばれる側の時間）・`..._client_seconds_bucket`（呼ぶ側から見た時間。間の envoy を含む）の 95 パーセンタイル | 遅いつながり。0.5 秒で黄色、1 秒で赤（GraphQL の操作と同じ）。時間の区切り（バケット）が粗いので、近い値がそろって出る（目安） |
 | 正常 | ハートビート | core は指標の `target_info`、studio・game は Tempo が数えたスパン（healthcheck のリクエスト）、core-db は読んでいるログのファイル。直近 3 分に届いていれば「届いている」 | 「途切れた」なら、そのサービスが止まっているか、受け手に届いていない。止めてから 3 分ほどで切り替わり、それより短い停止は出ない。動かしていないサービスは途切れたと出る（異常の入口に置かないのはこのため） |
 | 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・誤りのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
 
@@ -101,7 +104,7 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことを前提に読む。
 
 1. 入口の欄の問い合わせを読む: `curl -s $G/api/dashboards/uid/entry-anomaly`（`dashboard.panels[].targets[]` の `datasource.uid` と `expr`。`$__range` は調べる範囲（例 `1h`）に、`$env` は `development`（テストを調べるなら `test`）に置き換える）
-2. 同じ問い合わせを流す: Loki は `curl -s -G $G/api/datasources/proxy/uid/loki/loki/api/v1/query --data-urlencode 'query=<expr>'`、Prometheus は `.../uid/prometheus/api/v1/query`。数が 0 でなければ、詳細 · core（`detail-core`）の同じ行の欄で「どれが」（操作・投影・ポリシー）を引く
+2. 同じ問い合わせを流す（数は時間の範囲の中の増え方で数える。テストのように短い間だけ出る系列は、終わって数分たつと消えるので、その時点の値を引く問い合わせでは見落とす。2026-11-07 に、終わったテストの studio → core のつながりを「記録されていない」と読み違えた）: Loki は `curl -s -G $G/api/datasources/proxy/uid/loki/loki/api/v1/query --data-urlencode 'query=<expr>'`、Prometheus は `.../uid/prometheus/api/v1/query`。数が 0 でなければ、詳細 · core（`detail-core`）の同じ行の欄で「どれが」（操作・投影・ポリシー）を引く
 3. 実例の trace id を取る:
    - GraphQL の操作（遅い・誤り）: exemplar（指標に付いた trace id の見本）を引く。`curl -s -G $G/api/datasources/proxy/uid/prometheus/api/v1/query_exemplars --data-urlencode 'query=traces_spanmetrics_latency_bucket{service="core", span_name="graphql mutation <操作>"}' --data-urlencode start=<UNIX 秒> --data-urlencode end=<UNIX 秒>` の `exemplars[].labels.traceID`（`value` が時間の秒。大きいものが遅い実例）。exemplar は全部のスパンには付かないので、無ければ Tempo を名前で探す（`.../uid/tempo/api/search --data-urlencode 'q={resource.service.name="core" && name="graphql mutation <操作>"}'`）
    - 投影・ポリシー・ERROR・WARN: ログの `trace_id`（`query_range` で `{service_name="core"} | subscriber_name="<名前>"` 等を引く）
