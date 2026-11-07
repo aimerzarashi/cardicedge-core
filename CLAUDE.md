@@ -38,7 +38,7 @@
 | internal/platform/logtest | テストで slog の既定を差し替えてログを貯め、項目を確かめる道具（`Capture`・`Find`） |
 | internal/platform/idp | JWT の検証（発行元ごと）。`idptest` はテストで JWKS・JWT を作る道具 |
 | internal/platform/config | 環境変数（すべて必須。例外は OpenTelemetry の標準の環境変数（`OTEL_*`）で、任意にして config に読み込まず SDK が読む。core#75） |
-| internal/platform/telemetry | OpenTelemetry の送り出しの組み立て（`Setup`。トレース・ログ。`OTEL_EXPORTER_OTLP_ENDPOINT` が無ければ作らず標準出力だけ）、slog のハンドラー（標準出力に ctx のスパンの `trace_id`・`span_id` を足し、送り出しがあれば otelslog で OpenTelemetry のログにも出す）、HTTP のスパンのミドルウェア（`HTTP`。`/health` は除く）、内部の誤りを間引く `errorHandler`。cmd/app が初期化・終了し、wiring が `HTTP` を入口の外側に付ける |
+| internal/platform/telemetry | OpenTelemetry の送り出しの組み立て（`Setup`。トレース・ログ・指標（Go の実行時の値を 60 秒ごと。受け手でハートビートに使う。core#111）。`OTEL_EXPORTER_OTLP_ENDPOINT` が無ければ作らず標準出力だけ）、slog のハンドラー（標準出力に ctx のスパンの `trace_id`・`span_id` を足し、送り出しがあれば otelslog で OpenTelemetry のログにも出す）、HTTP のスパンのミドルウェア（`HTTP`。`/health` は除く）、内部の誤りを間引く `errorHandler`。cmd/app が初期化・終了し、wiring が `HTTP` を入口の外側に付ける |
 | internal/platform/gqltrace | gqlgen の拡張（操作のスパンとリゾルバー（`IsResolver`）のスパンだけ。単純なフィールドは作らない）。gqlgen に公式の OpenTelemetry の拡張が無いため自作。studio・game の handler が `srv.Use(gqltrace.New())` で使う基盤の部品で、サービスの層には属さない |
 | internal/platform/orm/sqlboiler | sqlboiler の設定と生成したモデル（`make gen-orm`） |
 | migrations | DB マイグレーション（`NNNN_name.sql` + `atlas.sum`）。Atlas で適用する |

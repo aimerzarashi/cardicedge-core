@@ -43,7 +43,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## トレースとログの受け手（grafana/otel-lgtm）
 
-`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。消すときは `make clean`。core は core#75 で送るようにした。studio・game が送る設定は studio#50・game#25 で入れる。
+`make up` で、トレース（Tempo）・ログ（Loki）の受け手と Grafana が入った 1 コンテナ（`otel-lgtm`。版は compose.yaml で固定）も起動する。データ（トレースとログ）は名前つきのボリューム（`diecardomain-otel-lgtm-data`）に置き、PC の再起動・コンテナの作り直し・`make down` では消えない（前の日の調べたいトレースとログを残すため。core#82）。消すときは `make clean`。core は core#75 で送るようにした（指標は core#111）。studio・game は、トレースを studio#50・game#25、ログを studio#69・game#47 で送るようにした。指標（Prometheus）は、core の Go の実行時の値（メモリ・goroutine 等。60 秒ごと）と、受け手が数えたもの（Tempo がスパンから作る `traces_spanmetrics_*`、Collector 自身の `otelcol_*`）。
 
 | 用途 | 場所（既定のポート） | 変える環境変数 |
 |---|---|---|
@@ -53,6 +53,26 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 - 届け方: 受け手は共有ネットワークに入れない（game から studio に内部から届く経路を作らないため。core#45）。OTLP の口をホストに公開し、送る側のコンテナは `extra_hosts: ["host.docker.internal:host-gateway"]` を付けて `host.docker.internal` で送る。開発の環境でもテスト用の環境（studio・game の compose.test.yaml）でも同じ形で届く
 - OTLP の口を `127.0.0.1` にだけ公開する案は採らなかった。コンテナから見たホストは docker のブリッジのゲートウェイで、ループバックだけで待つ口には届かないため
+
+## 入口のダッシュボード（異常・正常。core#111）
+
+http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「core の処理」「core-db の SQL」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」（誤り・遅さ・つながり等の行は core#107・#110・#109・#106・#108 で足す）。
+
+ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。今の「core の処理」「core-db の SQL」は、作り直す core#107・core#106 でこの形に変える。
+
+- 異常: 0 なら正常のもの。何かおかしいときに最初に開く
+- 正常: いつもの量と時間。動いているか（ハートビート）もここで見る
+
+| 入口 | 欄 | 元のデータ | 見ること |
+|---|---|---|---|
+| 異常 | 断った・受け取りに失敗・送れなかった | Collector の `otelcol_receiver_refused_*`・`otelcol_receiver_failed_*`・`otelcol_exporter_send_failed_*`（時間の範囲の中の増え方） | 0 でなければ、ログ・スパンを取りこぼしている。形の壊れた送信（読めない OTLP）は 400 で断るが、この数には入らない（読めた記録だけを数えるため） |
+| 異常 | 送り待ち（容量に対する割合） | `otelcol_exporter_queue_size` ÷ `otelcol_exporter_queue_capacity` の最大 | 送る途中で少し溜まるのは普通。50% で黄色、80% で赤。容量を超えた分は捨てられる |
+| 異常 | core-db のログのファイル | `otelcol_fileconsumer_open_files` | この欄だけは 0 が異常。0 なら core-db のログ（遅い SQL・実行計画）を読めていない |
+| 正常 | ハートビート | core は指標の `target_info`、studio・game は Tempo が数えたスパン（healthcheck のリクエスト）、core-db は読んでいるログのファイル。直近 3 分に届いていれば「届いている」 | 「途切れた」なら、そのサービスが止まっているか、受け手に届いていない。止めてから 3 分ほどで切り替わり、それより短い停止は出ない。動かしていないサービスは途切れたと出る（異常の入口に置かないのはこのため） |
+| 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・誤りのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
+
+- ハートビートを、操作のログ・スパンではなく決まった間隔で必ず届く信号にしているのは、操作が無いときと止まったときを見分けるため。core は `/health` をスパンにしない（数秒おきでノイズになる）ので、指標を 60 秒ごとに送ってハートビートにしている（OTEL_METRIC_EXPORT_INTERVAL で変えられる）
+- 開発の環境とテスト用の環境（studio・game の `make test`）は同じ受け手に同じサービス名で送るので、テストを流すとログ・スパンの数が大きく伸びる。ハートビートも見分けないので、テストを流している間は、開発の環境のサービスが止まっていても「届いている」と出る（開発の studio を止めている間に studio の `make test` が始まり、「届いている」に戻ったことで気づいた）
 
 ## 重い SQL・遅い SQL と実行計画（core#83）
 
