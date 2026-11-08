@@ -100,12 +100,13 @@ type BoardDefaultRules struct {
 	RoundLimit      int
 	DiceMin         int
 	DiceMax         int
+	BaseLandValue   int
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRules {
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
 	}
 }
 

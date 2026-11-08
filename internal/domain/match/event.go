@@ -84,6 +84,34 @@ type CreatureDeployedEvent struct {
 	Cost        card.Cost          `json:"cost"`
 }
 
+// 他人の領地に止まって通行料を払った。足りなくても全額を払い、魔力は負になる（Magic は払った魔力で、持ち主が同じだけ受け取る）
+type TollPaidEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Owner       ParticipantIndex `json:"owner"`
+	Position    board.Position   `json:"position"`
+	Magic       int              `json:"magic"`
+}
+
+// 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る
+type TerritoryRelinquishedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex   `json:"participant"`
+	Position    board.Position     `json:"position"`
+	Creature    DeployedCreatureID `json:"creature"`
+	Magic       int                `json:"magic"`
+}
+
+// 領地が無くなっても魔力が負のままだった。拠点からやり直す（Magic は与えられた開始時の魔力）
+type MagicDepletedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Magic       int              `json:"magic"`
+}
+
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
@@ -150,21 +178,24 @@ type RewardsCompletedEvent struct {
 }
 
 var (
-	createdEventType          = domain.NewEventName("CreatedEvent")
-	turnOrderDecidedEventType = domain.NewEventName("TurnOrderDecidedEvent")
-	decksShuffledEventType    = domain.NewEventName("DecksShuffledEvent")
-	handsDealtEventType       = domain.NewEventName("HandsDealtEvent")
-	cardDrawnEventType        = domain.NewEventName("CardDrawnEvent")
-	cardDiscardedEventType    = domain.NewEventName("CardDiscardedEvent")
-	diceRolledEventType       = domain.NewEventName("DiceRolledEvent")
-	movedEventType            = domain.NewEventName("MovedEvent")
-	checkpointPassedEventType = domain.NewEventName("CheckpointPassedEvent")
-	lapCompletedEventType     = domain.NewEventName("LapCompletedEvent")
-	turnEndedEventType        = domain.NewEventName("TurnEndedEvent")
-	matchEndedEventType       = domain.NewEventName("MatchEndedEvent")
-	rewardDrawnEventType      = domain.NewEventName("RewardDrawnEvent")
-	rewardsCompletedEventType = domain.NewEventName("RewardsCompletedEvent")
-	creatureDeployedEventType = domain.NewEventName("CreatureDeployedEvent")
+	createdEventType               = domain.NewEventName("CreatedEvent")
+	turnOrderDecidedEventType      = domain.NewEventName("TurnOrderDecidedEvent")
+	decksShuffledEventType         = domain.NewEventName("DecksShuffledEvent")
+	handsDealtEventType            = domain.NewEventName("HandsDealtEvent")
+	cardDrawnEventType             = domain.NewEventName("CardDrawnEvent")
+	cardDiscardedEventType         = domain.NewEventName("CardDiscardedEvent")
+	diceRolledEventType            = domain.NewEventName("DiceRolledEvent")
+	movedEventType                 = domain.NewEventName("MovedEvent")
+	checkpointPassedEventType      = domain.NewEventName("CheckpointPassedEvent")
+	lapCompletedEventType          = domain.NewEventName("LapCompletedEvent")
+	turnEndedEventType             = domain.NewEventName("TurnEndedEvent")
+	matchEndedEventType            = domain.NewEventName("MatchEndedEvent")
+	rewardDrawnEventType           = domain.NewEventName("RewardDrawnEvent")
+	rewardsCompletedEventType      = domain.NewEventName("RewardsCompletedEvent")
+	creatureDeployedEventType      = domain.NewEventName("CreatureDeployedEvent")
+	tollPaidEventType              = domain.NewEventName("TollPaidEvent")
+	territoryRelinquishedEventType = domain.NewEventName("TerritoryRelinquishedEvent")
+	magicDepletedEventType         = domain.NewEventName("MagicDepletedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -288,11 +319,35 @@ func (*CreatureDeployedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*TollPaidEvent) EventType() domain.EventName {
+	return tollPaidEventType
+}
+
+func (*TollPaidEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*TerritoryRelinquishedEvent) EventType() domain.EventName {
+	return territoryRelinquishedEventType
+}
+
+func (*TerritoryRelinquishedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*MagicDepletedEvent) EventType() domain.EventName {
+	return magicDepletedEventType
+}
+
+func (*MagicDepletedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
-		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType,
+		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 	}}
 }
 
@@ -335,6 +390,12 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &RewardsCompletedEvent{EventMeta: meta}
 	case EventType(creatureDeployedEventType):
 		event = &CreatureDeployedEvent{EventMeta: meta}
+	case EventType(tollPaidEventType):
+		event = &TollPaidEvent{EventMeta: meta}
+	case EventType(territoryRelinquishedEventType):
+		event = &TerritoryRelinquishedEvent{EventMeta: meta}
+	case EventType(magicDepletedEventType):
+		event = &MagicDepletedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

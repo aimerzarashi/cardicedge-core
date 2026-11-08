@@ -26,6 +26,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
 	case *DeployCreatureCommand:
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
+	case *RelinquishTerritoryCommand:
+		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
 		// 配置の段階でターンを終えるのが「配置しない」（専用の操作を作らない。2026-11-08 オーナー）
 		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhaseDeploying)
@@ -179,7 +181,59 @@ func advance(r *recorder) error {
 			return err
 		}
 	}
-	return nil
+	return payToll(r)
+}
+
+// 止まったのが他人の領地なら、通行料を払う（選べない。侵略との選択は core#114）
+func payToll(r *recorder) error {
+	if r.state.Phase != PhaseEnding {
+		return nil
+	}
+	territory, ok := r.state.TerritoryAt(r.current().Position)
+	if !ok {
+		return nil
+	}
+	owner, ok := r.state.TerritoryOwner(territory)
+	if !ok {
+		return ErrInvalidState
+	}
+	if by, _ := r.state.CurrentParticipant(); owner == by {
+		return nil
+	}
+	toll := r.state.TerritoryToll(territory)
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TollPaidEvent{EventMeta: meta, Participant: by, Owner: owner, Position: territory.Position, Magic: toll}
+	}); err != nil {
+		return err
+	}
+	return settleDebt(r)
+}
+
+// 手放す領地も無く負のままなら、魔力が枯渇して拠点からやり直し、ターンを終える。周回のボーナスも勝ちの判定も無い（2026-11-08 オーナー）
+func settleDebt(r *recorder) error {
+	if r.state.Phase != PhaseEnding || r.current().Magic >= 0 {
+		return nil
+	}
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: r.state.Rules.StartingMagic}
+	}); err != nil {
+		return err
+	}
+	return endTurn(r)
+}
+
+func relinquish(r *recorder, position board.Position) error {
+	if !slices.Contains(r.state.RelinquishChoices(), position) {
+		return ErrTerritoryNotRelinquishable
+	}
+	territory, _ := r.state.TerritoryAt(position)
+	magic := r.state.TerritoryRelinquishMagic(territory)
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: position, Creature: territory.Creature, Magic: magic}
+	}); err != nil {
+		return err
+	}
+	return settleDebt(r)
 }
 
 // 1 歩進み、入ったマスで起きること（通過でも停止でも同じ。拠点を出るときは何も起きない）を続ける
@@ -217,33 +271,34 @@ func enterBase(r *recorder) error {
 			return err
 		}
 	}
-	if r.current().Magic < r.state.Rules.TargetMagic {
+	winner, _ := r.state.CurrentParticipant()
+	if r.state.TotalMagics()[winner] < r.state.Rules.TargetMagic {
 		return nil
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Ranks: ranksWithWinner(r.state.Participants, by), Reason: EndReasonTargetMagic}
+		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Ranks: ranksWithWinner(r.state.TotalMagics(), by), Reason: EndReasonTargetMagic}
 	})
 }
 
-// 競技の順位（同じ魔力は同じ順位で、次は人数分あく。1, 2, 2, 4）。順位の決まりはここだけ
-func ranksByMagic(participants []ParticipantState) []int {
-	return ranksFrom(participants, 1, -1)
+// 競技の順位（同じ総魔力は同じ順位で、次は人数分あく。1, 2, 2, 4）。順位の決まりはここだけ
+func ranksByMagic(totals []int) []int {
+	return ranksFrom(totals, 1, -1)
 }
 
 // 目標の魔力で終わったときは、勝った人が 1 位で、ほかの人は勝った人を除いて 2 位から
-// （勝った人と同じ魔力の人も 2 位以下にするため、ranksByMagic は使えない）
-func ranksWithWinner(participants []ParticipantState, winner ParticipantIndex) []int {
-	ranks := ranksFrom(participants, 2, winner.Int())
+// （勝った人と同じ総魔力の人も 2 位以下にするため、ranksByMagic は使えない）
+func ranksWithWinner(totals []int, winner ParticipantIndex) []int {
+	ranks := ranksFrom(totals, 2, winner.Int())
 	ranks[winner.Int()] = 1
 	return ranks
 }
 
-func ranksFrom(participants []ParticipantState, first int, skip int) []int {
-	ranks := make([]int, len(participants))
-	for i, participant := range participants {
+func ranksFrom(totals []int, first int, skip int) []int {
+	ranks := make([]int, len(totals))
+	for i, total := range totals {
 		rank := first
-		for j, other := range participants {
-			if j != skip && other.Magic > participant.Magic {
+		for j, other := range totals {
+			if j != skip && other > total {
 				rank++
 			}
 		}
@@ -266,18 +321,19 @@ func endTurn(r *recorder) error {
 	lastInRound := r.state.Turn+1 >= len(r.state.TurnOrder)
 	if lastInRound && r.state.Round >= r.state.Rules.RoundLimit {
 		var winners []ParticipantIndex
+		totals := r.state.TotalMagics()
 		best := -1
-		for i, participant := range r.state.Participants {
+		for i, total := range totals {
 			switch {
-			case participant.Magic > best:
-				best = participant.Magic
+			case total > best:
+				best = total
 				winners = []ParticipantIndex{ParticipantIndex(i)}
-			case participant.Magic == best:
+			case total == best:
 				winners = append(winners, ParticipantIndex(i))
 			}
 		}
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Ranks: ranksByMagic(r.state.Participants), Reason: EndReasonRoundLimit}
+			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Ranks: ranksByMagic(totals), Reason: EndReasonRoundLimit}
 		})
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {

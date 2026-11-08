@@ -235,7 +235,7 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 	store := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
 	id, publicID, err := identifier.New(registry, match.NewID).Issue(ctx)
 	require.NoError(t, err)
-	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, roundLimit, 1, 6), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6), gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), match.DefaultRewardPacks())
+	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, roundLimit, 1, 6, 100), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6), gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), match.DefaultRewardPacks(), gamerules.Defaults().Match.LandLevelMultipliers, gamerules.Defaults().Match.ChainMultipliers, gamerules.Defaults().Match.TollPercentage, gamerules.Defaults().Match.RelinquishPercentage)
 	events, err := match.Decide(match.InitialState(), &match.StartCommand{
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
@@ -334,7 +334,7 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
 	require.NoError(t, err)
 	next := f.load(t)
-	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, next.Territories)
+	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1}}, next.Territories)
 	require.Equal(t, 600-10, next.Participants[0].Magic)
 	// 配置したらターンが終わり、NPC の番になる
 	require.Equal(t, match.PhaseRolling, next.Phase)

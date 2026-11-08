@@ -59,7 +59,9 @@ func TestMatchHandler_ChooseRewardPackDrawsTheCardsOfTheRankFromTheCandidates(t 
 	reward := after.Participants[0].Reward
 	require.NotNil(t, reward)
 	require.Equal(t, match.DefaultPackKey, reward.Pack)
-	require.Len(t, reward.Cards, 3)
+	// NPC が配置した領地の価値の分、総魔力で NPC が上になり、プレイヤーは 2 位の枚数を引く
+	require.Equal(t, []int{2, 1}, ended.Result.Ranks)
+	require.Len(t, reward.Cards, 2)
 	candidates, err := rewardCandidates(t)(f.ctx)
 	require.NoError(t, err)
 	for _, drawn := range reward.Cards {

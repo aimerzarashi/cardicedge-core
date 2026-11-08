@@ -491,6 +491,8 @@ type BoardDefaultRules struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上。登録した直後は 6）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元。登録した直後は 100）
+	BaseLandValue int `json:"baseLandValue"`
 }
 
 // ボードの一覧の絞り込み
@@ -776,7 +778,7 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
-// ボードの既定のルールを変える入力（変えた後の 7 つの値の全体）
+// ボードの既定のルールを変える入力（変えた後の 8 つの値の全体）
 type ChangeBoardDefaultRulesInput struct {
 	// ボードの公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -796,6 +798,8 @@ type ChangeBoardDefaultRulesInput struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上でなければ入力の誤り）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上）
+	BaseLandValue int `json:"baseLandValue"`
 }
 
 // ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）

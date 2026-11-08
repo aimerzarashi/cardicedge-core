@@ -77,6 +77,7 @@ type ComplexityRoot struct {
 	}
 
 	BoardDefaultRules struct {
+		BaseLandValue   func(childComplexity int) int
 		CheckpointBonus func(childComplexity int) int
 		DiceMax         func(childComplexity int) int
 		DiceMin         func(childComplexity int) int
@@ -1094,6 +1095,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BoardConnection.B(childComplexity), true
 
+	case "BoardDefaultRules.baseLandValue":
+		if e.ComplexityRoot.BoardDefaultRules.BaseLandValue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.BaseLandValue(childComplexity), true
 	case "BoardDefaultRules.checkpointBonus":
 		if e.ComplexityRoot.BoardDefaultRules.CheckpointBonus == nil {
 			break
@@ -3973,6 +3980,8 @@ func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, f
 		return ec.fieldContext_BoardDefaultRules_diceMin(ctx, field)
 	case "diceMax":
 		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
+	case "baseLandValue":
+		return ec.fieldContext_BoardDefaultRules_baseLandValue(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
 }
@@ -6228,6 +6237,29 @@ func (ec *executionContext) _BoardDefaultRules_diceMax(ctx context.Context, fiel
 	)
 }
 func (ec *executionContext) fieldContext_BoardDefaultRules_diceMax(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _BoardDefaultRules_baseLandValue(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_baseLandValue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BaseLandValue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_baseLandValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
 }
 
@@ -17644,7 +17676,7 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax"}
+	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax", "baseLandValue"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -17714,6 +17746,13 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 				return it, err
 			}
 			it.DiceMax = data
+		case "baseLandValue":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("baseLandValue"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BaseLandValue = data
 		}
 	}
 	return it, nil
@@ -24099,6 +24138,11 @@ func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.Sele
 			}
 		case "diceMax":
 			out.Values[i] = ec._BoardDefaultRules_diceMax(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "baseLandValue":
+			out.Values[i] = ec._BoardDefaultRules_baseLandValue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

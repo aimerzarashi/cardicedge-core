@@ -30,13 +30,14 @@ const (
 type MatchPhase string
 
 const (
-	MatchPhaseDrawing      MatchPhase = "drawing"
-	MatchPhaseDiscarding   MatchPhase = "discarding"
-	MatchPhaseRolling      MatchPhase = "rolling"
-	MatchPhaseChoosingPath MatchPhase = "choosing_path"
-	MatchPhaseDeploying    MatchPhase = "deploying"
-	MatchPhaseEnding       MatchPhase = "ending"
-	MatchPhaseEnded        MatchPhase = "ended"
+	MatchPhaseDrawing       MatchPhase = "drawing"
+	MatchPhaseDiscarding    MatchPhase = "discarding"
+	MatchPhaseRolling       MatchPhase = "rolling"
+	MatchPhaseChoosingPath  MatchPhase = "choosing_path"
+	MatchPhaseDeploying     MatchPhase = "deploying"
+	MatchPhaseRelinquishing MatchPhase = "relinquishing"
+	MatchPhaseEnding        MatchPhase = "ending"
+	MatchPhaseEnded         MatchPhase = "ended"
 )
 
 type MatchEndReason string
@@ -83,17 +84,25 @@ type MatchPlayRules struct {
 	RoundLimit        int
 	DiceMin           int
 	DiceMax           int
+	BaseLandValue     int
 	MaxHandCards      int
 	StartingHandCards int
+	// 土地のレベル・連鎖の数ごとの倍率と、通行料・手放すときの割合
+	LandLevelMultipliers []int
+	ChainMultipliers     []int
+	TollPercentage       int
+	RelinquishPercentage int
 }
 
 // 参加者 1 人。山札は並びも中身も見せず、枚数だけを持つ。TurnOrder は順番の何番目か（0 始まり）
 type MatchParticipant struct {
-	Kind          MatchParticipantKind
-	Player        *uuid.UUID
-	Avatar        RoomNamed
-	Position      BoardPosition
-	Magic         int
+	Kind     MatchParticipantKind
+	Player   *uuid.UUID
+	Avatar   RoomNamed
+	Position BoardPosition
+	Magic    int
+	// 手持ちの魔力 ＋ 自分の領地の価値の合計
+	TotalMagic    int
 	Hand          []MatchCard
 	DrawPileCount int
 	TurnOrder     int
@@ -117,6 +126,11 @@ type MatchTerritory struct {
 	Position BoardPosition
 	Owner    int
 	Creature MatchDeployedCreature
+	Level    int
+	// 今の価値（連鎖を含む）・他人が止まったときの通行料・手放したときに受け取る魔力
+	Value           int
+	Toll            int
+	RelinquishMagic int
 }
 
 // 戦利品に選べるパック。キーを選ぶ操作に渡す
@@ -142,6 +156,8 @@ type Match struct {
 	PathChoices []BoardPosition
 	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
 	DeployChoices []int
+	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
+	RelinquishChoices []BoardPosition
 	// 領地（できた順）
 	Territories []MatchTerritory
 	// 終わるまでは nil
@@ -238,10 +254,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	}
 	var avatarIDs, npcAvatarIDs, cardIDs []uuid.UUID
 	participants := make([]MatchParticipant, len(current.Participants))
+	totals := current.TotalMagics()
 	for i, participant := range current.Participants {
 		converted := MatchParticipant{
-			Position: BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
-			Magic:    participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
+			Position:   BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
+			TotalMagic: totals[i],
+			Magic:      participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
 			PassedCheckpoints: fromBoardPositions(participant.PassedCheckpoints),
 		}
 		switch {
@@ -343,7 +361,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
-		DeployChoices: []int{}, Territories: []MatchTerritory{},
+		DeployChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 	}
 	for _, territory := range current.Territories {
 		deployed, ok := current.DeployedCreature(territory.Creature)
@@ -359,6 +377,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		result.Territories = append(result.Territories, MatchTerritory{
 			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Owner: deployed.Owner.Int(),
 			Creature: MatchDeployedCreature{ID: deployed.ID.Int(), Card: card, HitPoints: deployed.HitPoints.Int()},
+			Level:    territory.Level, Value: current.TerritoryValue(territory), Toll: current.TerritoryToll(territory), RelinquishMagic: current.TerritoryRelinquishMagic(territory),
 		})
 	}
 	for i, participant := range current.Participants {
@@ -409,6 +428,8 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseChoosingPath, nil
 	case match.PhaseDeploying:
 		return MatchPhaseDeploying, nil
+	case match.PhaseRelinquishing:
+		return MatchPhaseRelinquishing, nil
 	case match.PhaseEnding:
 		return MatchPhaseEnding, nil
 	case match.PhaseEnded:
@@ -446,8 +467,10 @@ func fromBoardPositions(positions []board.Position) []BoardPosition {
 func fromMatchPlayRules(rules match.Rules) MatchPlayRules {
 	return MatchPlayRules{
 		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
 		MaxHandCards: rules.MaxHandCards.Int(), StartingHandCards: rules.StartingHandCards.Int(),
+		LandLevelMultipliers: slices.Clone(rules.LandLevelMultipliers), ChainMultipliers: slices.Clone(rules.ChainMultipliers),
+		TollPercentage: rules.TollPercentage.Int(), RelinquishPercentage: rules.RelinquishPercentage.Int(),
 	}
 }
 

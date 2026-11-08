@@ -80,7 +80,7 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		require.Equal(t, readmodel.BoardDefaultRules{
 			TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
 			LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
-			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax,
+			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax, BaseLandValue: b.DefaultRules.BaseLandValue,
 		}, board.DefaultRules)
 	}
 	npcAvatars, err := s.listNPCAvatars(ctx)

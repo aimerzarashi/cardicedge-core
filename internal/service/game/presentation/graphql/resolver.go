@@ -92,6 +92,7 @@ type Matches interface {
 	Roll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
 	Deploy(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
 	EndTurn(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChooseRewardPack(ctx context.Context, id uuid.UUID, revision int64, pack string) (command.ChangedMatch, error)
 }

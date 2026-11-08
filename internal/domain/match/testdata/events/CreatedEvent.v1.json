@@ -98,6 +98,7 @@
     "round_limit": 30,
     "dice_min": 1,
     "dice_max": 6,
+    "base_land_value": 100,
     "max_hand_cards": 6,
     "starting_hand_cards": 5,
     "reward_cards_by_rank": [
@@ -111,6 +112,10 @@
         "key": "default",
         "name": "通常パック"
       }
-    ]
+    ],
+    "land_level_multipliers": [1, 2, 4, 8, 16],
+    "chain_multipliers": [100, 150, 200, 250, 300],
+    "toll_percentage": 60,
+    "relinquish_percentage": 80
   }
 }

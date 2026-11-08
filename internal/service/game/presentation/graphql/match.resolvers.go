@@ -99,6 +99,24 @@ func (r *mutationResolver) DeployMatchCreature(ctx context.Context, input model.
 	return &model.DeployMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// RelinquishMatchTerritory is the resolver for the relinquishMatchTerritory field.
+func (r *mutationResolver) RelinquishMatchTerritory(ctx context.Context, input model.RelinquishMatchTerritoryInput) (model.RelinquishMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.RelinquishTerritory(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.RelinquishMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.RelinquishMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // EndMatchTurn is the resolver for the endMatchTurn field.
 func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

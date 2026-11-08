@@ -56,7 +56,7 @@ func fromQueryBoard(board query.Board) (*model.Board, error) {
 func fromBoardDefaultRules(rules readmodel.BoardDefaultRules) *model.BoardDefaultRules {
 	return &model.BoardDefaultRules{
 		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
 	}
 }
 

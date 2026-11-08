@@ -89,12 +89,13 @@ type BoardDefaultRulesInput struct {
 	RoundLimit      int
 	DiceMin         int
 	DiceMax         int
+	BaseLandValue   int
 }
 
-func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRulesInput {
+func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) BoardDefaultRulesInput {
 	return BoardDefaultRulesInput{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
 	}
 }
 
@@ -438,7 +439,7 @@ func newLayout(rules board.SizeRange, layoutInput BoardLayoutInput) (board.Layou
 // 決まりは board.NewDefaultRules にあり、ここは違反を入力の項目のパスに写すだけ。誤りはまとめて input.Errors で返す
 func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules, error) {
 	rules, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus,
-		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax)
+		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
 	if err == nil {
 		return rules, nil
 	}
@@ -466,6 +467,9 @@ func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules
 	}
 	if errors.Is(err, board.ErrDiceMaxNotGreaterThanDiceMin) {
 		invalid = append(invalid, &input.NotGreaterThan{Field: "diceMax", Than: "diceMin"})
+	}
+	if errors.Is(err, board.ErrBaseLandValueTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "baseLandValue", Min: 1})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）

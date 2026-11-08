@@ -92,6 +92,7 @@ func TestRoom_ContinuingAfterTheMatchReturnsToPreparingAndStartsTheSecondMatch(t
 
 	rules := p.rulesInput(roomID, revision, p.board["id"])
 	rules["diceMax"] = 6
+	rules["baseLandValue"] = 100
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomMatchRules", rules), "changeRoomMatchRules")
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
 		"id": roomID, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.otherDeck,

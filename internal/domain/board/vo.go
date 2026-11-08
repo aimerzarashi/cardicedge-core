@@ -114,6 +114,7 @@ const (
 	DefaultRoundLimit      = 30
 	DefaultDiceMin         = 1
 	DefaultDiceMax         = 6
+	DefaultBaseLandValue   = 100
 )
 
 // 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
@@ -130,10 +131,12 @@ type DefaultRules struct {
 	// サイコロの目の最小・最大
 	DiceMin int `json:"dice_min"`
 	DiceMax int `json:"dice_max"`
+	// 土地の基本の値（レベルと連鎖の倍率を掛ける元）
+	BaseLandValue int `json:"base_land_value"`
 }
 
 // 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) (DefaultRules, error) {
+func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) (DefaultRules, error) {
 	var errs []error
 	if targetMagic < 1 {
 		errs = append(errs, ErrTargetMagicTooSmall)
@@ -153,6 +156,9 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	if diceMin < 1 {
 		errs = append(errs, ErrDiceMinTooSmall)
 	}
+	if baseLandValue < 1 {
+		errs = append(errs, ErrBaseLandValueTooSmall)
+	}
 	// 下限を割った値と比べても意味がないので、下限を満たすときだけ比べる
 	if startingMagic >= 0 && targetMagic <= startingMagic {
 		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
@@ -166,7 +172,7 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	}
 	return DefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
 	}, nil
 }
 
@@ -175,7 +181,7 @@ func InitialDefaultRules() DefaultRules {
 	return DefaultRules{
 		TargetMagic: DefaultTargetMagic, StartingMagic: DefaultStartingMagic,
 		LapBonus: DefaultLapBonus, CheckpointBonus: DefaultCheckpointBonus,
-		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax,
+		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax, BaseLandValue: DefaultBaseLandValue,
 	}
 }
 

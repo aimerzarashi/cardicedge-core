@@ -50,7 +50,7 @@ type CardResult interface {
 }
 
 // changeRoomMatchRules の結果（公開前、または公開前に決めていなければ準備中。決めるのは作った人）。
-// 入力の誤りは ValidationErrors（段階ごと。7 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
+// 入力の誤りは ValidationErrors（段階ごと。8 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
 type ChangeRoomMatchRulesResult interface {
 	IsChangeRoomMatchRulesResult()
 }
@@ -193,6 +193,11 @@ type RegisterPlayerResult interface {
 	IsRegisterPlayerResult()
 }
 
+// relinquishMatchTerritory の結果（RELINQUISHING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type RelinquishMatchTerritoryResult interface {
+	IsRelinquishMatchTerritoryResult()
+}
+
 // renameRoom の結果（作った人だけ。閉じる前まで。公開の後にも変えられる。閉じた部屋は RoomStatusNotAllowedError）
 type RenameRoomResult interface {
 	IsRenameRoomResult()
@@ -304,6 +309,8 @@ type BoardDefaultRules struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（レベルと連鎖の倍率を掛ける元）
+	BaseLandValue int `json:"baseLandValue"`
 }
 
 // 公開中のボードが無い（公開中でないものを含む）
@@ -430,7 +437,7 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
-// 対戦ルールを決める入力。7 つの値の名前と決まりは、ボードの既定のルールと同じ
+// 対戦ルールを決める入力。8 つの値の名前と決まりは、ボードの既定のルールと同じ
 type ChangeRoomMatchRulesInput struct {
 	// 部屋の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -452,6 +459,8 @@ type ChangeRoomMatchRulesInput struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）
+	BaseLandValue int `json:"baseLandValue"`
 }
 
 // 対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）
@@ -1002,6 +1011,8 @@ type Match struct {
 	PathChoices []*BoardPosition `json:"pathChoices"`
 	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）
 	DeployChoices []int `json:"deployChoices"`
+	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
+	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
 	// 盤面の領地（できた順）
 	Territories []*MatchTerritory `json:"territories"`
 	// 対戦の結果（終わるまでは null）
@@ -1261,6 +1272,26 @@ func (this MatchLapCompletedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// 領地が無くなっても魔力が負のままだったので、拠点からやり直す（手札と山札はそのまま）
+type MatchMagicDepletedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 枯渇した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 与えられた魔力（開始時の魔力）
+	Magic int `json:"magic"`
+}
+
+func (MatchMagicDepletedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchMagicDepletedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchMagicDepletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
 // 1 マス進んだ
 type MatchMovedEvent struct {
 	// 対戦の版
@@ -1299,6 +1330,8 @@ func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
 func (MatchNotFoundError) IsDeployMatchCreatureResult() {}
 
+func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
+
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
 
 func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
@@ -1323,6 +1356,8 @@ func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
 
 func (MatchNotYourTurnError) IsDeployMatchCreatureResult() {}
 
+func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
+
 func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
 
 // 対戦の結果。終わった対戦だけが持つ
@@ -1345,8 +1380,10 @@ type MatchParticipant struct {
 	Avatar *MatchAvatar `json:"avatar"`
 	// 今いるマスの位置（始めた時点は拠点）
 	Position *BoardPosition `json:"position"`
-	// 魔力
+	// 手持ちの魔力（通行料を払った直後は負になることがある）
 	Magic int `json:"magic"`
+	// 総魔力（手持ちの魔力 ＋ 自分の領地の価値の合計。勝ちと順位はこれで決まる）
+	TotalMagic int `json:"totalMagic"`
 	// 手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）
 	Hand []CardInfo `json:"hand"`
 	// 山札の残りの枚数。並びと中身は見せない
@@ -1377,11 +1414,13 @@ func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
 
 func (MatchPhaseNotAllowedError) IsDeployMatchCreatureResult() {}
 
+func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
+
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
 func (MatchPhaseNotAllowedError) IsChooseMatchRewardPackResult() {}
 
-// 対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
+// 対戦のルール。始めた時点の写し（部屋の対戦ルールの 8 つの値と、全体のルール MatchRules の手札の決まり）。
 // 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
 type MatchPlayRules struct {
 	// 届いて拠点に戻ると勝ちになる魔力
@@ -1398,10 +1437,20 @@ type MatchPlayRules struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値。レベルと連鎖の倍率を掛ける元
+	BaseLandValue int `json:"baseLandValue"`
 	// 手札の上限
 	MaxHandCards int `json:"maxHandCards"`
 	// 始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
+	// 土地のレベルごとの倍率（レベル 1 から）
+	LandLevelMultipliers []int `json:"landLevelMultipliers"`
+	// 連鎖の数ごとの倍率（百分率。1 つから。数が一覧より多ければ最後の値）
+	ChainMultipliers []int `json:"chainMultipliers"`
+	// 通行料の割合（土地の価値に対する百分率）
+	TollPercentage int `json:"tollPercentage"`
+	// 手放すときの割合（土地の価値に対する百分率）
+	RelinquishPercentage int `json:"relinquishPercentage"`
 }
 
 // 対戦の進み。画面は手元の版（revision）と比べ、進んでいれば matchEvents で差分を、match で今の状態を読む。
@@ -1491,7 +1540,63 @@ type MatchTerritory struct {
 	Owner int `json:"owner"`
 	// そこにいるクリーチャー
 	Creature *MatchDeployedCreature `json:"creature"`
+	// 土地のレベル（1 始まり）
+	Level int `json:"level"`
+	// 土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
+	Value int `json:"value"`
+	// 他人が止まったときに払う通行料
+	Toll int `json:"toll"`
+	// 手放したときに受け取る魔力
+	RelinquishMagic int `json:"relinquishMagic"`
 }
+
+// 魔力が負の間に自分の領地を手放した（クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る）
+type MatchTerritoryRelinquishedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 手放した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 手放した領地の位置
+	Position *BoardPosition `json:"position"`
+	// 盤面から外れたクリーチャーの ID
+	Creature int `json:"creature"`
+	// 受け取った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchTerritoryRelinquishedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTerritoryRelinquishedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTerritoryRelinquishedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）
+type MatchTollPaidEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 払った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 受け取った参加者（領地の持ち主）
+	Owner int `json:"owner"`
+	// 止まった領地の位置
+	Position *BoardPosition `json:"position"`
+	// 払った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchTollPaidEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTollPaidEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTollPaidEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // ターンを終えた
 type MatchTurnEndedEvent struct {
@@ -1636,6 +1741,8 @@ func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
 
 func (PlayerNotRegisteredError) IsDeployMatchCreatureResult() {}
 
+func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
+
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
 
 func (PlayerNotRegisteredError) IsChooseMatchRewardPackResult() {}
@@ -1731,6 +1838,26 @@ type RegisterPlayerSuccess struct {
 
 func (RegisterPlayerSuccess) IsRegisterPlayerResult() {}
 
+// 魔力が負の間に、自分の領地を手放す入力
+type RelinquishMatchTerritoryInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 手放す領地の位置（Match.relinquishChoices の中から選ぶ。手放せないものは ValidationErrors の FieldNotFound）
+	Position *BoardPositionInput `json:"position"`
+}
+
+// 領地を手放した（魔力が負のままで手放す領地が残っていれば、続けて手放す。成功したら対戦の revision が進む）
+type RelinquishMatchTerritorySuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (RelinquishMatchTerritorySuccess) IsRelinquishMatchTerritoryResult() {}
+
 // 部屋の名前を変える入力
 type RenameRoomInput struct {
 	// 部屋の公開用の ID
@@ -1785,6 +1912,8 @@ func (RevisionConflictError) IsRollMatchDiceResult() {}
 func (RevisionConflictError) IsChooseMatchPathResult() {}
 
 func (RevisionConflictError) IsDeployMatchCreatureResult() {}
+
+func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsEndMatchTurnResult() {}
 
@@ -1893,7 +2022,7 @@ type RoomMatch struct {
 	Number int `json:"number"`
 }
 
-// 部屋の対戦ルール。ボードと 7 つの値で、7 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
+// 部屋の対戦ルール。ボードと 8 つの値で、8 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
 // 部屋では既定ではなく、ボードごと決める値なので、入れ子にせず並べる
 type RoomMatchRules struct {
 	// ボード（作った人が解放した公開中のもの）
@@ -1912,6 +2041,8 @@ type RoomMatchRules struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）
+	BaseLandValue int `json:"baseLandValue"`
 }
 
 // アバター・デッキ・ボードを、公開用の ID と名前で見せる値（名前は読むときに引く）
@@ -2138,6 +2269,8 @@ func (ValidationErrors) IsDiscardMatchCardResult() {}
 func (ValidationErrors) IsChooseMatchPathResult() {}
 
 func (ValidationErrors) IsDeployMatchCreatureResult() {}
+
+func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
 
 func (ValidationErrors) IsChooseMatchRewardPackResult() {}
 
@@ -2562,6 +2695,8 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// 空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
 	MatchPhaseDeploying MatchPhase = "DEPLOYING"
+	// 通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）
+	MatchPhaseRelinquishing MatchPhase = "RELINQUISHING"
 	// ターンを終える段階（endMatchTurn）
 	MatchPhaseEnding MatchPhase = "ENDING"
 	// 対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）
@@ -2574,13 +2709,14 @@ var AllMatchPhase = []MatchPhase{
 	MatchPhaseRolling,
 	MatchPhaseChoosingPath,
 	MatchPhaseDeploying,
+	MatchPhaseRelinquishing,
 	MatchPhaseEnding,
 	MatchPhaseEnded,
 }
 
 func (e MatchPhase) IsValid() bool {
 	switch e {
-	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseEnding, MatchPhaseEnded:
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
 		return true
 	}
 	return false

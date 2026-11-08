@@ -55,6 +55,8 @@ type DeployedCreature struct {
 type Territory struct {
 	Position board.Position
 	Creature DeployedCreatureID
+	// 土地のレベル（1 始まり）。上げる操作は core#115
+	Level int
 }
 
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
@@ -210,6 +212,105 @@ func (m Match) DeployChoices() []int {
 		}
 	}
 	return choices
+}
+
+// 今の番の人が手放せる領地の位置（できた順）。手放す段階でだけ中身がある
+func (m Match) RelinquishChoices() []board.Position {
+	index, ok := m.CurrentParticipant()
+	if m.Phase != PhaseRelinquishing || !ok {
+		return nil
+	}
+	var choices []board.Position
+	for _, territory := range m.territoriesOf(index) {
+		choices = append(choices, territory.Position)
+	}
+	return choices
+}
+
+// 手放せる領地のうち、価値が最も低いものの位置。同じ価値なら先にできた領地（2026-11-08 オーナー。NPC の選び方）
+func (m Match) LowestValueRelinquishChoice() (board.Position, bool) {
+	var lowest *Territory
+	for _, position := range m.RelinquishChoices() {
+		territory, ok := m.TerritoryAt(position)
+		if ok && (lowest == nil || m.TerritoryValue(territory) < m.TerritoryValue(*lowest)) {
+			lowest = &territory
+		}
+	}
+	if lowest == nil {
+		return board.Position{}, false
+	}
+	return lowest.Position, true
+}
+
+func (m Match) territoriesOf(index ParticipantIndex) []Territory {
+	var owned []Territory
+	for _, territory := range m.Territories {
+		if owner, ok := m.TerritoryOwner(territory); ok && owner == index {
+			owned = append(owned, territory)
+		}
+	}
+	return owned
+}
+
+// 領地の持ち主。そこにいるクリーチャーの持ち主
+func (m Match) TerritoryOwner(territory Territory) (ParticipantIndex, bool) {
+	deployed, ok := m.DeployedCreature(territory.Creature)
+	return deployed.Owner, ok
+}
+
+func (m Match) landElement(position board.Position) board.Element {
+	for _, tile := range m.Board.Tiles {
+		if tile.Position == position {
+			return tile.Element
+		}
+	}
+	return ""
+}
+
+// 同じ持ち主の、同じ属性の土地の数（自分を含む）。保存せず、そのたびに数える（領地が増減するたびに持ち主の全部の領地を書き直さないため）。
+// 複は連鎖しない（2026-11-08 オーナー）
+func (m Match) chainCount(territory Territory) int {
+	element := m.landElement(territory.Position)
+	owner, ok := m.TerritoryOwner(territory)
+	if !ok || element == board.ElementMulti {
+		return 1
+	}
+	count := 0
+	for _, other := range m.territoriesOf(owner) {
+		if m.landElement(other.Position) == element {
+			count++
+		}
+	}
+	return count
+}
+
+// 土地の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
+func (m Match) TerritoryValue(territory Territory) int {
+	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(territory.Level) * m.Rules.chainMultiplier(m.chainCount(territory)) / 100
+}
+
+// 他人が止まったときに払う魔力（端数は切り捨て）
+func (m Match) TerritoryToll(territory Territory) int {
+	return m.TerritoryValue(territory) * m.Rules.TollPercentage.Int() / 100
+}
+
+// 手放したときに受け取る魔力（端数は切り捨て）
+func (m Match) TerritoryRelinquishMagic(territory Territory) int {
+	return m.TerritoryValue(territory) * m.Rules.RelinquishPercentage.Int() / 100
+}
+
+// 席の順の総魔力（手持ちの魔力 ＋ 自分の領地の価値の合計）。勝ちと順位はこれで決める
+func (m Match) TotalMagics() []int {
+	totals := make([]int, len(m.Participants))
+	for i, participant := range m.Participants {
+		totals[i] = participant.Magic
+	}
+	for _, territory := range m.Territories {
+		if owner, ok := m.TerritoryOwner(territory); ok && int(owner) < len(totals) {
+			totals[owner] += m.TerritoryValue(territory)
+		}
+	}
+	return totals
 }
 
 // 止まったマスが、まだ誰の領地でもない土地か

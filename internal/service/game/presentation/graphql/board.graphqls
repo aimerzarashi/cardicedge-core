@@ -78,6 +78,8 @@ type BoardDefaultRules {
   diceMin: Int!
   "サイコロの目の最大"
   diceMax: Int!
+  "土地の基本の値（レベルと連鎖の倍率を掛ける元）"
+  baseLandValue: Int!
 }
 
 """

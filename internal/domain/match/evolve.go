@@ -123,9 +123,53 @@ func Evolve(state State, event Event) (State, error) {
 		current.DeployedCreatures = append(slices.Clone(current.DeployedCreatures), DeployedCreature{
 			ID: e.Creature, Card: e.Card, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints,
 		})
-		current.Territories = append(slices.Clone(current.Territories), Territory{Position: e.Position, Creature: e.Creature})
+		current.Territories = append(slices.Clone(current.Territories), Territory{Position: e.Position, Creature: e.Creature, Level: 1})
 		current.LastDeployedCreatureID = e.Creature
 		current.Phase = PhaseEnding
+	case *TollPaidEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		if current.Phase != PhaseEnding || e.Position != current.Participants[index].Position ||
+			e.Owner < 0 || int(e.Owner) >= len(current.Participants) || e.Owner == index {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic -= e.Magic
+		current.Participants[e.Owner].Magic += e.Magic
+		current.Phase = current.debtPhase(index)
+	case *TerritoryRelinquishedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok || current.Phase != PhaseRelinquishing || territory.Creature != e.Creature {
+			return state, ErrInvalidState
+		}
+		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic += e.Magic
+		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
+		current.DeployedCreatures = slices.DeleteFunc(slices.Clone(current.DeployedCreatures), func(d DeployedCreature) bool { return d.ID == e.Creature })
+		current.Phase = current.debtPhase(index)
+	case *MagicDepletedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		base, ok := current.Board.base()
+		if !ok || current.Phase != PhaseEnding || current.Participants[index].Magic >= 0 || len(current.territoriesOf(index)) > 0 {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic = e.Magic
+		current.Participants[index].Position = base
+		current.Participants[index].Previous = nil
+		current.Participants[index].PassedCheckpoints = nil
 	case *TurnEndedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
@@ -206,6 +250,14 @@ func (m Match) settle() Phase {
 	default:
 		return PhaseMoving
 	}
+}
+
+// 払った・手放した後の段階。負のままで手放せる領地があれば手放す。領地が無く負のままなら Decide が魔力の枯渇を続ける
+func (m Match) debtPhase(index ParticipantIndex) Phase {
+	if m.Participants[index].Magic < 0 && len(m.territoriesOf(index)) > 0 {
+		return PhaseRelinquishing
+	}
+	return PhaseEnding
 }
 
 // 止まったマスで次にすること。空いている土地なら配置を選ぶ（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）
