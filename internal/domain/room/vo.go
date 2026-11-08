@@ -217,7 +217,7 @@ func (c SeatChoice) equal(other SeatChoice) bool {
 	}
 }
 
-// 部屋の対戦ルール。ボードと、ボードの既定のルール（board.DefaultRules）と同じ名前と決まりの 7 つの値。
+// 部屋の対戦ルール。ボードと、ボードの既定のルール（board.DefaultRules）と同じ名前と決まりの 8 つの値。
 // 部屋では既定ではないので入れ子にせず並べる。ボードとルールを 1 つにするのは、ルールはボードの既定を写して変えるもので、
 // ボードを変えると前のルールが意味を失うため。決まりは board.NewDefaultRules に 1 つだけ置く
 type MatchRules struct {
@@ -229,16 +229,17 @@ type MatchRules struct {
 	RoundLimit      int      `json:"round_limit"`
 	DiceMin         int      `json:"dice_min"`
 	DiceMax         int      `json:"dice_max"`
+	BaseLandValue   int      `json:"base_land_value"`
 }
 
 // 違反は board.NewDefaultRules のエラー（errors.Join）のまま返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewMatchRules(boardID board.ID, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) (MatchRules, error) {
-	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax)
+func NewMatchRules(boardID board.ID, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) (MatchRules, error) {
+	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue)
 	if err != nil {
 		return MatchRules{}, err
 	}
 	return MatchRules{
 		Board: boardID, TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus,
-		CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+		CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
 	}, nil
 }

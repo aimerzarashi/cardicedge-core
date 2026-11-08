@@ -100,6 +100,31 @@ type MatchEndedEvent struct {
 	Reason  MatchEndReason
 }
 
+// 他人の領地に止まって通行料を払った（足りなくても全額。魔力は負になる）。Owner は受け取った参加者の番号
+type MatchTollPaidEvent struct {
+	MatchEventMeta
+	Participant int
+	Owner       int
+	Position    BoardPosition
+	Magic       int
+}
+
+// 魔力が負の間に自分の領地を手放した。Magic は受け取った魔力
+type MatchTerritoryRelinquishedEvent struct {
+	MatchEventMeta
+	Participant int
+	Position    BoardPosition
+	Creature    int
+	Magic       int
+}
+
+// 領地が無くなっても魔力が負のままで、拠点からやり直す。Magic は与えられた開始時の魔力
+type MatchMagicDepletedEvent struct {
+	MatchEventMeta
+	Participant int
+	Magic       int
+}
+
 // 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）。Creature は配置したクリーチャーの ID（Match.territories と同じ番号）
 type MatchCreatureDeployedEvent struct {
 	MatchEventMeta
@@ -280,6 +305,12 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard) (Ma
 		return MatchRewardDrawnEvent{meta, e.Participant.Int(), string(e.Pack), drawn}, nil
 	case *match.RewardsCompletedEvent:
 		return MatchRewardsCompletedEvent{meta}, nil
+	case *match.TollPaidEvent:
+		return MatchTollPaidEvent{meta, e.Participant.Int(), e.Owner.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Magic}, nil
+	case *match.TerritoryRelinquishedEvent:
+		return MatchTerritoryRelinquishedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int(), e.Magic}, nil
+	case *match.MagicDepletedEvent:
+		return MatchMagicDepletedEvent{meta, e.Participant.Int(), e.Magic}, nil
 	case *match.CreatureDeployedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchCreatureDeployedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), position, e.Cost.Int()}, nil

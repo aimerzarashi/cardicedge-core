@@ -90,6 +90,8 @@ type BoardDefaultRules {
   diceMin: Int!
   "サイコロの目の最大（最小以上。登録した直後は 6）"
   diceMax: Int!
+  "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元。登録した直後は 100）"
+  baseLandValue: Int!
 }
 
 # 準備中から使用不可へ直接は移れず、公開中から準備中へも戻れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、
@@ -546,7 +548,7 @@ union ChangeBoardLayoutResult =
   | RevisionConflictError
   | ForbiddenError
 
-"ボードの既定のルールを変える入力（変えた後の 7 つの値の全体）"
+"ボードの既定のルールを変える入力（変えた後の 8 つの値の全体）"
 input ChangeBoardDefaultRulesInput {
   "ボードの公開用の ID"
   id: UUID!
@@ -566,6 +568,8 @@ input ChangeBoardDefaultRulesInput {
   diceMin: Int!
   "サイコロの目の最大（最小以上でなければ入力の誤り）"
   diceMax: Int!
+  "土地の基本の値（1 以上）"
+  baseLandValue: Int!
 }
 
 "ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）"
@@ -577,7 +581,7 @@ type ChangeBoardDefaultRulesSuccess {
 }
 
 # 入力の誤りの項目: targetMagic（FieldTooSmall。開始時の魔力以下なら FieldNotGreaterThan で相手は startingMagic）、
-# startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin（FieldTooSmall）、diceMax（最小以下なら FieldNotGreaterThan で相手は diceMin。
+# startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin・baseLandValue（FieldTooSmall）、diceMax（最小以下なら FieldNotGreaterThan で相手は diceMin。
 # 最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため、等しいのも誤り）。上限は持たない
 "ボードの既定のルールの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
 union ChangeBoardDefaultRulesResult =

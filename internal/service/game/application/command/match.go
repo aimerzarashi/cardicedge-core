@@ -86,6 +86,9 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	if len(gameRules.Match.RewardCardsByRank) == 0 {
 		return fmt.Errorf("match start: game rules have no reward cards by rank: %w", rules.ErrNotPublished)
 	}
+	if len(gameRules.Match.LandLevelMultipliers) == 0 || len(gameRules.Match.ChainMultipliers) == 0 {
+		return fmt.Errorf("match start: game rules have no land multipliers: %w", rules.ErrNotPublished)
+	}
 	participants := make([]match.Participant, len(current.Seats))
 	for i, seat := range current.Seats {
 		if participants[i], err = c.participant(ctx, seat, gameRules.Deck.MaxCardDuplicates); err != nil {
@@ -98,13 +101,14 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	}
 	values := current.MatchRules
 	defaultRules, err := board.NewDefaultRules(values.TargetMagic, values.StartingMagic, values.LapBonus, values.CheckpointBonus,
-		values.RoundLimit, values.DiceMin, values.DiceMax)
+		values.RoundLimit, values.DiceMin, values.DiceMax, values.BaseLandValue)
 	if err != nil {
 		return err
 	}
 	cmd := &match.StartCommand{
 		ID: matchID, Participants: participants, Board: snapshot,
-		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks()),
+		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks(),
+			gameRules.Match.LandLevelMultipliers, gameRules.Match.ChainMultipliers, gameRules.Match.TollPercentage, gameRules.Match.RelinquishPercentage),
 	}
 	random := c.newRandom()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
@@ -286,6 +290,17 @@ func (c *MatchHandler) Deploy(ctx context.Context, id uuid.UUID, revision int64,
 	})
 }
 
+// 魔力が負の間に、自分の領地を 1 つ手放す。手放せない位置（自分の領地でない）は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.RelinquishTerritoryCommand{By: by, Position: position}, nil
+	})
+}
+
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
@@ -390,6 +405,8 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
 	case errors.Is(err, match.ErrCreatureNotDeployable):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
+	case errors.Is(err, match.ErrTerritoryNotRelinquishable):
+		return input.Errors{&input.NotFound{Field: "position"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
 	case errors.Is(err, match.ErrRewardAlreadyReceived):
@@ -482,6 +499,12 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return &match.DeployCreatureCommand{By: by, HandIndex: choices[0]}, nil
 		}
 		return &match.EndTurnCommand{By: by}, nil
+	case match.PhaseRelinquishing:
+		position, ok := current.LowestValueRelinquishChoice()
+		if !ok {
+			return nil, fmt.Errorf("match npc turn: no territories to relinquish: %w", match.ErrInvalidState)
+		}
+		return &match.RelinquishTerritoryCommand{By: by, Position: position}, nil
 	case match.PhaseEnding:
 		return &match.EndTurnCommand{By: by}, nil
 	default:

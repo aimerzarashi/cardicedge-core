@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
@@ -23,11 +24,15 @@ func ID(t testing.TB, value int64) match.ID {
 func Rules(t testing.TB, diceMin, diceMax, startingHandCards int) match.Rules {
 	t.Helper()
 	return match.NewRules(
-		boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, diceMin, diceMax),
+		boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, diceMin, diceMax, 100),
 		gamerulestest.MaxHandCards(t, 6),
 		gamerulestest.StartingHandCards(t, startingHandCards),
 		gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1),
 		match.DefaultRewardPacks(),
+		gamerules.Defaults().Match.LandLevelMultipliers,
+		gamerules.Defaults().Match.ChainMultipliers,
+		gamerules.Defaults().Match.TollPercentage,
+		gamerules.Defaults().Match.RelinquishPercentage,
 	)
 }
 
@@ -91,11 +96,15 @@ func (HighestRandom) IntN(n int) int {
 func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, startingHandCards int) match.Rules {
 	t.Helper()
 	return match.NewRules(
-		boardtest.DefaultRules(t, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax),
+		boardtest.DefaultRules(t, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, 100),
 		gamerulestest.MaxHandCards(t, 6),
 		gamerulestest.StartingHandCards(t, startingHandCards),
 		gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1),
 		match.DefaultRewardPacks(),
+		gamerules.Defaults().Match.LandLevelMultipliers,
+		gamerules.Defaults().Match.ChainMultipliers,
+		gamerules.Defaults().Match.TollPercentage,
+		gamerules.Defaults().Match.RelinquishPercentage,
 	)
 }
 

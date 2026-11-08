@@ -24,12 +24,12 @@ const matchQuery = `query ($id: UUID!) {
 		__typename
 		... on Match {
 			id revision round
-			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax maxHandCards startingHandCards }
+			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic hand { __typename id name cost rarity } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
+			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
-			phase dice remainingSteps pathChoices { x y } deployChoices outcome { winners ranks reason } rewardPacks { key name }
-			territories { position { x y } owner creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
+			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
+			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
@@ -100,7 +100,7 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(1), found["round"])
 	require.Equal(t, map[string]any{
 		"targetMagic": float64(5000), "startingMagic": float64(300), "lapBonus": float64(200), "checkpointBonus": float64(50),
-		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "maxHandCards": float64(6), "startingHandCards": float64(5),
+		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "baseLandValue": float64(100), "maxHandCards": float64(6), "startingHandCards": float64(5),
 	}, found["rules"])
 	board := found["board"].(map[string]any)
 	require.NotEmpty(t, board["tiles"])
@@ -156,7 +156,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -217,6 +217,11 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 			return matchRevision(t, matchOperation(t, token, "deployMatchCreature", input), "deployMatchCreature")
 		}
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
+	case "RELINQUISHING":
+		choices := m["relinquishChoices"].([]any)
+		require.NotEmpty(t, choices)
+		input["position"] = choices[0]
+		return matchRevision(t, matchOperation(t, token, "relinquishMatchTerritory", input), "relinquishMatchTerritory")
 	case "ENDING":
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
 	}
@@ -262,7 +267,7 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 	var best float64 = -1
 	var expected []any
 	for i, participant := range final["participants"].([]any) {
-		magic := participant.(map[string]any)["magic"].(float64)
+		magic := participant.(map[string]any)["totalMagic"].(float64)
 		switch {
 		case magic > best:
 			best, expected = magic, []any{float64(i)}
@@ -339,6 +344,9 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
 				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
+				... on MatchTollPaidEvent { participant owner position { x y } magic }
+				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
+				... on MatchMagicDepletedEvent { participant magic }
 				... on MatchDiceRolledEvent { participant value }
 				... on MatchMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
@@ -688,6 +696,11 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			wrong := matchOperation(t, p.token, "deployMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
 			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
 		}
+		if m["phase"] != "RELINQUISHING" {
+			// 手放す段階でなければ、手放せない
+			wrong := matchOperation(t, p.token, "relinquishMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "position": map[string]any{"x": 0, "y": 0}})
+			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
+		}
 		playMatchPhase(t, p.token, matchID, m)
 	}
 
@@ -697,6 +710,19 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 		territory := raw.(map[string]any)
 		position := territory["position"].(map[string]any)
 		territories[fmt.Sprint(position["x"], ",", position["y"])] = territory
+	}
+	totals := map[any]float64{}
+	for _, territory := range territories {
+		value := territory["value"].(float64)
+		require.Equal(t, float64(1), territory["level"])
+		require.GreaterOrEqual(t, value, float64(100))
+		require.Equal(t, float64(int(value)*60/100), territory["toll"])
+		require.Equal(t, float64(int(value)*80/100), territory["relinquishMagic"])
+		totals[territory["owner"]] += value
+	}
+	for i, raw := range final["participants"].([]any) {
+		participant := raw.(map[string]any)
+		require.Equal(t, participant["magic"].(float64)+totals[float64(i)], participant["totalMagic"])
 	}
 	var deployed []map[string]any
 	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {

@@ -72,9 +72,10 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		participants[i] = &model.MatchParticipant{
 			RewardReceived: participant.RewardReceived, RewardCards: rewardCards,
 			Kind: kind, PlayerID: participant.Player,
-			Avatar:   &model.MatchAvatar{ID: participant.Avatar.ID, Name: participant.Avatar.Name},
-			Position: &model.BoardPosition{X: participant.Position.X, Y: participant.Position.Y},
-			Magic:    participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, TurnOrder: participant.TurnOrder,
+			Avatar:     &model.MatchAvatar{ID: participant.Avatar.ID, Name: participant.Avatar.Name},
+			Position:   &model.BoardPosition{X: participant.Position.X, Y: participant.Position.Y},
+			TotalMagic: participant.TotalMagic,
+			Magic:      participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, TurnOrder: participant.TurnOrder,
 			PassedCheckpoints: fromQueryPositions(participant.PassedCheckpoints),
 		}
 	}
@@ -96,21 +97,24 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		territories[i] = &model.MatchTerritory{
 			Position: &model.BoardPosition{X: territory.Position.X, Y: territory.Position.Y}, Owner: territory.Owner,
 			Creature: &model.MatchDeployedCreature{ID: territory.Creature.ID, Card: creatureCard, HitPoints: territory.Creature.HitPoints},
+			Level:    territory.Level, Value: territory.Value, Toll: territory.Toll, RelinquishMagic: territory.RelinquishMagic,
 		}
 	}
 	converted := &model.Match{
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
 		Rules: &model.MatchPlayRules{
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
 			MaxHandCards: rules.MaxHandCards, StartingHandCards: rules.StartingHandCards,
+			LandLevelMultipliers: rules.LandLevelMultipliers, ChainMultipliers: rules.ChainMultipliers,
+			TollPercentage: rules.TollPercentage, RelinquishPercentage: rules.RelinquishPercentage,
 		},
 		Board:        &model.MatchBoard{Width: match.Board.Width, Height: match.Board.Height, Tiles: tiles, Connections: connections, Pairs: pairs},
 		Participants: participants, CurrentParticipant: match.CurrentParticipant,
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
-		DeployChoices: match.DeployChoices, Territories: territories,
+		DeployChoices: match.DeployChoices, RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 	}
 	if outcome := match.Outcome; outcome != nil {
 		reason, err := fromMatchEndReason(outcome.Reason)
@@ -150,6 +154,8 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseChoosingPath, nil
 	case query.MatchPhaseDeploying:
 		return model.MatchPhaseDeploying, nil
+	case query.MatchPhaseRelinquishing:
+		return model.MatchPhaseRelinquishing, nil
 	case query.MatchPhaseEnding:
 		return model.MatchPhaseEnding, nil
 	case query.MatchPhaseEnded:
@@ -234,6 +240,18 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, HandIndex: e.HandIndex, Card: card,
 			Creature: e.Creature, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Cost: e.Cost,
 		}, nil
+	case query.MatchTollPaidEvent:
+		return &model.MatchTollPaidEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Owner: e.Owner,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Magic: e.Magic,
+		}, nil
+	case query.MatchTerritoryRelinquishedEvent:
+		return &model.MatchTerritoryRelinquishedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, Magic: e.Magic,
+		}, nil
+	case query.MatchMagicDepletedEvent:
+		return &model.MatchMagicDepletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Magic: e.Magic}, nil
 	case query.MatchDiceRolledEvent:
 		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Value: e.Value}, nil
 	case query.MatchMovedEvent:

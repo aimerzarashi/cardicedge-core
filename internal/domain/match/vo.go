@@ -67,8 +67,10 @@ const (
 	PhaseChoosingPath Phase = "choosing_path"
 	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
 	PhaseDeploying Phase = "deploying"
-	PhaseEnding    Phase = "ending"
-	PhaseEnded     Phase = "ended"
+	// 通行料を払って魔力が負になった後。0 以上になるまで自分の領地を手放す
+	PhaseRelinquishing Phase = "relinquishing"
+	PhaseEnding        Phase = "ending"
+	PhaseEnded         Phase = "ended"
 	// 進む途中だけの段階。Decide は進み終えるまで続けるので、保存された最後の状態が moving になることは無い
 	PhaseMoving Phase = "moving"
 )
@@ -207,8 +209,8 @@ func (b Board) base() (board.Position, bool) {
 	return board.Position{}, false
 }
 
-// 対戦のルール。部屋の対戦ルール（ボードの既定のルールと同じ 7 つの値）と、全体のルールの手札の決まりの写し（始めた後にルールを変えても対戦に響かないため）。
-// 7 つの値は board.DefaultRules で受け取る（目の範囲が 2 種類以上であることなどを、確かめずに作れないように）
+// 対戦のルール。部屋の対戦ルール（ボードの既定のルールと同じ 8 つの値）と、全体のルールの手札の決まりの写し（始めた後にルールを変えても対戦に響かないため）。
+// 8 つの値は board.DefaultRules で受け取る（目の範囲が 2 種類以上であることなどを、確かめずに作れないように）
 type Rules struct {
 	TargetMagic       int                         `json:"target_magic"`
 	StartingMagic     int                         `json:"starting_magic"`
@@ -217,26 +219,43 @@ type Rules struct {
 	RoundLimit        int                         `json:"round_limit"`
 	DiceMin           int                         `json:"dice_min"`
 	DiceMax           int                         `json:"dice_max"`
+	BaseLandValue     int                         `json:"base_land_value"`
 	MaxHandCards      gamerules.MaxHandCards      `json:"max_hand_cards"`
 	StartingHandCards gamerules.StartingHandCards `json:"starting_hand_cards"`
 	// 順位（1 位から）ごとの戦利品の枚数。全体のルールの写しで、数え方は rewardCards の 1 か所
 	RewardCardsByRank gamerules.RewardCardsByRank `json:"reward_cards_by_rank"`
 	// 戦利品に選べるパック
 	RewardPacks []RewardPack `json:"reward_packs"`
+	// 土地の価値の決まり。全体のルールの写し
+	LandLevelMultipliers gamerules.LandLevelMultipliers `json:"land_level_multipliers"`
+	ChainMultipliers     gamerules.ChainMultipliers     `json:"chain_multipliers"`
+	TollPercentage       gamerules.TollPercentage       `json:"toll_percentage"`
+	RelinquishPercentage gamerules.RelinquishPercentage `json:"relinquish_percentage"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
-		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax,
+		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
+		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
 	}
 }
 
 // 順位（1 位から）の戦利品の枚数。順位が一覧より下なら最後の値を使う（4 人より多い対戦でも、順位ごとの値を人数分そろえずに済むため）
 func (r Rules) rewardCards(rank int) int {
 	return r.RewardCardsByRank[min(max(rank, 1), len(r.RewardCardsByRank))-1].Int()
+}
+
+// レベルが一覧より上なら最後の値を使う（レベルの上げ下げは core#115。値の数を変えても、対戦中のレベルが範囲の外にならないように）
+func (r Rules) landLevelMultiplier(level int) int {
+	return r.LandLevelMultipliers[min(max(level, 1), len(r.LandLevelMultipliers))-1]
+}
+
+// 連鎖の数が一覧より多ければ最後の値を使う（2026-11-08 オーナー）
+func (r Rules) chainMultiplier(count int) int {
+	return r.ChainMultipliers[min(max(count, 1), len(r.ChainMultipliers))-1]
 }
 
 func (r Rules) hasRewardPack(key PackKey) bool {

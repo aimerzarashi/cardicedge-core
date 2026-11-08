@@ -1,4 +1,4 @@
 {
-  "default_rules": { "target_magic": 5000, "starting_magic": 0, "lap_bonus": 200, "checkpoint_bonus": 50, "round_limit": 12, "dice_min": 2, "dice_max": 8 },
+  "default_rules": { "target_magic": 5000, "starting_magic": 0, "lap_bonus": 200, "checkpoint_bonus": 50, "round_limit": 12, "dice_min": 2, "dice_max": 8, "base_land_value": 100 },
   "changed_by": 10
 }

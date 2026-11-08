@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
@@ -223,6 +225,9 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit},
 		&match.RewardDrawnEvent{EventMeta: meta, Participant: by, Pack: match.DefaultPackKey, Cards: refs(t, 301, 302)},
 		&match.RewardsCompletedEvent{EventMeta: meta},
+		&match.TollPaidEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Position: boardtest.Position(t, 1, 0), Magic: 60},
+		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Magic: 80},
+		&match.MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: 600},
 		&match.CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
 	}
 	for _, event := range events {
@@ -998,7 +1003,7 @@ func TestDecide_DeployPaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Equal(t, 600-10, state.Participants[1].Magic)
 	require.Len(t, state.Participants[1].Hand, handBefore-1)
-	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, state.Territories)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1}}, state.Territories)
 	require.Equal(t, []match.DeployedCreature{{
 		ID: matchtest.DeployedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
 		Base: *creatureSpec(t, 201), HitPoints: creatureSpec(t, 201).HitPoints,
@@ -1076,8 +1081,8 @@ func TestDecide_DeployedCreaturesGetConsecutiveIDs(t *testing.T) {
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 0), HandIndex: 0})
 
 	require.Equal(t, []match.Territory{
-		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
-		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1},
+		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2), Level: 1},
 	}, state.Territories)
 	require.Equal(t, matchtest.Index(t, 0), state.DeployedCreatures[1].Owner)
 	require.Equal(t, matchtest.DeployedCreatureID(t, 2), state.LastDeployedCreatureID)
@@ -1095,6 +1100,304 @@ func TestEvolve_RejectsDeployedEventThatDoesNotMatchTheState(t *testing.T) {
 		{name: "other_card", mutate: func(e *match.CreatureDeployedEvent) { e.Card = cardtest.CreatureRef(t, 999) }},
 		{name: "other_position", mutate: func(e *match.CreatureDeployedEvent) { e.Position = pos(t, 0, 0) }},
 		{name: "skipped_id", mutate: func(e *match.CreatureDeployedEvent) { e.Creature = matchtest.DeployedCreatureID(t, 2) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := valid
+			tt.mutate(&event)
+			_, err := match.Evolve(state, &event)
+			require.ErrorIs(t, err, match.ErrInvalidState)
+		})
+	}
+}
+
+// 拠点 (0,0) から東へ、火 (1,0)・火 (2,0)・火 (3,0)・水 (4,0)・複 (5,0)・無 (6,0)・無 (7,0) の一本道
+func territoryBoard(t *testing.T) match.Board {
+	t.Helper()
+	tiles := []board.Tile{boardtest.Tile(t, 0, 0, "base", "")}
+	var connections []board.Connection
+	for i, element := range []string{"fire", "fire", "fire", "water", "multi", "neutral", "neutral"} {
+		tiles = append(tiles, boardtest.Tile(t, i+1, 0, "land", element))
+		connections = append(connections, boardtest.Connection(t, i, 0, i+1, 0))
+	}
+	return match.Board{ID: boardtest.ID(t, 5), Size: boardtest.Size(t, 8, 1), Tiles: tiles, Connections: connections}
+}
+
+// NPC（参加者 1）が先の番の対戦で、領地を直接置く（ここで確かめたいのは配置の後の決まりなので、配置の手順を毎回踏まない）
+func withTerritory(t *testing.T, state match.Match, owner, x, level int) match.Match {
+	t.Helper()
+	id := matchtest.DeployedCreatureID(t, state.LastDeployedCreatureID.Int()+1)
+	spec := creatureSpec(t, 201)
+	state.DeployedCreatures = append(slices.Clone(state.DeployedCreatures), match.DeployedCreature{
+		ID: id, Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, owner), Base: *spec, HitPoints: spec.HitPoints,
+	})
+	state.Territories = append(slices.Clone(state.Territories), match.Territory{Position: pos(t, x, 0), Creature: id, Level: level})
+	state.LastDeployedCreatureID = id
+	return state
+}
+
+func withMagic(state match.Match, participant, magic int) match.Match {
+	state.Participants = slices.Clone(state.Participants)
+	state.Participants[participant].Magic = magic
+	return state
+}
+
+func valueAt(t *testing.T, state match.Match, x int) int {
+	t.Helper()
+	territory, ok := state.TerritoryAt(pos(t, x, 0))
+	require.True(t, ok)
+	return state.TerritoryValue(territory)
+}
+
+func TestMatch_TerritoryValueMultipliesTheBaseTheLevelAndTheChain(t *testing.T) {
+	type owned struct{ owner, x, level int }
+	tests := []struct {
+		name        string
+		territories []owned
+		x           int
+		want        int
+	}{
+		{name: "level_one_without_chain", territories: []owned{{0, 1, 1}}, x: 1, want: 100},
+		{name: "level_multiplier", territories: []owned{{0, 1, 3}}, x: 1, want: 400},
+		{name: "two_of_the_same_element", territories: []owned{{0, 1, 1}, {0, 2, 1}}, x: 1, want: 150},
+		{name: "three_of_the_same_element", territories: []owned{{0, 1, 1}, {0, 2, 1}, {0, 3, 1}}, x: 2, want: 200},
+		{name: "level_and_chain_together", territories: []owned{{0, 1, 2}, {0, 2, 1}}, x: 1, want: 300},
+		{name: "other_element_does_not_chain", territories: []owned{{0, 1, 1}, {0, 4, 1}}, x: 1, want: 100},
+		{name: "other_owner_does_not_chain", territories: []owned{{0, 1, 1}, {1, 2, 1}}, x: 1, want: 100},
+		{name: "neutral_chains", territories: []owned{{0, 6, 1}, {0, 7, 1}}, x: 6, want: 150},
+		{name: "multi_does_not_chain", territories: []owned{{0, 5, 1}, {0, 1, 1}}, x: 5, want: 100},
+		{name: "level_above_the_list_uses_the_last", territories: []owned{{0, 1, 9}}, x: 1, want: 1600},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := newMatch(t, territoryBoard(t), defaultRules(t))
+			for _, territory := range tt.territories {
+				state = withTerritory(t, state, territory.owner, territory.x, territory.level)
+			}
+			require.Equal(t, tt.want, valueAt(t, state, tt.x))
+		})
+	}
+}
+
+func TestMatch_ChainAboveTheListUsesTheLastMultiplier(t *testing.T) {
+	state := newMatch(t, territoryBoard(t), defaultRules(t))
+	state.Rules.ChainMultipliers = gamerulestest.ChainMultipliers(t, 100, 150)
+	for _, x := range []int{1, 2, 3} {
+		state = withTerritory(t, state, 0, x, 1)
+	}
+
+	require.Equal(t, 150, valueAt(t, state, 1))
+}
+
+func TestMatch_TotalMagicAddsTheValueOfOwnTerritories(t *testing.T) {
+	state := newMatch(t, territoryBoard(t), defaultRules(t))
+	state = withTerritory(t, state, 0, 1, 1)
+	state = withTerritory(t, state, 0, 2, 1)
+
+	require.Equal(t, []int{600 + 150 + 150, 600}, state.TotalMagics())
+}
+
+func TestDecide_StoppingOnAnotherTerritoryPaysTheTollAndOffersTheEndOfTurn(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+
+	state, events := drawAndRoll(t, state, 1, 1)
+
+	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, 600-60, state.Participants[1].Magic)
+	require.Equal(t, 600+60, state.Participants[0].Magic)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+}
+
+func TestDecide_TollRoundsDown(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state.Rules.BaseLandValue = 101
+
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	require.Equal(t, 600-60, state.Participants[1].Magic)
+}
+
+func TestDecide_PassingThroughATerritoryPaysNothing(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+
+	state, events := drawAndRoll(t, state, 1, 2)
+
+	require.Zero(t, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, match.PhaseDeploying, state.Phase)
+}
+
+func TestDecide_StoppingOnOwnTerritoryPaysNothing(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 1, 1, 1)
+
+	state, events := drawAndRoll(t, state, 1, 1)
+
+	require.Zero(t, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, 600, state.Participants[1].Magic)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+}
+
+// NPC が 10 の魔力で通行料 60 を払い、-50 になる。手放せる領地は (2,0) と (4,0)
+func indebtedMatch(t *testing.T) match.Match {
+	t.Helper()
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state = withTerritory(t, state, 1, 2, 1)
+	state = withTerritory(t, state, 1, 4, 1)
+	state = withMagic(state, 1, 10)
+	state, _ = drawAndRoll(t, state, 1, 1)
+	return state
+}
+
+func TestDecide_UnpayableTollIsPaidInFullAndAsksToRelinquish(t *testing.T) {
+	state := indebtedMatch(t)
+
+	require.Equal(t, -50, state.Participants[1].Magic)
+	require.Equal(t, 600+60, state.Participants[0].Magic)
+	require.Equal(t, match.PhaseRelinquishing, state.Phase)
+	require.Equal(t, []board.Position{pos(t, 2, 0), pos(t, 4, 0)}, state.RelinquishChoices())
+}
+
+func TestDecide_RelinquishingRemovesTheCreatureAndFreesTheLand(t *testing.T) {
+	state := indebtedMatch(t)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
+
+	require.Equal(t, 1, countOf[*match.TerritoryRelinquishedEvent](events))
+	require.Equal(t, -50+80, state.Participants[1].Magic)
+	_, occupied := state.TerritoryAt(pos(t, 2, 0))
+	require.False(t, occupied)
+	_, deployed := state.DeployedCreature(matchtest.DeployedCreatureID(t, 2))
+	require.False(t, deployed)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+}
+
+func TestDecide_RelinquishingContinuesWhileMagicIsNegative(t *testing.T) {
+	state := withMagic(indebtedMatch(t), 1, -200)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
+
+	require.Zero(t, countOf[*match.MagicDepletedEvent](events))
+	require.Equal(t, -200+80, state.Participants[1].Magic)
+	require.Equal(t, match.PhaseRelinquishing, state.Phase)
+	require.Equal(t, []board.Position{pos(t, 4, 0)}, state.RelinquishChoices())
+}
+
+func TestDecide_RelinquishPriceIncludesTheChain(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state = withTerritory(t, state, 1, 2, 1)
+	state = withTerritory(t, state, 1, 3, 1)
+	state = withMagic(state, 1, 10)
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
+
+	require.Equal(t, -50+120, state.Participants[1].Magic)
+}
+
+func TestDecide_RejectsRelinquishingWhatIsNotOwned(t *testing.T) {
+	state := indebtedMatch(t)
+
+	require.ErrorIs(t, decideErr(t, state, &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 1, 0)}), match.ErrTerritoryNotRelinquishable)
+}
+
+func TestDecide_RejectsRelinquishingOutsideTheRelinquishingPhase(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 1, 2, 1)
+
+	require.ErrorIs(t, decideErr(t, state, &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)}), match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_MagicDepletedRestartsFromTheBaseAndEndsTheTurn(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state = withMagic(state, 1, 10)
+	state.Participants[1].PassedCheckpoints = []board.Position{pos(t, 7, 0)}
+	handBefore := len(state.Participants[1].Hand)
+
+	state, events := drawAndRoll(t, state, 1, 1)
+
+	require.Equal(t, 1, countOf[*match.MagicDepletedEvent](events))
+	require.Zero(t, countOf[*match.LapCompletedEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+	require.Equal(t, 600, state.Participants[1].Magic)
+	require.Equal(t, pos(t, 0, 0), state.Participants[1].Position)
+	require.Nil(t, state.Participants[1].Previous)
+	require.Empty(t, state.Participants[1].PassedCheckpoints)
+	// 引いた 1 枚の分だけ増えて、そのまま残る
+	require.Len(t, state.Participants[1].Hand, handBefore+1)
+	turn, _ := state.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 0), turn)
+}
+
+func TestDecide_RelinquishingTheLastTerritoryWhileNegativeDepletesTheMagic(t *testing.T) {
+	state := withMagic(indebtedMatch(t), 1, -500)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 4, 0)})
+
+	require.Equal(t, 1, countOf[*match.MagicDepletedEvent](events))
+	require.Equal(t, 600, state.Participants[1].Magic)
+	// 残っているのは相手の領地だけ
+	require.Len(t, state.Territories, 1)
+}
+
+func TestMatch_LowestValueRelinquishChoiceTakesTheCheapestThenTheEarliest(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state = withTerritory(t, state, 1, 2, 2)
+	state = withTerritory(t, state, 1, 4, 1)
+	state = withTerritory(t, state, 1, 5, 1)
+	state = withMagic(state, 1, 10)
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	position, ok := state.LowestValueRelinquishChoice()
+
+	require.True(t, ok)
+	require.Equal(t, pos(t, 4, 0), position)
+}
+
+func TestDecide_TargetMagicCountsTheValueOfTerritories(t *testing.T) {
+	rules := matchtest.RulesOf(t, 700, 600, 0, 0, 30, 1, 6, 1)
+	b := territoryBoard(t)
+	b.Connections = append(b.Connections, boardtest.Connection(t, 0, 0, 7, 0))
+	state := withTerritory(t, newMatch(t, b, rules), 1, 1, 1)
+	state = withMagic(state, 1, 600)
+	state.Participants[1].Position = pos(t, 1, 0)
+	previous := pos(t, 2, 0)
+	state.Participants[1].Previous = &previous
+
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	require.Equal(t, match.PhaseEnded, state.Phase)
+	require.Equal(t, []match.ParticipantIndex{matchtest.Index(t, 1)}, state.Result.Winners)
+	require.Equal(t, 600, state.Participants[1].Magic)
+}
+
+func TestDecide_RoundLimitWinnerIsDecidedByTotalMagic(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), matchtest.RulesOf(t, 8000, 600, 0, 0, 1, 1, 6, 1)), 0, 1, 1)
+	state = withMagic(state, 0, 550)
+	state = withMagic(state, 1, 600)
+	state, _ = drawAndRoll(t, state, 1, 2)
+	state, _ = endTurn(t, state, 1)
+	state, _ = drawAndRoll(t, state, 0, 2)
+	state, _ = endTurn(t, state, 0)
+
+	require.Equal(t, match.PhaseEnded, state.Phase)
+	require.Equal(t, []match.ParticipantIndex{matchtest.Index(t, 0)}, state.Result.Winners)
+	require.Equal(t, []int{1, 2}, state.Result.Ranks)
+}
+
+func TestEvolve_RejectsRelinquishedEventThatDoesNotMatchTheState(t *testing.T) {
+	state := indebtedMatch(t)
+	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
+	valid := match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 2), Magic: 80}
+
+	tests := []struct {
+		name   string
+		mutate func(e *match.TerritoryRelinquishedEvent)
+	}{
+		{name: "other_position", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Position = pos(t, 3, 0) }},
+		{name: "other_creature", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Creature = matchtest.DeployedCreatureID(t, 3) }},
+		{name: "territory_of_another_owner", mutate: func(e *match.TerritoryRelinquishedEvent) {
+			e.Position = pos(t, 1, 0)
+			e.Creature = matchtest.DeployedCreatureID(t, 1)
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

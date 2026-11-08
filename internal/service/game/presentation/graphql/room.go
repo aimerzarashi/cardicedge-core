@@ -91,7 +91,7 @@ func fromQueryRoom(room query.Room) (*model.Room, error) {
 		converted.MatchRules = &model.RoomMatchRules{
 			Board:       fromRoomNamed(&rules.Board),
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
 		}
 	}
 	return converted, nil

@@ -29,6 +29,7 @@ var (
 	ErrRoundLimitTooSmall                     = errors.New("board: round limit is too small")
 	ErrDiceMinTooSmall                        = errors.New("board: dice min is too small")
 	ErrDiceMaxNotGreaterThanDiceMin           = errors.New("board: dice max is not greater than dice min")
+	ErrBaseLandValueTooSmall                  = errors.New("board: base land value is too small")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")
 	// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした

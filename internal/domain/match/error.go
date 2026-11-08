@@ -16,6 +16,8 @@ var (
 	ErrPathNotAllowed      = errors.New("match: path not allowed")
 	// 配置できない手札（クリーチャーでない・コストが払えない）
 	ErrCreatureNotDeployable = errors.New("match: creature not deployable")
+	// 自分の領地でない位置は手放せない
+	ErrTerritoryNotRelinquishable = errors.New("match: territory not relinquishable")
 )
 
 var (

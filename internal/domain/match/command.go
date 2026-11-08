@@ -56,6 +56,14 @@ type DeployCreatureCommand struct {
 
 func (*DeployCreatureCommand) isMatchCommand() {}
 
+// 魔力が負の間に、自分の領地を 1 つ手放す
+type RelinquishTerritoryCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+}
+
+func (*RelinquishTerritoryCommand) isMatchCommand() {}
+
 type EndTurnCommand struct {
 	By ParticipantIndex
 }

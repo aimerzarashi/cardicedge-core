@@ -80,7 +80,7 @@ const (
 	RoomSeatKindNPC    RoomSeatKind = "npc"
 )
 
-// 対戦ルールの入力。ボードの公開 ID と、ボードの既定のルールと同じ名前の 7 つの値
+// 対戦ルールの入力。ボードの公開 ID と、ボードの既定のルールと同じ名前の 8 つの値
 type RoomMatchRulesInput struct {
 	BoardID         uuid.UUID
 	TargetMagic     int
@@ -90,6 +90,7 @@ type RoomMatchRulesInput struct {
 	RoundLimit      int
 	DiceMin         int
 	DiceMax         int
+	BaseLandValue   int
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
@@ -178,7 +179,7 @@ func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision in
 }
 
 // 対戦ルールを決める（公開前、または公開前に決めていなければ準備中）。決めるのは作った人。
-// 入力の誤りは input.Errors（まとめて返す）。7 つの値の誤りは board.NewDefaultRules の決まりで、項目名は GraphQL の入力の項目名
+// 入力の誤りは input.Errors（まとめて返す）。8 つの値の誤りは board.NewDefaultRules の決まりで、項目名は GraphQL の入力の項目名
 // （targetMagic 等。TooSmall・NotGreaterThan）。ボードが解放した公開中のものでなければ NotFound（項目名 boardId）。
 // ほかのエラーは ChangeSeats と同じ。公開前に決めたものは ErrRoomConditionLocked、準備完了の申告の後は ErrRoomAlreadyReady
 func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revision int64, rulesInput RoomMatchRulesInput) (ChangedRoom, error) {
@@ -193,7 +194,7 @@ func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revisi
 			return nil, invalid
 		}
 		matchRules, err := room.NewMatchRules(boardID, rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus,
-			rulesInput.CheckpointBonus, rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax)
+			rulesInput.CheckpointBonus, rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
 		if err != nil {
 			return nil, err
 		}
@@ -201,10 +202,10 @@ func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revisi
 	})
 }
 
-// 7 つの値の決まりは board.NewDefaultRules にあり、ここは違反を入力の項目に写すだけ（違反が無ければ空）
+// 8 つの値の決まりは board.NewDefaultRules にあり、ここは違反を入力の項目に写すだけ（違反が無ければ空）
 func valuesToInput(rulesInput RoomMatchRulesInput) input.Errors {
 	_, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus,
-		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax)
+		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
 	if err == nil {
 		return nil
 	}
@@ -232,6 +233,9 @@ func valuesToInput(rulesInput RoomMatchRulesInput) input.Errors {
 	}
 	if errors.Is(err, board.ErrDiceMaxNotGreaterThanDiceMin) {
 		invalid = append(invalid, &input.NotGreaterThan{Field: "diceMax", Than: "diceMin"})
+	}
+	if errors.Is(err, board.ErrBaseLandValueTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "baseLandValue", Min: 1})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）

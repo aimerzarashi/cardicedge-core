@@ -18,6 +18,8 @@ enum MatchPhase {
   CHOOSING_PATH
   "空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
   DEPLOYING
+  "通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）"
+  RELINQUISHING
   "ターンを終える段階（endMatchTurn）"
   ENDING
   "対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）"
@@ -42,6 +44,14 @@ type MatchTerritory {
   owner: Int!
   "そこにいるクリーチャー"
   creature: MatchDeployedCreature!
+  "土地のレベル（1 始まり）"
+  level: Int!
+  "土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）"
+  value: Int!
+  "他人が止まったときに払う通行料"
+  toll: Int!
+  "手放したときに受け取る魔力"
+  relinquishMagic: Int!
 }
 
 "対戦が終わった理由"
@@ -61,7 +71,7 @@ enum MatchParticipantKind {
 }
 
 """
-対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
+対戦のルール。始めた時点の写し（部屋の対戦ルールの 8 つの値と、全体のルール MatchRules の手札の決まり）。
 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
 """
 type MatchPlayRules {
@@ -79,10 +89,20 @@ type MatchPlayRules {
   diceMin: Int!
   "サイコロの目の最大"
   diceMax: Int!
+  "土地の基本の値。レベルと連鎖の倍率を掛ける元"
+  baseLandValue: Int!
   "手札の上限"
   maxHandCards: Int!
   "始めに配る手札の枚数"
   startingHandCards: Int!
+  "土地のレベルごとの倍率（レベル 1 から）"
+  landLevelMultipliers: [Int!]!
+  "連鎖の数ごとの倍率（百分率。1 つから。数が一覧より多ければ最後の値）"
+  chainMultipliers: [Int!]!
+  "通行料の割合（土地の価値に対する百分率）"
+  tollPercentage: Int!
+  "手放すときの割合（土地の価値に対する百分率）"
+  relinquishPercentage: Int!
 }
 
 """
@@ -120,8 +140,10 @@ type MatchParticipant {
   avatar: MatchAvatar!
   "今いるマスの位置（始めた時点は拠点）"
   position: BoardPosition!
-  "魔力"
+  "手持ちの魔力（通行料を払った直後は負になることがある）"
   magic: Int!
+  "総魔力（手持ちの魔力 ＋ 自分の領地の価値の合計。勝ちと順位はこれで決まる）"
+  totalMagic: Int!
   "手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）"
   hand: [CardInfo!]!
   "山札の残りの枚数。並びと中身は見せない"
@@ -185,6 +207,8 @@ type Match {
   # 配置できるかの決まり（クリーチャーか・コストが払えるか）を画面に持たせないため、core が選べる手札を出す
   "今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）"
   deployChoices: [Int!]!
+  "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
+  relinquishChoices: [BoardPosition!]!
   "盤面の領地（できた順）"
   territories: [MatchTerritory!]!
   "対戦の結果（終わるまでは null）"
@@ -360,6 +384,34 @@ union DeployMatchCreatureResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"魔力が負の間に、自分の領地を手放す入力"
+input RelinquishMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "手放す領地の位置（Match.relinquishChoices の中から選ぶ。手放せないものは ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+}
+
+"領地を手放した（魔力が負のままで手放す領地が残っていれば、続けて手放す。成功したら対戦の revision が進む）"
+type RelinquishMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"relinquishMatchTerritory の結果（RELINQUISHING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union RelinquishMatchTerritoryResult =
+    RelinquishMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "ターンを終える入力"
 input EndMatchTurnInput {
   "対戦の公開用の ID"
@@ -430,6 +482,8 @@ extend type Mutation {
   chooseMatchPath(input: ChooseMatchPathInput!): ChooseMatchPathResult!
   "止まった空き地に、手札のクリーチャーを配置する（配置したらターンを終える）"
   deployMatchCreature(input: DeployMatchCreatureInput!): DeployMatchCreatureResult!
+  "魔力が負の間に、自分の領地を手放す"
+  relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
   "ターンを終える（DEPLOYING では配置しない）"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
   "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
@@ -556,6 +610,50 @@ type MatchCreatureDeployedEvent implements MatchEvent {
   position: BoardPosition!
   "払った魔力"
   cost: Int!
+}
+
+"他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）"
+type MatchTollPaidEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "払った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "受け取った参加者（領地の持ち主）"
+  owner: Int!
+  "止まった領地の位置"
+  position: BoardPosition!
+  "払った魔力"
+  magic: Int!
+}
+
+"魔力が負の間に自分の領地を手放した（クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る）"
+type MatchTerritoryRelinquishedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "手放した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "手放した領地の位置"
+  position: BoardPosition!
+  "盤面から外れたクリーチャーの ID"
+  creature: Int!
+  "受け取った魔力"
+  magic: Int!
+}
+
+"領地が無くなっても魔力が負のままだったので、拠点からやり直す（手札と山札はそのまま）"
+type MatchMagicDepletedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "枯渇した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "与えられた魔力（開始時の魔力）"
+  magic: Int!
 }
 
 "サイコロを振った"

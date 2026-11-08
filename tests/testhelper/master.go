@@ -274,7 +274,7 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
 		},
 		Pairs:        []readmodel.BoardPair{},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6, 100),
 		TileCounts:   readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 	}
 	b := readmodel.BoardMetadata{
@@ -294,7 +294,7 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(1, 1)},
 		},
 		Pairs:        []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}},
-		DefaultRules: readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8),
+		DefaultRules: readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8, 100),
 		TileCounts:   readmodel.NewBoardTileCounts(2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0),
 	}
 	// 公開中でなければ出ないことだけを確かめるので、中身は A と同じにする

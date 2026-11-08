@@ -64,7 +64,7 @@ type LayoutChangedEvent struct {
 	ChangedBy operator.ID `json:"changed_by"`
 }
 
-// 変えた後の全体を持つ。値が 7 つと小さいので、レイアウトのような差分にしない
+// 変えた後の全体を持つ。値が 8 つと小さいので、レイアウトのような差分にしない
 type DefaultRulesChangedEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
