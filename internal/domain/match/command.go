@@ -47,6 +47,15 @@ type ChoosePathCommand struct {
 
 func (*ChoosePathCommand) isMatchCommand() {}
 
+// 止まった空き地に、手札のクリーチャーを配置する。配置したらそのままターンを終える。配置しないときは EndTurnCommand
+type DeployCreatureCommand struct {
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+}
+
+func (*DeployCreatureCommand) isMatchCommand() {}
+
 type EndTurnCommand struct {
 	By ParticipantIndex
 }

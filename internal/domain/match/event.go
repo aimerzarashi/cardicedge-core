@@ -71,6 +71,19 @@ type CardDiscardedEvent struct {
 	Card        card.Ref         `json:"card"`
 }
 
+// 止まった空き地に、手札のクリーチャーを配置した（手札の何番目か。0 始まり）。コストの分の魔力を払い、その土地が領地になる。
+// 性能は対戦を始めたときの写しから決まるので、イベントには書き写さない
+type CreatureDeployedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex   `json:"participant"`
+	HandIndex   int                `json:"hand_index"`
+	Card        card.Ref           `json:"card"`
+	Creature    DeployedCreatureID `json:"creature"`
+	Position    board.Position     `json:"position"`
+	Cost        card.Cost          `json:"cost"`
+}
+
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
@@ -151,6 +164,7 @@ var (
 	matchEndedEventType       = domain.NewEventName("MatchEndedEvent")
 	rewardDrawnEventType      = domain.NewEventName("RewardDrawnEvent")
 	rewardsCompletedEventType = domain.NewEventName("RewardsCompletedEvent")
+	creatureDeployedEventType = domain.NewEventName("CreatureDeployedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -266,11 +280,19 @@ func (*RewardsCompletedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*CreatureDeployedEvent) EventType() domain.EventName {
+	return creatureDeployedEventType
+}
+
+func (*CreatureDeployedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
-		rewardDrawnEventType, rewardsCompletedEventType,
+		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType,
 	}}
 }
 
@@ -311,6 +333,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &RewardDrawnEvent{EventMeta: meta}
 	case EventType(rewardsCompletedEventType):
 		event = &RewardsCompletedEvent{EventMeta: meta}
+	case EventType(creatureDeployedEventType):
+		event = &CreatureDeployedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

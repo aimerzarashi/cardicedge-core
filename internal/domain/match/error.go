@@ -14,6 +14,8 @@ var (
 	ErrPhaseNotAllowed     = errors.New("match: phase not allowed")
 	ErrHandIndexOutOfRange = errors.New("match: hand index out of range")
 	ErrPathNotAllowed      = errors.New("match: path not allowed")
+	// 配置できない手札（クリーチャーでない・コストが払えない）
+	ErrCreatureNotDeployable = errors.New("match: creature not deployable")
 )
 
 var (

@@ -223,6 +223,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit},
 		&match.RewardDrawnEvent{EventMeta: meta, Participant: by, Pack: match.DefaultPackKey, Cards: refs(t, 301, 302)},
 		&match.RewardsCompletedEvent{EventMeta: meta},
+		&match.CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -518,7 +519,8 @@ func TestDecide_RollMovesOneTileAtATimeForTheRolledFace(t *testing.T) {
 	require.Equal(t, 3, state.Dice)
 	require.Zero(t, state.RemainingSteps)
 	require.Equal(t, pos(t, 3, 0), state.Participants[1].Position)
-	require.Equal(t, match.PhaseEnding, state.Phase)
+	// 止まった (3,0) は空いている土地なので、配置を選ぶ段階に入る
+	require.Equal(t, match.PhaseDeploying, state.Phase)
 	require.Equal(t, 3, countOf[*match.MovedEvent](events))
 	require.Equal(t, 1, countOf[*match.DiceRolledEvent](events))
 }
@@ -964,4 +966,142 @@ func TestMatch_CardSpecsReturnsSnapshotOfEveryParticipantDeck(t *testing.T) {
 		cardtest.CreatureRef(t, 102): {Cost: cardtest.Cost(t, 20), Rarity: card.RarityNormal, Creature: creatureSpec(t, 102)},
 		cardtest.CreatureRef(t, 201): {Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal, Creature: creatureSpec(t, 201)},
 	}, specs)
+}
+
+// 配置の段階まで進める。NPC（参加者 1）が先の番で、引いてから目 1 を振ると、空いている火属性の土地 (1,0) に止まる
+func deployingMatch(t *testing.T, participants ...match.Participant) match.Match {
+	t.Helper()
+	cmd := startCommand(t, defaultRules(t), participants...)
+	state, _ := start(t, cmd)
+	state, _ = drawAndRoll(t, state, 1, 1)
+	require.Equal(t, match.PhaseDeploying, state.Phase)
+	return state
+}
+
+func TestDecide_StoppingOnVacantLandOffersTheCreaturesThatCanBePaid(t *testing.T) {
+	// NPC のデッキ: カード 201（コスト 10）と 299（コスト 990。開始時の魔力 600 では払えない）。山札は逆順に混ざるので、
+	// 配った 1 枚が 299、引いた 1 枚が 201
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
+	state := deployingMatch(t, playerParticipant(t), npc)
+
+	require.Equal(t, refs(t, 299, 201), state.Participants[1].Hand)
+	require.Equal(t, []int{1}, state.DeployChoices())
+}
+
+func TestDecide_DeployPaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
+	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+	handBefore := len(state.Participants[1].Hand)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	require.Equal(t, 1, countOf[*match.CreatureDeployedEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+	require.Equal(t, 600-10, state.Participants[1].Magic)
+	require.Len(t, state.Participants[1].Hand, handBefore-1)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, state.Territories)
+	require.Equal(t, []match.DeployedCreature{{
+		ID: matchtest.DeployedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
+		Base: *creatureSpec(t, 201), HitPoints: creatureSpec(t, 201).HitPoints,
+	}}, state.DeployedCreatures)
+	// 次の番（プレイヤー）に移っている
+	turn, _ := state.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 0), turn)
+}
+
+func TestDecide_EndTurnWhileDeployingLeavesTheLandVacant(t *testing.T) {
+	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+
+	state, events := endTurn(t, state, 1)
+
+	require.Zero(t, countOf[*match.CreatureDeployedEvent](events))
+	require.Empty(t, state.Territories)
+	require.Equal(t, 600, state.Participants[1].Magic)
+}
+
+func TestDecide_DeployRejectsCardsThatCannotBeDeployed(t *testing.T) {
+	itemSpec := match.CardSpec{Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal}
+	item := match.DeckCard{Card: cardtest.Ref(t, card.ItemEntityType, 250), Quantity: cardtest.DeckQuantity(t, 1), Spec: itemSpec}
+	// 山札は逆順に混ざるので、手札は先頭から 299・250（アイテム）・201
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
+	state := deployingMatch(t, playerParticipant(t), npc)
+	hand := state.Participants[1].Hand
+	require.Equal(t, cardtest.CreatureRef(t, 299), hand[0])
+	require.Equal(t, cardtest.Ref(t, card.ItemEntityType, 250), hand[1])
+
+	tests := []struct {
+		name      string
+		handIndex int
+		want      error
+	}{
+		{name: "cost_exceeds_magic", handIndex: 0, want: match.ErrCreatureNotDeployable},
+		{name: "not_creature", handIndex: 1, want: match.ErrCreatureNotDeployable},
+		{name: "out_of_range", handIndex: len(hand), want: match.ErrHandIndexOutOfRange},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: tt.handIndex})
+			require.ErrorIs(t, err, tt.want)
+		})
+	}
+}
+
+func TestDecide_StoppingOnATerritoryDoesNotOfferDeploying(t *testing.T) {
+	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	// プレイヤーも目 1 で、NPC の領地になった (1,0) に止まる
+	state, _ = drawAndRoll(t, state, 0, 1)
+
+	require.Equal(t, pos(t, 1, 0), state.Participants[0].Position)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+	require.Empty(t, state.DeployChoices())
+}
+
+func TestDecide_DeployRejectsOutsideTheDeployingPhase(t *testing.T) {
+	state := newMatch(t, lineBoard(t), defaultRules(t))
+
+	err := decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	require.ErrorIs(t, err, match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_DeployedCreaturesGetConsecutiveIDs(t *testing.T) {
+	state := newMatch(t, ringBoard(t), defaultRules(t))
+	// 拠点からの最初の一歩は 2 方向に分かれる。NPC は (1,0) へ進んで目 2 で土地 (2,0)、プレイヤーは (0,1) へ進んで目 1 で土地 (0,1)
+	state, _ = drawAndRoll(t, state, 1, 2)
+	state, _ = choose(t, state, 1, 1, 0)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	state, _ = drawAndRoll(t, state, 0, 1)
+	state, _ = choose(t, state, 0, 0, 1)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 0), HandIndex: 0})
+
+	require.Equal(t, []match.Territory{
+		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
+		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+	}, state.Territories)
+	require.Equal(t, matchtest.Index(t, 0), state.DeployedCreatures[1].Owner)
+	require.Equal(t, matchtest.DeployedCreatureID(t, 2), state.LastDeployedCreatureID)
+}
+
+func TestEvolve_RejectsDeployedEventThatDoesNotMatchTheState(t *testing.T) {
+	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
+	valid := match.CreatureDeployedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), HandIndex: 0, Card: state.Participants[1].Hand[0], Creature: matchtest.DeployedCreatureID(t, 1), Position: pos(t, 1, 0), Cost: cardtest.Cost(t, 10)}
+
+	tests := []struct {
+		name   string
+		mutate func(e *match.CreatureDeployedEvent)
+	}{
+		{name: "other_card", mutate: func(e *match.CreatureDeployedEvent) { e.Card = cardtest.CreatureRef(t, 999) }},
+		{name: "other_position", mutate: func(e *match.CreatureDeployedEvent) { e.Position = pos(t, 0, 0) }},
+		{name: "skipped_id", mutate: func(e *match.CreatureDeployedEvent) { e.Creature = matchtest.DeployedCreatureID(t, 2) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := valid
+			tt.mutate(&event)
+			_, err := match.Evolve(state, &event)
+			require.ErrorIs(t, err, match.ErrInvalidState)
+		})
+	}
 }

@@ -97,7 +97,8 @@ func TestRoom_ContinuingAfterTheMatchReturnsToPreparingAndStartsTheSecondMatch(t
 		"id": roomID, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.otherDeck,
 	}), "changeRoomSeatChoice")
 	roomOperation(t, p.token, "declareRoomReady", map[string]any{"id": roomID, "revision": revision})
-	second := waitRoomNext(t, p.token, roomID, func(r map[string]any) bool { return len(r["matches"].([]any)) == 2 })
+	// matches は部屋のイベントの投影から読むが、match は対戦の集約をポリシーが作り終えるまで null なので、両方がそろうまで待つ
+	second := waitRoomNext(t, p.token, roomID, func(r map[string]any) bool { return len(r["matches"].([]any)) == 2 && r["match"] != nil })
 
 	matches := second["matches"].([]any)
 	require.Equal(t, map[string]any{"id": first, "number": float64(1)}, matches[0])

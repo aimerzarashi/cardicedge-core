@@ -65,8 +65,10 @@ const (
 	PhaseDiscarding   Phase = "discarding"
 	PhaseRolling      Phase = "rolling"
 	PhaseChoosingPath Phase = "choosing_path"
-	PhaseEnding       Phase = "ending"
-	PhaseEnded        Phase = "ended"
+	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
+	PhaseDeploying Phase = "deploying"
+	PhaseEnding    Phase = "ending"
+	PhaseEnded     Phase = "ended"
 	// 進む途中だけの段階。Decide は進み終えるまで続けるので、保存された最後の状態が moving になることは無い
 	PhaseMoving Phase = "moving"
 )
@@ -108,6 +110,20 @@ type CreatureSpec struct {
 	Elements  creature.Elements  `json:"elements"`
 	Attack    creature.Attack    `json:"attack"`
 	HitPoints creature.HitPoints `json:"hit_points"`
+}
+
+// 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため
+type DeployedCreatureID int
+
+func NewDeployedCreatureID(value int) (DeployedCreatureID, error) {
+	if value <= 0 {
+		return 0, errors.New("deployed creature id must be positive")
+	}
+	return DeployedCreatureID(value), nil
+}
+
+func (id DeployedCreatureID) Int() int {
+	return int(id)
 }
 
 // 戦利品のパックを指す名前（キー）。パックのマスタ（次のマイルストーン）ができるまでは、決まった名前で表す
