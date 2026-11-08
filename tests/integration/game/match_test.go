@@ -26,7 +26,7 @@ const matchQuery = `query ($id: UUID!) {
 			id revision round
 			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { id name type } }
+			participants { kind playerId avatar { id name } position { x y } magic hand { __typename id name cost rarity } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
 			phase dice remainingSteps pathChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
 		}
@@ -327,15 +327,15 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				__typename revision occurredAt
 				... on MatchTurnOrderDecidedEvent { order }
 				... on MatchHandsDealtEvent { cards }
-				... on MatchCardDrawnEvent { participant card { id name type } }
-				... on MatchCardDiscardedEvent { participant handIndex card { id name type } }
+				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
+				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
 				... on MatchDiceRolledEvent { participant value }
 				... on MatchMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
 				... on MatchLapCompletedEvent { participant magic }
 				... on MatchTurnEndedEvent { participant }
 				... on MatchEndedEvent { winners ranks reason }
-				... on MatchRewardDrawnEvent { participant pack rewardCards { id name type } }
+				... on MatchRewardDrawnEvent { participant pack rewardCards { __typename id name cost rarity } }
 			}
 		}
 		... on MatchNotFoundError { message }
@@ -587,7 +587,10 @@ func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing
 	card := event["card"].(map[string]any)
 	require.NotEmpty(t, card["id"])
 	require.NotEmpty(t, card["name"])
-	require.NotEmpty(t, card["type"])
+	require.Equal(t, "CreatureCardInfo", card["__typename"])
+	// 対戦の中のカードは、始めたときの写しの性能
+	require.Equal(t, float64(10), card["cost"])
+	require.Equal(t, "NORMAL", card["rarity"])
 	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
 	require.Empty(t, nothing["events"])
 }

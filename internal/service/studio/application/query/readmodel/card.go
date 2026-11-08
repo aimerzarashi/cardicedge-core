@@ -75,6 +75,13 @@ type CardMetadata struct {
 	ID     uuid.UUID  `json:"id"`
 	Name   string     `json:"name"`
 	Status CardStatus `json:"status"`
+	// 3 種類に共通の性能。game には make publish-master がこの JSON をそのまま写し、デッキ・手札の表示と、対戦を始めるときの
+	// 性能の写しの元になる（studio と game の約束。core#112）。希少度は domain の card.Rarity の値（normal・strange・rare・extra）
+	Cost   int    `json:"cost"`
+	Rarity string `json:"rarity"`
+	// 種類ごとの性能は、種類の名前の入れ子に置く（フラットに並べると種類をまたいで名前がぶつかり、どの種類の値か読み取れないため。
+	// 2026-11-07 オーナー）。クリーチャー以外は持たず、省く
+	Creature *CreatureMetadata `json:"creature,omitempty"`
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64     `json:"revision"`
 	RegisteredAt time.Time `json:"registered_at"`
@@ -82,6 +89,13 @@ type CardMetadata struct {
 	// 投影では空のまま。書くときに repository が RegisteredBy・UpdatedBy から公開 ID を入れる
 	RegisteredBy uuid.UUID `json:"registered_by"`
 	UpdatedBy    uuid.UUID `json:"updated_by"`
+}
+
+// クリーチャーだけの性能。属性は domain の creature.Element の値（fire・earth・water・wind・neutral）を火・地・水・風の順に並べた配列
+type CreatureMetadata struct {
+	Elements  []string `json:"elements"`
+	Attack    int      `json:"attack"`
+	HitPoints int      `json:"hit_points"`
 }
 
 // Creature・Item・Spell のイベントだけを扱い、ほかは状態をそのまま返す
@@ -95,6 +109,8 @@ func (state Card) Evolve(event any) Card {
 		state.Status = CardStatusDraft
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
+			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
+			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int()},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -107,6 +123,7 @@ func (state Card) Evolve(event any) Card {
 		state.Status = CardStatusDraft
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
+			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -119,6 +136,7 @@ func (state Card) Evolve(event any) Card {
 		state.Status = CardStatusDraft
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
+			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -135,6 +153,35 @@ func (state Card) Evolve(event any) Card {
 		state = state.changeStatus(CardStatusPublished, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.PublishedBy)
 	case *spell.RetiredEvent:
 		state = state.changeStatus(CardStatusRetired, e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.RetiredBy)
+	case *creature.CostChangedEvent:
+		state.Metadata.Cost = e.Cost.Int()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *item.CostChangedEvent:
+		state.Metadata.Cost = e.Cost.Int()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *spell.CostChangedEvent:
+		state.Metadata.Cost = e.Cost.Int()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *creature.RarityChangedEvent:
+		state.Metadata.Rarity = e.Rarity.String()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *creature.ElementsChangedEvent:
+		changed := *state.Metadata.Creature
+		changed.Elements = e.Elements.Strings()
+		state.Metadata.Creature = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *creature.StatsChangedEvent:
+		changed := *state.Metadata.Creature
+		changed.Attack = e.Attack.Int()
+		changed.HitPoints = e.HitPoints.Int()
+		state.Metadata.Creature = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *item.RarityChangedEvent:
+		state.Metadata.Rarity = e.Rarity.String()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *spell.RarityChangedEvent:
+		state.Metadata.Rarity = e.Rarity.String()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	}
 	return state
 }
@@ -143,6 +190,11 @@ func (state Card) Evolve(event any) Card {
 func (state Card) changeStatus(status CardStatus, revision int64, occurredAt time.Time, by operator.ID) Card {
 	state.Status = status
 	state.Metadata.Status = status
+	return state.changed(revision, occurredAt, by)
+}
+
+// 変えた操作の版・日時・人を残す（状態・性能の変更で共通）
+func (state Card) changed(revision int64, occurredAt time.Time, by operator.ID) Card {
 	state.Metadata.Revision = revision
 	state.Metadata.UpdatedAt = occurredAt
 	state.UpdatedBy = by

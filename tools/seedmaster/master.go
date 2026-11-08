@@ -3,11 +3,14 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unicode/utf8"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
@@ -50,9 +53,16 @@ type masterNPCAvatar struct {
 	Decks []string `json:"decks"`
 }
 
+// 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
+// （攻撃力は 0 が正しい値なので、書き忘れと見分けるためにポインタで受ける）
 type masterCard struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
+	Cost      int      `json:"cost"`
+	Rarity    string   `json:"rarity"`
+	Elements  []string `json:"elements"`
+	Attack    *int     `json:"attack"`
+	HitPoints *int     `json:"hit_points"`
 }
 
 type masterPresetDeck struct {
@@ -86,10 +96,10 @@ type masterBoardDefaultRules struct {
 }
 
 type masterBoardTile struct {
-	X         int    `json:"x"`
-	Y         int    `json:"y"`
-	Kind      string `json:"kind"`
-	Attribute string `json:"attribute"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Kind    string `json:"kind"`
+	Element string `json:"element"`
 }
 
 type masterBoardPosition struct {
@@ -107,6 +117,27 @@ const (
 	cardMaxCount   = 4
 	deckTotalCount = 40
 )
+
+// クリーチャーは属性・攻撃力・体力を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
+func (c masterCard) validateCreatureSpec() error {
+	if c.Type != "creature" {
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil {
+			return fmt.Errorf("%s cannot have elements, attack or hit_points", c.Type)
+		}
+		return nil
+	}
+	if _, err := creature.NewElements(c.Elements); err != nil {
+		return err
+	}
+	if c.Attack == nil || c.HitPoints == nil {
+		return errors.New("creature needs attack and hit_points")
+	}
+	if _, err := creature.NewAttack(*c.Attack); err != nil {
+		return err
+	}
+	_, err := creature.NewHitPoints(*c.HitPoints)
+	return err
+}
 
 func loadMaster(raw []byte) (master, error) {
 	var m master
@@ -132,6 +163,15 @@ func (m master) validate() error {
 			return fmt.Errorf("card %q: duplicated", c.Name)
 		}
 		cardNames[c.Name] = true
+		if _, err := card.NewCost(c.Cost); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if _, err := card.NewRarity(c.Rarity); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateCreatureSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
 	}
 	deckNames := map[string]bool{}
 	for _, d := range m.PresetDecks {
@@ -340,8 +380,8 @@ func (b masterBoard) layout() (board.Layout, error) {
 			return board.Layout{}, err
 		}
 		tile := board.Tile{Position: position, Kind: kind}
-		if t.Attribute != "" {
-			tile.Attribute, err = board.NewAttribute(t.Attribute)
+		if t.Element != "" {
+			tile.Element, err = board.NewElement(t.Element)
 			if err != nil {
 				return board.Layout{}, err
 			}
@@ -398,7 +438,7 @@ func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {
 func (b masterBoard) layoutInput() command.BoardLayoutInput {
 	tiles := make([]command.BoardTileInput, 0, len(b.Tiles))
 	for _, t := range b.Tiles {
-		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind, Attribute: t.Attribute})
+		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind, Element: t.Element})
 	}
 	connections := make([]command.BoardConnectionInput, 0, len(b.Connections))
 	for _, c := range b.Connections {

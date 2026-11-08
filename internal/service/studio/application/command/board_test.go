@@ -39,13 +39,13 @@ func registerBoard(t *testing.T, ctx context.Context, commands *command.BoardHan
 // 土地には火属性を付ける（属性を確かめないテストで、属性の誤りが出ないように）
 func tileInput(x, y int, kind string) command.BoardTileInput {
 	if kind == "land" {
-		return tileInputWithAttribute(x, y, kind, "fire")
+		return tileInputWithElement(x, y, kind, "fire")
 	}
 	return command.BoardTileInput{X: x, Y: y, Kind: kind}
 }
 
-func tileInputWithAttribute(x, y int, kind, attribute string) command.BoardTileInput {
-	return command.BoardTileInput{X: x, Y: y, Kind: kind, Attribute: attribute}
+func tileInputWithElement(x, y int, kind, element string) command.BoardTileInput {
+	return command.BoardTileInput{X: x, Y: y, Kind: kind, Element: element}
 }
 
 func connectionInput(ax, ay, bx, by int) command.BoardConnectionInput {
@@ -465,10 +465,10 @@ func TestChangeBoardLayout_ReturnsInternalErrorForShapesTheInputRulesOut(t *test
 		tile command.BoardTileInput
 	}{
 		{name: "unknown_kind", tile: tileInput(1, 1, "water")},
-		{name: "unknown_attribute", tile: tileInputWithAttribute(1, 1, "land", "light")},
-		{name: "land_without_attribute", tile: tileInputWithAttribute(1, 1, "land", "")},
-		{name: "base_with_attribute", tile: tileInputWithAttribute(1, 1, "base", "fire")},
-		{name: "checkpoint_with_attribute", tile: tileInputWithAttribute(1, 1, "checkpoint", "multi")},
+		{name: "unknown_element", tile: tileInputWithElement(1, 1, "land", "light")},
+		{name: "land_without_element", tile: tileInputWithElement(1, 1, "land", "")},
+		{name: "base_with_element", tile: tileInputWithElement(1, 1, "base", "fire")},
+		{name: "checkpoint_with_element", tile: tileInputWithElement(1, 1, "checkpoint", "multi")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -1,0 +1,47 @@
+# 所持カード。read model collections（プレイヤーに 1 つ）の cards と、写した cards をつないで読む。
+# どこから手に入れたか（スターター・戦利品）は見せない。並びは core が決める（種類 → 名前 → 公開 ID。デッキのカードと同じ）
+
+"所持カードの絞り込み"
+input CollectionFilter {
+  "カードの種類（指定が無ければすべて。空のリストは入力の誤り）"
+  types: [CardType!]
+}
+
+"所持しているカード 1 種類と、その枚数"
+type CollectionCard {
+  "カード"
+  card: CardInfo!
+  "持っている枚数（1 以上）"
+  count: Int!
+}
+
+"所持カードの一覧の 1 件と、その位置"
+type CollectionCardEdge {
+  "この 1 件の位置（次のページを取るときに after に渡す）"
+  cursor: String!
+  "所持しているカードと枚数"
+  node: CollectionCard!
+}
+
+"所持カードの一覧の 1 ページ（種類 → 名前の順）"
+type CollectionCardConnection {
+  "このページの所持カード"
+  edges: [CollectionCardEdge!]!
+  "ページの情報"
+  pageInfo: PageInfo!
+}
+
+"所持カードの一覧の結果。入力の誤りは ValidationErrors"
+union CollectionResult = CollectionCardConnection | ValidationErrors
+
+extend type Player {
+  "このプレイヤーが持っているカード（種類 → 名前の順。まだ配布が届いていなければ空）"
+  collection(
+    "絞り込み（指定が無ければすべて）"
+    filter: CollectionFilter
+    "1 ページの件数（1〜100。指定が無ければ 50）"
+    first: Int
+    "前のページの pageInfo.endCursor（指定が無ければ最初のページ）"
+    after: String
+  ): CollectionResult!
+}

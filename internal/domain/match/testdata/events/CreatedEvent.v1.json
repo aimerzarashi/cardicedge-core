@@ -12,14 +12,24 @@
             "entity_type": "creature",
             "id": 101
           },
-          "quantity": 2
+          "quantity": 2,
+          "spec": {
+            "cost": 10,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20 }
+          }
         },
         {
           "card": {
             "entity_type": "creature",
             "id": 102
           },
-          "quantity": 1
+          "quantity": 1,
+          "spec": {
+            "cost": 20,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 10, "hit_points": 30 }
+          }
         }
       ]
     },
@@ -34,7 +44,12 @@
             "entity_type": "creature",
             "id": 201
           },
-          "quantity": 3
+          "quantity": 3,
+          "spec": {
+            "cost": 10,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20 }
+          }
         }
       ]
     }
@@ -59,7 +74,7 @@
           "y": 0
         },
         "kind": "land",
-        "attribute": "fire"
+        "element": "fire"
       }
     ],
     "connections": [

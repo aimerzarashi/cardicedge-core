@@ -28,7 +28,7 @@ type Room struct {
 	RoomID string `boil:"room_id" json:"room_id" toml:"room_id" yaml:"room_id"`
 	// 作ったプレイヤー（持ち主）の公開用の ID（players.player_id と同じ値。外部キーは張らない）。今は部屋に入れるのは作った人だけなので、自分の部屋の一覧はこれで絞る。ほかの人が参加できるようになるときに、入っている人の表を足す
 	OwnerPlayerID string `boil:"owner_player_id" json:"owner_player_id" toml:"owner_player_id" yaml:"owner_player_id"`
-	// 状態（draft・preparing・closed）。閉じた部屋を一覧から除くのに使う
+	// 状態（draft・preparing・playing・deciding_next・paused・closed）。閉じた部屋を一覧から除くのに使う
 	Status string `boil:"status" json:"status" toml:"status" yaml:"status"`
 	// 作った日時（イベントの発生時刻）。自分の部屋の一覧を新しい順に並べるのに使う
 	RegisteredAt time.Time `boil:"registered_at" json:"registered_at" toml:"registered_at" yaml:"registered_at"`

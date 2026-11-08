@@ -41,25 +41,25 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
-// 写した boards.metadata の tiles の attribute の値（土地のときだけある）
-type BoardTileAttribute string
+// 写した boards.metadata の tiles の element の値（土地のときだけある）
+type BoardTileElement string
 
 const (
-	BoardTileAttributeFire    BoardTileAttribute = "fire"
-	BoardTileAttributeEarth   BoardTileAttribute = "earth"
-	BoardTileAttributeWater   BoardTileAttribute = "water"
-	BoardTileAttributeWind    BoardTileAttribute = "wind"
-	BoardTileAttributeNeutral BoardTileAttribute = "neutral"
-	BoardTileAttributeMulti   BoardTileAttribute = "multi"
+	BoardTileElementFire    BoardTileElement = "fire"
+	BoardTileElementEarth   BoardTileElement = "earth"
+	BoardTileElementWater   BoardTileElement = "water"
+	BoardTileElementWind    BoardTileElement = "wind"
+	BoardTileElementNeutral BoardTileElement = "neutral"
+	BoardTileElementMulti   BoardTileElement = "multi"
 )
 
-func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
-	attribute := BoardTileAttribute(value)
-	switch attribute {
-	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
-		return attribute, nil
+func NewBoardTileElement(value string) (BoardTileElement, error) {
+	element := BoardTileElement(value)
+	switch element {
+	case BoardTileElementFire, BoardTileElementEarth, BoardTileElementWater, BoardTileElementWind, BoardTileElementNeutral, BoardTileElementMulti:
+		return element, nil
 	default:
-		return "", fmt.Errorf("query: unknown board tile attribute: %q", value)
+		return "", fmt.Errorf("query: unknown board tile element: %q", value)
 	}
 }
 
@@ -72,12 +72,12 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// Attribute は土地のときだけ値があり、そうでなければ空
+// Element は土地のときだけ値があり、そうでなければ空
 type BoardTile struct {
-	X         int
-	Y         int
-	Kind      BoardTileKind
-	Attribute BoardTileAttribute
+	X       int
+	Y       int
+	Kind    BoardTileKind
+	Element BoardTileElement
 }
 
 type BoardConnection struct {

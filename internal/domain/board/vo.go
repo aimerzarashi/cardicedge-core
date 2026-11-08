@@ -352,38 +352,39 @@ func (k TileKind) String() string {
 	return string(k)
 }
 
-// 土地の属性。火・地・水・風・無・複の 6 つで、複は火・地・水・風の 4 色のマークが描かれた特殊な土地を表す値の 1 つ
-// （組み合わせは持たない）。カードの属性とは型を分ける（カードの属性はこのボードの属性と決まりが別で、片方を変えたくなったときに分けられなくなるため）
-type Attribute string
+// 土地の属性（element）。火・地・水・風・無・複の 6 つで、複は火・地・水・風の 4 色のマークが描かれた特殊な土地を表す値の 1 つ
+// （組み合わせは持たない）。名前はクリーチャーの element にそろえるが、型は分ける（クリーチャーの element は無が単独・複数持てるなど、
+// このボードの element と決まりが別で、共通にすると片方を変えたくなったときに分けられなくなるため）
+type Element string
 
 const (
-	AttributeFire    Attribute = "fire"
-	AttributeEarth   Attribute = "earth"
-	AttributeWater   Attribute = "water"
-	AttributeWind    Attribute = "wind"
-	AttributeNeutral Attribute = "neutral"
-	AttributeMulti   Attribute = "multi"
+	ElementFire    Element = "fire"
+	ElementEarth   Element = "earth"
+	ElementWater   Element = "water"
+	ElementWind    Element = "wind"
+	ElementNeutral Element = "neutral"
+	ElementMulti   Element = "multi"
 )
 
-func NewAttribute(value string) (Attribute, error) {
-	attribute := Attribute(value)
-	switch attribute {
-	case AttributeFire, AttributeEarth, AttributeWater, AttributeWind, AttributeNeutral, AttributeMulti:
-		return attribute, nil
+func NewElement(value string) (Element, error) {
+	element := Element(value)
+	switch element {
+	case ElementFire, ElementEarth, ElementWater, ElementWind, ElementNeutral, ElementMulti:
+		return element, nil
 	default:
-		return "", fmt.Errorf("%w: %q", ErrAttributeUnknown, value)
+		return "", fmt.Errorf("%w: %q", ErrElementUnknown, value)
 	}
 }
 
-func (a Attribute) String() string {
-	return string(a)
+func (e Element) String() string {
+	return string(e)
 }
 
-// Attribute は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
+// Element は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
 type Tile struct {
-	Position  Position  `json:"position"`
-	Kind      TileKind  `json:"kind"`
-	Attribute Attribute `json:"attribute,omitempty"`
+	Position Position `json:"position"`
+	Kind     TileKind `json:"kind"`
+	Element  Element  `json:"element,omitempty"`
 }
 
 // 向きが無いので、並べ方の小さい方を A にそろえて 1 通りにする（a,b と b,a を同じつながりにし、map の key にできるように）
@@ -440,7 +441,7 @@ const (
 	PartA     Part = "a"
 	PartB     Part = "b"
 	// マスの属性
-	PartAttribute Part = "attribute"
+	PartElement Part = "element"
 )
 
 type Reason string
@@ -457,9 +458,9 @@ const (
 	// 同じつながり（a,b の順を入れ替えたものを含む）の 2 回目
 	ReasonDuplicatedConnection Reason = "duplicated_connection"
 	// 土地に属性が無い
-	ReasonAttributeRequired Reason = "attribute_required"
+	ReasonElementRequired Reason = "element_required"
 	// 拠点・チェックポイントに属性がある
-	ReasonAttributeNotAllowed Reason = "attribute_not_allowed"
+	ReasonElementNotAllowed Reason = "element_not_allowed"
 	// 対の端が転送円でも橋でもない
 	ReasonNotPairableTile Reason = "not_pairable_tile"
 	// 対の両端が転送円と橋（どちらの対かは端のマスの種類で決まるので、組めるのは同じ種類どうしだけ）
@@ -500,10 +501,10 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 		}
 		// 座標の誤りとは別に示せるよう、格子の外のマスでも調べる
 		switch {
-		case tile.Kind == TileKindLand && tile.Attribute == "":
-			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeRequired})
-		case tile.Kind != TileKindLand && tile.Attribute != "":
-			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeNotAllowed})
+		case tile.Kind == TileKindLand && tile.Element == "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartElement, Reason: ReasonElementRequired})
+		case tile.Kind != TileKindLand && tile.Element != "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartElement, Reason: ReasonElementNotAllowed})
 		}
 		if !inRange {
 			continue

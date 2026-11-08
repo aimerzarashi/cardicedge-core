@@ -6,6 +6,10 @@ type Spell implements Card {
   name: String!
   "状態（準備中・公開中・使用不可）"
   status: CardStatus!
+  "使うのに払う魔力（0 以上）"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"

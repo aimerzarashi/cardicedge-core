@@ -194,8 +194,8 @@ func toMatchBoard(id board.ID, metadata boardMetadata) (match.Board, error) {
 			return match.Board{}, err
 		}
 		tile := board.Tile{Position: at, Kind: kind}
-		if t.Attribute != "" {
-			if tile.Attribute, err = board.NewAttribute(t.Attribute); err != nil {
+		if t.Element != "" {
+			if tile.Element, err = board.NewElement(t.Element); err != nil {
 				return match.Board{}, err
 			}
 		}
@@ -259,4 +259,45 @@ func (r *MatchSourceReader) PublishedCards(ctx context.Context) ([]card.Ref, err
 		cards = append(cards, ref)
 	}
 	return cards, nil
+}
+
+// 対戦を始めるときに写すカードの性能を、写した cards から 1 回で読む（内部 ID を公開 ID に引き直す）。写していないカードはエラー
+func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map[card.Ref]master.CardSpec, error) {
+	entityRefs := make([]domain.EntityRef, len(refs))
+	for i, ref := range refs {
+		entityRefs[i] = domain.NewEntityRef(ref.EntityType, ref.ID)
+	}
+	publicIDs, err := r.entityRefs.PublicIDs(ctx, entityRefs)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, 0, len(publicIDs))
+	for _, publicID := range publicIDs {
+		ids = append(ids, publicID)
+	}
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := loadCards(ctx, exec, ids)
+	if err != nil {
+		return nil, err
+	}
+	specs := make(map[card.Ref]master.CardSpec, len(refs))
+	for i, ref := range refs {
+		publicID, ok := publicIDs[entityRefs[i]]
+		if !ok {
+			return nil, fmt.Errorf("repository: card %s/%d has no public id: %w", ref.EntityType, ref.ID, domain.ErrEntityNotFound)
+		}
+		row, ok := rows[publicID]
+		if !ok {
+			return nil, fmt.Errorf("cards of %s is not published: %w", publicID, domain.ErrEntityNotFound)
+		}
+		spec := master.CardSpec{Cost: row.card.Cost, Rarity: row.card.Rarity}
+		if row.card.Creature != nil {
+			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints}
+		}
+		specs[ref] = spec
+	}
+	return specs, nil
 }

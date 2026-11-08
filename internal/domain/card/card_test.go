@@ -254,3 +254,33 @@ func TestRef_Compare(t *testing.T) {
 	require.Zero(t, creature1.Compare(creature1))
 	require.Negative(t, creature2.Compare(item1))
 }
+
+func TestStatus_SpecEditableOnlyWhenDraft(t *testing.T) {
+	require.True(t, card.StatusDraft.SpecEditable())
+	require.False(t, card.StatusPublished.SpecEditable())
+	require.False(t, card.StatusRetired.SpecEditable())
+}
+
+func TestNewCost_AcceptsZeroAndRejectsNegative(t *testing.T) {
+	zero, err := card.NewCost(0)
+	require.NoError(t, err)
+	require.Equal(t, 0, zero.Int())
+
+	_, err = card.NewCost(-1)
+	require.ErrorIs(t, err, card.ErrCostNegative)
+}
+
+func TestNewRarity_ReadsKnownValues(t *testing.T) {
+	for _, value := range []string{"normal", "strange", "rare", "extra"} {
+		t.Run(value, func(t *testing.T) {
+			rarity, err := card.NewRarity(value)
+			require.NoError(t, err)
+			require.Equal(t, value, rarity.String())
+		})
+	}
+}
+
+func TestNewRarity_RejectsUnknownValue(t *testing.T) {
+	_, err := card.NewRarity("N")
+	require.ErrorIs(t, err, card.ErrRarityUnknown)
+}

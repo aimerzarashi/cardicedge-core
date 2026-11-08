@@ -12,7 +12,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar/avatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
@@ -69,6 +71,13 @@ func newMatchStartFixture(t *testing.T) matchStartFixture {
 		func(context.Context, npcdeck.ID) ([]master.DeckCard, error) {
 			return []master.DeckCard{{Card: cardC, Count: 2}}, nil
 		},
+		func(_ context.Context, refs []card.Ref) (map[card.Ref]master.CardSpec, error) {
+			specs := map[card.Ref]master.CardSpec{}
+			for _, ref := range refs {
+				specs[ref] = cardSpecs[ref]
+			}
+			return specs, nil
+		},
 		func() match.Random {
 			return matchtest.NewRandom()
 		},
@@ -107,6 +116,22 @@ func TestMatchStart_CreatesMatchWithIDOfRoomEventFromRoomConditions(t *testing.T
 	require.Empty(t, started.Participants[1].DrawPile)
 }
 
+// 対戦は、始めたときのカードの性能をデッキの写しに持つ（判断と画面が同じ値を使うため）
+func TestMatchStart_CopiesCardSpecsIntoParticipantDecks(t *testing.T) {
+	f := newMatchStartFixture(t)
+
+	err := f.handler.Handle(f.ctx, &room.MatchStartedEvent{EventMeta: room.EventMeta{EntityID: f.room.ID}, Match: f.room.Match})
+
+	require.NoError(t, err)
+	started, ok := f.matches(t).(match.Match)
+	require.True(t, ok)
+	require.Equal(t, map[card.Ref]match.CardSpec{
+		cardA: {Cost: cardtest.Cost(t, 30), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 20), HitPoints: creaturetest.HitPoints(t, 30)}},
+		cardB: {Cost: cardtest.Cost(t, 0), Rarity: card.RarityStrange, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "water", "earth"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60)}},
+		cardC: {Cost: cardtest.Cost(t, 50), Rarity: card.RarityRare, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "neutral"), Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 40)}},
+	}, started.CardSpecs())
+}
+
 func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
 	f := newMatchStartFixture(t)
 	old := gamerules.Defaults()
@@ -115,7 +140,7 @@ func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
 		eventstore.New(f.registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 		eventstore.New(f.registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 		func(context.Context) (gamerules.Rules, bool, error) { return old, true, nil },
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 	)
 
 	err := handler.Start(f.ctx, f.room.ID, f.room.Match)

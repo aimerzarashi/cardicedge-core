@@ -17,7 +17,7 @@ const boardFields = `id name status width height revision registeredAt updatedAt
 	defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax }
 	tileCounts { land base checkpoint fire earth water wind neutral multi warp bridge sanctuary shrine prophecyShop cardShop }
 	publishProblems { __typename message ... on BaseCountProblem { positions { x y } } ... on UnreachableTilesProblem { positions { x y } } ... on UnpairedTilesProblem { positions { x y } } }
-	tiles { __typename x y ... on LandTile { attribute } }
+	tiles { __typename x y ... on LandTile { element } }
 	connections { a { x y } b { x y } }
 	pairs { a { x y } b { x y } }`
 
@@ -126,13 +126,13 @@ func boardInput(board map[string]any, extra map[string]any) map[string]any {
 // 土地には火属性を付ける（属性を確かめないテストで使う）
 func boardTile(x, y int, kind string) map[string]any {
 	if kind == "LAND" {
-		return boardTileWithAttribute(x, y, kind, "FIRE")
+		return boardTileWithElement(x, y, kind, "FIRE")
 	}
 	return map[string]any{strings.ToLower(kind): map[string]any{"x": x, "y": y}}
 }
 
-func boardTileWithAttribute(x, y int, kind, attribute string) map[string]any {
-	return map[string]any{strings.ToLower(kind): map[string]any{"x": x, "y": y, "attribute": attribute}}
+func boardTileWithElement(x, y int, kind, element string) map[string]any {
+	return map[string]any{strings.ToLower(kind): map[string]any{"x": x, "y": y, "element": element}}
 }
 
 func boardConnection(ax, ay, bx, by int) map[string]any {
@@ -247,7 +247,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	board := registerBoard(t, token, "草原-"+testhelper.UniqueID(t))
 
 	changed := changeBoardLayout(t, token, board, 3, 2,
-		[]map[string]any{boardTileWithAttribute(2, 1, "LAND", "MULTI"), boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT")},
+		[]map[string]any{boardTileWithElement(2, 1, "LAND", "MULTI"), boardTile(0, 0, "BASE"), boardTile(1, 0, "CHECKPOINT")},
 		[]map[string]any{boardConnection(1, 0, 0, 0)})
 
 	require.Equal(t, "ChangeBoardLayoutSuccess", changed["__typename"])
@@ -258,7 +258,7 @@ func TestChangeBoardLayout_ShowsWholeLayoutAndReplacesIt(t *testing.T) {
 	require.Equal(t, []any{
 		map[string]any{"__typename": "BaseTile", "x": float64(0), "y": float64(0)},
 		map[string]any{"__typename": "CheckpointTile", "x": float64(1), "y": float64(0)},
-		map[string]any{"__typename": "LandTile", "x": float64(2), "y": float64(1), "attribute": "MULTI"},
+		map[string]any{"__typename": "LandTile", "x": float64(2), "y": float64(1), "element": "MULTI"},
 	}, detail["tiles"])
 	require.Equal(t, []any{map[string]any{
 		"a": map[string]any{"x": float64(0), "y": float64(0)}, "b": map[string]any{"x": float64(1), "y": float64(0)},

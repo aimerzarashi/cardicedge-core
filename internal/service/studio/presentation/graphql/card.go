@@ -1,9 +1,11 @@
 package graphql
 
 import (
+	"errors"
 	"fmt"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
@@ -105,15 +107,133 @@ func toCard(card query.Card) (model.Card, error) {
 	if err != nil {
 		return nil, err
 	}
+	rarity, err := fromCardRarity(card.Rarity)
+	if err != nil {
+		return nil, err
+	}
 	revision := int(card.Revision)
 	switch card.Type {
 	case readmodel.CardTypeCreature:
-		return &model.Creature{ID: card.ID, Name: card.Name, Status: status, Revision: revision, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
+		// 投影が必ず書く値なので、無ければ read model の不整合（黙って空にしない）
+		if card.Creature == nil {
+			return nil, fmt.Errorf("graphql: creature %s has no creature spec", card.ID)
+		}
+		elements, err := fromElements(card.Creature.Elements)
+		if err != nil {
+			return nil, err
+		}
+		return &model.Creature{
+			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Revision: revision,
+			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
+		}, nil
 	case readmodel.CardTypeItem:
-		return &model.Item{ID: card.ID, Name: card.Name, Status: status, Revision: revision, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
+		return &model.Item{
+			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity, Revision: revision,
+			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
+		}, nil
 	case readmodel.CardTypeSpell:
-		return &model.Spell{ID: card.ID, Name: card.Name, Status: status, Revision: revision, RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt}, nil
+		return &model.Spell{
+			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity, Revision: revision,
+			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
+		}, nil
 	default:
 		return nil, fmt.Errorf("graphql: card type %d has no GraphQL type", card.Type)
 	}
+}
+
+// 性能の変更の結果の型のうち、性能の変更（コスト・希少度・属性・攻撃力と体力）で共通のエラーの型。該当しなければ nil（入力の誤りは別に見る）
+func cardChangeError(err error) cardChangeResult {
+	switch {
+	case errors.Is(err, command.ErrCardNotFound):
+		return &model.CardNotFoundError{Message: "card not found"}
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}
+	case errors.Is(err, command.ErrCardNotDraft):
+		return &model.CardNotDraftError{Message: "card is not draft"}
+	default:
+		return nil
+	}
+}
+
+// 性能の変更の結果の union のどれにも入るエラーの型（gqlgen は union ごとに別の interface を作るため、共通の部分をまとめる）
+type cardChangeResult interface {
+	model.ChangeCardCostResult
+	model.ChangeCardRarityResult
+	model.ChangeCreatureElementsResult
+	model.ChangeCreatureStatsResult
+}
+
+// enum の値と希少度の対応を明示する（toCardType と同じ理由）
+func toCardRarity(rarity model.CardRarity) (string, error) {
+	switch rarity {
+	case model.CardRarityNormal:
+		return "normal", nil
+	case model.CardRarityStrange:
+		return "strange", nil
+	case model.CardRarityRare:
+		return "rare", nil
+	case model.CardRarityExtra:
+		return "extra", nil
+	default:
+		return "", fmt.Errorf("graphql: unknown card rarity: %s", rarity)
+	}
+}
+
+func fromCardRarity(rarity string) (model.CardRarity, error) {
+	switch rarity {
+	case "normal":
+		return model.CardRarityNormal, nil
+	case "strange":
+		return model.CardRarityStrange, nil
+	case "rare":
+		return model.CardRarityRare, nil
+	case "extra":
+		return model.CardRarityExtra, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown card rarity: %q", rarity)
+	}
+}
+
+// enum の値と属性の対応を明示する（toCardType と同じ理由）
+func toElements(elements []model.CreatureElement) ([]string, error) {
+	values := make([]string, len(elements))
+	for i, element := range elements {
+		switch element {
+		case model.CreatureElementFire:
+			values[i] = "fire"
+		case model.CreatureElementEarth:
+			values[i] = "earth"
+		case model.CreatureElementWater:
+			values[i] = "water"
+		case model.CreatureElementWind:
+			values[i] = "wind"
+		case model.CreatureElementNeutral:
+			values[i] = "neutral"
+		default:
+			return nil, fmt.Errorf("graphql: unknown element: %s", element)
+		}
+	}
+	return values, nil
+}
+
+func fromElements(values []string) ([]model.CreatureElement, error) {
+	elements := make([]model.CreatureElement, len(values))
+	for i, value := range values {
+		switch value {
+		case "fire":
+			elements[i] = model.CreatureElementFire
+		case "earth":
+			elements[i] = model.CreatureElementEarth
+		case "water":
+			elements[i] = model.CreatureElementWater
+		case "wind":
+			elements[i] = model.CreatureElementWind
+		case "neutral":
+			elements[i] = model.CreatureElementNeutral
+		default:
+			return nil, fmt.Errorf("graphql: unknown element: %q", value)
+		}
+	}
+	return elements, nil
 }

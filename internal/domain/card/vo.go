@@ -208,3 +208,53 @@ func (r Ref) Compare(other Ref) int {
 		return 0
 	}
 }
+
+// 性能を変えられるか。準備中だけ（公開中・使用不可は、デッキに入れた・game に写した性能が途中で変わるため。
+// 公開した後に直す形は保留。2026-11-07 オーナー。core#112）
+func (s Status) SpecEditable() bool {
+	return s == StatusDraft
+}
+
+// カードを使うのに払う魔力。0 以上（マナのように 0 のカードがある）。上限は持たない（決まりから導ける値が無いため）
+type Cost int
+
+// 登録の直後のコスト（2026-11-07 オーナー）。登録のイベントが値を明示して持つので、変えても過去のカードは変わらない
+const DefaultCost Cost = 10
+
+func NewCost(value int) (Cost, error) {
+	if value < 0 {
+		return 0, ErrCostNegative
+	}
+	return Cost(value), nil
+}
+
+func (c Cost) Int() int {
+	return int(c)
+}
+
+// 希少度（画面では N・S・R・E）。上下の順は戦利品のパックで使うときに決める（2026-11-07 オーナー）ため、比べる関数は持たない
+type Rarity string
+
+const (
+	RarityNormal  Rarity = "normal"
+	RarityStrange Rarity = "strange"
+	RarityRare    Rarity = "rare"
+	RarityExtra   Rarity = "extra"
+)
+
+// 登録の直後の希少度（2026-11-07 オーナー）
+const DefaultRarity = RarityNormal
+
+func NewRarity(value string) (Rarity, error) {
+	rarity := Rarity(value)
+	switch rarity {
+	case RarityNormal, RarityStrange, RarityRare, RarityExtra:
+		return rarity, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrRarityUnknown, value)
+	}
+}
+
+func (r Rarity) String() string {
+	return string(r)
+}

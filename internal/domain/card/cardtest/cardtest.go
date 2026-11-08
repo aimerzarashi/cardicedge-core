@@ -65,3 +65,17 @@ func DeckTotalCount(t testing.TB, value int) card.DeckTotalCount {
 	require.NoError(t, err)
 	return count
 }
+
+func Cost(t testing.TB, value int) card.Cost {
+	t.Helper()
+	cost, err := card.NewCost(value)
+	require.NoError(t, err)
+	return cost
+}
+
+func Rarity(t testing.TB, value string) card.Rarity {
+	t.Helper()
+	rarity, err := card.NewRarity(value)
+	require.NoError(t, err)
+	return rarity
+}

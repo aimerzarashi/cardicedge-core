@@ -43,7 +43,7 @@ func (r *MatchNameReader) Load(ctx context.Context, avatarIDs, npcAvatarIDs, car
 	}
 	names.Cards = make(map[uuid.UUID]query.MatchCard, len(cards))
 	for id, row := range cards {
-		names.Cards[id] = query.MatchCard{ID: id, Name: row.card.Name, Type: row.card.Type}
+		names.Cards[id] = query.MatchCard{ID: id, Name: row.card.Name, Type: row.card.Type, Cost: row.card.Cost, Rarity: row.card.Rarity, Creature: row.card.Creature}
 	}
 	return names, nil
 }

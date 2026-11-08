@@ -2,147 +2,285 @@
   "cards": [
     {
       "type": "creature",
-      "name": "ウルフ"
+      "name": "ウルフ",
+      "cost": 10,
+      "rarity": "normal",
+      "elements": ["neutral"],
+      "attack": 20,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "ファイター"
+      "name": "ファイター",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["neutral"],
+      "attack": 40,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "コボルド"
+      "name": "コボルド",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 20,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "ミノタウロス"
+      "name": "ミノタウロス",
+      "cost": 60,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 40,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "ドラゴンフライ"
+      "name": "ドラゴンフライ",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 20
     },
     {
       "type": "creature",
-      "name": "ピラーフレイム"
+      "name": "ピラーフレイム",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 50
     },
     {
       "type": "creature",
-      "name": "フェニックス"
+      "name": "フェニックス",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "タイガービートル"
+      "name": "タイガービートル",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 20,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "ドワーフ"
+      "name": "ドワーフ",
+      "cost": 70,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 30,
+      "hit_points": 50
     },
     {
       "type": "creature",
-      "name": "ストーンウォール"
+      "name": "ストーンウォール",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 0,
+      "hit_points": 60
     },
     {
       "type": "creature",
-      "name": "ノーム"
+      "name": "ノーム",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 20,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "ウッドフォーク"
+      "name": "ウッドフォーク",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 30,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "マーフォーク"
+      "name": "マーフォーク",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 20,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "アイスウォール"
+      "name": "アイスウォール",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 0,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "キングトータス"
+      "name": "キングトータス",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 10,
+      "hit_points": 50
     },
     {
       "type": "creature",
-      "name": "ジャイアントアメーバ"
+      "name": "ジャイアントアメーバ",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 30,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "リザードマン"
+      "name": "リザードマン",
+      "cost": 70,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 30,
+      "hit_points": 40
     },
     {
       "type": "creature",
-      "name": "ジャイアントバット"
+      "name": "ジャイアントバット",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 20,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "スペクター"
+      "name": "スペクター",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 0,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "ハリケーン"
+      "name": "ハリケーン",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 20,
+      "hit_points": 50
     },
     {
       "type": "creature",
-      "name": "ハーピー"
+      "name": "ハーピー",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 30,
+      "hit_points": 30
     },
     {
       "type": "creature",
-      "name": "コーンフォーク"
+      "name": "コーンフォーク",
+      "cost": 60,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 30,
+      "hit_points": 40
     },
     {
       "type": "item",
-      "name": "ロングソード"
+      "name": "ロングソード",
+      "cost": 10,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "バトルアックス"
+      "name": "バトルアックス",
+      "cost": 30,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "フレイムタン"
+      "name": "フレイムタン",
+      "cost": 25,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "エアスラッシャー"
+      "name": "エアスラッシャー",
+      "cost": 25,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "チェインメイル"
+      "name": "チェインメイル",
+      "cost": 10,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "スケールアーマー"
+      "name": "スケールアーマー",
+      "cost": 30,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "アイシクル"
+      "name": "アイシクル",
+      "cost": 25,
+      "rarity": "normal"
     },
     {
       "type": "item",
-      "name": "ロックバイター"
+      "name": "ロックバイター",
+      "cost": 25,
+      "rarity": "normal"
     },
     {
       "type": "spell",
-      "name": "ホーリーワード1"
+      "name": "ホーリーワード1",
+      "cost": 30,
+      "rarity": "normal"
     },
     {
       "type": "spell",
-      "name": "ホーリーワード6"
+      "name": "ホーリーワード6",
+      "cost": 50,
+      "rarity": "normal"
     },
     {
       "type": "spell",
-      "name": "フライ"
+      "name": "フライ",
+      "cost": 50,
+      "rarity": "strange"
     },
     {
       "type": "spell",
-      "name": "ホープ"
+      "name": "ホープ",
+      "cost": 40,
+      "rarity": "strange"
     },
     {
       "type": "spell",
-      "name": "マナ"
+      "name": "マナ",
+      "cost": 0,
+      "rarity": "normal"
     },
     {
       "type": "spell",
-      "name": "マジックボルト"
+      "name": "マジックボルト",
+      "cost": 50,
+      "rarity": "normal"
     }
   ],
   "preset_decks": [
@@ -361,28 +499,28 @@
       "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 20, "dice_min": 1, "dice_max": 8},
       "tiles": [
         {"x": 1, "y": 1, "kind": "base"},
-        {"x": 2, "y": 1, "kind": "land", "attribute": "fire"},
-        {"x": 3, "y": 1, "kind": "land", "attribute": "earth"},
-        {"x": 4, "y": 1, "kind": "land", "attribute": "water"},
-        {"x": 5, "y": 1, "kind": "land", "attribute": "wind"},
+        {"x": 2, "y": 1, "kind": "land", "element": "fire"},
+        {"x": 3, "y": 1, "kind": "land", "element": "earth"},
+        {"x": 4, "y": 1, "kind": "land", "element": "water"},
+        {"x": 5, "y": 1, "kind": "land", "element": "wind"},
         {"x": 6, "y": 1, "kind": "checkpoint"},
-        {"x": 1, "y": 2, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 2, "kind": "land", "attribute": "multi"},
-        {"x": 6, "y": 2, "kind": "land", "attribute": "fire"},
-        {"x": 1, "y": 3, "kind": "land", "attribute": "earth"},
-        {"x": 3, "y": 3, "kind": "land", "attribute": "water"},
-        {"x": 6, "y": 3, "kind": "land", "attribute": "wind"},
-        {"x": 1, "y": 4, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 4, "kind": "land", "attribute": "multi"},
-        {"x": 6, "y": 4, "kind": "land", "attribute": "fire"},
-        {"x": 1, "y": 5, "kind": "land", "attribute": "earth"},
-        {"x": 3, "y": 5, "kind": "land", "attribute": "water"},
-        {"x": 6, "y": 5, "kind": "land", "attribute": "wind"},
+        {"x": 1, "y": 2, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 2, "kind": "land", "element": "multi"},
+        {"x": 6, "y": 2, "kind": "land", "element": "fire"},
+        {"x": 1, "y": 3, "kind": "land", "element": "earth"},
+        {"x": 3, "y": 3, "kind": "land", "element": "water"},
+        {"x": 6, "y": 3, "kind": "land", "element": "wind"},
+        {"x": 1, "y": 4, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 4, "kind": "land", "element": "multi"},
+        {"x": 6, "y": 4, "kind": "land", "element": "fire"},
+        {"x": 1, "y": 5, "kind": "land", "element": "earth"},
+        {"x": 3, "y": 5, "kind": "land", "element": "water"},
+        {"x": 6, "y": 5, "kind": "land", "element": "wind"},
         {"x": 1, "y": 6, "kind": "checkpoint"},
-        {"x": 2, "y": 6, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 6, "kind": "land", "attribute": "multi"},
-        {"x": 4, "y": 6, "kind": "land", "attribute": "fire"},
-        {"x": 5, "y": 6, "kind": "land", "attribute": "earth"},
+        {"x": 2, "y": 6, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 6, "kind": "land", "element": "multi"},
+        {"x": 4, "y": 6, "kind": "land", "element": "fire"},
+        {"x": 5, "y": 6, "kind": "land", "element": "earth"},
         {"x": 6, "y": 6, "kind": "checkpoint"},
         {"x": 2, "y": 2, "kind": "warp"},
         {"x": 5, "y": 5, "kind": "warp"},
@@ -440,22 +578,22 @@
       "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6},
       "tiles": [
         {"x": 0, "y": 0, "kind": "base"},
-        {"x": 1, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 2, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 3, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 4, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 0, "y": 1, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 1, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 2, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 2, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 3, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 3, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 4, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 4, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 1, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 2, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 3, "y": 5, "kind": "land", "attribute": "wind"},
+        {"x": 1, "y": 0, "kind": "land", "element": "water"},
+        {"x": 2, "y": 0, "kind": "land", "element": "water"},
+        {"x": 3, "y": 0, "kind": "land", "element": "water"},
+        {"x": 4, "y": 0, "kind": "land", "element": "water"},
+        {"x": 0, "y": 1, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 1, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 2, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 2, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 3, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 3, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 4, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 4, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 1, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 2, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 3, "y": 5, "kind": "land", "element": "wind"},
         {"x": 4, "y": 5, "kind": "checkpoint"}
       ],
       "connections": [

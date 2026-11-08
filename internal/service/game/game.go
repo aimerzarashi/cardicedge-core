@@ -63,6 +63,8 @@ type Game struct {
 	avatars         *command.AvatarHandler
 	avatarQuery     *query.AvatarHandler
 	deckQuery       *query.DeckHandler
+	collectionQuery *query.CollectionHandler
+	cardQuery       *query.CardHandler
 	unlockQuery     *query.UnlockHandler
 	boardQuery      *query.BoardHandler
 	gameRuleQuery   *query.GameRulesHandler
@@ -84,6 +86,8 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	avatarQuery := query.NewAvatarHandler(repository.NewAvatarReader().ListByPlayer)
 	deckReader := repository.NewDeckReader()
 	deckQuery := query.NewDeckHandler(deckReader.ListByPlayer, deckReader.Get)
+	collectionQuery := query.NewCollectionHandler(repository.NewCollectionReader().List)
+	cardQuery := query.NewCardHandler(repository.NewCardReader().Get)
 	unlockQuery := query.NewUnlockHandler(unlockReader.ListBoardsByPlayer)
 	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks)
 	roomReader := repository.NewRoomReader()
@@ -142,6 +146,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			matchSources.Board,
 			matchSources.PlayerDeckCards,
 			matchSources.NPCDeckCards,
+			matchSources.CardSpecs,
 			newRandom,
 			now,
 		),
@@ -197,12 +202,14 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			rules.FromPublished(repository.NewGameRulesReader().Get),
 			now,
 		),
-		avatarQuery:    avatarQuery,
-		deckQuery:      deckQuery,
-		unlockQuery:    unlockQuery,
-		boardQuery:     query.NewBoardHandler(boardReader.ListPublished, boardReader.GetPublished),
-		gameRuleQuery:  query.NewGameRulesHandler(gameRulesReader.Get),
-		npcAvatarQuery: npcAvatarQuery,
+		avatarQuery:     avatarQuery,
+		deckQuery:       deckQuery,
+		collectionQuery: collectionQuery,
+		cardQuery:       cardQuery,
+		unlockQuery:     unlockQuery,
+		boardQuery:      query.NewBoardHandler(boardReader.ListPublished, boardReader.GetPublished),
+		gameRuleQuery:   query.NewGameRulesHandler(gameRulesReader.Get),
+		npcAvatarQuery:  npcAvatarQuery,
 		rooms: command.NewRoomHandler(
 			eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 			identifier.New(registry, room.NewID),
@@ -357,6 +364,17 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 	}); err != nil {
 		return err
 	}
+	collections := repository.NewCollectionWriter(g.entityRefs)
+	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Collection]{
+		Name: "collections",
+		Subscriptions: []domain.EntityType{
+			collection.Types().EntityType,
+		},
+		Upsert: collections.Upsert,
+		Delete: collections.Delete,
+	}); err != nil {
+		return err
+	}
 	unlocks := repository.NewUnlockWriter(g.entityRefs)
 	if err := eventdriven.RegisterProjection(hub, eventdriven.ProjectionSpec[readmodel.Unlock]{
 		Name: "unlocks",
@@ -381,7 +399,7 @@ func (g *Game) RegisterProjections(hub *eventdriven.Hub) error {
 
 // db は game 用の DB（core_game）。game の入口の操作は、この DB だけを読み書きする（core#33）
 func (g *Game) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matches, g.matchQuery, g.matchEvents, g.matchProgress), db, g.config.Verifier, g.config.Issuer, g.players)
+	graphql.NewHandler(mux, graphql.NewResolver(g.players, g.playerQuery, g.avatars, g.avatarQuery, g.deckQuery, g.collectionQuery, g.cardQuery, g.unlockQuery, g.boardQuery, g.npcAvatarQuery, g.gameRuleQuery, g.rooms, g.roomQuery, g.matches, g.matchQuery, g.matchEvents, g.matchProgress), db, g.config.Verifier, g.config.Issuer, g.players)
 }
 
 // `app schema game` が書く（入口の presentation の graphql パッケージは studio と名前が重なり、cmd/app で並べて import できないため、

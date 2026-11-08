@@ -25,20 +25,9 @@ type DeckTypeCounts {
 "デッキに入っているカードと、その枚数"
 type DeckCard {
   "カード"
-  card: DeckCardInfo!
+  card: CardInfo!
   "枚数"
   count: Int!
-}
-
-# game にはカードの一覧・詳細の問い合わせが無いので、デッキを見せるのに要る項目だけにする（NpcDeckCardInfo と同じ形）
-"デッキに入っているカードの、見せるのに要る項目"
-type DeckCardInfo {
-  "公開用の ID"
-  id: UUID!
-  "名前"
-  name: String!
-  "種類"
-  type: CardType!
 }
 
 extend type Player {

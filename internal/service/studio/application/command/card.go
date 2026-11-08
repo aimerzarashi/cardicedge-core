@@ -29,25 +29,58 @@ func newCardName(field, value string) (card.Name, input.Error) {
 	return name, nil
 }
 
+// Creature・Item・Spell の性能の変更で共有する
+func newCardCost(field string, value int) (card.Cost, input.Error) {
+	cost, err := card.NewCost(value)
+	if err != nil {
+		return 0, &input.TooSmall{Field: field, Min: 0}
+	}
+	return cost, nil
+}
+
+// 値は GraphQL の enum から写すので、知らない値はコードの誤り。入力の形の誤りとして返す
+func newCardRarity(field, value string) (card.Rarity, input.Error) {
+	rarity, err := card.NewRarity(value)
+	if err != nil {
+		return "", &input.InvalidFormat{Field: field}
+	}
+	return rarity, nil
+}
+
+// 種類ごとのハンドラーの、状態・性能を変える操作のドメインのエラーを application 層のエラーにする
+func cardChangeError(err error) error {
+	switch {
+	case errors.Is(err, card.ErrInvalidStatusTransition):
+		return ErrInvalidCardStatusTransition
+	case errors.Is(err, card.ErrNotDraft):
+		return ErrCardNotDraft
+	default:
+		return revisionConflict(err)
+	}
+}
+
 // 状態を変える操作の結果は、公開 ID と新しい revision だけにする（内容は返さない。PresetDeckHandler の ChangedPresetDeck と同じ理由）
 type ChangedCard struct {
 	ID       uuid.UUID
 	Revision int64
 }
 
-// カードの種類ごとのハンドラーが持つ、状態を変える操作（CardHandler が種類で振り分ける先）
-type cardStatusChanger interface {
+// カードの種類ごとのハンドラーが持つ、3 種類に共通の操作（CardHandler が種類で振り分ける先）
+type cardChanger interface {
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error)
 	Retire(ctx context.Context, id uuid.UUID, revision int64) (ChangedCard, error)
+	ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (ChangedCard, error)
+	ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (ChangedCard, error)
 }
 
 // 公開 ID からカードの種類を引き、Creature・Item・Spell のハンドラーに振り分ける。カードという集約は作らない
-// （名前の一意性だけを種類をまたいで共有する決まり）ため、状態の変更は種類ごとの集約が持ち、ここは振り分けだけをする
+// （名前の一意性だけを種類をまたいで共有する決まり）ため、状態と共通の性能（コスト・希少度）の変更は種類ごとの集約が持ち、
+// ここは振り分けだけをする
 type CardHandler struct {
 	entityRefs domain.EntityRefResolver
-	creatures  cardStatusChanger
-	items      cardStatusChanger
-	spells     cardStatusChanger
+	creatures  cardChanger
+	items      cardChanger
+	spells     cardChanger
 }
 
 func NewCardHandler(entityRefs domain.EntityRefResolver, creatures *CreatureHandler, items *ItemHandler, spells *SpellHandler) *CardHandler {
@@ -72,8 +105,26 @@ func (c *CardHandler) Retire(ctx context.Context, id uuid.UUID, revision int64) 
 	return changer.Retire(ctx, id, revision)
 }
 
+// コストを変える。エラーは Publish と CreatureHandler.ChangeCost と同じ
+func (c *CardHandler) ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (ChangedCard, error) {
+	changer, err := c.changer(ctx, id)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return changer.ChangeCost(ctx, id, revision, cost)
+}
+
+// 希少度を変える。エラーは Publish と CreatureHandler.ChangeRarity と同じ
+func (c *CardHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (ChangedCard, error) {
+	changer, err := c.changer(ctx, id)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return changer.ChangeRarity(ctx, id, revision, rarity)
+}
+
 // 操作した人がいないときは、カードの有無を答える前に断る（種類ごとのハンドラーに届かないため、ここでも確かめる）
-func (c *CardHandler) changer(ctx context.Context, id uuid.UUID) (cardStatusChanger, error) {
+func (c *CardHandler) changer(ctx context.Context, id uuid.UUID) (cardChanger, error) {
 	if _, ok := authentication.Operator(ctx); !ok {
 		return nil, ErrNotOperator
 	}

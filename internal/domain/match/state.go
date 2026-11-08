@@ -136,3 +136,15 @@ func (m Match) allPlayersRewarded() bool {
 	}
 	return true
 }
+
+// 参加者のデッキに写したカードの性能（手札・山札のカードはどれかの参加者のデッキにある）。同じカードを複数の参加者が持てば、
+// 同じ時点の写しなので同じ値
+func (m Match) CardSpecs() map[card.Ref]CardSpec {
+	specs := map[card.Ref]CardSpec{}
+	for _, participant := range m.Participants {
+		for _, entry := range participant.Participant.Cards {
+			specs[entry.Card] = entry.Spec
+		}
+	}
+	return specs
+}

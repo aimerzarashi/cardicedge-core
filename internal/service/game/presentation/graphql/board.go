@@ -67,11 +67,11 @@ func toBoardsConnection(connection pagination.Connection[query.Board]) (*model.B
 func fromBoardTile(tile query.BoardTile) (model.BoardTile, error) {
 	switch tile.Kind {
 	case query.BoardTileKindLand:
-		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		element, err := fromBoardTileElement(tile.Element)
 		if err != nil {
 			return nil, err
 		}
-		return model.LandTile{X: tile.X, Y: tile.Y, Attribute: attribute}, nil
+		return model.LandTile{X: tile.X, Y: tile.Y, Element: element}, nil
 	case query.BoardTileKindBase:
 		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
 	case query.BoardTileKindCheckpoint:
@@ -94,21 +94,21 @@ func fromBoardTile(tile query.BoardTile) (model.BoardTile, error) {
 }
 
 // 土地は必ず属性を持つので、空は不明な値と同じくエラーにする
-func fromBoardTileAttribute(attribute query.BoardTileAttribute) (model.BoardTileAttribute, error) {
-	switch attribute {
-	case query.BoardTileAttributeFire:
-		return model.BoardTileAttributeFire, nil
-	case query.BoardTileAttributeEarth:
-		return model.BoardTileAttributeEarth, nil
-	case query.BoardTileAttributeWater:
-		return model.BoardTileAttributeWater, nil
-	case query.BoardTileAttributeWind:
-		return model.BoardTileAttributeWind, nil
-	case query.BoardTileAttributeNeutral:
-		return model.BoardTileAttributeNeutral, nil
-	case query.BoardTileAttributeMulti:
-		return model.BoardTileAttributeMulti, nil
+func fromBoardTileElement(element query.BoardTileElement) (model.BoardTileElement, error) {
+	switch element {
+	case query.BoardTileElementFire:
+		return model.BoardTileElementFire, nil
+	case query.BoardTileElementEarth:
+		return model.BoardTileElementEarth, nil
+	case query.BoardTileElementWater:
+		return model.BoardTileElementWater, nil
+	case query.BoardTileElementWind:
+		return model.BoardTileElementWind, nil
+	case query.BoardTileElementNeutral:
+		return model.BoardTileElementNeutral, nil
+	case query.BoardTileElementMulti:
+		return model.BoardTileElementMulti, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+		return "", fmt.Errorf("graphql: unknown board tile element: %q", element)
 	}
 }

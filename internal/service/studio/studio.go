@@ -50,7 +50,7 @@ type Studio struct {
 	items     *command.ItemHandler
 	spells    *command.SpellHandler
 	// 公開 ID からカードの種類を引いて、状態の変更を Creature・Item・Spell に振り分ける
-	cardStatuses *command.CardHandler
+	cardCommands *command.CardHandler
 	// 投影もカードの公開 ID を引くため、コマンドと共有する
 	entityRefs      domain.EntityRefResolver
 	presetDecks     *command.PresetDeckHandler
@@ -126,7 +126,7 @@ func New(registry *domaindef.Registry, config Config) *Studio {
 		creatures:    creatures,
 		items:        items,
 		spells:       spells,
-		cardStatuses: command.NewCardHandler(entityRefs, creatures, items, spells),
+		cardCommands: command.NewCardHandler(entityRefs, creatures, items, spells),
 		presetDecks: command.NewPresetDeckHandler(
 			eventstore.New(registry, presetdeck.NewID, presetdeck.NewEventType, presetdeck.InitialState, presetdeck.Evolve),
 			identifier.New(registry, presetdeck.NewID),
@@ -344,7 +344,7 @@ func (c *Studio) RegisterProjections(hub *eventdriven.Hub) error {
 }
 
 func (c *Studio) Mount(mux chi.Router, db *sql.DB) {
-	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardStatuses, c.presetDecks, c.cards, c.presetDeckList, c.grantDecks, c.grantDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList, c.starterSets, c.starterSetList), db, c.config.Verifier, c.config.Issuer, c.operators)
+	graphql.NewHandler(mux, graphql.NewResolver(c.creatures, c.items, c.spells, c.cardCommands, c.presetDecks, c.cards, c.presetDeckList, c.grantDecks, c.grantDeckList, c.boards, c.boardList, c.studioRulesList, c.gameRulesList, c.npcAvatars, c.npcAvatarList, c.npcDecks, c.npcDeckList, c.starterSets, c.starterSetList), db, c.config.Verifier, c.config.Issuer, c.operators)
 }
 
 // `app schema studio` が書く（入口の presentation の graphql パッケージは game と名前が重なり、cmd/app で並べて import できないため、

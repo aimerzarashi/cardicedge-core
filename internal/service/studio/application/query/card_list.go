@@ -24,6 +24,11 @@ type Card struct {
 	Type   readmodel.CardType
 	Name   string
 	Status readmodel.CardStatus
+	Cost   int
+	// 希少度（readmodel.CardMetadata.Rarity の値）
+	Rarity string
+	// クリーチャーだけの性能（クリーチャー以外は nil）
+	Creature *readmodel.CreatureMetadata
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64
 	RegisteredAt time.Time

@@ -32,10 +32,10 @@ type boardMetadata struct {
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
 	Tiles  []struct {
-		X         int    `json:"x"`
-		Y         int    `json:"y"`
-		Kind      string `json:"kind"`
-		Attribute string `json:"attribute"`
+		X       int    `json:"x"`
+		Y       int    `json:"y"`
+		Kind    string `json:"kind"`
+		Element string `json:"element"`
 	} `json:"tiles"`
 	Connections []struct {
 		A boardPosition `json:"a"`
@@ -178,11 +178,11 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 		if err != nil {
 			return query.Board{}, fmt.Errorf("boards.metadata of %s: %w", id, err)
 		}
-		attribute, err := optionalTileAttribute(tile.Attribute)
+		element, err := optionalTileElement(tile.Element)
 		if err != nil {
 			return query.Board{}, fmt.Errorf("boards.metadata of %s: %w", id, err)
 		}
-		tiles = append(tiles, query.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Attribute: attribute})
+		tiles = append(tiles, query.BoardTile{X: tile.X, Y: tile.Y, Kind: kind, Element: element})
 	}
 	connections := make([]query.BoardConnection, 0, len(metadata.Connections))
 	for _, connection := range metadata.Connections {
@@ -209,9 +209,9 @@ func toBoard(id uuid.UUID, raw []byte) (query.Board, error) {
 }
 
 // 土地でないマスには属性が無い（空）
-func optionalTileAttribute(value string) (query.BoardTileAttribute, error) {
+func optionalTileElement(value string) (query.BoardTileElement, error) {
 	if value == "" {
 		return "", nil
 	}
-	return query.NewBoardTileAttribute(value)
+	return query.NewBoardTileElement(value)
 }

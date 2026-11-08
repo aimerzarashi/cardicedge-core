@@ -15,6 +15,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
@@ -38,7 +40,15 @@ func twoTileBoard(t *testing.T) match.Board {
 
 func deckCard(t *testing.T, id int64, quantity int) match.DeckCard {
 	t.Helper()
-	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity)}
+	spec := match.CardSpec{Cost: cardtest.Cost(t, int(id%100)*10), Rarity: card.RarityNormal, Creature: creatureSpec(t, id)}
+	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+func creatureSpec(t *testing.T, id int64) *match.CreatureSpec {
+	t.Helper()
+	return &match.CreatureSpec{
+		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, int(id%100)*5), HitPoints: creaturetest.HitPoints(t, int(id%100)*10+10),
+	}
 }
 
 // プレイヤー（カード 101 が 2 枚・102 が 1 枚）
@@ -939,4 +949,19 @@ func TestEvolve_RejectsRewardEventsThatDoNotFit(t *testing.T) {
 			require.ErrorIs(t, err, match.ErrInvalidState)
 		})
 	}
+}
+
+func TestMatch_CardSpecsReturnsSnapshotOfEveryParticipantDeck(t *testing.T) {
+	meta := match.EventMeta{EntityID: matchtest.ID(t, 1), AggregateVersion: 1}
+	created := &match.CreatedEvent{EventMeta: meta, Participants: []match.Participant{playerParticipant(t), npcParticipant(t)}, Board: twoTileBoard(t), Rules: matchtest.Rules(t, 1, 6, 5)}
+	state, err := match.Evolve(match.InitialState(), created)
+	require.NoError(t, err)
+
+	specs := state.(match.Match).CardSpecs()
+
+	require.Equal(t, map[card.Ref]match.CardSpec{
+		cardtest.CreatureRef(t, 101): {Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal, Creature: creatureSpec(t, 101)},
+		cardtest.CreatureRef(t, 102): {Cost: cardtest.Cost(t, 20), Rarity: card.RarityNormal, Creature: creatureSpec(t, 102)},
+		cardtest.CreatureRef(t, 201): {Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal, Creature: creatureSpec(t, 201)},
+	}, specs)
 }

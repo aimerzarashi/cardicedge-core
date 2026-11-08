@@ -1,0 +1,340 @@
+package studio_test
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/idp/idptest"
+	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
+)
+
+const changeCardCostMutation = `mutation ($input: ChangeCardCostInput!) {
+	changeCardCost(input: $input) {
+		__typename
+		... on ChangeCardCostSuccess { id revision }
+		... on ValidationErrors { errors { __typename field ... on FieldTooSmall { min } } }
+	}
+}`
+
+const changeCardRarityMutation = `mutation ($input: ChangeCardRarityInput!) {
+	changeCardRarity(input: $input) {
+		__typename
+		... on ChangeCardRaritySuccess { id revision }
+	}
+}`
+
+func changeCardCost(t *testing.T, token string, id, revision any, cost int) map[string]any {
+	t.Helper()
+	return client.Data(t, token, changeCardCostMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision, "cost": cost}}, "changeCardCost")
+}
+
+func changeCardRarity(t *testing.T, token string, id, revision any, rarity string) map[string]any {
+	t.Helper()
+	return client.Data(t, token, changeCardRarityMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision, "rarity": rarity}}, "changeCardRarity")
+}
+
+func TestChangeCardCostAndRarity_ChangesCardOfAnyKind(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	registered := registerEachKind(t, token, id)
+
+	for _, card := range registered {
+		costChanged := changeCardCost(t, token, card["id"], card["revision"], 30)
+		require.Equal(t, map[string]any{"__typename": "ChangeCardCostSuccess", "id": card["id"], "revision": float64(2)}, costChanged)
+		rarityChanged := changeCardRarity(t, token, card["id"], costChanged["revision"], "RARE")
+		require.Equal(t, map[string]any{"__typename": "ChangeCardRaritySuccess", "id": card["id"], "revision": float64(3)}, rarityChanged)
+	}
+
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		connection, err := client.TryData(t.Context(), token, cardsQuery, map[string]any{"filter": map[string]any{"nameContains": id}}, "cards")
+		if !assert.NoError(c, err) {
+			return
+		}
+		edges := connection["edges"].([]any)
+		assert.Len(c, edges, 3)
+		for _, edge := range edges {
+			node := edge.(map[string]any)["node"].(map[string]any)
+			assert.Equal(c, float64(30), node["cost"])
+			assert.Equal(c, "RARE", node["rarity"])
+			assert.Equal(c, float64(3), node["revision"])
+		}
+	})
+}
+
+// 同じ値への変更は成功し、revision を進めない
+func TestChangeCardCostAndRarity_KeepRevisionWhenUnchanged(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	costChanged := changeCardCost(t, token, card["id"], card["revision"], 10)
+	rarityChanged := changeCardRarity(t, token, card["id"], card["revision"], "NORMAL")
+
+	require.Equal(t, card["revision"], costChanged["revision"])
+	require.Equal(t, card["revision"], rarityChanged["revision"])
+}
+
+func TestChangeCardCostAndRarity_ReturnResultTypePerReason(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	card := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
+	published := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)
+	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
+	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
+	tests := []struct {
+		name     string
+		mutation string
+		field    string
+		token    string
+		input    map[string]any
+		want     string
+	}{
+		{name: "cost_unknown_card", mutation: changeCardCostMutation, field: "changeCardCost", token: token, input: map[string]any{"id": uuid.NewString(), "revision": 1, "cost": 30}, want: "CardNotFoundError"},
+		{name: "cost_not_a_card", mutation: changeCardCostMutation, field: "changeCardCost", token: token, input: map[string]any{"id": deck["id"], "revision": 1, "cost": 30}, want: "CardNotFoundError"},
+		{name: "cost_stale_revision", mutation: changeCardCostMutation, field: "changeCardCost", token: token, input: map[string]any{"id": published["id"], "revision": published["revision"], "cost": 30}, want: "RevisionConflictError"},
+		{name: "cost_not_draft", mutation: changeCardCostMutation, field: "changeCardCost", token: token, input: map[string]any{"id": published["id"], "revision": publishedRevision, "cost": 30}, want: "CardNotDraftError"},
+		{name: "cost_negative", mutation: changeCardCostMutation, field: "changeCardCost", token: token, input: map[string]any{"id": card["id"], "revision": card["revision"], "cost": -1}, want: "ValidationErrors"},
+		{name: "cost_not_operator", mutation: changeCardCostMutation, field: "changeCardCost", token: notOperator, input: map[string]any{"id": card["id"], "revision": card["revision"], "cost": 30}, want: "ForbiddenError"},
+		{name: "rarity_unknown_card", mutation: changeCardRarityMutation, field: "changeCardRarity", token: token, input: map[string]any{"id": uuid.NewString(), "revision": 1, "rarity": "RARE"}, want: "CardNotFoundError"},
+		{name: "rarity_stale_revision", mutation: changeCardRarityMutation, field: "changeCardRarity", token: token, input: map[string]any{"id": published["id"], "revision": published["revision"], "rarity": "RARE"}, want: "RevisionConflictError"},
+		{name: "rarity_not_draft", mutation: changeCardRarityMutation, field: "changeCardRarity", token: token, input: map[string]any{"id": published["id"], "revision": publishedRevision, "rarity": "RARE"}, want: "CardNotDraftError"},
+		{name: "rarity_not_operator", mutation: changeCardRarityMutation, field: "changeCardRarity", token: notOperator, input: map[string]any{"id": card["id"], "revision": card["revision"], "rarity": "RARE"}, want: "ForbiddenError"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, body := client.Post(t, tt.token, tt.mutation, map[string]any{"input": tt.input})
+
+			require.Equal(t, http.StatusOK, status)
+			require.Nil(t, body["errors"])
+			require.Equal(t, tt.want, body["data"].(map[string]any)[tt.field].(map[string]any)["__typename"])
+		})
+	}
+}
+
+func TestChangeCardCost_ReturnsFieldTooSmallForNegative(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	result := changeCardCost(t, token, card["id"], card["revision"], -1)
+
+	require.Equal(t, map[string]any{
+		"__typename": "ValidationErrors",
+		"errors":     []any{map[string]any{"__typename": "FieldTooSmall", "field": "cost", "min": float64(0)}},
+	}, result)
+}
+
+const cardQuery = `query ($id: UUID!) {
+	card(id: $id) {
+		__typename
+		... on Card { id name status cost rarity revision }
+	}
+}`
+
+func TestCard_ReturnsCardOfAnyKindAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	registered := registerEachKind(t, token, testhelper.UniqueID(t))
+	typenames := map[string]string{"creature": "Creature", "item": "Item", "spell": "Spell"}
+
+	for kind, card := range registered {
+		changed := changeCardCost(t, token, card["id"], card["revision"], 25)
+		testhelper.Eventually(t, func(c *assert.CollectT) {
+			got, err := client.TryData(t.Context(), token, cardQuery, map[string]any{"id": card["id"]}, "card")
+			if assert.NoError(c, err) {
+				assert.Equal(c, map[string]any{
+					"__typename": typenames[kind], "id": card["id"], "name": card["name"], "status": "DRAFT",
+					"cost": float64(25), "rarity": "NORMAL", "revision": changed["revision"],
+				}, got)
+			}
+		})
+	}
+}
+
+func TestCard_ReturnsResultTypePerReason(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	card := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
+	deck := registerPresetDeck(t, token, "初心者-"+id)
+	tests := []struct {
+		name  string
+		token string
+		id    any
+		want  string
+	}{
+		{name: "unknown_card", token: token, id: uuid.NewString(), want: "CardNotFoundError"},
+		{name: "not_a_card", token: token, id: deck["id"], want: "CardNotFoundError"},
+		{name: "not_operator", token: key.Sign(t, idptest.ValidClaims("not-operator")), id: card["id"], want: "ForbiddenError"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := client.Data(t, tt.token, cardQuery, map[string]any{"id": tt.id}, "card")
+
+			require.Equal(t, tt.want, got["__typename"])
+		})
+	}
+}
+
+const changeCreatureElementsMutation = `mutation ($input: ChangeCreatureElementsInput!) {
+	changeCreatureElements(input: $input) {
+		__typename
+		... on ChangeCreatureElementsSuccess { id revision }
+		... on ValidationErrors { errors { __typename field } }
+	}
+}`
+
+const changeCreatureStatsMutation = `mutation ($input: ChangeCreatureStatsInput!) {
+	changeCreatureStats(input: $input) {
+		__typename
+		... on ChangeCreatureStatsSuccess { id revision }
+		... on ValidationErrors { errors { __typename field ... on FieldTooSmall { min } } }
+	}
+}`
+
+const creatureSpecQuery = `query ($id: UUID!) {
+	card(id: $id) {
+		__typename
+		... on Creature { id elements attack hitPoints revision }
+	}
+}`
+
+func changeCreatureElements(t *testing.T, token string, id, revision any, elements []string) map[string]any {
+	t.Helper()
+	return client.Data(t, token, changeCreatureElementsMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision, "elements": elements}}, "changeCreatureElements")
+}
+
+func changeCreatureStats(t *testing.T, token string, id, revision any, attack, hitPoints int) map[string]any {
+	t.Helper()
+	return client.Data(t, token, changeCreatureStatsMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision, "attack": attack, "hitPoints": hitPoints}}, "changeCreatureStats")
+}
+
+func TestChangeCreatureElementsAndStats_ChangesCreatureAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	elementsChanged := changeCreatureElements(t, token, card["id"], card["revision"], []string{"WIND", "FIRE"})
+	statsChanged := changeCreatureStats(t, token, card["id"], elementsChanged["revision"], 30, 50)
+
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureElementsSuccess", "id": card["id"], "revision": float64(2)}, elementsChanged)
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureStatsSuccess", "id": card["id"], "revision": float64(3)}, statsChanged)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, creatureSpecQuery, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{
+				"__typename": "Creature", "id": card["id"], "elements": []any{"FIRE", "WIND"},
+				"attack": float64(30), "hitPoints": float64(50), "revision": float64(3),
+			}, got)
+		}
+	})
+}
+
+// 登録した直後の性能は、登録の結果にも出る
+func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+
+	got := client.Data(t, token, `mutation ($input: RegisterCreatureInput!) {
+		registerCreature(input: $input) { ... on RegisterCreatureSuccess { creature { elements attack hitPoints } } }
+	}`, map[string]any{"input": map[string]any{"name": "ドラゴン-" + testhelper.UniqueID(t)}}, "registerCreature")
+
+	require.Equal(t, map[string]any{"creature": map[string]any{"elements": []any{"NEUTRAL"}, "attack": float64(10), "hitPoints": float64(10)}}, got)
+}
+
+func TestChangeCreatureElementsAndStats_ReturnResultTypePerReason(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	card := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
+	item := registerItem(t, token, "ポーション-"+id)["item"].(map[string]any)
+	published := registerCreature(t, token, "ウルフ-"+id)["creature"].(map[string]any)
+	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
+	notOperator := key.Sign(t, idptest.ValidClaims("not-operator"))
+	elements := func(token string, id, revision any, values ...string) (string, string, map[string]any, string) {
+		return changeCreatureElementsMutation, "changeCreatureElements", map[string]any{"id": id, "revision": revision, "elements": append([]string{}, values...)}, token
+	}
+	stats := func(token string, id, revision any, attack, hitPoints int) (string, string, map[string]any, string) {
+		return changeCreatureStatsMutation, "changeCreatureStats", map[string]any{"id": id, "revision": revision, "attack": attack, "hitPoints": hitPoints}, token
+	}
+	type call func() (mutation, field string, input map[string]any, token string)
+	tests := []struct {
+		name string
+		call call
+		want string
+	}{
+		{name: "elements_unknown_card", call: func() (string, string, map[string]any, string) { return elements(token, uuid.NewString(), 1, "FIRE") }, want: "CardNotFoundError"},
+		{name: "elements_not_a_creature", call: func() (string, string, map[string]any, string) {
+			return elements(token, item["id"], item["revision"], "FIRE")
+		}, want: "CardNotFoundError"},
+		{name: "elements_stale_revision", call: func() (string, string, map[string]any, string) {
+			return elements(token, published["id"], published["revision"], "FIRE")
+		}, want: "RevisionConflictError"},
+		{name: "elements_not_draft", call: func() (string, string, map[string]any, string) {
+			return elements(token, published["id"], publishedRevision, "FIRE")
+		}, want: "CardNotDraftError"},
+		{name: "elements_empty", call: func() (string, string, map[string]any, string) { return elements(token, card["id"], card["revision"]) }, want: "ValidationErrors"},
+		{name: "elements_neutral_mixed", call: func() (string, string, map[string]any, string) {
+			return elements(token, card["id"], card["revision"], "NEUTRAL", "FIRE")
+		}, want: "ValidationErrors"},
+		{name: "elements_duplicated", call: func() (string, string, map[string]any, string) {
+			return elements(token, card["id"], card["revision"], "FIRE", "FIRE")
+		}, want: "ValidationErrors"},
+		{name: "elements_not_operator", call: func() (string, string, map[string]any, string) {
+			return elements(notOperator, card["id"], card["revision"], "FIRE")
+		}, want: "ForbiddenError"},
+		{name: "stats_unknown_card", call: func() (string, string, map[string]any, string) { return stats(token, uuid.NewString(), 1, 30, 50) }, want: "CardNotFoundError"},
+		{name: "stats_not_a_creature", call: func() (string, string, map[string]any, string) {
+			return stats(token, item["id"], item["revision"], 30, 50)
+		}, want: "CardNotFoundError"},
+		{name: "stats_stale_revision", call: func() (string, string, map[string]any, string) {
+			return stats(token, published["id"], published["revision"], 30, 50)
+		}, want: "RevisionConflictError"},
+		{name: "stats_not_draft", call: func() (string, string, map[string]any, string) {
+			return stats(token, published["id"], publishedRevision, 30, 50)
+		}, want: "CardNotDraftError"},
+		{name: "stats_negative_attack", call: func() (string, string, map[string]any, string) {
+			return stats(token, card["id"], card["revision"], -1, 50)
+		}, want: "ValidationErrors"},
+		{name: "stats_zero_hit_points", call: func() (string, string, map[string]any, string) {
+			return stats(token, card["id"], card["revision"], 30, 0)
+		}, want: "ValidationErrors"},
+		{name: "stats_not_operator", call: func() (string, string, map[string]any, string) {
+			return stats(notOperator, card["id"], card["revision"], 30, 50)
+		}, want: "ForbiddenError"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mutation, field, input, token := tt.call()
+
+			status, body := client.Post(t, token, mutation, map[string]any{"input": input})
+
+			require.Equal(t, http.StatusOK, status)
+			require.Nil(t, body["errors"])
+			require.Equal(t, tt.want, body["data"].(map[string]any)[field].(map[string]any)["__typename"])
+		})
+	}
+}
+
+func TestChangeCreatureStats_ReturnsFieldTooSmallPerField(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	result := changeCreatureStats(t, token, card["id"], card["revision"], -1, 0)
+
+	require.Equal(t, map[string]any{
+		"__typename": "ValidationErrors",
+		"errors": []any{
+			map[string]any{"__typename": "FieldTooSmall", "field": "attack", "min": float64(0)},
+			map[string]any{"__typename": "FieldTooSmall", "field": "hitPoints", "min": float64(1)},
+		},
+	}, result)
+}

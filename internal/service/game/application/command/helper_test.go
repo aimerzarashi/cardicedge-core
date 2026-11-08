@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint/constrainttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
@@ -215,4 +216,11 @@ func registeredPlayer(t *testing.T, ctx context.Context, subject string) context
 	_, err := players.Register(authenticate(t, ctx, players, subject))
 	require.NoError(t, err)
 	return authenticate(t, ctx, players, subject)
+}
+
+// 対戦を始めるときに写すカードの性能（cardA〜C の値を変えて、写した値がそれぞれのカードのものかを確かめる）
+var cardSpecs = map[card.Ref]master.CardSpec{
+	cardA: {Cost: 30, Rarity: "normal", Creature: &master.CreatureSpec{Elements: []string{"fire"}, Attack: 20, HitPoints: 30}},
+	cardB: {Cost: 0, Rarity: "strange", Creature: &master.CreatureSpec{Elements: []string{"earth", "water"}, Attack: 0, HitPoints: 60}},
+	cardC: {Cost: 50, Rarity: "rare", Creature: &master.CreatureSpec{Elements: []string{"neutral"}, Attack: 40, HitPoints: 40}},
 }

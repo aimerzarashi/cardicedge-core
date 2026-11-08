@@ -38,7 +38,7 @@ func boardMetadata(name string, status readmodel.BoardStatus) readmodel.BoardMet
 		ID: uuid.New(), Name: name, Status: status, Revision: 3, Width: 3, Height: 2,
 		Tiles: []readmodel.BoardTile{
 			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeWind},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementWind},
 			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
 			{X: 0, Y: 1, Kind: readmodel.BoardTileKindWarp},
 			{X: 1, Y: 1, Kind: readmodel.BoardTileKindShrine},
@@ -57,7 +57,7 @@ func wantBoard(metadata readmodel.BoardMetadata) query.Board {
 		ID: metadata.ID, Name: metadata.Name, Width: 3, Height: 2,
 		Tiles: []query.BoardTile{
 			{X: 0, Y: 0, Kind: query.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: query.BoardTileKindLand, Attribute: query.BoardTileAttributeWind},
+			{X: 1, Y: 0, Kind: query.BoardTileKindLand, Element: query.BoardTileElementWind},
 			{X: 2, Y: 0, Kind: query.BoardTileKindCheckpoint},
 			{X: 0, Y: 1, Kind: query.BoardTileKindWarp},
 			{X: 1, Y: 1, Kind: query.BoardTileKindShrine},
@@ -167,11 +167,11 @@ func TestBoardReader_GetFailsForUnknownTileKind(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBoardReader_GetFailsForUnknownTileAttribute(t *testing.T) {
+func TestBoardReader_GetFailsForUnknownTileElement(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
 	id := uuid.New()
-	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","attribute":"light"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
+	insertBoardRow(t, ctx, id, "a", "published", []byte(`{"name":"A","width":1,"height":1,"tiles":[{"x":0,"y":0,"kind":"land","element":"light"}],"connections":[],"pairs":[],"tile_counts":`+completeTileCounts+`,"default_rules":{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}}`))
 
 	_, err := repository.NewBoardReader().GetPublished(ctx, id)
 

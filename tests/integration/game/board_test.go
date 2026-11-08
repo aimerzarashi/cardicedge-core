@@ -10,7 +10,7 @@ import (
 const boardFields = `id name width height
 	defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax }
 	tileCounts { land base checkpoint fire earth water wind neutral multi warp bridge sanctuary shrine prophecyShop cardShop }
-	tiles { __typename x y ... on LandTile { attribute } }
+	tiles { __typename x y ... on LandTile { element } }
 	connections { a { x y } b { x y } }
 	pairs { a { x y } b { x y } }`
 
@@ -45,11 +45,11 @@ func position(x, y int) map[string]any {
 	return map[string]any{"x": float64(x), "y": float64(y)}
 }
 
-// attribute は土地のときだけ（無ければ空）
-func tile(x, y int, typename, attribute string) map[string]any {
+// element は土地のときだけ（無ければ空）
+func tile(x, y int, typename, element string) map[string]any {
 	value := map[string]any{"__typename": typename, "x": float64(x), "y": float64(y)}
-	if attribute != "" {
-		value["attribute"] = attribute
+	if element != "" {
+		value["element"] = element
 	}
 	return value
 }

@@ -26,6 +26,10 @@ interface Card {
   name: String!
   "状態（準備中・公開中・使用不可）"
   status: CardStatus!
+  "使うのに払う魔力（0 以上）"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -66,6 +70,25 @@ input DeckCardCountInput {
   count: Int!
 }
 
+# 上下の順は戦利品のパックで使うときに決める（2026-11-07 オーナー）。画面の略称（N・S・R・E）は studio が作る
+"カードの希少度"
+enum CardRarity {
+  "画面では N"
+  NORMAL
+  "画面では S"
+  STRANGE
+  "画面では R"
+  RARE
+  "画面では E"
+  EXTRA
+}
+
+"準備中でないカードの性能を変えようとした（性能を変えられるのは準備中だけ。公開中・使用不可は、デッキに入れた・game に写した性能が途中で変わるため）"
+type CardNotDraftError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
 "カードの種類（一覧の絞り込みに使う）"
 enum CardType {
   CREATURE
@@ -102,7 +125,16 @@ type CardConnection {
 "カードの一覧の結果"
 union CardsResult = CardConnection | ValidationErrors | ForbiddenError
 
+# 種類ごとの型を union に並べる（interface の Card は union に入れられないため）
+"カードの詳細の結果"
+union CardResult = Creature | Item | Spell | CardNotFoundError | ForbiddenError
+
 extend type Query {
+  "カードの詳細（紐づいたオペレーターだけ。性能を変える画面が使う）"
+  card(
+    "カード（Creature・Item・Spell）の公開用の ID"
+    id: UUID!
+  ): CardResult!
   "カードの一覧（紐づいたオペレーターだけ）"
   cards(
     "絞り込み"
@@ -154,7 +186,59 @@ type RetireCardSuccess {
 "カードを使用不可にする操作の結果"
 union RetireCardResult = RetireCardSuccess | CardNotFoundError | RevisionConflictError | InvalidCardStatusTransitionError | ForbiddenError
 
+"カードのコストを変える入力"
+input ChangeCardCostInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの revision"
+  revision: Int!
+  "変えた後のコスト（0 以上。上限は無い）"
+  cost: Int!
+}
+
+"カードのコストを変えた（同じ値なら何も変えず、revision も進まない）"
+type ChangeCardCostSuccess {
+  "変えたカードの公開用の ID"
+  id: UUID!
+  "変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"カードのコストを変える操作の結果"
+union ChangeCardCostResult = ChangeCardCostSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
+"カードの希少度を変える入力"
+input ChangeCardRarityInput {
+  "カード（Creature・Item・Spell）の公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの revision"
+  revision: Int!
+  "変えた後の希少度"
+  rarity: CardRarity!
+}
+
+"カードの希少度を変えた（同じ値なら何も変えず、revision も進まない）"
+type ChangeCardRaritySuccess {
+  "変えたカードの公開用の ID"
+  id: UUID!
+  "変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"カードの希少度を変える操作の結果"
+union ChangeCardRarityResult = ChangeCardRaritySuccess | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
 extend type Mutation {
+  "カードのコストを変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCardCost(
+    "変えるカードとコスト"
+    input: ChangeCardCostInput!
+  ): ChangeCardCostResult!
+  "カードの希少度を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCardRarity(
+    "変えるカードと希少度"
+    input: ChangeCardRarityInput!
+  ): ChangeCardRarityResult!
   "カードを公開中にする（紐づいたオペレーターだけ。準備中・使用不可から）"
   publishCard(
     "公開するカード"

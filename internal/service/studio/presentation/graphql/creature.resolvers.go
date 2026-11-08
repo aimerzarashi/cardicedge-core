@@ -13,6 +13,46 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
 
+// ChangeCreatureElements is the resolver for the changeCreatureElements field.
+func (r *mutationResolver) ChangeCreatureElements(ctx context.Context, input model.ChangeCreatureElementsInput) (model.ChangeCreatureElementsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	elements, err := toElements(input.Elements)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.creatures.ChangeElements(ctx, input.ID, int64(input.Revision), elements)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCreatureElementsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChangeCreatureStats is the resolver for the changeCreatureStats field.
+func (r *mutationResolver) ChangeCreatureStats(ctx context.Context, input model.ChangeCreatureStatsInput) (model.ChangeCreatureStatsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.creatures.ChangeStats(ctx, input.ID, int64(input.Revision), input.Attack, input.HitPoints)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCreatureStatsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterCreature is the resolver for the registerCreature field.
 func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -28,8 +68,18 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	if err != nil {
 		return nil, err
 	}
+	rarity, err := fromCardRarity(registered.Rarity)
+	if err != nil {
+		return nil, err
+	}
+	elements, err := fromElements(registered.Elements)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
-		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Revision: int(registered.Revision),
+		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints,
+		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
 }
