@@ -63,7 +63,7 @@ PostgreSQL は `localhost:5432`（user: core_user / password: core_password / db
 
 ## 入口のダッシュボード（異常・正常。core#111）
 
-http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「詳細 · studio・game」「詳細 · core-db」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つの黄金シグナルに沿い、入口 · 異常はエラー・遅延・飽和・届いていない、入口 · 正常は量・遅延・飽和・届いている（core#106〜#111・#119）。
+http://localhost:3002 のダッシュボード「入口 · 異常」「入口 · 正常」。サービス（core・core-db・studio・game）をまたいで並べる入口で、詳しく調べるのはサービスごとのダッシュボード（「詳細 · core」「詳細 · studio・game」「詳細 · core-db」）。どれも右上の「ダッシュボード」から行き来できる。分け方は core#111 の「ダッシュボードの構成」。行は 4 つのゴールデンシグナル（Latency・Traffic・Errors・Saturation）に沿い、入口 · 異常は届いていない・Errors・Latency・Saturation、入口 · 正常は届いている・Traffic・Latency・Saturation の順（受け手が壊れているとほかの欄が 0 に見えるので、届いているかを先に見る。行の中の欄は、利用者に近い側から DB へのリクエストの流れの順。core#125）（core#106〜#111・#119）。
 
 ダッシュボードの名前は「区分 · 対象」にそろえる（区分は入口・詳細、対象は入口なら異常・正常、詳細ならサービス名。例「詳細 · core」）。一覧で入口と詳細が分かれて並ぶようにするため。中身は名前に並べず description に書く（欄を足すたびに名前を変えないため）。uid は `entry-<対象>`・`detail-<対象>`、ファイル名は uid と同じ、タグは `diecardomain` と区分の `entry`・`detail`（と中身の `core` 等）。
 
@@ -75,30 +75,30 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 | 異常 | 断った・受け取りに失敗・送れなかった | Collector の `otelcol_receiver_refused_*`・`otelcol_receiver_failed_*`・`otelcol_exporter_send_failed_*`（時間の範囲の中の増え方） | 0 でなければ、ログ・スパンを取りこぼしている。形の壊れた送信（読めない OTLP）は 400 で断るが、この数には入らない（読めた記録だけを数えるため） |
 | 異常 | 送り待ち（容量に対する割合） | `otelcol_exporter_queue_size` ÷ `otelcol_exporter_queue_capacity` の最大 | 送る途中で少し溜まるのは普通。50% で黄色、80% で赤。容量を超えた分は捨てられる |
 | 異常 | core-db のログの読み込み | `otelcol_fileconsumer_open_files`（開いているファイルの数） | 「読めていない」なら、core-db のログ（遅い SQL・実行計画）が届いていない。数は曜日ごとのファイル（1〜7）を数えるだけで、0 かどうかだけに意味があるので、数ではなく「読めている」「読めていない」で出す |
-| 異常 | つながりの失敗（エラー）・遅いつながり（遅延） | 下の正常のつながりの指標と同じ | 0 でなければ、どこかのつながりで失敗している。どれかは入口 · 正常の表で見る（core#110） |
-| 異常 | ページの HTTP 5xx・core の呼び出しの HTTP 5xx・応答なし（エラー）・遅いページ（遅延） | studio・game のスパンから Tempo が作る指標（ページは SERVER のスパンのうち経路の付いた名前、core の呼び出しは /graphql への fetch の CLIENT のスパン。HTTP の番号は `http_response_status_code`） | 0 でなければ、画面の側で失敗している。どのページ・どの番号かは詳細 · studio・game（core#109・core#124）。ページの描画の中で失敗してエラーの画面（error.tsx）を出したときは 200 で返るので、ページの 5xx には入らない（2026-11-08 に core-db・studio-db・game-db を止めて確かめた。どれもページは 200 だった） |
-| 異常 | ページの描画のエラー（HTTP 200）（エラー） | studio・game の描画のスパン（`render route (app) <ページ>`）のエラーの印 | 描画が失敗して、エラーの画面を 200 で出した。core に届かない・ログインの確かめ（/token）が失敗した等。どのページかは詳細 · studio・game（core#124） |
-| 異常 | core の HTTP 5xx（エラー） | core の SERVER のスパンの `http_response_status_code` | DB に届かない等で、GraphQL の処理の前に失敗した。GraphQL の中の失敗は HTTP 200 のまま応答の errors で知らせるので、GraphQL の errors に入る。どれかは詳細 · core（core#124） |
-| 異常 | 遅い SQL（遅延） | 開発の core-db の 100ms 以上のアプリの SQL のログの数（core_studio・core_game） | 0 でなければ遅い SQL がある。どの SQL かは詳細 · core-db（core#106） |
 | 異常 | Tempo・Loki が動いているか | Tempo・Loki の指標を読めたか（`up`。Collector が 15 秒ごとに読む。core#121） | この欄は 0 が異常。0 なら止まっているか応答していない |
 | 異常 | Tempo の索引・一覧の失敗 | `tempodb_blocklist_tenant_index_errors_total`・`tempodb_blocklist_poll_errors_total`（公式の監視のひな形の TempoTenantIndexFailures・TempoPollsFailing） | 0 でなければ、古いトレースを引けなくなっているおそれがある。Tempo が一覧を読み直すのは数分おきなので、壊れてから出るまで 10 分ほどかかる。直し方は下 |
 | 異常 | 捨てたスパン・ログ | `tempo_discarded_spans_total`・`loki_discarded_samples_total` | 受け付けの上限などで捨てた数。0 でなければ取りこぼしている |
 | 異常 | Tempo の失敗・Loki の HTTP 5xx | Tempo の `tempodb_compaction_errors_total`・`tempo_metrics_generator_registry_collections_failed_total`、Loki の HTTP 5xx の応答（起動直後の ready の 503 は除く）・`loki_panic_total` | 圧縮・指標の作成・ログの受け付けの失敗 |
-| 異常 | WSL の CPU・メモリ・スワップ（飽和） | otel-lgtm の中の Collector の hostmetrics（WSL の /proc・/sys を読み取り専用で受ける。local/otel-lgtm/otelcol-saturation.yaml）の `system_cpu_time_seconds_total`・`system_memory_utilization_ratio`・`system_paging_usage_bytes` | 時間の範囲の中の最大。CPU は 90% で黄色・97% で赤（studio・game の make test の間は 80% ほど。2026-11-08 に測った）、メモリ（使用中。ページキャッシュを除く）は 80%・90%、スワップは 25%・50%。WSL 全体なので、変数「環境」によらず開発・テスト・ほかのアプリの分も入る。どのプロセスかは入口 · 正常の「飽和」の行（core#119） |
-| 異常 | core-db の接続・core の goroutine・core のメモリ（飽和） | Collector の PostgreSQL の受け手の `postgresql_backends`・`postgresql_connection_max`、core が送る Go の実行時の値（`go_goroutine_count`・`go_memory_used_bytes`） | 時間の範囲の中の最大。接続は上限に対する割合で 50%・80%、goroutine は 500・2000、メモリは 256MB・512MB（2026-11-08 までの 3 日の最大は goroutine 73・メモリ約 36MB）（core#119） |
-| 正常 | つながりごとの呼び出し（量） | Tempo がスパンから作るつながりの指標（`traces_service_graph_request_total`・`..._failed_total`。client・server のラベル）の、時間の範囲の中の増え方 | どこからどこへ、何回呼び、何回失敗したか（core#110）。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は、欄のリンクから Tempo の Service Graph で見る |
-| 正常 | つながりごとの時間（遅延） | `traces_service_graph_request_server_seconds_bucket`（呼ばれる側の時間）・`..._client_seconds_bucket`（呼ぶ側から見た時間。間の envoy を含む）の 95 パーセンタイル | 遅いつながり。0.5 秒で黄色、1 秒で赤（GraphQL の操作と同じ）。時間の区切り（バケット）が粗いので、近い値がそろって出る（目安） |
-| 正常 | ページの回数と時間（量） | 上と同じ studio・game のページの指標 | よく開かれるページと、その時間を HTTP の番号ごとに。行からそのページのトレースを Tempo で探せる（core#109） |
-| 正常 | HTTP の番号ごとの応答（量） | studio・game・core の SERVER のスパンの `http_response_status_code` | 4xx（ログインが切れた 401、無いページの 404 等）も番号ごとに見る。異常の入口は 5xx だけ（4xx は使い方で普通に起きるため）（core#124） |
-| 正常 | WSL の CPU と負荷・メモリとスワップ・プロセスごとの CPU とメモリ・core-db の接続・core のメモリと goroutine（飽和） | 上の異常の飽和と同じ。プロセスは hostmetrics の `process_cpu_time_seconds_total`・`process_memory_usage_bytes`（30 秒ごと。名前は `process_name`） | 推移。重いときに、どのプロセスが使っているかを見る（同じ名前のプロセスはまとめる。next-server は studio・game の開発のサーバー、postgres は DB の接続ごと、chrome・headless_shell はテストのブラウザ）。負荷は論理 CPU の数で割った値で、1 を超えると実行の待ちが出ている（core#119） |
+| 異常 | ページの HTTP 5xx・core の呼び出しの HTTP 5xx・応答なし（Errors）・遅いページ（Latency） | studio・game のスパンから Tempo が作る指標（ページは SERVER のスパンのうち経路の付いた名前、core の呼び出しは /graphql への fetch の CLIENT のスパン。HTTP の番号は `http_response_status_code`） | 0 でなければ、画面の側で失敗している。どのページ・どの番号かは詳細 · studio・game（core#109・core#124）。ページの描画の中で失敗してエラーの画面（error.tsx）を出したときは 200 で返るので、ページの 5xx には入らない（2026-11-08 に core-db・studio-db・game-db を止めて確かめた。どれもページは 200 だった） |
+| 異常 | ページの描画のエラー（HTTP 200）（Errors） | studio・game の描画のスパン（`render route (app) <ページ>`）のエラーの印 | 描画が失敗して、エラーの画面を 200 で出した。core に届かない・ログインの確かめ（/token）が失敗した等。どのページかは詳細 · studio・game（core#124） |
+| 異常 | つながりの失敗（Errors）・遅いつながり（Latency） | 下の正常のつながりの指標と同じ | 0 でなければ、どこかのつながりで失敗している。どれかは入口 · 正常の表で見る（core#110） |
+| 異常 | core の HTTP 5xx（Errors） | core の SERVER のスパンの `http_response_status_code` | DB に届かない等で、GraphQL の処理の前に失敗した。GraphQL の中の失敗は HTTP 200 のまま応答の errors で知らせるので、GraphQL の errors に入る。どれかは詳細 · core（core#124） |
+| 異常 | 遅い SQL（Latency） | 開発の core-db の 100ms 以上のアプリの SQL のログの数（core_studio・core_game） | 0 でなければ遅い SQL がある。どの SQL かは詳細 · core-db（core#106） |
+| 異常 | WSL の CPU・メモリ・スワップ（Saturation） | otel-lgtm の中の Collector の hostmetrics（WSL の /proc・/sys を読み取り専用で受ける。local/otel-lgtm/otelcol-saturation.yaml）の `system_cpu_time_seconds_total`・`system_memory_utilization_ratio`・`system_paging_usage_bytes` | 時間の範囲の中の最大。CPU は 90% で黄色・97% で赤（studio・game の make test の間は 80% ほど。2026-11-08 に測った）、メモリ（使用中。ページキャッシュを除く）は 80%・90%、スワップは 25%・50%。WSL 全体なので、変数「環境」によらず開発・テスト・ほかのアプリの分も入る。どのプロセスかは入口 · 正常の「Saturation」の行（core#119） |
+| 異常 | core-db の接続・core の goroutine・core のメモリ（Saturation） | Collector の PostgreSQL の受け手の `postgresql_backends`・`postgresql_connection_max`、core が送る Go の実行時の値（`go_goroutine_count`・`go_memory_used_bytes`） | 時間の範囲の中の最大。接続は上限に対する割合で 50%・80%、goroutine は 500・2000、メモリは 256MB・512MB（2026-11-08 までの 3 日の最大は goroutine 73・メモリ約 36MB）（core#119） |
 | 正常 | ハートビート | core は指標の `target_info`、studio・game は Tempo が数えたスパン（healthcheck のリクエスト）、core-db は読んでいるログのファイル。直近 3 分に届いていれば「届いている」 | 「途切れた」なら、そのサービスが止まっているか、受け手に届いていない。止めてから 3 分ほどで切り替わり、それより短い停止は出ない。動かしていないサービスは途切れたと出る（異常の入口に置かないのはこのため） |
 | 正常 | ログの届いた数・スパンの届いた数 | Loki の件数・`traces_spanmetrics_calls_total` | 操作したのに伸びなければ届いていない。core は操作が無いとログ・スパンを出さず、core-db は遅い SQL・エラーのときだけログを出すので、0 でも止まっているとは限らない（止まっているかはハートビートで見る） |
+| 正常 | ページの回数と時間（Traffic） | 上と同じ studio・game のページの指標 | よく開かれるページと、その時間を HTTP の番号ごとに。行からそのページのトレースを Tempo で探せる（core#109） |
+| 正常 | HTTP の番号ごとの応答（Traffic） | studio・game・core の SERVER のスパンの `http_response_status_code` | 4xx（ログインが切れた 401、無いページの 404 等）も番号ごとに見る。異常の入口は 5xx だけ（4xx は使い方で普通に起きるため）（core#124） |
+| 正常 | つながりごとの呼び出し（Traffic） | Tempo がスパンから作るつながりの指標（`traces_service_graph_request_total`・`..._failed_total`。client・server のラベル）の、時間の範囲の中の増え方 | どこからどこへ、何回呼び、何回失敗したか（core#110）。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は、欄のリンクから Tempo の Service Graph で見る |
+| 正常 | つながりごとの時間（Latency） | `traces_service_graph_request_server_seconds_bucket`（呼ばれる側の時間）・`..._client_seconds_bucket`（呼ぶ側から見た時間。間の envoy を含む）の 95 パーセンタイル | 遅いつながり。0.5 秒で黄色、1 秒で赤（GraphQL の操作と同じ）。時間の区切り（バケット）が粗いので、近い値がそろって出る（目安） |
+| 正常 | WSL の CPU と負荷・メモリとスワップ・プロセスごとの CPU とメモリ・core-db の接続・core のメモリと goroutine（Saturation） | 上の異常の Saturation と同じ。プロセスは hostmetrics の `process_cpu_time_seconds_total`・`process_memory_usage_bytes`（30 秒ごと。名前は `process_name`） | 推移。重いときに、どのプロセスが使っているかを見る（同じ名前のプロセスはまとめる。next-server は studio・game の開発のサーバー、postgres は DB の接続ごと、chrome・headless_shell はテストのブラウザ）。負荷は論理 CPU の数で割った値で、1 を超えると実行の待ちが出ている（core#119） |
 
 - ハートビートを、操作のログ・スパンではなく決まった間隔で必ず届く信号にしているのは、操作が無いときと止まったときを見分けるため。core は `/health` をスパンにしない（数秒おきでノイズになる）ので、指標を 60 秒ごとに送ってハートビートにしている（OTEL_METRIC_EXPORT_INTERVAL で変えられる）
 - 開発の環境とテスト用の環境（`make test`）は、同じ受け手に同じサービス名で送る。見分けるのは印 `deployment.environment.name`（開発は development、テストは test。各プロジェクトの compose.yaml・compose.test.yaml の `OTEL_RESOURCE_ATTRIBUTES`。core#120）で、Loki・Prometheus では `deployment_environment_name` のラベルになる。ダッシュボードは上の変数「環境」（既定は development）で絞る。ハートビートは変数によらず開発の分だけを見る（テストを流しても、止まっている開発のサービスが「届いている」にならない）。受け手（Collector）の欄は、環境を見分けない（受け手は 1 つのため）。印を付ける前（2026-11-07 より前）のデータには印が無いので、どちらの環境を選んでも出ない
 
 - Tempo・Loki の指標は、otel-lgtm の中の Collector に重ねた設定（local/otel-lgtm/otelcol-backends.yaml）で読み、上の欄で使うものだけを Prometheus に入れる（Tempo は指標をとても多く出すため）。公式のひな形の索引の古さ（TempoTenantIndexTooOld）は使わない。この構成では索引を作る役と読む役が同じで、索引の作り直しに失敗し続けても 0 のままだった
-- 飽和の値は、otel-lgtm の中の Collector に重ねた設定（local/otel-lgtm/otelcol-saturation.yaml）で読む。コンテナごとの値（Collector の docker_stats・cAdvisor・Alloy）は採らなかった: コンテナを名前で分けるには Docker の口（docker.sock）を渡すことになり、読み取り専用でも Docker を操作できる権限になるため（core#83 と同じ理由）。代わりに WSL の /proc・/sys だけを読み取り専用で渡し、プロセスの名前ごとに見る（/ ごと渡すと、中の docker.sock につなげてしまう）。プロセスの値は PID ごとの系列になるので、CPU・メモリ（RSS）だけを 30 秒ごとに読む。開発の環境とテスト用の環境のプロセスは見分けられない
+- Saturation の値は、otel-lgtm の中の Collector に重ねた設定（local/otel-lgtm/otelcol-saturation.yaml）で読む。コンテナごとの値（Collector の docker_stats・cAdvisor・Alloy）は採らなかった: コンテナを名前で分けるには Docker の口（docker.sock）を渡すことになり、読み取り専用でも Docker を操作できる権限になるため（core#83 と同じ理由）。代わりに WSL の /proc・/sys だけを読み取り専用で渡し、プロセスの名前ごとに見る（/ ごと渡すと、中の docker.sock につなげてしまう）。プロセスの値は PID ごとの系列になるので、CPU・メモリ（RSS）だけを 30 秒ごとに読む。開発の環境とテスト用の環境のプロセスは見分けられない
 - Tempo・Loki のログは、otel-lgtm の既定のまま捨てている（上の欄で気づけるため）。調べるときだけ、compose.yaml の otel-lgtm の環境変数に `ENABLE_LOGS_TEMPO: "true"`（Loki は `ENABLE_LOGS_LOKI`）を足して作り直し、`docker logs core-otel-lgtm-1` で読む
 
 #### Tempo の索引・一覧の失敗が出たとき（壊れたブロックの直し方）
@@ -111,7 +111,7 @@ http://localhost:3002 のダッシュボード「入口 · 異常」「入口 ·
 
 ### AI の調べ方（Grafana の API。core#107）
 
-AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことを前提に読む。
+AI は画面ではなく Grafana の API で、入口の数から trace id・ログまでたどる（ログインなし。`G=http://127.0.0.1:3002`）。ダッシュボードの数は、受け手が壊れていない（入口 · 異常の「届いていない」が 0）ことを前提に読む。欄はダッシュボードの上から（`dashboard.panels[]` の順）読めば、届いていない → Errors → Latency → Saturation の順になり、行の中はリクエストの流れの順（ページ → つながり → core → DB）になる。
 
 1. 入口の欄の問い合わせを読む: `curl -s $G/api/dashboards/uid/entry-anomaly`（`dashboard.panels[].targets[]` の `datasource.uid` と `expr`。`$__range` は調べる範囲（例 `1h`）に、`$env` は `development`（テストを調べるなら `test`）に置き換える）
 2. 同じ問い合わせを流す（数は時間の範囲の中の増え方で数える。テストのように短い間だけ出る系列は、終わって数分たつと消えるので、その時点の値を引く問い合わせでは見落とす。2026-11-07 に、終わったテストの studio → core のつながりを「記録されていない」と読み違えた）: Loki は `curl -s -G $G/api/datasources/proxy/uid/loki/loki/api/v1/query --data-urlencode 'query=<expr>'`、Prometheus は `.../uid/prometheus/api/v1/query`。数が 0 でなければ、詳細 · core（`detail-core`）の同じ行の欄で「どれが」（操作・投影・ポリシー）を引く
@@ -131,15 +131,15 @@ AI は画面ではなく Grafana の API で、入口の数から trace id・ロ
 | otel-lgtm の中の Collector（足す設定は local/otel-lgtm/otelcol-core-db.yaml。compose.yaml の OTELCOL_EXTRA_ARGS で渡す） | ボリュームを読み取り専用で受け、JSON の行を読んで otel-lgtm の Loki に送る（`service_name="core-db"`。時間は `duration_ms`、種類は `kind`（`statement`・`execute <名前>`・`plan` 等。core の SQL は拡張問い合わせのため `execute <unnamed>` になり、`statement` は psql 等の単純な問い合わせだけ）、SQL は `sql`、実行計画は `plan`、SQL の形の番号は `query_id`）。SQL のコメントの traceparent をログの `trace_id`・`span_id` にする。`query_id` は元の行から数字のまま読む（JSON を読むと 64 ビットの整数の下の桁が丸まり、pg_stat_statements の queryid と合わなくなるため）。読んだ位置は otel-lgtm の /data に残し、作り直しても重ねて送らない |
 | otel-lgtm（local/grafana） | provisioning のディレクトリにファイルで足したデータソース（`core-db core_studio`・`core-db core_game`）とダッシュボード「詳細 · core-db」 |
 
-見方: http://localhost:3002 のダッシュボード「詳細 · core-db」。入口 · 異常の「遅い SQL」（core_studio・core_game の数）から移ってくる。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。変数「DB（ログ）」で core_studio・core_game・テスト（テストごとの DB `test_*` とテンプレート）を絞り、「DB（重い SQL）」で pg_stat_statements を読む DB を選ぶ。
+見方: http://localhost:3002 のダッシュボード「詳細 · core-db」。入口 · 異常の「遅い SQL」（core_studio・core_game の数）から移ってくる。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic・Saturation。変数「DB（ログ）」で core_studio・core_game・テスト（テストごとの DB `test_*` とテンプレート）を絞り、「DB（重い SQL）」で pg_stat_statements を読む DB を選ぶ。
 
 | 行 | 欄 | 見ること |
 |---|---|---|
-| エラー | ERROR のログ | core-db の ERROR・FATAL・PANIC のログ（SQL のエラー・接続の失敗など） |
-| 遅延 | 遅い SQL（SQL の形ごと） | 100ms 以上かかった SQL を、SQL の形（`query_id`）ごとにまとめた回数・最大・95 パーセンタイル。回数が多ければいつも遅い、1 回だけなら一時的。SQL は core が足したコメントを外したもの。テストの DB はテストごとに名前が違うので「テスト」にまとめる。SQL の形の番号から、その SQL の 1 件ずつの遅い SQL・実行計画を Loki で見られる |
-| 遅延 | 遅い SQL（1 件ずつ） | 新しい順。`trace_id` から、その SQL を出したリクエストのトレースを Tempo で開ける（core が足す前の SQL と、core 以外（Grafana・道具）の SQL は「―」） |
-| 遅延 | 実行計画 | auto_explain の計画（JSON。`Query Text` に SQL）。1 行目は時間・DB・`query_id`・`trace_id` |
-| 量 | 重い SQL（pg_stat_statements） | 起動してからの累計の回数・合計・平均・最大・行数（合計の多い順）。リセットは `SELECT pg_stat_statements_reset()`。SQL の形の番号は遅い SQL のログの `query_id` と同じで、そこから実行計画を Loki で見られる（番号は文字で読む。Grafana は 64 ビットの整数を丸めるため） |
+| Errors | ERROR のログ | core-db の ERROR・FATAL・PANIC のログ（SQL のエラー・接続の失敗など） |
+| Latency | 遅い SQL（SQL の形ごと） | 100ms 以上かかった SQL を、SQL の形（`query_id`）ごとにまとめた回数・最大・95 パーセンタイル。回数が多ければいつも遅い、1 回だけなら一時的。SQL は core が足したコメントを外したもの。テストの DB はテストごとに名前が違うので「テスト」にまとめる。SQL の形の番号から、その SQL の 1 件ずつの遅い SQL・実行計画を Loki で見られる |
+| Latency | 遅い SQL（1 件ずつ） | 新しい順。`trace_id` から、その SQL を出したリクエストのトレースを Tempo で開ける（core が足す前の SQL と、core 以外（Grafana・道具）の SQL は「―」） |
+| Latency | 実行計画 | auto_explain の計画（JSON。`Query Text` に SQL）。1 行目は時間・DB・`query_id`・`trace_id` |
+| Traffic | 重い SQL（pg_stat_statements） | 起動してからの累計の回数・合計・平均・最大・行数（合計の多い順）。リセットは `SELECT pg_stat_statements_reset()`。SQL の形の番号は遅い SQL のログの `query_id` と同じで、そこから実行計画を Loki で見られる（番号は文字で読む。Grafana は 64 ビットの整数を丸めるため） |
 
 - どの欄も、テストの DB の作成・削除（`CREATE DATABASE`・`DROP DATABASE`）と、Grafana・マイグレーションがシステムの表を読む SQL（pg_stat_statements・information_schema・pg_catalog）は外す（アプリの SQL を見るため）
 - 閾値は compose.yaml の core-db の `log_min_duration_statement`・`auto_explain.log_min_duration`（100ms）。調べるときに下げる（反映は core-db の作り直し）
@@ -148,35 +148,35 @@ AI は画面ではなく Grafana の API で、入口の数から trace id・ロ
 
 ## 詳細 · core（core#84・core#107）
 
-http://localhost:3002 のダッシュボード「詳細 · core」。core を詳しく調べる。入口 · 異常のエラー・遅延の欄から移ってくる。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。テストや操作の後に遅いもの・失敗したものを探す使い方なので、時系列のグラフではなく、時間の範囲の中の値の表（遅い順・多い順）にしている。表の行の名前を押すと、GraphQL の操作は Tempo のその操作のトレースの検索、投影・ポリシーは Loki のその処理のログに移る。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。名前・uid・タグの付け方は「入口のダッシュボード」の節。
+http://localhost:3002 のダッシュボード「詳細 · core」。core を詳しく調べる。入口 · 異常の Errors・Latency の欄から移ってくる。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic・Saturation。テストや操作の後に遅いもの・失敗したものを探す使い方なので、時系列のグラフではなく、時間の範囲の中の値の表（遅い順・多い順）にしている。表の行の名前を押すと、GraphQL の操作は Tempo のその操作のトレースの検索、投影・ポリシーは Loki のその処理のログに移る。ダッシュボードは local/grafana/dashboards に JSON を置けば、otel-lgtm が読み込む（provisioning。local/grafana/provisioning/dashboards/diecardomain.yaml）。名前・uid・タグの付け方は「入口のダッシュボード」の節。
 
 | 行 | 欄 | 元のデータ | 見ること |
 |---|---|---|---|
-| エラー | 投影・ポリシーの失敗 | core の処理のログ（Loki）の `result="failure"` の数 | 失敗した投影・ポリシー。理由は、その処理のログか、同じ時刻の ERROR・WARN のログで見る |
-| エラー | GraphQL の errors | 操作のスパンのエラーの印（`status_code="STATUS_CODE_ERROR"`。Prometheus の `traces_spanmetrics_calls_total`） | 応答の errors に入った操作。GraphQL は HTTP 200 のまま errors で知らせるので、HTTP の番号とは別に数える。想定内のもの（名前の重複等）は結果の型で返すので入らない |
-| エラー | HTTP 5xx | core の SERVER のスパンの `http_response_status_code` | 5xx を返した入口（`POST /studio/graphql` 等）と番号。DB に届かない等で、GraphQL の処理の前に失敗したもの（core#124） |
-| エラー | ERROR・WARN のログ | core のログ（Loki）の `detected_level` | 新しい順のログ。開くと trace_id からトレースに移れる |
-| 遅延 | 投影・ポリシーの遅れと処理の時間 | 処理のログの `lag_ms`（発生から処理が終わるまで）の 95 パーセンタイル・最大と、`duration_ms`（処理そのもの）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる。遅れが大きく処理の時間が小さければ、処理の前に待っている。遅れは 1 秒で黄色、5 秒で赤 |
-| 遅延 | GraphQL の操作の時間 | トレースから Tempo が作る指標（`traces_spanmetrics_latency_bucket`）の 95 パーセンタイルと、最大の目安（時間の区切りの上限で、正確な最大ではない） | 遅い操作。0.5 秒で黄色、1 秒で赤 |
-| 量 | GraphQL の操作の呼び出しの数・投影・ポリシーの処理の数 | `traces_spanmetrics_calls_total`・処理のログの数 | 多い操作・処理 |
+| Errors | HTTP 5xx | core の SERVER のスパンの `http_response_status_code` | 5xx を返した入口（`POST /studio/graphql` 等）と番号。DB に届かない等で、GraphQL の処理の前に失敗したもの（core#124） |
+| Errors | GraphQL の errors | 操作のスパンのエラーの印（`status_code="STATUS_CODE_ERROR"`。Prometheus の `traces_spanmetrics_calls_total`） | 応答の errors に入った操作。GraphQL は HTTP 200 のまま errors で知らせるので、HTTP の番号とは別に数える。想定内のもの（名前の重複等）は結果の型で返すので入らない |
+| Errors | 投影・ポリシーの失敗 | core の処理のログ（Loki）の `result="failure"` の数 | 失敗した投影・ポリシー。理由は、その処理のログか、同じ時刻の ERROR・WARN のログで見る |
+| Errors | ERROR・WARN のログ | core のログ（Loki）の `detected_level` | 新しい順のログ。開くと trace_id からトレースに移れる |
+| Latency | GraphQL の操作の時間 | トレースから Tempo が作る指標（`traces_spanmetrics_latency_bucket`）の 95 パーセンタイルと、最大の目安（時間の区切りの上限で、正確な最大ではない） | 遅い操作。0.5 秒で黄色、1 秒で赤 |
+| Latency | 投影・ポリシーの遅れと処理の時間 | 処理のログの `lag_ms`（発生から処理が終わるまで）の 95 パーセンタイル・最大と、`duration_ms`（処理そのもの）の 95 パーセンタイル | 遅れの大きい投影・ポリシー。テストが read model を待ちきれない原因になりうる。遅れが大きく処理の時間が小さければ、処理の前に待っている。遅れは 1 秒で黄色、5 秒で赤 |
+| Traffic | GraphQL の操作の呼び出しの数・投影・ポリシーの処理の数 | `traces_spanmetrics_calls_total`・処理のログの数 | 多い操作・処理 |
 
 - 閾値（遅れの 1 秒・5 秒、GraphQL の 0.5 秒・1 秒）は、2026-11-07 に測った値から決めた（遅れの 95 パーセンタイルは 75ms、テストが重なったときの最大が 2.5 秒。GraphQL は全体の 95 パーセンタイルが 38ms、一番遅い操作で 0.33 秒）
-- 入口 · 異常の「エラー」の行（ERROR・WARN のログはサービスごと、投影・ポリシーの失敗、GraphQL の errors、core の HTTP 5xx）と「遅延」の行（投影・ポリシーの最大の遅れ、遅い GraphQL の操作の上位 5）も、同じデータから数える。WARN はすぐ直すものとは限らないので黄色
+- 入口 · 異常の「Errors」の行（ERROR・WARN のログはサービスごと、投影・ポリシーの失敗、GraphQL の errors、core の HTTP 5xx）と「Latency」の行（投影・ポリシーの最大の遅れ、遅い GraphQL の操作の上位 5）も、同じデータから数える。WARN はすぐ直すものとは限らないので黄色
 - テスト用の環境の分は、変数「環境」で test を選ぶと見える（例: studio のテスト用の環境の core が game-envoy の JWKS を取りに行けない ERROR。game を起動しないので想定どおり）
 
 ## 詳細 · studio・game（core#109）
 
-http://localhost:3002 のダッシュボード「詳細 · studio・game」。studio・game の画面を詳しく調べる（上の変数「画面」で切り替える）。入口 · 異常のページの HTTP 5xx・遅いページの欄から移ってくる。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は、入口 · 正常の「飽和」の行のプロセスの名前 next-server で見る。core#119）。表の行の名前から、そのページ・呼び出しのトレースを Tempo で探せる（エラーの表からは、5xx・失敗したトレースだけ）。
+http://localhost:3002 のダッシュボード「詳細 · studio・game」。studio・game の画面を詳しく調べる（上の変数「画面」で切り替える）。入口 · 異常のページの HTTP 5xx・遅いページの欄から移ってくる。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic（Saturation は、入口 · 正常の「Saturation」の行のプロセスの名前 next-server で見る。core#119）。表の行の名前から、そのページ・呼び出しのトレースを Tempo で探せる（エラーの表からは、5xx・失敗したトレースだけ）。
 
 | 行 | 欄 | 元のデータ | 見ること |
 |---|---|---|---|
-| エラー | ページの HTTP 5xx | ページ（SERVER のスパンのうち、経路の付いた名前 `RSC GET /cards` 等）の HTTP の番号（`traces_spanmetrics_calls_total` の `http_response_status_code`） | 5xx を返したページと番号（Server Action の失敗等）。理由は同じ時刻の ERROR・WARN のログか、トレース。描画の中で失敗してエラーの画面を出したときは 200 で返るので入らず、次の欄に出る |
-| エラー | ページの描画のエラー（HTTP 200） | 描画のスパン（`render route (app) <ページ>`）のエラーの印 | 描画が失敗してエラーの画面を出したページ。理由は、同じトレースの core の呼び出し・ログインの確かめ（/token）のスパンか、ERROR・WARN のログ（core#124） |
-| エラー | core の呼び出しの HTTP 5xx・応答なし | /graphql への fetch（CLIENT のスパン）のエラーの印のうち、HTTP 5xx か番号の無いもの | core が 5xx を返した（HTTP の欄に番号）・core に届かない（「応答なし」）呼び出し。core の側の 5xx は詳細 · core |
-| エラー | ERROR・WARN のログ | 選んだ画面のログ（Loki） | 新しい順。開くと trace_id からトレースに移れる |
-| 遅延 | ページの時間 | ページの時間の 95 パーセンタイルと回数 | 遅いページ。0.5 秒で黄色、1 秒で赤。開発の環境（next dev）は、初めて開いたページを組み立てる時間も入るので遅く出やすい |
-| 遅延 | core の呼び出しの時間 | /graphql への fetch の時間の 95 パーセンタイル（間の envoy を含む） | ページが遅いとき、ここも遅ければ core の側（詳細 · core の GraphQL の操作の時間）を見る |
-| 量 | ページの回数 | ページ・HTTP の番号ごとの回数 | よく開かれるページと、4xx 等の番号。`GET /api/auth/[...all]` には healthcheck（/api/auth/ok）も入る |
+| Errors | ページの HTTP 5xx | ページ（SERVER のスパンのうち、経路の付いた名前 `RSC GET /cards` 等）の HTTP の番号（`traces_spanmetrics_calls_total` の `http_response_status_code`） | 5xx を返したページと番号（Server Action の失敗等）。理由は同じ時刻の ERROR・WARN のログか、トレース。描画の中で失敗してエラーの画面を出したときは 200 で返るので入らず、次の欄に出る |
+| Errors | ページの描画のエラー（HTTP 200） | 描画のスパン（`render route (app) <ページ>`）のエラーの印 | 描画が失敗してエラーの画面を出したページ。理由は、同じトレースの core の呼び出し・ログインの確かめ（/token）のスパンか、ERROR・WARN のログ（core#124） |
+| Errors | core の呼び出しの HTTP 5xx・応答なし | /graphql への fetch（CLIENT のスパン）のエラーの印のうち、HTTP 5xx か番号の無いもの | core が 5xx を返した（HTTP の欄に番号）・core に届かない（「応答なし」）呼び出し。core の側の 5xx は詳細 · core |
+| Errors | ERROR・WARN のログ | 選んだ画面のログ（Loki） | 新しい順。開くと trace_id からトレースに移れる |
+| Latency | ページの時間 | ページの時間の 95 パーセンタイルと回数 | 遅いページ。0.5 秒で黄色、1 秒で赤。開発の環境（next dev）は、初めて開いたページを組み立てる時間も入るので遅く出やすい |
+| Latency | core の呼び出しの時間 | /graphql への fetch の時間の 95 パーセンタイル（間の envoy を含む） | ページが遅いとき、ここも遅ければ core の側（詳細 · core の GraphQL の操作の時間）を見る |
+| Traffic | ページの回数 | ページ・HTTP の番号ごとの回数 | よく開かれるページと、4xx 等の番号。`GET /api/auth/[...all]` には healthcheck（/api/auth/ok）も入る |
 
 - HTTP の番号は、Tempo の設定（local/otel-lgtm/tempo-config.yaml）でスパンの属性から作るラベル `http_response_status_code`。studio・game（@vercel/otel）は古い名前の `http.status_code`、core（otelhttp）は今の名前の `http.response.status_code` で付けるので、`dimension_mappings` で 1 つにまとめる（core#124）。Tempo でトレースを探すときは、属性の名前がサービスで違う（`span.http.status_code>=500`・`span.http.response.status_code>=500`）
 - 経路の無い名前の SERVER のスパン（`GET`・`RSC GET`）は数えない。同じリクエストの外側のスパンで、数えると重なるため
