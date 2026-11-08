@@ -81,6 +81,24 @@ func (r *mutationResolver) ChooseMatchPath(ctx context.Context, input model.Choo
 	return &model.ChooseMatchPathSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// DeployMatchCreature is the resolver for the deployMatchCreature field.
+func (r *mutationResolver) DeployMatchCreature(ctx context.Context, input model.DeployMatchCreatureInput) (model.DeployMatchCreatureResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Deploy(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.DeployMatchCreatureResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DeployMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // EndMatchTurn is the resolver for the endMatchTurn field.
 func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

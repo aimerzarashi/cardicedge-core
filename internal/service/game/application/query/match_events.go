@@ -100,6 +100,19 @@ type MatchEndedEvent struct {
 	Reason  MatchEndReason
 }
 
+// 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）。Creature は配置したクリーチャーの ID（Match.territories と同じ番号）
+type MatchCreatureDeployedEvent struct {
+	MatchEventMeta
+	Participant int
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+	Card      MatchCard
+	Creature  int
+	Position  BoardPosition
+	// 払った魔力
+	Cost int
+}
+
 // 戦利品のパックから引いた
 type MatchRewardDrawnEvent struct {
 	MatchEventMeta
@@ -171,7 +184,7 @@ func snapshotSpecs(loaded []match.Event) map[card.Ref]match.CardSpec {
 	return specs
 }
 
-// 引いた・捨てたカードの名前と種類を、1 回でまとめて引く。引いた・捨てたカードの性能は写し、戦利品は写した cards の性能
+// 引いた・捨てた・配置したカードの名前と種類を、1 回でまとめて引く。引いた・捨てた・配置したカードの性能は写し、戦利品は写した cards の性能
 func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec) (map[domain.EntityRef]MatchCard, error) {
 	var refs []domain.EntityRef
 	inDeck := map[domain.EntityRef]match.CardSpec{}
@@ -182,6 +195,10 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
 		case *match.CardDiscardedEvent:
+			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
+			refs = append(refs, ref)
+			inDeck[ref] = specs[e.Card]
+		case *match.CreatureDeployedEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
@@ -263,6 +280,9 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard) (Ma
 		return MatchRewardDrawnEvent{meta, e.Participant.Int(), string(e.Pack), drawn}, nil
 	case *match.RewardsCompletedEvent:
 		return MatchRewardsCompletedEvent{meta}, nil
+	case *match.CreatureDeployedEvent:
+		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
+		return MatchCreatureDeployedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), position, e.Cost.Int()}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
 	}

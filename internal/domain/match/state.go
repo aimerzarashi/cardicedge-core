@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -38,6 +39,24 @@ type Reward struct {
 	Cards []card.Ref
 }
 
+// 盤面に配置したクリーチャー 1 体（2026-11-08 オーナー。core#113）。カードを指すだけにしないのは、戦闘の傷やスペルの効果を、
+// この 1 体の今の状態として持つため。配置・侵略で奪う・交換・移動のどれから来ても同じ実体で、イベントは ID で指す
+type DeployedCreature struct {
+	ID    DeployedCreatureID
+	Card  card.Ref
+	Owner ParticipantIndex
+	// 配置したときの性能の写し（対戦を始めたときの写しから写す。この 1 体だけを変える効果がほかの同じカードに響かないように）
+	Base CreatureSpec
+	// 今の体力
+	HitPoints creature.HitPoints
+}
+
+// 領地。持ち主は、そこにいるクリーチャーの持ち主
+type Territory struct {
+	Position board.Position
+	Creature DeployedCreatureID
+}
+
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
 type Match struct {
 	ID           ID
@@ -60,6 +79,12 @@ type Match struct {
 	Result *Result
 	// 戦利品を、プレイヤー全員が受け取った。終わっても段階は ended のままで、これで受け取りまで済んだことを表す
 	RewardsCompleted bool
+	// 盤面にいるクリーチャー（配置した順）
+	DeployedCreatures []DeployedCreature
+	// 領地（できた順）
+	Territories []Territory
+	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
+	LastDeployedCreatureID DeployedCreatureID
 }
 
 func (Match) isMatchState() {}
@@ -147,4 +172,53 @@ func (m Match) CardSpecs() map[card.Ref]CardSpec {
 		}
 	}
 	return specs
+}
+
+// その位置の領地
+func (m Match) TerritoryAt(position board.Position) (Territory, bool) {
+	for _, territory := range m.Territories {
+		if territory.Position == position {
+			return territory, true
+		}
+	}
+	return Territory{}, false
+}
+
+// ID で指したクリーチャー
+func (m Match) DeployedCreature(id DeployedCreatureID) (DeployedCreature, bool) {
+	for _, deployed := range m.DeployedCreatures {
+		if deployed.ID == id {
+			return deployed, true
+		}
+	}
+	return DeployedCreature{}, false
+}
+
+// 今の番の人が配置できる手札の番号（手札の順）。配置の段階でだけ中身がある。クリーチャーで、コストが今の魔力以下のもの
+func (m Match) DeployChoices() []int {
+	index, ok := m.CurrentParticipant()
+	if m.Phase != PhaseDeploying || !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	participant := m.Participants[index]
+	specs := m.CardSpecs()
+	var choices []int
+	for i, ref := range participant.Hand {
+		spec, ok := specs[ref]
+		if ok && spec.Creature != nil && spec.Cost.Int() <= participant.Magic {
+			choices = append(choices, i)
+		}
+	}
+	return choices
+}
+
+// 止まったマスが、まだ誰の領地でもない土地か
+func (m Match) isVacantLand(position board.Position) bool {
+	for _, tile := range m.Board.Tiles {
+		if tile.Position == position {
+			_, occupied := m.TerritoryAt(position)
+			return tile.Kind == board.TileKindLand && !occupied
+		}
+	}
+	return false
 }

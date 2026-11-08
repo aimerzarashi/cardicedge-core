@@ -106,6 +106,11 @@ type DeclareRoomReadyResult interface {
 	IsDeclareRoomReadyResult()
 }
 
+// deployMatchCreature の結果（DEPLOYING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type DeployMatchCreatureResult interface {
+	IsDeployMatchCreatureResult()
+}
+
 // discardMatchCard の結果（DISCARDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type DiscardMatchCardResult interface {
 	IsDiscardMatchCardResult()
@@ -116,7 +121,7 @@ type DrawMatchCardResult interface {
 	IsDrawMatchCardResult()
 }
 
-// endMatchTurn の結果（ENDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+// endMatchTurn の結果（ENDING と DEPLOYING の段階の（DEPLOYING では配置しないことになる）、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type EndMatchTurnResult interface {
 	IsEndMatchTurnResult()
 }
@@ -740,6 +745,26 @@ type DeclareRoomReadySuccess struct {
 
 func (DeclareRoomReadySuccess) IsDeclareRoomReadyResult() {}
 
+// 止まった空き地にクリーチャーを配置する入力
+type DeployMatchCreatureInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 配置する手札の番号（0 始まり。Match.deployChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で配置できないものは FieldNotFound）
+	HandIndex int `json:"handIndex"`
+}
+
+// クリーチャーを配置した（そのままターンを終える。成功したら対戦の revision が進む）
+type DeployMatchCreatureSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (DeployMatchCreatureSuccess) IsDeployMatchCreatureResult() {}
+
 // 手札を 1 枚捨てる入力
 type DiscardMatchCardInput struct {
 	// 対戦の公開用の ID
@@ -975,6 +1000,10 @@ type Match struct {
 	RemainingSteps int `json:"remainingSteps"`
 	// 今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）
 	PathChoices []*BoardPosition `json:"pathChoices"`
+	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）
+	DeployChoices []int `json:"deployChoices"`
+	// 盤面の領地（できた順）
+	Territories []*MatchTerritory `json:"territories"`
 	// 対戦の結果（終わるまでは null）
 	Outcome *MatchOutcome `json:"outcome,omitempty"`
 	// 自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）
@@ -1090,6 +1119,34 @@ func (this MatchCreatedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）
+type MatchCreatureDeployedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// 配置した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 配置した手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 配置したカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 配置したクリーチャーの ID（Match.territories の creature.id と同じ番号）
+	Creature int `json:"creature"`
+	// 配置した位置（領地になった）
+	Position *BoardPosition `json:"position"`
+	// 払った魔力
+	Cost int `json:"cost"`
+}
+
+func (MatchCreatureDeployedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatureDeployedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatureDeployedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
 // 山札が混ざった（並びは見せないので、項目を持たない）
 type MatchDecksShuffledEvent struct {
 	// 対戦の版
@@ -1105,6 +1162,16 @@ func (this MatchDecksShuffledEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
 func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// 盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）
+type MatchDeployedCreature struct {
+	// 配置したクリーチャーの ID（対戦の中の通し番号。1 始まり。移動・交換しても変わらない）
+	ID int `json:"id"`
+	// 元のカード（性能は配置したときの写し）
+	Card *CreatureCardInfo `json:"card"`
+	// 今の体力
+	HitPoints int `json:"hitPoints"`
+}
 
 // サイコロを振った
 type MatchDiceRolledEvent struct {
@@ -1230,6 +1297,8 @@ func (MatchNotFoundError) IsRollMatchDiceResult() {}
 
 func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
+func (MatchNotFoundError) IsDeployMatchCreatureResult() {}
+
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
 
 func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
@@ -1251,6 +1320,8 @@ func (MatchNotYourTurnError) IsDiscardMatchCardResult() {}
 func (MatchNotYourTurnError) IsRollMatchDiceResult() {}
 
 func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
+
+func (MatchNotYourTurnError) IsDeployMatchCreatureResult() {}
 
 func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
 
@@ -1303,6 +1374,8 @@ func (MatchPhaseNotAllowedError) IsDiscardMatchCardResult() {}
 func (MatchPhaseNotAllowedError) IsRollMatchDiceResult() {}
 
 func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
+
+func (MatchPhaseNotAllowedError) IsDeployMatchCreatureResult() {}
 
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
@@ -1408,6 +1481,16 @@ type MatchRules struct {
 	MaxHandCards int `json:"maxHandCards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
+}
+
+// 領地（クリーチャーを配置した土地）
+type MatchTerritory struct {
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 持ち主の参加者（Match.participants の何番目か）
+	Owner int `json:"owner"`
+	// そこにいるクリーチャー
+	Creature *MatchDeployedCreature `json:"creature"`
 }
 
 // ターンを終えた
@@ -1550,6 +1633,8 @@ func (PlayerNotRegisteredError) IsDiscardMatchCardResult() {}
 func (PlayerNotRegisteredError) IsRollMatchDiceResult() {}
 
 func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
+
+func (PlayerNotRegisteredError) IsDeployMatchCreatureResult() {}
 
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
 
@@ -1698,6 +1783,8 @@ func (RevisionConflictError) IsDiscardMatchCardResult() {}
 func (RevisionConflictError) IsRollMatchDiceResult() {}
 
 func (RevisionConflictError) IsChooseMatchPathResult() {}
+
+func (RevisionConflictError) IsDeployMatchCreatureResult() {}
 
 func (RevisionConflictError) IsEndMatchTurnResult() {}
 
@@ -2049,6 +2136,8 @@ func (ValidationErrors) IsCollectionResult() {}
 func (ValidationErrors) IsDiscardMatchCardResult() {}
 
 func (ValidationErrors) IsChooseMatchPathResult() {}
+
+func (ValidationErrors) IsDeployMatchCreatureResult() {}
 
 func (ValidationErrors) IsChooseMatchRewardPackResult() {}
 
@@ -2471,6 +2560,8 @@ const (
 	MatchPhaseRolling MatchPhase = "ROLLING"
 	// 分かれ道で行き先を選ぶ段階（chooseMatchPath）
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
+	// 空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
+	MatchPhaseDeploying MatchPhase = "DEPLOYING"
 	// ターンを終える段階（endMatchTurn）
 	MatchPhaseEnding MatchPhase = "ENDING"
 	// 対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）
@@ -2482,13 +2573,14 @@ var AllMatchPhase = []MatchPhase{
 	MatchPhaseDiscarding,
 	MatchPhaseRolling,
 	MatchPhaseChoosingPath,
+	MatchPhaseDeploying,
 	MatchPhaseEnding,
 	MatchPhaseEnded,
 }
 
 func (e MatchPhase) IsValid() bool {
 	switch e {
-	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseEnding, MatchPhaseEnded:
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseEnding, MatchPhaseEnded:
 		return true
 	}
 	return false

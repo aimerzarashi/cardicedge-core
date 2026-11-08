@@ -83,6 +83,21 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 	if err != nil {
 		return nil, err
 	}
+	territories := make([]*model.MatchTerritory, len(match.Territories))
+	for i, territory := range match.Territories {
+		card, err := fromMatchCard(territory.Creature.Card)
+		if err != nil {
+			return nil, err
+		}
+		creatureCard, ok := card.(*model.CreatureCardInfo)
+		if !ok {
+			return nil, fmt.Errorf("graphql: deployed creature %d is not a creature card", territory.Creature.ID)
+		}
+		territories[i] = &model.MatchTerritory{
+			Position: &model.BoardPosition{X: territory.Position.X, Y: territory.Position.Y}, Owner: territory.Owner,
+			Creature: &model.MatchDeployedCreature{ID: territory.Creature.ID, Card: creatureCard, HitPoints: territory.Creature.HitPoints},
+		}
+	}
 	converted := &model.Match{
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
 		Rules: &model.MatchPlayRules{
@@ -95,6 +110,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
+		DeployChoices: match.DeployChoices, Territories: territories,
 	}
 	if outcome := match.Outcome; outcome != nil {
 		reason, err := fromMatchEndReason(outcome.Reason)
@@ -132,6 +148,8 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseRolling, nil
 	case query.MatchPhaseChoosingPath:
 		return model.MatchPhaseChoosingPath, nil
+	case query.MatchPhaseDeploying:
+		return model.MatchPhaseDeploying, nil
 	case query.MatchPhaseEnding:
 		return model.MatchPhaseEnding, nil
 	case query.MatchPhaseEnded:
@@ -207,6 +225,15 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchCardDiscardedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, HandIndex: e.HandIndex, Card: card}, nil
+	case query.MatchCreatureDeployedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCreatureDeployedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, HandIndex: e.HandIndex, Card: card,
+			Creature: e.Creature, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Cost: e.Cost,
+		}, nil
 	case query.MatchDiceRolledEvent:
 		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Participant: e.Participant, Value: e.Value}, nil
 	case query.MatchMovedEvent:

@@ -104,6 +104,28 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic += e.Magic
 		current.Participants[index].PassedCheckpoints = nil
+	case *CreatureDeployedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		spec, ok := current.CardSpecs()[e.Card]
+		switch {
+		case current.Phase != PhaseDeploying, e.Position != participant.Position, !current.isVacantLand(e.Position),
+			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
+			!ok, spec.Creature == nil, e.Creature != current.LastDeployedCreatureID+1:
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[index].Magic -= e.Cost.Int()
+		current.DeployedCreatures = append(slices.Clone(current.DeployedCreatures), DeployedCreature{
+			ID: e.Creature, Card: e.Card, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints,
+		})
+		current.Territories = append(slices.Clone(current.Territories), Territory{Position: e.Position, Creature: e.Creature})
+		current.LastDeployedCreatureID = e.Creature
+		current.Phase = PhaseEnding
 	case *TurnEndedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
@@ -174,14 +196,23 @@ func (m Match) handLimitPhase(index ParticipantIndex) Phase {
 // 進んだ直後の段階。行き先が無いのに歩数が残る形（つながりの無い拠点）は、止まって終えるしかない
 func (m Match) settle() Phase {
 	if m.RemainingSteps <= 0 {
-		return PhaseEnding
+		return m.stopPhase()
 	}
 	switch choices := m.PathChoices(); {
 	case len(choices) == 0:
-		return PhaseEnding
+		return m.stopPhase()
 	case len(choices) > 1:
 		return PhaseChoosingPath
 	default:
 		return PhaseMoving
 	}
+}
+
+// 止まったマスで次にすること。空いている土地なら配置を選ぶ（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）
+func (m Match) stopPhase() Phase {
+	index, err := m.currentIndex()
+	if err == nil && m.isVacantLand(m.Participants[index].Position) {
+		return PhaseDeploying
+	}
+	return PhaseEnding
 }

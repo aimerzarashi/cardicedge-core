@@ -24,8 +24,11 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return roll(r, random) })
 	case *ChoosePathCommand:
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
+	case *DeployCreatureCommand:
+		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *EndTurnCommand:
-		return playTurn(state, c.By, PhaseEnding, now, endTurn)
+		// 配置の段階でターンを終えるのが「配置しない」（専用の操作を作らない。2026-11-08 オーナー）
+		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhaseDeploying)
 	case *ChooseRewardPackCommand:
 		return chooseRewardPack(state, c, now, random)
 	default:
@@ -87,7 +90,7 @@ func (r *recorder) current() ParticipantState {
 }
 
 // 終わった後・番でない人・段階の合わない操作を断る。終わった後を先に見るのは、終わった対戦に番を問う意味が無いため
-func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act func(*recorder) error) ([]Event, error) {
+func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act func(*recorder) error, otherPhases ...Phase) ([]Event, error) {
 	current, ok := state.(Match)
 	if !ok {
 		return nil, ErrInvalidState
@@ -98,7 +101,7 @@ func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act 
 	if turn, ok := current.CurrentParticipant(); !ok || turn != by {
 		return nil, ErrNotYourTurn
 	}
-	if current.Phase != phase {
+	if current.Phase != phase && !slices.Contains(otherPhases, current.Phase) {
 		return nil, ErrPhaseNotAllowed
 	}
 	r := &recorder{state: current, now: now}
@@ -147,6 +150,26 @@ func choosePath(r *recorder, to board.Position) error {
 		return err
 	}
 	return advance(r)
+}
+
+// 配置して、そのままターンを終える
+func deploy(r *recorder, handIndex int) error {
+	if !slices.Contains(r.state.DeployChoices(), handIndex) {
+		if handIndex < 0 || handIndex >= len(r.current().Hand) {
+			return ErrHandIndexOutOfRange
+		}
+		return ErrCreatureNotDeployable
+	}
+	participant := r.current()
+	ref := participant.Hand[handIndex]
+	spec := r.state.CardSpecs()[ref]
+	id := r.state.LastDeployedCreatureID + 1
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Creature: id, Position: participant.Position, Cost: spec.Cost}
+	}); err != nil {
+		return err
+	}
+	return endTurn(r)
 }
 
 // 行き先が 1 つの間は進み続け、分かれ道・歩数切れ・勝ちで止まる

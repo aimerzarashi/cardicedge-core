@@ -98,3 +98,10 @@ func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus
 		match.DefaultRewardPacks(),
 	)
 }
+
+func DeployedCreatureID(t testing.TB, value int) match.DeployedCreatureID {
+	t.Helper()
+	id, err := match.NewDeployedCreatureID(value)
+	require.NoError(t, err)
+	return id
+}

@@ -34,6 +34,7 @@ const (
 	MatchPhaseDiscarding   MatchPhase = "discarding"
 	MatchPhaseRolling      MatchPhase = "rolling"
 	MatchPhaseChoosingPath MatchPhase = "choosing_path"
+	MatchPhaseDeploying    MatchPhase = "deploying"
 	MatchPhaseEnding       MatchPhase = "ending"
 	MatchPhaseEnded        MatchPhase = "ended"
 )
@@ -104,6 +105,20 @@ type MatchParticipant struct {
 	RewardCards []MatchCard
 }
 
+// 盤面に配置したクリーチャー 1 体。カードの性能は配置したときの写し、HitPoints は今の体力
+type MatchDeployedCreature struct {
+	ID        int
+	Card      MatchCard
+	HitPoints int
+}
+
+// 領地。Owner は持ち主の参加者の番号（Match.Participants の何番目か）
+type MatchTerritory struct {
+	Position BoardPosition
+	Owner    int
+	Creature MatchDeployedCreature
+}
+
 // 戦利品に選べるパック。キーを選ぶ操作に渡す
 type MatchRewardPack struct {
 	Key  string
@@ -125,6 +140,10 @@ type Match struct {
 	RemainingSteps int
 	// 今の番の人が選べる行き先。分かれ道で選ぶ段階のときだけ中身がある
 	PathChoices []BoardPosition
+	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
+	DeployChoices []int
+	// 領地（できた順）
+	Territories []MatchTerritory
 	// 終わるまでは nil
 	Outcome *MatchOutcome
 	// 見ているプレイヤーが今選べる戦利品のパック。終わった後で、まだ受け取っていないときだけ中身がある
@@ -203,6 +222,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			}
 		}
 	}
+	for _, deployed := range current.DeployedCreatures {
+		refs = append(refs, domain.NewEntityRef(deployed.Card.EntityType, deployed.Card.ID))
+	}
 	publicIDs, err := q.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
 		return Match{}, err
@@ -268,6 +290,15 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		}
 		participants[i] = converted
 	}
+	deployedCardIDs := make(map[match.DeployedCreatureID]uuid.UUID, len(current.DeployedCreatures))
+	for _, deployed := range current.DeployedCreatures {
+		cardID, err := publicIDOf(deployed.Card.EntityType, deployed.Card.ID)
+		if err != nil {
+			return Match{}, err
+		}
+		deployedCardIDs[deployed.ID] = cardID
+		cardIDs = append(cardIDs, cardID)
+	}
 	names, err := q.loadNames(ctx, avatarIDs, npcAvatarIDs, cardIDs)
 	if err != nil {
 		return Match{}, err
@@ -312,6 +343,23 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
+		DeployChoices: []int{}, Territories: []MatchTerritory{},
+	}
+	for _, territory := range current.Territories {
+		deployed, ok := current.DeployedCreature(territory.Creature)
+		if !ok {
+			return Match{}, fmt.Errorf("query: creature %d of territory is not deployed", territory.Creature.Int())
+		}
+		found, ok := names.Cards[deployedCardIDs[deployed.ID]]
+		if !ok {
+			return Match{}, fmt.Errorf("query: card %s of deployed creature is not found", deployedCardIDs[deployed.ID])
+		}
+		base := deployed.Base
+		card := withSpec(found, match.CardSpec{Cost: current.CardSpecs()[deployed.Card].Cost, Rarity: current.CardSpecs()[deployed.Card].Rarity, Creature: &base})
+		result.Territories = append(result.Territories, MatchTerritory{
+			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Owner: deployed.Owner.Int(),
+			Creature: MatchDeployedCreature{ID: deployed.ID.Int(), Card: card, HitPoints: deployed.HitPoints.Int()},
+		})
 	}
 	for i, participant := range current.Participants {
 		index, err := match.NewParticipantIndex(i)
@@ -335,6 +383,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	if phase == MatchPhaseChoosingPath {
 		result.PathChoices = fromBoardPositions(current.PathChoices())
 	}
+	if choices := current.DeployChoices(); len(choices) > 0 {
+		result.DeployChoices = choices
+	}
 	if current.Result != nil {
 		outcome, err := fromMatchResult(*current.Result)
 		if err != nil {
@@ -356,6 +407,8 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseRolling, nil
 	case match.PhaseChoosingPath:
 		return MatchPhaseChoosingPath, nil
+	case match.PhaseDeploying:
+		return MatchPhaseDeploying, nil
 	case match.PhaseEnding:
 		return MatchPhaseEnding, nil
 	case match.PhaseEnded:

@@ -1,7 +1,8 @@
 # 対戦（部屋の全員が準備完了を申告すると、部屋の条件の写しで始まる集約）。始まった時点で、順番が決まり、山札が混ざり、手札が配られている。
 # read model を持たず、集約の状態から返す。参加者のプレイヤーだけが読める。
-# 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ → ターンを終える）。
-# NPC の番はポリシーが進める。カードを使う操作は先のマイルストーンで足す。
+# 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ →
+# 空いている土地に止まったらクリーチャーを配置するか配置せずにターンを終える／ほかのマスならターンを終える）。
+# NPC の番はポリシーが進める。侵略・アイテム・スペル等のカードを使う操作は、この後の Issue で足す。
 # 終わった後は、プレイヤーが戦利品のパックを選ぶ（chooseMatchRewardPack。番は無く、1 人 1 回）。引いたカードはポリシーが所持品に足す。
 # 全員が受け取るまで、段階は ENDED のまま
 
@@ -15,10 +16,32 @@ enum MatchPhase {
   ROLLING
   "分かれ道で行き先を選ぶ段階（chooseMatchPath）"
   CHOOSING_PATH
+  "空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
+  DEPLOYING
   "ターンを終える段階（endMatchTurn）"
   ENDING
   "対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）"
   ENDED
+}
+
+"盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）"
+type MatchDeployedCreature {
+  "配置したクリーチャーの ID（対戦の中の通し番号。1 始まり。移動・交換しても変わらない）"
+  id: Int!
+  "元のカード（性能は配置したときの写し）"
+  card: CreatureCardInfo!
+  "今の体力"
+  hitPoints: Int!
+}
+
+"領地（クリーチャーを配置した土地）"
+type MatchTerritory {
+  "領地の位置"
+  position: BoardPosition!
+  "持ち主の参加者（Match.participants の何番目か）"
+  owner: Int!
+  "そこにいるクリーチャー"
+  creature: MatchDeployedCreature!
 }
 
 "対戦が終わった理由"
@@ -159,6 +182,11 @@ type Match {
   # 分かれ道の決まり（来たマスには戻らない等）を画面に持たせないため、core が選べる行き先を出す
   "今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）"
   pathChoices: [BoardPosition!]!
+  # 配置できるかの決まり（クリーチャーか・コストが払えるか）を画面に持たせないため、core が選べる手札を出す
+  "今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）"
+  deployChoices: [Int!]!
+  "盤面の領地（できた順）"
+  territories: [MatchTerritory!]!
   "対戦の結果（終わるまでは null）"
   outcome: MatchOutcome
   "自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）"
@@ -304,6 +332,34 @@ union ChooseMatchPathResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"止まった空き地にクリーチャーを配置する入力"
+input DeployMatchCreatureInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "配置する手札の番号（0 始まり。Match.deployChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で配置できないものは FieldNotFound）"
+  handIndex: Int!
+}
+
+"クリーチャーを配置した（そのままターンを終える。成功したら対戦の revision が進む）"
+type DeployMatchCreatureSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"deployMatchCreature の結果（DEPLOYING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union DeployMatchCreatureResult =
+    DeployMatchCreatureSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "ターンを終える入力"
 input EndMatchTurnInput {
   "対戦の公開用の ID"
@@ -320,7 +376,7 @@ type EndMatchTurnSuccess {
   revision: Int!
 }
 
-"endMatchTurn の結果（ENDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+"endMatchTurn の結果（ENDING と DEPLOYING の段階の（DEPLOYING では配置しないことになる）、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
 union EndMatchTurnResult =
     EndMatchTurnSuccess
   | MatchNotFoundError
@@ -372,7 +428,9 @@ extend type Mutation {
   rollMatchDice(input: RollMatchDiceInput!): RollMatchDiceResult!
   "分かれ道で行き先を選ぶ"
   chooseMatchPath(input: ChooseMatchPathInput!): ChooseMatchPathResult!
-  "ターンを終える"
+  "止まった空き地に、手札のクリーチャーを配置する（配置したらターンを終える）"
+  deployMatchCreature(input: DeployMatchCreatureInput!): DeployMatchCreatureResult!
+  "ターンを終える（DEPLOYING では配置しない）"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
   "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
   chooseMatchRewardPack(input: ChooseMatchRewardPackInput!): ChooseMatchRewardPackResult!
@@ -478,6 +536,26 @@ type MatchCardDiscardedEvent implements MatchEvent {
   handIndex: Int!
   "捨てたカード"
   card: CardInfo!
+}
+
+"止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）"
+type MatchCreatureDeployedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "配置した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "配置した手札の番号（0 始まり）"
+  handIndex: Int!
+  "配置したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "配置したクリーチャーの ID（Match.territories の creature.id と同じ番号）"
+  creature: Int!
+  "配置した位置（領地になった）"
+  position: BoardPosition!
+  "払った魔力"
+  cost: Int!
 }
 
 "サイコロを振った"

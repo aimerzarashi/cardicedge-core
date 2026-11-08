@@ -239,8 +239,8 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 	events, err := match.Decide(match.InitialState(), &match.StartCommand{
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
-			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 1, 4), matchDeckCard(t, 2, 3)}),
-			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2)}),
+			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 1, 4, 10), matchDeckCard(t, 2, 3, 990)}),
+			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, 30)}),
 		},
 	}, time.Now().UTC().Truncate(time.Microsecond), startRandom)
 	require.NoError(t, err)
@@ -255,9 +255,30 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 	}
 }
 
-func matchDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
+// コストの付いたクリーチャー（開始時の魔力は 600 なので、990 は配置できない）
+func matchDeckCard(t *testing.T, id int64, quantity int, cost int) match.DeckCard {
 	t.Helper()
-	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity)}
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{
+		Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20),
+	}}
+	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+// 配置できる手札（コスト 10 のカード 1）と、配置できない手札（コスト 990 のカード 2）の番号
+func handIndexes(t *testing.T, current match.Match) (deployable, notDeployable int) {
+	t.Helper()
+	deployable, notDeployable = -1, -1
+	for i, ref := range current.Participants[0].Hand {
+		switch ref {
+		case cardtest.CreatureRef(t, 1):
+			deployable = i
+		case cardtest.CreatureRef(t, 2):
+			notDeployable = i
+		}
+	}
+	require.NotEqual(t, -1, deployable)
+	require.NotEqual(t, -1, notDeployable)
+	return deployable, notDeployable
 }
 
 func (f matchTurnFixture) load(t *testing.T) match.Match {
@@ -305,14 +326,34 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 
 	changed, err = f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 2, 0)
 	require.NoError(t, err)
-	require.Equal(t, match.PhaseEnding, f.load(t).Phase)
+	// 止まった (2,0) は空いている土地
+	stopped := f.load(t)
+	require.Equal(t, match.PhaseDeploying, stopped.Phase)
+	deployable, _ := handIndexes(t, stopped)
 
-	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
 	require.NoError(t, err)
 	next := f.load(t)
+	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, next.Territories)
+	require.Equal(t, 600-10, next.Participants[0].Magic)
+	// 配置したらターンが終わり、NPC の番になる
 	require.Equal(t, match.PhaseRolling, next.Phase)
 	current, _ := next.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 1), current)
+}
+
+func TestMatchHandler_EndTurnWhileDeployingLeavesTheLandVacant(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	rolled := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+	require.NoError(t, err)
+
+	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+
+	require.NoError(t, err)
+	next := f.load(t)
+	require.Empty(t, next.Territories)
+	require.Equal(t, 600, next.Participants[0].Magic)
 }
 
 func TestMatchHandler_RejectsOperationsOfOtherThanTheParticipantsInTurn(t *testing.T) {
@@ -387,6 +428,32 @@ func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 		require.Equal(t, input.Errors{&input.NotFound{Field: "to"}}, invalid)
 		require.Equal(t, match.PhaseChoosingPath, f.load(t).Phase)
 	})
+	t.Run("creature_not_deployable", func(t *testing.T) {
+		f := newMatchTurnFixture(t, orderedRandom{})
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+		_, notDeployable := handIndexes(t, f.load(t))
+
+		_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, notDeployable)
+
+		invalid, ok := input.AsErrors(err)
+		require.True(t, ok)
+		require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
+		require.Empty(t, f.load(t).Territories)
+	})
+	t.Run("deploy_hand_index_out_of_range", func(t *testing.T) {
+		f := newMatchTurnFixture(t, orderedRandom{})
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+
+		_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, 99)
+
+		invalid, ok := input.AsErrors(err)
+		require.True(t, ok)
+		require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 5}}, invalid)
+	})
 	t.Run("not_your_turn_comes_before_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, matchtest.NewRandom())
 
@@ -408,12 +475,16 @@ func TestMatchNPCTurn_PlaysOneOperationPerPhaseOfTheNPCTurn(t *testing.T) {
 
 	require.NoError(t, f.npc.Play(f.ctx, f.id, rolled.Version))
 	chosen := f.load(t)
-	require.Equal(t, match.PhaseEnding, chosen.Phase)
-	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目
+	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目。止まった (1,1) は空いている土地
 	require.Equal(t, boardtest.Position(t, 1, 1), chosen.Participants[1].Position)
+	require.Equal(t, match.PhaseDeploying, chosen.Phase)
 
+	// 払える最初のクリーチャーを配置し、そのままターンを終える
 	require.NoError(t, f.npc.Play(f.ctx, f.id, chosen.Version))
 	ended := f.load(t)
+	require.Len(t, ended.Territories, 1)
+	require.Equal(t, boardtest.Position(t, 1, 1), ended.Territories[0].Position)
+	require.Equal(t, matchtest.Index(t, 1), ended.DeployedCreatures[0].Owner)
 	require.Equal(t, match.PhaseDrawing, ended.Phase)
 	current, _ := ended.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 0), current)
