@@ -1,7 +1,7 @@
 {
   "uid": "detail-core",
   "title": "詳細 · core",
-  "description": "開発の環境の core を詳しく調べる。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は core#119）。入口 · 異常・入口 · 正常の数から移ってくる。表の行から Tempo・Loki に移れる（core#107。元は core#84 の「core の処理」）",
+  "description": "開発の環境の core を詳しく調べる。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。入口 · 異常・入口 · 正常の数から移ってくる。表の行から Tempo・Loki に移れる（core#107。元は core#84 の「core の処理」）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -1028,6 +1028,130 @@
           "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | subscriber_name!=\"\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "飽和",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "メモリ",
+      "description": "core の Go のメモリの使用量（種類ごと）と、GC が目指す量",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (go_memory_type) (go_memory_used_bytes{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "{{go_memory_type}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(go_memory_gc_goal_bytes{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "GC の目標"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "goroutine",
+      "description": "core の goroutine の数。増え続けるなら、止まらない処理（購読・待ち）が溜まっている",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (service_instance_id) (go_goroutine_count{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "goroutine"
         }
       ]
     }

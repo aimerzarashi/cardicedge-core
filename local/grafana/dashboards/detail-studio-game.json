@@ -1,7 +1,7 @@
 {
   "uid": "detail-studio-game",
   "title": "詳細 · studio・game",
-  "description": "開発の環境の studio・game を詳しく調べる（上の変数で切り替える）。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は core#119）。ページは SERVER のスパンのうち経路の付いた名前（RSC GET /cards 等）、core の呼び出しは /graphql への fetch（CLIENT のスパン）。表の行から Tempo のトレースへ移れる（core#109）",
+  "description": "開発の環境の studio・game を詳しく調べる（上の変数で切り替える）。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は入口 · 正常の「飽和」の行で、プロセスの名前 next-server（studio・game の開発のサーバー）で見る）。ページは SERVER のスパンのうち経路の付いた名前（RSC GET /cards 等）、core の呼び出しは /graphql への fetch（CLIENT のスパン）。表の行から Tempo のトレースへ移れる（core#109）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
