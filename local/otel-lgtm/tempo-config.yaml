@@ -40,6 +40,13 @@ metrics_generator:
         - status_code
         # core#120 で足した: 開発の環境とテスト用の環境を見分ける印
         - deployment.environment.name
+      # core#124 で足した: HTTP のステータスの番号（ページ・core の呼び出しの 5xx を番号で出すため）。
+      # studio・game（@vercel/otel）は古い名前の http.status_code、core（otelhttp）は今の名前の http.response.status_code で付けるので、
+      # 1 つのラベルにまとめる（スパンにはどちらか片方しか無い）。dimensions に 2 つ並べると、同じものが 2 つのラベルに分かれる
+      dimension_mappings:
+        - name: http_response_status_code
+          source_labels: [http.status_code, http.response.status_code]
+          join: ""
     service_graphs:
       # core#120 で足した: 開発の環境とテスト用の環境を見分ける印
       dimensions:

@@ -1,7 +1,7 @@
 {
   "uid": "detail-studio-game",
   "title": "詳細 · studio・game",
-  "description": "開発の環境の studio・game を詳しく調べる（上の変数で切り替える）。行は 4 つの黄金シグナルの誤り・遅延・量（飽和は core#119）。ページは SERVER のスパンのうち経路の付いた名前（RSC GET /cards 等）、core の呼び出しは /graphql への fetch（CLIENT のスパン）。表の行から Tempo のトレースへ移れる（core#109）",
+  "description": "開発の環境の studio・game を詳しく調べる（上の変数で切り替える）。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は core#119）。ページは SERVER のスパンのうち経路の付いた名前（RSC GET /cards 等）、core の呼び出しは /graphql への fetch（CLIENT のスパン）。表の行から Tempo のトレースへ移れる（core#109）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -69,7 +69,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "誤り",
+      "title": "エラー",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -82,8 +82,8 @@
     {
       "id": 2,
       "type": "table",
-      "title": "ページの誤り",
-      "description": "誤りの印が付いたページ（SERVER のスパン）と、その数（時間の範囲の中）。多い順。行からそのページの誤りのトレースへ移れる",
+      "title": "ページの HTTP 5xx",
+      "description": "HTTP 5xx（500 等）を返したページ（SERVER のスパン）と、番号ごとの数（時間の範囲の中）。多い順。行からそのページの 5xx のトレースへ移れる。描画の中で失敗してエラーの画面を出したときは 200 で返るので入らず、右の「ページの描画のエラー」に出る",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -91,7 +91,7 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 8,
+        "w": 6,
         "h": 8
       },
       "fieldConfig": {
@@ -113,8 +113,8 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "このトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${app}%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20status%3Derror%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "title": "このページの 5xx のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${app}%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20span.http.status_code%3E%3D500%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
               }
@@ -123,12 +123,28 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "誤り"
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
             },
             "properties": [
               {
                 "id": "decimals",
                 "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -138,7 +154,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "誤り",
+            "displayName": "回数",
             "desc": true
           }
         ],
@@ -159,7 +175,13 @@
             },
             "renameByName": {
               "span_name": "ページ",
-              "Value": "誤り"
+              "http_response_status_code": "HTTP",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "span_name": 0,
+              "http_response_status_code": 1,
+              "Value": 2
             }
           }
         }
@@ -171,7 +193,115 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0",
+          "expr": "sum by (span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", http_response_status_code=~\"5..\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "ページの描画のエラー（HTTP 200）",
+      "description": "描画（render route のスパン）が失敗したページと、その数（時間の範囲の中）。エラーの画面を出して HTTP 200 で返るので、ページの HTTP 5xx には入らない。行からそのページの失敗したトレースへ移れる。理由は、同じトレースの core の呼び出し・ログインの確かめ（/token）のスパンか、ERROR・WARN のログ",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "描画"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "このページの失敗したトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${app}%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20status%3Derror%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "回数",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "span_name": "描画",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "span_name": 0,
+              "Value": 1
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_name=~\"render route .app. .*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -182,16 +312,16 @@
     {
       "id": 3,
       "type": "table",
-      "title": "core の呼び出しの誤り",
-      "description": "core の GraphQL を呼んで（/graphql への fetch。CLIENT のスパン）誤りになった数（時間の範囲の中）。画面の側が失敗したのか、core の側かを分けるのに使う（core の側の誤りは詳細 · core）",
+      "title": "core の呼び出しの HTTP 5xx・応答なし",
+      "description": "core の GraphQL を呼んで（/graphql への fetch。CLIENT のスパン）、HTTP 5xx（500 等）が返ったか、応答が無かった（つながらない等。HTTP の欄が「応答なし」）数（時間の範囲の中）。画面の側が失敗したのか、core の側かを分けるのに使う（core の側の 5xx は詳細 · core）",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
-        "w": 8,
+        "w": 6,
         "h": 8
       },
       "fieldConfig": {
@@ -213,7 +343,7 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "このトレースを Tempo で探す",
+                    "title": "この呼び出しの失敗のトレースを Tempo で探す",
                     "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${app}%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20status%3Derror%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
@@ -223,12 +353,32 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "誤り"
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "応答なし"
+              },
+              {
+                "id": "custom.width",
+                "value": 98
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
             },
             "properties": [
               {
                 "id": "decimals",
                 "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -238,7 +388,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "誤り",
+            "displayName": "回数",
             "desc": true
           }
         ],
@@ -259,7 +409,13 @@
             },
             "renameByName": {
               "span_name": "呼び出し",
-              "Value": "誤り"
+              "http_response_status_code": "HTTP",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "span_name": 0,
+              "http_response_status_code": 1,
+              "Value": 2
             }
           }
         }
@@ -271,7 +427,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0",
+          "expr": "sum by (span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\", http_response_status_code=~\"5..|\", http_response_status_code=~\"5..|\"}[$__range])) > 0",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -289,9 +445,9 @@
         "uid": "loki"
       },
       "gridPos": {
-        "x": 16,
+        "x": 18,
         "y": 1,
-        "w": 8,
+        "w": 6,
         "h": 8
       },
       "fieldConfig": {
@@ -668,7 +824,7 @@
       "id": 9,
       "type": "table",
       "title": "ページの回数",
-      "description": "ページごとに開かれた回数（時間の範囲の中）。多い順。GET /api/auth/[...all] には healthcheck（/api/auth/ok）も入る",
+      "description": "ページごと・HTTP の番号ごとに開かれた回数（時間の範囲の中）。多い順。GET /api/auth/[...all] には healthcheck（/api/auth/ok）も入る",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -716,6 +872,18 @@
                 "value": 0
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "―"
+              }
+            ]
           }
         ]
       },
@@ -744,7 +912,13 @@
             },
             "renameByName": {
               "span_name": "ページ",
-              "Value": "回数"
+              "Value": "回数",
+              "http_response_status_code": "HTTP"
+            },
+            "indexByName": {
+              "span_name": 0,
+              "http_response_status_code": 1,
+              "Value": 2
             }
           }
         }
@@ -756,7 +930,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (span_name) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])) > 0",
+          "expr": "sum by (span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=\"$app\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])) > 0",
           "legendFormat": "",
           "instant": true,
           "range": false,

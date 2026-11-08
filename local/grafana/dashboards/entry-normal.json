@@ -544,7 +544,7 @@
       "id": 3,
       "type": "timeseries",
       "title": "ログの届いた数",
-      "description": "サービスごとに Loki に届いたログの数。操作したのに伸びなければ、届いていない。core は操作が無いと出さず、core-db は遅い SQL・誤りのときだけ出す",
+      "description": "サービスごとに Loki に届いたログの数。操作したのに伸びなければ、届いていない。core は操作が無いと出さず、core-db は遅い SQL・エラーのときだけ出す",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -652,7 +652,7 @@
       "id": 70,
       "type": "table",
       "title": "ページの回数と時間（studio・game）",
-      "description": "studio・game のページごとの回数と、時間の 95 パーセンタイル（時間の範囲の中）。多い順。行からそのページのトレースへ移れる。詳しくは詳細 · studio・game",
+      "description": "studio・game のページごと・HTTP の番号ごとの回数と、時間の 95 パーセンタイル（時間の範囲の中）。多い順。行からそのページのトレースへ移れる。詳しくは詳細 · studio・game",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -660,7 +660,7 @@
       "gridPos": {
         "x": 0,
         "y": 10,
-        "w": 24,
+        "w": 16,
         "h": 9
       },
       "fieldConfig": {
@@ -745,6 +745,18 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "―"
+              }
+            ]
           }
         ]
       },
@@ -775,7 +787,15 @@
               "service": "画面",
               "span_name": "ページ",
               "Value #A": "回数",
-              "Value #B": "95%"
+              "Value #B": "95%",
+              "http_response_status_code": "HTTP"
+            },
+            "indexByName": {
+              "service": 0,
+              "span_name": 1,
+              "http_response_status_code": 2,
+              "Value #A": 3,
+              "Value #B": 4
             }
           }
         }
@@ -787,7 +807,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (service, span_name) (increase(traces_spanmetrics_calls_total{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])) > 0",
+          "expr": "sum by (service, span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])) > 0",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -799,7 +819,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, service, span_name) (increase(traces_spanmetrics_latency_bucket{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service, span_name, http_response_status_code) (increase(traces_spanmetrics_latency_bucket{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])))",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -812,6 +832,95 @@
           "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
         }
       ]
+    },
+    {
+      "id": 71,
+      "type": "table",
+      "title": "HTTP の番号ごとの応答",
+      "description": "studio・game・core が返した HTTP の番号ごとの数（SERVER のスパン。時間の範囲の中）。4xx（ログインが切れた 401、無いページの 404 等）もここで番号ごとに見る（異常の入口は 5xx だけ）。どのページかは左の表",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 10,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=~\"studio|game|core\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code!=\"\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service": "サービス",
+              "http_response_status_code": "HTTP",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "service": 0,
+              "http_response_status_code": 1,
+              "Value": 2
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "HTTP",
+            "desc": false
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

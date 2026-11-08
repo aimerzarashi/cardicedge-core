@@ -1,7 +1,7 @@
 {
   "uid": "entry-anomaly",
   "title": "入口 · 異常",
-  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く。行は 4 つの黄金シグナルの誤り・遅延・飽和（core#119）と、届いていない（core#111・core#107。studio・game の画面の分は core#109、遅い SQL は core#106 で足す）",
+  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く。行は 4 つの黄金シグナルのエラー・遅延・飽和（core#119）と、届いていない（core#111・core#107。studio・game の画面の分は core#109、遅い SQL は core#106 で足す）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -52,7 +52,7 @@
     {
       "id": 10,
       "type": "row",
-      "title": "誤り",
+      "title": "エラー",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -405,8 +405,8 @@
     {
       "id": 14,
       "type": "stat",
-      "title": "GraphQL の誤り",
-      "description": "core の GraphQL の応答に誤りが入った数（操作のスパンの誤りの印。時間の範囲の中）。想定内の誤り（名前の重複等）は結果の型で返すので入らない",
+      "title": "GraphQL の errors",
+      "description": "core の GraphQL の応答の errors に入った数（操作のスパンのエラーの印。時間の範囲の中）。GraphQL は HTTP では 200 のまま、応答の中の errors で知らせるので、HTTP の番号とは別に数える。想定内のもの（名前の重複等）は結果の型で返すので入らない",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -995,8 +995,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "core-db のログのファイル",
-      "description": "受け手が今読んでいる core-db のログ（遅い SQL・実行計画）のファイルの数。この欄だけは 0 が異常で、core-db のログが届かない（ファイルを読めていない）",
+      "title": "core-db のログの読み込み",
+      "description": "受け手が core-db のログ（遅い SQL・実行計画）のファイルを読めているか。読めていないと、遅い SQL・実行計画が届かない。中の数は開いているファイルの数（曜日ごとのファイルを使い回すので 1〜7）で、0 かどうかだけに意味がある",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1026,7 +1026,31 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "読めていない",
+                  "color": "red",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000,
+                "result": {
+                  "text": "読めている",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -1040,7 +1064,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value_and_name",
+        "textMode": "value",
         "justifyMode": "auto",
         "orientation": "vertical"
       },
@@ -1052,7 +1076,7 @@
             "uid": "prometheus"
           },
           "expr": "min(otelcol_fileconsumer_open_files) or vector(0)",
-          "legendFormat": "読んでいる",
+          "legendFormat": "",
           "instant": true,
           "range": false
         }
@@ -1163,7 +1187,7 @@
     {
       "id": 31,
       "type": "stat",
-      "title": "Tempo の索引・一覧の誤り",
+      "title": "Tempo の索引・一覧の失敗",
       "description": "Tempo がブロックの一覧の読み込み・索引の作り直しに失敗した数（時間の範囲の中）。0 でなければ、古いトレースを引けなくなっているおそれがある（2026-11-05 の書きかけのブロックで起きた。公式のひな形の TempoTenantIndexFailures・TempoPollsFailing。直し方は README）",
       "datasource": {
         "type": "prometheus",
@@ -1344,8 +1368,8 @@
     {
       "id": 34,
       "type": "stat",
-      "title": "Tempo・Loki の誤り",
-      "description": "Tempo の圧縮・指標の作成の失敗と、Loki の 5xx の応答（起動直後の ready の 503 は除く）・panic の数（時間の範囲の中）",
+      "title": "Tempo の失敗・Loki の HTTP 5xx",
+      "description": "Tempo の圧縮・指標の作成の失敗と、Loki の HTTP 5xx の応答（起動直後の ready の 503 は除く）・panic の数（時間の範囲の中）",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1617,8 +1641,8 @@
     {
       "id": 60,
       "type": "stat",
-      "title": "ページの誤り",
-      "description": "studio・game のページ（SERVER のスパン）に誤りの印が付いた数（時間の範囲の中）。どのページかは詳細 · studio・game",
+      "title": "ページの HTTP 5xx",
+      "description": "studio・game のページ（SERVER のスパン）が HTTP 5xx（500 等）を返した数（時間の範囲の中）。どのページ・どの番号かは詳細 · studio・game。ページの描画の中で失敗してエラーの画面（error.tsx）を出したときは 200 で返るので入らない。そのときは右の「ページの描画のエラー」に出る",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1626,7 +1650,7 @@
       "gridPos": {
         "x": 0,
         "y": 6,
-        "w": 8,
+        "w": 6,
         "h": 5
       },
       "fieldConfig": {
@@ -1704,7 +1728,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", http_response_status_code=~\"5..\"}[$__range])) or vector(0)",
           "legendFormat": "studio",
           "instant": true,
           "range": false
@@ -1715,7 +1739,115 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\", http_response_status_code=~\"5..\"}[$__range])) or vector(0)",
+          "legendFormat": "game",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "type": "stat",
+      "title": "ページの描画のエラー（HTTP 200）",
+      "description": "studio・game のページの描画（render route のスパン）が失敗した数（時間の範囲の中）。エラーの画面（error.tsx）を出して HTTP 200 で返るので、ページの HTTP 5xx には入らない。core に届かない・ログインの確かめが失敗した等。どのページかは詳細 · studio・game",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_name=~\"render route .app. .*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "legendFormat": "studio",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_name=~\"render route .app. .*\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
           "legendFormat": "game",
           "instant": true,
           "range": false
@@ -1725,16 +1857,16 @@
     {
       "id": 61,
       "type": "stat",
-      "title": "core の呼び出しの誤り",
-      "description": "studio・game が core の GraphQL を呼んで誤りになった数（CLIENT のスパン。時間の範囲の中）",
+      "title": "core の呼び出しの HTTP 5xx・応答なし",
+      "description": "studio・game が core の GraphQL を呼んで（CLIENT のスパン）、HTTP 5xx（500 等）が返った数と、応答が無かった数（つながらない等）（時間の範囲の中）。core の側の 5xx は右の欄、どれかは詳細 · studio・game",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 6,
-        "w": 8,
+        "w": 6,
         "h": 5
       },
       "fieldConfig": {
@@ -1812,7 +1944,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\", http_response_status_code=~\"5..|\", http_response_status_code=~\"5..|\"}[$__range])) or vector(0)",
           "legendFormat": "studio",
           "instant": true,
           "range": false
@@ -1823,8 +1955,93 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"fetch .*/graphql\", status_code=\"STATUS_CODE_ERROR\", http_response_status_code=~\"5..|\", http_response_status_code=~\"5..|\"}[$__range])) or vector(0)",
           "legendFormat": "game",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "type": "stat",
+      "title": "core の HTTP 5xx",
+      "description": "core が HTTP 5xx（500 等）を返した数（SERVER のスパン。時間の範囲の中）。DB に届かない等で、GraphQL の処理の前に失敗したもの（GraphQL の中の失敗は 200 で返り、GraphQL の errors に入る）。どれかは詳細 · core",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 6,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "core"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"core\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__range])) or vector(0)",
+          "legendFormat": "core",
           "instant": true,
           "range": false
         }
