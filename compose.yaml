@@ -175,8 +175,8 @@ services:
       # 設定ファイルに書く形は元のファイルを写すことになるため、今の版で効く引数で渡す（otel-lgtm の版を上げたら、効いているかを確かめる）
       LOKI_EXTRA_ARGS: -compactor.retention-enabled=true -store.retention=72h -compactor.delete-request-store=filesystem
       PROMETHEUS_EXTRA_ARGS: --storage.tsdb.retention.time=3d
-      # Tempo・Loki 自身の指標を読む設定（core#121）も同じ形で重ねる
-      OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml --config=file:/otel-lgtm/extra/otelcol-backends.yaml
+      # Tempo・Loki 自身の指標を読む設定（core#121）と、WSL・プロセス・core-db の接続の飽和を読む設定（core#119）も同じ形で重ねる
+      OTELCOL_EXTRA_ARGS: --config=file:/otel-lgtm/extra/otelcol-core-db.yaml --config=file:/otel-lgtm/extra/otelcol-backends.yaml --config=file:/otel-lgtm/extra/otelcol-saturation.yaml
     # 衝突する場合は OTEL_GRAFANA_PORT・OTEL_GRPC_PORT・OTEL_HTTP_PORT で変更する
     ports:
       - 127.0.0.1:${OTEL_GRAFANA_PORT:-3002}:3000
@@ -189,6 +189,10 @@ services:
       - otel-lgtm-data:/data
       - ./local/otel-lgtm/otelcol-core-db.yaml:/otel-lgtm/extra/otelcol-core-db.yaml:ro
       - ./local/otel-lgtm/otelcol-backends.yaml:/otel-lgtm/extra/otelcol-backends.yaml:ro
+      - ./local/otel-lgtm/otelcol-saturation.yaml:/otel-lgtm/extra/otelcol-saturation.yaml:ro
+      # WSL 全体・プロセスごとの CPU・メモリを読むため（core#119）。/ ごと渡すと中の docker.sock につなげてしまうので、/proc・/sys だけを渡す
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
       # Tempo の設定は、元のファイルの写しに印（core#120）を足したものに置き換える（重ねられないため。local/otel-lgtm/tempo-config.yaml の注記）
       - ./local/otel-lgtm/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
       - core-db-log:/var/log/postgresql:ro

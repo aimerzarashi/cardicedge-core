@@ -1,7 +1,7 @@
 {
   "uid": "entry-anomaly",
   "title": "入口 · 異常",
-  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く。行は 4 つの黄金シグナルのエラー・遅延・飽和（core#119）と、届いていない（core#111・core#107。studio・game の画面の分は core#109、遅い SQL は core#106 で足す）",
+  "description": "開発の環境で、0 なら正常の値を、サービスをまたいで並べる入口。何かおかしいときに最初に開く。行は 4 つの黄金シグナルのエラー・遅延・飽和と、届いていない（core#111・core#107。studio・game の画面の分は core#109、遅い SQL は core#106 で足す）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -673,7 +673,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 30,
         "w": 24,
         "h": 1
       },
@@ -690,7 +690,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 31,
         "w": 5,
         "h": 5
       },
@@ -767,7 +767,7 @@
       },
       "gridPos": {
         "x": 5,
-        "y": 25,
+        "y": 31,
         "w": 5,
         "h": 5
       },
@@ -844,7 +844,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 25,
+        "y": 31,
         "w": 5,
         "h": 5
       },
@@ -921,7 +921,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 25,
+        "y": 31,
         "w": 5,
         "h": 5
       },
@@ -1003,7 +1003,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 25,
+        "y": 31,
         "w": 4,
         "h": 5
       },
@@ -1093,7 +1093,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 36,
         "w": 5,
         "h": 5
       },
@@ -1195,7 +1195,7 @@
       },
       "gridPos": {
         "x": 5,
-        "y": 30,
+        "y": 36,
         "w": 6,
         "h": 5
       },
@@ -1274,7 +1274,7 @@
       },
       "gridPos": {
         "x": 11,
-        "y": 30,
+        "y": 36,
         "w": 7,
         "h": 5
       },
@@ -1376,7 +1376,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 30,
+        "y": 36,
         "w": 6,
         "h": 5
       },
@@ -2228,6 +2228,439 @@
           "expr": "(sum(count_over_time({service_name=\"core-db\"} | dbname=\"core_game\" | kind=~\"statement|execute .*\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" [$__range])) or vector(0))",
           "legendFormat": "core_game",
           "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "type": "row",
+      "title": "飽和",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 81,
+      "type": "stat",
+      "title": "WSL の CPU",
+      "description": "WSL 全体の CPU の使用率（1 分の平均）の、時間の範囲の中の最大。90% で黄色、97% で赤（studio・game の make test の間は 80% ほどになる。2026-11-08 に測った）。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る。どのプロセスが使っているかは入口 · 正常の「飽和」の行",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "red",
+                "value": 0.97
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time((1 - sum(rate(system_cpu_time_seconds_total{state=\"idle\"}[1m])) / sum(rate(system_cpu_time_seconds_total[1m])))[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 82,
+      "type": "stat",
+      "title": "WSL のメモリ",
+      "description": "WSL 全体のメモリのうち、使用中（ページキャッシュを除く）の割合の、時間の範囲の中の最大。80% で黄色、90% で赤。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る。どのプロセスが使っているかは入口 · 正常の「飽和」の行",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time(sum(system_memory_utilization_ratio{state=\"used\"})[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 83,
+      "type": "stat",
+      "title": "WSL のスワップ",
+      "description": "WSL のスワップのうち、使っている割合の、時間の範囲の中の最大。25% で黄色、50% で赤（メモリが足りず、ディスクに逃がしている）。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.25
+              },
+              {
+                "color": "red",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time((sum(system_paging_usage_bytes{state=\"used\"}) / sum(system_paging_usage_bytes))[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 84,
+      "type": "stat",
+      "title": "core-db の接続",
+      "description": "開発の core-db の接続の数（core_studio・core_game）の、上限（max_connections）に対する割合の、時間の範囲の中の最大。50% で黄色、80% で赤。上限に届くと、新しい接続を断る。どの DB かは詳細 · core-db",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time((sum(postgresql_backends) / max(postgresql_connection_max))[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 85,
+      "type": "stat",
+      "title": "core の goroutine",
+      "description": "core の goroutine の数の、時間の範囲の中の最大（複数の core が動くテスト用の環境では、一番多いもの）。500 で黄色、2000 で赤（2026-11-08 までの 3 日の最大は 73。増え続けるなら、止まらない処理が溜まっている）。推移は詳細 · core",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time(max(go_goroutine_count{service_name=\"core\", deployment_environment_name=~\"$env\"})[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 86,
+      "type": "stat",
+      "title": "core のメモリ",
+      "description": "core の Go のメモリの使用量の、時間の範囲の中の最大。256MB で黄色、512MB で赤（2026-11-08 までの 3 日の最大は約 36MB）。推移は詳細 · core",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 25,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "―",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 268435456
+              },
+              {
+                "color": "red",
+                "value": 536870912
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time(max(sum by (service_instance_id) (go_memory_used_bytes{service_name=\"core\", deployment_environment_name=~\"$env\"}))[$__range:1m])",
+          "legendFormat": "最大",
+          "instant": true,
+          "range": false
         }
       ]
     }

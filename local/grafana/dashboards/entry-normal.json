@@ -1,7 +1,7 @@
 {
   "uid": "entry-normal",
   "title": "入口 · 正常",
-  "description": "開発の環境で、いつもの量と時間を、サービスをまたいで並べる入口（core#111・core#110。行は 4 つの黄金シグナルの量・遅延・飽和（core#119）と、届いている）",
+  "description": "開発の環境で、いつもの量と時間を、サービスをまたいで並べる入口（core#111・core#110。行は 4 つの黄金シグナルの量・遅延・飽和と、届いている）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -431,7 +431,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 54,
         "w": 24,
         "h": 1
       },
@@ -448,7 +448,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 55,
         "w": 24,
         "h": 6
       },
@@ -551,7 +551,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 61,
         "w": 12,
         "h": 8
       },
@@ -605,7 +605,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 36,
+        "y": 61,
         "w": 12,
         "h": 8
       },
@@ -921,6 +921,387 @@
           }
         ]
       }
+    },
+    {
+      "id": 90,
+      "type": "row",
+      "title": "飽和",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 91,
+      "type": "timeseries",
+      "title": "WSL の CPU と負荷",
+      "description": "WSL 全体の CPU の使用率（1 分の平均）と、負荷（実行を待っているプロセスの数の 1 分の平均。論理 CPU の数を超えると待ちが出る）。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(1 - sum(rate(system_cpu_time_seconds_total{state=\"idle\"}[1m])) / sum(rate(system_cpu_time_seconds_total[1m])))",
+          "legendFormat": "CPU の使用率"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "system_cpu_load_average_1m / scalar(max(system_cpu_logical_count))",
+          "legendFormat": "負荷 ÷ 論理 CPU の数"
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "type": "timeseries",
+      "title": "WSL のメモリとスワップ",
+      "description": "WSL 全体のメモリの使用中・キャッシュの割合と、スワップの使用の割合。キャッシュは足りなくなれば手放されるので、詰まりは使用中とスワップで見る。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(system_memory_utilization_ratio{state=\"used\"})",
+          "legendFormat": "使用中"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(system_memory_utilization_ratio{state=~\"cached|buffered\"})",
+          "legendFormat": "キャッシュ"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(system_paging_usage_bytes{state=\"used\"}) / sum(system_paging_usage_bytes))",
+          "legendFormat": "スワップ"
+        }
+      ]
+    },
+    {
+      "id": 93,
+      "type": "timeseries",
+      "title": "CPU を使っているプロセス（上位 8）",
+      "description": "WSL のプロセスの名前ごとの CPU の使用（コアの数。1 で 1 コア分）。同じ名前のプロセスはまとめる（next-server は studio・game の開発のサーバー、postgres は DB の接続ごとのプロセス、chrome・headless_shell はテストのブラウザ）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(8, sum by (process_name) (rate(process_cpu_time_seconds_total[2m])))",
+          "legendFormat": "{{process_name}}"
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "type": "timeseries",
+      "title": "メモリを使っているプロセス（上位 8）",
+      "description": "WSL のプロセスの名前ごとのメモリ（RSS）。同じ名前のプロセスはまとめる",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(8, sum by (process_name) (process_memory_usage_bytes))",
+          "legendFormat": "{{process_name}}"
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "type": "timeseries",
+      "title": "core-db の接続",
+      "description": "開発の core-db の DB ごとの接続の数と、上限（max_connections）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (postgresql_database_name) (postgresql_backends)",
+          "legendFormat": "{{postgresql_database_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(postgresql_connection_max)",
+          "legendFormat": "上限"
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "type": "timeseries",
+      "title": "core のメモリと goroutine",
+      "description": "core の Go のメモリの使用量と goroutine の数（core が 60 秒ごとに送る）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_instance_id) (go_memory_used_bytes{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "メモリ"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (service_instance_id) (go_goroutine_count{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "goroutine"
+        }
+      ]
     }
   ]
 }

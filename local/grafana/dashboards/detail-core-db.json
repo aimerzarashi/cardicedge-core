@@ -1,7 +1,7 @@
 {
   "uid": "detail-core-db",
   "title": "詳細 · core-db",
-  "description": "開発の環境の core-db を詳しく調べる（core#83・core#106）。行は 4 つの黄金シグナルのエラー・遅延・量（飽和は core#119）。遅い SQL は 100ms 以上（log_min_duration_statement）で、core が SQL に足した traceparent のコメントから、その SQL を出したリクエストのトレースへ移れる。DB（ログ）で core_studio・core_game・テスト（test_*）を絞り、DB（重い SQL）で pg_stat_statements を読む DB を選ぶ",
+  "description": "開発の環境の core-db を詳しく調べる（core#83・core#106）。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。遅い SQL は 100ms 以上（log_min_duration_statement）で、core が SQL に足した traceparent のコメントから、その SQL を出したリクエストのトレースへ移れる。DB（ログ）で core_studio・core_game・テスト（test_*）を絞り、DB（重い SQL）で pg_stat_statements を読む DB を選ぶ",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -792,6 +792,79 @@
           "rawQuery": true,
           "editorMode": "code",
           "rawSql": "-- queryid は文字にする（Grafana が 64 ビットの整数を小数で読み、下の桁が丸まって Loki の query_id と合わなくなるため。core#106）\nSELECT queryid::text AS queryid,\n       left(query, 400) AS query,\n       calls,\n       round(total_exec_time::numeric, 1) AS total_ms,\n       round(mean_exec_time::numeric, 2) AS mean_ms,\n       round(max_exec_time::numeric, 1) AS max_ms,\n       rows\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())\n  AND query !~* '(pg_stat_statements|information_schema|pg_catalog)'\n  AND query !~* '^\\s*(CREATE|DROP) DATABASE'\nORDER BY total_ms DESC\nLIMIT 200"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "飽和",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "接続",
+      "description": "開発の core-db の DB ごとの接続の数と、上限（max_connections）。上限に届くと、新しい接続を断る（Collector が 15 秒ごとに読む）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (postgresql_database_name) (postgresql_backends)",
+          "legendFormat": "{{postgresql_database_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(postgresql_connection_max)",
+          "legendFormat": "上限"
         }
       ]
     }
