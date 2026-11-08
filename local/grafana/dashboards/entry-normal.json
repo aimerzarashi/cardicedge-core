@@ -1,7 +1,7 @@
 {
   "uid": "entry-normal",
   "title": "入口 · 正常",
-  "description": "開発の環境で、いつもの量と時間を、サービスをまたいで並べる入口（core#111・core#110。行は 4 つの黄金シグナルの量・遅延・飽和と、届いている）",
+  "description": "開発の環境で、いつもの量と時間を、サービスをまたいで並べる入口（core#111・core#110。行は 4 つのゴールデンシグナルの Traffic・Latency・Saturation と、届いている）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -69,369 +69,13 @@
   },
   "panels": [
     {
-      "id": 50,
-      "type": "row",
-      "title": "量",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 51,
-      "type": "table",
-      "title": "つながりごとの呼び出し",
-      "description": "サービスのあいだの呼び出しの数と失敗の数（Tempo がスパンから作るつながりの指標。時間の範囲の中）。多い順。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は欄の上のリンクから（Tempo の Service Graph）。数は時間の範囲の中の増え方で数える（その時点の値で数えると、終わったテストのつながりを見落とす）",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 24,
-        "h": 9
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "filterable": true
-          },
-          "noValue": "なし（0 件）"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "呼ばれる側"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "呼ばれる側のトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "回数"
-            },
-            "properties": [
-              {
-                "id": "decimals",
-                "value": 0
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "失敗"
-            },
-            "properties": [
-              {
-                "id": "decimals",
-                "value": 0
-              },
-              {
-                "id": "noValue",
-                "value": "0"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "red",
-                      "value": 1
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "回数",
-            "desc": true
-          }
-        ],
-        "footer": {
-          "show": false
-        }
-      },
-      "links": [
-        {
-          "title": "つながりの図（Tempo の Service Graph）",
-          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "renameByName": {
-              "client": "呼ぶ側",
-              "server": "呼ばれる側",
-              "Value #A": "回数",
-              "Value #B": "失敗"
-            }
-          }
-        }
-      ],
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (client, server) (increase(traces_service_graph_request_total{deployment_environment_name=~\"$env\"}[$__range])) > 0",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (client, server) (increase(traces_service_graph_request_failed_total{deployment_environment_name=~\"$env\"}[$__range]))",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        }
-      ]
-    },
-    {
-      "id": 52,
-      "type": "row",
-      "title": "遅延",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 19,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 53,
-      "type": "table",
-      "title": "つながりごとの時間",
-      "description": "つながりごとの、呼ばれる側の時間の 95 パーセンタイル（時間の範囲の中）。遅い順。0.5 秒で黄色、1 秒で赤。呼ぶ側の時間（呼ぶ側から見た時間。間の envoy を含む）も並べる",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 24,
-        "h": 9
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "filterable": true
-          },
-          "noValue": "なし（0 件）"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "呼ばれる側"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "呼ばれる側のトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "呼ばれる側の時間（95%）"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 0.5
-                    },
-                    {
-                      "color": "red",
-                      "value": 1
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "呼ぶ側から見た時間（95%）"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "呼ばれる側の時間（95%）",
-            "desc": true
-          }
-        ],
-        "footer": {
-          "show": false
-        }
-      },
-      "links": [
-        {
-          "title": "つながりの図（Tempo の Service Graph）",
-          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "renameByName": {
-              "client": "呼ぶ側",
-              "server": "呼ばれる側",
-              "Value #A": "呼ばれる側の時間（95%）",
-              "Value #B": "呼ぶ側から見た時間（95%）"
-            }
-          }
-        }
-      ],
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_server_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_client_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        }
-      ]
-    },
-    {
       "id": 1,
       "type": "row",
       "title": "届いている",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 54,
+        "y": 0,
         "w": 24,
         "h": 1
       },
@@ -448,7 +92,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 1,
         "w": 24,
         "h": 6
       },
@@ -551,7 +195,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 61,
+        "y": 7,
         "w": 12,
         "h": 8
       },
@@ -605,7 +249,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 61,
+        "y": 7,
         "w": 12,
         "h": 8
       },
@@ -649,6 +293,19 @@
       ]
     },
     {
+      "id": 50,
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
       "id": 70,
       "type": "table",
       "title": "ページの回数と時間（studio・game）",
@@ -659,7 +316,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 16,
         "w": 16,
         "h": 9
       },
@@ -844,7 +501,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 10,
+        "y": 16,
         "w": 8,
         "h": 9
       },
@@ -923,13 +580,356 @@
       }
     },
     {
-      "id": 90,
+      "id": 51,
+      "type": "table",
+      "title": "つながりごとの呼び出し",
+      "description": "サービスのあいだの呼び出しの数と失敗の数（Tempo がスパンから作るつながりの指標。時間の範囲の中）。多い順。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は欄の上のリンクから（Tempo の Service Graph）。数は時間の範囲の中の増え方で数える（その時点の値で数えると、終わったテストのつながりを見落とす）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "呼ばれる側のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "失敗"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "noValue",
+                "value": "0"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "回数",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "links": [
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "client": "呼ぶ側",
+              "server": "呼ばれる側",
+              "Value #A": "回数",
+              "Value #B": "失敗"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (client, server) (increase(traces_service_graph_request_total{deployment_environment_name=~\"$env\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (client, server) (increase(traces_service_graph_request_failed_total{deployment_environment_name=~\"$env\"}[$__range]))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 52,
       "type": "row",
-      "title": "飽和",
+      "title": "Latency",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 53,
+      "type": "table",
+      "title": "つながりごとの時間",
+      "description": "つながりごとの、呼ばれる側の時間の 95 パーセンタイル（時間の範囲の中）。遅い順。0.5 秒で黄色、1 秒で赤。呼ぶ側の時間（呼ぶ側から見た時間。間の envoy を含む）も並べる",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "呼ばれる側のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側の時間（95%）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.5
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ぶ側から見た時間（95%）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "呼ばれる側の時間（95%）",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "links": [
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "client": "呼ぶ側",
+              "server": "呼ばれる側",
+              "Value #A": "呼ばれる側の時間（95%）",
+              "Value #B": "呼ぶ側から見た時間（95%）"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_server_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_client_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "type": "row",
+      "title": "Saturation",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 44,
         "w": 24,
         "h": 1
       },
@@ -946,7 +946,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 45,
         "w": 12,
         "h": 8
       },
@@ -1006,7 +1006,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 30,
+        "y": 45,
         "w": 12,
         "h": 8
       },
@@ -1075,7 +1075,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 53,
         "w": 12,
         "h": 8
       },
@@ -1126,7 +1126,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 38,
+        "y": 53,
         "w": 12,
         "h": 8
       },
@@ -1177,7 +1177,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 61,
         "w": 12,
         "h": 8
       },
@@ -1237,7 +1237,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 46,
+        "y": 61,
         "w": 12,
         "h": 8
       },

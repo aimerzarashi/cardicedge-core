@@ -1,7 +1,7 @@
 {
   "uid": "detail-core-db",
   "title": "詳細 · core-db",
-  "description": "開発の環境の core-db を詳しく調べる（core#83・core#106）。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。遅い SQL は 100ms 以上（log_min_duration_statement）で、core が SQL に足した traceparent のコメントから、その SQL を出したリクエストのトレースへ移れる。DB（ログ）で core_studio・core_game・テスト（test_*）を絞り、DB（重い SQL）で pg_stat_statements を読む DB を選ぶ",
+  "description": "開発の環境の core-db を詳しく調べる（core#83・core#106）。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic・Saturation。遅い SQL は 100ms 以上（log_min_duration_statement）で、core が SQL に足した traceparent のコメントから、その SQL を出したリクエストのトレースへ移れる。DB（ログ）で core_studio・core_game・テスト（test_*）を絞り、DB（重い SQL）で pg_stat_statements を読む DB を選ぶ",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -65,7 +65,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "エラー",
+      "title": "Errors",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -121,7 +121,7 @@
     {
       "id": 3,
       "type": "row",
-      "title": "遅延",
+      "title": "Latency",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -553,7 +553,7 @@
     {
       "id": 7,
       "type": "row",
-      "title": "量",
+      "title": "Traffic",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -798,7 +798,7 @@
     {
       "id": 20,
       "type": "row",
-      "title": "飽和",
+      "title": "Saturation",
       "collapsed": false,
       "gridPos": {
         "x": 0,

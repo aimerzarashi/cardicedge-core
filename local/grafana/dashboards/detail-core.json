@@ -1,7 +1,7 @@
 {
   "uid": "detail-core",
   "title": "詳細 · core",
-  "description": "開発の環境の core を詳しく調べる。行は 4 つの黄金シグナルのエラー・遅延・量・飽和。入口 · 異常・入口 · 正常の数から移ってくる。表の行から Tempo・Loki に移れる（core#107。元は core#84 の「core の処理」）",
+  "description": "開発の環境の core を詳しく調べる。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic・Saturation。入口 · 異常・入口 · 正常の数から移ってくる。表の行から Tempo・Loki に移れる（core#107。元は core#84 の「core の処理」）",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -53,7 +53,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "エラー",
+      "title": "Errors",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -64,13 +64,13 @@
       "panels": []
     },
     {
-      "id": 2,
+      "id": 11,
       "type": "table",
-      "title": "投影・ポリシーの失敗",
-      "description": "処理が失敗した投影・ポリシーと、その数（処理のログの result=failure。時間の範囲の中）。行からその処理のログに移れる",
+      "title": "HTTP 5xx",
+      "description": "core が HTTP 5xx（500 等）を返した入口（SERVER のスパン）と、番号ごとの数（時間の範囲の中）。DB に届かない等で、GraphQL の処理の前に失敗したもの。行からその 5xx のトレースへ移れる",
       "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
@@ -90,17 +90,45 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "投影・ポリシー"
+              "options": "入口"
             },
             "properties": [
               {
                 "id": "links",
                 "value": [
                   {
-                    "title": "この処理のログを Loki で見る",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%2C%20deployment_environment_name%3D%5C%22${env}%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "title": "この 5xx のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20span.http.response.status_code%3E%3D500%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 78
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 70
               }
             ]
           }
@@ -110,7 +138,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "失敗",
+            "displayName": "回数",
             "desc": true
           }
         ],
@@ -130,8 +158,14 @@
               "Time": true
             },
             "renameByName": {
-              "subscriber_name": "投影・ポリシー",
-              "Value #A": "失敗"
+              "span_name": "入口",
+              "http_response_status_code": "HTTP",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "span_name": 0,
+              "http_response_status_code": 1,
+              "Value": 2
             }
           }
         }
@@ -140,12 +174,14 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "loki",
-            "uid": "loki"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | result=\"failure\" [$__range]))",
+          "expr": "sum by (span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=\"core\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__range])) > 0",
           "legendFormat": "",
-          "queryType": "instant"
+          "instant": true,
+          "range": false,
+          "format": "table"
         }
       ]
     },
@@ -262,13 +298,13 @@
       ]
     },
     {
-      "id": 11,
+      "id": 2,
       "type": "table",
-      "title": "HTTP 5xx",
-      "description": "core が HTTP 5xx（500 等）を返した入口（SERVER のスパン）と、番号ごとの数（時間の範囲の中）。DB に届かない等で、GraphQL の処理の前に失敗したもの。行からその 5xx のトレースへ移れる",
+      "title": "投影・ポリシーの失敗",
+      "description": "処理が失敗した投影・ポリシーと、その数（処理のログの result=failure。時間の範囲の中）。行からその処理のログに移れる",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "x": 12,
@@ -288,45 +324,17 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "入口"
+              "options": "投影・ポリシー"
             },
             "properties": [
               {
                 "id": "links",
                 "value": [
                   {
-                    "title": "この 5xx のトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%20%26%26%20span.http.response.status_code%3E%3D500%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                    "title": "この処理のログを Loki で見る",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core%5C%22%2C%20deployment_environment_name%3D%5C%22${env}%5C%22%7D%20%7C%20subscriber_name%3D%5C%22${__data.fields.subscriber_name:percentencode}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "HTTP"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 78
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "回数"
-            },
-            "properties": [
-              {
-                "id": "decimals",
-                "value": 0
-              },
-              {
-                "id": "custom.width",
-                "value": 70
               }
             ]
           }
@@ -336,7 +344,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "回数",
+            "displayName": "失敗",
             "desc": true
           }
         ],
@@ -356,14 +364,8 @@
               "Time": true
             },
             "renameByName": {
-              "span_name": "入口",
-              "http_response_status_code": "HTTP",
-              "Value": "回数"
-            },
-            "indexByName": {
-              "span_name": 0,
-              "http_response_status_code": 1,
-              "Value": 2
+              "subscriber_name": "投影・ポリシー",
+              "Value #A": "失敗"
             }
           }
         }
@@ -372,14 +374,12 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum by (span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=\"core\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__range])) > 0",
+          "expr": "sum by (subscriber_name) (count_over_time({service_name=\"core\", deployment_environment_name=~\"$env\"} | result=\"failure\" [$__range]))",
           "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
+          "queryType": "instant"
         }
       ]
     },
@@ -430,7 +430,7 @@
     {
       "id": 5,
       "type": "row",
-      "title": "遅延",
+      "title": "Latency",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -439,6 +439,176 @@
         "h": 1
       },
       "panels": []
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "GraphQL の操作の時間",
+      "description": "GraphQL の操作ごとの時間（95 パーセンタイル・最大の目安）（時間の範囲の中）。遅い順。行からその操作のトレースに移れる。最大の目安は時間の区切り（バケット）の上限で、正確な最大ではない",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span_name"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "操作"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "このトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "95%"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.5
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "最大の目安"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "95%",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "operation": "操作",
+              "Value #A": "95%",
+              "Value #B": "最大の目安"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(histogram_quantile(0.95, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(histogram_quantile(1, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
     },
     {
       "id": 6,
@@ -450,7 +620,7 @@
         "uid": "loki"
       },
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 10,
         "w": 12,
         "h": 9
@@ -651,179 +821,9 @@
       ]
     },
     {
-      "id": 7,
-      "type": "table",
-      "title": "GraphQL の操作の時間",
-      "description": "GraphQL の操作ごとの時間（95 パーセンタイル・最大の目安）（時間の範囲の中）。遅い順。行からその操作のトレースに移れる。最大の目安は時間の区切り（バケット）の上限で、正確な最大ではない",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 10,
-        "w": 12,
-        "h": 9
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "filterable": true
-          },
-          "noValue": "なし（0 件）"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span_name"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "操作"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "このトレースを Tempo で探す",
-                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22core%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "95%"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 0.5
-                    },
-                    {
-                      "color": "red",
-                      "value": 1
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "最大の目安"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "displayName": "95%",
-            "desc": true
-          }
-        ],
-        "footer": {
-          "show": false
-        }
-      },
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "renameByName": {
-              "operation": "操作",
-              "Value #A": "95%",
-              "Value #B": "最大の目安"
-            }
-          }
-        }
-      ],
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "label_replace(histogram_quantile(0.95, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "label_replace(histogram_quantile(1, sum by (le, span_name) (increase(traces_spanmetrics_latency_bucket{deployment_environment_name=~\"$env\", service=\"core\", span_name=~\"graphql .+\"}[$__range]))), \"operation\", \"$1\", \"span_name\", \"graphql (.*)\")",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        }
-      ]
-    },
-    {
       "id": 8,
       "type": "row",
-      "title": "量",
+      "title": "Traffic",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1034,7 +1034,7 @@
     {
       "id": 20,
       "type": "row",
-      "title": "飽和",
+      "title": "Saturation",
       "collapsed": false,
       "gridPos": {
         "x": 0,
