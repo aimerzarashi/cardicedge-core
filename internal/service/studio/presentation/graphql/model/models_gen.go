@@ -48,12 +48,21 @@ type Card interface {
 	GetName() string
 	// 状態（準備中・公開中・使用不可）
 	GetStatus() CardStatus
+	// 使うのに払う魔力（0 以上）
+	GetCost() int
+	// 希少度
+	GetRarity() CardRarity
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	GetRevision() int
 	// 登録した日時
 	GetRegisteredAt() time.Time
 	// 最後に変更した日時（変更していなければ登録した日時）
 	GetUpdatedAt() time.Time
+}
+
+// カードの詳細の結果
+type CardResult interface {
+	IsCardResult()
 }
 
 // カードの一覧の結果
@@ -69,6 +78,26 @@ type ChangeBoardDefaultRulesResult interface {
 // ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）
 type ChangeBoardLayoutResult interface {
 	IsChangeBoardLayoutResult()
+}
+
+// カードのコストを変える操作の結果
+type ChangeCardCostResult interface {
+	IsChangeCardCostResult()
+}
+
+// カードの希少度を変える操作の結果
+type ChangeCardRarityResult interface {
+	IsChangeCardRarityResult()
+}
+
+// クリーチャーの属性を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureElementsResult interface {
+	IsChangeCreatureElementsResult()
+}
+
+// クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureStatsResult interface {
+	IsChangeCreatureStatsResult()
 }
 
 // ボードのレイアウトの判定の結果
@@ -697,15 +726,39 @@ func (CardNameAlreadyInUseError) IsRegisterItemResult() {}
 
 func (CardNameAlreadyInUseError) IsRegisterSpellResult() {}
 
+// 準備中でないカードの性能を変えようとした（性能を変えられるのは準備中だけ。公開中・使用不可は、デッキに入れた・game に写した性能が途中で変わるため）
+type CardNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (CardNotDraftError) IsChangeCardCostResult() {}
+
+func (CardNotDraftError) IsChangeCardRarityResult() {}
+
+func (CardNotDraftError) IsChangeCreatureElementsResult() {}
+
+func (CardNotDraftError) IsChangeCreatureStatsResult() {}
+
 // カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）
 type CardNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
 
+func (CardNotFoundError) IsCardResult() {}
+
 func (CardNotFoundError) IsPublishCardResult() {}
 
 func (CardNotFoundError) IsRetireCardResult() {}
+
+func (CardNotFoundError) IsChangeCardCostResult() {}
+
+func (CardNotFoundError) IsChangeCardRarityResult() {}
+
+func (CardNotFoundError) IsChangeCreatureElementsResult() {}
+
+func (CardNotFoundError) IsChangeCreatureStatsResult() {}
 
 // カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
 type CardShopTile struct {
@@ -783,6 +836,88 @@ type ChangeBoardLayoutSuccess struct {
 
 func (ChangeBoardLayoutSuccess) IsChangeBoardLayoutResult() {}
 
+// カードのコストを変える入力
+type ChangeCardCostInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+	// 変えた後のコスト（0 以上。上限は無い）
+	Cost int `json:"cost"`
+}
+
+// カードのコストを変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeCardCostSuccess struct {
+	// 変えたカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCardCostSuccess) IsChangeCardCostResult() {}
+
+// カードの希少度を変える入力
+type ChangeCardRarityInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+	// 変えた後の希少度
+	Rarity CardRarity `json:"rarity"`
+}
+
+// カードの希少度を変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeCardRaritySuccess struct {
+	// 変えたカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCardRaritySuccess) IsChangeCardRarityResult() {}
+
+// クリーチャーの属性を変える入力
+type ChangeCreatureElementsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の属性（1〜4 つ。重複は入力の誤り。無は単独。並びは問わず、保存は火・地・水・風の順にそろえる）
+	Elements []CreatureElement `json:"elements"`
+}
+
+// クリーチャーの属性を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreatureElementsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureElementsSuccess) IsChangeCreatureElementsResult() {}
+
+// クリーチャーの攻撃力と体力を変える入力
+type ChangeCreatureStatsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の攻撃力（AT。0 以上。上限は無い）
+	Attack int `json:"attack"`
+	// 変えた後の体力（HP。1 以上。上限は無い）
+	HitPoints int `json:"hitPoints"`
+}
+
+// クリーチャーの攻撃力と体力を変えた（どちらも同じ値なら何も変えず、revision も進まない）
+type ChangeCreatureStatsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureStatsSuccess) IsChangeCreatureStatsResult() {}
+
 // ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）
 type CheckBoardLayoutInput struct {
 	// 幅（studioRules.board の範囲の中。外なら入力の誤り）
@@ -829,6 +964,16 @@ type Creature struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
+	// 属性（1〜4 つ。無は単独。火・地・水・風の順に並べる）
+	Elements []CreatureElement `json:"elements"`
+	// 攻撃力（AT。0 以上）
+	Attack int `json:"attack"`
+	// 体力（HP。1 以上）
+	HitPoints int `json:"hitPoints"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -836,6 +981,8 @@ type Creature struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Creature) IsCardResult() {}
 
 func (Creature) IsCard() {}
 
@@ -847,6 +994,12 @@ func (this Creature) GetName() string { return this.Name }
 
 // 状態（準備中・公開中・使用不可）
 func (this Creature) GetStatus() CardStatus { return this.Status }
+
+// 使うのに払う魔力（0 以上）
+func (this Creature) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Creature) GetRarity() CardRarity { return this.Rarity }
 
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Creature) GetRevision() int { return this.Revision }
@@ -1176,11 +1329,21 @@ func (ForbiddenError) IsRetireBoardResult() {}
 
 func (ForbiddenError) IsCardsResult() {}
 
+func (ForbiddenError) IsCardResult() {}
+
 func (ForbiddenError) IsPublishCardResult() {}
 
 func (ForbiddenError) IsRetireCardResult() {}
 
+func (ForbiddenError) IsChangeCardCostResult() {}
+
+func (ForbiddenError) IsChangeCardRarityResult() {}
+
 func (ForbiddenError) IsRegisterCreatureResult() {}
+
+func (ForbiddenError) IsChangeCreatureElementsResult() {}
+
+func (ForbiddenError) IsChangeCreatureStatsResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
@@ -1408,6 +1571,10 @@ type Item struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1415,6 +1582,8 @@ type Item struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Item) IsCardResult() {}
 
 func (Item) IsCard() {}
 
@@ -1426,6 +1595,12 @@ func (this Item) GetName() string { return this.Name }
 
 // 状態（準備中・公開中・使用不可）
 func (this Item) GetStatus() CardStatus { return this.Status }
+
+// 使うのに払う魔力（0 以上）
+func (this Item) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Item) GetRarity() CardRarity { return this.Rarity }
 
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Item) GetRevision() int { return this.Revision }
@@ -1443,7 +1618,7 @@ type LandTile struct {
 	// 行
 	Y int `json:"y"`
 	// 属性
-	Attribute BoardTileAttribute `json:"attribute"`
+	Element BoardTileElement `json:"element"`
 }
 
 func (LandTile) IsBoardTile() {}
@@ -1461,7 +1636,7 @@ type LandTileInput struct {
 	// 行（0 以上、高さ − 1 以下）
 	Y int `json:"y"`
 	// 属性
-	Attribute BoardTileAttribute `json:"attribute"`
+	Element BoardTileElement `json:"element"`
 }
 
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
@@ -2239,6 +2414,14 @@ func (RevisionConflictError) IsPublishCardResult() {}
 
 func (RevisionConflictError) IsRetireCardResult() {}
 
+func (RevisionConflictError) IsChangeCardCostResult() {}
+
+func (RevisionConflictError) IsChangeCardRarityResult() {}
+
+func (RevisionConflictError) IsChangeCreatureElementsResult() {}
+
+func (RevisionConflictError) IsChangeCreatureStatsResult() {}
+
 func (RevisionConflictError) IsRenameGrantDeckResult() {}
 
 func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
@@ -2469,6 +2652,10 @@ type Spell struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -2476,6 +2663,8 @@ type Spell struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Spell) IsCardResult() {}
 
 func (Spell) IsCard() {}
 
@@ -2487,6 +2676,12 @@ func (this Spell) GetName() string { return this.Name }
 
 // 状態（準備中・公開中・使用不可）
 func (this Spell) GetStatus() CardStatus { return this.Status }
+
+// 使うのに払う魔力（0 以上）
+func (this Spell) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Spell) GetRarity() CardRarity { return this.Rarity }
 
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Spell) GetRevision() int { return this.Revision }
@@ -2643,7 +2838,13 @@ func (ValidationErrors) IsChangeBoardDefaultRulesResult() {}
 
 func (ValidationErrors) IsCardsResult() {}
 
+func (ValidationErrors) IsChangeCardCostResult() {}
+
 func (ValidationErrors) IsRegisterCreatureResult() {}
+
+func (ValidationErrors) IsChangeCreatureElementsResult() {}
+
+func (ValidationErrors) IsChangeCreatureStatsResult() {}
 
 func (ValidationErrors) IsGrantDecksResult() {}
 
@@ -2786,62 +2987,62 @@ func (e BoardStatus) MarshalJSON() ([]byte, error) {
 
 // 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 // 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
-type BoardTileAttribute string
+type BoardTileElement string
 
 const (
 	// 火（火属性）
-	BoardTileAttributeFire BoardTileAttribute = "FIRE"
+	BoardTileElementFire BoardTileElement = "FIRE"
 	// 地（地属性）
-	BoardTileAttributeEarth BoardTileAttribute = "EARTH"
+	BoardTileElementEarth BoardTileElement = "EARTH"
 	// 水（水属性）
-	BoardTileAttributeWater BoardTileAttribute = "WATER"
+	BoardTileElementWater BoardTileElement = "WATER"
 	// 風（風属性）
-	BoardTileAttributeWind BoardTileAttribute = "WIND"
+	BoardTileElementWind BoardTileElement = "WIND"
 	// 無（無属性）
-	BoardTileAttributeNeutral BoardTileAttribute = "NEUTRAL"
+	BoardTileElementNeutral BoardTileElement = "NEUTRAL"
 	// 複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）
-	BoardTileAttributeMulti BoardTileAttribute = "MULTI"
+	BoardTileElementMulti BoardTileElement = "MULTI"
 )
 
-var AllBoardTileAttribute = []BoardTileAttribute{
-	BoardTileAttributeFire,
-	BoardTileAttributeEarth,
-	BoardTileAttributeWater,
-	BoardTileAttributeWind,
-	BoardTileAttributeNeutral,
-	BoardTileAttributeMulti,
+var AllBoardTileElement = []BoardTileElement{
+	BoardTileElementFire,
+	BoardTileElementEarth,
+	BoardTileElementWater,
+	BoardTileElementWind,
+	BoardTileElementNeutral,
+	BoardTileElementMulti,
 }
 
-func (e BoardTileAttribute) IsValid() bool {
+func (e BoardTileElement) IsValid() bool {
 	switch e {
-	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+	case BoardTileElementFire, BoardTileElementEarth, BoardTileElementWater, BoardTileElementWind, BoardTileElementNeutral, BoardTileElementMulti:
 		return true
 	}
 	return false
 }
 
-func (e BoardTileAttribute) String() string {
+func (e BoardTileElement) String() string {
 	return string(e)
 }
 
-func (e *BoardTileAttribute) UnmarshalGQL(v any) error {
+func (e *BoardTileElement) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = BoardTileAttribute(str)
+	*e = BoardTileElement(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BoardTileAttribute", str)
+		return fmt.Errorf("%s is not a valid BoardTileElement", str)
 	}
 	return nil
 }
 
-func (e BoardTileAttribute) MarshalGQL(w io.Writer) {
+func (e BoardTileElement) MarshalGQL(w io.Writer) {
 	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
+func (e *BoardTileElement) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -2849,7 +3050,71 @@ func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
+func (e BoardTileElement) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// カードの希少度
+type CardRarity string
+
+const (
+	// 画面では N
+	CardRarityNormal CardRarity = "NORMAL"
+	// 画面では S
+	CardRarityStrange CardRarity = "STRANGE"
+	// 画面では R
+	CardRarityRare CardRarity = "RARE"
+	// 画面では E
+	CardRarityExtra CardRarity = "EXTRA"
+)
+
+var AllCardRarity = []CardRarity{
+	CardRarityNormal,
+	CardRarityStrange,
+	CardRarityRare,
+	CardRarityExtra,
+}
+
+func (e CardRarity) IsValid() bool {
+	switch e {
+	case CardRarityNormal, CardRarityStrange, CardRarityRare, CardRarityExtra:
+		return true
+	}
+	return false
+}
+
+func (e CardRarity) String() string {
+	return string(e)
+}
+
+func (e *CardRarity) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardRarity(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardRarity", str)
+	}
+	return nil
+}
+
+func (e CardRarity) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardRarity) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardRarity) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -2970,6 +3235,73 @@ func (e *CardType) UnmarshalJSON(b []byte) error {
 }
 
 func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// クリーチャーの属性。火・地・水・風のうち 1〜4 つか、無の単独（無は火・地・水・風と組み合わせない）
+type CreatureElement string
+
+const (
+	// 火
+	CreatureElementFire CreatureElement = "FIRE"
+	// 地
+	CreatureElementEarth CreatureElement = "EARTH"
+	// 水
+	CreatureElementWater CreatureElement = "WATER"
+	// 風
+	CreatureElementWind CreatureElement = "WIND"
+	// 無
+	CreatureElementNeutral CreatureElement = "NEUTRAL"
+)
+
+var AllCreatureElement = []CreatureElement{
+	CreatureElementFire,
+	CreatureElementEarth,
+	CreatureElementWater,
+	CreatureElementWind,
+	CreatureElementNeutral,
+}
+
+func (e CreatureElement) IsValid() bool {
+	switch e {
+	case CreatureElementFire, CreatureElementEarth, CreatureElementWater, CreatureElementWind, CreatureElementNeutral:
+		return true
+	}
+	return false
+}
+
+func (e CreatureElement) String() string {
+	return string(e)
+}
+
+func (e *CreatureElement) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CreatureElement(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CreatureElement", str)
+	}
+	return nil
+}
+
+func (e CreatureElement) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CreatureElement) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CreatureElement) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

@@ -57,6 +57,11 @@ type MatchCard struct {
 	ID   uuid.UUID
 	Name string
 	Type CardType
+	// 対戦の中（手札・引いた・捨てた）は始めたときの写しの性能、戦利品は写した cards の性能
+	Cost   int
+	Rarity string
+	// クリーチャーだけの性能（クリーチャー以外は nil）。コスト・希少度と同じく、対戦の中は写しの性能
+	Creature *CreatureSpec
 }
 
 // 対戦の盤面の写し。始めた時点のボードの形（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）
@@ -267,6 +272,8 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	if err != nil {
 		return Match{}, err
 	}
+	// 手札の性能は、始めたときの写し（判断と同じ値）。名前は今の read model から（戦闘に関わらないため）
+	specs := current.CardSpecs()
 	for i := range participants {
 		participant := &participants[i]
 		source := names.Avatars
@@ -283,7 +290,11 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			if !ok {
 				return Match{}, fmt.Errorf("query: card %s of match is not found", participant.Hand[j].ID)
 			}
-			participant.Hand[j] = found
+			spec, ok := specs[current.Participants[i].Hand[j]]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match hand has no spec", found.ID)
+			}
+			participant.Hand[j] = withSpec(found, spec)
 		}
 		for j := range participant.RewardCards {
 			found, ok := names.Cards[participant.RewardCards[j].ID]
@@ -394,7 +405,7 @@ func fromMatchBoard(source match.Board) MatchBoard {
 	result := MatchBoard{Width: source.Size.Width.Int(), Height: source.Size.Height.Int()}
 	result.Tiles = make([]BoardTile, len(source.Tiles))
 	for i, tile := range source.Tiles {
-		result.Tiles[i] = BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
+		result.Tiles[i] = BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Element: BoardTileElement(tile.Element)}
 	}
 	result.Connections = make([]BoardConnection, len(source.Connections))
 	for i, connection := range source.Connections {
@@ -412,4 +423,15 @@ func turnOrderOf(order []match.ParticipantIndex, seat int) int {
 	return slices.IndexFunc(order, func(index match.ParticipantIndex) bool {
 		return index.Int() == seat
 	})
+}
+
+// 対戦の写しの性能で、read model から引いたカードの性能を置き換える
+func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
+	found.Cost = spec.Cost.Int()
+	found.Rarity = spec.Rarity.String()
+	found.Creature = nil
+	if spec.Creature != nil {
+		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int()}
+	}
+	return found
 }

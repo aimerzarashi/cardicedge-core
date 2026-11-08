@@ -62,6 +62,11 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		EventMeta:    creature.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:     publicID,
 		Name:         f.name,
+		Cost:         card.DefaultCost,
+		Rarity:       card.DefaultRarity,
+		Elements:     creature.DefaultElements(),
+		Attack:       creature.DefaultAttack,
+		HitPoints:    creature.DefaultHitPoints,
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -82,6 +87,8 @@ func TestEvolve_RegisteredEventMakesCreature(t *testing.T) {
 
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints,
 	}, registered)
 }
 
@@ -101,6 +108,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	state, _ := f.register(t)
 	_, published := f.publish(t, state)
 	_, retired := f.retire(t, f.publishedState(t))
+	_, costChanged := f.decide(t, state, &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	_, rarityChanged := f.decide(t, state, &creature.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
+	_, elementsChanged := f.decide(t, state, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: f.registeredBy})
+	_, statsChanged := f.decide(t, state, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event creature.Event
@@ -108,6 +119,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "registered", event: registered},
 		{name: "published", event: published},
 		{name: "retired", event: retired},
+		{name: "cost_changed", event: costChanged[0]},
+		{name: "rarity_changed", event: rarityChanged[0]},
+		{name: "elements_changed", event: elementsChanged[0]},
+		{name: "stats_changed", event: statsChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -256,4 +271,183 @@ func TestDecide_RejectsStatusCommandsBeforeRegistered(t *testing.T) {
 			require.ErrorIs(t, err, creature.ErrInvalidState)
 		})
 	}
+}
+
+func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	afterCost, costEvents := f.decide(t, registered, &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	afterRarity, rarityEvents := f.decide(t, afterCost, &creature.ChangeRarityCommand{Rarity: card.RarityRare, ChangedBy: f.registeredBy})
+
+	require.Equal(t, []creature.Event{&creature.CostChangedEvent{
+		EventMeta: creature.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
+		Cost:      cardtest.Cost(t, 30),
+		ChangedBy: f.registeredBy,
+	}}, costEvents)
+	require.Equal(t, []creature.Event{&creature.RarityChangedEvent{
+		EventMeta: creature.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Rarity:    card.RarityRare,
+		ChangedBy: f.registeredBy,
+	}}, rarityEvents)
+	require.Equal(t, creature.Creature{
+		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
+		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints,
+	}, afterRarity)
+}
+
+// 同じ値への変更は、イベントを作らない（版を進めず、画面の版を古くしないため）
+func TestDecide_SpecChangesEmitNothingWhenUnchanged(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  creature.Command
+	}{
+		{name: "same_cost", cmd: &creature.ChangeCostCommand{Cost: card.DefaultCost}},
+		{name: "same_rarity", cmd: &creature.ChangeRarityCommand{Rarity: card.DefaultRarity}},
+		{name: "same_elements", cmd: &creature.ChangeElementsCommand{Elements: creature.DefaultElements()}},
+		{name: "same_stats", cmd: &creature.ChangeStatsCommand{Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			registered, _ := f.register(t)
+
+			events, err := creature.Decide(registered, tt.cmd, changedAt)
+
+			require.NoError(t, err)
+			require.Empty(t, events)
+		})
+	}
+}
+
+// 公開中・使用不可の性能は変えられない（デッキに入れた・game に写した性能が途中で変わるため）
+func TestDecide_RejectsSpecChangesWhenNotDraft(t *testing.T) {
+	tests := []struct {
+		name  string
+		state func(t *testing.T, f fixture) creature.State
+		cmd   creature.Command
+	}{
+		{name: "cost_published", state: func(t *testing.T, f fixture) creature.State { return f.publishedState(t) }, cmd: &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30)}},
+		{name: "rarity_retired", state: func(t *testing.T, f fixture) creature.State { return f.retiredState(t) }, cmd: &creature.ChangeRarityCommand{Rarity: card.RarityRare}},
+		{name: "elements_published", state: func(t *testing.T, f fixture) creature.State { return f.publishedState(t) }, cmd: &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "fire")}},
+		{name: "stats_retired", state: func(t *testing.T, f fixture) creature.State { return f.retiredState(t) }, cmd: &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+
+			_, err := creature.Decide(tt.state(t, f), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, card.ErrNotDraft)
+		})
+	}
+}
+
+func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  creature.Command
+	}{
+		{name: "cost", cmd: &creature.ChangeCostCommand{}},
+		{name: "rarity", cmd: &creature.ChangeRarityCommand{}},
+		{name: "elements", cmd: &creature.ChangeElementsCommand{}},
+		{name: "stats", cmd: &creature.ChangeStatsCommand{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := creature.Decide(creature.InitialState(), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, creature.ErrInvalidState)
+		})
+	}
+}
+
+func TestDecide_ChangeElementsAndStatsEmitChangedEventsWhenDraft(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	afterElements, elementsEvents := f.decide(t, registered, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "water", "fire"), ChangedBy: f.registeredBy})
+	afterStats, statsEvents := f.decide(t, afterElements, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), ChangedBy: f.registeredBy})
+
+	require.Equal(t, []creature.Event{&creature.ElementsChangedEvent{
+		EventMeta: creature.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
+		Elements:  creaturetest.Elements(t, "fire", "water"),
+		ChangedBy: f.registeredBy,
+	}}, elementsEvents)
+	require.Equal(t, []creature.Event{&creature.StatsChangedEvent{
+		EventMeta: creature.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Attack:    creaturetest.Attack(t, 0),
+		HitPoints: creaturetest.HitPoints(t, 60),
+		ChangedBy: f.registeredBy,
+	}}, statsEvents)
+	require.Equal(t, creature.Creature{
+		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
+		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60),
+	}, afterStats)
+}
+
+// 片方の値だけ変わるときも、変わらない側の値を含めて 1 つのイベントにする
+func TestDecide_ChangeStatsEmitsEventWhenOnlyOneValueChanges(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	_, events := f.decide(t, registered, &creature.ChangeStatsCommand{Attack: creature.DefaultAttack, HitPoints: creaturetest.HitPoints(t, 11), ChangedBy: f.registeredBy})
+
+	require.Len(t, events, 1)
+	require.Equal(t, creaturetest.HitPoints(t, 11), events[0].(*creature.StatsChangedEvent).HitPoints)
+}
+
+func TestNewElements_SortsIntoCanonicalOrder(t *testing.T) {
+	elements, err := creature.NewElements([]string{"wind", "water", "fire", "earth"})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"fire", "earth", "water", "wind"}, elements.Strings())
+}
+
+func TestNewElements_AcceptsNeutralAlone(t *testing.T) {
+	elements, err := creature.NewElements([]string{"neutral"})
+
+	require.NoError(t, err)
+	require.True(t, elements.Equal(creature.DefaultElements()))
+}
+
+func TestNewElements_RejectsInvalidSets(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []string
+		want   error
+	}{
+		{name: "empty", values: nil, want: creature.ErrElementsEmpty},
+		{name: "unknown", values: []string{"light"}, want: creature.ErrElementUnknown},
+		{name: "neutral_mixed", values: []string{"neutral", "fire"}, want: creature.ErrElementsNeutralMixed},
+		{name: "duplicated", values: []string{"fire", "fire"}, want: creature.ErrElementsDuplicated},
+		{name: "duplicated_neutral", values: []string{"neutral", "neutral"}, want: creature.ErrElementsDuplicated},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := creature.NewElements(tt.values)
+
+			require.ErrorIs(t, err, tt.want)
+		})
+	}
+}
+
+func TestNewAttack_AcceptsZeroAndRejectsNegative(t *testing.T) {
+	zero, err := creature.NewAttack(0)
+	require.NoError(t, err)
+	require.Equal(t, 0, zero.Int())
+
+	_, err = creature.NewAttack(-1)
+	require.ErrorIs(t, err, creature.ErrAttackNegative)
+}
+
+func TestNewHitPoints_AcceptsOneAndRejectsZero(t *testing.T) {
+	one, err := creature.NewHitPoints(1)
+	require.NoError(t, err)
+	require.Equal(t, 1, one.Int())
+
+	_, err = creature.NewHitPoints(0)
+	require.ErrorIs(t, err, creature.ErrHitPointsTooSmall)
 }

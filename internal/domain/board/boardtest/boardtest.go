@@ -90,19 +90,19 @@ func TileKind(t testing.TB, value string) board.TileKind {
 	return kind
 }
 
-func Attribute(t testing.TB, value string) board.Attribute {
+func Element(t testing.TB, value string) board.Element {
 	t.Helper()
-	attribute, err := board.NewAttribute(value)
+	element, err := board.NewElement(value)
 	require.NoError(t, err)
-	return attribute
+	return element
 }
 
 // 属性は土地のときだけ渡す（拠点・チェックポイントは空にする）
-func Tile(t testing.TB, x, y int, kind, attribute string) board.Tile {
+func Tile(t testing.TB, x, y int, kind, element string) board.Tile {
 	t.Helper()
 	tile := board.Tile{Position: Position(t, x, y), Kind: TileKind(t, kind)}
-	if attribute != "" {
-		tile.Attribute = Attribute(t, attribute)
+	if element != "" {
+		tile.Element = Element(t, element)
 	}
 	return tile
 }

@@ -100,7 +100,7 @@ type MatchParticipant {
   "魔力"
   magic: Int!
   "手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）"
-  hand: [DeckCardInfo!]!
+  hand: [CardInfo!]!
   "山札の残りの枚数。並びと中身は見せない"
   drawPileCount: Int!
   "順番の何番目か（0 始まり）。順番が早い人ほど小さい"
@@ -110,7 +110,7 @@ type MatchParticipant {
   "戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）"
   rewardReceived: Boolean!
   "受け取った戦利品のカード（受け取るまでは空）。引いた順で、同じカードは重ならない"
-  rewardCards: [DeckCardInfo!]!
+  rewardCards: [CardInfo!]!
 }
 
 "戦利品に選べるパック"
@@ -463,7 +463,7 @@ type MatchCardDrawnEvent implements MatchEvent {
   "引いた参加者（Match.participants の何番目か）"
   participant: Int!
   "引いたカード"
-  card: DeckCardInfo!
+  card: CardInfo!
 }
 
 "手札を 1 枚捨てた"
@@ -477,7 +477,7 @@ type MatchCardDiscardedEvent implements MatchEvent {
   "捨てた手札の番号（0 始まり）"
   handIndex: Int!
   "捨てたカード"
-  card: DeckCardInfo!
+  card: CardInfo!
 }
 
 "サイコロを振った"
@@ -565,7 +565,7 @@ type MatchRewardDrawnEvent implements MatchEvent {
   "選んだパックのキー"
   pack: String!
   "引いたカード（重ならない。候補が足りなければ順位の枚数より少ない）。cards にしないのは、MatchHandsDealtEvent.cards（Int）と同じ名前で型が食い違い、問い合わせを検証で断られるため"
-  rewardCards: [DeckCardInfo!]!
+  rewardCards: [CardInfo!]!
 }
 
 "プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）"

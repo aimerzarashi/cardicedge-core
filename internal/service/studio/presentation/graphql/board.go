@@ -230,11 +230,11 @@ func fromBoardStatus(status readmodel.BoardStatus) (model.BoardStatus, error) {
 func fromBoardTile(tile readmodel.BoardTile) (model.BoardTile, error) {
 	switch tile.Kind {
 	case readmodel.BoardTileKindLand:
-		attribute, err := fromBoardTileAttribute(tile.Attribute)
+		element, err := fromBoardTileElement(tile.Element)
 		if err != nil {
 			return nil, err
 		}
-		return model.LandTile{X: tile.X, Y: tile.Y, Attribute: attribute}, nil
+		return model.LandTile{X: tile.X, Y: tile.Y, Element: element}, nil
 	case readmodel.BoardTileKindBase:
 		return model.BaseTile{X: tile.X, Y: tile.Y}, nil
 	case readmodel.BoardTileKindCheckpoint:
@@ -286,11 +286,11 @@ func toBoardTileInput(tile *model.BoardTileInput) (command.BoardTileInput, bool,
 		return command.BoardTileInput{}, false, nil
 	}
 	if tile.Land != nil {
-		attribute, err := toBoardTileAttribute(tile.Land.Attribute)
+		element, err := toBoardTileElement(tile.Land.Element)
 		if err != nil {
 			return command.BoardTileInput{}, false, err
 		}
-		return command.BoardTileInput{X: tile.Land.X, Y: tile.Land.Y, Kind: string(readmodel.BoardTileKindLand), Attribute: string(attribute)}, true, nil
+		return command.BoardTileInput{X: tile.Land.X, Y: tile.Land.Y, Kind: string(readmodel.BoardTileKindLand), Element: string(element)}, true, nil
 	}
 	for _, p := range positions {
 		if p.position != nil {
@@ -300,40 +300,40 @@ func toBoardTileInput(tile *model.BoardTileInput) (command.BoardTileInput, bool,
 	return command.BoardTileInput{}, false, nil
 }
 
-func toBoardTileAttribute(attribute model.BoardTileAttribute) (readmodel.BoardTileAttribute, error) {
-	switch attribute {
-	case model.BoardTileAttributeFire:
-		return readmodel.BoardTileAttributeFire, nil
-	case model.BoardTileAttributeEarth:
-		return readmodel.BoardTileAttributeEarth, nil
-	case model.BoardTileAttributeWater:
-		return readmodel.BoardTileAttributeWater, nil
-	case model.BoardTileAttributeWind:
-		return readmodel.BoardTileAttributeWind, nil
-	case model.BoardTileAttributeNeutral:
-		return readmodel.BoardTileAttributeNeutral, nil
-	case model.BoardTileAttributeMulti:
-		return readmodel.BoardTileAttributeMulti, nil
+func toBoardTileElement(element model.BoardTileElement) (readmodel.BoardTileElement, error) {
+	switch element {
+	case model.BoardTileElementFire:
+		return readmodel.BoardTileElementFire, nil
+	case model.BoardTileElementEarth:
+		return readmodel.BoardTileElementEarth, nil
+	case model.BoardTileElementWater:
+		return readmodel.BoardTileElementWater, nil
+	case model.BoardTileElementWind:
+		return readmodel.BoardTileElementWind, nil
+	case model.BoardTileElementNeutral:
+		return readmodel.BoardTileElementNeutral, nil
+	case model.BoardTileElementMulti:
+		return readmodel.BoardTileElementMulti, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile attribute: %s", attribute)
+		return "", fmt.Errorf("graphql: unknown board tile element: %s", element)
 	}
 }
 
-func fromBoardTileAttribute(attribute readmodel.BoardTileAttribute) (model.BoardTileAttribute, error) {
-	switch attribute {
-	case readmodel.BoardTileAttributeFire:
-		return model.BoardTileAttributeFire, nil
-	case readmodel.BoardTileAttributeEarth:
-		return model.BoardTileAttributeEarth, nil
-	case readmodel.BoardTileAttributeWater:
-		return model.BoardTileAttributeWater, nil
-	case readmodel.BoardTileAttributeWind:
-		return model.BoardTileAttributeWind, nil
-	case readmodel.BoardTileAttributeNeutral:
-		return model.BoardTileAttributeNeutral, nil
-	case readmodel.BoardTileAttributeMulti:
-		return model.BoardTileAttributeMulti, nil
+func fromBoardTileElement(element readmodel.BoardTileElement) (model.BoardTileElement, error) {
+	switch element {
+	case readmodel.BoardTileElementFire:
+		return model.BoardTileElementFire, nil
+	case readmodel.BoardTileElementEarth:
+		return model.BoardTileElementEarth, nil
+	case readmodel.BoardTileElementWater:
+		return model.BoardTileElementWater, nil
+	case readmodel.BoardTileElementWind:
+		return model.BoardTileElementWind, nil
+	case readmodel.BoardTileElementNeutral:
+		return model.BoardTileElementNeutral, nil
+	case readmodel.BoardTileElementMulti:
+		return model.BoardTileElementMulti, nil
 	default:
-		return "", fmt.Errorf("graphql: unknown board tile attribute: %q", attribute)
+		return "", fmt.Errorf("graphql: unknown board tile element: %q", element)
 	}
 }

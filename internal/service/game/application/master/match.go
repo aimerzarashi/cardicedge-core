@@ -23,6 +23,24 @@ type GetPlayerDeckCardsFunc func(ctx context.Context, id deck.ID) ([]DeckCard, e
 // NPC のデッキのカード（プレイヤーのデッキと同じ）
 type GetNPCDeckCardsFunc func(ctx context.Context, id npcdeck.ID) ([]DeckCard, error)
 
+// 対戦を始めるときに写すカードの性能（写した cards.metadata の値。確かめるのは呼ぶ側で、domain の値にするとき）
+type CardSpec struct {
+	Cost   int
+	Rarity string
+	// クリーチャーだけが持つ（クリーチャー以外は nil）
+	Creature *CreatureSpec
+}
+
+// クリーチャーだけの性能（写した cards.metadata.creature の値）
+type CreatureSpec struct {
+	Elements  []string
+	Attack    int
+	HitPoints int
+}
+
+// カードの性能を、写した cards から 1 回で読む。写していないカードはエラー（デッキのカードは必ず写してあるため）
+type GetCardSpecsFunc func(ctx context.Context, refs []card.Ref) (map[card.Ref]CardSpec, error)
+
 // 戦利品の候補にするカード。そのときの公開中のカードすべて（始めるときに一覧を写さず、引くときに読む）。
 // 使用不可のカードは含めない（game の cards には使用不可のカードも写してあるが、戦利品にはしない）
 type GetPublishedCardsFunc func(ctx context.Context) ([]card.Ref, error)

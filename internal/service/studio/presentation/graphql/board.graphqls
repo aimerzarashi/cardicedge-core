@@ -111,7 +111,7 @@ enum BoardStatus {
 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
 """
-enum BoardTileAttribute {
+enum BoardTileElement {
   "火（火属性）"
   FIRE
   "地（地属性）"
@@ -150,7 +150,7 @@ type LandTile implements BoardTile {
   "行"
   y: Int!
   "属性"
-  attribute: BoardTileAttribute!
+  element: BoardTileElement!
 }
 
 "拠点（公開するボードにちょうど 1 つ）"
@@ -469,7 +469,7 @@ input LandTileInput {
   "行（0 以上、高さ − 1 以下）"
   y: Int!
   "属性"
-  attribute: BoardTileAttribute!
+  element: BoardTileElement!
 }
 
 "置く拠点・チェックポイント・転送円・橋・施設の座標の入力"

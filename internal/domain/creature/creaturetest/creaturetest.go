@@ -17,3 +17,24 @@ func ID(t testing.TB, value int64) creature.ID {
 	require.NoError(t, err)
 	return id
 }
+
+func Elements(t testing.TB, values ...string) creature.Elements {
+	t.Helper()
+	elements, err := creature.NewElements(values)
+	require.NoError(t, err)
+	return elements
+}
+
+func Attack(t testing.TB, value int) creature.Attack {
+	t.Helper()
+	attack, err := creature.NewAttack(value)
+	require.NoError(t, err)
+	return attack
+}
+
+func HitPoints(t testing.TB, value int) creature.HitPoints {
+	t.Helper()
+	hitPoints, err := creature.NewHitPoints(value)
+	require.NoError(t, err)
+	return hitPoints
+}

@@ -42,6 +42,9 @@ models:
       # npcAvatars は resolver で返す（read model unlocks と、写した npc_avatars・npc_decks から、返すときに読むため）
       npcAvatars:
         resolver: true
+      # collection は resolver で返す（read model collections と、写した cards から、返すときに読むため）
+      collection:
+        resolver: true
       # roomRequirements は resolver で返す（書く側の数の記録から、返すときに読むため。部屋を作る操作と同じ判断）
       roomRequirements:
         resolver: true

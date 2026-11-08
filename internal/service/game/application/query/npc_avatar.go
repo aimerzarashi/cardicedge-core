@@ -35,7 +35,12 @@ type DeckCard struct {
 	CardID uuid.UUID
 	Name   string
 	Type   CardType
-	Count  int
+	Cost   int
+	// 希少度（写した cards.metadata の値。normal・strange・rare・extra）
+	Rarity string
+	// クリーチャーだけの性能（クリーチャー以外は nil）
+	Creature *CreatureSpec
+	Count    int
 }
 
 // 公開中の NPC のデッキ。Cards は種類（Creature → Item → Spell）→ 名前の順（studio のデッキのカードと同じ並び）

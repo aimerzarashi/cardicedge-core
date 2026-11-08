@@ -15,7 +15,7 @@ import (
 const meDecksQuery = `{
 	me {
 		__typename
-		... on Player { decks { id name totalCount typeCounts { creature item spell } cards { count card { id name type } } } }
+		... on Player { decks { id name totalCount typeCounts { creature item spell } cards { count card { __typename id name cost rarity } } } }
 	}
 }`
 
@@ -23,7 +23,7 @@ const meDecksQuery = `{
 const deckQuery = `query ($id: UUID!) {
 	deck(id: $id) {
 		__typename
-		... on Deck { id name totalCount typeCounts { creature item spell } cards { count card { id name type } } }
+		... on Deck { id name totalCount typeCounts { creature item spell } cards { count card { __typename id name cost rarity } } }
 		... on DeckNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
 	}
@@ -37,7 +37,7 @@ func deckCards(counts map[uuid.UUID]int) []any {
 	slices.SortFunc(ids, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
 	cards := make([]any, 0, len(ids))
 	for _, id := range ids {
-		cards = append(cards, npcDeckCard(id, id.String(), "CREATURE", counts[id]))
+		cards = append(cards, npcDeckCard(id, id.String(), "CreatureCardInfo", 10, "NORMAL", counts[id]))
 	}
 	return cards
 }

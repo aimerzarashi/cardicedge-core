@@ -59,25 +59,25 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
-// 土地の属性。domain の board.Attribute を使わない理由は BoardTileKind と同じ
-type BoardTileAttribute string
+// 土地の属性。domain の board.Element を使わない理由は BoardTileKind と同じ
+type BoardTileElement string
 
 const (
-	BoardTileAttributeFire    BoardTileAttribute = "fire"
-	BoardTileAttributeEarth   BoardTileAttribute = "earth"
-	BoardTileAttributeWater   BoardTileAttribute = "water"
-	BoardTileAttributeWind    BoardTileAttribute = "wind"
-	BoardTileAttributeNeutral BoardTileAttribute = "neutral"
-	BoardTileAttributeMulti   BoardTileAttribute = "multi"
+	BoardTileElementFire    BoardTileElement = "fire"
+	BoardTileElementEarth   BoardTileElement = "earth"
+	BoardTileElementWater   BoardTileElement = "water"
+	BoardTileElementWind    BoardTileElement = "wind"
+	BoardTileElementNeutral BoardTileElement = "neutral"
+	BoardTileElementMulti   BoardTileElement = "multi"
 )
 
-func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
-	attribute := BoardTileAttribute(value)
-	switch attribute {
-	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
-		return attribute, nil
+func NewBoardTileElement(value string) (BoardTileElement, error) {
+	element := BoardTileElement(value)
+	switch element {
+	case BoardTileElementFire, BoardTileElementEarth, BoardTileElementWater, BoardTileElementWind, BoardTileElementNeutral, BoardTileElementMulti:
+		return element, nil
 	default:
-		return "", fmt.Errorf("readmodel: unknown board tile attribute: %q", value)
+		return "", fmt.Errorf("readmodel: unknown board tile element: %q", value)
 	}
 }
 
@@ -157,18 +157,18 @@ func countBoardTiles(tiles map[board.Position]BoardTile) BoardTileCounts {
 		case BoardTileKindCardShop:
 			counts.CardShop++
 		}
-		switch tile.Attribute {
-		case BoardTileAttributeFire:
+		switch tile.Element {
+		case BoardTileElementFire:
 			counts.Fire++
-		case BoardTileAttributeEarth:
+		case BoardTileElementEarth:
 			counts.Earth++
-		case BoardTileAttributeWater:
+		case BoardTileElementWater:
 			counts.Water++
-		case BoardTileAttributeWind:
+		case BoardTileElementWind:
 			counts.Wind++
-		case BoardTileAttributeNeutral:
+		case BoardTileElementNeutral:
 			counts.Neutral++
-		case BoardTileAttributeMulti:
+		case BoardTileElementMulti:
 			counts.Multi++
 		}
 	}
@@ -232,12 +232,12 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// Attribute は土地のときだけ値があり、そうでなければ省く（空）
+// Element は土地のときだけ値があり、そうでなければ省く（空）
 type BoardTile struct {
-	X         int                `json:"x"`
-	Y         int                `json:"y"`
-	Kind      BoardTileKind      `json:"kind"`
-	Attribute BoardTileAttribute `json:"attribute,omitempty"`
+	X       int              `json:"x"`
+	Y       int              `json:"y"`
+	Kind    BoardTileKind    `json:"kind"`
+	Element BoardTileElement `json:"element,omitempty"`
 }
 
 type BoardConnection struct {
@@ -389,7 +389,7 @@ func (state Board) changeLayout(e *board.LayoutChangedEvent) Board {
 }
 
 func toBoardTile(tile board.Tile) BoardTile {
-	return BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
+	return BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Element: BoardTileElement(tile.Element)}
 }
 
 func (state Board) changeStatus(status BoardStatus, revision int64, at time.Time, by operator.ID) Board {

@@ -62,6 +62,8 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		EventMeta:    item.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:     publicID,
 		Name:         f.name,
+		Cost:         card.DefaultCost,
+		Rarity:       card.DefaultRarity,
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -82,6 +84,7 @@ func TestEvolve_RegisteredEventMakesItem(t *testing.T) {
 
 	require.Equal(t, item.Item{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
 	}, registered)
 }
 
@@ -101,6 +104,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	state, _ := f.register(t)
 	_, published := f.publish(t, state)
 	_, retired := f.retire(t, f.publishedState(t))
+	_, costChanged := f.decide(t, state, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	_, rarityChanged := f.decide(t, state, &item.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event item.Event
@@ -108,6 +113,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "registered", event: registered},
 		{name: "published", event: published},
 		{name: "retired", event: retired},
+		{name: "cost_changed", event: costChanged[0]},
+		{name: "rarity_changed", event: rarityChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -248,6 +255,89 @@ func TestDecide_RejectsStatusCommandsBeforeRegistered(t *testing.T) {
 	}{
 		{name: "publish", cmd: &item.PublishCommand{}},
 		{name: "retire", cmd: &item.RetireCommand{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := item.Decide(item.InitialState(), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, item.ErrInvalidState)
+		})
+	}
+}
+
+func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	afterCost, costEvents := f.decide(t, registered, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	afterRarity, rarityEvents := f.decide(t, afterCost, &item.ChangeRarityCommand{Rarity: card.RarityRare, ChangedBy: f.registeredBy})
+
+	require.Equal(t, []item.Event{&item.CostChangedEvent{
+		EventMeta: item.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
+		Cost:      cardtest.Cost(t, 30),
+		ChangedBy: f.registeredBy,
+	}}, costEvents)
+	require.Equal(t, []item.Event{&item.RarityChangedEvent{
+		EventMeta: item.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Rarity:    card.RarityRare,
+		ChangedBy: f.registeredBy,
+	}}, rarityEvents)
+	require.Equal(t, item.Item{
+		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
+		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
+	}, afterRarity)
+}
+
+// 同じ値への変更は、イベントを作らない（版を進めず、画面の版を古くしないため）
+func TestDecide_SpecChangesEmitNothingWhenUnchanged(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  item.Command
+	}{
+		{name: "same_cost", cmd: &item.ChangeCostCommand{Cost: card.DefaultCost}},
+		{name: "same_rarity", cmd: &item.ChangeRarityCommand{Rarity: card.DefaultRarity}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			registered, _ := f.register(t)
+
+			events, err := item.Decide(registered, tt.cmd, changedAt)
+
+			require.NoError(t, err)
+			require.Empty(t, events)
+		})
+	}
+}
+
+// 公開中・使用不可の性能は変えられない（デッキに入れた・game に写した性能が途中で変わるため）
+func TestDecide_RejectsSpecChangesWhenNotDraft(t *testing.T) {
+	tests := []struct {
+		name  string
+		state func(t *testing.T, f fixture) item.State
+		cmd   item.Command
+	}{
+		{name: "cost_published", state: func(t *testing.T, f fixture) item.State { return f.publishedState(t) }, cmd: &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30)}},
+		{name: "rarity_retired", state: func(t *testing.T, f fixture) item.State { return f.retiredState(t) }, cmd: &item.ChangeRarityCommand{Rarity: card.RarityRare}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+
+			_, err := item.Decide(tt.state(t, f), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, card.ErrNotDraft)
+		})
+	}
+}
+
+func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  item.Command
+	}{
+		{name: "cost", cmd: &item.ChangeCostCommand{}},
+		{name: "rarity", cmd: &item.ChangeRarityCommand{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -14,6 +14,8 @@ func Evolve(state State, event Event) (State, error) {
 			Version:  meta.AggregateVersion,
 			PublicID: e.PublicID,
 			Status:   card.StatusDraft,
+			Cost:     e.Cost,
+			Rarity:   e.Rarity,
 		}, nil
 	case *PublishedEvent:
 		item, ok := state.(Item)
@@ -37,6 +39,22 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		item.Status = status
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *CostChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Cost = e.Cost
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *RarityChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Rarity = e.Rarity
 		item.Version = e.GetMeta().AggregateVersion
 		return item, nil
 	default:

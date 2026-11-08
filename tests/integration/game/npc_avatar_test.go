@@ -11,7 +11,7 @@ import (
 )
 
 const npcAvatarFields = `id name
-	decks { id name totalCount cards { count card { id name type } } }`
+	decks { id name totalCount cards { count card { __typename id name cost rarity } } }`
 
 const npcAvatarQuery = `query ($id: UUID!) {
 	npcAvatar(id: $id) {
@@ -28,8 +28,10 @@ const meNpcAvatarsQuery = `{
 	}
 }`
 
-func npcDeckCard(id uuid.UUID, name, cardType string, count int) map[string]any {
-	return map[string]any{"count": float64(count), "card": map[string]any{"id": id.String(), "name": name, "type": cardType}}
+func npcDeckCard(id uuid.UUID, name, typename string, cost int, rarity string, count int) map[string]any {
+	return map[string]any{"count": float64(count), "card": map[string]any{
+		"__typename": typename, "id": id.String(), "name": name, "cost": float64(cost), "rarity": rarity,
+	}}
 }
 
 // testhelper.PublishNPCAvatars が写した公開中のデッキ 1（カードは種類の順）
@@ -38,9 +40,9 @@ func npcDeckPublished1() map[string]any {
 	return map[string]any{
 		"id": n.DeckPublished1.String(), "name": "公開中デッキ1", "totalCount": float64(6),
 		"cards": []any{
-			npcDeckCard(n.Creature, "ゴブリン", "CREATURE", 3),
-			npcDeckCard(n.Item, "あいてむ", "ITEM", 2),
-			npcDeckCard(n.Spell, "ファイア", "SPELL", 1),
+			npcDeckCard(n.Creature, "ゴブリン", "CreatureCardInfo", 20, "NORMAL", 3),
+			npcDeckCard(n.Item, "あいてむ", "ItemCardInfo", 30, "STRANGE", 2),
+			npcDeckCard(n.Spell, "ファイア", "SpellCardInfo", 40, "RARE", 1),
 		},
 	}
 }
@@ -49,7 +51,7 @@ func npcDeckPublished2() map[string]any {
 	n := master.NPCAvatars
 	return map[string]any{
 		"id": n.DeckPublished2.String(), "name": "公開中デッキ2", "totalCount": float64(4),
-		"cards": []any{npcDeckCard(n.Creature, "ゴブリン", "CREATURE", 4)},
+		"cards": []any{npcDeckCard(n.Creature, "ゴブリン", "CreatureCardInfo", 20, "NORMAL", 4)},
 	}
 }
 

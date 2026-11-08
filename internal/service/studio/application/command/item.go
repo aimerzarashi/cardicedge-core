@@ -35,6 +35,8 @@ func NewItemHandler(
 type RegisteredItem struct {
 	ID           uuid.UUID
 	Name         string
+	Cost         int
+	Rarity       string
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
@@ -86,7 +88,7 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	}
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredItem{
-		ID: registered.PublicID, Name: cardName.String(),
+		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -98,7 +100,7 @@ func (c *ItemHandler) Publish(ctx context.Context, id uuid.UUID, revision int64)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &item.PublishCommand{PublishedBy: publishedBy})
+	return c.change(ctx, id, revision, &item.PublishCommand{PublishedBy: publishedBy})
 }
 
 // 使用不可にする（公開中から）。使用不可にもう一度しても変わらない。準備中からは ErrInvalidCardStatusTransition。
@@ -108,10 +110,37 @@ func (c *ItemHandler) Retire(ctx context.Context, id uuid.UUID, revision int64) 
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &item.RetireCommand{RetiredBy: retiredBy})
+	return c.change(ctx, id, revision, &item.RetireCommand{RetiredBy: retiredBy})
 }
 
-func (c *ItemHandler) changeStatus(ctx context.Context, publicID uuid.UUID, revision int64, cmd item.Command) (ChangedCard, error) {
+// コストを変える（準備中だけ）。同じ値なら変わらず、revision も進まない。0 未満は input.Errors、準備中でなければ ErrCardNotDraft。
+// ほかのエラーは Publish と同じ
+func (c *ItemHandler) ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardCost("cost", cost)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &item.ChangeCostCommand{Cost: value, ChangedBy: changedBy})
+}
+
+// 希少度を変える（準備中だけ）。エラーは ChangeCost と同じ
+func (c *ItemHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardRarity("rarity", rarity)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &item.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
+}
+
+func (c *ItemHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd item.Command) (ChangedCard, error) {
 	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedCard, error) {
 		loaded, err := c.load(ctx, publicID, revision)
 		if err != nil {
@@ -132,10 +161,7 @@ func (c *ItemHandler) changeStatus(ctx context.Context, publicID uuid.UUID, revi
 		}
 		return ChangedCard{ID: publicID, Revision: state.(item.Item).Version}, nil
 	})
-	if errors.Is(err, card.ErrInvalidStatusTransition) {
-		return ChangedCard{}, ErrInvalidCardStatusTransition
-	}
-	return changed, revisionConflict(err)
+	return changed, cardChangeError(err)
 }
 
 // revision を Load の直後に比べる理由は PresetDeckHandler.load と同じ

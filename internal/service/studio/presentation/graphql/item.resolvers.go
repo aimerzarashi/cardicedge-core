@@ -28,8 +28,13 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	if err != nil {
 		return nil, err
 	}
+	rarity, err := fromCardRarity(registered.Rarity)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterItemSuccess{Item: &model.Item{
-		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Revision: int(registered.Revision),
+		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
+		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
 }

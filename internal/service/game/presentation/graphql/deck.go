@@ -8,14 +8,11 @@ import (
 func fromQueryDeck(deck query.Deck) (*model.Deck, error) {
 	cards := make([]*model.DeckCard, 0, len(deck.Cards))
 	for _, card := range deck.Cards {
-		cardType, err := fromCardType(card.Type)
+		info, err := fromCard(card.Type, card.CardID, card.Name, card.Cost, card.Rarity, card.Creature)
 		if err != nil {
 			return nil, err
 		}
-		cards = append(cards, &model.DeckCard{
-			Card:  &model.DeckCardInfo{ID: card.CardID, Name: card.Name, Type: cardType},
-			Count: card.Count,
-		})
+		cards = append(cards, &model.DeckCard{Card: info, Count: card.Count})
 	}
 	counts := deck.TypeCounts()
 	typeCounts := &model.DeckTypeCounts{Creature: counts.Creature, Item: counts.Item, Spell: counts.Spell}

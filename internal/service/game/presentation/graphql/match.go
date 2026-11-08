@@ -57,21 +57,17 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		if err != nil {
 			return nil, err
 		}
-		hand := make([]*model.DeckCardInfo, len(participant.Hand))
+		hand := make([]model.CardInfo, len(participant.Hand))
 		for j, card := range participant.Hand {
-			cardType, err := fromCardType(card.Type)
-			if err != nil {
+			if hand[j], err = fromMatchCard(card); err != nil {
 				return nil, err
 			}
-			hand[j] = &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}
 		}
-		rewardCards := make([]*model.DeckCardInfo, len(participant.RewardCards))
+		rewardCards := make([]model.CardInfo, len(participant.RewardCards))
 		for j, card := range participant.RewardCards {
-			cardType, err := fromCardType(card.Type)
-			if err != nil {
+			if rewardCards[j], err = fromMatchCard(card); err != nil {
 				return nil, err
 			}
-			rewardCards[j] = &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}
 		}
 		participants[i] = &model.MatchParticipant{
 			RewardReceived: participant.RewardReceived, RewardCards: rewardCards,
@@ -231,7 +227,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		}
 		return &model.MatchEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Winners: e.Winners, Ranks: e.Ranks, Reason: reason}, nil
 	case query.MatchRewardDrawnEvent:
-		cards := make([]*model.DeckCardInfo, len(e.Cards))
+		cards := make([]model.CardInfo, len(e.Cards))
 		for i, drawn := range e.Cards {
 			converted, err := fromMatchCard(drawn)
 			if err != nil {
@@ -247,10 +243,6 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	}
 }
 
-func fromMatchCard(card query.MatchCard) (*model.DeckCardInfo, error) {
-	cardType, err := fromCardType(card.Type)
-	if err != nil {
-		return nil, err
-	}
-	return &model.DeckCardInfo{ID: card.ID, Name: card.Name, Type: cardType}, nil
+func fromMatchCard(card query.MatchCard) (model.CardInfo, error) {
+	return fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature)
 }

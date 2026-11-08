@@ -289,7 +289,7 @@ func TestDecide_ChangeLayoutEmitsDifferenceInOrder(t *testing.T) {
 	require.Equal(t, after, state.(board.Board).Layout)
 }
 
-func TestDecide_ChangeLayoutEmitsChangedTileWhenOnlyAttributeChanges(t *testing.T) {
+func TestDecide_ChangeLayoutEmitsChangedTileWhenOnlyElementChanges(t *testing.T) {
 	f := newFixture(t)
 	size := boardtest.Size(t, 2, 1)
 	before := boardtest.Layout(t, size, []board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "water")}, nil)
@@ -744,16 +744,16 @@ func TestNewTileKind_RejectsUnknownValue(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrTileKindUnknown)
 }
 
-func TestNewAttribute_RejectsUnknownValue(t *testing.T) {
+func TestNewElement_RejectsUnknownValue(t *testing.T) {
 	for _, value := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
-		attribute, err := board.NewAttribute(value)
+		element, err := board.NewElement(value)
 		require.NoError(t, err)
-		require.Equal(t, value, attribute.String())
+		require.Equal(t, value, element.String())
 	}
 
-	_, err := board.NewAttribute("light")
+	_, err := board.NewElement("light")
 
-	require.ErrorIs(t, err, board.ErrAttributeUnknown)
+	require.ErrorIs(t, err, board.ErrElementUnknown)
 }
 
 func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
@@ -864,11 +864,11 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 	}{
 		{name: "valid", tiles: []board.Tile{land(0, 0), land(2, 1)}},
 		{
-			name:  "special_tiles_with_attribute",
-			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "warp"), Attribute: boardtest.Attribute(t, "fire")}, {Position: boardtest.Position(t, 1, 0), Kind: boardtest.TileKind(t, "card_shop"), Attribute: boardtest.Attribute(t, "wind")}},
+			name:  "special_tiles_with_element",
+			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "warp"), Element: boardtest.Element(t, "fire")}, {Position: boardtest.Position(t, 1, 0), Kind: boardtest.TileKind(t, "card_shop"), Element: boardtest.Element(t, "wind")}},
 			want: []board.LayoutViolation{
-				{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed},
-				{Subject: board.SubjectTile, Index: 1, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed},
+				{Subject: board.SubjectTile, Index: 0, Part: board.PartElement, Reason: board.ReasonElementNotAllowed},
+				{Subject: board.SubjectTile, Index: 1, Part: board.PartElement, Reason: board.ReasonElementNotAllowed},
 			},
 		},
 		{
@@ -930,26 +930,26 @@ func TestValidateLayout_ReportsEachViolationWithItsPlace(t *testing.T) {
 			want:  []board.LayoutViolation{{Subject: board.SubjectPair, Index: 1, Part: board.PartWhole, Reason: board.ReasonDuplicatedPair}},
 		},
 		{
-			name:  "land_without_attribute",
+			name:  "land_without_element",
 			tiles: []board.Tile{land(0, 0), {Position: boardtest.Position(t, 1, 0), Kind: boardtest.TileKind(t, "land")}},
-			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 1, Part: board.PartAttribute, Reason: board.ReasonAttributeRequired}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 1, Part: board.PartElement, Reason: board.ReasonElementRequired}},
 		},
 		{
-			name:  "base_with_attribute",
-			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "base"), Attribute: boardtest.Attribute(t, "fire")}},
-			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed}},
+			name:  "base_with_element",
+			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "base"), Element: boardtest.Element(t, "fire")}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartElement, Reason: board.ReasonElementNotAllowed}},
 		},
 		{
-			name:  "checkpoint_with_attribute",
-			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "checkpoint"), Attribute: boardtest.Attribute(t, "multi")}},
-			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeNotAllowed}},
+			name:  "checkpoint_with_element",
+			tiles: []board.Tile{{Position: boardtest.Position(t, 0, 0), Kind: boardtest.TileKind(t, "checkpoint"), Element: boardtest.Element(t, "multi")}},
+			want:  []board.LayoutViolation{{Subject: board.SubjectTile, Index: 0, Part: board.PartElement, Reason: board.ReasonElementNotAllowed}},
 		},
 		{
-			name:  "out_of_range_land_without_attribute",
+			name:  "out_of_range_land_without_element",
 			tiles: []board.Tile{{Position: boardtest.Position(t, 3, 0), Kind: boardtest.TileKind(t, "land")}},
 			want: []board.LayoutViolation{
 				{Subject: board.SubjectTile, Index: 0, Part: board.PartX, Reason: board.ReasonOutOfRange},
-				{Subject: board.SubjectTile, Index: 0, Part: board.PartAttribute, Reason: board.ReasonAttributeRequired},
+				{Subject: board.SubjectTile, Index: 0, Part: board.PartElement, Reason: board.ReasonElementRequired},
 			},
 		},
 		{
@@ -1183,7 +1183,7 @@ func TestEvent_LayoutChangedOmitsEmptyLists(t *testing.T) {
 	payload, err := json.Marshal(event)
 	require.NoError(t, err)
 
-	require.JSONEq(t, `{"placed_tiles":[{"position":{"x":1,"y":0},"kind":"land","attribute":"fire"}],"changed_by":10}`, string(payload))
+	require.JSONEq(t, `{"placed_tiles":[{"position":{"x":1,"y":0},"kind":"land","element":"fire"}],"changed_by":10}`, string(payload))
 	restored, err := board.NewEventType(event.EventType()).Unmarshal(event.GetMeta(), 1, payload)
 	require.NoError(t, err)
 	require.Equal(t, event, restored)

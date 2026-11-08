@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 )
 
 // 状態の変更はどの種類のカードでも同じように動くため、種類を変えて同じ確かめを流す
@@ -235,4 +236,77 @@ func cardRef(t *testing.T, ctx context.Context, publicID uuid.UUID) card.Ref {
 	cardRef, err := card.NewRef(ref.EntityType(), ref.ID())
 	require.NoError(t, err)
 	return cardRef
+}
+
+func TestCardSpecCommands_ChangeCostAndRarityOfAnyKind(t *testing.T) {
+	for _, kind := range cardKinds() {
+		t.Run(kind.name, func(t *testing.T) {
+			ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+			registered := kind.register(t, ctx)
+			commands := newCardHandler(t, ctx)
+
+			costChanged, err := commands.ChangeCost(ctx, registered.ID, registered.Revision, 30)
+			require.NoError(t, err)
+			rarityChanged, err := commands.ChangeRarity(ctx, costChanged.ID, costChanged.Revision, "rare")
+
+			require.NoError(t, err)
+			require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, costChanged)
+			require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 2}, rarityChanged)
+		})
+	}
+}
+
+// 同じ値への変更は、イベントを作らず revision を進めない
+func TestCardSpecCommands_KeepRevisionWhenUnchanged(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	registered := cardKinds()[0].register(t, ctx)
+	commands := newCardHandler(t, ctx)
+
+	costChanged, costErr := commands.ChangeCost(ctx, registered.ID, registered.Revision, card.DefaultCost.Int())
+	rarityChanged, rarityErr := commands.ChangeRarity(ctx, registered.ID, registered.Revision, card.DefaultRarity.String())
+
+	require.NoError(t, costErr)
+	require.NoError(t, rarityErr)
+	require.Equal(t, registered, costChanged)
+	require.Equal(t, registered, rarityChanged)
+}
+
+func TestCardSpecCommands_RejectNotDraft(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	registered := cardKinds()[0].register(t, ctx)
+	commands := newCardHandler(t, ctx)
+	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+
+	_, costErr := commands.ChangeCost(ctx, published.ID, published.Revision, 30)
+	_, rarityErr := commands.ChangeRarity(ctx, published.ID, published.Revision, "rare")
+
+	require.ErrorIs(t, costErr, command.ErrCardNotDraft)
+	require.ErrorIs(t, rarityErr, command.ErrCardNotDraft)
+}
+
+func TestCardSpecCommands_RejectInvalidValue(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	registered := cardKinds()[0].register(t, ctx)
+	commands := newCardHandler(t, ctx)
+
+	_, costErr := commands.ChangeCost(ctx, registered.ID, registered.Revision, -1)
+	_, rarityErr := commands.ChangeRarity(ctx, registered.ID, registered.Revision, "N")
+
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "cost", Min: 0}}, costErr)
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "rarity"}}, rarityErr)
+}
+
+func TestCardSpecCommands_RejectStaleRevision(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	stale := cardKinds()[0].register(t, ctx)
+	commands := newCardHandler(t, ctx)
+	_, err := commands.ChangeCost(ctx, stale.ID, stale.Revision, 30)
+	require.NoError(t, err)
+
+	_, costErr := commands.ChangeCost(ctx, stale.ID, stale.Revision, 40)
+	_, rarityErr := commands.ChangeRarity(ctx, stale.ID, stale.Revision, "rare")
+
+	require.ErrorIs(t, costErr, command.ErrRevisionConflict)
+	require.ErrorIs(t, rarityErr, command.ErrRevisionConflict)
 }

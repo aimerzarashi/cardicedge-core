@@ -49,15 +49,15 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// kind は domain のマスの種類（land・base・checkpoint・warp・bridge・sanctuary・shrine・prophecy_shop・card_shop。GraphQL の @oneOf で書いた項目に対応する）、attribute は fire・earth・water・wind・neutral・multi。
-// attribute は土地のときだけ指定し、拠点・チェックポイントは空。この組み合わせは GraphQL の入力の形で守られるため、
-// 守られていなければ（kind・attribute が不明、土地に無い、拠点にある）入力の誤りにせず内部のエラーにする。
+// kind は domain のマスの種類（land・base・checkpoint・warp・bridge・sanctuary・shrine・prophecy_shop・card_shop。GraphQL の @oneOf で書いた項目に対応する）、element は fire・earth・water・wind・neutral・multi。
+// element は土地のときだけ指定し、拠点・チェックポイントは空。この組み合わせは GraphQL の入力の形で守られるため、
+// 守られていなければ（kind・element が不明、土地に無い、拠点にある）入力の誤りにせず内部のエラーにする。
 // 種類ごとの型に分けないのは、ドメインの Tile（種類と属性）に写す形を 1 つにし、誤りのパスの組み立てもこの形から行うため
 type BoardTileInput struct {
-	X         int
-	Y         int
-	Kind      string
-	Attribute string
+	X       int
+	Y       int
+	Kind    string
+	Element string
 }
 
 type BoardConnectionInput struct {
@@ -168,7 +168,7 @@ func (c *BoardHandler) Rename(ctx context.Context, id uuid.UUID, revision int64,
 }
 
 // 変えた後のレイアウトの全体を受け取る。入力の誤りは input.Errors
-// （項目は width・height・tiles.N.x・tiles.N.y・tiles.N.kind・tiles.N.attribute・tiles.N・connections.N.a・connections.N.b・connections.N・pairs.N.a・pairs.N.b・pairs.N）。
+// （項目は width・height・tiles.N.x・tiles.N.y・tiles.N.kind・tiles.N.element・tiles.N・connections.N.a・connections.N.b・connections.N・pairs.N.a・pairs.N.b・pairs.N）。
 // 幅・高さが studio_rules の範囲外なら、格子の範囲が決まらないため、マス・つながりは調べない。ほかのエラーは Rename と同じ
 func (c *BoardHandler) ChangeLayout(ctx context.Context, id uuid.UUID, revision int64, layoutInput BoardLayoutInput) (ChangedBoard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -393,14 +393,14 @@ func newLayout(rules board.SizeRange, layoutInput BoardLayoutInput) (board.Layou
 		if err != nil {
 			return board.Layout{}, err
 		}
-		attribute, err := optionalTileAttribute(tile.Attribute)
+		element, err := optionalTileElement(tile.Element)
 		if err != nil {
 			return board.Layout{}, err
 		}
 		kindField := fmt.Sprintf("tiles.%d.%s", i, tileInputField(tile.Kind))
 		position, errs := newPosition(kindField, tile.X, tile.Y)
 		invalid = append(invalid, errs...)
-		tiles[i] = board.Tile{Position: position, Kind: kind, Attribute: attribute}
+		tiles[i] = board.Tile{Position: position, Kind: kind, Element: element}
 	}
 	connections := make([]board.Connection, len(layoutInput.Connections))
 	for i, connection := range layoutInput.Connections {
@@ -488,9 +488,9 @@ func layoutViolationToInput(violation board.LayoutViolation, size board.Size, la
 			return &input.OutOfRange{Field: kindField + ".y", Min: 0, Max: size.Height.Int() - 1}, nil
 		case board.ReasonDuplicatedTile:
 			return &input.Duplicated{Field: field}, nil
-		case board.ReasonAttributeRequired, board.ReasonAttributeNotAllowed:
+		case board.ReasonElementRequired, board.ReasonElementNotAllowed:
 			// 入力の形で起きないはずの違反（BoardTileInput の注釈）。入力の誤りにせず、コードの誤りとして返す
-			return nil, fmt.Errorf("command: tile attribute violation that the input shape rules out: %+v", violation)
+			return nil, fmt.Errorf("command: tile element violation that the input shape rules out: %+v", violation)
 		}
 	case board.SubjectConnection:
 		field := fmt.Sprintf("connections.%d", violation.Index)
@@ -595,9 +595,9 @@ func boardPublishProblems(readiness board.Readiness) []BoardPublishProblem {
 }
 
 // 土地でないマスには属性が無い（空）
-func optionalTileAttribute(value string) (board.Attribute, error) {
+func optionalTileElement(value string) (board.Element, error) {
 	if value == "" {
 		return "", nil
 	}
-	return board.NewAttribute(value)
+	return board.NewElement(value)
 }

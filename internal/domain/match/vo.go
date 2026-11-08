@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
@@ -85,10 +86,28 @@ type Result struct {
 	Reason EndReason `json:"reason"`
 }
 
-// デッキのカード 1 種類。始めた時点のデッキの写し
+// デッキのカード 1 種類。始めた時点のデッキの写しで、性能も写す（始めた後にカードを変えても対戦に響かず、判断と画面が
+// 同じ値を使うため。2026-11-07 オーナー。core#112）
 type DeckCard struct {
 	Card     card.Ref          `json:"card"`
 	Quantity card.DeckQuantity `json:"quantity"`
+	Spec     CardSpec          `json:"spec"`
+}
+
+// 対戦で使うカードの性能の写し（始めた時点の studio のカードの性能）。項目はカードの性能を足すごとに増やす
+type CardSpec struct {
+	Cost   card.Cost   `json:"cost"`
+	Rarity card.Rarity `json:"rarity"`
+	// クリーチャーだけが持つ。アイテム・スペルは nil で、JSON にも出さない
+	Creature *CreatureSpec `json:"creature,omitempty"`
+}
+
+// クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、
+// 決まりが 2 か所になり、写すときに変換が要るだけで得るものが無いため）
+type CreatureSpec struct {
+	Elements  creature.Elements  `json:"elements"`
+	Attack    creature.Attack    `json:"attack"`
+	HitPoints creature.HitPoints `json:"hit_points"`
 }
 
 // 戦利品のパックを指す名前（キー）。パックのマスタ（次のマイルストーン）ができるまでは、決まった名前で表す

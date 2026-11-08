@@ -8,17 +8,56 @@ package graphql
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/google/uuid"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
+
+// ChangeCardCost is the resolver for the changeCardCost field.
+func (r *mutationResolver) ChangeCardCost(ctx context.Context, input model.ChangeCardCostInput) (model.ChangeCardCostResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.cardCommands.ChangeCost(ctx, input.ID, int64(input.Revision), input.Cost)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCardCostSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChangeCardRarity is the resolver for the changeCardRarity field.
+func (r *mutationResolver) ChangeCardRarity(ctx context.Context, input model.ChangeCardRarityInput) (model.ChangeCardRarityResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	rarity, err := toCardRarity(input.Rarity)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.cardCommands.ChangeRarity(ctx, input.ID, int64(input.Revision), rarity)
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCardRaritySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
 
 // PublishCard is the resolver for the publishCard field.
 func (r *mutationResolver) PublishCard(ctx context.Context, input model.PublishCardInput) (model.PublishCardResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	changed, err := r.cardStatuses.Publish(ctx, input.ID, int64(input.Revision))
+	changed, err := r.cardCommands.Publish(ctx, input.ID, int64(input.Revision))
 	switch {
 	case errors.Is(err, command.ErrCardNotFound):
 		return &model.CardNotFoundError{Message: "card not found"}, nil
@@ -37,7 +76,7 @@ func (r *mutationResolver) RetireCard(ctx context.Context, input model.RetireCar
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	changed, err := r.cardStatuses.Retire(ctx, input.ID, int64(input.Revision))
+	changed, err := r.cardCommands.Retire(ctx, input.ID, int64(input.Revision))
 	switch {
 	case errors.Is(err, command.ErrCardNotFound):
 		return &model.CardNotFoundError{Message: "card not found"}, nil
@@ -49,6 +88,30 @@ func (r *mutationResolver) RetireCard(ctx context.Context, input model.RetireCar
 		return nil, err
 	}
 	return &model.RetireCardSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// Card is the resolver for the card field.
+func (r *queryResolver) Card(ctx context.Context, id uuid.UUID) (model.CardResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	cards, err := r.cards.Get(ctx, []uuid.UUID{id})
+	if err != nil {
+		return nil, err
+	}
+	found, ok := cards[id]
+	if !ok {
+		return &model.CardNotFoundError{Message: "card not found"}, nil
+	}
+	card, err := toCard(found)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := card.(model.CardResult)
+	if !ok {
+		return nil, fmt.Errorf("graphql: card type %T is not a card result", card)
+	}
+	return result, nil
 }
 
 // Cards is the resolver for the cards field.

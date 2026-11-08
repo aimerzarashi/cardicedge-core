@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -30,6 +31,7 @@ type MatchStartHandler struct {
 	getBoard        master.GetMatchBoardFunc
 	getDeckCards    master.GetPlayerDeckCardsFunc
 	getNPCDeckCards master.GetNPCDeckCardsFunc
+	getCardSpecs    master.GetCardSpecsFunc
 	// 乱数の元は対戦ごとに新しく作る（再実行で同じ並びになるとは限らないが、保存されるのは Decide が出したイベントだけで、
 	// 二重に動いても対戦は 1 つしかできない）。テストは固定した乱数を返す関数を渡す
 	newRandom func() match.Random
@@ -43,12 +45,13 @@ func NewMatchStartHandler(
 	getBoard master.GetMatchBoardFunc,
 	getDeckCards master.GetPlayerDeckCardsFunc,
 	getNPCDeckCards master.GetNPCDeckCardsFunc,
+	getCardSpecs master.GetCardSpecsFunc,
 	newRandom func() match.Random,
 	now func() time.Time,
 ) *MatchStartHandler {
 	return &MatchStartHandler{
 		rooms: rooms, matches: matches, getRules: getRules, getBoard: getBoard, getDeckCards: getDeckCards,
-		getNPCDeckCards: getNPCDeckCards, newRandom: newRandom, now: now,
+		getNPCDeckCards: getNPCDeckCards, getCardSpecs: getCardSpecs, newRandom: newRandom, now: now,
 	}
 }
 
@@ -128,7 +131,7 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 		if err != nil {
 			return match.Participant{}, err
 		}
-		cards, err := deckCards(source, maxDuplicates)
+		cards, err := c.deckCards(ctx, source, maxDuplicates)
 		if err != nil {
 			return match.Participant{}, err
 		}
@@ -138,7 +141,7 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 		if err != nil {
 			return match.Participant{}, err
 		}
-		cards, err := deckCards(source, maxDuplicates)
+		cards, err := c.deckCards(ctx, source, maxDuplicates)
 		if err != nil {
 			return match.Participant{}, err
 		}
@@ -148,16 +151,73 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 	}
 }
 
-func deckCards(source []master.DeckCard, maxDuplicates card.MaxDeckQuantity) ([]match.DeckCard, error) {
+// デッキのカードに、そのときの性能を写す（studio の値をそのまま信じず、domain の値の決まりで確かめてから写す）
+func (c *MatchStartHandler) deckCards(ctx context.Context, source []master.DeckCard, maxDuplicates card.MaxDeckQuantity) ([]match.DeckCard, error) {
+	refs := make([]card.Ref, len(source))
+	for i, entry := range source {
+		refs[i] = entry.Card
+	}
+	specs, err := c.getCardSpecs(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
 	cards := make([]match.DeckCard, len(source))
 	for i, entry := range source {
 		quantity, err := card.NewDeckQuantity(entry.Count, maxDuplicates)
 		if err != nil {
 			return nil, fmt.Errorf("card %s/%d: %w", entry.Card.EntityType, entry.Card.ID, err)
 		}
-		cards[i] = match.DeckCard{Card: entry.Card, Quantity: quantity}
+		spec, err := cardSpec(entry.Card, specs)
+		if err != nil {
+			return nil, err
+		}
+		cards[i] = match.DeckCard{Card: entry.Card, Quantity: quantity, Spec: spec}
 	}
 	return cards, nil
+}
+
+func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec, error) {
+	source, ok := specs[ref]
+	if !ok {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d has no spec", ref.EntityType, ref.ID)
+	}
+	cost, err := card.NewCost(source.Cost)
+	if err != nil {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+	}
+	rarity, err := card.NewRarity(source.Rarity)
+	if err != nil {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+	}
+	spec := match.CardSpec{Cost: cost, Rarity: rarity}
+	// クリーチャーの性能が無いのは、cards.metadata の読み出しの誤り（読む側が弾く）だが、ここでも黙って空の性能を写さない
+	if ref.EntityType == card.CreatureEntityType {
+		if source.Creature == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no creature spec", ref.EntityType, ref.ID)
+		}
+		creatureSpec, err := newCreatureSpec(source.Creature)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Creature = &creatureSpec
+	}
+	return spec, nil
+}
+
+func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
+	elements, err := creature.NewElements(source.Elements)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	attack, err := creature.NewAttack(source.Attack)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	hitPoints, err := creature.NewHitPoints(source.HitPoints)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints}, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）

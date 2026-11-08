@@ -96,7 +96,7 @@ type seeder struct {
 	creatures      *command.CreatureHandler
 	items          *command.ItemHandler
 	spells         *command.SpellHandler
-	cardStatuses   *command.CardHandler
+	cardCommands   *command.CardHandler
 	presetDecks    *command.PresetDeckHandler
 	grantDecks     *command.GrantDeckHandler
 	boards         *command.BoardHandler
@@ -152,7 +152,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 		creatures:    creatures,
 		items:        items,
 		spells:       spells,
-		cardStatuses: command.NewCardHandler(entityRefs, creatures, items, spells),
+		cardCommands: command.NewCardHandler(entityRefs, creatures, items, spells),
 		presetDecks: command.NewPresetDeckHandler(
 			presetDeckStore,
 			presetDeckIdentifier,
@@ -864,6 +864,9 @@ func (s *seeder) seedCards(ctx context.Context, cards []masterCard) (map[string]
 				return nil, fmt.Errorf("register card %q: %w", c.Name, err)
 			}
 		}
+		if current, err = s.changeCardSpec(ctx, c, current); err != nil {
+			return nil, fmt.Errorf("change card spec %q: %w", c.Name, err)
+		}
 		if err := s.publishCard(ctx, c.Name, current); err != nil {
 			return nil, fmt.Errorf("publish card %q: %w", c.Name, err)
 		}
@@ -880,7 +883,7 @@ func (s *seeder) publishCard(ctx context.Context, name string, current query.Car
 		if current.Status == readmodel.CardStatusPublished {
 			return nil
 		}
-		_, err := s.cardStatuses.Publish(ctx, current.ID, current.Revision)
+		_, err := s.cardCommands.Publish(ctx, current.ID, current.Revision)
 		if !errors.Is(err, command.ErrRevisionConflict) {
 			if err == nil {
 				slog.InfoContext(ctx, "published card", "name", name)
@@ -894,6 +897,44 @@ func (s *seeder) publishCard(ctx context.Context, name string, current query.Car
 			return current.Revision > stale, err
 		}); err != nil {
 			return err
+		}
+	}
+}
+
+// 準備中のカードに見本の性能を入れ、変えた後の revision を持たせて返す（同じ値なら変わらず、revision も進まない）。準備中でなければ
+// 何もしない（公開した後は性能を変えられない）。read model は投影の遅れで古いことがあり（止まった直後に流し直すと、性能の変更・公開の
+// イベントがまだ投影されていない）、その revision で変えると先に変えられたになるため、publishCard と同じく追いつくのを待って読み直す
+func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query.Card) (query.Card, error) {
+	key := domain.NormalizeName(c.Name)
+	for {
+		if current.Status != readmodel.CardStatusDraft {
+			return current, nil
+		}
+		changed, err := s.cardCommands.ChangeCost(ctx, current.ID, current.Revision, c.Cost)
+		if err == nil {
+			changed, err = s.cardCommands.ChangeRarity(ctx, changed.ID, changed.Revision, c.Rarity)
+		}
+		// 属性・攻撃力・体力はクリーチャーだけ（validate が、クリーチャーには必ず書いてあることを確かめている）
+		if err == nil && c.Type == "creature" {
+			changed, err = s.creatures.ChangeElements(ctx, changed.ID, changed.Revision, c.Elements)
+		}
+		if err == nil && c.Type == "creature" {
+			changed, err = s.creatures.ChangeStats(ctx, changed.ID, changed.Revision, *c.Attack, *c.HitPoints)
+		}
+		if err == nil {
+			current.Revision = changed.Revision
+			return current, nil
+		}
+		if !errors.Is(err, command.ErrRevisionConflict) {
+			return query.Card{}, err
+		}
+		stale := current.Revision
+		if err := waitFor(ctx, "cards", func() (bool, error) {
+			existing, err := s.listCards(ctx)
+			current = existing[key]
+			return current.Revision > stale, err
+		}); err != nil {
+			return query.Card{}, err
 		}
 	}
 }

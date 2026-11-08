@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
 
@@ -140,7 +141,7 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 			events = append(events, event)
 		}
 	}
-	cards, err := q.cardsOf(ctx, events)
+	cards, err := q.cardsOf(ctx, events, snapshotSpecs(loaded))
 	if err != nil {
 		return nil, err
 	}
@@ -155,15 +156,35 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 	return result, nil
 }
 
-// 引いた・捨てたカードの名前と種類を、1 回でまとめて引く
-func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event) (map[domain.EntityRef]MatchCard, error) {
+// 対戦を作ったときに写した性能（最初のイベント。after によらず、読んだイベントのすべてから探す）
+func snapshotSpecs(loaded []match.Event) map[card.Ref]match.CardSpec {
+	specs := map[card.Ref]match.CardSpec{}
+	for _, event := range loaded {
+		if created, ok := event.(*match.CreatedEvent); ok {
+			for _, participant := range created.Participants {
+				for _, entry := range participant.Cards {
+					specs[entry.Card] = entry.Spec
+				}
+			}
+		}
+	}
+	return specs
+}
+
+// 引いた・捨てたカードの名前と種類を、1 回でまとめて引く。引いた・捨てたカードの性能は写し、戦利品は写した cards の性能
+func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec) (map[domain.EntityRef]MatchCard, error) {
 	var refs []domain.EntityRef
+	inDeck := map[domain.EntityRef]match.CardSpec{}
 	for _, event := range events {
 		switch e := event.(type) {
 		case *match.CardDrawnEvent:
-			refs = append(refs, domain.NewEntityRef(e.Card.EntityType, e.Card.ID))
+			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
+			refs = append(refs, ref)
+			inDeck[ref] = specs[e.Card]
 		case *match.CardDiscardedEvent:
-			refs = append(refs, domain.NewEntityRef(e.Card.EntityType, e.Card.ID))
+			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
+			refs = append(refs, ref)
+			inDeck[ref] = specs[e.Card]
 		case *match.RewardDrawnEvent:
 			for _, reward := range e.Cards {
 				refs = append(refs, domain.NewEntityRef(reward.EntityType, reward.ID))
@@ -194,6 +215,9 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event) 
 		found, ok := names.Cards[publicID]
 		if !ok {
 			return nil, fmt.Errorf("query: card %s of match event is not found", publicID)
+		}
+		if spec, ok := inDeck[ref]; ok {
+			found = withSpec(found, spec)
 		}
 		cards[ref] = found
 	}

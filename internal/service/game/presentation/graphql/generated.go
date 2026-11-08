@@ -135,6 +135,10 @@ type ComplexityRoot struct {
 		Y func(childComplexity int) int
 	}
 
+	CardNotFoundError struct {
+		Message func(childComplexity int) int
+	}
+
 	CardShopTile struct {
 		X func(childComplexity int) int
 		Y func(childComplexity int) int
@@ -175,9 +179,34 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	CollectionCard struct {
+		Card  func(childComplexity int) int
+		Count func(childComplexity int) int
+	}
+
+	CollectionCardConnection struct {
+		Edges    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	CollectionCardEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	CreateRoomSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
+	}
+
+	CreatureCardInfo struct {
+		Attack    func(childComplexity int) int
+		Cost      func(childComplexity int) int
+		Elements  func(childComplexity int) int
+		HitPoints func(childComplexity int) int
+		ID        func(childComplexity int) int
+		Name      func(childComplexity int) int
+		Rarity    func(childComplexity int) int
 	}
 
 	Deck struct {
@@ -191,12 +220,6 @@ type ComplexityRoot struct {
 	DeckCard struct {
 		Card  func(childComplexity int) int
 		Count func(childComplexity int) int
-	}
-
-	DeckCardInfo struct {
-		ID   func(childComplexity int) int
-		Name func(childComplexity int) int
-		Type func(childComplexity int) int
 	}
 
 	DeckNotFoundError struct {
@@ -276,10 +299,17 @@ type ComplexityRoot struct {
 		Match func(childComplexity int) int
 	}
 
+	ItemCardInfo struct {
+		Cost   func(childComplexity int) int
+		ID     func(childComplexity int) int
+		Name   func(childComplexity int) int
+		Rarity func(childComplexity int) int
+	}
+
 	LandTile struct {
-		Attribute func(childComplexity int) int
-		X         func(childComplexity int) int
-		Y         func(childComplexity int) int
+		Element func(childComplexity int) int
+		X       func(childComplexity int) int
+		Y       func(childComplexity int) int
 	}
 
 	Match struct {
@@ -519,12 +549,6 @@ type ComplexityRoot struct {
 		Count func(childComplexity int) int
 	}
 
-	NpcDeckCardInfo struct {
-		ID   func(childComplexity int) int
-		Name func(childComplexity int) int
-		Type func(childComplexity int) int
-	}
-
 	PageInfo struct {
 		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
@@ -535,6 +559,7 @@ type ComplexityRoot struct {
 	Player struct {
 		Avatars          func(childComplexity int) int
 		Boards           func(childComplexity int) int
+		Collection       func(childComplexity int, filter *model.CollectionFilter, first *int, after *string) int
 		Decks            func(childComplexity int) int
 		ID               func(childComplexity int) int
 		NpcAvatars       func(childComplexity int) int
@@ -559,6 +584,7 @@ type ComplexityRoot struct {
 	Query struct {
 		Board       func(childComplexity int, id uuid.UUID) int
 		Boards      func(childComplexity int, first *int, after *string) int
+		Card        func(childComplexity int, id uuid.UUID) int
 		Deck        func(childComplexity int, id uuid.UUID) int
 		GameRules   func(childComplexity int) int
 		Match       func(childComplexity int, id uuid.UUID) int
@@ -713,6 +739,13 @@ type ComplexityRoot struct {
 		Y func(childComplexity int) int
 	}
 
+	SpellCardInfo struct {
+		Cost   func(childComplexity int) int
+		ID     func(childComplexity int) int
+		Name   func(childComplexity int) int
+		Rarity func(childComplexity int) int
+	}
+
 	Subscription struct {
 		MatchProgress func(childComplexity int, id uuid.UUID) int
 	}
@@ -755,6 +788,7 @@ type PlayerResolver interface {
 	StarterGrant(ctx context.Context, obj *model.Player) (model.StarterGrantStatus, error)
 	Avatars(ctx context.Context, obj *model.Player) ([]*model.Avatar, error)
 	Boards(ctx context.Context, obj *model.Player) ([]*model.Board, error)
+	Collection(ctx context.Context, obj *model.Player, filter *model.CollectionFilter, first *int, after *string) (model.CollectionResult, error)
 	Decks(ctx context.Context, obj *model.Player) ([]*model.Deck, error)
 	NpcAvatars(ctx context.Context, obj *model.Player) ([]*model.NpcAvatar, error)
 	RoomRequirements(ctx context.Context, obj *model.Player) ([]model.RoomRequirement, error)
@@ -762,6 +796,7 @@ type PlayerResolver interface {
 type QueryResolver interface {
 	Boards(ctx context.Context, first *int, after *string) (model.BoardsResult, error)
 	Board(ctx context.Context, id uuid.UUID) (model.BoardResult, error)
+	Card(ctx context.Context, id uuid.UUID) (model.CardResult, error)
 	Deck(ctx context.Context, id uuid.UUID) (model.DeckResult, error)
 	GameRules(ctx context.Context) (model.GameRulesResult, error)
 	Match(ctx context.Context, id uuid.UUID) (model.MatchResult, error)
@@ -1116,6 +1151,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BridgeTile.Y(childComplexity), true
 
+	case "CardNotFoundError.message":
+		if e.ComplexityRoot.CardNotFoundError.Message == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CardNotFoundError.Message(childComplexity), true
+
 	case "CardShopTile.x":
 		if e.ComplexityRoot.CardShopTile.X == nil {
 			break
@@ -1220,6 +1262,45 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CloseRoomSuccess.Revision(childComplexity), true
 
+	case "CollectionCard.card":
+		if e.ComplexityRoot.CollectionCard.Card == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCard.Card(childComplexity), true
+	case "CollectionCard.count":
+		if e.ComplexityRoot.CollectionCard.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCard.Count(childComplexity), true
+
+	case "CollectionCardConnection.edges":
+		if e.ComplexityRoot.CollectionCardConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCardConnection.Edges(childComplexity), true
+	case "CollectionCardConnection.pageInfo":
+		if e.ComplexityRoot.CollectionCardConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCardConnection.PageInfo(childComplexity), true
+
+	case "CollectionCardEdge.cursor":
+		if e.ComplexityRoot.CollectionCardEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCardEdge.Cursor(childComplexity), true
+	case "CollectionCardEdge.node":
+		if e.ComplexityRoot.CollectionCardEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CollectionCardEdge.Node(childComplexity), true
+
 	case "CreateRoomSuccess.id":
 		if e.ComplexityRoot.CreateRoomSuccess.ID == nil {
 			break
@@ -1232,6 +1313,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreateRoomSuccess.Revision(childComplexity), true
+
+	case "CreatureCardInfo.attack":
+		if e.ComplexityRoot.CreatureCardInfo.Attack == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Attack(childComplexity), true
+	case "CreatureCardInfo.cost":
+		if e.ComplexityRoot.CreatureCardInfo.Cost == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Cost(childComplexity), true
+	case "CreatureCardInfo.elements":
+		if e.ComplexityRoot.CreatureCardInfo.Elements == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Elements(childComplexity), true
+	case "CreatureCardInfo.hitPoints":
+		if e.ComplexityRoot.CreatureCardInfo.HitPoints == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.HitPoints(childComplexity), true
+	case "CreatureCardInfo.id":
+		if e.ComplexityRoot.CreatureCardInfo.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.ID(childComplexity), true
+	case "CreatureCardInfo.name":
+		if e.ComplexityRoot.CreatureCardInfo.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Name(childComplexity), true
+	case "CreatureCardInfo.rarity":
+		if e.ComplexityRoot.CreatureCardInfo.Rarity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Rarity(childComplexity), true
 
 	case "Deck.cards":
 		if e.ComplexityRoot.Deck.Cards == nil {
@@ -1276,25 +1400,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DeckCard.Count(childComplexity), true
-
-	case "DeckCardInfo.id":
-		if e.ComplexityRoot.DeckCardInfo.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.DeckCardInfo.ID(childComplexity), true
-	case "DeckCardInfo.name":
-		if e.ComplexityRoot.DeckCardInfo.Name == nil {
-			break
-		}
-
-		return e.ComplexityRoot.DeckCardInfo.Name(childComplexity), true
-	case "DeckCardInfo.type":
-		if e.ComplexityRoot.DeckCardInfo.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.DeckCardInfo.Type(childComplexity), true
 
 	case "DeckNotFoundError.message":
 		if e.ComplexityRoot.DeckNotFoundError.Message == nil {
@@ -1486,12 +1591,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GameRules.Match(childComplexity), true
 
-	case "LandTile.attribute":
-		if e.ComplexityRoot.LandTile.Attribute == nil {
+	case "ItemCardInfo.cost":
+		if e.ComplexityRoot.ItemCardInfo.Cost == nil {
 			break
 		}
 
-		return e.ComplexityRoot.LandTile.Attribute(childComplexity), true
+		return e.ComplexityRoot.ItemCardInfo.Cost(childComplexity), true
+	case "ItemCardInfo.id":
+		if e.ComplexityRoot.ItemCardInfo.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ItemCardInfo.ID(childComplexity), true
+	case "ItemCardInfo.name":
+		if e.ComplexityRoot.ItemCardInfo.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ItemCardInfo.Name(childComplexity), true
+	case "ItemCardInfo.rarity":
+		if e.ComplexityRoot.ItemCardInfo.Rarity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ItemCardInfo.Rarity(childComplexity), true
+
+	case "LandTile.element":
+		if e.ComplexityRoot.LandTile.Element == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LandTile.Element(childComplexity), true
 	case "LandTile.x":
 		if e.ComplexityRoot.LandTile.X == nil {
 			break
@@ -2451,25 +2581,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.NpcDeckCard.Count(childComplexity), true
 
-	case "NpcDeckCardInfo.id":
-		if e.ComplexityRoot.NpcDeckCardInfo.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckCardInfo.ID(childComplexity), true
-	case "NpcDeckCardInfo.name":
-		if e.ComplexityRoot.NpcDeckCardInfo.Name == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckCardInfo.Name(childComplexity), true
-	case "NpcDeckCardInfo.type":
-		if e.ComplexityRoot.NpcDeckCardInfo.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.NpcDeckCardInfo.Type(childComplexity), true
-
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
 			break
@@ -2507,6 +2618,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Player.Boards(childComplexity), true
+	case "Player.collection":
+		if e.ComplexityRoot.Player.Collection == nil {
+			break
+		}
+
+		args, err := ec.field_Player_collection_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Player.Collection(childComplexity, args["filter"].(*model.CollectionFilter), args["first"].(*int), args["after"].(*string)), true
 	case "Player.decks":
 		if e.ComplexityRoot.Player.Decks == nil {
 			break
@@ -2593,6 +2715,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Boards(childComplexity, args["first"].(*int), args["after"].(*string)), true
+	case "Query.card":
+		if e.ComplexityRoot.Query.Card == nil {
+			break
+		}
+
+		args, err := ec.field_Query_card_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Card(childComplexity, args["id"].(uuid.UUID)), true
 	case "Query.deck":
 		if e.ComplexityRoot.Query.Deck == nil {
 			break
@@ -3095,6 +3228,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ShrineTile.Y(childComplexity), true
 
+	case "SpellCardInfo.cost":
+		if e.ComplexityRoot.SpellCardInfo.Cost == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellCardInfo.Cost(childComplexity), true
+	case "SpellCardInfo.id":
+		if e.ComplexityRoot.SpellCardInfo.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellCardInfo.ID(childComplexity), true
+	case "SpellCardInfo.name":
+		if e.ComplexityRoot.SpellCardInfo.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellCardInfo.Name(childComplexity), true
+	case "SpellCardInfo.rarity":
+		if e.ComplexityRoot.SpellCardInfo.Rarity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellCardInfo.Rarity(childComplexity), true
+
 	case "Subscription.matchProgress":
 		if e.ComplexityRoot.Subscription.MatchProgress == nil {
 			break
@@ -3143,6 +3301,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChooseMatchPathInput", ec.unmarshalInputChooseMatchPathInput),
 			graphql.NewInputUnmarshaler("ChooseMatchRewardPackInput", ec.unmarshalInputChooseMatchRewardPackInput),
 			graphql.NewInputUnmarshaler("CloseRoomInput", ec.unmarshalInputCloseRoomInput),
+			graphql.NewInputUnmarshaler("CollectionFilter", ec.unmarshalInputCollectionFilter),
 			graphql.NewInputUnmarshaler("CreateRoomInput", ec.unmarshalInputCreateRoomInput),
 			graphql.NewInputUnmarshaler("DeclareRoomNextInput", ec.unmarshalInputDeclareRoomNextInput),
 			graphql.NewInputUnmarshaler("DeclareRoomReadyInput", ec.unmarshalInputDeclareRoomReadyInput),
@@ -3246,7 +3405,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "avatar.graphqls" "board.graphqls" "common.graphqls" "deck.graphqls" "game_rules.graphqls" "match.graphqls" "npc_avatar.graphqls" "player.graphqls" "room.graphqls"
+//go:embed "avatar.graphqls" "board.graphqls" "card.graphqls" "collection.graphqls" "common.graphqls" "deck.graphqls" "game_rules.graphqls" "match.graphqls" "npc_avatar.graphqls" "player.graphqls" "room.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -3260,6 +3419,8 @@ func sourceData(filename string) string {
 var sources = []*ast.Source{
 	{Name: "avatar.graphqls", Input: sourceData("avatar.graphqls"), BuiltIn: false},
 	{Name: "board.graphqls", Input: sourceData("board.graphqls"), BuiltIn: false},
+	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
+	{Name: "collection.graphqls", Input: sourceData("collection.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "deck.graphqls", Input: sourceData("deck.graphqls"), BuiltIn: false},
 	{Name: "game_rules.graphqls", Input: sourceData("game_rules.graphqls"), BuiltIn: false},
@@ -3404,6 +3565,26 @@ func (ec *executionContext) childFields_BoardsEdge(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type BoardsEdge", field.Name)
 }
 
+func (ec *executionContext) childFields_CollectionCard(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "card":
+		return ec.fieldContext_CollectionCard_card(ctx, field)
+	case "count":
+		return ec.fieldContext_CollectionCard_count(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CollectionCard", field.Name)
+}
+
+func (ec *executionContext) childFields_CollectionCardEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cursor":
+		return ec.fieldContext_CollectionCardEdge_cursor(ctx, field)
+	case "node":
+		return ec.fieldContext_CollectionCardEdge_node(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CollectionCardEdge", field.Name)
+}
+
 func (ec *executionContext) childFields_Deck(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -3428,18 +3609,6 @@ func (ec *executionContext) childFields_DeckCard(ctx context.Context, field grap
 		return ec.fieldContext_DeckCard_count(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DeckCard", field.Name)
-}
-
-func (ec *executionContext) childFields_DeckCardInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "id":
-		return ec.fieldContext_DeckCardInfo_id(ctx, field)
-	case "name":
-		return ec.fieldContext_DeckCardInfo_name(ctx, field)
-	case "type":
-		return ec.fieldContext_DeckCardInfo_type(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type DeckCardInfo", field.Name)
 }
 
 func (ec *executionContext) childFields_DeckTypeCounts(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3640,18 +3809,6 @@ func (ec *executionContext) childFields_NpcDeckCard(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type NpcDeckCard", field.Name)
 }
 
-func (ec *executionContext) childFields_NpcDeckCardInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "id":
-		return ec.fieldContext_NpcDeckCardInfo_id(ctx, field)
-	case "name":
-		return ec.fieldContext_NpcDeckCardInfo_name(ctx, field)
-	case "type":
-		return ec.fieldContext_NpcDeckCardInfo_type(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type NpcDeckCardInfo", field.Name)
-}
-
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "hasNextPage":
@@ -3676,6 +3833,8 @@ func (ec *executionContext) childFields_Player(ctx context.Context, field graphq
 		return ec.fieldContext_Player_avatars(ctx, field)
 	case "boards":
 		return ec.fieldContext_Player_boards(ctx, field)
+	case "collection":
+		return ec.fieldContext_Player_collection(ctx, field)
 	case "decks":
 		return ec.fieldContext_Player_decks(ctx, field)
 	case "npcAvatars":
@@ -4170,6 +4329,36 @@ func (ec *executionContext) field_Mutation_rollMatchDice_args(ctx context.Contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Player_collection_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*model.CollectionFilter, error) {
+			return ec.unmarshalOCollectionFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -4217,6 +4406,20 @@ func (ec *executionContext) field_Query_boards_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["after"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_card_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -5689,6 +5892,29 @@ func (ec *executionContext) fieldContext_BridgeTile_y(_ context.Context, field g
 	return graphql.NewScalarFieldContext("BridgeTile", field, false, false, "Int")
 }
 
+func (ec *executionContext) _CardNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.CardNotFoundError) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CardNotFoundError_message(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Message, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CardNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CardNotFoundError", field, false, false, "String")
+}
+
 func (ec *executionContext) _CardShopTile_x(ctx context.Context, field graphql.CollectedField, obj *model.CardShopTile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6057,6 +6283,180 @@ func (ec *executionContext) fieldContext_CloseRoomSuccess_revision(_ context.Con
 	return graphql.NewScalarFieldContext("CloseRoomSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _CollectionCard_card(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCard_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Card, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCard_card(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CollectionCard",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CollectionCard_count(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCard) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCard_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CollectionCard", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CollectionCardConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCardConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCardConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.CollectionCardEdge) graphql.Marshaler {
+			return ec.marshalNCollectionCardEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCardEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCardConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CollectionCardConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CollectionCardEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CollectionCardConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCardConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCardConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCardConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CollectionCardConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CollectionCardEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCardEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCardEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCardEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CollectionCardEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _CollectionCardEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.CollectionCardEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CollectionCardEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.CollectionCard) graphql.Marshaler {
+			return ec.marshalNCollectionCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCard(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CollectionCardEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CollectionCardEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CollectionCard(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _CreateRoomSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.CreateRoomSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6101,6 +6501,167 @@ func (ec *executionContext) _CreateRoomSuccess_revision(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_CreateRoomSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreateRoomSuccess", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _CreatureCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "String")
+}
+
+func (ec *executionContext) _CreatureCardInfo_cost(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_cost(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cost, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureCardInfo_rarity(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_rarity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Rarity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardRarity) graphql.Marshaler {
+			return ec.marshalNCardRarity2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardRarity(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_rarity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "CardRarity")
+}
+
+func (ec *executionContext) _CreatureCardInfo_elements(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_elements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Elements, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "CreatureElement")
+}
+
+func (ec *executionContext) _CreatureCardInfo_attack(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_attack(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attack, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_attack(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureCardInfo_hitPoints(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_hitPoints(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPoints, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_hitPoints(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
 }
 
 func (ec *executionContext) _Deck_id(ctx context.Context, field graphql.CollectedField, obj *model.Deck) (ret graphql.Marshaler) {
@@ -6248,8 +6809,8 @@ func (ec *executionContext) _DeckCard_card(ctx context.Context, field graphql.Co
 			return obj.Card, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfo(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
 		},
 		true,
 		true,
@@ -6262,7 +6823,7 @@ func (ec *executionContext) fieldContext_DeckCard_card(_ context.Context, field 
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -6289,75 +6850,6 @@ func (ec *executionContext) _DeckCard_count(ctx context.Context, field graphql.C
 }
 func (ec *executionContext) fieldContext_DeckCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DeckCard", field, false, false, "Int")
-}
-
-func (ec *executionContext) _DeckCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.DeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeckCardInfo_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_DeckCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DeckCardInfo", field, false, false, "UUID")
-}
-
-func (ec *executionContext) _DeckCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.DeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeckCardInfo_name(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Name, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_DeckCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DeckCardInfo", field, false, false, "String")
-}
-
-func (ec *executionContext) _DeckCardInfo_type(ctx context.Context, field graphql.CollectedField, obj *model.DeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeckCardInfo_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CardType) graphql.Marshaler {
-			return ec.marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_DeckCardInfo_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DeckCardInfo", field, false, false, "CardType")
 }
 
 func (ec *executionContext) _DeckNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.DeckNotFoundError) (ret graphql.Marshaler) {
@@ -7036,6 +7528,98 @@ func (ec *executionContext) fieldContext_GameRules_match(_ context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _ItemCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ItemCardInfo_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ItemCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ItemCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ItemCardInfo_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ItemCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "String")
+}
+
+func (ec *executionContext) _ItemCardInfo_cost(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ItemCardInfo_cost(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cost, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ItemCardInfo_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _ItemCardInfo_rarity(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ItemCardInfo_rarity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Rarity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardRarity) graphql.Marshaler {
+			return ec.marshalNCardRarity2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardRarity(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ItemCardInfo_rarity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "CardRarity")
+}
+
 func (ec *executionContext) _LandTile_x(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7082,27 +7666,27 @@ func (ec *executionContext) fieldContext_LandTile_y(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("LandTile", field, false, false, "Int")
 }
 
-func (ec *executionContext) _LandTile_attribute(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
+func (ec *executionContext) _LandTile_element(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LandTile_attribute(ctx, field)
+			return ec.fieldContext_LandTile_element(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Attribute, nil
+			return obj.Element, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
-			return ec.marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.BoardTileElement) graphql.Marshaler {
+			return ec.marshalNBoardTileElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElement(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_LandTile_attribute(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LandTile", field, false, false, "BoardTileAttribute")
+func (ec *executionContext) fieldContext_LandTile_element(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LandTile", field, false, false, "BoardTileElement")
 }
 
 func (ec *executionContext) _Match_id(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
@@ -7796,8 +8380,8 @@ func (ec *executionContext) _MatchCardDiscardedEvent_card(ctx context.Context, f
 			return obj.Card, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfo(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
 		},
 		true,
 		true,
@@ -7810,7 +8394,7 @@ func (ec *executionContext) fieldContext_MatchCardDiscardedEvent_card(_ context.
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -7897,8 +8481,8 @@ func (ec *executionContext) _MatchCardDrawnEvent_card(ctx context.Context, field
 			return obj.Card, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfo(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
 		},
 		true,
 		true,
@@ -7911,7 +8495,7 @@ func (ec *executionContext) fieldContext_MatchCardDrawnEvent_card(_ context.Cont
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -8894,8 +9478,8 @@ func (ec *executionContext) _MatchParticipant_hand(ctx context.Context, field gr
 			return obj.Hand, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfoᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfoᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -8908,7 +9492,7 @@ func (ec *executionContext) fieldContext_MatchParticipant_hand(_ context.Context
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -9027,8 +9611,8 @@ func (ec *executionContext) _MatchParticipant_rewardCards(ctx context.Context, f
 			return obj.RewardCards, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfoᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfoᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -9041,7 +9625,7 @@ func (ec *executionContext) fieldContext_MatchParticipant_rewardCards(_ context.
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -9473,8 +10057,8 @@ func (ec *executionContext) _MatchRewardDrawnEvent_rewardCards(ctx context.Conte
 			return obj.RewardCards, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.DeckCardInfo) graphql.Marshaler {
-			return ec.marshalNDeckCardInfo2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfoᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfoᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -9487,7 +10071,7 @@ func (ec *executionContext) fieldContext_MatchRewardDrawnEvent_rewardCards(_ con
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -10800,8 +11384,8 @@ func (ec *executionContext) _NpcDeckCard_card(ctx context.Context, field graphql
 			return obj.Card, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.NpcDeckCardInfo) graphql.Marshaler {
-			return ec.marshalNNpcDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardInfo(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
 		},
 		true,
 		true,
@@ -10814,7 +11398,7 @@ func (ec *executionContext) fieldContext_NpcDeckCard_card(_ context.Context, fie
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_NpcDeckCardInfo(ctx, field)
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
 		},
 	}
 	return fc, nil
@@ -10841,75 +11425,6 @@ func (ec *executionContext) _NpcDeckCard_count(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_NpcDeckCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("NpcDeckCard", field, false, false, "Int")
-}
-
-func (ec *executionContext) _NpcDeckCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckCardInfo_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "UUID")
-}
-
-func (ec *executionContext) _NpcDeckCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckCardInfo_name(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Name, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "String")
-}
-
-func (ec *executionContext) _NpcDeckCardInfo_type(ctx context.Context, field graphql.CollectedField, obj *model.NpcDeckCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_NpcDeckCardInfo_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CardType) graphql.Marshaler {
-			return ec.marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_NpcDeckCardInfo_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("NpcDeckCardInfo", field, false, false, "CardType")
 }
 
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
@@ -11110,6 +11625,50 @@ func (ec *executionContext) fieldContext_Player_boards(_ context.Context, field 
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Board(ctx, field)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Player_collection(ctx context.Context, field graphql.CollectedField, obj *model.Player) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Player_collection(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Player().Collection(ctx, obj, fc.Args["filter"].(*model.CollectionFilter), fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CollectionResult) graphql.Marshaler {
+			return ec.marshalNCollectionResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Player_collection(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Player",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CollectionResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Player_collection_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -11398,6 +11957,50 @@ func (ec *executionContext) fieldContext_Query_board(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_board_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_card(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Card(ctx, fc.Args["id"].(uuid.UUID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardResult) graphql.Marshaler {
+			return ec.marshalNCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_card(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CardResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_card_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -13434,6 +14037,98 @@ func (ec *executionContext) fieldContext_ShrineTile_y(_ context.Context, field g
 	return graphql.NewScalarFieldContext("ShrineTile", field, false, false, "Int")
 }
 
+func (ec *executionContext) _SpellCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.SpellCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellCardInfo_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellCardInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellCardInfo", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _SpellCardInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.SpellCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellCardInfo_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellCardInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellCardInfo", field, false, false, "String")
+}
+
+func (ec *executionContext) _SpellCardInfo_cost(ctx context.Context, field graphql.CollectedField, obj *model.SpellCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellCardInfo_cost(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cost, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellCardInfo_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _SpellCardInfo_rarity(ctx context.Context, field graphql.CollectedField, obj *model.SpellCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellCardInfo_rarity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Rarity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardRarity) graphql.Marshaler {
+			return ec.marshalNCardRarity2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardRarity(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellCardInfo_rarity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellCardInfo", field, false, false, "CardRarity")
+}
+
 func (ec *executionContext) _Subscription_matchProgress(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
@@ -15070,6 +15765,48 @@ func UnmarshalCloseRoomInput(ctx context.Context, raw any) (model.CloseRoomInput
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputCollectionFilter(ctx context.Context, obj any) (model.CollectionFilter, error) {
+	var it model.CollectionFilter
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"types"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "types":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("types"))
+			data, err := ec.unmarshalOCardType2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardTypeᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Types = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalCollectionFilter unmarshals raw into the CollectionFilter input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalCollectionFilter(ctx context.Context, raw any) (model.CollectionFilter, error) {
+	var out model.CollectionFilter
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "CollectionFilter", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputCreateRoomInput(ctx context.Context, obj any) (model.CreateRoomInput, error) {
 	var it model.CreateRoomInput
 	if obj == nil {
@@ -15764,6 +16501,88 @@ func (ec *executionContext) _BoardsResult(ctx context.Context, sel ast.Selection
 	}
 }
 
+func (ec *executionContext) _CardInfo(ctx context.Context, sel ast.SelectionSet, obj model.CardInfo) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.SpellCardInfo:
+		return ec._SpellCardInfo(ctx, sel, &obj)
+	case *model.SpellCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellCardInfo(ctx, sel, obj)
+	case model.ItemCardInfo:
+		return ec._ItemCardInfo(ctx, sel, &obj)
+	case *model.ItemCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ItemCardInfo(ctx, sel, obj)
+	case model.CreatureCardInfo:
+		return ec._CreatureCardInfo(ctx, sel, &obj)
+	case *model.CreatureCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureCardInfo(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CardInfo must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _CardResult(ctx context.Context, sel ast.SelectionSet, obj model.CardResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.SpellCardInfo:
+		return ec._SpellCardInfo(ctx, sel, &obj)
+	case *model.SpellCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellCardInfo(ctx, sel, obj)
+	case model.ItemCardInfo:
+		return ec._ItemCardInfo(ctx, sel, &obj)
+	case *model.ItemCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ItemCardInfo(ctx, sel, obj)
+	case model.CreatureCardInfo:
+		return ec._CreatureCardInfo(ctx, sel, &obj)
+	case *model.CreatureCardInfo:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureCardInfo(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CardResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _ChangeRoomMatchRulesResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeRoomMatchRulesResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -16160,6 +16979,33 @@ func (ec *executionContext) _CloseRoomResult(ctx context.Context, sel ast.Select
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of CloseRoomResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _CollectionResult(ctx context.Context, sel ast.SelectionSet, obj model.CollectionResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.CollectionCardConnection:
+		return ec._CollectionCardConnection(ctx, sel, &obj)
+	case *model.CollectionCardConnection:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CollectionCardConnection(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CollectionResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -17926,6 +18772,39 @@ func (ec *executionContext) _BridgeTile(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult"}
+
+func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CardNotFoundError")
+		case "message":
+			out.Values[i] = ec._CardNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var cardShopTileImplementors = []string{"CardShopTile", "BoardTile"}
 
 func (ec *executionContext) _CardShopTile(ctx context.Context, sel ast.SelectionSet, obj *model.CardShopTile) graphql.Marshaler {
@@ -18230,6 +19109,120 @@ func (ec *executionContext) _CloseRoomSuccess(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var collectionCardImplementors = []string{"CollectionCard"}
+
+func (ec *executionContext) _CollectionCard(ctx context.Context, sel ast.SelectionSet, obj *model.CollectionCard) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, collectionCardImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CollectionCard")
+		case "card":
+			out.Values[i] = ec._CollectionCard_card(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "count":
+			out.Values[i] = ec._CollectionCard_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var collectionCardConnectionImplementors = []string{"CollectionCardConnection", "CollectionResult"}
+
+func (ec *executionContext) _CollectionCardConnection(ctx context.Context, sel ast.SelectionSet, obj *model.CollectionCardConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, collectionCardConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CollectionCardConnection")
+		case "edges":
+			out.Values[i] = ec._CollectionCardConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._CollectionCardConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var collectionCardEdgeImplementors = []string{"CollectionCardEdge"}
+
+func (ec *executionContext) _CollectionCardEdge(ctx context.Context, sel ast.SelectionSet, obj *model.CollectionCardEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, collectionCardEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CollectionCardEdge")
+		case "cursor":
+			out.Values[i] = ec._CollectionCardEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "node":
+			out.Values[i] = ec._CollectionCardEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var createRoomSuccessImplementors = []string{"CreateRoomSuccess", "CreateRoomResult"}
 
 func (ec *executionContext) _CreateRoomSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.CreateRoomSuccess) graphql.Marshaler {
@@ -18248,6 +19241,69 @@ func (ec *executionContext) _CreateRoomSuccess(ctx context.Context, sel ast.Sele
 			}
 		case "revision":
 			out.Values[i] = ec._CreateRoomSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureCardInfoImplementors = []string{"CreatureCardInfo", "CardInfo", "CardResult"}
+
+func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureCardInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureCardInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureCardInfo")
+		case "id":
+			out.Values[i] = ec._CreatureCardInfo_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._CreatureCardInfo_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cost":
+			out.Values[i] = ec._CreatureCardInfo_cost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rarity":
+			out.Values[i] = ec._CreatureCardInfo_rarity(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "elements":
+			out.Values[i] = ec._CreatureCardInfo_elements(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attack":
+			out.Values[i] = ec._CreatureCardInfo_attack(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPoints":
+			out.Values[i] = ec._CreatureCardInfo_hitPoints(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -18339,49 +19395,6 @@ func (ec *executionContext) _DeckCard(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "count":
 			out.Values[i] = ec._DeckCard_count(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var deckCardInfoImplementors = []string{"DeckCardInfo"}
-
-func (ec *executionContext) _DeckCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.DeckCardInfo) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, deckCardInfoImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("DeckCardInfo")
-		case "id":
-			out.Values[i] = ec._DeckCardInfo_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "name":
-			out.Values[i] = ec._DeckCardInfo_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "type":
-			out.Values[i] = ec._DeckCardInfo_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -18995,6 +20008,54 @@ func (ec *executionContext) _GameRules(ctx context.Context, sel ast.SelectionSet
 	return out
 }
 
+var itemCardInfoImplementors = []string{"ItemCardInfo", "CardInfo", "CardResult"}
+
+func (ec *executionContext) _ItemCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.ItemCardInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, itemCardInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ItemCardInfo")
+		case "id":
+			out.Values[i] = ec._ItemCardInfo_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._ItemCardInfo_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cost":
+			out.Values[i] = ec._ItemCardInfo_cost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rarity":
+			out.Values[i] = ec._ItemCardInfo_rarity(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var landTileImplementors = []string{"LandTile", "BoardTile"}
 
 func (ec *executionContext) _LandTile(ctx context.Context, sel ast.SelectionSet, obj *model.LandTile) graphql.Marshaler {
@@ -19016,8 +20077,8 @@ func (ec *executionContext) _LandTile(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "attribute":
-			out.Values[i] = ec._LandTile_attribute(ctx, field, obj)
+		case "element":
+			out.Values[i] = ec._LandTile_element(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20696,49 +21757,6 @@ func (ec *executionContext) _NpcDeckCard(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
-var npcDeckCardInfoImplementors = []string{"NpcDeckCardInfo"}
-
-func (ec *executionContext) _NpcDeckCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.NpcDeckCardInfo) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, npcDeckCardInfoImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("NpcDeckCardInfo")
-		case "id":
-			out.Values[i] = ec._NpcDeckCardInfo_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "name":
-			out.Values[i] = ec._NpcDeckCardInfo_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "type":
-			out.Values[i] = ec._NpcDeckCardInfo_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var pageInfoImplementors = []string{"PageInfo"}
 
 func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.PageInfo) graphql.Marshaler {
@@ -20821,6 +21839,12 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Player_boards(ctx, field, obj)
 				})
+		case "collection":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Player_collection(ctx, field, obj)
+				})
 		case "decks":
 			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
 				true, true,
@@ -20856,7 +21880,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "CardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -20995,6 +22019,12 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_board(ctx, field)
+				})
+		case "card":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_card(ctx, field)
 				})
 		case "deck":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
@@ -22134,6 +23164,54 @@ func (ec *executionContext) _ShrineTile(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var spellCardInfoImplementors = []string{"SpellCardInfo", "CardInfo", "CardResult"}
+
+func (ec *executionContext) _SpellCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.SpellCardInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, spellCardInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SpellCardInfo")
+		case "id":
+			out.Values[i] = ec._SpellCardInfo_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._SpellCardInfo_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cost":
+			out.Values[i] = ec._SpellCardInfo_cost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rarity":
+			out.Values[i] = ec._SpellCardInfo_rarity(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var subscriptionImplementors = []string{"Subscription"}
 
 func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
@@ -22154,7 +23232,7 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "DiscardMatchCardResult", "ChooseMatchPathResult", "ChooseMatchRewardPackResult", "MyRoomsResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "RenameRoomResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "CollectionResult", "DiscardMatchCardResult", "ChooseMatchPathResult", "ChooseMatchRewardPackResult", "MyRoomsResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "RenameRoomResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -22728,22 +23806,22 @@ func (ec *executionContext) marshalNBoardTile2ᚕgitlabᚗcomᚋaimerzarashiᚋd
 	return ret
 }
 
-func (ec *executionContext) unmarshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, v any) (model.BoardTileAttribute, error) {
-	var res model.BoardTileAttribute
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNBoardTileAttribute2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileAttribute(ctx context.Context, sel ast.SelectionSet, v model.BoardTileAttribute) graphql.Marshaler {
-	return v
-}
-
 func (ec *executionContext) marshalNBoardTileCounts2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileCounts(ctx context.Context, sel ast.SelectionSet, v *model.BoardTileCounts) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "BoardTileCounts!")
 		return graphql.Null
 	}
 	return ec._BoardTileCounts(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBoardTileElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElement(ctx context.Context, v any) (model.BoardTileElement, error) {
+	var res model.BoardTileElement
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBoardTileElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElement(ctx context.Context, sel ast.SelectionSet, v model.BoardTileElement) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNBoardTilePair2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardTilePairᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BoardTilePair) graphql.Marshaler {
@@ -22814,6 +23892,48 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		graphql.AddInvalidNullFromMarshaler(ctx, "Boolean!")
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx context.Context, sel ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CardInfo!")
+		return graphql.Null
+	}
+	return ec._CardInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCardInfo2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfoᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CardInfo) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNCardRarity2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardRarity(ctx context.Context, v any) (model.CardRarity, error) {
+	var res model.CardRarity
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCardRarity2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardRarity(ctx context.Context, sel ast.SelectionSet, v model.CardRarity) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNCardResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardResult(ctx context.Context, sel ast.SelectionSet, v model.CardResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CardResult!")
+		return graphql.Null
+	}
+	return ec._CardResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx context.Context, v any) (model.CardType, error) {
@@ -22904,6 +24024,46 @@ func (ec *executionContext) marshalNCloseRoomResult2gitlabᚗcomᚋaimerzarashi�
 	return ec._CloseRoomResult(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNCollectionCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCard(ctx context.Context, sel ast.SelectionSet, v *model.CollectionCard) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CollectionCard!")
+		return graphql.Null
+	}
+	return ec._CollectionCard(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCollectionCardEdge2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCardEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CollectionCardEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCollectionCardEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCardEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNCollectionCardEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionCardEdge(ctx context.Context, sel ast.SelectionSet, v *model.CollectionCardEdge) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CollectionCardEdge!")
+		return graphql.Null
+	}
+	return ec._CollectionCardEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCollectionResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionResult(ctx context.Context, sel ast.SelectionSet, v model.CollectionResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CollectionResult!")
+		return graphql.Null
+	}
+	return ec._CollectionResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNCreateRoomInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreateRoomInput(ctx context.Context, v any) (model.CreateRoomInput, error) {
 	res, err := ec.unmarshalInputCreateRoomInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22915,6 +24075,46 @@ func (ec *executionContext) marshalNCreateRoomResult2gitlabᚗcomᚋaimerzarashi
 		return graphql.Null
 	}
 	return ec._CreateRoomResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx context.Context, v any) (model.CreatureElement, error) {
+	var res model.CreatureElement
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx context.Context, sel ast.SelectionSet, v model.CreatureElement) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx context.Context, v any) ([]model.CreatureElement, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.CreatureElement, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNDateTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
@@ -22977,30 +24177,6 @@ func (ec *executionContext) marshalNDeckCard2ᚖgitlabᚗcomᚋaimerzarashiᚋdi
 		return graphql.Null
 	}
 	return ec._DeckCard(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNDeckCardInfo2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfoᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.DeckCardInfo) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfo(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckCardInfo(ctx context.Context, sel ast.SelectionSet, v *model.DeckCardInfo) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "DeckCardInfo!")
-		return graphql.Null
-	}
-	return ec._DeckCardInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNDeckResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐDeckResult(ctx context.Context, sel ast.SelectionSet, v model.DeckResult) graphql.Marshaler {
@@ -23411,14 +24587,6 @@ func (ec *executionContext) marshalNNpcDeckCard2ᚖgitlabᚗcomᚋaimerzarashi�
 		return graphql.Null
 	}
 	return ec._NpcDeckCard(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNNpcDeckCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcDeckCardInfo(ctx context.Context, sel ast.SelectionSet, v *model.NpcDeckCardInfo) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "NpcDeckCardInfo!")
-		return graphql.Null
-	}
-	return ec._NpcDeckCardInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
@@ -23928,6 +25096,50 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOCardType2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardTypeᚄ(ctx context.Context, v any) ([]model.CardType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.CardType, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOCardType2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardTypeᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CardType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOCollectionFilter2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCollectionFilter(ctx context.Context, v any) (*model.CollectionFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputCollectionFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {

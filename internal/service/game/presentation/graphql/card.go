@@ -1,0 +1,77 @@
+package graphql
+
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/presentation/graphql/model"
+)
+
+// 種類ごとの型にする（種類が増えて写し忘れたら、黙って落とさずエラーにする）
+func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rarity string, creature *query.CreatureSpec) (model.CardInfo, error) {
+	converted, err := fromCardRarity(rarity)
+	if err != nil {
+		return nil, err
+	}
+	switch cardType {
+	case query.CardTypeCreature:
+		// 写した cards.metadata の読み出しが弾くので、無いのはコードの誤り（空の性能を黙って返さない）
+		if creature == nil {
+			return nil, fmt.Errorf("graphql: creature card %s has no creature spec", id)
+		}
+		elements, err := fromElements(creature.Elements)
+		if err != nil {
+			return nil, err
+		}
+		return &model.CreatureCardInfo{
+			ID: id, Name: name, Cost: cost, Rarity: converted,
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints,
+		}, nil
+	case query.CardTypeItem:
+		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted}, nil
+	case query.CardTypeSpell:
+		return &model.SpellCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted}, nil
+	default:
+		return nil, fmt.Errorf("graphql: unknown card type: %d", cardType)
+	}
+}
+
+// 値の対応を明示する（文字列から型を変換すると、対応が名前の一致に隠れるため）
+func fromCardRarity(rarity string) (model.CardRarity, error) {
+	switch rarity {
+	case "normal":
+		return model.CardRarityNormal, nil
+	case "strange":
+		return model.CardRarityStrange, nil
+	case "rare":
+		return model.CardRarityRare, nil
+	case "extra":
+		return model.CardRarityExtra, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown card rarity: %q", rarity)
+	}
+}
+
+// 値の対応を明示する（fromCardRarity と同じ理由）
+func fromElements(values []string) ([]model.CreatureElement, error) {
+	elements := make([]model.CreatureElement, len(values))
+	for i, value := range values {
+		switch value {
+		case "fire":
+			elements[i] = model.CreatureElementFire
+		case "earth":
+			elements[i] = model.CreatureElementEarth
+		case "water":
+			elements[i] = model.CreatureElementWater
+		case "wind":
+			elements[i] = model.CreatureElementWind
+		case "neutral":
+			elements[i] = model.CreatureElementNeutral
+		default:
+			return nil, fmt.Errorf("graphql: unknown element: %q", value)
+		}
+	}
+	return elements, nil
+}

@@ -1,0 +1,113 @@
+# カードを見せる型。デッキ・NPC のデッキ・対戦の手札・引いた／捨てたカード・戦利品で共通にする（core#112）。
+# 種類は __typename で見分け、種類ごとの性能は断片（... on CreatureCardInfo 等）で取る。
+# 見せるのに要る項目だけにする（一覧の query は無く、詳細は Query.card、所持カードは Player.collection）。対戦の中（手札・引いた・捨てた）は対戦を始めたときの
+# 写しの性能、それ以外は写した cards の性能を返す
+"カードの、見せるのに要る項目"
+interface CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+}
+
+"クリーチャー"
+type CreatureCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "属性（1〜4 つ。無は単独。火・地・水・風の順に並べる）"
+  elements: [CreatureElement!]!
+  "攻撃力（AT）"
+  attack: Int!
+  "体力（HP）"
+  hitPoints: Int!
+}
+
+"アイテム"
+type ItemCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+}
+
+"スペル"
+type SpellCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+}
+
+# 画面の略称（N・S・R・E）は game が作る。上下の順は戦利品のパックで使うときに決める
+"カードの希少度"
+enum CardRarity {
+  "画面では N"
+  NORMAL
+  "画面では S"
+  STRANGE
+  "画面では R"
+  RARE
+  "画面では E"
+  EXTRA
+}
+
+"クリーチャーの属性。火・地・水・風のうち 1〜4 つか、無の単独"
+enum CreatureElement {
+  "火"
+  FIRE
+  "地"
+  EARTH
+  "水"
+  WATER
+  "風"
+  WIND
+  "無"
+  NEUTRAL
+}
+
+# 種類は結果では __typename で見分けるので、この enum は絞り込みの入力にだけ使う（結果に出す値の型には使わない）
+"カードの種類。所持カードの絞り込みに使う（結果のカードの種類は __typename で見分ける）"
+enum CardType {
+  "クリーチャー"
+  CREATURE
+  "アイテム"
+  ITEM
+  "スペル"
+  SPELL
+}
+
+"カードが無い（無い ID・カードでない ID・準備中で写されていないカード）"
+type CardNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"カードの詳細の結果。種類ごとの型（__typename で見分ける）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union CardResult = CreatureCardInfo | ItemCardInfo | SpellCardInfo | CardNotFoundError | PlayerNotRegisteredError
+
+extend type Query {
+  # 準備中のカードは game に写されていないので出ない。使用不可のカードは、プレイヤーが持っていることがあるので返す
+  "カードの詳細（登録済みのプレイヤーだけ）。公開中と使用不可のカードを返し、無い ID・カードでない ID は CardNotFoundError"
+  card(
+    "カードの公開用の ID"
+    id: UUID!
+  ): CardResult!
+}

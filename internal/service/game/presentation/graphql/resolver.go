@@ -48,6 +48,16 @@ type DeckQueries interface {
 	Get(ctx context.Context, playerID uuid.UUID, deckID uuid.UUID) (query.Deck, error)
 }
 
+// 実装は query.CollectionHandler
+type CollectionQueries interface {
+	List(ctx context.Context, playerID uuid.UUID, filter query.CollectionFilter, first *int, after *string) (pagination.Connection[query.CollectionCard], error)
+}
+
+// 実装は query.CardHandler
+type CardQueries interface {
+	Get(ctx context.Context, id uuid.UUID) (query.Card, error)
+}
+
 // 実装は query.NPCAvatarHandler
 type NPCAvatarQueries interface {
 	ListUnlockedByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.NPCAvatar, error)
@@ -106,23 +116,25 @@ type GameRulesQueries interface {
 }
 
 type Resolver struct {
-	players        Players
-	playerQuery    PlayerQueries
-	avatars        Avatars
-	avatarQuery    AvatarQueries
-	deckQuery      DeckQueries
-	unlockQuery    UnlockQueries
-	boardQuery     BoardQueries
-	npcAvatarQuery NPCAvatarQueries
-	gameRuleQuery  GameRulesQueries
-	rooms          Rooms
-	roomQuery      RoomQueries
-	matches        Matches
-	matchQuery     MatchQueries
-	matchEvents    MatchEventQueries
-	matchProgress  MatchProgressSubscriptions
+	players         Players
+	playerQuery     PlayerQueries
+	avatars         Avatars
+	avatarQuery     AvatarQueries
+	deckQuery       DeckQueries
+	collectionQuery CollectionQueries
+	cardQuery       CardQueries
+	unlockQuery     UnlockQueries
+	boardQuery      BoardQueries
+	npcAvatarQuery  NPCAvatarQueries
+	gameRuleQuery   GameRulesQueries
+	rooms           Rooms
+	roomQuery       RoomQueries
+	matches         Matches
+	matchQuery      MatchQueries
+	matchEvents     MatchEventQueries
+	matchProgress   MatchProgressSubscriptions
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries, matchEvents MatchEventQueries, matchProgress MatchProgressSubscriptions) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery, matchEvents: matchEvents, matchProgress: matchProgress}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, collectionQuery CollectionQueries, cardQuery CardQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries, matchEvents MatchEventQueries, matchProgress MatchProgressSubscriptions) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, collectionQuery: collectionQuery, cardQuery: cardQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery, matchEvents: matchEvents, matchProgress: matchProgress}
 }

@@ -30,7 +30,7 @@ func TestCard_EvolvesFromCreatureRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeCreature,
@@ -63,7 +63,7 @@ func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeItem,
@@ -94,7 +94,7 @@ func TestCard_EvolvesFromSpellRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｆireball", Status: readmodel.CardStatusDraft, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｆireball", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeSpell,
@@ -134,11 +134,11 @@ func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 
 	require.Equal(t, readmodel.CardStatusPublished, afterPublished.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10}, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
 	}, afterPublished.Metadata)
 	require.Equal(t, readmodel.CardStatusRetired, afterRetired.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
 	}, afterRetired.Metadata)
 	require.Equal(t, operatortest.ID(t, 10), afterPublished.RegisteredBy)
 	require.Equal(t, operatortest.ID(t, 11), afterPublished.UpdatedBy)
@@ -151,4 +151,64 @@ func TestNewCardStatus_RejectsUnknownValue(t *testing.T) {
 	_, err := readmodel.NewCardStatus("archived")
 
 	require.Error(t, err)
+}
+
+func TestCard_EvolvesSpecFromCostAndRarityChanged(t *testing.T) {
+	registeredAt := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	changedAt := registeredAt.Add(time.Hour)
+	publicID := uuid.New()
+	state := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
+	registered := creature.Creature{ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints}
+	costChanged, err := creature.Decide(registered, &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: operatortest.ID(t, 11)}, changedAt)
+	require.NoError(t, err)
+	afterCostState, err := creature.Evolve(registered, costChanged[0])
+	require.NoError(t, err)
+	rarityChanged, err := creature.Decide(afterCostState, &creature.ChangeRarityCommand{Rarity: card.RarityRare, ChangedBy: operatortest.ID(t, 12)}, changedAt)
+	require.NoError(t, err)
+
+	after := state.Evolve(costChanged[0]).Evolve(rarityChanged[0])
+
+	require.Equal(t, readmodel.CardMetadata{
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusDraft, Cost: 30, Rarity: "rare", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: changedAt,
+	}, after.Metadata)
+	require.Equal(t, operatortest.ID(t, 12), after.UpdatedBy)
+}
+
+func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
+	registeredAt := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	changedAt := registeredAt.Add(time.Hour)
+	publicID := uuid.New()
+	registeredState := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
+	registered := creature.Creature{
+		ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints,
+	}
+	elementsChanged, err := creature.Decide(registered, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: operatortest.ID(t, 11)}, changedAt)
+	require.NoError(t, err)
+	afterElementsState, err := creature.Evolve(registered, elementsChanged[0])
+	require.NoError(t, err)
+	statsChanged, err := creature.Decide(afterElementsState, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50), ChangedBy: operatortest.ID(t, 12)}, changedAt)
+	require.NoError(t, err)
+
+	afterElements := registeredState.Evolve(elementsChanged[0])
+	afterStats := afterElements.Evolve(statsChanged[0])
+
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 10, HitPoints: 10}, afterElements.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50}, afterStats.Metadata.Creature)
+	require.Equal(t, int64(3), afterStats.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 12), afterStats.UpdatedBy)
+	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10}, registeredState.Metadata.Creature)
+}
+
+// アイテム・呪文は、クリーチャーだけの性能を持たない（JSON にも出さない）
+func TestCard_ItemAndSpellHaveNoCreatureSpec(t *testing.T) {
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+
+	item := readmodel.Card{}.Evolve(registeredItem(t, uuid.New(), "Potion", at)[0])
+	spell := readmodel.Card{}.Evolve(registeredSpell(t, uuid.New(), "Fireball", at)[0])
+
+	require.Nil(t, item.Metadata.Creature)
+	require.Nil(t, spell.Metadata.Creature)
 }

@@ -28,6 +28,20 @@ type RetireCommand struct {
 	RetiredBy operator.ID
 }
 
-func (*RegisterCommand) isItemCommand() {}
-func (*PublishCommand) isItemCommand()  {}
-func (*RetireCommand) isItemCommand()   {}
+// コストを変える（準備中だけ）。同じ値なら何も変えない
+type ChangeCostCommand struct {
+	Cost      card.Cost
+	ChangedBy operator.ID
+}
+
+// 希少度を変える（準備中だけ）。同じ値なら何も変えない
+type ChangeRarityCommand struct {
+	Rarity    card.Rarity
+	ChangedBy operator.ID
+}
+
+func (*RegisterCommand) isItemCommand()     {}
+func (*PublishCommand) isItemCommand()      {}
+func (*RetireCommand) isItemCommand()       {}
+func (*ChangeCostCommand) isItemCommand()   {}
+func (*ChangeRarityCommand) isItemCommand() {}
