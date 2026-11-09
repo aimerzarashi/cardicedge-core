@@ -170,6 +170,8 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseDeploying, nil
 	case query.MatchPhaseInvading:
 		return model.MatchPhaseInvading, nil
+	case query.MatchPhaseAttacking:
+		return model.MatchPhaseAttacking, nil
 	case query.MatchPhaseDefending:
 		return model.MatchPhaseDefending, nil
 	case query.MatchPhaseRelinquishing:
@@ -311,6 +313,8 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchItemUsedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card, Cost: e.Cost}, nil
+	case query.MatchItemSkippedEvent:
+		return &model.MatchItemSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchCreatureStruckEvent:
 		striker, err := fromMatchBattleSide(e.Striker)
 		if err != nil {
@@ -380,5 +384,5 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 }
 
 func fromMatchCard(card query.MatchCard) (model.CardInfo, error) {
-	return fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature)
+	return fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item)
 }

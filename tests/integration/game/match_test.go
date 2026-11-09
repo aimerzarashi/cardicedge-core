@@ -160,7 +160,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "invadeMatchTerritory" || name == "defendMatchTerritory" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -228,6 +228,9 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 			return matchRevision(t, matchOperation(t, token, "invadeMatchTerritory", input), "invadeMatchTerritory")
 		}
 		return matchRevision(t, matchOperation(t, token, "payMatchToll", input), "payMatchToll")
+	case "ATTACKING":
+		require.NotNil(t, m["invasion"])
+		return matchRevision(t, matchOperation(t, token, "attackMatchTerritory", input), "attackMatchTerritory")
 	case "DEFENDING":
 		require.NotNil(t, m["invasion"])
 		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
@@ -362,6 +365,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
+				... on MatchItemSkippedEvent { participant }
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
 				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature }
 				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand }
@@ -862,10 +866,12 @@ func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
 	input := map[string]any{"id": matchID, "revision": m["revision"]}
 
 	invade := matchOperation(t, p.token, "invadeMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+	attack := matchOperation(t, p.token, "attackMatchTerritory", input)
 	toll := matchOperation(t, p.token, "payMatchToll", input)
 	defend := matchOperation(t, p.token, "defendMatchTerritory", input)
 
 	require.Equal(t, "MatchPhaseNotAllowedError", invade["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", attack["__typename"])
 	require.Equal(t, "MatchPhaseNotAllowedError", toll["__typename"])
 	require.Equal(t, "MatchPhaseNotAllowedError", defend["__typename"])
 	require.Empty(t, m["invadeChoices"])

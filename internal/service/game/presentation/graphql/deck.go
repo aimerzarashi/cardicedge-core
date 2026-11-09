@@ -8,7 +8,7 @@ import (
 func fromQueryDeck(deck query.Deck) (*model.Deck, error) {
 	cards := make([]*model.DeckCard, 0, len(deck.Cards))
 	for _, card := range deck.Cards {
-		info, err := fromCard(card.Type, card.CardID, card.Name, card.Cost, card.Rarity, card.Creature)
+		info, err := fromCard(card.Type, card.CardID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item)
 		if err != nil {
 			return nil, err
 		}

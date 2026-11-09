@@ -192,14 +192,9 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
 		current.Participants[index].Magic -= e.Cost.Int()
 		current.Invasion = &Invasion{Card: e.Card, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints}
-		current.Phase = PhaseDefending
+		current.Phase = PhaseAttacking
 	case *ItemUsedEvent:
-		attacker, err := current.currentIndex()
-		if err != nil {
-			return state, err
-		}
-		defender, ok := current.AwaitingParticipant()
-		if !ok || current.Phase != PhaseDefending || (e.Participant != attacker && e.Participant != defender) {
+		if !current.awaitsItemChoiceOf(e.Participant) {
 			return state, ErrInvalidState
 		}
 		hand := current.Participants[e.Participant].Hand
@@ -209,6 +204,12 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[e.Participant].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
 		current.Participants[e.Participant].Magic -= e.Cost.Int()
+		current.Phase = current.afterItemChoice()
+	case *ItemSkippedEvent:
+		if !current.awaitsItemChoiceOf(e.Participant) {
+			return state, ErrInvalidState
+		}
+		current.Phase = current.afterItemChoice()
 	case *CreatureStruckEvent:
 		if (current.Phase != PhaseDefending && current.Phase != PhaseBattling) || current.Invasion == nil {
 			return state, ErrInvalidState
@@ -304,6 +305,23 @@ func Evolve(state State, event Event) (State, error) {
 		return state, ErrInvalidState
 	}
 	return current, nil
+}
+
+// 攻める段階・守る段階で、この参加者のアイテムの選びを待っているか
+func (m Match) awaitsItemChoiceOf(participant ParticipantIndex) bool {
+	if m.Phase != PhaseAttacking && m.Phase != PhaseDefending {
+		return false
+	}
+	awaiting, ok := m.AwaitingParticipant()
+	return ok && awaiting == participant && int(participant) < len(m.Participants)
+}
+
+// 攻める側が選んだら守る側へ。守る側が選んだ後は、続く戦闘のイベントが段階を進める
+func (m Match) afterItemChoice() Phase {
+	if m.Phase == PhaseAttacking {
+		return PhaseDefending
+	}
+	return m.Phase
 }
 
 // 読み直しで不整合に気づけるよう、イベントの参加者が今の番と違えば断る

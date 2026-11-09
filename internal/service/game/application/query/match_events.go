@@ -182,6 +182,12 @@ type MatchItemUsedEvent struct {
 	Cost      int
 }
 
+// 戦闘にアイテムを出さなかった（攻める側も守る側も同じ）
+type MatchItemSkippedEvent struct {
+	MatchEventMeta
+	Participant int
+}
+
 // 戦闘のどちら側か
 type MatchBattleSide string
 
@@ -467,6 +473,8 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchTerritoryInvadedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], position, e.Cost.Int()}, nil
 	case *match.ItemUsedEvent:
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
+	case *match.ItemSkippedEvent:
+		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.CreatureStruckEvent:
 		striker, err := fromBattleSide(e.Striker)
 		if err != nil {

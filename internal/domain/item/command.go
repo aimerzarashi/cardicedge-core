@@ -40,8 +40,23 @@ type ChangeRarityCommand struct {
 	ChangedBy operator.ID
 }
 
-func (*RegisterCommand) isItemCommand()     {}
-func (*PublishCommand) isItemCommand()      {}
-func (*RetireCommand) isItemCommand()       {}
-func (*ChangeCostCommand) isItemCommand()   {}
-func (*ChangeRarityCommand) isItemCommand() {}
+// 分類を変える（準備中だけ）。同じ値なら何も変えない
+type ChangeCategoryCommand struct {
+	Category  Category
+	ChangedBy operator.ID
+}
+
+// 戦闘中の AT・HP の増減を変える（準備中だけ。2 つは一緒に変える）。どちらも同じ値なら何も変えない
+type ChangeStatBonusesCommand struct {
+	AttackBonus    AttackBonus
+	HitPointsBonus HitPointsBonus
+	ChangedBy      operator.ID
+}
+
+func (*RegisterCommand) isItemCommand()          {}
+func (*PublishCommand) isItemCommand()           {}
+func (*RetireCommand) isItemCommand()            {}
+func (*ChangeCostCommand) isItemCommand()        {}
+func (*ChangeRarityCommand) isItemCommand()      {}
+func (*ChangeCategoryCommand) isItemCommand()    {}
+func (*ChangeStatBonusesCommand) isItemCommand() {}

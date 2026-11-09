@@ -580,7 +580,10 @@ func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEn
 	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
 	deployable, _ := handIndexes(t, f.load(t))
 
-	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable, nil)
+	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseAttacking, f.load(t).Phase)
+	changed, err = f.handler.Attack(f.player, f.publicID, changed.Revision, nil)
 	require.NoError(t, err)
 	require.Equal(t, match.PhaseDefending, f.load(t).Phase)
 
@@ -610,13 +613,15 @@ func TestMatchHandler_ReportsInvasionInputThatCannotBeUsed(t *testing.T) {
 	f := newMatchTurnFixture(t, matchtest.NewRandom())
 	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
 	deployable, notPayable := handIndexes(t, f.load(t))
-	creatureAsItem := notPayable
+	creatureAsItem := 0
 
-	_, outOfRange := f.handler.Invade(f.player, f.publicID, changed.Revision, 99, nil)
-	_, notInvadable := f.handler.Invade(f.player, f.publicID, changed.Revision, notPayable, nil)
-	_, notUsable := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable, &creatureAsItem)
+	_, outOfRange := f.handler.Invade(f.player, f.publicID, changed.Revision, 99)
+	_, notInvadable := f.handler.Invade(f.player, f.publicID, changed.Revision, notPayable)
+	invaded, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable)
+	require.NoError(t, err)
+	_, notUsable := f.handler.Attack(f.player, f.publicID, invaded.Revision, &creatureAsItem)
 
-	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(f.load(t).Participants[0].Hand) - 1}}, outOfRange)
+	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 5}}, outOfRange)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, notInvadable)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "itemHandIndex"}}, notUsable)
 }
@@ -640,7 +645,10 @@ func TestMatchNPCTurn_InvadesWithTheFirstCreatureThatCanBePaidAndWaitsForTheOwne
 	f := newMatchTurnFixture(t, orderedRandom{})
 	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
 
-	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	// 侵略を確定する操作と、アイテムを出さない操作の 2 回
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
 
 	invaded := f.load(t)
 	require.Equal(t, match.PhaseDefending, invaded.Phase)
@@ -665,7 +673,9 @@ func TestMatchNPCTurn_PaysTheTollWhenNoCreatureCanBePaid(t *testing.T) {
 func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testing.T) {
 	f := newMatchTurnFixture(t, orderedRandom{})
 	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
-	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
 	revision := f.load(t).Version
 
 	_, err := f.handler.Defend(f.player, f.publicID, revision, nil)

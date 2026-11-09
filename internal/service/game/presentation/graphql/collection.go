@@ -42,7 +42,7 @@ func toCollectionCardConnection(connection pagination.Connection[query.Collectio
 	edges := make([]*model.CollectionCardEdge, 0, len(connection.Edges))
 	for _, edge := range connection.Edges {
 		card := edge.Node.Card
-		info, err := fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature)
+		info, err := fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item)
 		if err != nil {
 			return nil, err
 		}

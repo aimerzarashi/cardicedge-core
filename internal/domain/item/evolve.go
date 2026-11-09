@@ -10,12 +10,15 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		return Item{
-			ID:       meta.EntityID,
-			Version:  meta.AggregateVersion,
-			PublicID: e.PublicID,
-			Status:   card.StatusDraft,
-			Cost:     e.Cost,
-			Rarity:   e.Rarity,
+			ID:             meta.EntityID,
+			Version:        meta.AggregateVersion,
+			PublicID:       e.PublicID,
+			Status:         card.StatusDraft,
+			Cost:           e.Cost,
+			Rarity:         e.Rarity,
+			Category:       e.Category,
+			AttackBonus:    e.AttackBonus,
+			HitPointsBonus: e.HitPointsBonus,
 		}, nil
 	case *PublishedEvent:
 		item, ok := state.(Item)
@@ -55,6 +58,23 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		item.Rarity = e.Rarity
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *CategoryChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Category = e.Category
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *StatBonusesChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.AttackBonus = e.AttackBonus
+		item.HitPointsBonus = e.HitPointsBonus
 		item.Version = e.GetMeta().AggregateVersion
 		return item, nil
 	default:

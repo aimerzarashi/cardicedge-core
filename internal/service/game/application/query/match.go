@@ -36,6 +36,7 @@ const (
 	MatchPhaseChoosingPath  MatchPhase = "choosing_path"
 	MatchPhaseDeploying     MatchPhase = "deploying"
 	MatchPhaseInvading      MatchPhase = "invading"
+	MatchPhaseAttacking     MatchPhase = "attacking"
 	MatchPhaseDefending     MatchPhase = "defending"
 	MatchPhaseRelinquishing MatchPhase = "relinquishing"
 	MatchPhaseEnding        MatchPhase = "ending"
@@ -66,6 +67,8 @@ type MatchCard struct {
 	Rarity string
 	// クリーチャーだけの性能（クリーチャー以外は nil）。コスト・希少度と同じく、対戦の中は写しの性能
 	Creature *CreatureSpec
+	// アイテムだけの性能（アイテム以外は nil）。クリーチャーと同じく、対戦の中は写しの性能
+	Item *ItemSpec
 }
 
 // 対戦の盤面の写し。始めた時点のボードの形（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）
@@ -169,7 +172,7 @@ type Match struct {
 	DeployChoices []int
 	// 今の番の人が侵略に出せる手札の番号。侵略を選ぶ段階のときだけ中身がある
 	InvadeChoices []int
-	// 操作を待っている人が戦闘に出せるアイテムの手札の番号。侵略を選ぶ段階と守る段階のときだけ中身がある
+	// 操作を待っている人が戦闘に出せるアイテムの手札の番号。攻める段階と守る段階のときだけ中身がある
 	ItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
@@ -482,6 +485,8 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseDeploying, nil
 	case match.PhaseInvading:
 		return MatchPhaseInvading, nil
+	case match.PhaseAttacking:
+		return MatchPhaseAttacking, nil
 	case match.PhaseDefending:
 		return MatchPhaseDefending, nil
 	case match.PhaseRelinquishing:
@@ -564,6 +569,10 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	found.Creature = nil
 	if spec.Creature != nil {
 		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int()}
+	}
+	found.Item = nil
+	if spec.Item != nil {
+		found.Item = &ItemSpec{Category: spec.Item.Category.String(), AttackBonus: spec.Item.AttackBonus.Int(), HitPointsBonus: spec.Item.HitPointsBonus.Int()}
 	}
 	return found
 }

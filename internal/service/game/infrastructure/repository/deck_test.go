@@ -84,8 +84,8 @@ func TestDeckReader_ListsOwnDecksInRegistrationOrderWithCardsInTypeThenNameOrder
 	require.Equal(t, []query.Deck{
 		{ID: olderPublicID, Name: "先", Cards: []query.DeckCard{
 			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
-			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Count: 4},
-			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Count: 2},
+			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 4},
+			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 2},
 			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Count: 1},
 		}},
 		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 4}}},

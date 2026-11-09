@@ -10,7 +10,7 @@ import (
 )
 
 // 種類ごとの型にする（種類が増えて写し忘れたら、黙って落とさずエラーにする）
-func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rarity string, creature *query.CreatureSpec) (model.CardInfo, error) {
+func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rarity string, creature *query.CreatureSpec, item *query.ItemSpec) (model.CardInfo, error) {
 	converted, err := fromCardRarity(rarity)
 	if err != nil {
 		return nil, err
@@ -30,11 +30,33 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints,
 		}, nil
 	case query.CardTypeItem:
-		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted}, nil
+		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
+		if item == nil {
+			return nil, fmt.Errorf("graphql: item card %s has no item spec", id)
+		}
+		category, err := fromItemCategory(item.Category)
+		if err != nil {
+			return nil, err
+		}
+		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, AttackBonus: item.AttackBonus, HitPointsBonus: item.HitPointsBonus}, nil
 	case query.CardTypeSpell:
 		return &model.SpellCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown card type: %d", cardType)
+	}
+}
+
+// 値の対応を明示する（fromCardRarity と同じ理由）
+func fromItemCategory(value string) (model.ItemCategory, error) {
+	switch value {
+	case "weapon":
+		return model.ItemCategoryWeapon, nil
+	case "armor":
+		return model.ItemCategoryArmor, nil
+	case "scroll":
+		return model.ItemCategoryScroll, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown item category: %q", value)
 	}
 }
 

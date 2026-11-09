@@ -240,10 +240,9 @@ func (m Match) payableCreatures() []int {
 	return choices
 }
 
-// 今選んでいる人が戦闘に出せるアイテムの手札の番号（手札の順）。侵略を選ぶ段階と守る段階でだけ中身がある。
-// 侵略するクリーチャーと合わせたコストは、どのクリーチャーを選ぶかで変わるので Decide で確かめる
+// 今選んでいる人が戦闘に出せるアイテムの手札の番号（手札の順）。攻める段階と守る段階でだけ中身がある
 func (m Match) ItemChoices() []int {
-	if m.Phase != PhaseInvading && m.Phase != PhaseDefending {
+	if m.Phase != PhaseAttacking && m.Phase != PhaseDefending {
 		return nil
 	}
 	index, ok := m.AwaitingParticipant()

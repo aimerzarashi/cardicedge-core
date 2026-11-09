@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -69,6 +70,8 @@ const (
 	PhaseDeploying Phase = "deploying"
 	// 他人の領地に止まった後。通行料を払うか、手札のクリーチャーで侵略するかを選ぶ（侵略できる手札が無くても、払うを選ぶ段階に入る。2026-11-09 オーナー）
 	PhaseInvading Phase = "invading"
+	// 侵略を確定した後。攻める側がアイテムを選ぶ（出せるものが無くても、出さないを選ぶ段階に入る。守る段階と同じ）
+	PhaseAttacking Phase = "attacking"
 	// 侵略された領地の持ち主がアイテムを選ぶ。番の人でない参加者の操作を待つ、ただ 1 つの段階
 	PhaseDefending Phase = "defending"
 	// 通行料を払って魔力が負になった後。0 以上になるまで自分の領地を手放す
@@ -124,6 +127,15 @@ type CardSpec struct {
 	Rarity card.Rarity `json:"rarity"`
 	// クリーチャーだけが持つ。アイテム・スペルは nil で、JSON にも出さない
 	Creature *CreatureSpec `json:"creature,omitempty"`
+	// アイテムだけが持つ。クリーチャー・スペルは nil で、JSON にも出さない
+	Item *ItemSpec `json:"item,omitempty"`
+}
+
+// アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う
+type ItemSpec struct {
+	Category       item.Category       `json:"category"`
+	AttackBonus    item.AttackBonus    `json:"attack_bonus"`
+	HitPointsBonus item.HitPointsBonus `json:"hit_points_bonus"`
 }
 
 // クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、

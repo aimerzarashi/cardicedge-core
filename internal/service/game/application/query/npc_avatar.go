@@ -40,7 +40,9 @@ type DeckCard struct {
 	Rarity string
 	// クリーチャーだけの性能（クリーチャー以外は nil）
 	Creature *CreatureSpec
-	Count    int
+	// アイテムだけの性能（アイテム以外は nil）
+	Item  *ItemSpec
+	Count int
 }
 
 // 公開中の NPC のデッキ。Cards は種類（Creature → Item → Spell）→ 名前の順（studio のデッキのカードと同じ並び）

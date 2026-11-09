@@ -234,6 +234,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
 		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
 		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true},
+		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -1472,10 +1473,17 @@ func withItemInHand(t *testing.T, state match.Match, participant int, id int64, 
 	return state
 }
 
-// NPC が手札の最初で侵略した後の対戦
-func invade(t *testing.T, state match.Match) match.Match {
+// NPC が手札の最初で侵略を確定した、アイテムを選ぶ前の対戦
+func attacking(t *testing.T, state match.Match) match.Match {
 	t.Helper()
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	return state
+}
+
+// NPC が手札の最初で侵略し、アイテムを出さなかった後の対戦
+func invade(t *testing.T, state match.Match) match.Match {
+	t.Helper()
+	state, _ = apply(t, attacking(t, state), matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
 	return state
 }
 
@@ -1528,46 +1536,91 @@ func TestDecide_InvadePaysTheCostAndWaitsForTheOwnerOfTheTerritory(t *testing.T)
 	require.Equal(t, matchtest.Index(t, 1), turn)
 }
 
-func TestDecide_InvadeWithAnItemPaysBothAndNamesTheHandAfterTheCreatureLeft(t *testing.T) {
-	state := withItemInHand(t, invadingMatch(t), 1, 301, 20)
+func TestDecide_InvadeIsSettledAtOnceAndAsksTheAttackerForAnItem(t *testing.T) {
+	state := invadingMatch(t)
+	handBefore := len(state.Participants[1].Hand)
+
+	state = attacking(t, state)
+
+	require.Equal(t, match.PhaseAttacking, state.Phase)
+	require.Equal(t, 600-10, state.Participants[1].Magic)
+	require.Len(t, state.Participants[1].Hand, handBefore-1)
+	require.NotNil(t, state.Invasion)
+	awaiting, _ := state.AwaitingParticipant()
+	require.Equal(t, matchtest.Index(t, 1), awaiting)
+}
+
+func TestDecide_AttackWithAnItemPaysItAndAsksTheOwner(t *testing.T) {
+	state := withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20)
 	itemIndex := len(state.Participants[1].Hand) - 1
 
-	state, events := apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0, ItemHandIndex: &itemIndex})
+	state, events := apply(t, state, matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1), ItemHandIndex: &itemIndex})
 
 	used := eventOf[*match.ItemUsedEvent](t, events)
-	require.Equal(t, itemIndex-1, used.HandIndex)
+	require.Equal(t, itemIndex, used.HandIndex)
 	require.Equal(t, matchtest.Index(t, 1), used.Participant)
 	require.Equal(t, 600-10-20, state.Participants[1].Magic)
 	require.NotContains(t, state.Participants[1].Hand, used.Card)
+	require.Equal(t, match.PhaseDefending, state.Phase)
+	awaiting, _ := state.AwaitingParticipant()
+	require.Equal(t, matchtest.Index(t, 0), awaiting)
+}
+
+func TestDecide_AttackWithoutAnItemLeavesTheFactAndAsksTheOwner(t *testing.T) {
+	state, events := apply(t, attacking(t, invadingMatch(t)), matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
+
+	require.Equal(t, matchtest.Index(t, 1), eventOf[*match.ItemSkippedEvent](t, events).Participant)
 	require.Equal(t, match.PhaseDefending, state.Phase)
 }
 
 func TestDecide_InvadeRejectsCardsThatCannotBeUsed(t *testing.T) {
 	state := withItemInHand(t, invadingMatch(t), 1, 301, 20)
 	itemIndex := len(state.Participants[1].Hand) - 1
-	creatureIndex := 1
-	outOfHand := 99
 	cases := []struct {
 		name  string
 		magic int
 		hand  int
-		item  *int
 		err   error
 	}{
 		{name: "hand_out_of_range", magic: 600, hand: 99, err: match.ErrHandIndexOutOfRange},
 		{name: "item_as_the_creature", magic: 600, hand: itemIndex, err: match.ErrCreatureNotInvadable},
 		{name: "creature_cost_not_payable", magic: 5, hand: 0, err: match.ErrCreatureNotInvadable},
-		{name: "creature_as_the_item", magic: 600, hand: 0, item: &creatureIndex, err: match.ErrItemNotUsable},
-		{name: "item_out_of_hand", magic: 600, hand: 0, item: &outOfHand, err: match.ErrItemNotUsable},
-		{name: "creature_and_item_together_not_payable", magic: 25, hand: 0, item: &itemIndex, err: match.ErrItemNotUsable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := decideErr(t, withMagic(state, 1, tc.magic), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: tc.hand, ItemHandIndex: tc.item})
+			err := decideErr(t, withMagic(state, 1, tc.magic), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: tc.hand})
 
 			require.ErrorIs(t, err, tc.err)
 		})
 	}
+}
+
+// クリーチャーのコストを払った後の魔力で、出せるアイテムが決まる
+func TestDecide_AttackRejectsItemsThatCannotBeUsed(t *testing.T) {
+	state := withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20)
+	itemIndex := len(state.Participants[1].Hand) - 1
+	creatureIndex := 0
+	outOfHand := 99
+	cases := []struct {
+		name  string
+		magic int
+		item  *int
+	}{
+		{name: "creature_as_the_item", magic: 600, item: &creatureIndex},
+		{name: "item_out_of_hand", magic: 600, item: &outOfHand},
+		{name: "item_cost_not_payable", magic: 15, item: &itemIndex},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := decideErr(t, withMagic(state, 1, tc.magic), &match.AttackCommand{By: matchtest.Index(t, 1), ItemHandIndex: tc.item})
+
+			require.ErrorIs(t, err, match.ErrItemNotUsable)
+		})
+	}
+}
+
+func TestDecide_AttackIsRejectedOutsideTheAttackingPhase(t *testing.T) {
+	require.ErrorIs(t, decideErr(t, invadingMatch(t), &match.AttackCommand{By: matchtest.Index(t, 1)}), match.ErrPhaseNotAllowed)
 }
 
 func TestDecide_InvadeAndPayTollAreRejectedOutsideTheInvadingPhase(t *testing.T) {
@@ -1691,22 +1744,26 @@ func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T)
 }
 
 func TestMatch_ItemChoicesAreForWhoeverIsBeingWaitedFor(t *testing.T) {
-	invading := withItemInHand(t, invadingMatch(t), 1, 301, 20)
-	require.Equal(t, []int{len(invading.Participants[1].Hand) - 1}, invading.ItemChoices())
+	attacker := withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20)
+	require.Equal(t, []int{len(attacker.Participants[1].Hand) - 1}, attacker.ItemChoices())
 
-	defending := invade(t, invadingMatch(t))
+	// 守る段階は持ち主の手札を見るので、攻める側のアイテムは選択肢に入らない
+	defending := withItemInHand(t, invade(t, invadingMatch(t)), 1, 301, 20)
 	require.Empty(t, defending.ItemChoices())
+	require.Empty(t, invadingMatch(t).ItemChoices())
 	require.Empty(t, newMatch(t, territoryBoard(t), defaultRules(t)).ItemChoices())
 }
 
 func TestPhase_AwaitsOperationIsFalseWhileBattling(t *testing.T) {
 	require.False(t, match.PhaseBattling.AwaitsOperation())
 	require.True(t, match.PhaseInvading.AwaitsOperation())
+	require.True(t, match.PhaseAttacking.AwaitsOperation())
 	require.True(t, match.PhaseDefending.AwaitsOperation())
 }
 
 func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 	invading := invadingMatch(t)
+	armed := attacking(t, invadingMatch(t))
 	defending := invade(t, invadingMatch(t))
 	battling := defending
 	battling.Phase = match.PhaseBattling
@@ -1729,7 +1786,10 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		{name: "invaded_elsewhere", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: pos(t, 2, 0), Cost: cost}},
 		{name: "invaded_with_another_card", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: otherRef, Position: position, Cost: cost}},
 		{name: "item_outside_the_phase", state: invading, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
-		{name: "item_not_in_the_hand", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: otherRef, Cost: cost}},
+		{name: "item_not_in_the_hand", state: armed, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: otherRef, Cost: cost}},
+		{name: "item_by_who_is_not_awaited", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
+		{name: "skipped_outside_the_phase", state: invading, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
+		{name: "skipped_by_who_is_not_awaited", state: defending, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: next}},
 		{name: "conquered_another_creature", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: next, Creature: next}},

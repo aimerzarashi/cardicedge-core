@@ -29,6 +29,15 @@ type CardSpec struct {
 	Rarity string
 	// クリーチャーだけが持つ（クリーチャー以外は nil）
 	Creature *CreatureSpec
+	// アイテムだけが持つ（アイテム以外は nil）
+	Item *ItemSpec
+}
+
+// アイテムだけの性能（写した cards.metadata.item の値）
+type ItemSpec struct {
+	Category       string
+	AttackBonus    int
+	HitPointsBonus int
 }
 
 // クリーチャーだけの性能（写した cards.metadata.creature の値）

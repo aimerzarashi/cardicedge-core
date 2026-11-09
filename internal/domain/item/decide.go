@@ -19,6 +19,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Name:         c.Name,
 			Cost:         card.DefaultCost,
 			Rarity:       card.DefaultRarity,
+			Category:     DefaultCategory,
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -53,6 +54,18 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&RarityChangedEvent{EventMeta: nextMeta(item, now), Rarity: c.Rarity, ChangedBy: c.ChangedBy}}, nil
+	case *ChangeCategoryCommand:
+		item, err := editable(state)
+		if err != nil || item.Category == c.Category {
+			return nil, err
+		}
+		return []Event{&CategoryChangedEvent{EventMeta: nextMeta(item, now), Category: c.Category, ChangedBy: c.ChangedBy}}, nil
+	case *ChangeStatBonusesCommand:
+		item, err := editable(state)
+		if err != nil || (item.AttackBonus == c.AttackBonus && item.HitPointsBonus == c.HitPointsBonus) {
+			return nil, err
+		}
+		return []Event{&StatBonusesChangedEvent{EventMeta: nextMeta(item, now), AttackBonus: c.AttackBonus, HitPointsBonus: c.HitPointsBonus, ChangedBy: c.ChangedBy}}, nil
 	default:
 		return nil, ErrInvalidState
 	}

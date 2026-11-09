@@ -100,6 +100,16 @@ type ChangeCreatureStatsResult interface {
 	IsChangeCreatureStatsResult()
 }
 
+// アイテムの分類を変える操作の結果（カードでない ID・アイテム以外のカードの ID は CardNotFoundError）
+type ChangeItemCategoryResult interface {
+	IsChangeItemCategoryResult()
+}
+
+// アイテムの増減を変える操作の結果（カードでない ID・アイテム以外のカードの ID は CardNotFoundError）
+type ChangeItemStatBonusesResult interface {
+	IsChangeItemStatBonusesResult()
+}
+
 // ボードのレイアウトの判定の結果
 type CheckBoardLayoutResult interface {
 	IsCheckBoardLayoutResult()
@@ -742,6 +752,10 @@ func (CardNotDraftError) IsChangeCreatureElementsResult() {}
 
 func (CardNotDraftError) IsChangeCreatureStatsResult() {}
 
+func (CardNotDraftError) IsChangeItemCategoryResult() {}
+
+func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
+
 // カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）
 type CardNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -761,6 +775,10 @@ func (CardNotFoundError) IsChangeCardRarityResult() {}
 func (CardNotFoundError) IsChangeCreatureElementsResult() {}
 
 func (CardNotFoundError) IsChangeCreatureStatsResult() {}
+
+func (CardNotFoundError) IsChangeItemCategoryResult() {}
+
+func (CardNotFoundError) IsChangeItemStatBonusesResult() {}
 
 // カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
 type CardShopTile struct {
@@ -921,6 +939,48 @@ type ChangeCreatureStatsSuccess struct {
 }
 
 func (ChangeCreatureStatsSuccess) IsChangeCreatureStatsResult() {}
+
+// アイテムの分類を変える入力
+type ChangeItemCategoryInput struct {
+	// 変えるアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの更新の番号
+	Revision int `json:"revision"`
+	// 変えた後の分類
+	Category ItemCategory `json:"category"`
+}
+
+// アイテムの分類を変えた（同じ値なら revision は進まない）
+type ChangeItemCategorySuccess struct {
+	// 変えたアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の更新の番号
+	Revision int `json:"revision"`
+}
+
+func (ChangeItemCategorySuccess) IsChangeItemCategoryResult() {}
+
+// アイテムの戦闘中の AT・HP の増減を変える入力
+type ChangeItemStatBonusesInput struct {
+	// 変えるアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの更新の番号
+	Revision int `json:"revision"`
+	// 戦闘中に足す攻撃力（負は下げる）
+	AttackBonus int `json:"attackBonus"`
+	// 戦闘中に足す体力（負は下げる）
+	HitPointsBonus int `json:"hitPointsBonus"`
+}
+
+// アイテムの戦闘中の AT・HP の増減を変えた（どちらも同じ値なら revision は進まない）
+type ChangeItemStatBonusesSuccess struct {
+	// 変えたアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の更新の番号
+	Revision int `json:"revision"`
+}
+
+func (ChangeItemStatBonusesSuccess) IsChangeItemStatBonusesResult() {}
 
 // ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）
 type CheckBoardLayoutInput struct {
@@ -1371,6 +1431,10 @@ func (ForbiddenError) IsRetireGrantDeckResult() {}
 
 func (ForbiddenError) IsRegisterItemResult() {}
 
+func (ForbiddenError) IsChangeItemCategoryResult() {}
+
+func (ForbiddenError) IsChangeItemStatBonusesResult() {}
+
 func (ForbiddenError) IsNpcAvatarsResult() {}
 
 func (ForbiddenError) IsNpcAvatarResult() {}
@@ -1579,6 +1643,12 @@ type Item struct {
 	Cost int `json:"cost"`
 	// 希少度
 	Rarity CardRarity `json:"rarity"`
+	// 分類
+	Category ItemCategory `json:"category"`
+	// 戦闘中に足す攻撃力（負は下げる）
+	AttackBonus int `json:"attackBonus"`
+	// 戦闘中に足す体力（負は下げる）
+	HitPointsBonus int `json:"hitPointsBonus"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -2436,6 +2506,10 @@ func (RevisionConflictError) IsPublishGrantDeckResult() {}
 
 func (RevisionConflictError) IsRetireGrantDeckResult() {}
 
+func (RevisionConflictError) IsChangeItemCategoryResult() {}
+
+func (RevisionConflictError) IsChangeItemStatBonusesResult() {}
+
 func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
 func (RevisionConflictError) IsSetNpcAvatarDecksResult() {}
@@ -2863,6 +2937,10 @@ func (ValidationErrors) IsSetGrantDeckCardCountsResult() {}
 func (ValidationErrors) IsPublishGrantDeckResult() {}
 
 func (ValidationErrors) IsRegisterItemResult() {}
+
+func (ValidationErrors) IsChangeItemCategoryResult() {}
+
+func (ValidationErrors) IsChangeItemStatBonusesResult() {}
 
 func (ValidationErrors) IsNpcAvatarsResult() {}
 
@@ -3368,6 +3446,67 @@ func (e *GrantDeckStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e GrantDeckStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// アイテムの分類
+type ItemCategory string
+
+const (
+	// 武器
+	ItemCategoryWeapon ItemCategory = "WEAPON"
+	// 防具
+	ItemCategoryArmor ItemCategory = "ARMOR"
+	// 巻物
+	ItemCategoryScroll ItemCategory = "SCROLL"
+)
+
+var AllItemCategory = []ItemCategory{
+	ItemCategoryWeapon,
+	ItemCategoryArmor,
+	ItemCategoryScroll,
+}
+
+func (e ItemCategory) IsValid() bool {
+	switch e {
+	case ItemCategoryWeapon, ItemCategoryArmor, ItemCategoryScroll:
+		return true
+	}
+	return false
+}
+
+func (e ItemCategory) String() string {
+	return string(e)
+}
+
+func (e *ItemCategory) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ItemCategory(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ItemCategory", str)
+	}
+	return nil
+}
+
+func (e ItemCategory) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ItemCategory) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ItemCategory) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

@@ -128,8 +128,17 @@ func toCard(card query.Card) (model.Card, error) {
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
+		// 投影が必ず書く値なので、無ければ read model の不整合（黙って空にしない）
+		if card.Item == nil {
+			return nil, fmt.Errorf("graphql: item %s has no item spec", card.ID)
+		}
+		category, err := fromItemCategory(card.Item.Category)
+		if err != nil {
+			return nil, err
+		}
 		return &model.Item{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity, Revision: revision,
+			Category: category, AttackBonus: card.Item.AttackBonus, HitPointsBonus: card.Item.HitPointsBonus,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeSpell:
@@ -162,6 +171,8 @@ type cardChangeResult interface {
 	model.ChangeCardRarityResult
 	model.ChangeCreatureElementsResult
 	model.ChangeCreatureStatsResult
+	model.ChangeItemCategoryResult
+	model.ChangeItemStatBonusesResult
 }
 
 // enum の値と希少度の対応を明示する（toCardType と同じ理由）
@@ -196,6 +207,33 @@ func fromCardRarity(rarity string) (model.CardRarity, error) {
 }
 
 // enum の値と属性の対応を明示する（toCardType と同じ理由）
+// 値の対応を明示する（fromCardRarity と同じ理由）
+func toItemCategory(category model.ItemCategory) (string, error) {
+	switch category {
+	case model.ItemCategoryWeapon:
+		return "weapon", nil
+	case model.ItemCategoryArmor:
+		return "armor", nil
+	case model.ItemCategoryScroll:
+		return "scroll", nil
+	default:
+		return "", fmt.Errorf("graphql: unknown item category: %q", category)
+	}
+}
+
+func fromItemCategory(value string) (model.ItemCategory, error) {
+	switch value {
+	case "weapon":
+		return model.ItemCategoryWeapon, nil
+	case "armor":
+		return model.ItemCategoryArmor, nil
+	case "scroll":
+		return model.ItemCategoryScroll, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown item category: %q", value)
+	}
+}
+
 func toElements(elements []model.CreatureElement) ([]string, error) {
 	values := make([]string, len(elements))
 	for i, element := range elements {

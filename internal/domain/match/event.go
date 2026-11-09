@@ -135,6 +135,13 @@ type ItemUsedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
+// 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
+type ItemSkippedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+}
+
 // 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の残りの体力で、0 なら倒れた）
 type CreatureStruckEvent struct {
 	EventMeta          `json:"-"`
@@ -253,6 +260,7 @@ var (
 	creatureStruckEventType        = domain.NewEventName("CreatureStruckEvent")
 	territoryConqueredEventType    = domain.NewEventName("TerritoryConqueredEvent")
 	invasionRepelledEventType      = domain.NewEventName("InvasionRepelledEvent")
+	itemSkippedEventType           = domain.NewEventName("ItemSkippedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -440,12 +448,20 @@ func (*InvasionRepelledEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*ItemSkippedEvent) EventType() domain.EventName {
+	return itemSkippedEventType
+}
+
+func (*ItemSkippedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
-		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType,
+		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 	}}
 }
 
@@ -504,6 +520,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TerritoryConqueredEvent{EventMeta: meta}
 	case EventType(invasionRepelledEventType):
 		event = &InvasionRepelledEvent{EventMeta: meta}
+	case EventType(itemSkippedEventType):
+		event = &ItemSkippedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

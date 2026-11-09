@@ -90,6 +90,9 @@ func expectedCollectionRow(id uuid.UUID, name string, cardType query.CardType, c
 	if cardType == query.CardTypeCreature {
 		card.Creature = defaultCreatureSpec()
 	}
+	if cardType == query.CardTypeItem {
+		card.Item = defaultItemSpec()
+	}
 	owned := query.CollectionCard{Card: card, Count: count}
 	cursor := query.CollectionListCursor{CardType: cardType, SortName: name, CardID: id}
 	return query.CollectionListRow{Card: owned, Cursor: cursor}
@@ -261,7 +264,7 @@ func TestCardReader_GetReturnsPublishedAndRetiredCardsButNotMissing(t *testing.T
 	require.NoError(t, err)
 	_, errMissing := reader.Get(f.ctx, uuid.New())
 
-	require.Equal(t, query.Card{ID: published, Name: "公開中", Type: query.CardTypeItem, Cost: 10, Rarity: "normal"}, gotPublished)
+	require.Equal(t, query.Card{ID: published, Name: "公開中", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec()}, gotPublished)
 	require.Equal(t, query.Card{ID: retired, Name: "使用不可", Type: query.CardTypeSpell, Cost: 7, Rarity: "rare"}, gotRetired)
 	require.ErrorIs(t, errMissing, query.ErrCardNotFound)
 }

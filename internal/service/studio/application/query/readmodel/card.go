@@ -82,6 +82,7 @@ type CardMetadata struct {
 	// 種類ごとの性能は、種類の名前の入れ子に置く（フラットに並べると種類をまたいで名前がぶつかり、どの種類の値か読み取れないため。
 	// 2026-11-07 オーナー）。クリーチャー以外は持たず、省く
 	Creature *CreatureMetadata `json:"creature,omitempty"`
+	Item     *ItemMetadata     `json:"item,omitempty"`
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64     `json:"revision"`
 	RegisteredAt time.Time `json:"registered_at"`
@@ -96,6 +97,13 @@ type CreatureMetadata struct {
 	Elements  []string `json:"elements"`
 	Attack    int      `json:"attack"`
 	HitPoints int      `json:"hit_points"`
+}
+
+// アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
+type ItemMetadata struct {
+	Category       string `json:"category"`
+	AttackBonus    int    `json:"attack_bonus"`
+	HitPointsBonus int    `json:"hit_points_bonus"`
 }
 
 // Creature・Item・Spell のイベントだけを扱い、ほかは状態をそのまま返す
@@ -124,6 +132,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
+			Item:         &ItemMetadata{Category: e.Category.String(), AttackBonus: e.AttackBonus.Int(), HitPointsBonus: e.HitPointsBonus.Int()},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -178,6 +187,17 @@ func (state Card) Evolve(event any) Card {
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *item.RarityChangedEvent:
 		state.Metadata.Rarity = e.Rarity.String()
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *item.CategoryChangedEvent:
+		changed := *state.Metadata.Item
+		changed.Category = e.Category.String()
+		state.Metadata.Item = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *item.StatBonusesChangedEvent:
+		changed := *state.Metadata.Item
+		changed.AttackBonus = e.AttackBonus.Int()
+		changed.HitPointsBonus = e.HitPointsBonus.Int()
+		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *spell.RarityChangedEvent:
 		state.Metadata.Rarity = e.Rarity.String()
