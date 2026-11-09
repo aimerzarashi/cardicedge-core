@@ -144,6 +144,8 @@ type Match struct {
 	Invasion *Invasion
 	// 戦闘が始まってから終わるまでだけある
 	Battle *Battle
+	// このターンに移動で入ったマス（入った順。止まったマスを含み、ターンの始めのマスは含まない）
+	PassedPositions []board.Position
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastDeployedCreatureID DeployedCreatureID
 }
@@ -328,6 +330,58 @@ func (m Match) invadedTerritory() (Territory, bool) {
 		return Territory{}, false
 	}
 	return m.TerritoryAt(m.Participants[index].Position)
+}
+
+// 領地のレベルを上げる選択肢 1 つ
+type LevelUpChoice struct {
+	Position board.Position
+	// 上げた後のレベル
+	Level int
+	// 払う魔力
+	Magic int
+}
+
+// 今の番の人が選べるレベルアップ（通った順・低いレベルの順）。領地コマンドの段階でだけ中身がある。手持ちの魔力で払える分だけ
+func (m Match) LevelUpChoices() []LevelUpChoice {
+	index, ok := m.CurrentParticipant()
+	if m.Phase != PhaseTerritoryCommanding || !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	var choices []LevelUpChoice
+	for _, territory := range m.passedOwnTerritories() {
+		for level := territory.Level + 1; level <= len(m.Rules.LandLevelMultipliers); level++ {
+			if magic := m.levelUpMagic(territory, level); magic <= m.Participants[index].Magic {
+				choices = append(choices, LevelUpChoice{Position: territory.Position, Level: level, Magic: magic})
+			}
+		}
+	}
+	return choices
+}
+
+// 基本の値 × 倍率の差。連鎖の倍率は掛けないので、飛ばして上げた額は途中の額の合計になる（2026-11-08 オーナー）
+func (m Match) levelUpMagic(territory Territory, level int) int {
+	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(territory.Level))
+}
+
+// 今の番の人が、このターンに通った自分の領地（入った順で重ならない）
+func (m Match) passedOwnTerritories() []Territory {
+	index, ok := m.CurrentParticipant()
+	if !ok {
+		return nil
+	}
+	var owned []Territory
+	var seen []board.Position
+	for _, position := range m.PassedPositions {
+		territory, occupied := m.TerritoryAt(position)
+		if !occupied || slices.Contains(seen, position) {
+			continue
+		}
+		if owner, ok := m.TerritoryOwner(territory); ok && owner == index {
+			seen = append(seen, position)
+			owned = append(owned, territory)
+		}
+	}
+	return owned
 }
 
 // 今の番の人が手放せる領地の位置（できた順）。手放す段階でだけ中身がある

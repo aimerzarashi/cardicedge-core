@@ -194,6 +194,23 @@ type InvasionRepelledEvent struct {
 	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
+// 通った自分の領地の土地のレベルを上げた（Level は上げた後のレベル、Magic は払った魔力）
+type TerritoryLeveledUpEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Position    board.Position   `json:"position"`
+	Level       int              `json:"level"`
+	Magic       int              `json:"magic"`
+}
+
+// 領地コマンドを使わなかった。段階のイベントは作らず、使わなかった事実で止まったマスの行動に進める
+type TerritoryCommandSkippedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+}
+
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
@@ -260,32 +277,34 @@ type RewardsCompletedEvent struct {
 }
 
 var (
-	createdEventType               = domain.NewEventName("CreatedEvent")
-	turnOrderDecidedEventType      = domain.NewEventName("TurnOrderDecidedEvent")
-	decksShuffledEventType         = domain.NewEventName("DecksShuffledEvent")
-	handsDealtEventType            = domain.NewEventName("HandsDealtEvent")
-	cardDrawnEventType             = domain.NewEventName("CardDrawnEvent")
-	cardDiscardedEventType         = domain.NewEventName("CardDiscardedEvent")
-	diceRolledEventType            = domain.NewEventName("DiceRolledEvent")
-	movedEventType                 = domain.NewEventName("MovedEvent")
-	checkpointPassedEventType      = domain.NewEventName("CheckpointPassedEvent")
-	lapCompletedEventType          = domain.NewEventName("LapCompletedEvent")
-	turnEndedEventType             = domain.NewEventName("TurnEndedEvent")
-	matchEndedEventType            = domain.NewEventName("MatchEndedEvent")
-	rewardDrawnEventType           = domain.NewEventName("RewardDrawnEvent")
-	rewardsCompletedEventType      = domain.NewEventName("RewardsCompletedEvent")
-	creatureDeployedEventType      = domain.NewEventName("CreatureDeployedEvent")
-	tollPaidEventType              = domain.NewEventName("TollPaidEvent")
-	territoryRelinquishedEventType = domain.NewEventName("TerritoryRelinquishedEvent")
-	magicDepletedEventType         = domain.NewEventName("MagicDepletedEvent")
-	territoryInvadedEventType      = domain.NewEventName("TerritoryInvadedEvent")
-	itemUsedEventType              = domain.NewEventName("ItemUsedEvent")
-	creatureStruckEventType        = domain.NewEventName("CreatureStruckEvent")
-	territoryConqueredEventType    = domain.NewEventName("TerritoryConqueredEvent")
-	invasionRepelledEventType      = domain.NewEventName("InvasionRepelledEvent")
-	itemSkippedEventType           = domain.NewEventName("ItemSkippedEvent")
-	battleStartedEventType         = domain.NewEventName("BattleStartedEvent")
-	battleStatModifiedEventType    = domain.NewEventName("BattleStatModifiedEvent")
+	createdEventType                 = domain.NewEventName("CreatedEvent")
+	turnOrderDecidedEventType        = domain.NewEventName("TurnOrderDecidedEvent")
+	decksShuffledEventType           = domain.NewEventName("DecksShuffledEvent")
+	handsDealtEventType              = domain.NewEventName("HandsDealtEvent")
+	cardDrawnEventType               = domain.NewEventName("CardDrawnEvent")
+	cardDiscardedEventType           = domain.NewEventName("CardDiscardedEvent")
+	diceRolledEventType              = domain.NewEventName("DiceRolledEvent")
+	movedEventType                   = domain.NewEventName("MovedEvent")
+	checkpointPassedEventType        = domain.NewEventName("CheckpointPassedEvent")
+	lapCompletedEventType            = domain.NewEventName("LapCompletedEvent")
+	turnEndedEventType               = domain.NewEventName("TurnEndedEvent")
+	matchEndedEventType              = domain.NewEventName("MatchEndedEvent")
+	rewardDrawnEventType             = domain.NewEventName("RewardDrawnEvent")
+	rewardsCompletedEventType        = domain.NewEventName("RewardsCompletedEvent")
+	creatureDeployedEventType        = domain.NewEventName("CreatureDeployedEvent")
+	tollPaidEventType                = domain.NewEventName("TollPaidEvent")
+	territoryRelinquishedEventType   = domain.NewEventName("TerritoryRelinquishedEvent")
+	magicDepletedEventType           = domain.NewEventName("MagicDepletedEvent")
+	territoryInvadedEventType        = domain.NewEventName("TerritoryInvadedEvent")
+	itemUsedEventType                = domain.NewEventName("ItemUsedEvent")
+	creatureStruckEventType          = domain.NewEventName("CreatureStruckEvent")
+	territoryConqueredEventType      = domain.NewEventName("TerritoryConqueredEvent")
+	invasionRepelledEventType        = domain.NewEventName("InvasionRepelledEvent")
+	itemSkippedEventType             = domain.NewEventName("ItemSkippedEvent")
+	battleStartedEventType           = domain.NewEventName("BattleStartedEvent")
+	battleStatModifiedEventType      = domain.NewEventName("BattleStatModifiedEvent")
+	territoryLeveledUpEventType      = domain.NewEventName("TerritoryLeveledUpEvent")
+	territoryCommandSkippedEventType = domain.NewEventName("TerritoryCommandSkippedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -497,13 +516,29 @@ func (*BattleStatModifiedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*TerritoryLeveledUpEvent) EventType() domain.EventName {
+	return territoryLeveledUpEventType
+}
+
+func (*TerritoryLeveledUpEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*TerritoryCommandSkippedEvent) EventType() domain.EventName {
+	return territoryCommandSkippedEventType
+}
+
+func (*TerritoryCommandSkippedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
-		battleStartedEventType, battleStatModifiedEventType,
+		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, territoryCommandSkippedEventType,
 	}}
 }
 
@@ -568,6 +603,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &BattleStartedEvent{EventMeta: meta}
 	case EventType(battleStatModifiedEventType):
 		event = &BattleStatModifiedEvent{EventMeta: meta}
+	case EventType(territoryLeveledUpEventType):
+		event = &TerritoryLeveledUpEvent{EventMeta: meta}
+	case EventType(territoryCommandSkippedEventType):
+		event = &TerritoryCommandSkippedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

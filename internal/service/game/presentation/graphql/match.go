@@ -116,6 +116,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 		DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
+		LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices),
 	}
 	if invasion := match.Invasion; invasion != nil {
 		card, err := fromMatchCard(invasion.Card)
@@ -148,6 +149,14 @@ func fromQueryRewardPacks(packs []query.MatchRewardPack) []*model.MatchRewardPac
 	return converted
 }
 
+func fromQueryLevelUpChoices(choices []query.MatchLevelUpChoice) []*model.MatchLevelUpChoice {
+	converted := make([]*model.MatchLevelUpChoice, len(choices))
+	for i, choice := range choices {
+		converted[i] = &model.MatchLevelUpChoice{Position: &model.BoardPosition{X: choice.Position.X, Y: choice.Position.Y}, Level: choice.Level, Magic: choice.Magic}
+	}
+	return converted
+}
+
 func fromQueryPositions(positions []query.BoardPosition) []*model.BoardPosition {
 	converted := make([]*model.BoardPosition, len(positions))
 	for i, position := range positions {
@@ -176,6 +185,8 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseDefending, nil
 	case query.MatchPhaseRelinquishing:
 		return model.MatchPhaseRelinquishing, nil
+	case query.MatchPhaseTerritoryCommanding:
+		return model.MatchPhaseTerritoryCommanding, nil
 	case query.MatchPhaseEnding:
 		return model.MatchPhaseEnding, nil
 	case query.MatchPhaseEnded:
@@ -315,6 +326,13 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchItemUsedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card, Cost: e.Cost}, nil
 	case query.MatchItemSkippedEvent:
 		return &model.MatchItemSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
+	case query.MatchTerritoryLeveledUpEvent:
+		return &model.MatchTerritoryLeveledUpEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Level: e.Level, Magic: e.Magic,
+		}, nil
+	case query.MatchTerritoryCommandSkippedEvent:
+		return &model.MatchTerritoryCommandSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchBattleStartedEvent:
 		return &model.MatchBattleStartedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Attacker: fromMatchBattleStats(e.Attacker), Defender: fromMatchBattleStats(e.Defender)}, nil
 	case query.MatchBattleStatModifiedEvent:

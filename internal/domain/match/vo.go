@@ -68,6 +68,8 @@ const (
 	PhaseChoosingPath Phase = "choosing_path"
 	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
 	PhaseDeploying Phase = "deploying"
+	// 止まった後のステップ 1。通った自分の領地に領地コマンドを実行するか、使わないかを選ぶ。止まったマスの行動（ステップ 2）の前
+	PhaseTerritoryCommanding Phase = "territory_commanding"
 	// 他人の領地に止まった後。通行料を払うか、手札のクリーチャーで侵略するかを選ぶ（侵略できる手札が無くても、払うを選ぶ段階に入る。2026-11-09 オーナー）
 	PhaseInvading Phase = "invading"
 	// 侵略を確定した後。攻める側がアイテムを選ぶ（出せるものが無くても、出さないを選ぶ段階に入る。守る段階と同じ）

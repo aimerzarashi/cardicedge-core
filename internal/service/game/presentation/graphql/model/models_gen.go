@@ -153,6 +153,11 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
+// levelUpMatchTerritory の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type LevelUpMatchTerritoryResult interface {
+	IsLevelUpMatchTerritoryResult()
+}
+
 // 戦闘の AT・HP を変えた効果の出どころ
 type MatchBattleStatSource interface {
 	IsMatchBattleStatSource()
@@ -243,6 +248,11 @@ type RollMatchDiceResult interface {
 // 部屋の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type RoomResult interface {
 	IsRoomResult()
+}
+
+// skipMatchTerritoryCommand の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+type SkipMatchTerritoryCommandResult interface {
+	IsSkipMatchTerritoryCommandResult()
 }
 
 // 侵略を確定した人がアイテムを選ぶ入力
@@ -1077,6 +1087,28 @@ func (this LandTile) GetX() int { return this.X }
 // 行
 func (this LandTile) GetY() int { return this.Y }
 
+// 通った自分の領地のレベルを上げる入力
+type LevelUpMatchTerritoryInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 領地の位置（Match.levelUpChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）
+	Position *BoardPositionInput `json:"position"`
+	// 上げた後のレベル
+	Level int `json:"level"`
+}
+
+// 領地のレベルを上げた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）
+type LevelUpMatchTerritorySuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (LevelUpMatchTerritorySuccess) IsLevelUpMatchTerritoryResult() {}
+
 // 対戦。参加者は部屋の席の順で返す。
 // 順番は参加者ごとの turnOrder で見せる（始めるときに無作為に決めたもの）
 type Match struct {
@@ -1112,6 +1144,8 @@ type Match struct {
 	ItemChoices []int `json:"itemChoices"`
 	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
+	// 今の番の人が選べるレベルアップ（TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
+	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
 	// 侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）
 	Invasion *MatchInvasion `json:"invasion,omitempty"`
 	// 盤面の領地（できた順）
@@ -1637,6 +1671,16 @@ func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.Occur
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchLapCompletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 領地のレベルを上げる選択肢 1 つ
+type MatchLevelUpChoice struct {
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 上げた後のレベル
+	Level int `json:"level"`
+	// 払う魔力
+	Magic int `json:"magic"`
+}
+
 // 領地が無くなっても魔力が負のままだったので、拠点からやり直す（手札と山札はそのまま）
 type MatchMagicDepletedEvent struct {
 	// 対戦の版
@@ -1715,6 +1759,10 @@ func (MatchNotFoundError) IsDefendMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
 
+func (MatchNotFoundError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchNotFoundError) IsSkipMatchTerritoryCommandResult() {}
+
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
 
 func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
@@ -1748,6 +1796,10 @@ func (MatchNotYourTurnError) IsPayMatchTollResult() {}
 func (MatchNotYourTurnError) IsDefendMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsSkipMatchTerritoryCommandResult() {}
 
 func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
 
@@ -1814,6 +1866,10 @@ func (MatchPhaseNotAllowedError) IsPayMatchTollResult() {}
 func (MatchPhaseNotAllowedError) IsDefendMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsSkipMatchTerritoryCommandResult() {}
 
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
@@ -1969,6 +2025,29 @@ type MatchTerritory struct {
 	RelinquishMagic int `json:"relinquishMagic"`
 }
 
+// 領地コマンドを使わなかった
+type MatchTerritoryCommandSkippedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使わなかった参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchTerritoryCommandSkippedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTerritoryCommandSkippedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTerritoryCommandSkippedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTerritoryCommandSkippedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）
 type MatchTerritoryConqueredEvent struct {
 	// 対戦の版
@@ -2030,6 +2109,35 @@ func (this MatchTerritoryInvadedEvent) GetOccurredAt() time.Time { return this.O
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchTerritoryInvadedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 通った自分の領地のレベルを上げた
+type MatchTerritoryLeveledUpEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 上げた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 上げた後のレベル
+	Level int `json:"level"`
+	// 払った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchTerritoryLeveledUpEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTerritoryLeveledUpEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTerritoryLeveledUpEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTerritoryLeveledUpEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 魔力が負の間に自分の領地を手放した（クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る）
 type MatchTerritoryRelinquishedEvent struct {
@@ -2288,6 +2396,10 @@ func (PlayerNotRegisteredError) IsDefendMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
 
+func (PlayerNotRegisteredError) IsLevelUpMatchTerritoryResult() {}
+
+func (PlayerNotRegisteredError) IsSkipMatchTerritoryCommandResult() {}
+
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
 
 func (PlayerNotRegisteredError) IsChooseMatchRewardPackResult() {}
@@ -2467,6 +2579,10 @@ func (RevisionConflictError) IsPayMatchTollResult() {}
 func (RevisionConflictError) IsDefendMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsLevelUpMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsSkipMatchTerritoryCommandResult() {}
 
 func (RevisionConflictError) IsEndMatchTurnResult() {}
 
@@ -2774,6 +2890,24 @@ func (this ShrineTile) GetX() int { return this.X }
 // 行
 func (this ShrineTile) GetY() int { return this.Y }
 
+// 領地コマンドを使わない入力
+type SkipMatchTerritoryCommandInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+}
+
+// 領地コマンドを使わなかった（止まったマスの行動に進む。成功したら対戦の revision が進む）
+type SkipMatchTerritoryCommandSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (SkipMatchTerritoryCommandSuccess) IsSkipMatchTerritoryCommandResult() {}
+
 // スペル
 type SpellCardInfo struct {
 	// 公開用の ID
@@ -2830,6 +2964,8 @@ func (ValidationErrors) IsAttackMatchTerritoryResult() {}
 func (ValidationErrors) IsDefendMatchTerritoryResult() {}
 
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
+
+func (ValidationErrors) IsLevelUpMatchTerritoryResult() {}
 
 func (ValidationErrors) IsChooseMatchRewardPackResult() {}
 
@@ -3373,6 +3509,8 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// 空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
 	MatchPhaseDeploying MatchPhase = "DEPLOYING"
+	// 止まった後のステップ 1。通った自分の領地に領地コマンドを実行する（levelUpMatchTerritory）か、使わない（skipMatchTerritoryCommand）。通った自分の領地が無ければ入らない
+	MatchPhaseTerritoryCommanding MatchPhase = "TERRITORY_COMMANDING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"
 	// 侵略を確定した後の段階。攻める側がアイテムを選ぶ（attackMatchTerritory。出さないことも選ぶ）。出せるアイテムが無くても入る
@@ -3393,6 +3531,7 @@ var AllMatchPhase = []MatchPhase{
 	MatchPhaseRolling,
 	MatchPhaseChoosingPath,
 	MatchPhaseDeploying,
+	MatchPhaseTerritoryCommanding,
 	MatchPhaseInvading,
 	MatchPhaseAttacking,
 	MatchPhaseDefending,
@@ -3403,7 +3542,7 @@ var AllMatchPhase = []MatchPhase{
 
 func (e MatchPhase) IsValid() bool {
 	switch e {
-	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseInvading, MatchPhaseAttacking, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseTerritoryCommanding, MatchPhaseInvading, MatchPhaseAttacking, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
 		return true
 	}
 	return false

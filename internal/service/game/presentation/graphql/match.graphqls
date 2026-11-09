@@ -19,6 +19,8 @@ enum MatchPhase {
   CHOOSING_PATH
   "空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
   DEPLOYING
+  "止まった後のステップ 1。通った自分の領地に領地コマンドを実行する（levelUpMatchTerritory）か、使わない（skipMatchTerritoryCommand）。通った自分の領地が無ければ入らない"
+  TERRITORY_COMMANDING
   "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
   INVADING
   "侵略を確定した後の段階。攻める側がアイテムを選ぶ（attackMatchTerritory。出さないことも選ぶ）。出せるアイテムが無くても入る"
@@ -232,6 +234,8 @@ type Match {
   itemChoices: [Int!]!
   "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
   relinquishChoices: [BoardPosition!]!
+  "今の番の人が選べるレベルアップ（TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）"
+  levelUpChoices: [MatchLevelUpChoice!]!
   "侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）"
   invasion: MatchInvasion
   "盤面の領地（できた順）"
@@ -546,6 +550,71 @@ union RelinquishMatchTerritoryResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"領地のレベルを上げる選択肢 1 つ"
+type MatchLevelUpChoice {
+  "領地の位置"
+  position: BoardPosition!
+  "上げた後のレベル"
+  level: Int!
+  "払う魔力"
+  magic: Int!
+}
+
+"通った自分の領地のレベルを上げる入力"
+input LevelUpMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "領地の位置（Match.levelUpChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+  "上げた後のレベル"
+  level: Int!
+}
+
+"領地のレベルを上げた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
+type LevelUpMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"levelUpMatchTerritory の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union LevelUpMatchTerritoryResult =
+    LevelUpMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"領地コマンドを使わない入力"
+input SkipMatchTerritoryCommandInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+}
+
+"領地コマンドを使わなかった（止まったマスの行動に進む。成功したら対戦の revision が進む）"
+type SkipMatchTerritoryCommandSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"skipMatchTerritoryCommand の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ）"
+union SkipMatchTerritoryCommandResult =
+    SkipMatchTerritoryCommandSuccess
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "ターンを終える入力"
 input EndMatchTurnInput {
   "対戦の公開用の ID"
@@ -618,6 +687,10 @@ extend type Mutation {
   deployMatchCreature(input: DeployMatchCreatureInput!): DeployMatchCreatureResult!
   "魔力が負の間に、自分の領地を手放す"
   relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
+  "通った自分の領地のレベルを上げる（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  levelUpMatchTerritory(input: LevelUpMatchTerritoryInput!): LevelUpMatchTerritoryResult!
+  "領地コマンドを使わず、止まったマスの行動に進む"
+  skipMatchTerritoryCommand(input: SkipMatchTerritoryCommandInput!): SkipMatchTerritoryCommandResult!
   "止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定し、コストの分の魔力を払う）"
   invadeMatchTerritory(input: InvadeMatchTerritoryInput!): InvadeMatchTerritoryResult!
   "侵略を確定した人が、アイテムを選ぶ（出さないことも選ぶ）"
@@ -858,6 +931,36 @@ enum MatchBattleSide {
   ATTACKER
   "守る側（領地の持ち主）"
   DEFENDER
+}
+
+"通った自分の領地のレベルを上げた"
+type MatchTerritoryLeveledUpEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "上げた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "領地の位置"
+  position: BoardPosition!
+  "上げた後のレベル"
+  level: Int!
+  "払った魔力"
+  magic: Int!
+}
+
+"領地コマンドを使わなかった"
+type MatchTerritoryCommandSkippedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使わなかった参加者（Match.participants の何番目か）"
+  participant: Int!
 }
 
 "戦闘の中の AT・HP"

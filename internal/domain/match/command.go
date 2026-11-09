@@ -96,6 +96,22 @@ type RelinquishTerritoryCommand struct {
 
 func (*RelinquishTerritoryCommand) isMatchCommand() {}
 
+// 通った自分の領地の土地のレベルを Level に上げる（飛ばして上げられる）
+type LevelUpTerritoryCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+	Level    int
+}
+
+func (*LevelUpTerritoryCommand) isMatchCommand() {}
+
+// 領地コマンドを使わず、止まったマスの行動に進む
+type SkipTerritoryCommandCommand struct {
+	By ParticipantIndex
+}
+
+func (*SkipTerritoryCommandCommand) isMatchCommand() {}
+
 type EndTurnCommand struct {
 	By ParticipantIndex
 }

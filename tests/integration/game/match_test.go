@@ -32,7 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } levelUpChoices { position { x y } level magic } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -160,7 +160,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -234,6 +234,14 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 	case "DEFENDING":
 		require.NotNil(t, m["invasion"])
 		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
+	case "TERRITORY_COMMANDING":
+		// 選べるレベルアップがあれば最初を実行し、無ければ使わない
+		if choices := m["levelUpChoices"].([]any); len(choices) > 0 {
+			choice := choices[0].(map[string]any)
+			input["position"], input["level"] = choice["position"], choice["level"]
+			return matchRevision(t, matchOperation(t, token, "levelUpMatchTerritory", input), "levelUpMatchTerritory")
+		}
+		return matchRevision(t, matchOperation(t, token, "skipMatchTerritoryCommand", input), "skipMatchTerritoryCommand")
 	case "RELINQUISHING":
 		choices := m["relinquishChoices"].([]any)
 		require.NotEmpty(t, choices)
@@ -366,6 +374,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
+				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
+				... on MatchTerritoryCommandSkippedEvent { participant }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleStatModifiedEvent {
 					side attackDelta hitPointsDelta attack hitPoints

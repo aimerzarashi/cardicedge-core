@@ -28,6 +28,10 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
 	case *DeployCreatureCommand:
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
+	case *LevelUpTerritoryCommand:
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) })
+	case *SkipTerritoryCommandCommand:
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, skipTerritoryCommand)
 	case *InvadeCommand:
 		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex) })
 	case *AttackCommand:
@@ -192,6 +196,37 @@ func advance(r *recorder) error {
 		}
 	}
 	return nil
+}
+
+func levelUp(r *recorder, position board.Position, level int) error {
+	index := slices.IndexFunc(r.state.LevelUpChoices(), func(choice LevelUpChoice) bool { return choice.Position == position && choice.Level == level })
+	if index < 0 {
+		return ErrTerritoryNotLevelUpable
+	}
+	magic := r.state.LevelUpChoices()[index].Magic
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: position, Level: level, Magic: magic}
+	}); err != nil {
+		return err
+	}
+	return afterTerritoryCommand(r)
+}
+
+// 領地コマンドを実行した後の止まったマスの行動は、他人の領地なら通行料を払う一択で、ほかは何もせず終わる（2026-11-09 オーナー。施設は作るときにここへ足す）
+func afterTerritoryCommand(r *recorder) error {
+	index, _ := r.state.CurrentParticipant()
+	if territory, ok := r.state.invadedTerritory(); ok {
+		if owner, ok := r.state.TerritoryOwner(territory); ok && owner != index {
+			return payToll(r)
+		}
+	}
+	return endTurn(r)
+}
+
+func skipTerritoryCommand(r *recorder) error {
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryCommandSkippedEvent{EventMeta: meta, Participant: by}
+	})
 }
 
 // 手札のクリーチャーを出して確定する。アイテムは攻める側 → 守る側の順に、別の操作で選ぶ
