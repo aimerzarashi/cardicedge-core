@@ -64,8 +64,54 @@ type Invasion struct {
 	Card card.Ref
 	// 出したときの性能の写し
 	Base CreatureSpec
-	// 今の体力
+	// 戦闘の前の体力（戦闘の中の値は Battle が持つ）
 	HitPoints creature.HitPoints
+	// 出したアイテム。出すまでと、出さなかったときは nil
+	AttackerItem *card.Ref
+	DefenderItem *card.Ref
+}
+
+// 戦闘の中の片方のクリーチャー
+type BattleCreature struct {
+	// 効果と攻撃を当てた今の値
+	Stats BattleStats
+	// 効果を当てる前の体力
+	InitialHitPoints creature.HitPoints
+	// 効果で増減した体力の合計
+	HitPointsBonus int
+}
+
+// 戦闘の後に領地に残る体力。増えた分は先に減って残りは消え、下がった分は戦闘が終わると戻るので、残る傷は増えた分を超えたダメージだけ
+func (c BattleCreature) territoryHitPoints() creature.HitPoints {
+	damage := c.InitialHitPoints.Int() + c.HitPointsBonus - c.Stats.HitPoints.Int()
+	return c.InitialHitPoints.Modified(-max(damage-max(c.HitPointsBonus, 0), 0))
+}
+
+// 戦闘が始まってから終わるまでの両方のクリーチャー
+type Battle struct {
+	Attacker BattleCreature
+	Defender BattleCreature
+}
+
+func (b Battle) creature(side BattleSide) BattleCreature {
+	if side == BattleSideAttacker {
+		return b.Attacker
+	}
+	return b.Defender
+}
+
+func (b Battle) withCreature(side BattleSide, updated BattleCreature) *Battle {
+	if side == BattleSideAttacker {
+		b.Attacker = updated
+	} else {
+		b.Defender = updated
+	}
+	return &b
+}
+
+// どちらかの体力が 0 になっていて、戦闘が終わるか。AT は 0 になっても終わらない
+func (b Battle) decided() bool {
+	return b.Attacker.Stats.HitPoints.Int() == 0 || b.Defender.Stats.HitPoints.Int() == 0
 }
 
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
@@ -96,6 +142,8 @@ type Match struct {
 	Territories []Territory
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *Invasion
+	// 戦闘が始まってから終わるまでだけある
+	Battle *Battle
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastDeployedCreatureID DeployedCreatureID
 }
@@ -324,6 +372,28 @@ func (m Match) territoriesOf(index ParticipantIndex) []Territory {
 func (m Match) TerritoryOwner(territory Territory) (ParticipantIndex, bool) {
 	deployed, ok := m.DeployedCreature(territory.Creature)
 	return deployed.Owner, ok
+}
+
+// 侵略先の隣にある、その参加者の領地の位置（Position.Compare の順）。隣はボードのつながりだけで数え、転送円・橋の対は数えない（2026-11-09 オーナー）
+func (m Match) adjacentTerritoriesOf(position board.Position, owner ParticipantIndex) []board.Position {
+	var positions []board.Position
+	for _, connection := range m.Board.Connections {
+		neighbor := connection.A
+		switch position {
+		case connection.A:
+			neighbor = connection.B
+		case connection.B:
+		default:
+			continue
+		}
+		if territory, ok := m.TerritoryAt(neighbor); ok {
+			if territoryOwner, ok := m.TerritoryOwner(territory); ok && territoryOwner == owner {
+				positions = append(positions, neighbor)
+			}
+		}
+	}
+	slices.SortFunc(positions, board.Position.Compare)
+	return slices.Compact(positions)
 }
 
 func (m Match) landElement(position board.Position) board.Element {

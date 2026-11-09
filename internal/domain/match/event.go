@@ -125,7 +125,7 @@ type TerritoryInvadedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から無くなる。攻める側も守る側も同じ形で、効果は core#114 で足す
+// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から無くなる。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
 type ItemUsedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -142,7 +142,28 @@ type ItemSkippedEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 }
 
-// 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の残りの体力で、0 なら倒れた）
+// 戦闘が始まった。効果を当てる前の両方の AT・HP で、計算の経過の始まり
+type BattleStartedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Attacker    BattleStats `json:"attacker"`
+	Defender    BattleStats `json:"defender"`
+}
+
+// 効果 1 つが戦闘の AT・HP を変えた。量の増減は効果の種類によらずこのイベントで表し、何の効果かは Source が持つ。
+// Delta は下限（0）で止まった後の実際の増減で、Attack・HitPoints は当てた後の値（画面が計算せずに再生するため）
+type BattleStatModifiedEvent struct {
+	EventMeta      `json:"-"`
+	eventMarker    `json:"-"`
+	Side           BattleSide         `json:"side"`
+	Source         BattleStatSource   `json:"source"`
+	AttackDelta    int                `json:"attack_delta"`
+	HitPointsDelta int                `json:"hit_points_delta"`
+	Attack         creature.Attack    `json:"attack"`
+	HitPoints      creature.HitPoints `json:"hit_points"`
+}
+
+// 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の、効果で増えた分も含む戦闘の中の残りの体力で、0 なら倒れた）
 type CreatureStruckEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
@@ -151,24 +172,26 @@ type CreatureStruckEvent struct {
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
 }
 
-// 守る側のクリーチャーを倒して土地を奪った。土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID
+// 守る側のクリーチャーを倒して土地を奪った。土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID、TerritoryHitPoints はその体力
 type TerritoryConqueredEvent struct {
-	EventMeta        `json:"-"`
-	eventMarker      `json:"-"`
-	Participant      ParticipantIndex   `json:"participant"`
-	Position         board.Position     `json:"position"`
-	DefeatedCreature DeployedCreatureID `json:"defeated_creature"`
-	Creature         DeployedCreatureID `json:"creature"`
+	EventMeta          `json:"-"`
+	eventMarker        `json:"-"`
+	Participant        ParticipantIndex   `json:"participant"`
+	Position           board.Position     `json:"position"`
+	DefeatedCreature   DeployedCreatureID `json:"defeated_creature"`
+	Creature           DeployedCreatureID `json:"creature"`
+	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
-// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる。続けて通行料を払う
+// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる。続けて通行料を払う。TerritoryHitPoints は領地のクリーチャーに残る体力
 type InvasionRepelledEvent struct {
-	EventMeta      `json:"-"`
-	eventMarker    `json:"-"`
-	Participant    ParticipantIndex `json:"participant"`
-	Position       board.Position   `json:"position"`
-	Card           card.Ref         `json:"card"`
-	ReturnedToHand bool             `json:"returned_to_hand"`
+	EventMeta          `json:"-"`
+	eventMarker        `json:"-"`
+	Participant        ParticipantIndex   `json:"participant"`
+	Position           board.Position     `json:"position"`
+	Card               card.Ref           `json:"card"`
+	ReturnedToHand     bool               `json:"returned_to_hand"`
+	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
 // 振った目
@@ -261,6 +284,8 @@ var (
 	territoryConqueredEventType    = domain.NewEventName("TerritoryConqueredEvent")
 	invasionRepelledEventType      = domain.NewEventName("InvasionRepelledEvent")
 	itemSkippedEventType           = domain.NewEventName("ItemSkippedEvent")
+	battleStartedEventType         = domain.NewEventName("BattleStartedEvent")
+	battleStatModifiedEventType    = domain.NewEventName("BattleStatModifiedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -456,12 +481,29 @@ func (*ItemSkippedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*BattleStartedEvent) EventType() domain.EventName {
+	return battleStartedEventType
+}
+
+func (*BattleStartedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*BattleStatModifiedEvent) EventType() domain.EventName {
+	return battleStatModifiedEventType
+}
+
+func (*BattleStatModifiedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
+		battleStartedEventType, battleStatModifiedEventType,
 	}}
 }
 
@@ -522,6 +564,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &InvasionRepelledEvent{EventMeta: meta}
 	case EventType(itemSkippedEventType):
 		event = &ItemSkippedEvent{EventMeta: meta}
+	case EventType(battleStartedEventType):
+		event = &BattleStartedEvent{EventMeta: meta}
+	case EventType(battleStatModifiedEventType):
+		event = &BattleStatModifiedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

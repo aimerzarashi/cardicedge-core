@@ -366,9 +366,19 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
+				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
+				... on MatchBattleStatModifiedEvent {
+					side attackDelta hitPointsDelta attack hitPoints
+					source {
+						__typename
+						... on MatchAdjacentTerritoriesSource { positions { x y } }
+						... on MatchTerrainSource { element level }
+						... on MatchItemSource { card { id name } }
+					}
+				}
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
-				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature }
-				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand }
+				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature territoryHitPoints }
+				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
 				... on MatchDiceRolledEvent { participant value }

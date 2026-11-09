@@ -6,6 +6,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 )
 
 // 中で time.Now や乱数を呼ばず受け取るのは、テストで時刻・並びを固定するため。混ぜた並びはイベントに残し、Evolve は乱数に左右されない
@@ -232,40 +234,132 @@ func defend(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
 	return battle(r)
 }
 
-// 攻める側が先に攻撃し、守る側が生きていれば反撃する。能力とアイテムの効果はまだ無い（core#114）
+// 効果を順に当て、残っていれば攻める側が先に攻撃し、守る側が生きていれば反撃する。
+// どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）
 func battle(r *recorder) error {
-	defeated, err := strike(r, BattleSideAttacker)
-	if err != nil {
+	if err := startBattle(r); err != nil {
 		return err
 	}
-	if defeated {
-		return conquer(r)
+	for _, apply := range battleEffects() {
+		if err := apply(r); err != nil {
+			return err
+		}
+		if r.state.Battle.decided() {
+			return settleBattle(r)
+		}
 	}
-	if _, err := strike(r, BattleSideDefender); err != nil {
-		return err
+	for _, striker := range []BattleSide{BattleSideAttacker, BattleSideDefender} {
+		if err := strike(r, striker); err != nil {
+			return err
+		}
+		if r.state.Battle.decided() {
+			break
+		}
 	}
-	return repel(r)
+	return settleBattle(r)
 }
 
-// 受けた側が倒れたかを返す
-func strike(r *recorder, striker BattleSide) (bool, error) {
+func startBattle(r *recorder) error {
 	territory, ok := r.state.invadedTerritory()
 	if !ok || r.state.Invasion == nil {
-		return false, ErrInvalidState
+		return ErrInvalidState
 	}
 	defending, ok := r.state.DeployedCreature(territory.Creature)
 	if !ok {
-		return false, ErrInvalidState
+		return ErrInvalidState
 	}
 	invasion := *r.state.Invasion
-	damage, remaining := invasion.Base.Attack, defending.HitPoints.Damaged(invasion.Base.Attack)
-	if striker == BattleSideDefender {
-		damage, remaining = defending.Base.Attack, invasion.HitPoints.Damaged(defending.Base.Attack)
+	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &BattleStartedEvent{
+			EventMeta: meta,
+			Attacker:  BattleStats{Attack: invasion.Base.Attack, HitPoints: invasion.HitPoints},
+			Defender:  BattleStats{Attack: defending.Base.Attack, HitPoints: defending.HitPoints},
+		}
+	})
+}
+
+// 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は 呪い → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
+// 呪い・能力は作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
+func battleEffects() []func(*recorder) error {
+	return []func(*recorder) error{
+		applyAdjacentTerritories,
+		func(r *recorder) error { return applyItem(r, BattleSideAttacker, r.state.Invasion.AttackerItem) },
+		applyTerrain,
+		func(r *recorder) error { return applyItem(r, BattleSideDefender, r.state.Invasion.DefenderItem) },
 	}
-	err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+}
+
+func applyAdjacentTerritories(r *recorder) error {
+	attacker, ok := r.state.CurrentParticipant()
+	if !ok {
+		return ErrInvalidState
+	}
+	positions := r.state.adjacentTerritoriesOf(r.current().Position, attacker)
+	return modifyBattleStats(r, BattleSideAttacker, NewAdjacentTerritoriesSource(positions), len(positions)*r.state.Rules.AdjacentTerritoryBonus.Int(), 0)
+}
+
+func applyTerrain(r *recorder) error {
+	territory, ok := r.state.invadedTerritory()
+	if !ok {
+		return ErrInvalidState
+	}
+	defending, ok := r.state.DeployedCreature(territory.Creature)
+	if !ok {
+		return ErrInvalidState
+	}
+	element := r.state.landElement(territory.Position)
+	if !terrainMatches(element, defending.Base.Elements) {
+		return nil
+	}
+	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, territory.Level), 0, territory.Level*r.state.Rules.TerrainBonusPerLevel.Int())
+}
+
+// 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）
+func terrainMatches(land board.Element, elements creature.Elements) bool {
+	if land == board.ElementMulti {
+		return !slices.Contains(elements, creature.ElementNeutral)
+	}
+	return slices.ContainsFunc(elements, func(element creature.Element) bool { return element.String() == land.String() })
+}
+
+// 巻物は分類だけで、増減を持っていても効果は無い（2026-11-09 オーナー）
+func applyItem(r *recorder, side BattleSide, used *card.Ref) error {
+	if used == nil {
+		return nil
+	}
+	spec := r.state.CardSpecs()[*used].Item
+	if spec == nil || spec.Category == item.CategoryScroll {
+		return nil
+	}
+	return modifyBattleStats(r, side, NewItemSource(*used), spec.AttackBonus.Int(), spec.HitPointsBonus.Int())
+}
+
+// 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない
+func modifyBattleStats(r *recorder, side BattleSide, source BattleStatSource, attackDelta, hitPointsDelta int) error {
+	before := r.state.Battle.creature(side).Stats
+	attack, hitPoints := before.Attack.Modified(attackDelta), before.HitPoints.Modified(hitPointsDelta)
+	actualAttack, actualHitPoints := attack.Int()-before.Attack.Int(), hitPoints.Int()-before.HitPoints.Int()
+	if actualAttack == 0 && actualHitPoints == 0 {
+		return nil
+	}
+	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &BattleStatModifiedEvent{EventMeta: meta, Side: side, Source: source, AttackDelta: actualAttack, HitPointsDelta: actualHitPoints, Attack: attack, HitPoints: hitPoints}
+	})
+}
+
+func strike(r *recorder, striker BattleSide) error {
+	damage := r.state.Battle.creature(striker).Stats.Attack
+	remaining := r.state.Battle.creature(striker.opponent()).Stats.HitPoints.Damaged(damage)
+	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
 		return &CreatureStruckEvent{EventMeta: meta, Striker: striker, Damage: damage, RemainingHitPoints: remaining}
 	})
-	return remaining.Int() == 0, err
+}
+
+func settleBattle(r *recorder) error {
+	if r.state.Battle.Defender.Stats.HitPoints.Int() == 0 {
+		return conquer(r)
+	}
+	return repel(r)
 }
 
 // 奪ったら、配置と同じくそのままターンを終える
@@ -275,8 +369,9 @@ func conquer(r *recorder) error {
 		return ErrInvalidState
 	}
 	id := r.state.LastDeployedCreatureID + 1
+	hitPoints := r.state.Battle.Attacker.territoryHitPoints()
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: territory.Position, DefeatedCreature: territory.Creature, Creature: id}
+		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: territory.Position, DefeatedCreature: territory.Creature, Creature: id, TerritoryHitPoints: hitPoints}
 	}); err != nil {
 		return err
 	}
@@ -289,8 +384,10 @@ func repel(r *recorder) error {
 	}
 	invasion := *r.state.Invasion
 	position := r.current().Position
+	returned := r.state.Battle.Attacker.Stats.HitPoints.Int() > 0
+	hitPoints := r.state.Battle.Defender.territoryHitPoints()
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: invasion.Card, ReturnedToHand: invasion.HitPoints.Int() > 0}
+		return &InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: invasion.Card, ReturnedToHand: returned, TerritoryHitPoints: hitPoints}
 	}); err != nil {
 		return err
 	}

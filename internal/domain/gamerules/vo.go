@@ -74,6 +74,10 @@ type Match struct {
 	TollPercentage TollPercentage `json:"toll_percentage"`
 	// 土地の価値のうち、手放したときに受け取る割合（百分率）
 	RelinquishPercentage RelinquishPercentage `json:"relinquish_percentage"`
+	// 地形効果で、土地のレベル 1 あたりに守る側の HP へ足す値
+	TerrainBonusPerLevel TerrainBonusPerLevel `json:"terrain_bonus_per_level"`
+	// 支援で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
+	AdjacentTerritoryBonus AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
 }
 
 // 対戦の値の型は gamerules に置く。対戦の集約（match）は参加者のデッキを写すため npcdeck を読み、npcdeck が gamerules を読むので、match に置くとパッケージが循環する（core#71）
@@ -231,6 +235,34 @@ func (s RelinquishPercentage) Int() int {
 	return int(s)
 }
 
+// 地形効果の、土地のレベル 1 あたりの HP。1 以上
+type TerrainBonusPerLevel int
+
+func NewTerrainBonusPerLevel(value int) (TerrainBonusPerLevel, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: terrain bonus per level is %d", ErrMatchValueNotPositive, value)
+	}
+	return TerrainBonusPerLevel(value), nil
+}
+
+func (t TerrainBonusPerLevel) Int() int {
+	return int(t)
+}
+
+// 支援の、隣の領地 1 つあたりの AT。1 以上
+type AdjacentTerritoryBonus int
+
+func NewAdjacentTerritoryBonus(value int) (AdjacentTerritoryBonus, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: adjacent territory bonus is %d", ErrMatchValueNotPositive, value)
+	}
+	return AdjacentTerritoryBonus(value), nil
+}
+
+func (a AdjacentTerritoryBonus) Int() int {
+	return int(a)
+}
+
 var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
 
 // 項目をまたぐ決まり（人数の最小 ≤ 最大、配る手札 ≤ 手札の上限・デッキの枚数）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
@@ -298,6 +330,10 @@ func Defaults() Rules {
 	must(err)
 	relinquishPercentage, err := NewRelinquishPercentage(80)
 	must(err)
+	terrainBonusPerLevel, err := NewTerrainBonusPerLevel(10)
+	must(err)
+	adjacentTerritoryBonus, err := NewAdjacentTerritoryBonus(10)
+	must(err)
 	return Rules{
 		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
 		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
@@ -305,6 +341,7 @@ func Defaults() Rules {
 			MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 			RewardCardsByRank: rewardCardsByRank, LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers,
 			TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
+			TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
 		},
 	}
 }

@@ -116,6 +116,8 @@
     "land_level_multipliers": [1, 2, 4, 8, 16],
     "chain_multipliers": [100, 150, 200, 250, 300],
     "toll_percentage": 60,
-    "relinquish_percentage": 80
+    "relinquish_percentage": 80,
+    "terrain_bonus_per_level": 10,
+    "adjacent_territory_bonus": 10
   }
 }

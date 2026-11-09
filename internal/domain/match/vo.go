@@ -98,6 +98,58 @@ const (
 	BattleSideDefender BattleSide = "defender"
 )
 
+func (s BattleSide) valid() bool {
+	return s == BattleSideAttacker || s == BattleSideDefender
+}
+
+func (s BattleSide) opponent() BattleSide {
+	if s == BattleSideAttacker {
+		return BattleSideDefender
+	}
+	return BattleSideAttacker
+}
+
+// 戦闘の中の AT・HP
+type BattleStats struct {
+	Attack    creature.Attack    `json:"attack"`
+	HitPoints creature.HitPoints `json:"hit_points"`
+}
+
+// 戦闘の AT・HP を変えた効果の出どころ。種類ごとに 1 つだけ持つ（2026-11-09 オーナー。クリーチャーの能力・呪いは作るときに種類を足す）
+type BattleStatSource struct {
+	AdjacentTerritories *AdjacentTerritoriesSource `json:"adjacent_territories,omitempty"`
+	Terrain             *TerrainSource             `json:"terrain,omitempty"`
+	Item                *ItemSource                `json:"item,omitempty"`
+}
+
+// 支援。侵略先の隣にある、攻める側の領地の位置。support と呼ばないのは、能力の援護と取り違えないため
+type AdjacentTerritoriesSource struct {
+	Positions []board.Position `json:"positions"`
+}
+
+// 地形効果。効いた土地の属性とレベル
+type TerrainSource struct {
+	Element board.Element `json:"element"`
+	Level   int           `json:"level"`
+}
+
+// 戦闘に出したアイテム
+type ItemSource struct {
+	Card card.Ref `json:"card"`
+}
+
+func NewAdjacentTerritoriesSource(positions []board.Position) BattleStatSource {
+	return BattleStatSource{AdjacentTerritories: &AdjacentTerritoriesSource{Positions: positions}}
+}
+
+func NewTerrainSource(element board.Element, level int) BattleStatSource {
+	return BattleStatSource{Terrain: &TerrainSource{Element: element, Level: level}}
+}
+
+func NewItemSource(ref card.Ref) BattleStatSource {
+	return BattleStatSource{Item: &ItemSource{Card: ref}}
+}
+
 type EndReason string
 
 const (
@@ -263,15 +315,19 @@ type Rules struct {
 	ChainMultipliers     gamerules.ChainMultipliers     `json:"chain_multipliers"`
 	TollPercentage       gamerules.TollPercentage       `json:"toll_percentage"`
 	RelinquishPercentage gamerules.RelinquishPercentage `json:"relinquish_percentage"`
+	// 戦闘の効果の決まり。全体のルールの写し
+	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
+	AdjacentTerritoryBonus gamerules.AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
 		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
 		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
+		TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
 	}
 }
 

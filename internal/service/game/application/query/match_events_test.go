@@ -274,14 +274,47 @@ func invadingEvents(t *testing.T) []match.Event {
 	)
 }
 
+func battleStarted(t *testing.T, revision int64) *match.BattleStartedEvent {
+	t.Helper()
+	stats := match.BattleStats{Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20)}
+	return &match.BattleStartedEvent{EventMeta: eventMeta(t, revision), Attacker: stats, Defender: stats}
+}
+
+func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
+	modified := func(revision int64, side match.BattleSide, source match.BattleStatSource, attack, hitPoints int) *match.BattleStatModifiedEvent {
+		return &match.BattleStatModifiedEvent{EventMeta: eventMeta(t, revision), Side: side, Source: source, AttackDelta: attack, HitPointsDelta: hitPoints, Attack: creaturetest.Attack(t, 10+attack), HitPoints: creaturetest.HitPoints(t, 20+hitPoints)}
+	}
+	f := newEventsFixture(t, append(invadingEvents(t),
+		battleStarted(t, 16),
+		modified(17, match.BattleSideAttacker, match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 1, 0)}), 10, 0),
+		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101)), 25, 0),
+		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2), 0, 20),
+	))
+	dragon := deployedDragon(f.cardID)
+	adjacent := query.MatchBattleStatSource{AdjacentTerritories: []query.BoardPosition{query.NewBoardPosition(1, 0)}}
+	usedItem := query.MatchBattleStatSource{Item: &dragon}
+	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2}}
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: adjacent, AttackDelta: 10, Attack: 20, HitPoints: 20},
+		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: usedItem, AttackDelta: 25, Attack: 35, HitPoints: 20},
+		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(19, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: terrain, HitPointsDelta: 20, Attack: 10, HitPoints: 40},
+	}, events)
+}
+
 func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testing.T) {
 	player := matchtest.Index(t, 0)
 	f := newEventsFixture(t, append(invadingEvents(t),
-		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 16), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
-		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
-		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 18), Participant: player, Position: boardtest.Position(t, 2, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true},
+		battleStarted(t, 16),
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 18), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 19), Participant: player, Position: boardtest.Position(t, 2, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 10)},
 	))
 	dragon := deployedDragon(f.cardID)
+	stats := query.MatchBattleStats{Attack: 10, HitPoints: 20}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
 
@@ -292,9 +325,10 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10,
 		},
 		query.MatchItemSkippedEvent{MatchEventMeta: metaAt(15, changesOf(phaseOf(query.MatchPhaseDefending), nil)), Participant: 0},
-		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Damage: 10, RemainingHitPoints: 10},
-		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Damage: 10, RemainingHitPoints: 10},
-		query.MatchInvasionRepelledEvent{MatchEventMeta: metaAt(18, changesOf(phaseOf(query.MatchPhaseEnding), nil)), Participant: 0, Position: query.NewBoardPosition(2, 0), Card: dragon, ReturnedToHand: true},
+		query.MatchBattleStartedEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Attacker: stats, Defender: stats},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Damage: 10, RemainingHitPoints: 10},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Damage: 10, RemainingHitPoints: 10},
+		query.MatchInvasionRepelledEvent{MatchEventMeta: metaAt(19, changesOf(phaseOf(query.MatchPhaseEnding), nil)), Participant: 0, Position: query.NewBoardPosition(2, 0), Card: dragon, ReturnedToHand: true, TerritoryHitPoints: 10},
 	}, events)
 }
 
@@ -302,17 +336,18 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 func TestMatchEventsHandler_ConqueringMovesTheTotalMagicOfBothParticipants(t *testing.T) {
 	player := matchtest.Index(t, 0)
 	f := newEventsFixture(t, append(invadingEvents(t),
-		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 16), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 1)},
-		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 17), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+		battleStarted(t, 16),
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 1)},
+		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 18), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 	))
 
-	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 17)
 
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
 		query.MatchTerritoryConqueredEvent{
-			MatchEventMeta: metaAt(17, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)})),
-			Participant:    0, Position: query.NewBoardPosition(2, 0), DefeatedCreature: 1, Creature: 2,
+			MatchEventMeta: metaAt(18, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)})),
+			Participant:    0, Position: query.NewBoardPosition(2, 0), DefeatedCreature: 1, Creature: 2, TerritoryHitPoints: 20,
 		},
 	}, events)
 }
