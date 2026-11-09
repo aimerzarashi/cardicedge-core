@@ -25,6 +25,29 @@ type MatchEventMeta struct {
 	// 対戦の集約の版（抜けなく 1 から続く）
 	Revision   int64
 	OccurredAt time.Time
+	Changes    MatchEventChanges
+}
+
+// このイベントで変わった、描画に要る値のうち、イベントの事実からは出せず core の決まりで決まるもの。
+// 変わった分だけにするのは、イベントごとに全部を返すと盤面の広さの分だけ応答が膨らむため
+type MatchEventChanges struct {
+	// このイベントの後の段階。操作を待っていない間（始まる前・移動の途中）は nil
+	Phase *MatchPhase
+	// 総魔力が変わった参加者だけ
+	TotalMagics []MatchTotalMagicChange
+	// 価値か通行料が変わった領地だけ（できた順）
+	TerritoryValues []MatchTerritoryValue
+}
+
+type MatchTotalMagicChange struct {
+	Participant int
+	TotalMagic  int
+}
+
+type MatchTerritoryValue struct {
+	Position BoardPosition
+	Value    int
+	Toll     int
 }
 
 func (m MatchEventMeta) Meta() MatchEventMeta { return m }
@@ -183,15 +206,73 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 	if err != nil {
 		return nil, err
 	}
+	changes, err := changesByRevision(loaded, after)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]MatchEvent, 0, len(events))
 	for _, event := range events {
-		converted, err := fromMatchEvent(event, cards)
+		converted, err := fromMatchEvent(event, cards, changes[event.GetMeta().AggregateVersion])
 		if err != nil {
 			return nil, err
 		}
 		result = append(result, converted)
 	}
 	return result, nil
+}
+
+// イベントを始めから順に当てて、after より後の版ごとに変わった値を作る。after より前も当てるのは、途中からでは状態が作れないため。
+// payload に持たせないのは、計算で出せる値を保存しないため
+func changesByRevision(loaded []match.Event, after int64) (map[int64]MatchEventChanges, error) {
+	changes := make(map[int64]MatchEventChanges, len(loaded))
+	var state match.State = match.InitialState()
+	var previous match.Match
+	for _, event := range loaded {
+		next, err := match.Evolve(state, event)
+		if err != nil {
+			return nil, fmt.Errorf("query: evolve match event %d: %w", event.GetMeta().AggregateVersion, err)
+		}
+		current, ok := next.(match.Match)
+		if !ok {
+			return nil, fmt.Errorf("query: unexpected match state: %T", next)
+		}
+		if current.Version > after {
+			changed, err := changesBetween(previous, current)
+			if err != nil {
+				return nil, err
+			}
+			changes[current.Version] = changed
+		}
+		state, previous = next, current
+	}
+	return changes, nil
+}
+
+func changesBetween(previous, current match.Match) (MatchEventChanges, error) {
+	changes := MatchEventChanges{TotalMagics: []MatchTotalMagicChange{}, TerritoryValues: []MatchTerritoryValue{}}
+	if current.Phase.AwaitsOperation() {
+		phase, err := fromMatchPhase(current.Phase)
+		if err != nil {
+			return MatchEventChanges{}, err
+		}
+		changes.Phase = &phase
+	}
+	before := previous.TotalMagics()
+	for i, total := range current.TotalMagics() {
+		if i >= len(before) || before[i] != total {
+			changes.TotalMagics = append(changes.TotalMagics, MatchTotalMagicChange{Participant: i, TotalMagic: total})
+		}
+	}
+	for _, territory := range current.Territories {
+		value, toll := current.TerritoryValue(territory), current.TerritoryToll(territory)
+		if old, ok := previous.TerritoryAt(territory.Position); ok && previous.TerritoryValue(old) == value && previous.TerritoryToll(old) == toll {
+			continue
+		}
+		changes.TerritoryValues = append(changes.TerritoryValues, MatchTerritoryValue{
+			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Value: value, Toll: toll,
+		})
+	}
+	return changes, nil
 }
 
 // 対戦を作ったときに写した性能（最初のイベント。after によらず、読んだイベントのすべてから探す）
@@ -266,8 +347,8 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 	return cards, nil
 }
 
-func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard) (MatchEvent, error) {
-	meta := MatchEventMeta{Revision: event.GetMeta().AggregateVersion, OccurredAt: event.GetMeta().OccurredAt}
+func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, changes MatchEventChanges) (MatchEvent, error) {
+	meta := MatchEventMeta{Revision: event.GetMeta().AggregateVersion, OccurredAt: event.GetMeta().OccurredAt, Changes: changes}
 	switch e := event.(type) {
 	case *match.CreatedEvent:
 		return MatchCreatedEvent{meta}, nil
