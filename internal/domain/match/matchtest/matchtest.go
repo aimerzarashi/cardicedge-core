@@ -33,6 +33,8 @@ func Rules(t testing.TB, diceMin, diceMax, startingHandCards int) match.Rules {
 		gamerules.Defaults().Match.ChainMultipliers,
 		gamerules.Defaults().Match.TollPercentage,
 		gamerules.Defaults().Match.RelinquishPercentage,
+		gamerules.Defaults().Match.TerrainBonusPerLevel,
+		gamerules.Defaults().Match.AdjacentTerritoryBonus,
 	)
 }
 
@@ -105,6 +107,8 @@ func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus
 		gamerules.Defaults().Match.ChainMultipliers,
 		gamerules.Defaults().Match.TollPercentage,
 		gamerules.Defaults().Match.RelinquishPercentage,
+		gamerules.Defaults().Match.TerrainBonusPerLevel,
+		gamerules.Defaults().Match.AdjacentTerritoryBonus,
 	)
 }
 

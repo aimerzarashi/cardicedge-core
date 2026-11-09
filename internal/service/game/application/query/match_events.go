@@ -196,7 +196,44 @@ const (
 	MatchBattleSideDefender MatchBattleSide = "defender"
 )
 
-// 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の残りの体力で、0 なら倒れた
+// 戦闘の中の AT・HP
+type MatchBattleStats struct {
+	Attack    int
+	HitPoints int
+}
+
+// 戦闘が始まった。効果を当てる前の両方の AT・HP
+type MatchBattleStartedEvent struct {
+	MatchEventMeta
+	Attacker MatchBattleStats
+	Defender MatchBattleStats
+}
+
+// 戦闘の AT・HP を変えた効果の出どころ。どれか 1 つだけ持つ
+type MatchBattleStatSource struct {
+	AdjacentTerritories []BoardPosition
+	Terrain             *MatchTerrainSource
+	Item                *MatchCard
+}
+
+// 地形効果が効いた土地の属性とレベル
+type MatchTerrainSource struct {
+	Element BoardTileElement
+	Level   int
+}
+
+// 効果 1 つが戦闘の AT・HP を変えた。Attack・HitPoints は当てた後の値
+type MatchBattleStatModifiedEvent struct {
+	MatchEventMeta
+	Side           MatchBattleSide
+	Source         MatchBattleStatSource
+	AttackDelta    int
+	HitPointsDelta int
+	Attack         int
+	HitPoints      int
+}
+
+// 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
 type MatchCreatureStruckEvent struct {
 	MatchEventMeta
 	Striker            MatchBattleSide
@@ -207,19 +244,21 @@ type MatchCreatureStruckEvent struct {
 // 守る側のクリーチャーを倒して土地を奪った。Creature は領地に入ったクリーチャーの新しい ID
 type MatchTerritoryConqueredEvent struct {
 	MatchEventMeta
-	Participant      int
-	Position         BoardPosition
-	DefeatedCreature int
-	Creature         int
+	Participant        int
+	Position           BoardPosition
+	DefeatedCreature   int
+	Creature           int
+	TerritoryHitPoints int
 }
 
 // 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる
 type MatchInvasionRepelledEvent struct {
 	MatchEventMeta
-	Participant    int
-	Position       BoardPosition
-	Card           MatchCard
-	ReturnedToHand bool
+	Participant        int
+	Position           BoardPosition
+	Card               MatchCard
+	ReturnedToHand     bool
+	TerritoryHitPoints int
 }
 
 // 戦利品のパックから引いた
@@ -377,6 +416,12 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
+		case *match.BattleStatModifiedEvent:
+			if e.Source.Item != nil {
+				ref := domain.NewEntityRef(e.Source.Item.Card.EntityType, e.Source.Item.Card.ID)
+				refs = append(refs, ref)
+				inDeck[ref] = specs[e.Source.Item.Card]
+			}
 		case *match.InvasionRepelledEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
@@ -475,6 +520,18 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
 	case *match.ItemSkippedEvent:
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
+	case *match.BattleStartedEvent:
+		return MatchBattleStartedEvent{meta, fromBattleStats(e.Attacker), fromBattleStats(e.Defender)}, nil
+	case *match.BattleStatModifiedEvent:
+		side, err := fromBattleSide(e.Side)
+		if err != nil {
+			return nil, err
+		}
+		source, err := fromBattleStatSource(e.Source, cards)
+		if err != nil {
+			return nil, err
+		}
+		return MatchBattleStatModifiedEvent{meta, side, source, e.AttackDelta, e.HitPointsDelta, e.Attack.Int(), e.HitPoints.Int()}, nil
 	case *match.CreatureStruckEvent:
 		striker, err := fromBattleSide(e.Striker)
 		if err != nil {
@@ -482,12 +539,38 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		}
 		return MatchCreatureStruckEvent{meta, striker, e.Damage.Int(), e.RemainingHitPoints.Int()}, nil
 	case *match.TerritoryConqueredEvent:
-		return MatchTerritoryConqueredEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.DefeatedCreature.Int(), e.Creature.Int()}, nil
+		return MatchTerritoryConqueredEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.DefeatedCreature.Int(), e.Creature.Int(), e.TerritoryHitPoints.Int()}, nil
 	case *match.InvasionRepelledEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
-		return MatchInvasionRepelledEvent{meta, e.Participant.Int(), position, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.ReturnedToHand}, nil
+		return MatchInvasionRepelledEvent{meta, e.Participant.Int(), position, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.ReturnedToHand, e.TerritoryHitPoints.Int()}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
+	}
+}
+
+func fromBattleStats(stats match.BattleStats) MatchBattleStats {
+	return MatchBattleStats{Attack: stats.Attack.Int(), HitPoints: stats.HitPoints.Int()}
+}
+
+func fromBattleStatSource(source match.BattleStatSource, cards map[domain.EntityRef]MatchCard) (MatchBattleStatSource, error) {
+	switch {
+	case source.AdjacentTerritories != nil:
+		positions := make([]BoardPosition, len(source.AdjacentTerritories.Positions))
+		for i, position := range source.AdjacentTerritories.Positions {
+			positions[i] = NewBoardPosition(position.X.Int(), position.Y.Int())
+		}
+		return MatchBattleStatSource{AdjacentTerritories: positions}, nil
+	case source.Terrain != nil:
+		element, err := NewBoardTileElement(source.Terrain.Element.String())
+		if err != nil {
+			return MatchBattleStatSource{}, err
+		}
+		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: source.Terrain.Level}}, nil
+	case source.Item != nil:
+		used := cards[domain.NewEntityRef(source.Item.Card.EntityType, source.Item.Card.ID)]
+		return MatchBattleStatSource{Item: &used}, nil
+	default:
+		return MatchBattleStatSource{}, fmt.Errorf("query: battle stat source has no kind")
 	}
 }
 

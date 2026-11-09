@@ -30,7 +30,8 @@ func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards
 	require.NoError(t, err)
 	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1),
 		LandLevelMultipliers: gamerules.Defaults().Match.LandLevelMultipliers, ChainMultipliers: gamerules.Defaults().Match.ChainMultipliers,
-		TollPercentage: gamerules.Defaults().Match.TollPercentage, RelinquishPercentage: gamerules.Defaults().Match.RelinquishPercentage}
+		TollPercentage: gamerules.Defaults().Match.TollPercentage, RelinquishPercentage: gamerules.Defaults().Match.RelinquishPercentage,
+		TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel, AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus}
 }
 
 func ChainMultipliers(t testing.TB, values ...int) gamerules.ChainMultipliers {

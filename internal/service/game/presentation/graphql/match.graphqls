@@ -860,6 +860,73 @@ enum MatchBattleSide {
   DEFENDER
 }
 
+"戦闘の中の AT・HP"
+type MatchBattleStats {
+  "攻撃力"
+  attack: Int!
+  "体力"
+  hitPoints: Int!
+}
+
+"戦闘が始まった（効果を当てる前の両方の AT・HP）"
+type MatchBattleStartedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "攻める側"
+  attacker: MatchBattleStats!
+  "守る側"
+  defender: MatchBattleStats!
+}
+
+"支援（侵略先の隣にある、攻める側の領地）"
+type MatchAdjacentTerritoriesSource {
+  "隣の領地の位置"
+  positions: [BoardPosition!]!
+}
+
+"地形効果（効いた土地）"
+type MatchTerrainSource {
+  "土地の属性"
+  element: BoardTileElement!
+  "土地のレベル"
+  level: Int!
+}
+
+"戦闘に出したアイテム"
+type MatchItemSource {
+  "アイテムのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+}
+
+"戦闘の AT・HP を変えた効果の出どころ"
+union MatchBattleStatSource = MatchAdjacentTerritoriesSource | MatchTerrainSource | MatchItemSource
+
+"効果 1 つが戦闘の AT・HP を変えた"
+type MatchBattleStatModifiedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "効果を受けた側"
+  side: MatchBattleSide!
+  "何の効果か"
+  source: MatchBattleStatSource!
+  "AT の増減（下限の 0 で止まった後の実際の増減）"
+  attackDelta: Int!
+  "HP の増減（下限の 0 で止まった後の実際の増減）"
+  hitPointsDelta: Int!
+  "当てた後の AT"
+  attack: Int!
+  "当てた後の HP（0 ならその時点で破壊され、戦闘が終わる）"
+  hitPoints: Int!
+}
+
 "戦闘の攻撃が 1 回当たった"
 type MatchCreatureStruckEvent implements MatchEvent {
   "対戦の版"
@@ -872,7 +939,7 @@ type MatchCreatureStruckEvent implements MatchEvent {
   striker: MatchBattleSide!
   "与えた量"
   damage: Int!
-  "受けた側の残りの体力（0 なら倒れた）"
+  "受けた側の、効果で増えた分も含む残りの体力（0 なら倒れた）"
   remainingHitPoints: Int!
 }
 
@@ -892,6 +959,8 @@ type MatchTerritoryConqueredEvent implements MatchEvent {
   defeatedCreature: Int!
   "領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）"
   creature: Int!
+  "領地に入ったクリーチャーの体力"
+  territoryHitPoints: Int!
 }
 
 "守る側のクリーチャーを倒せなかった（続けて通行料を払う）"
@@ -910,6 +979,8 @@ type MatchInvasionRepelledEvent implements MatchEvent {
   card: CardInfo!
   "手札に戻ったか（生きていれば true。倒れていれば捨て札になり false）"
   returnedToHand: Boolean!
+  "領地のクリーチャーに残る体力（増えた分を超えたダメージだけが傷になる）"
+  territoryHitPoints: Int!
 }
 
 "他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）"

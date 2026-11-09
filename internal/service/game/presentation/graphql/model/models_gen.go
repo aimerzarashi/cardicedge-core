@@ -153,6 +153,11 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
+// 戦闘の AT・HP を変えた効果の出どころ
+type MatchBattleStatSource interface {
+	IsMatchBattleStatSource()
+}
+
 // 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
 // 誰が（participant）は Match.participants の何番目か
 type MatchEvent interface {
@@ -1123,12 +1128,86 @@ type Match struct {
 
 func (Match) IsMatchResult() {}
 
+// 支援（侵略先の隣にある、攻める側の領地）
+type MatchAdjacentTerritoriesSource struct {
+	// 隣の領地の位置
+	Positions []*BoardPosition `json:"positions"`
+}
+
+func (MatchAdjacentTerritoriesSource) IsMatchBattleStatSource() {}
+
 // 参加者のアバターを、公開用の ID と名前で見せる値（名前は読むときに引く）
 type MatchAvatar struct {
 	// 公開用の ID（プレイヤーのアバターか、NPC のアバターか）
 	ID uuid.UUID `json:"id"`
 	// 名前
 	Name string `json:"name"`
+}
+
+// 戦闘が始まった（効果を当てる前の両方の AT・HP）
+type MatchBattleStartedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 攻める側
+	Attacker *MatchBattleStats `json:"attacker"`
+	// 守る側
+	Defender *MatchBattleStats `json:"defender"`
+}
+
+func (MatchBattleStartedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleStartedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleStartedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleStartedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 効果 1 つが戦闘の AT・HP を変えた
+type MatchBattleStatModifiedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 効果を受けた側
+	Side MatchBattleSide `json:"side"`
+	// 何の効果か
+	Source MatchBattleStatSource `json:"source"`
+	// AT の増減（下限の 0 で止まった後の実際の増減）
+	AttackDelta int `json:"attackDelta"`
+	// HP の増減（下限の 0 で止まった後の実際の増減）
+	HitPointsDelta int `json:"hitPointsDelta"`
+	// 当てた後の AT
+	Attack int `json:"attack"`
+	// 当てた後の HP（0 ならその時点で破壊され、戦闘が終わる）
+	HitPoints int `json:"hitPoints"`
+}
+
+func (MatchBattleStatModifiedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleStatModifiedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleStatModifiedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleStatModifiedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 戦闘の中の AT・HP
+type MatchBattleStats struct {
+	// 攻撃力
+	Attack int `json:"attack"`
+	// 体力
+	HitPoints int `json:"hitPoints"`
 }
 
 // 対戦の盤面。始めた時点のボードの写し（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）。
@@ -1291,7 +1370,7 @@ type MatchCreatureStruckEvent struct {
 	Striker MatchBattleSide `json:"striker"`
 	// 与えた量
 	Damage int `json:"damage"`
-	// 受けた側の残りの体力（0 なら倒れた）
+	// 受けた側の、効果で増えた分も含む残りの体力（0 なら倒れた）
 	RemainingHitPoints int `json:"remainingHitPoints"`
 }
 
@@ -1458,6 +1537,8 @@ type MatchInvasionRepelledEvent struct {
 	Card CardInfo `json:"card"`
 	// 手札に戻ったか（生きていれば true。倒れていれば捨て札になり false）
 	ReturnedToHand bool `json:"returnedToHand"`
+	// 領地のクリーチャーに残る体力（増えた分を超えたダメージだけが傷になる）
+	TerritoryHitPoints int `json:"territoryHitPoints"`
 }
 
 func (MatchInvasionRepelledEvent) IsMatchEvent() {}
@@ -1493,6 +1574,14 @@ func (this MatchItemSkippedEvent) GetOccurredAt() time.Time { return this.Occurr
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchItemSkippedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 戦闘に出したアイテム
+type MatchItemSource struct {
+	// アイテムのカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+}
+
+func (MatchItemSource) IsMatchBattleStatSource() {}
 
 // 戦闘に手札のアイテムを出した（攻める側も守る側も同じ。効果はまだ無い）
 type MatchItemUsedEvent struct {
@@ -1852,6 +1941,16 @@ type MatchRules struct {
 	StartingHandCards int `json:"startingHandCards"`
 }
 
+// 地形効果（効いた土地）
+type MatchTerrainSource struct {
+	// 土地の属性
+	Element BoardTileElement `json:"element"`
+	// 土地のレベル
+	Level int `json:"level"`
+}
+
+func (MatchTerrainSource) IsMatchBattleStatSource() {}
+
 // 領地（クリーチャーを配置した土地）
 type MatchTerritory struct {
 	// 領地の位置
@@ -1886,6 +1985,8 @@ type MatchTerritoryConqueredEvent struct {
 	DefeatedCreature int `json:"defeatedCreature"`
 	// 領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）
 	Creature int `json:"creature"`
+	// 領地に入ったクリーチャーの体力
+	TerritoryHitPoints int `json:"territoryHitPoints"`
 }
 
 func (MatchTerritoryConqueredEvent) IsMatchEvent() {}

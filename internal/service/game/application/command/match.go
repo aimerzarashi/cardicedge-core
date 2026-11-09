@@ -109,7 +109,8 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	cmd := &match.StartCommand{
 		ID: matchID, Participants: participants, Board: snapshot,
 		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks(),
-			gameRules.Match.LandLevelMultipliers, gameRules.Match.ChainMultipliers, gameRules.Match.TollPercentage, gameRules.Match.RelinquishPercentage),
+			gameRules.Match.LandLevelMultipliers, gameRules.Match.ChainMultipliers, gameRules.Match.TollPercentage, gameRules.Match.RelinquishPercentage,
+			gameRules.Match.TerrainBonusPerLevel, gameRules.Match.AdjacentTerritoryBonus),
 	}
 	random := c.newRandom()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
