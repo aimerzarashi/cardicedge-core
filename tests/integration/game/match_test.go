@@ -339,6 +339,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 		... on MatchEventList {
 			events {
 				__typename revision occurredAt
+				changes { phase totalMagics { participant totalMagic } territoryValues { position { x y } value toll } }
 				... on MatchTurnOrderDecidedEvent { order }
 				... on MatchHandsDealtEvent { cards }
 				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
@@ -664,6 +665,72 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 
 // 空いている土地に止まると配置の段階になり、配置したクリーチャーが領地になる（プレイヤーは GraphQL の操作で、NPC はポリシーで配置する）。
 // 止まる場所はサイコロしだいなので、最後まで進めてから、配置のイベントと盤面の領地が一致することを確かめる
+// 画面がイベントの再生で最後に出す値が、match の今の状態とずれない
+func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	// 領地ができるように、土地が 2 つある公開中B を選ぶ
+	boards, err := meBoards(t, p.token)
+	require.NoError(t, err)
+	for _, raw := range boards {
+		if found := raw.(map[string]any); found["name"] == "公開中B" {
+			p.board = map[string]any{"id": found["id"], "name": found["name"]}
+		}
+	}
+	require.Equal(t, "公開中B", p.board["name"])
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 5 })
+	for step := 0; ; step++ {
+		require.Less(t, step, 200)
+		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
+			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+		})
+		if m["phase"] == "ENDED" {
+			break
+		}
+		playMatchPhase(t, p.token, matchID, m)
+	}
+
+	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+	var phase any
+	totals := map[any]any{}
+	values := map[string]map[string]any{}
+	key := func(position any) string {
+		at := position.(map[string]any)
+		return fmt.Sprint(at["x"], ",", at["y"])
+	}
+	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
+		event := raw.(map[string]any)
+		if event["revision"].(float64) > final["revision"].(float64) {
+			break
+		}
+		if event["__typename"] == "MatchTerritoryRelinquishedEvent" {
+			delete(values, key(event["position"]))
+		}
+		changes := event["changes"].(map[string]any)
+		phase = changes["phase"]
+		for _, changed := range changes["totalMagics"].([]any) {
+			totals[changed.(map[string]any)["participant"]] = changed.(map[string]any)["totalMagic"]
+		}
+		for _, changed := range changes["territoryValues"].([]any) {
+			territory := changed.(map[string]any)
+			values[key(territory["position"])] = territory
+		}
+	}
+
+	require.Equal(t, final["phase"], phase)
+	for i, raw := range final["participants"].([]any) {
+		require.Equal(t, raw.(map[string]any)["totalMagic"], totals[float64(i)])
+	}
+	require.NotEmpty(t, final["territories"])
+	require.Len(t, values, len(final["territories"].([]any)))
+	for _, raw := range final["territories"].([]any) {
+		territory := raw.(map[string]any)
+		found := values[key(territory["position"])]
+		require.Equal(t, territory["value"], found["value"])
+		require.Equal(t, territory["toll"], found["toll"])
+	}
+}
+
 func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	t.Parallel()
 	p := newRoomPlayer(t)

@@ -146,6 +146,8 @@ type MatchEvent interface {
 	GetRevision() int
 	// 起きた時刻
 	GetOccurredAt() time.Time
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	GetChanges() *MatchEventChanges
 }
 
 // 対戦のイベントの結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
@@ -1056,6 +1058,8 @@ type MatchCardDiscardedEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 捨てた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 捨てた手札の番号（0 始まり）
@@ -1072,12 +1076,17 @@ func (this MatchCardDiscardedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchCardDiscardedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCardDiscardedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // カードを引いた
 type MatchCardDrawnEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 引いた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 引いたカード
@@ -1092,12 +1101,17 @@ func (this MatchCardDrawnEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchCardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCardDrawnEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // まだ印の無いチェックポイントに入り、印を付けて魔力が増えた
 type MatchCheckpointPassedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 通った参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 印を付けたチェックポイントの位置
@@ -1114,12 +1128,17 @@ func (this MatchCheckpointPassedEvent) GetRevision() int { return this.Revision 
 // 起きた時刻
 func (this MatchCheckpointPassedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCheckpointPassedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 対戦が始まった（参加者・盤面・ルールは match で読む）
 type MatchCreatedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 }
 
 func (MatchCreatedEvent) IsMatchEvent() {}
@@ -1130,12 +1149,17 @@ func (this MatchCreatedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）
 type MatchCreatureDeployedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 配置した参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 配置した手札の番号（0 始まり）
@@ -1158,12 +1182,17 @@ func (this MatchCreatureDeployedEvent) GetRevision() int { return this.Revision 
 // 起きた時刻
 func (this MatchCreatureDeployedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatureDeployedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 山札が混ざった（並びは見せないので、項目を持たない）
 type MatchDecksShuffledEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 }
 
 func (MatchDecksShuffledEvent) IsMatchEvent() {}
@@ -1173,6 +1202,9 @@ func (this MatchDecksShuffledEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
 func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDecksShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）
 type MatchDeployedCreature struct {
@@ -1190,6 +1222,8 @@ type MatchDiceRolledEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 振った参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 出た目
@@ -1204,12 +1238,17 @@ func (this MatchDiceRolledEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchDiceRolledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDiceRolledEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 対戦が終わった
 type MatchEndedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 勝った参加者（Match.participants の何番目か）。魔力が同じならすべて
 	Winners []int `json:"winners"`
 	// 参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下
@@ -1226,6 +1265,21 @@ func (this MatchEndedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchEndedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// このイベントで変わった、描画に要る値のうち、イベントの事実からは出せず core の決まりで決まるもの。
+// 画面がイベントの再生で描くときに、計算せずに当てられるように返す。
+// 保存するイベントの payload には持たない（読むときにイベントを順に当てて計算する）
+type MatchEventChanges struct {
+	// このイベントの後の段階。操作を待っていない間（始まる前・移動の途中）は null
+	Phase *MatchPhase `json:"phase,omitempty"`
+	// 総魔力が変わった参加者だけ
+	TotalMagics []*MatchTotalMagicChange `json:"totalMagics"`
+	// 価値か通行料が変わった領地だけ（できた順。無くなった領地は入らない）
+	TerritoryValues []*MatchTerritoryValue `json:"territoryValues"`
+}
+
 // 指した版より後の対戦のイベント
 type MatchEventList struct {
 	// 古い順にすべて（対戦の長さはラウンドの上限で決まるので、ページ分けしない）
@@ -1240,6 +1294,8 @@ type MatchHandsDealtEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 全員に配った枚数（山札が足りなければ、ある分だけ）
 	Cards int `json:"cards"`
 }
@@ -1252,12 +1308,17 @@ func (this MatchHandsDealtEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchHandsDealtEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchHandsDealtEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
 type MatchLapCompletedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 周回を終えた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 増えた魔力
@@ -1272,12 +1333,17 @@ func (this MatchLapCompletedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchLapCompletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 領地が無くなっても魔力が負のままだったので、拠点からやり直す（手札と山札はそのまま）
 type MatchMagicDepletedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 枯渇した参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 与えられた魔力（開始時の魔力）
@@ -1292,12 +1358,17 @@ func (this MatchMagicDepletedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchMagicDepletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchMagicDepletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 1 マス進んだ
 type MatchMovedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 進んだ参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 入ったマスの位置
@@ -1311,6 +1382,9 @@ func (this MatchMovedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
 func (this MatchMovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchMovedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）
 type MatchNotFoundError struct {
@@ -1480,6 +1554,8 @@ type MatchRewardDrawnEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 引いた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 選んだパックのキー
@@ -1496,6 +1572,9 @@ func (this MatchRewardDrawnEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchRewardDrawnEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchRewardDrawnEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 戦利品に選べるパック
 type MatchRewardPack struct {
 	// 選ぶときに渡すキー（chooseMatchRewardPack の pack）
@@ -1510,6 +1589,8 @@ type MatchRewardsCompletedEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 }
 
 func (MatchRewardsCompletedEvent) IsMatchEvent() {}
@@ -1519,6 +1600,9 @@ func (this MatchRewardsCompletedEvent) GetRevision() int { return this.Revision 
 
 // 起きた時刻
 func (this MatchRewardsCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchRewardsCompletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
 type MatchRules struct {
@@ -1556,6 +1640,8 @@ type MatchTerritoryRelinquishedEvent struct {
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 手放した参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 手放した領地の位置
@@ -1574,12 +1660,27 @@ func (this MatchTerritoryRelinquishedEvent) GetRevision() int { return this.Revi
 // 起きた時刻
 func (this MatchTerritoryRelinquishedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTerritoryRelinquishedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 領地の価値と通行料
+type MatchTerritoryValue struct {
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 土地の価値（連鎖を含む）
+	Value int `json:"value"`
+	// 他人が止まったときに払う通行料
+	Toll int `json:"toll"`
+}
+
 // 他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）
 type MatchTollPaidEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 払った参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 	// 受け取った参加者（領地の持ち主）
@@ -1598,12 +1699,25 @@ func (this MatchTollPaidEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchTollPaidEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTollPaidEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 総魔力が変わった参加者
+type MatchTotalMagicChange struct {
+	// 参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 変わった後の総魔力
+	TotalMagic int `json:"totalMagic"`
+}
+
 // ターンを終えた
 type MatchTurnEndedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// ターンを終えた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
 }
@@ -1616,12 +1730,17 @@ func (this MatchTurnEndedEvent) GetRevision() int { return this.Revision }
 // 起きた時刻
 func (this MatchTurnEndedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTurnEndedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 順番が決まった
 type MatchTurnOrderDecidedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
 	// 参加者の番号（Match.participants の何番目か）を、順番の早い順に並べたもの
 	Order []int `json:"order"`
 }
@@ -1633,6 +1752,9 @@ func (this MatchTurnOrderDecidedEvent) GetRevision() int { return this.Revision 
 
 // 起きた時刻
 func (this MatchTurnOrderDecidedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTurnOrderDecidedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 type Mutation struct {
 }

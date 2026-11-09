@@ -75,6 +75,12 @@ const (
 	PhaseMoving Phase = "moving"
 )
 
+// 今の番の人の操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動の途中は待っていない
+func (p Phase) AwaitsOperation() bool {
+	var notStarted Phase
+	return p != notStarted && p != PhaseMoving
+}
+
 type EndReason string
 
 const (

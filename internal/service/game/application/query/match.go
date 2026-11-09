@@ -415,7 +415,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	return result, nil
 }
 
-// moving は Decide の途中だけの段階で、保存した状態には出ない。出たらコードの誤り
+// moving は Decide の途中だけの段階で、対戦の最後の状態には出ない（版ごとの値は AwaitsOperation で先に除く）。出たらコードの誤り
 func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 	switch phase {
 	case match.PhaseDrawing:
