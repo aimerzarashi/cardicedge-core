@@ -105,6 +105,15 @@ type LevelUpTerritoryCommand struct {
 
 func (*LevelUpTerritoryCommand) isMatchCommand() {}
 
+// 通った自分の領地のクリーチャーを、手札のクリーチャーと入れ替える（HandIndex は手札の何番目か。0 始まり）
+type ExchangeCreatureCommand struct {
+	By        ParticipantIndex
+	Position  board.Position
+	HandIndex int
+}
+
+func (*ExchangeCreatureCommand) isMatchCommand() {}
+
 // 領地コマンドを使わず、止まったマスの行動に進む
 type SkipTerritoryCommandCommand struct {
 	By ParticipantIndex

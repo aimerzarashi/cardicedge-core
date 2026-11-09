@@ -192,6 +192,39 @@ func Evolve(state State, event Event) (State, error) {
 			}
 		}
 		current.Phase = PhaseEnding
+	case *CreatureExchangedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		spec, specified := current.CardSpecs()[e.Card]
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		replaced, ok := current.DeployedCreature(territory.Creature)
+		switch {
+		case !ok, current.Phase != PhaseTerritoryCommanding, replaced.Owner != index, replaced.Card != e.ReturnedCard,
+			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
+			!specified, spec.Creature == nil, e.Creature != current.LastDeployedCreatureID+1:
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Hand = append(slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1), e.ReturnedCard)
+		current.Participants[index].Magic -= e.Cost.Int()
+		current.DeployedCreatures = append(
+			slices.DeleteFunc(slices.Clone(current.DeployedCreatures), func(d DeployedCreature) bool { return d.ID == replaced.ID }),
+			DeployedCreature{ID: e.Creature, Card: e.Card, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints},
+		)
+		current.Territories = slices.Clone(current.Territories)
+		for i := range current.Territories {
+			if current.Territories[i].Position == e.Position {
+				current.Territories[i].Creature = e.Creature
+			}
+		}
+		current.LastDeployedCreatureID = e.Creature
+		current.Phase = PhaseEnding
 	case *TerritoryCommandSkippedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err

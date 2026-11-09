@@ -136,6 +136,11 @@ type EndMatchTurnResult interface {
 	IsEndMatchTurnResult()
 }
 
+// exchangeMatchCreature の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+type ExchangeMatchCreatureResult interface {
+	IsExchangeMatchCreatureResult()
+}
+
 // 入力の項目ごとの誤り。理由は __typename で見分ける
 type FieldError interface {
 	IsFieldError()
@@ -907,6 +912,28 @@ type EndMatchTurnSuccess struct {
 
 func (EndMatchTurnSuccess) IsEndMatchTurnResult() {}
 
+// 通った自分の領地のクリーチャーを手札のクリーチャーと交換する入力
+type ExchangeMatchCreatureInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 領地の位置（Match.exchangeChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）
+	Position *BoardPositionInput `json:"position"`
+	// 出す手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+}
+
+// クリーチャーを交換した（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）
+type ExchangeMatchCreatureSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (ExchangeMatchCreatureSuccess) IsExchangeMatchCreatureResult() {}
+
 // 入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）
 type FieldCountMismatch struct {
 	// 誤りのある入力の項目
@@ -1146,6 +1173,8 @@ type Match struct {
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
 	// 今の番の人が選べるレベルアップ（TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
 	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
+	// 今の番の人が選べるクリーチャーの交換（TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
+	ExchangeChoices []*MatchExchangeChoice `json:"exchangeChoices"`
 	// 侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）
 	Invasion *MatchInvasion `json:"invasion,omitempty"`
 	// 盤面の領地（できた順）
@@ -1392,6 +1421,41 @@ func (this MatchCreatureDeployedEvent) GetOccurredAt() time.Time { return this.O
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureDeployedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 領地のクリーチャーを手札のクリーチャーと入れ替えた
+type MatchCreatureExchangedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 交換した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 出した手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 領地に入ったカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）
+	Creature int `json:"creature"`
+	// 払った魔力
+	Cost int `json:"cost"`
+	// 手札の最後に戻ったカード（性能は対戦を始めたときの写し）
+	ReturnedCard CardInfo `json:"returnedCard"`
+}
+
+func (MatchCreatureExchangedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatureExchangedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatureExchangedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatureExchangedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 戦闘の攻撃が 1 回当たった
 type MatchCreatureStruckEvent struct {
 	// 対戦の版
@@ -1521,6 +1585,16 @@ type MatchEventList struct {
 }
 
 func (MatchEventList) IsMatchEventsResult() {}
+
+// クリーチャーを交換する選択肢 1 つ
+type MatchExchangeChoice struct {
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 出す手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 払う魔力（出すクリーチャーのコスト）
+	Magic int `json:"magic"`
+}
 
 // 全員に手札が配られた
 type MatchHandsDealtEvent struct {
@@ -1761,6 +1835,8 @@ func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsLevelUpMatchTerritoryResult() {}
 
+func (MatchNotFoundError) IsExchangeMatchCreatureResult() {}
+
 func (MatchNotFoundError) IsSkipMatchTerritoryCommandResult() {}
 
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
@@ -1798,6 +1874,8 @@ func (MatchNotYourTurnError) IsDefendMatchTerritoryResult() {}
 func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsExchangeMatchCreatureResult() {}
 
 func (MatchNotYourTurnError) IsSkipMatchTerritoryCommandResult() {}
 
@@ -1868,6 +1946,8 @@ func (MatchPhaseNotAllowedError) IsDefendMatchTerritoryResult() {}
 func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsExchangeMatchCreatureResult() {}
 
 func (MatchPhaseNotAllowedError) IsSkipMatchTerritoryCommandResult() {}
 
@@ -2398,6 +2478,8 @@ func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsLevelUpMatchTerritoryResult() {}
 
+func (PlayerNotRegisteredError) IsExchangeMatchCreatureResult() {}
+
 func (PlayerNotRegisteredError) IsSkipMatchTerritoryCommandResult() {}
 
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
@@ -2581,6 +2663,8 @@ func (RevisionConflictError) IsDefendMatchTerritoryResult() {}
 func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsLevelUpMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsExchangeMatchCreatureResult() {}
 
 func (RevisionConflictError) IsSkipMatchTerritoryCommandResult() {}
 
@@ -2966,6 +3050,8 @@ func (ValidationErrors) IsDefendMatchTerritoryResult() {}
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
 
 func (ValidationErrors) IsLevelUpMatchTerritoryResult() {}
+
+func (ValidationErrors) IsExchangeMatchCreatureResult() {}
 
 func (ValidationErrors) IsChooseMatchRewardPackResult() {}
 

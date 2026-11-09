@@ -147,6 +147,13 @@ type MatchLevelUpChoice struct {
 	Magic    int
 }
 
+// クリーチャーを交換する選択肢 1 つ。HandIndex は手札の番号、Magic は払う魔力
+type MatchExchangeChoice struct {
+	Position  BoardPosition
+	HandIndex int
+	Magic     int
+}
+
 type MatchInvasion struct {
 	Position  BoardPosition
 	Card      MatchCard
@@ -186,6 +193,8 @@ type Match struct {
 	RelinquishChoices []BoardPosition
 	// 今の番の人が選べるレベルアップ。領地コマンドの段階のときだけ中身がある
 	LevelUpChoices []MatchLevelUpChoice
+	// 今の番の人が選べるクリーチャーの交換。領地コマンドの段階のときだけ中身がある
+	ExchangeChoices []MatchExchangeChoice
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *MatchInvasion
 	// 領地（できた順）
@@ -402,7 +411,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
-		LevelUpChoices: []MatchLevelUpChoice{},
+		LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{},
+	}
+	for _, choice := range current.ExchangeChoices() {
+		result.ExchangeChoices = append(result.ExchangeChoices, MatchExchangeChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), HandIndex: choice.HandIndex, Magic: choice.Magic,
+		})
 	}
 	for _, choice := range current.LevelUpChoices() {
 		result.LevelUpChoices = append(result.LevelUpChoices, MatchLevelUpChoice{

@@ -204,6 +204,19 @@ type TerritoryLeveledUpEvent struct {
 	Magic       int              `json:"magic"`
 }
 
+// 通った自分の領地のクリーチャーを手札のクリーチャーと入れ替えた。Creature は領地に入ったクリーチャーの新しい ID で、体力はカードの値。ReturnedCard は手札の最後に戻ったカード。Cost は払った魔力
+type CreatureExchangedEvent struct {
+	EventMeta    `json:"-"`
+	eventMarker  `json:"-"`
+	Participant  ParticipantIndex   `json:"participant"`
+	Position     board.Position     `json:"position"`
+	HandIndex    int                `json:"hand_index"`
+	Card         card.Ref           `json:"card"`
+	Creature     DeployedCreatureID `json:"creature"`
+	Cost         card.Cost          `json:"cost"`
+	ReturnedCard card.Ref           `json:"returned_card"`
+}
+
 // 領地コマンドを使わなかった。段階のイベントは作らず、使わなかった事実で止まったマスの行動に進める
 type TerritoryCommandSkippedEvent struct {
 	EventMeta   `json:"-"`
@@ -304,6 +317,7 @@ var (
 	battleStartedEventType           = domain.NewEventName("BattleStartedEvent")
 	battleStatModifiedEventType      = domain.NewEventName("BattleStatModifiedEvent")
 	territoryLeveledUpEventType      = domain.NewEventName("TerritoryLeveledUpEvent")
+	creatureExchangedEventType       = domain.NewEventName("CreatureExchangedEvent")
 	territoryCommandSkippedEventType = domain.NewEventName("TerritoryCommandSkippedEvent")
 )
 
@@ -532,13 +546,21 @@ func (*TerritoryCommandSkippedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*CreatureExchangedEvent) EventType() domain.EventName {
+	return creatureExchangedEventType
+}
+
+func (*CreatureExchangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
-		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, territoryCommandSkippedEventType,
+		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, territoryCommandSkippedEventType, creatureExchangedEventType,
 	}}
 }
 
@@ -607,6 +629,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TerritoryLeveledUpEvent{EventMeta: meta}
 	case EventType(territoryCommandSkippedEventType):
 		event = &TerritoryCommandSkippedEvent{EventMeta: meta}
+	case EventType(creatureExchangedEventType):
+		event = &CreatureExchangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

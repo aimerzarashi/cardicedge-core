@@ -23,6 +23,7 @@ var (
 	// 自分の領地でない位置は手放せない
 	ErrTerritoryNotRelinquishable = errors.New("match: territory not relinquishable")
 	ErrTerritoryNotLevelUpable    = errors.New("match: territory not level-upable")
+	ErrCreatureNotExchangeable    = errors.New("match: creature not exchangeable")
 )
 
 var (

@@ -32,7 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } levelUpChoices { position { x y } level magic } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -160,7 +160,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -235,7 +235,12 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		require.NotNil(t, m["invasion"])
 		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
 	case "TERRITORY_COMMANDING":
-		// 選べるレベルアップがあれば最初を実行し、無ければ使わない
+		// 版の偶奇で交換とレベルアップを分けて、どちらの操作も通す。選べるものが無ければ使わない
+		if choices := m["exchangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%2 == 0 {
+			choice := choices[0].(map[string]any)
+			input["position"], input["handIndex"] = choice["position"], choice["handIndex"]
+			return matchRevision(t, matchOperation(t, token, "exchangeMatchCreature", input), "exchangeMatchCreature")
+		}
 		if choices := m["levelUpChoices"].([]any); len(choices) > 0 {
 			choice := choices[0].(map[string]any)
 			input["position"], input["level"] = choice["position"], choice["level"]
@@ -376,6 +381,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchItemSkippedEvent { participant }
 				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
 				... on MatchTerritoryCommandSkippedEvent { participant }
+				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleStatModifiedEvent {
 					side attackDelta hitPointsDelta attack hitPoints
@@ -824,7 +830,8 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	totals := map[any]float64{}
 	for _, territory := range territories {
 		value := territory["value"].(float64)
-		require.Equal(t, float64(1), territory["level"])
+		// 領地コマンドでレベルを上げられるので、1 とは限らない
+		require.GreaterOrEqual(t, territory["level"], float64(1))
 		require.GreaterOrEqual(t, value, float64(100))
 		require.Equal(t, float64(int(value)*60/100), territory["toll"])
 		require.Equal(t, float64(int(value)*80/100), territory["relinquishMagic"])
@@ -849,6 +856,10 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 		case "MatchCreatureDeployedEvent":
 			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
 			// 盤面から外れたクリーチャーの ID も使い回さない
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchCreatureExchangedEvent":
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
 			require.Equal(t, lastCreature+1, event["creature"])
 			lastCreature = event["creature"].(float64)
 		case "MatchTerritoryInvadedEvent":

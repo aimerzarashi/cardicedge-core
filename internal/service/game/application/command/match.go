@@ -354,6 +354,17 @@ func (c *MatchHandler) LevelUpTerritory(ctx context.Context, id uuid.UUID, revis
 	})
 }
 
+// 通った自分の領地のクリーチャーを手札のクリーチャーと交換する。選べない組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.ExchangeCreatureCommand{By: by, Position: position, HandIndex: handIndex}, nil
+	})
+}
+
 func (c *MatchHandler) SkipTerritoryCommand(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.SkipTerritoryCommandCommand{By: by}, nil
@@ -466,7 +477,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
-	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable):
+	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable):
 		return input.Errors{&input.NotFound{Field: "position"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}

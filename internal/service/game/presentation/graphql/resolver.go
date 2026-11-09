@@ -98,6 +98,7 @@ type Matches interface {
 	Defend(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (command.ChangedMatch, error)
 	RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
 	LevelUpTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (command.ChangedMatch, error)
+	ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (command.ChangedMatch, error)
 	SkipTerritoryCommand(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	EndTurn(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChooseRewardPack(ctx context.Context, id uuid.UUID, revision int64, pack string) (command.ChangedMatch, error)

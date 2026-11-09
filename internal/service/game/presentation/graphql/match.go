@@ -116,7 +116,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 		DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
-		LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices),
+		LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 	}
 	if invasion := match.Invasion; invasion != nil {
 		card, err := fromMatchCard(invasion.Card)
@@ -153,6 +153,14 @@ func fromQueryLevelUpChoices(choices []query.MatchLevelUpChoice) []*model.MatchL
 	converted := make([]*model.MatchLevelUpChoice, len(choices))
 	for i, choice := range choices {
 		converted[i] = &model.MatchLevelUpChoice{Position: &model.BoardPosition{X: choice.Position.X, Y: choice.Position.Y}, Level: choice.Level, Magic: choice.Magic}
+	}
+	return converted
+}
+
+func fromQueryExchangeChoices(choices []query.MatchExchangeChoice) []*model.MatchExchangeChoice {
+	converted := make([]*model.MatchExchangeChoice, len(choices))
+	for i, choice := range choices {
+		converted[i] = &model.MatchExchangeChoice{Position: &model.BoardPosition{X: choice.Position.X, Y: choice.Position.Y}, HandIndex: choice.HandIndex, Magic: choice.Magic}
 	}
 	return converted
 }
@@ -330,6 +338,19 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchTerritoryLeveledUpEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Level: e.Level, Magic: e.Magic,
+		}, nil
+	case query.MatchCreatureExchangedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		returned, err := fromMatchCard(e.ReturnedCard)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCreatureExchangedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, HandIndex: e.HandIndex, Card: card, Creature: e.Creature, Cost: e.Cost, ReturnedCard: returned,
 		}, nil
 	case query.MatchTerritoryCommandSkippedEvent:
 		return &model.MatchTerritoryCommandSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
