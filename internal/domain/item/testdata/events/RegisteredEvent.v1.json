@@ -3,5 +3,8 @@
   "name": "ポーション",
   "cost": 10,
   "rarity": "normal",
+  "category": "weapon",
+  "attack_bonus": 0,
+  "hit_points_bonus": 0,
   "registered_by": 10
 }

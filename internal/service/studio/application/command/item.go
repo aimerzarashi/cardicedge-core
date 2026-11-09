@@ -33,12 +33,15 @@ func NewItemHandler(
 
 // presentation 層にドメインの型（item.Item・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredItem struct {
-	ID           uuid.UUID
-	Name         string
-	Cost         int
-	Rarity       string
-	RegisteredAt time.Time
-	UpdatedAt    time.Time
+	ID             uuid.UUID
+	Name           string
+	Cost           int
+	Rarity         string
+	Category       string
+	AttackBonus    int
+	HitPointsBonus int
+	RegisteredAt   time.Time
+	UpdatedAt      time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
 	Revision int64
 }
@@ -89,6 +92,7 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredItem{
 		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
+		Category: registered.Category.String(), AttackBonus: registered.AttackBonus.Int(), HitPointsBonus: registered.HitPointsBonus.Int(),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -138,6 +142,31 @@ func (c *ItemHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision i
 		return ChangedCard{}, input.Errors{invalid}
 	}
 	return c.change(ctx, id, revision, &item.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
+}
+
+// 分類を変える（準備中だけ）。同じ値なら変わらず、revision も進まない。知らない値は input.Errors（InvalidFormat）。アイテムでない ID は ErrCardNotFound。
+// ほかのエラーは ChangeCost と同じ。分類はアイテムだけが持つので、CardHandler を通さずここで受ける
+func (c *ItemHandler) ChangeCategory(ctx context.Context, id uuid.UUID, revision int64, category string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := item.NewCategory(category)
+	if err != nil {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "category"}}
+	}
+	return c.change(ctx, id, revision, &item.ChangeCategoryCommand{Category: value, ChangedBy: changedBy})
+}
+
+// 戦闘中の AT・HP の増減を変える（準備中だけ）。どちらも同じ値なら変わらず、revision も進まない。ほかのエラーは ChangeCategory と同じ
+func (c *ItemHandler) ChangeStatBonuses(ctx context.Context, id uuid.UUID, revision int64, attackBonus, hitPointsBonus int) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	return c.change(ctx, id, revision, &item.ChangeStatBonusesCommand{
+		AttackBonus: item.NewAttackBonus(attackBonus), HitPointsBonus: item.NewHitPointsBonus(hitPointsBonus), ChangedBy: changedBy,
+	})
 }
 
 func (c *ItemHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd item.Command) (ChangedCard, error) {

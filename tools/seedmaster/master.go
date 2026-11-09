@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
@@ -63,6 +64,10 @@ type masterCard struct {
 	Elements  []string `json:"elements"`
 	Attack    *int     `json:"attack"`
 	HitPoints *int     `json:"hit_points"`
+	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
+	Category       string `json:"category"`
+	AttackBonus    *int   `json:"attack_bonus"`
+	HitPointsBonus *int   `json:"hit_points_bonus"`
 }
 
 type masterPresetDeck struct {
@@ -140,6 +145,21 @@ func (c masterCard) validateCreatureSpec() error {
 	return err
 }
 
+// アイテムは分類と増減を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
+func (c masterCard) validateItemSpec() error {
+	if c.Type != "item" {
+		if c.Category != "" || c.AttackBonus != nil || c.HitPointsBonus != nil {
+			return fmt.Errorf("%s cannot have category, attack_bonus or hit_points_bonus", c.Type)
+		}
+		return nil
+	}
+	if c.AttackBonus == nil || c.HitPointsBonus == nil {
+		return errors.New("item needs attack_bonus and hit_points_bonus")
+	}
+	_, err := item.NewCategory(c.Category)
+	return err
+}
+
 func loadMaster(raw []byte) (master, error) {
 	var m master
 	if err := json.Unmarshal(raw, &m); err != nil {
@@ -168,6 +188,9 @@ func (m master) validate() error {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 		if _, err := card.NewRarity(c.Rarity); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateItemSpec(); err != nil {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 		if err := c.validateCreatureSpec(); err != nil {

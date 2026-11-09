@@ -360,6 +360,9 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 		if c.cardType == readmodel.CardTypeCreature {
 			cardMetadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 25, HitPoints: 45}
 		}
+		if c.cardType == readmodel.CardTypeItem {
+			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", AttackBonus: 5, HitPointsBonus: 15}
+		}
 		metadata, err := json.Marshal(cardMetadata)
 		if err != nil {
 			return NPCAvatars{}, err

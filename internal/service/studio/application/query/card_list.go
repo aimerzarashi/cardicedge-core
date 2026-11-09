@@ -29,6 +29,8 @@ type Card struct {
 	Rarity string
 	// クリーチャーだけの性能（クリーチャー以外は nil）
 	Creature *readmodel.CreatureMetadata
+	// アイテムだけの性能（アイテム以外は nil）
+	Item *readmodel.ItemMetadata
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64
 	RegisteredAt time.Time

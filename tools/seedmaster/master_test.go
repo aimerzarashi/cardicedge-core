@@ -312,3 +312,34 @@ func TestLoadMaster_RejectsCreatureSpecOnItemAndSpell(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadMaster_RejectsInvalidItemSpec(t *testing.T) {
+	tests := []struct {
+		name string
+		card func(c *masterCard)
+	}{
+		{name: "missing_category", card: func(c *masterCard) { c.Category = "" }},
+		{name: "unknown_category", card: func(c *masterCard) { c.Category = "shield" }},
+		{name: "missing_attack_bonus", card: func(c *masterCard) { c.AttackBonus = nil }},
+		{name: "missing_hit_points_bonus", card: func(c *masterCard) { c.HitPointsBonus = nil }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "item" })
+			require.GreaterOrEqual(t, index, 0)
+			tt.card(&m.Cards[index])
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+func TestLoadMaster_RejectsItemSpecOnOtherCards(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+	m.Cards[0].Category = "weapon"
+
+	require.Error(t, m.validate())
+}

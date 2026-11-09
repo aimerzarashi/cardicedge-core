@@ -56,14 +56,22 @@ type DeployCreatureCommand struct {
 
 func (*DeployCreatureCommand) isMatchCommand() {}
 
-// 止まった他人の領地を、手札のクリーチャーで侵略する。アイテムは出さなければ nil。番号はどちらも操作する前の手札の番号（0 始まり）
+// 止まった他人の領地を、手札のクリーチャーで侵略する。選んだ時点で確定し、コストを払う
 type InvadeCommand struct {
-	By            ParticipantIndex
-	HandIndex     int
-	ItemHandIndex *int
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
 }
 
 func (*InvadeCommand) isMatchCommand() {}
+
+// 侵略を確定した人が、アイテムを選ぶ。出さなければ nil
+type AttackCommand struct {
+	By            ParticipantIndex
+	ItemHandIndex *int
+}
+
+func (*AttackCommand) isMatchCommand() {}
 
 // 止まった他人の領地の通行料を払う
 type PayTollCommand struct {

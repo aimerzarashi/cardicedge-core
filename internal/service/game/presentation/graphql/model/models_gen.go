@@ -12,6 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// attackMatchTerritory の結果（ATTACKING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type AttackMatchTerritoryResult interface {
+	IsAttackMatchTerritoryResult()
+}
+
 // ボードの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type BoardResult interface {
 	IsBoardResult()
@@ -234,6 +239,26 @@ type RollMatchDiceResult interface {
 type RoomResult interface {
 	IsRoomResult()
 }
+
+// 侵略を確定した人がアイテムを選ぶ入力
+type AttackMatchTerritoryInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 出すアイテムの手札の番号（0 始まり。Match.itemChoices の中から選ぶ。出さなければ null。選べないものは ValidationErrors の FieldNotFound）
+	ItemHandIndex *int `json:"itemHandIndex,omitempty"`
+}
+
+// アイテムを選んだ（続けて領地の持ち主がアイテムを選ぶ。成功したら対戦の revision が進む）
+type AttackMatchTerritorySuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (AttackMatchTerritorySuccess) IsAttackMatchTerritoryResult() {}
 
 // プレイヤーのアバター。ほかのプレイヤーにも見える名前を持つ
 type Avatar struct {
@@ -983,11 +1008,9 @@ type InvadeMatchTerritoryInput struct {
 	Revision int `json:"revision"`
 	// 侵略に出す手札の番号（0 始まり。Match.invadeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で出せないものは FieldNotFound）
 	HandIndex int `json:"handIndex"`
-	// 一緒に出すアイテムの手札の番号（0 始まり。操作する前の番号で、Match.itemChoices の中から選ぶ。出さなければ null。クリーチャーと合わせて払えないものは FieldNotFound）
-	ItemHandIndex *int `json:"itemHandIndex,omitempty"`
 }
 
-// 侵略した（領地の持ち主がアイテムを選ぶと戦闘になる。成功したら対戦の revision が進む）
+// 侵略を確定した（続けて攻める側がアイテムを選ぶ。成功したら対戦の revision が進む）
 type InvadeMatchTerritorySuccess struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1007,6 +1030,12 @@ type ItemCardInfo struct {
 	Cost int `json:"cost"`
 	// 希少度
 	Rarity CardRarity `json:"rarity"`
+	// 分類
+	Category ItemCategory `json:"category"`
+	// 戦闘中に足す攻撃力（負は下げる）
+	AttackBonus int `json:"attackBonus"`
+	// 戦闘中に足す体力（負は下げる）
+	HitPointsBonus int `json:"hitPointsBonus"`
 }
 
 func (ItemCardInfo) IsCardInfo() {}
@@ -1074,7 +1103,7 @@ type Match struct {
 	DeployChoices []int `json:"deployChoices"`
 	// 今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）
 	InvadeChoices []int `json:"invadeChoices"`
-	// 操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。INVADING と DEFENDING のときだけ中身がある）
+	// 操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）
 	ItemChoices []int `json:"itemChoices"`
 	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
@@ -1442,6 +1471,29 @@ func (this MatchInvasionRepelledEvent) GetOccurredAt() time.Time { return this.O
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchInvasionRepelledEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 戦闘にアイテムを出さなかった（攻める側も守る側も同じ）
+type MatchItemSkippedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 出さなかった参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchItemSkippedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchItemSkippedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchItemSkippedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchItemSkippedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 戦闘に手札のアイテムを出した（攻める側も守る側も同じ。効果はまだ無い）
 type MatchItemUsedEvent struct {
 	// 対戦の版
@@ -1566,6 +1618,8 @@ func (MatchNotFoundError) IsDeployMatchCreatureResult() {}
 
 func (MatchNotFoundError) IsInvadeMatchTerritoryResult() {}
 
+func (MatchNotFoundError) IsAttackMatchTerritoryResult() {}
+
 func (MatchNotFoundError) IsPayMatchTollResult() {}
 
 func (MatchNotFoundError) IsDefendMatchTerritoryResult() {}
@@ -1597,6 +1651,8 @@ func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
 func (MatchNotYourTurnError) IsDeployMatchCreatureResult() {}
 
 func (MatchNotYourTurnError) IsInvadeMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsAttackMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsPayMatchTollResult() {}
 
@@ -1661,6 +1717,8 @@ func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
 func (MatchPhaseNotAllowedError) IsDeployMatchCreatureResult() {}
 
 func (MatchPhaseNotAllowedError) IsInvadeMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsAttackMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsPayMatchTollResult() {}
 
@@ -2121,6 +2179,8 @@ func (PlayerNotRegisteredError) IsDeployMatchCreatureResult() {}
 
 func (PlayerNotRegisteredError) IsInvadeMatchTerritoryResult() {}
 
+func (PlayerNotRegisteredError) IsAttackMatchTerritoryResult() {}
+
 func (PlayerNotRegisteredError) IsPayMatchTollResult() {}
 
 func (PlayerNotRegisteredError) IsDefendMatchTerritoryResult() {}
@@ -2298,6 +2358,8 @@ func (RevisionConflictError) IsChooseMatchPathResult() {}
 func (RevisionConflictError) IsDeployMatchCreatureResult() {}
 
 func (RevisionConflictError) IsInvadeMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsAttackMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsPayMatchTollResult() {}
 
@@ -2662,6 +2724,8 @@ func (ValidationErrors) IsDeployMatchCreatureResult() {}
 
 func (ValidationErrors) IsInvadeMatchTerritoryResult() {}
 
+func (ValidationErrors) IsAttackMatchTerritoryResult() {}
+
 func (ValidationErrors) IsDefendMatchTerritoryResult() {}
 
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
@@ -2959,6 +3023,67 @@ func (e CreatureElement) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// アイテムの分類
+type ItemCategory string
+
+const (
+	// 武器
+	ItemCategoryWeapon ItemCategory = "WEAPON"
+	// 防具
+	ItemCategoryArmor ItemCategory = "ARMOR"
+	// 巻物
+	ItemCategoryScroll ItemCategory = "SCROLL"
+)
+
+var AllItemCategory = []ItemCategory{
+	ItemCategoryWeapon,
+	ItemCategoryArmor,
+	ItemCategoryScroll,
+}
+
+func (e ItemCategory) IsValid() bool {
+	switch e {
+	case ItemCategoryWeapon, ItemCategoryArmor, ItemCategoryScroll:
+		return true
+	}
+	return false
+}
+
+func (e ItemCategory) String() string {
+	return string(e)
+}
+
+func (e *ItemCategory) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ItemCategory(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ItemCategory", str)
+	}
+	return nil
+}
+
+func (e ItemCategory) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ItemCategory) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ItemCategory) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // 戦闘のどちら側か
 type MatchBattleSide string
 
@@ -3149,6 +3274,8 @@ const (
 	MatchPhaseDeploying MatchPhase = "DEPLOYING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"
+	// 侵略を確定した後の段階。攻める側がアイテムを選ぶ（attackMatchTerritory。出さないことも選ぶ）。出せるアイテムが無くても入る
+	MatchPhaseAttacking MatchPhase = "ATTACKING"
 	// 侵略された領地の持ち主がアイテムを選ぶ段階（defendMatchTerritory。出さないことも選ぶ）。操作するのは番の人ではなく awaitingParticipant
 	MatchPhaseDefending MatchPhase = "DEFENDING"
 	// 通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）
@@ -3166,6 +3293,7 @@ var AllMatchPhase = []MatchPhase{
 	MatchPhaseChoosingPath,
 	MatchPhaseDeploying,
 	MatchPhaseInvading,
+	MatchPhaseAttacking,
 	MatchPhaseDefending,
 	MatchPhaseRelinquishing,
 	MatchPhaseEnding,
@@ -3174,7 +3302,7 @@ var AllMatchPhase = []MatchPhase{
 
 func (e MatchPhase) IsValid() bool {
 	switch e {
-	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseInvading, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseInvading, MatchPhaseAttacking, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
 		return true
 	}
 	return false

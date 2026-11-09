@@ -122,7 +122,7 @@ func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	changed, err := r.matches.Invade(ctx, input.ID, int64(input.Revision), input.HandIndex, input.ItemHandIndex)
+	changed, err := r.matches.Invade(ctx, input.ID, int64(input.Revision), input.HandIndex)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
@@ -133,6 +133,24 @@ func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model
 		return nil, err
 	}
 	return &model.InvadeMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// AttackMatchTerritory is the resolver for the attackMatchTerritory field.
+func (r *mutationResolver) AttackMatchTerritory(ctx context.Context, input model.AttackMatchTerritoryInput) (model.AttackMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Attack(ctx, input.ID, int64(input.Revision), input.ItemHandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.AttackMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.AttackMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // PayMatchToll is the resolver for the payMatchToll field.

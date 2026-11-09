@@ -200,51 +200,75 @@
     },
     {
       "type": "item",
-      "name": "ロングソード",
-      "cost": 10,
-      "rarity": "normal"
+      "name": "アイアンソード",
+      "cost": 15,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 30,
+      "hit_points_bonus": 0
     },
     {
       "type": "item",
-      "name": "バトルアックス",
-      "cost": 30,
-      "rarity": "normal"
+      "name": "ウォーハンマー",
+      "cost": 35,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 45,
+      "hit_points_bonus": 0
     },
     {
       "type": "item",
-      "name": "フレイムタン",
-      "cost": 25,
-      "rarity": "normal"
+      "name": "ファイアダガー",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 25,
+      "hit_points_bonus": 0
     },
     {
       "type": "item",
-      "name": "エアスラッシャー",
-      "cost": 25,
-      "rarity": "normal"
+      "name": "ウィンドスピア",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 25,
+      "hit_points_bonus": 0
     },
     {
       "type": "item",
-      "name": "チェインメイル",
-      "cost": 10,
-      "rarity": "normal"
+      "name": "レザーアーマー",
+      "cost": 15,
+      "rarity": "normal",
+      "category": "armor",
+      "attack_bonus": 0,
+      "hit_points_bonus": 25
     },
     {
       "type": "item",
-      "name": "スケールアーマー",
-      "cost": 30,
-      "rarity": "normal"
+      "name": "アイアンシールド",
+      "cost": 35,
+      "rarity": "normal",
+      "category": "armor",
+      "attack_bonus": 0,
+      "hit_points_bonus": 45
     },
     {
       "type": "item",
-      "name": "アイシクル",
-      "cost": 25,
-      "rarity": "normal"
+      "name": "アイスダガー",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 25,
+      "hit_points_bonus": 0
     },
     {
       "type": "item",
-      "name": "ロックバイター",
-      "cost": 25,
-      "rarity": "normal"
+      "name": "ストーンアックス",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "attack_bonus": 25,
+      "hit_points_bonus": 0
     },
     {
       "type": "spell",
@@ -336,27 +360,27 @@
           "count": 2
         },
         {
-          "card": "ロングソード",
+          "card": "アイアンソード",
           "count": 1
         },
         {
-          "card": "バトルアックス",
+          "card": "ウォーハンマー",
           "count": 1
         },
         {
-          "card": "フレイムタン",
+          "card": "ファイアダガー",
           "count": 1
         },
         {
-          "card": "エアスラッシャー",
+          "card": "ウィンドスピア",
           "count": 1
         },
         {
-          "card": "チェインメイル",
+          "card": "レザーアーマー",
           "count": 2
         },
         {
-          "card": "スケールアーマー",
+          "card": "アイアンシールド",
           "count": 2
         },
         {
@@ -437,27 +461,27 @@
           "count": 2
         },
         {
-          "card": "ロングソード",
+          "card": "アイアンソード",
           "count": 1
         },
         {
-          "card": "バトルアックス",
+          "card": "ウォーハンマー",
           "count": 1
         },
         {
-          "card": "アイシクル",
+          "card": "アイスダガー",
           "count": 1
         },
         {
-          "card": "ロックバイター",
+          "card": "ストーンアックス",
           "count": 1
         },
         {
-          "card": "チェインメイル",
+          "card": "レザーアーマー",
           "count": 2
         },
         {
-          "card": "スケールアーマー",
+          "card": "アイアンシールド",
           "count": 2
         },
         {

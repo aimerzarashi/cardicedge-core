@@ -63,7 +63,7 @@ func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Item: &readmodel.ItemMetadata{Category: "weapon"}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeItem,
@@ -211,4 +211,18 @@ func TestCard_ItemAndSpellHaveNoCreatureSpec(t *testing.T) {
 
 	require.Nil(t, item.Metadata.Creature)
 	require.Nil(t, spell.Metadata.Creature)
+}
+
+func TestCard_ItemHasItsSpecFromRegistrationAndChanges(t *testing.T) {
+	at := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	registered := readmodel.Card{}.Evolve(registeredItem(t, uuid.New(), "Potion", at)[0])
+	require.Equal(t, &readmodel.ItemMetadata{Category: "weapon"}, registered.Metadata.Item)
+	meta := item.EventMeta{EntityID: itemtest.ID(t, 1), AggregateVersion: 2, OccurredAt: at}
+
+	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: item.CategoryArmor, ChangedBy: operatortest.ID(t, 10)})
+	changed := categorized.Evolve(&item.StatBonusesChangedEvent{EventMeta: meta, AttackBonus: item.NewAttackBonus(5), HitPointsBonus: item.NewHitPointsBonus(30), ChangedBy: operatortest.ID(t, 10)})
+
+	require.Equal(t, &readmodel.ItemMetadata{Category: "armor", AttackBonus: 5, HitPointsBonus: 30}, changed.Metadata.Item)
+	// 元の状態の入れ子を書き換えない
+	require.Equal(t, "weapon", registered.Metadata.Item.Category)
 }

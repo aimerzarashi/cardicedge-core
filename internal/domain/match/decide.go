@@ -27,7 +27,9 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *DeployCreatureCommand:
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *InvadeCommand:
-		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex, c.ItemHandIndex) })
+		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex) })
+	case *AttackCommand:
+		return playTurn(state, c.By, PhaseAttacking, now, func(r *recorder) error { return chooseItem(r, c.By, c.ItemHandIndex) })
 	case *PayTollCommand:
 		return playTurn(state, c.By, PhaseInvading, now, payToll)
 	case *DefendCommand:
@@ -190,8 +192,8 @@ func advance(r *recorder) error {
 	return nil
 }
 
-// 手札のクリーチャーを出し、アイテムも出す。戦闘は守る側がアイテムを選んでから（守る側の選びの前に結果を決めないため）
-func invade(r *recorder, handIndex int, itemHandIndex *int) error {
+// 手札のクリーチャーを出して確定する。アイテムは攻める側 → 守る側の順に、別の操作で選ぶ
+func invade(r *recorder, handIndex int) error {
 	if !slices.Contains(r.state.InvadeChoices(), handIndex) {
 		if handIndex < 0 || handIndex >= len(r.current().Hand) {
 			return ErrHandIndexOutOfRange
@@ -200,45 +202,32 @@ func invade(r *recorder, handIndex int, itemHandIndex *int) error {
 	}
 	participant := r.current()
 	ref := participant.Hand[handIndex]
-	specs := r.state.CardSpecs()
-	if itemHandIndex != nil {
-		if !slices.Contains(r.state.ItemChoices(), *itemHandIndex) ||
-			specs[ref].Cost.Int()+specs[participant.Hand[*itemHandIndex]].Cost.Int() > participant.Magic {
-			return ErrItemNotUsable
-		}
-	}
-	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: specs[ref].Cost}
-	}); err != nil {
-		return err
-	}
-	if itemHandIndex == nil {
-		return nil
-	}
-	by, _ := r.state.CurrentParticipant()
-	// イベントの番号は当てるときの手札の番号なので、先に抜けたクリーチャーの分をずらす
-	if *itemHandIndex > handIndex {
-		return useItem(r, by, *itemHandIndex-1)
-	}
-	return useItem(r, by, *itemHandIndex)
+	cost := r.state.CardSpecs()[ref].Cost
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: cost}
+	})
 }
 
-func useItem(r *recorder, by ParticipantIndex, handIndex int) error {
-	ref := r.state.Participants[by].Hand[handIndex]
+// アイテムを出すか、出さなかったことを残す。出さないときもイベントを出すのは、段階を事実から進めるためと、選びの結果を描くため
+func chooseItem(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
+	if itemHandIndex == nil {
+		return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+			return &ItemSkippedEvent{EventMeta: meta, Participant: by}
+		})
+	}
+	if !slices.Contains(r.state.ItemChoices(), *itemHandIndex) {
+		return ErrItemNotUsable
+	}
+	ref := r.state.Participants[by].Hand[*itemHandIndex]
 	cost := r.state.CardSpecs()[ref].Cost
 	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-		return &ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Cost: cost}
+		return &ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: *itemHandIndex, Card: ref, Cost: cost}
 	})
 }
 
 func defend(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
-	if itemHandIndex != nil {
-		if !slices.Contains(r.state.ItemChoices(), *itemHandIndex) {
-			return ErrItemNotUsable
-		}
-		if err := useItem(r, by, *itemHandIndex); err != nil {
-			return err
-		}
+	if err := chooseItem(r, by, itemHandIndex); err != nil {
+		return err
 	}
 	return battle(r)
 }

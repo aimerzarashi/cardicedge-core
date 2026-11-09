@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -205,6 +206,17 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		}
 		spec.Creature = &creatureSpec
 	}
+	// クリーチャーと同じく、アイテムの性能が無いのを黙って空の性能にしない
+	if ref.EntityType == card.ItemEntityType {
+		if source.Item == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no item spec", ref.EntityType, ref.ID)
+		}
+		category, err := item.NewCategory(source.Item.Category)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Item = &match.ItemSpec{Category: category, AttackBonus: item.NewAttackBonus(source.Item.AttackBonus), HitPointsBonus: item.NewHitPointsBonus(source.Item.HitPointsBonus)}
+	}
 	return spec, nil
 }
 
@@ -290,11 +302,18 @@ func (c *MatchHandler) Deploy(ctx context.Context, id uuid.UUID, revision int64,
 	})
 }
 
-// 止まった他人の領地を、手札のクリーチャーで侵略する（アイテムは出さなければ nil）。侵略できない手札は input.Errors（NotFound・項目名 handIndex）、
-// 手札の範囲外は input.Errors（OutOfRange）、出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
-func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int, itemHandIndex *int) (ChangedMatch, error) {
+// 止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定する）。侵略できない手札は input.Errors（NotFound・項目名 handIndex）、
+// 手札の範囲外は input.Errors（OutOfRange）
+func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
-		return &match.InvadeCommand{By: by, HandIndex: handIndex, ItemHandIndex: itemHandIndex}, nil
+		return &match.InvadeCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+// 侵略を確定した人が、アイテムを選ぶ（出さなければ nil）。出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
+func (c *MatchHandler) Attack(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.AttackCommand{By: by, ItemHandIndex: itemHandIndex}, nil
 	})
 }
 
@@ -529,6 +548,8 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return &match.InvadeCommand{By: by, HandIndex: choices[0]}, nil
 		}
 		return &match.PayTollCommand{By: by}, nil
+	case match.PhaseAttacking:
+		return &match.AttackCommand{By: by}, nil
 	case match.PhaseDefending:
 		return &match.DefendCommand{By: by}, nil
 	case match.PhaseRelinquishing:

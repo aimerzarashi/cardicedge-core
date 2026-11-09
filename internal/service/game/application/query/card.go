@@ -20,6 +20,15 @@ type Card struct {
 	Rarity string
 	// クリーチャーだけの性能（クリーチャー以外は nil）
 	Creature *CreatureSpec
+	// アイテムだけの性能（アイテム以外は nil）
+	Item *ItemSpec
+}
+
+// アイテムだけの性能。写した cards.metadata.item の値（分類は weapon・armor・scroll）
+type ItemSpec struct {
+	Category       string
+	AttackBonus    int
+	HitPointsBonus int
 }
 
 // クリーチャーだけの性能。写した cards.metadata.creature の値（属性は fire・earth・water・wind・neutral を火・地・水・風の順に並べたもの）

@@ -52,6 +52,14 @@ type cardMetadata struct {
 	Rarity string `json:"rarity"`
 	// クリーチャーだけが持つ入れ子（アイテム・スペルは無い）
 	Creature *creatureMetadata `json:"creature"`
+	// アイテムだけが持つ入れ子
+	Item *itemMetadata `json:"item"`
+}
+
+type itemMetadata struct {
+	Category       string `json:"category"`
+	AttackBonus    *int   `json:"attack_bonus"`
+	HitPointsBonus *int   `json:"hit_points_bonus"`
 }
 
 type creatureMetadata struct {
@@ -241,6 +249,13 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack or hit_points (project the cards again and publish the master)", id)
 		}
 		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints}
+	}
+	if cardType == query.CardTypeItem {
+		itemSpec := metadata.Item
+		if itemSpec == nil || itemSpec.Category == "" || itemSpec.AttackBonus == nil || itemSpec.HitPointsBonus == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category, attack_bonus or hit_points_bonus (project the cards again and publish the master)", id)
+		}
+		card.Item = &query.ItemSpec{Category: itemSpec.Category, AttackBonus: *itemSpec.AttackBonus, HitPointsBonus: *itemSpec.HitPointsBonus}
 	}
 	return cardRow{card: card, sortName: sortName}, nil
 }

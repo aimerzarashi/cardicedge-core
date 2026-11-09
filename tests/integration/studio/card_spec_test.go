@@ -338,3 +338,49 @@ func TestChangeCreatureStats_ReturnsFieldTooSmallPerField(t *testing.T) {
 		},
 	}, result)
 }
+
+const changeItemCategoryMutation = `mutation ($input: ChangeItemCategoryInput!) {
+	changeItemCategory(input: $input) {
+		__typename
+		... on ChangeItemCategorySuccess { id revision }
+	}
+}`
+
+const changeItemStatBonusesMutation = `mutation ($input: ChangeItemStatBonusesInput!) {
+	changeItemStatBonuses(input: $input) {
+		__typename
+		... on ChangeItemStatBonusesSuccess { id revision }
+	}
+}`
+
+// 変えた分類と増減が登録の結果の既定の値を置き換え、カードの詳細で読める
+func TestItem_CategoryAndStatBonusesCanBeChangedWhileDraft(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	registered := registerItem(t, token, "かぶと-"+id)["item"].(map[string]any)
+	require.Equal(t, "WEAPON", registered["category"])
+	require.Equal(t, float64(0), registered["attackBonus"])
+	require.Equal(t, float64(0), registered["hitPointsBonus"])
+
+	categorized := client.Data(t, token, changeItemCategoryMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": registered["revision"], "category": "ARMOR"}}, "changeItemCategory")
+	require.Equal(t, "ChangeItemCategorySuccess", categorized["__typename"])
+	changed := client.Data(t, token, changeItemStatBonusesMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": categorized["revision"], "attackBonus": -5, "hitPointsBonus": 30}}, "changeItemStatBonuses")
+	require.Equal(t, "ChangeItemStatBonusesSuccess", changed["__typename"])
+	require.Equal(t, registered["revision"].(float64)+2, changed["revision"])
+}
+
+func TestItem_CategoryAndStatBonusesAreRejectedForOtherThanADraftItem(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	creature := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
+	published := registerItem(t, token, "かぶと-"+id)["item"].(map[string]any)
+	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
+
+	notAnItem := client.Data(t, token, changeItemCategoryMutation, map[string]any{"input": map[string]any{"id": creature["id"], "revision": creature["revision"], "category": "ARMOR"}}, "changeItemCategory")
+	notDraft := client.Data(t, token, changeItemStatBonusesMutation, map[string]any{"input": map[string]any{"id": published["id"], "revision": publishedRevision, "attackBonus": 1, "hitPointsBonus": 1}}, "changeItemStatBonuses")
+
+	require.Equal(t, "CardNotFoundError", notAnItem["__typename"])
+	require.Equal(t, "CardNotDraftError", notDraft["__typename"])
+}

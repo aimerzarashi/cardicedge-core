@@ -209,6 +209,16 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	ChangeItemCategorySuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
+	ChangeItemStatBonusesSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	CheckBoardLayoutSuccess struct {
 		PublishProblems func(childComplexity int) int
 	}
@@ -394,14 +404,17 @@ type ComplexityRoot struct {
 	}
 
 	Item struct {
-		Cost         func(childComplexity int) int
-		ID           func(childComplexity int) int
-		Name         func(childComplexity int) int
-		Rarity       func(childComplexity int) int
-		RegisteredAt func(childComplexity int) int
-		Revision     func(childComplexity int) int
-		Status       func(childComplexity int) int
-		UpdatedAt    func(childComplexity int) int
+		AttackBonus    func(childComplexity int) int
+		Category       func(childComplexity int) int
+		Cost           func(childComplexity int) int
+		HitPointsBonus func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Name           func(childComplexity int) int
+		Rarity         func(childComplexity int) int
+		RegisteredAt   func(childComplexity int) int
+		Revision       func(childComplexity int) int
+		Status         func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
 	}
 
 	LandTile struct {
@@ -424,6 +437,8 @@ type ComplexityRoot struct {
 		ChangeCardRarity                func(childComplexity int, input model.ChangeCardRarityInput) int
 		ChangeCreatureElements          func(childComplexity int, input model.ChangeCreatureElementsInput) int
 		ChangeCreatureStats             func(childComplexity int, input model.ChangeCreatureStatsInput) int
+		ChangeItemCategory              func(childComplexity int, input model.ChangeItemCategoryInput) int
+		ChangeItemStatBonuses           func(childComplexity int, input model.ChangeItemStatBonusesInput) int
 		DeleteBoard                     func(childComplexity int, input model.DeleteBoardInput) int
 		DeleteGrantDeck                 func(childComplexity int, input model.DeleteGrantDeckInput) int
 		DeleteNpcAvatar                 func(childComplexity int, input model.DeleteNpcAvatarInput) int
@@ -891,6 +906,8 @@ type MutationResolver interface {
 	DeleteGrantDeck(ctx context.Context, input model.DeleteGrantDeckInput) (model.DeleteGrantDeckResult, error)
 	PublishGrantDeck(ctx context.Context, input model.PublishGrantDeckInput) (model.PublishGrantDeckResult, error)
 	RetireGrantDeck(ctx context.Context, input model.RetireGrantDeckInput) (model.RetireGrantDeckResult, error)
+	ChangeItemCategory(ctx context.Context, input model.ChangeItemCategoryInput) (model.ChangeItemCategoryResult, error)
+	ChangeItemStatBonuses(ctx context.Context, input model.ChangeItemStatBonusesInput) (model.ChangeItemStatBonusesResult, error)
 	RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error)
 	RegisterNpcAvatar(ctx context.Context, input model.RegisterNpcAvatarInput) (model.RegisterNpcAvatarResult, error)
 	RenameNpcAvatar(ctx context.Context, input model.RenameNpcAvatarInput) (model.RenameNpcAvatarResult, error)
@@ -1485,6 +1502,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ChangeCreatureStatsSuccess.Revision(childComplexity), true
 
+	case "ChangeItemCategorySuccess.id":
+		if e.ComplexityRoot.ChangeItemCategorySuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeItemCategorySuccess.ID(childComplexity), true
+	case "ChangeItemCategorySuccess.revision":
+		if e.ComplexityRoot.ChangeItemCategorySuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeItemCategorySuccess.Revision(childComplexity), true
+
+	case "ChangeItemStatBonusesSuccess.id":
+		if e.ComplexityRoot.ChangeItemStatBonusesSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeItemStatBonusesSuccess.ID(childComplexity), true
+	case "ChangeItemStatBonusesSuccess.revision":
+		if e.ComplexityRoot.ChangeItemStatBonusesSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeItemStatBonusesSuccess.Revision(childComplexity), true
+
 	case "CheckBoardLayoutSuccess.publishProblems":
 		if e.ComplexityRoot.CheckBoardLayoutSuccess.PublishProblems == nil {
 			break
@@ -1926,12 +1969,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.InvalidStarterSetStatusTransitionError.Message(childComplexity), true
 
+	case "Item.attackBonus":
+		if e.ComplexityRoot.Item.AttackBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.AttackBonus(childComplexity), true
+	case "Item.category":
+		if e.ComplexityRoot.Item.Category == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.Category(childComplexity), true
 	case "Item.cost":
 		if e.ComplexityRoot.Item.Cost == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Item.Cost(childComplexity), true
+	case "Item.hitPointsBonus":
+		if e.ComplexityRoot.Item.HitPointsBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Item.HitPointsBonus(childComplexity), true
 	case "Item.id":
 		if e.ComplexityRoot.Item.ID == nil {
 			break
@@ -2085,6 +2146,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ChangeCreatureStats(childComplexity, args["input"].(model.ChangeCreatureStatsInput)), true
+	case "Mutation.changeItemCategory":
+		if e.ComplexityRoot.Mutation.ChangeItemCategory == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_changeItemCategory_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ChangeItemCategory(childComplexity, args["input"].(model.ChangeItemCategoryInput)), true
+	case "Mutation.changeItemStatBonuses":
+		if e.ComplexityRoot.Mutation.ChangeItemStatBonuses == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_changeItemStatBonuses_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ChangeItemStatBonuses(childComplexity, args["input"].(model.ChangeItemStatBonusesInput)), true
 	case "Mutation.deleteBoard":
 		if e.ComplexityRoot.Mutation.DeleteBoard == nil {
 			break
@@ -3762,6 +3845,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChangeCardRarityInput", ec.unmarshalInputChangeCardRarityInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureElementsInput", ec.unmarshalInputChangeCreatureElementsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureStatsInput", ec.unmarshalInputChangeCreatureStatsInput),
+			graphql.NewInputUnmarshaler("ChangeItemCategoryInput", ec.unmarshalInputChangeItemCategoryInput),
+			graphql.NewInputUnmarshaler("ChangeItemStatBonusesInput", ec.unmarshalInputChangeItemStatBonusesInput),
 			graphql.NewInputUnmarshaler("CheckBoardLayoutInput", ec.unmarshalInputCheckBoardLayoutInput),
 			graphql.NewInputUnmarshaler("DeckCardCountInput", ec.unmarshalInputDeckCardCountInput),
 			graphql.NewInputUnmarshaler("DeleteBoardInput", ec.unmarshalInputDeleteBoardInput),
@@ -4154,6 +4239,12 @@ func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.
 		return ec.fieldContext_Item_cost(ctx, field)
 	case "rarity":
 		return ec.fieldContext_Item_rarity(ctx, field)
+	case "category":
+		return ec.fieldContext_Item_category(ctx, field)
+	case "attackBonus":
+		return ec.fieldContext_Item_attackBonus(ctx, field)
+	case "hitPointsBonus":
+		return ec.fieldContext_Item_hitPointsBonus(ctx, field)
 	case "revision":
 		return ec.fieldContext_Item_revision(ctx, field)
 	case "registeredAt":
@@ -4532,6 +4623,34 @@ func (ec *executionContext) field_Mutation_changeCreatureStats_args(ctx context.
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.ChangeCreatureStatsInput, error) {
 			return ec.unmarshalNChangeCreatureStatsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureStatsInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_changeItemCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ChangeItemCategoryInput, error) {
+			return ec.unmarshalNChangeItemCategoryInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemCategoryInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_changeItemStatBonuses_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ChangeItemStatBonusesInput, error) {
+			return ec.unmarshalNChangeItemStatBonusesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -7563,6 +7682,98 @@ func (ec *executionContext) fieldContext_ChangeCreatureStatsSuccess_revision(_ c
 	return graphql.NewScalarFieldContext("ChangeCreatureStatsSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ChangeItemCategorySuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemCategorySuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeItemCategorySuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeItemCategorySuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemCategorySuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ChangeItemCategorySuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemCategorySuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeItemCategorySuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeItemCategorySuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemCategorySuccess", field, false, false, "Int")
+}
+
+func (ec *executionContext) _ChangeItemStatBonusesSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatBonusesSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeItemStatBonusesSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeItemStatBonusesSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemStatBonusesSuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ChangeItemStatBonusesSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatBonusesSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeItemStatBonusesSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeItemStatBonusesSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemStatBonusesSuccess", field, false, false, "Int")
+}
+
 func (ec *executionContext) _CheckBoardLayoutSuccess_publishProblems(ctx context.Context, field graphql.CollectedField, obj *model.CheckBoardLayoutSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9282,6 +9493,75 @@ func (ec *executionContext) fieldContext_Item_rarity(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Item", field, false, false, "CardRarity")
 }
 
+func (ec *executionContext) _Item_category(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_category(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Category, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ItemCategory) graphql.Marshaler {
+			return ec.marshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_category(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, "ItemCategory")
+}
+
+func (ec *executionContext) _Item_attackBonus(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_attackBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_attackBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Item_hitPointsBonus(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Item_hitPointsBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Item_hitPointsBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Item", field, false, false, "Int")
+}
+
 func (ec *executionContext) _Item_revision(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -10430,6 +10710,94 @@ func (ec *executionContext) fieldContext_Mutation_retireGrantDeck(ctx context.Co
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_retireGrantDeck_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_changeItemCategory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_changeItemCategory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ChangeItemCategory(ctx, fc.Args["input"].(model.ChangeItemCategoryInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeItemCategoryResult) graphql.Marshaler {
+			return ec.marshalNChangeItemCategoryResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemCategoryResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_changeItemCategory(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ChangeItemCategoryResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_changeItemCategory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_changeItemStatBonuses(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_changeItemStatBonuses(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ChangeItemStatBonuses(ctx, fc.Args["input"].(model.ChangeItemStatBonusesInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeItemStatBonusesResult) graphql.Marshaler {
+			return ec.marshalNChangeItemStatBonusesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_changeItemStatBonuses(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ChangeItemStatBonusesResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_changeItemStatBonuses_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -18085,6 +18453,125 @@ func UnmarshalChangeCreatureStatsInput(ctx context.Context, raw any) (model.Chan
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputChangeItemCategoryInput(ctx context.Context, obj any) (model.ChangeItemCategoryInput, error) {
+	var it model.ChangeItemCategoryInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "category"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "category":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("category"))
+			data, err := ec.unmarshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Category = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalChangeItemCategoryInput unmarshals raw into the ChangeItemCategoryInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalChangeItemCategoryInput(ctx context.Context, raw any) (model.ChangeItemCategoryInput, error) {
+	var out model.ChangeItemCategoryInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeItemCategoryInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputChangeItemStatBonusesInput(ctx context.Context, obj any) (model.ChangeItemStatBonusesInput, error) {
+	var it model.ChangeItemStatBonusesInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "attackBonus", "hitPointsBonus"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "attackBonus":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attackBonus"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AttackBonus = data
+		case "hitPointsBonus":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hitPointsBonus"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.HitPointsBonus = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalChangeItemStatBonusesInput unmarshals raw into the ChangeItemStatBonusesInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalChangeItemStatBonusesInput(ctx context.Context, raw any) (model.ChangeItemStatBonusesInput, error) {
+	var out model.ChangeItemStatBonusesInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeItemStatBonusesInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputCheckBoardLayoutInput(ctx context.Context, obj any) (model.CheckBoardLayoutInput, error) {
 	var it model.CheckBoardLayoutInput
 	if obj == nil {
@@ -21257,6 +21744,116 @@ func (ec *executionContext) _ChangeCreatureStatsResult(ctx context.Context, sel 
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeCreatureStatsResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ChangeItemCategoryResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeItemCategoryResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.ChangeItemCategorySuccess:
+		return ec._ChangeItemCategorySuccess(ctx, sel, &obj)
+	case *model.ChangeItemCategorySuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ChangeItemCategorySuccess(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	case model.CardNotDraftError:
+		return ec._CardNotDraftError(ctx, sel, &obj)
+	case *model.CardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeItemCategoryResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ChangeItemStatBonusesResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeItemStatBonusesResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.ChangeItemStatBonusesSuccess:
+		return ec._ChangeItemStatBonusesSuccess(ctx, sel, &obj)
+	case *model.ChangeItemStatBonusesSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ChangeItemStatBonusesSuccess(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	case model.CardNotDraftError:
+		return ec._CardNotDraftError(ctx, sel, &obj)
+	case *model.CardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeItemStatBonusesResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -24740,7 +25337,7 @@ func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel 
 	return out
 }
 
-var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult"}
+var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult"}
 
 func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotDraftError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotDraftErrorImplementors)
@@ -24773,7 +25370,7 @@ func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult"}
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult"}
 
 func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
@@ -25052,6 +25649,82 @@ func (ec *executionContext) _ChangeCreatureStatsSuccess(ctx context.Context, sel
 			}
 		case "revision":
 			out.Values[i] = ec._ChangeCreatureStatsSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var changeItemCategorySuccessImplementors = []string{"ChangeItemCategorySuccess", "ChangeItemCategoryResult"}
+
+func (ec *executionContext) _ChangeItemCategorySuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeItemCategorySuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeItemCategorySuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChangeItemCategorySuccess")
+		case "id":
+			out.Values[i] = ec._ChangeItemCategorySuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ChangeItemCategorySuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var changeItemStatBonusesSuccessImplementors = []string{"ChangeItemStatBonusesSuccess", "ChangeItemStatBonusesResult"}
+
+func (ec *executionContext) _ChangeItemStatBonusesSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeItemStatBonusesSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeItemStatBonusesSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChangeItemStatBonusesSuccess")
+		case "id":
+			out.Values[i] = ec._ChangeItemStatBonusesSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ChangeItemStatBonusesSuccess_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -25992,7 +26665,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -26536,6 +27209,21 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "category":
+			out.Values[i] = ec._Item_category(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attackBonus":
+			out.Values[i] = ec._Item_attackBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsBonus":
+			out.Values[i] = ec._Item_hitPointsBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "revision":
 			out.Values[i] = ec._Item_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -26821,6 +27509,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "retireGrantDeck":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_retireGrantDeck(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changeItemCategory":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_changeItemCategory(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changeItemStatBonuses":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_changeItemStatBonuses(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -29078,7 +29780,7 @@ func (ec *executionContext) _RetireStarterSetSuccess(ctx context.Context, sel as
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -29919,7 +30621,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -30812,6 +31514,32 @@ func (ec *executionContext) marshalNChangeCreatureStatsResult2gitlabᚗcomᚋaim
 	return ec._ChangeCreatureStatsResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNChangeItemCategoryInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemCategoryInput(ctx context.Context, v any) (model.ChangeItemCategoryInput, error) {
+	res, err := ec.unmarshalInputChangeItemCategoryInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChangeItemCategoryResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemCategoryResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeItemCategoryResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ChangeItemCategoryResult!")
+		return graphql.Null
+	}
+	return ec._ChangeItemCategoryResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNChangeItemStatBonusesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesInput(ctx context.Context, v any) (model.ChangeItemStatBonusesInput, error) {
+	res, err := ec.unmarshalInputChangeItemStatBonusesInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChangeItemStatBonusesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeItemStatBonusesResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ChangeItemStatBonusesResult!")
+		return graphql.Null
+	}
+	return ec._ChangeItemStatBonusesResult(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNCheckBoardLayoutInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCheckBoardLayoutInput(ctx context.Context, v any) (model.CheckBoardLayoutInput, error) {
 	res, err := ec.unmarshalInputCheckBoardLayoutInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -31134,6 +31862,16 @@ func (ec *executionContext) marshalNItem2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecar
 		return graphql.Null
 	}
 	return ec._Item(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx context.Context, v any) (model.ItemCategory, error) {
+	var res model.ItemCategory
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx context.Context, sel ast.SelectionSet, v model.ItemCategory) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNMatchRules2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐMatchRules(ctx context.Context, sel ast.SelectionSet, v *model.MatchRules) graphql.Marshaler {

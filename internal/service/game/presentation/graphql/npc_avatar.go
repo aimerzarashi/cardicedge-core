@@ -10,7 +10,7 @@ func fromQueryNPCAvatar(avatar query.NPCAvatar) (*model.NpcAvatar, error) {
 	for _, deck := range avatar.Decks {
 		cards := make([]*model.NpcDeckCard, 0, len(deck.Cards))
 		for _, card := range deck.Cards {
-			info, err := fromCard(card.Type, card.CardID, card.Name, card.Cost, card.Rarity, card.Creature)
+			info, err := fromCard(card.Type, card.CardID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item)
 			if err != nil {
 				return nil, err
 			}

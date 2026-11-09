@@ -21,6 +21,8 @@ enum MatchPhase {
   DEPLOYING
   "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
   INVADING
+  "侵略を確定した後の段階。攻める側がアイテムを選ぶ（attackMatchTerritory。出さないことも選ぶ）。出せるアイテムが無くても入る"
+  ATTACKING
   "侵略された領地の持ち主がアイテムを選ぶ段階（defendMatchTerritory。出さないことも選ぶ）。操作するのは番の人ではなく awaitingParticipant"
   DEFENDING
   "通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）"
@@ -226,8 +228,7 @@ type Match {
   deployChoices: [Int!]!
   "今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）"
   invadeChoices: [Int!]!
-  # 侵略するクリーチャーと合わせたコストはどれを選ぶかで変わるので、合わせて払えないアイテムはここに残り、操作が FieldNotFound で断る
-  "操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。INVADING と DEFENDING のときだけ中身がある）"
+  "操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）"
   itemChoices: [Int!]!
   "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
   relinquishChoices: [BoardPosition!]!
@@ -416,11 +417,9 @@ input InvadeMatchTerritoryInput {
   revision: Int!
   "侵略に出す手札の番号（0 始まり。Match.invadeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で出せないものは FieldNotFound）"
   handIndex: Int!
-  "一緒に出すアイテムの手札の番号（0 始まり。操作する前の番号で、Match.itemChoices の中から選ぶ。出さなければ null。クリーチャーと合わせて払えないものは FieldNotFound）"
-  itemHandIndex: Int
 }
 
-"侵略した（領地の持ち主がアイテムを選ぶと戦闘になる。成功したら対戦の revision が進む）"
+"侵略を確定した（続けて攻める側がアイテムを選ぶ。成功したら対戦の revision が進む）"
 type InvadeMatchTerritorySuccess {
   "対戦の公開用の ID"
   id: UUID!
@@ -431,6 +430,34 @@ type InvadeMatchTerritorySuccess {
 "invadeMatchTerritory の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
 union InvadeMatchTerritoryResult =
     InvadeMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"侵略を確定した人がアイテムを選ぶ入力"
+input AttackMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すアイテムの手札の番号（0 始まり。Match.itemChoices の中から選ぶ。出さなければ null。選べないものは ValidationErrors の FieldNotFound）"
+  itemHandIndex: Int
+}
+
+"アイテムを選んだ（続けて領地の持ち主がアイテムを選ぶ。成功したら対戦の revision が進む）"
+type AttackMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"attackMatchTerritory の結果（ATTACKING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union AttackMatchTerritoryResult =
+    AttackMatchTerritorySuccess
   | ValidationErrors
   | MatchNotFoundError
   | MatchNotYourTurnError
@@ -591,8 +618,10 @@ extend type Mutation {
   deployMatchCreature(input: DeployMatchCreatureInput!): DeployMatchCreatureResult!
   "魔力が負の間に、自分の領地を手放す"
   relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
-  "止まった他人の領地を、手札のクリーチャーで侵略する（アイテムも 1 枚まで出せる。コストの分の魔力を払う）"
+  "止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定し、コストの分の魔力を払う）"
   invadeMatchTerritory(input: InvadeMatchTerritoryInput!): InvadeMatchTerritoryResult!
+  "侵略を確定した人が、アイテムを選ぶ（出さないことも選ぶ）"
+  attackMatchTerritory(input: AttackMatchTerritoryInput!): AttackMatchTerritoryResult!
   "止まった他人の領地の通行料を払う"
   payMatchToll(input: PayMatchTollInput!): PayMatchTollResult!
   "侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さないことも選ぶ）"
@@ -809,6 +838,18 @@ type MatchItemUsedEvent implements MatchEvent {
   card: CardInfo!
   "払った魔力"
   cost: Int!
+}
+
+"戦闘にアイテムを出さなかった（攻める側も守る側も同じ）"
+type MatchItemSkippedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出さなかった参加者（Match.participants の何番目か）"
+  participant: Int!
 }
 
 "戦闘のどちら側か"

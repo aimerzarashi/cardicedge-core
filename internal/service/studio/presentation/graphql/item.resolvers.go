@@ -13,6 +13,46 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
 
+// ChangeItemCategory is the resolver for the changeItemCategory field.
+func (r *mutationResolver) ChangeItemCategory(ctx context.Context, input model.ChangeItemCategoryInput) (model.ChangeItemCategoryResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	category, err := toItemCategory(input.Category)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.items.ChangeCategory(ctx, input.ID, int64(input.Revision), category)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeItemCategorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChangeItemStatBonuses is the resolver for the changeItemStatBonuses field.
+func (r *mutationResolver) ChangeItemStatBonuses(ctx context.Context, input model.ChangeItemStatBonusesInput) (model.ChangeItemStatBonusesResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.items.ChangeStatBonuses(ctx, input.ID, int64(input.Revision), input.AttackBonus, input.HitPointsBonus)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeItemStatBonusesSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterItem is the resolver for the registerItem field.
 func (r *mutationResolver) RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -32,8 +72,13 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	if err != nil {
 		return nil, err
 	}
+	category, err := fromItemCategory(registered.Category)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterItemSuccess{Item: &model.Item{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
+		Category: category, AttackBonus: registered.AttackBonus, HitPointsBonus: registered.HitPointsBonus,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
