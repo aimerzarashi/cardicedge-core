@@ -226,6 +226,11 @@ func newMatchTurnFixture(t *testing.T, startRandom match.Random) matchTurnFixtur
 
 func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, roundLimit int) matchTurnFixture {
 	t.Helper()
+	return newMatchTurnFixtureWithNPCCost(t, startRandom, roundLimit, 30)
+}
+
+func newMatchTurnFixtureWithNPCCost(t *testing.T, startRandom match.Random, roundLimit, npcCost int) matchTurnFixture {
+	t.Helper()
 	ctx := isolatedDatabase(t)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -240,7 +245,7 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
 			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 1, 4, 10), matchDeckCard(t, 2, 3, 990)}),
-			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, 30)}),
+			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, npcCost)}),
 		},
 	}, time.Now().UTC().Truncate(time.Microsecond), startRandom)
 	require.NoError(t, err)
@@ -555,4 +560,119 @@ func TestMatchNPCTurn_HandleReadsEntityAndVersionFromTheEvent(t *testing.T) {
 	require.NoError(t, f.npc.Handle(f.ctx, event))
 
 	require.Equal(t, match.PhaseChoosingPath, f.load(t).Phase)
+}
+
+// NPC が (1,1) に配置した後、プレイヤーが同じ (1,1) に止まって、侵略か通行料かを選ぶところまで進める
+func (f matchTurnFixture) playUntilPlayerStopsOnTheTerritoryOfTheNPC(t *testing.T) command.ChangedMatch {
+	t.Helper()
+	for range 3 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	changed := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseInvading, f.load(t).Phase)
+	return changed
+}
+
+func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEnds(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+	deployable, _ := handIndexes(t, f.load(t))
+
+	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable, nil)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseDefending, f.load(t).Phase)
+
+	require.NoError(t, f.npc.Play(f.ctx, f.id, changed.Revision))
+
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、通行料を払って、ターンを終える段階になる
+	ended := f.load(t)
+	require.Equal(t, match.PhaseEnding, ended.Phase)
+	require.Nil(t, ended.Invasion)
+	require.Equal(t, 600-10-60, ended.Participants[0].Magic)
+	require.Equal(t, 10, ended.DeployedCreatures[0].HitPoints.Int())
+}
+
+func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+
+	_, err := f.handler.PayToll(f.player, f.publicID, changed.Revision)
+
+	require.NoError(t, err)
+	current := f.load(t)
+	require.Equal(t, match.PhaseEnding, current.Phase)
+	require.Equal(t, 600-60, current.Participants[0].Magic)
+}
+
+func TestMatchHandler_ReportsInvasionInputThatCannotBeUsed(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+	deployable, notPayable := handIndexes(t, f.load(t))
+	creatureAsItem := notPayable
+
+	_, outOfRange := f.handler.Invade(f.player, f.publicID, changed.Revision, 99, nil)
+	_, notInvadable := f.handler.Invade(f.player, f.publicID, changed.Revision, notPayable, nil)
+	_, notUsable := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable, &creatureAsItem)
+
+	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(f.load(t).Participants[0].Hand) - 1}}, outOfRange)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, notInvadable)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "itemHandIndex"}}, notUsable)
+}
+
+// プレイヤーが (1,1) に配置した後、NPC が同じ (1,1) に止まるところまで進める
+func (f matchTurnFixture) playUntilNPCStopsOnTheTerritoryOfThePlayer(t *testing.T) {
+	t.Helper()
+	changed := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
+	require.NoError(t, err)
+	deployable, _ := handIndexes(t, f.load(t))
+	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
+	require.NoError(t, err)
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	require.Equal(t, match.PhaseInvading, f.load(t).Phase)
+}
+
+func TestMatchNPCTurn_InvadesWithTheFirstCreatureThatCanBePaidAndWaitsForTheOwner(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+
+	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+
+	invaded := f.load(t)
+	require.Equal(t, match.PhaseDefending, invaded.Phase)
+	require.Equal(t, cardtest.CreatureRef(t, 3), invaded.Invasion.Card)
+	// プレイヤーの選びを待っている間、ポリシーは何もしない
+	require.NoError(t, f.npc.Play(f.ctx, f.id, invaded.Version))
+	require.Equal(t, invaded.Version, f.load(t).Version)
+}
+
+func TestMatchNPCTurn_PaysTheTollWhenNoCreatureCanBePaid(t *testing.T) {
+	f := newMatchTurnFixtureWithNPCCost(t, orderedRandom{}, 30, 990)
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+
+	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+
+	paid := f.load(t)
+	require.Equal(t, match.PhaseEnding, paid.Phase)
+	require.Nil(t, paid.Invasion)
+	require.Equal(t, 600-60, paid.Participants[1].Magic)
+}
+
+func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	revision := f.load(t).Version
+
+	_, err := f.handler.Defend(f.player, f.publicID, revision, nil)
+
+	require.NoError(t, err)
+	current := f.load(t)
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、NPC は通行料を払う
+	require.Equal(t, match.PhaseEnding, current.Phase)
+	require.Equal(t, 600-30-60, current.Participants[1].Magic)
 }

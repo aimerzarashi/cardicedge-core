@@ -229,6 +229,11 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Magic: 80},
 		&match.MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: 600},
 		&match.CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
+		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
+		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Card: cardtest.Ref(t, card.ItemEntityType, 301), Cost: cardtest.Cost(t, 20)},
+		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
+		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -1058,7 +1063,7 @@ func TestDecide_StoppingOnATerritoryDoesNotOfferDeploying(t *testing.T) {
 	state, _ = drawAndRoll(t, state, 0, 1)
 
 	require.Equal(t, pos(t, 1, 0), state.Participants[0].Position)
-	require.Equal(t, match.PhaseEnding, state.Phase)
+	require.Equal(t, match.PhaseInvading, state.Phase)
 	require.Empty(t, state.DeployChoices())
 }
 
@@ -1197,10 +1202,38 @@ func TestMatch_TotalMagicAddsTheValueOfOwnTerritories(t *testing.T) {
 	require.Equal(t, []int{600 + 150 + 150, 600}, state.TotalMagics())
 }
 
-func TestDecide_StoppingOnAnotherTerritoryPaysTheTollAndOffersTheEndOfTurn(t *testing.T) {
+// 通行料を払う
+func payToll(t *testing.T, state match.Match, by int) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.PayTollCommand{By: matchtest.Index(t, by)})
+}
+
+func TestDecide_StoppingOnAnotherTerritoryOffersToPayOrInvadeWithoutPayingYet(t *testing.T) {
 	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
 
 	state, events := drawAndRoll(t, state, 1, 1)
+
+	require.Zero(t, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, match.PhaseInvading, state.Phase)
+	require.Equal(t, 600, state.Participants[1].Magic)
+	require.Equal(t, []int{0, 1}, state.InvadeChoices())
+}
+
+// 通行料しか選べなくても、払う操作を待つ（2026-11-09 オーナー）
+func TestDecide_StoppingOnAnotherTerritoryWaitsEvenWithoutACreatureThatCanBePaid(t *testing.T) {
+	state := withMagic(withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), 1, 5)
+
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	require.Equal(t, match.PhaseInvading, state.Phase)
+	require.Empty(t, state.InvadeChoices())
+}
+
+func TestDecide_PayTollPaysAndOffersTheEndOfTurn(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	state, events := payToll(t, state, 1)
 
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
 	require.Equal(t, 600-60, state.Participants[1].Magic)
@@ -1213,6 +1246,7 @@ func TestDecide_TollRoundsDown(t *testing.T) {
 	state.Rules.BaseLandValue = 101
 
 	state, _ = drawAndRoll(t, state, 1, 1)
+	state, _ = payToll(t, state, 1)
 
 	require.Equal(t, 600-60, state.Participants[1].Magic)
 }
@@ -1244,6 +1278,7 @@ func indebtedMatch(t *testing.T) match.Match {
 	state = withTerritory(t, state, 1, 4, 1)
 	state = withMagic(state, 1, 10)
 	state, _ = drawAndRoll(t, state, 1, 1)
+	state, _ = payToll(t, state, 1)
 	return state
 }
 
@@ -1287,6 +1322,7 @@ func TestDecide_RelinquishPriceIncludesTheChain(t *testing.T) {
 	state = withTerritory(t, state, 1, 3, 1)
 	state = withMagic(state, 1, 10)
 	state, _ = drawAndRoll(t, state, 1, 1)
+	state, _ = payToll(t, state, 1)
 
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
 
@@ -1310,8 +1346,9 @@ func TestDecide_MagicDepletedRestartsFromTheBaseAndEndsTheTurn(t *testing.T) {
 	state = withMagic(state, 1, 10)
 	state.Participants[1].PassedCheckpoints = []board.Position{pos(t, 7, 0)}
 	handBefore := len(state.Participants[1].Hand)
+	state, _ = drawAndRoll(t, state, 1, 1)
 
-	state, events := drawAndRoll(t, state, 1, 1)
+	state, events := payToll(t, state, 1)
 
 	require.Equal(t, 1, countOf[*match.MagicDepletedEvent](events))
 	require.Zero(t, countOf[*match.LapCompletedEvent](events))
@@ -1345,6 +1382,7 @@ func TestMatch_LowestValueRelinquishChoiceTakesTheCheapestThenTheEarliest(t *tes
 	state = withTerritory(t, state, 1, 5, 1)
 	state = withMagic(state, 1, 10)
 	state, _ = drawAndRoll(t, state, 1, 1)
+	state, _ = payToll(t, state, 1)
 
 	position, ok := state.LowestValueRelinquishChoice()
 
@@ -1404,6 +1442,306 @@ func TestEvolve_RejectsRelinquishedEventThatDoesNotMatchTheState(t *testing.T) {
 			event := valid
 			tt.mutate(&event)
 			_, err := match.Evolve(state, &event)
+			require.ErrorIs(t, err, match.ErrInvalidState)
+		})
+	}
+}
+
+// NPC（参加者 1）が、プレイヤー（参加者 0）の領地 (1,0) に止まった対戦。NPC の手札はカード 201（コスト 10・攻撃 5・体力 20）が 2 枚で、
+// 領地のクリーチャーも同じ性能
+func invadingMatch(t *testing.T) match.Match {
+	t.Helper()
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	state, _ = drawAndRoll(t, state, 1, 1)
+	require.Equal(t, match.PhaseInvading, state.Phase)
+	return state
+}
+
+// 手札の最後にアイテムを足す（デッキの写しにも足す。性能は写しから読むため）
+func withItemInHand(t *testing.T, state match.Match, participant int, id int64, cost int) match.Match {
+	t.Helper()
+	ref := cardtest.Ref(t, card.ItemEntityType, id)
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal}
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Hand = append(slices.Clone(target.Hand), ref)
+	target.Participant.Cards = append(slices.Clone(target.Participant.Cards), match.DeckCard{
+		Card: ref, Quantity: cardtest.DeckQuantity(t, 1), Spec: spec,
+	})
+	state.Participants[participant] = target
+	return state
+}
+
+// NPC が手札の最初で侵略した後の対戦
+func invade(t *testing.T, state match.Match) match.Match {
+	t.Helper()
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	return state
+}
+
+func defend(t *testing.T, state match.Match) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.DefendCommand{By: matchtest.Index(t, 0)})
+}
+
+// 侵略しているクリーチャーと領地のクリーチャーの性能を変える
+func withBattlers(t *testing.T, state match.Match, attackerAttack, attackerHitPoints, defenderAttack, defenderHitPoints int) match.Match {
+	t.Helper()
+	require.NotNil(t, state.Invasion)
+	invasion := *state.Invasion
+	invasion.Base.Attack = creaturetest.Attack(t, attackerAttack)
+	invasion.HitPoints = creaturetest.HitPoints(t, attackerHitPoints)
+	state.Invasion = &invasion
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	state.DeployedCreatures[0].Base.Attack = creaturetest.Attack(t, defenderAttack)
+	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, defenderHitPoints)
+	return state
+}
+
+func eventOf[T match.Event](t *testing.T, events []match.Event) T {
+	t.Helper()
+	for _, event := range events {
+		if found, ok := event.(T); ok {
+			return found
+		}
+	}
+	var missing T
+	require.FailNow(t, "event not found")
+	return missing
+}
+
+func TestDecide_InvadePaysTheCostAndWaitsForTheOwnerOfTheTerritory(t *testing.T) {
+	state := invadingMatch(t)
+	handBefore := len(state.Participants[1].Hand)
+
+	state = invade(t, state)
+
+	require.Equal(t, match.PhaseDefending, state.Phase)
+	require.Equal(t, 600-10, state.Participants[1].Magic)
+	require.Len(t, state.Participants[1].Hand, handBefore-1)
+	require.Equal(t, cardtest.CreatureRef(t, 201), state.Invasion.Card)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.Invasion.HitPoints)
+	awaiting, ok := state.AwaitingParticipant()
+	require.True(t, ok)
+	require.Equal(t, matchtest.Index(t, 0), awaiting)
+	turn, _ := state.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 1), turn)
+}
+
+func TestDecide_InvadeWithAnItemPaysBothAndNamesTheHandAfterTheCreatureLeft(t *testing.T) {
+	state := withItemInHand(t, invadingMatch(t), 1, 301, 20)
+	itemIndex := len(state.Participants[1].Hand) - 1
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0, ItemHandIndex: &itemIndex})
+
+	used := eventOf[*match.ItemUsedEvent](t, events)
+	require.Equal(t, itemIndex-1, used.HandIndex)
+	require.Equal(t, matchtest.Index(t, 1), used.Participant)
+	require.Equal(t, 600-10-20, state.Participants[1].Magic)
+	require.NotContains(t, state.Participants[1].Hand, used.Card)
+	require.Equal(t, match.PhaseDefending, state.Phase)
+}
+
+func TestDecide_InvadeRejectsCardsThatCannotBeUsed(t *testing.T) {
+	state := withItemInHand(t, invadingMatch(t), 1, 301, 20)
+	itemIndex := len(state.Participants[1].Hand) - 1
+	creatureIndex := 1
+	outOfHand := 99
+	cases := []struct {
+		name  string
+		magic int
+		hand  int
+		item  *int
+		err   error
+	}{
+		{name: "hand_out_of_range", magic: 600, hand: 99, err: match.ErrHandIndexOutOfRange},
+		{name: "item_as_the_creature", magic: 600, hand: itemIndex, err: match.ErrCreatureNotInvadable},
+		{name: "creature_cost_not_payable", magic: 5, hand: 0, err: match.ErrCreatureNotInvadable},
+		{name: "creature_as_the_item", magic: 600, hand: 0, item: &creatureIndex, err: match.ErrItemNotUsable},
+		{name: "item_out_of_hand", magic: 600, hand: 0, item: &outOfHand, err: match.ErrItemNotUsable},
+		{name: "creature_and_item_together_not_payable", magic: 25, hand: 0, item: &itemIndex, err: match.ErrItemNotUsable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := decideErr(t, withMagic(state, 1, tc.magic), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: tc.hand, ItemHandIndex: tc.item})
+
+			require.ErrorIs(t, err, tc.err)
+		})
+	}
+}
+
+func TestDecide_InvadeAndPayTollAreRejectedOutsideTheInvadingPhase(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
+	by := matchtest.Index(t, 1)
+
+	require.ErrorIs(t, decideErr(t, state, &match.InvadeCommand{By: by, HandIndex: 0}), match.ErrPhaseNotAllowed)
+	require.ErrorIs(t, decideErr(t, state, &match.PayTollCommand{By: by}), match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_DefendIsOnlyForTheOwnerOfTheInvadedTerritory(t *testing.T) {
+	state := invade(t, invadingMatch(t))
+
+	require.ErrorIs(t, decideErr(t, state, &match.DefendCommand{By: matchtest.Index(t, 1)}), match.ErrNotYourTurn)
+}
+
+func TestDecide_DefendIsRejectedOutsideTheDefendingPhase(t *testing.T) {
+	state := invadingMatch(t)
+
+	require.ErrorIs(t, decideErr(t, state, &match.DefendCommand{By: matchtest.Index(t, 1)}), match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_OperationsOfTheAttackerAreRejectedWhileTheOwnerChooses(t *testing.T) {
+	state := invade(t, invadingMatch(t))
+
+	require.ErrorIs(t, decideErr(t, state, &match.EndTurnCommand{By: matchtest.Index(t, 1)}), match.ErrNotYourTurn)
+}
+
+func TestDecide_DefendWithAnItemPaysAndRemovesIt(t *testing.T) {
+	state := withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20)
+	require.Equal(t, []int{len(state.Participants[0].Hand) - 1}, state.ItemChoices())
+	itemIndex := len(state.Participants[0].Hand) - 1
+	handBefore := len(state.Participants[0].Hand)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.DefendCommand{By: matchtest.Index(t, 0), ItemHandIndex: &itemIndex})
+
+	require.Equal(t, matchtest.Index(t, 0), eventOf[*match.ItemUsedEvent](t, events).Participant)
+	require.Len(t, state.Participants[0].Hand, handBefore-1)
+	// 持ち主は通行料の 60 を受け取り、アイテムの 20 を払う
+	require.Equal(t, 600+60-20, state.Participants[0].Magic)
+}
+
+func TestDecide_DefendRejectsAnItemThatCannotBeUsed(t *testing.T) {
+	state := withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20)
+	creatureIndex := 0
+	itemIndex := len(state.Participants[0].Hand) - 1
+
+	require.ErrorIs(t, decideErr(t, state, &match.DefendCommand{By: matchtest.Index(t, 0), ItemHandIndex: &creatureIndex}), match.ErrItemNotUsable)
+	require.ErrorIs(t, decideErr(t, withMagic(state, 0, 5), &match.DefendCommand{By: matchtest.Index(t, 0), ItemHandIndex: &itemIndex}), match.ErrItemNotUsable)
+}
+
+func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 2)
+	state, _ = drawAndRoll(t, state, 1, 1)
+	state = withBattlers(t, invade(t, state), 30, 20, 50, 30)
+	defeated := state.Territories[0].Creature
+
+	state, events := defend(t, state)
+
+	// 倒した相手は反撃しない
+	require.Equal(t, 1, countOf[*match.CreatureStruckEvent](events))
+	struck := eventOf[*match.CreatureStruckEvent](t, events)
+	require.Equal(t, match.BattleSideAttacker, struck.Striker)
+	require.Equal(t, creaturetest.Attack(t, 30), struck.Damage)
+	require.Zero(t, struck.RemainingHitPoints.Int())
+	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
+	require.Equal(t, defeated, conquered.DefeatedCreature)
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+	require.Zero(t, countOf[*match.TollPaidEvent](events))
+	require.Nil(t, state.Invasion)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: conquered.Creature, Level: 2}}, state.Territories)
+	require.Len(t, state.DeployedCreatures, 1)
+	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
+	require.Equal(t, cardtest.CreatureRef(t, 201), state.DeployedCreatures[0].Card)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, state.LastDeployedCreatureID, conquered.Creature)
+	require.NotEqual(t, defeated, conquered.Creature)
+}
+
+func TestDecide_FailingToDefeatTheDefenderReturnsTheSurvivorToTheHandAndPaysTheToll(t *testing.T) {
+	state := invade(t, invadingMatch(t))
+	handBefore := len(state.Participants[1].Hand)
+
+	state, events := defend(t, state)
+
+	// 攻撃 5・体力 20 どうしなので、どちらも倒れない
+	require.Equal(t, 2, countOf[*match.CreatureStruckEvent](events))
+	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
+	require.True(t, repelled.ReturnedToHand)
+	require.Equal(t, cardtest.CreatureRef(t, 201), repelled.Card)
+	require.Len(t, state.Participants[1].Hand, handBefore+1)
+	require.Equal(t, cardtest.CreatureRef(t, 201), state.Participants[1].Hand[handBefore])
+	require.Equal(t, 600-10-60, state.Participants[1].Magic)
+	require.Equal(t, 600+60, state.Participants[0].Magic)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+	require.Nil(t, state.Invasion)
+	// 傷は残る
+	require.Equal(t, creaturetest.HitPoints(t, 15), state.DeployedCreatures[0].HitPoints)
+}
+
+func TestDecide_AttackerDestroyedByTheCounterattackIsNotReturnedToTheHand(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 10, 10, 20)
+	handBefore := len(state.Participants[1].Hand)
+
+	state, events := defend(t, state)
+
+	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
+	require.Len(t, state.Participants[1].Hand, handBefore)
+	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
+}
+
+func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T) {
+	state := withMagic(invadingMatch(t), 1, 10)
+	state = invade(t, state)
+
+	state, events := defend(t, state)
+
+	require.Equal(t, 1, countOf[*match.MagicDepletedEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+	require.Equal(t, 600, state.Participants[1].Magic)
+}
+
+func TestMatch_ItemChoicesAreForWhoeverIsBeingWaitedFor(t *testing.T) {
+	invading := withItemInHand(t, invadingMatch(t), 1, 301, 20)
+	require.Equal(t, []int{len(invading.Participants[1].Hand) - 1}, invading.ItemChoices())
+
+	defending := invade(t, invadingMatch(t))
+	require.Empty(t, defending.ItemChoices())
+	require.Empty(t, newMatch(t, territoryBoard(t), defaultRules(t)).ItemChoices())
+}
+
+func TestPhase_AwaitsOperationIsFalseWhileBattling(t *testing.T) {
+	require.False(t, match.PhaseBattling.AwaitsOperation())
+	require.True(t, match.PhaseInvading.AwaitsOperation())
+	require.True(t, match.PhaseDefending.AwaitsOperation())
+}
+
+func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
+	invading := invadingMatch(t)
+	defending := invade(t, invadingMatch(t))
+	battling := defending
+	battling.Phase = match.PhaseBattling
+	by := matchtest.Index(t, 1)
+	meta := match.EventMeta{EntityID: invading.ID, AggregateVersion: invading.Version + 1, OccurredAt: startedAt}
+	position := pos(t, 1, 0)
+	creatureRef := cardtest.CreatureRef(t, 201)
+	otherRef := cardtest.CreatureRef(t, 999)
+	cost := cardtest.Cost(t, 10)
+	damage := creaturetest.Attack(t, 1)
+	hitPoints := creaturetest.HitPoints(t, 1)
+	defeated := battling.Territories[0].Creature
+	next := matchtest.DeployedCreatureID(t, battling.LastDeployedCreatureID.Int()+1)
+	cases := []struct {
+		name  string
+		state match.Match
+		event match.Event
+	}{
+		{name: "invaded_outside_the_phase", state: defending, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost}},
+		{name: "invaded_elsewhere", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: pos(t, 2, 0), Cost: cost}},
+		{name: "invaded_with_another_card", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: otherRef, Position: position, Cost: cost}},
+		{name: "item_outside_the_phase", state: invading, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
+		{name: "item_not_in_the_hand", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: otherRef, Cost: cost}},
+		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
+		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: next}},
+		{name: "conquered_another_creature", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: next, Creature: next}},
+		{name: "conquered_with_a_used_id", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: defeated}},
+		{name: "repelled_before_the_battle", state: defending, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: creatureRef, ReturnedToHand: true}},
+		{name: "repelled_with_another_card", state: battling, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: otherRef, ReturnedToHand: true}},
+		{name: "repelled_says_dead_while_alive", state: battling, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: creatureRef, ReturnedToHand: false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := match.Evolve(tc.state, tc.event)
+
 			require.ErrorIs(t, err, match.ErrInvalidState)
 		})
 	}

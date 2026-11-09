@@ -132,3 +132,8 @@ func NewHitPoints(value int) (HitPoints, error) {
 func (h HitPoints) Int() int {
 	return int(h)
 }
+
+// 攻撃を受けた後の体力。0 で止める。生成関数の下限（1 以上）はカードの性能の決まりで、戦闘の中の 0 は倒れたことを表す
+func (h HitPoints) Damaged(attack Attack) HitPoints {
+	return HitPoints(max(int(h)-attack.Int(), 0))
+}

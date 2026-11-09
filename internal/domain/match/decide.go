@@ -26,6 +26,12 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
 	case *DeployCreatureCommand:
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
+	case *InvadeCommand:
+		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex, c.ItemHandIndex) })
+	case *PayTollCommand:
+		return playTurn(state, c.By, PhaseInvading, now, payToll)
+	case *DefendCommand:
+		return playTurn(state, c.By, PhaseDefending, now, func(r *recorder) error { return defend(r, c.By, c.ItemHandIndex) })
 	case *RelinquishTerritoryCommand:
 		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
@@ -91,7 +97,7 @@ func (r *recorder) current() ParticipantState {
 	return r.state.Participants[index]
 }
 
-// 終わった後・番でない人・段階の合わない操作を断る。終わった後を先に見るのは、終わった対戦に番を問う意味が無いため
+// 終わった後・待っている人でない人・段階の合わない操作を断る。終わった後を先に見るのは、終わった対戦に番を問う意味が無いため
 func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act func(*recorder) error, otherPhases ...Phase) ([]Event, error) {
 	current, ok := state.(Match)
 	if !ok {
@@ -100,7 +106,7 @@ func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act 
 	if current.Phase == PhaseEnded {
 		return nil, ErrPhaseNotAllowed
 	}
-	if turn, ok := current.CurrentParticipant(); !ok || turn != by {
+	if awaiting, ok := current.AwaitingParticipant(); !ok || awaiting != by {
 		return nil, ErrNotYourTurn
 	}
 	if current.Phase != phase && !slices.Contains(otherPhases, current.Phase) {
@@ -181,24 +187,136 @@ func advance(r *recorder) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// 手札のクリーチャーを出し、アイテムも出す。戦闘は守る側がアイテムを選んでから（守る側の選びの前に結果を決めないため）
+func invade(r *recorder, handIndex int, itemHandIndex *int) error {
+	if !slices.Contains(r.state.InvadeChoices(), handIndex) {
+		if handIndex < 0 || handIndex >= len(r.current().Hand) {
+			return ErrHandIndexOutOfRange
+		}
+		return ErrCreatureNotInvadable
+	}
+	participant := r.current()
+	ref := participant.Hand[handIndex]
+	specs := r.state.CardSpecs()
+	if itemHandIndex != nil {
+		if !slices.Contains(r.state.ItemChoices(), *itemHandIndex) ||
+			specs[ref].Cost.Int()+specs[participant.Hand[*itemHandIndex]].Cost.Int() > participant.Magic {
+			return ErrItemNotUsable
+		}
+	}
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: specs[ref].Cost}
+	}); err != nil {
+		return err
+	}
+	if itemHandIndex == nil {
+		return nil
+	}
+	by, _ := r.state.CurrentParticipant()
+	// イベントの番号は当てるときの手札の番号なので、先に抜けたクリーチャーの分をずらす
+	if *itemHandIndex > handIndex {
+		return useItem(r, by, *itemHandIndex-1)
+	}
+	return useItem(r, by, *itemHandIndex)
+}
+
+func useItem(r *recorder, by ParticipantIndex, handIndex int) error {
+	ref := r.state.Participants[by].Hand[handIndex]
+	cost := r.state.CardSpecs()[ref].Cost
+	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Cost: cost}
+	})
+}
+
+func defend(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
+	if itemHandIndex != nil {
+		if !slices.Contains(r.state.ItemChoices(), *itemHandIndex) {
+			return ErrItemNotUsable
+		}
+		if err := useItem(r, by, *itemHandIndex); err != nil {
+			return err
+		}
+	}
+	return battle(r)
+}
+
+// 攻める側が先に攻撃し、守る側が生きていれば反撃する。能力とアイテムの効果はまだ無い（core#114）
+func battle(r *recorder) error {
+	defeated, err := strike(r, BattleSideAttacker)
+	if err != nil {
+		return err
+	}
+	if defeated {
+		return conquer(r)
+	}
+	if _, err := strike(r, BattleSideDefender); err != nil {
+		return err
+	}
+	return repel(r)
+}
+
+// 受けた側が倒れたかを返す
+func strike(r *recorder, striker BattleSide) (bool, error) {
+	territory, ok := r.state.invadedTerritory()
+	if !ok || r.state.Invasion == nil {
+		return false, ErrInvalidState
+	}
+	defending, ok := r.state.DeployedCreature(territory.Creature)
+	if !ok {
+		return false, ErrInvalidState
+	}
+	invasion := *r.state.Invasion
+	damage, remaining := invasion.Base.Attack, defending.HitPoints.Damaged(invasion.Base.Attack)
+	if striker == BattleSideDefender {
+		damage, remaining = defending.Base.Attack, invasion.HitPoints.Damaged(defending.Base.Attack)
+	}
+	err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &CreatureStruckEvent{EventMeta: meta, Striker: striker, Damage: damage, RemainingHitPoints: remaining}
+	})
+	return remaining.Int() == 0, err
+}
+
+// 奪ったら、配置と同じくそのままターンを終える
+func conquer(r *recorder) error {
+	territory, ok := r.state.invadedTerritory()
+	if !ok {
+		return ErrInvalidState
+	}
+	id := r.state.LastDeployedCreatureID + 1
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: territory.Position, DefeatedCreature: territory.Creature, Creature: id}
+	}); err != nil {
+		return err
+	}
+	return endTurn(r)
+}
+
+func repel(r *recorder) error {
+	if r.state.Invasion == nil {
+		return ErrInvalidState
+	}
+	invasion := *r.state.Invasion
+	position := r.current().Position
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: invasion.Card, ReturnedToHand: invasion.HitPoints.Int() > 0}
+	}); err != nil {
+		return err
+	}
 	return payToll(r)
 }
 
-// 止まったのが他人の領地なら、通行料を払う（選べない。侵略との選択は core#114）
+// 止まっている他人の領地の通行料を払う。侵略を選ばなかったときと、侵略で倒せなかったときに通る
 func payToll(r *recorder) error {
-	if r.state.Phase != PhaseEnding {
-		return nil
-	}
-	territory, ok := r.state.TerritoryAt(r.current().Position)
+	territory, ok := r.state.invadedTerritory()
 	if !ok {
-		return nil
+		return ErrInvalidState
 	}
 	owner, ok := r.state.TerritoryOwner(territory)
 	if !ok {
 		return ErrInvalidState
-	}
-	if by, _ := r.state.CurrentParticipant(); owner == by {
-		return nil
 	}
 	toll := r.state.TerritoryToll(territory)
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {

@@ -259,3 +259,58 @@ func TestMatchEventsHandler_ShowsTheRewardDrawnWithTheCardsAndTheCompletion(t *t
 		query.MatchRewardsCompletedEvent{MatchEventMeta: metaAt(12, ended)},
 	}, events)
 }
+
+// NPC が (2,0) に配置した領地に、プレイヤーが止まって侵略する前までのイベント
+func invadingEvents(t *testing.T) []match.Event {
+	t.Helper()
+	player := matchtest.Index(t, 0)
+	return append(sampleEvents(t)[:9],
+		&match.TurnEndedEvent{EventMeta: eventMeta(t, 10), Participant: matchtest.Index(t, 1)},
+		&match.DiceRolledEvent{EventMeta: eventMeta(t, 11), Participant: player, Value: 2},
+		&match.MovedEvent{EventMeta: eventMeta(t, 12), Participant: player, To: boardtest.Position(t, 1, 0)},
+		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: player, To: boardtest.Position(t, 2, 0)},
+		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 14), Participant: player, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10)},
+	)
+}
+
+func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testing.T) {
+	player := matchtest.Index(t, 0)
+	f := newEventsFixture(t, append(invadingEvents(t),
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 15), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 16), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 17), Participant: player, Position: boardtest.Position(t, 2, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true},
+	))
+	dragon := deployedDragon(f.cardID)
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchTerritoryInvadedEvent{
+			MatchEventMeta: metaAt(14, changesOf(phaseOf(query.MatchPhaseDefending), []query.MatchTotalMagicChange{total(0, 590)})),
+			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10,
+		},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(15, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Damage: 10, RemainingHitPoints: 10},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Damage: 10, RemainingHitPoints: 10},
+		query.MatchInvasionRepelledEvent{MatchEventMeta: metaAt(17, changesOf(phaseOf(query.MatchPhaseEnding), nil)), Participant: 0, Position: query.NewBoardPosition(2, 0), Card: dragon, ReturnedToHand: true},
+	}, events)
+}
+
+// 持ち主が変わると両方の総魔力が動く。土地の価値と通行料は変わらないので入らない
+func TestMatchEventsHandler_ConqueringMovesTheTotalMagicOfBothParticipants(t *testing.T) {
+	player := matchtest.Index(t, 0)
+	f := newEventsFixture(t, append(invadingEvents(t),
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 15), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 1)},
+		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 16), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+	))
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 15)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchTerritoryConqueredEvent{
+			MatchEventMeta: metaAt(16, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)})),
+			Participant:    0, Position: query.NewBoardPosition(2, 0), DefeatedCreature: 1, Creature: 2,
+		},
+	}, events)
+}

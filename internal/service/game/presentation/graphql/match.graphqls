@@ -1,8 +1,9 @@
 # 対戦（部屋の全員が準備完了を申告すると、部屋の条件の写しで始まる集約）。始まった時点で、順番が決まり、山札が混ざり、手札が配られている。
 # read model を持たず、集約の状態から返す。参加者のプレイヤーだけが読める。
 # 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ →
-# 空いている土地に止まったらクリーチャーを配置するか配置せずにターンを終える／ほかのマスならターンを終える）。
-# NPC の番はポリシーが進める。侵略・アイテム・スペル等のカードを使う操作は、この後の Issue で足す。
+# 空いている土地に止まったらクリーチャーを配置するか配置せずにターンを終える／他人の領地なら通行料を払うか侵略する／ほかのマスならターンを終える）。
+# 侵略されたときだけは、番でない領地の持ち主がアイテムを選ぶ（awaitingParticipant）。
+# NPC の番はポリシーが進める。スペル等のカードを使う操作は、この後の Issue で足す。
 # 終わった後は、プレイヤーが戦利品のパックを選ぶ（chooseMatchRewardPack。番は無く、1 人 1 回）。引いたカードはポリシーが所持品に足す。
 # 全員が受け取るまで、段階は ENDED のまま
 
@@ -18,6 +19,10 @@ enum MatchPhase {
   CHOOSING_PATH
   "空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
   DEPLOYING
+  "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
+  INVADING
+  "侵略された領地の持ち主がアイテムを選ぶ段階（defendMatchTerritory。出さないことも選ぶ）。操作するのは番の人ではなく awaitingParticipant"
+  DEFENDING
   "通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）"
   RELINQUISHING
   "ターンを終える段階（endMatchTurn）"
@@ -52,6 +57,16 @@ type MatchTerritory {
   toll: Int!
   "手放したときに受け取る魔力"
   relinquishMagic: Int!
+}
+
+"戦闘が終わるまでの、侵略しているクリーチャー（領地には倒してから入るので、territories には含まない）"
+type MatchInvasion {
+  "攻められている領地の位置"
+  position: BoardPosition!
+  "元のカード（性能は対戦を始めたときの写し）"
+  card: CreatureCardInfo!
+  "今の体力"
+  hitPoints: Int!
 }
 
 "対戦が終わった理由"
@@ -195,6 +210,8 @@ type Match {
   participants: [MatchParticipant!]!
   "今の番の参加者（Match.participants の何番目か。順番が決まるまでは null）"
   currentParticipant: Int
+  "今操作を待っている参加者（Match.participants の何番目か）。DEFENDING の段階だけは領地の持ち主で、ほかは今の番の参加者"
+  awaitingParticipant: Int
   "対戦の段階。今の番の人が次にする操作を表す"
   phase: MatchPhase!
   "このターンに振ったサイコロの目（振る前は null）"
@@ -207,8 +224,15 @@ type Match {
   # 配置できるかの決まり（クリーチャーか・コストが払えるか）を画面に持たせないため、core が選べる手札を出す
   "今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）"
   deployChoices: [Int!]!
+  "今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）"
+  invadeChoices: [Int!]!
+  # 侵略するクリーチャーと合わせたコストはどれを選ぶかで変わるので、合わせて払えないアイテムはここに残り、操作が FieldNotFound で断る
+  "操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。INVADING と DEFENDING のときだけ中身がある）"
+  itemChoices: [Int!]!
   "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
   relinquishChoices: [BoardPosition!]!
+  "侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）"
+  invasion: MatchInvasion
   "盤面の領地（できた順）"
   territories: [MatchTerritory!]!
   "対戦の結果（終わるまでは null）"
@@ -384,6 +408,89 @@ union DeployMatchCreatureResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"止まった他人の領地を侵略する入力"
+input InvadeMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "侵略に出す手札の番号（0 始まり。Match.invadeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で出せないものは FieldNotFound）"
+  handIndex: Int!
+  "一緒に出すアイテムの手札の番号（0 始まり。操作する前の番号で、Match.itemChoices の中から選ぶ。出さなければ null。クリーチャーと合わせて払えないものは FieldNotFound）"
+  itemHandIndex: Int
+}
+
+"侵略した（領地の持ち主がアイテムを選ぶと戦闘になる。成功したら対戦の revision が進む）"
+type InvadeMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"invadeMatchTerritory の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union InvadeMatchTerritoryResult =
+    InvadeMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"止まった他人の領地の通行料を払う入力"
+input PayMatchTollInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+}
+
+"通行料を払った（成功したら対戦の revision が進む）"
+type PayMatchTollSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"payMatchToll の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union PayMatchTollResult =
+    PayMatchTollSuccess
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"侵略された領地を守る入力"
+input DefendMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すアイテムの手札の番号（0 始まり。Match.itemChoices の中から選ぶ。出さなければ null。選べないものは ValidationErrors の FieldNotFound）"
+  itemHandIndex: Int
+}
+
+"アイテムを選び、戦闘が終わった（成功したら対戦の revision が進む）"
+type DefendMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"defendMatchTerritory の結果（DEFENDING の段階の、領地の持ち主だけ。ほかの人は MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union DefendMatchTerritoryResult =
+    DefendMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "魔力が負の間に、自分の領地を手放す入力"
 input RelinquishMatchTerritoryInput {
   "対戦の公開用の ID"
@@ -484,6 +591,12 @@ extend type Mutation {
   deployMatchCreature(input: DeployMatchCreatureInput!): DeployMatchCreatureResult!
   "魔力が負の間に、自分の領地を手放す"
   relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
+  "止まった他人の領地を、手札のクリーチャーで侵略する（アイテムも 1 枚まで出せる。コストの分の魔力を払う）"
+  invadeMatchTerritory(input: InvadeMatchTerritoryInput!): InvadeMatchTerritoryResult!
+  "止まった他人の領地の通行料を払う"
+  payMatchToll(input: PayMatchTollInput!): PayMatchTollResult!
+  "侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さないことも選ぶ）"
+  defendMatchTerritory(input: DefendMatchTerritoryInput!): DefendMatchTerritoryResult!
   "ターンを終える（DEPLOYING では配置しない）"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
   "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
@@ -658,6 +771,104 @@ type MatchCreatureDeployedEvent implements MatchEvent {
   position: BoardPosition!
   "払った魔力"
   cost: Int!
+}
+
+"止まった他人の領地を、手札のクリーチャーで侵略した"
+type MatchTerritoryInvadedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "侵略した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "侵略した領地の位置"
+  position: BoardPosition!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘に手札のアイテムを出した（攻める側も守る側も同じ。効果はまだ無い）"
+type MatchItemUsedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘のどちら側か"
+enum MatchBattleSide {
+  "攻める側（侵略した側）"
+  ATTACKER
+  "守る側（領地の持ち主）"
+  DEFENDER
+}
+
+"戦闘の攻撃が 1 回当たった"
+type MatchCreatureStruckEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "攻撃した側"
+  striker: MatchBattleSide!
+  "与えた量"
+  damage: Int!
+  "受けた側の残りの体力（0 なら倒れた）"
+  remainingHitPoints: Int!
+}
+
+"守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）"
+type MatchTerritoryConqueredEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "奪った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "奪った領地の位置"
+  position: BoardPosition!
+  "倒されて盤面から外れたクリーチャーの ID"
+  defeatedCreature: Int!
+  "領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）"
+  creature: Int!
+}
+
+"守る側のクリーチャーを倒せなかった（続けて通行料を払う）"
+type MatchInvasionRepelledEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "侵略した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "侵略した領地の位置"
+  position: BoardPosition!
+  "攻めたカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "手札に戻ったか（生きていれば true。倒れていれば捨て札になり false）"
+  returnedToHand: Boolean!
 }
 
 "他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）"

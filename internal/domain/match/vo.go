@@ -67,19 +67,33 @@ const (
 	PhaseChoosingPath Phase = "choosing_path"
 	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
 	PhaseDeploying Phase = "deploying"
+	// 他人の領地に止まった後。通行料を払うか、手札のクリーチャーで侵略するかを選ぶ（侵略できる手札が無くても、払うを選ぶ段階に入る。2026-11-09 オーナー）
+	PhaseInvading Phase = "invading"
+	// 侵略された領地の持ち主がアイテムを選ぶ。番の人でない参加者の操作を待つ、ただ 1 つの段階
+	PhaseDefending Phase = "defending"
 	// 通行料を払って魔力が負になった後。0 以上になるまで自分の領地を手放す
 	PhaseRelinquishing Phase = "relinquishing"
 	PhaseEnding        Phase = "ending"
 	PhaseEnded         Phase = "ended"
 	// 進む途中だけの段階。Decide は進み終えるまで続けるので、保存された最後の状態が moving になることは無い
 	PhaseMoving Phase = "moving"
+	// 戦闘の途中だけの段階。moving と同じく、保存された最後の状態にはならない
+	PhaseBattling Phase = "battling"
 )
 
-// 今の番の人の操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動の途中は待っていない
+// 誰かの操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動と戦闘の途中は待っていない
 func (p Phase) AwaitsOperation() bool {
 	var notStarted Phase
-	return p != notStarted && p != PhaseMoving
+	return p != notStarted && p != PhaseMoving && p != PhaseBattling
 }
+
+// 戦闘のどちら側か
+type BattleSide string
+
+const (
+	BattleSideAttacker BattleSide = "attacker"
+	BattleSideDefender BattleSide = "defender"
+)
 
 type EndReason string
 

@@ -131,7 +131,7 @@ func Evolve(state State, event Event) (State, error) {
 		if err != nil {
 			return state, err
 		}
-		if current.Phase != PhaseEnding || e.Position != current.Participants[index].Position ||
+		if (current.Phase != PhaseInvading && current.Phase != PhaseEnding) || e.Position != current.Participants[index].Position ||
 			e.Owner < 0 || int(e.Owner) >= len(current.Participants) || e.Owner == index {
 			return state, ErrInvalidState
 		}
@@ -170,6 +170,109 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Position = base
 		current.Participants[index].Previous = nil
 		current.Participants[index].PassedCheckpoints = nil
+	case *TerritoryInvadedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		spec, ok := current.CardSpecs()[e.Card]
+		territory, occupied := current.TerritoryAt(e.Position)
+		var owner ParticipantIndex
+		if occupied {
+			owner, occupied = current.TerritoryOwner(territory)
+		}
+		switch {
+		case current.Phase != PhaseInvading, e.Position != participant.Position, !occupied, owner == index,
+			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
+			!ok, spec.Creature == nil:
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[index].Magic -= e.Cost.Int()
+		current.Invasion = &Invasion{Card: e.Card, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints}
+		current.Phase = PhaseDefending
+	case *ItemUsedEvent:
+		attacker, err := current.currentIndex()
+		if err != nil {
+			return state, err
+		}
+		defender, ok := current.AwaitingParticipant()
+		if !ok || current.Phase != PhaseDefending || (e.Participant != attacker && e.Participant != defender) {
+			return state, ErrInvalidState
+		}
+		hand := current.Participants[e.Participant].Hand
+		if e.HandIndex < 0 || e.HandIndex >= len(hand) || hand[e.HandIndex] != e.Card {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Participant].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[e.Participant].Magic -= e.Cost.Int()
+	case *CreatureStruckEvent:
+		if (current.Phase != PhaseDefending && current.Phase != PhaseBattling) || current.Invasion == nil {
+			return state, ErrInvalidState
+		}
+		switch e.Striker {
+		case BattleSideAttacker:
+			territory, ok := current.invadedTerritory()
+			if !ok {
+				return state, ErrInvalidState
+			}
+			current.DeployedCreatures = slices.Clone(current.DeployedCreatures)
+			for i := range current.DeployedCreatures {
+				if current.DeployedCreatures[i].ID == territory.Creature {
+					current.DeployedCreatures[i].HitPoints = e.RemainingHitPoints
+				}
+			}
+		case BattleSideDefender:
+			invasion := *current.Invasion
+			invasion.HitPoints = e.RemainingHitPoints
+			current.Invasion = &invasion
+		default:
+			return state, ErrInvalidState
+		}
+		current.Phase = PhaseBattling
+	case *TerritoryConqueredEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok || current.Phase != PhaseBattling || current.Invasion == nil || territory.Creature != e.DefeatedCreature ||
+			e.Position != current.Participants[index].Position || e.Creature != current.LastDeployedCreatureID+1 {
+			return state, ErrInvalidState
+		}
+		invasion := *current.Invasion
+		current.DeployedCreatures = append(
+			slices.DeleteFunc(slices.Clone(current.DeployedCreatures), func(d DeployedCreature) bool { return d.ID == e.DefeatedCreature }),
+			DeployedCreature{ID: e.Creature, Card: invasion.Card, Owner: index, Base: invasion.Base, HitPoints: invasion.HitPoints},
+		)
+		current.Territories = slices.Clone(current.Territories)
+		for i := range current.Territories {
+			if current.Territories[i].Position == e.Position {
+				current.Territories[i].Creature = e.Creature
+			}
+		}
+		current.LastDeployedCreatureID = e.Creature
+		current.Invasion = nil
+		current.Phase = PhaseEnding
+	case *InvasionRepelledEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		if current.Phase != PhaseBattling || current.Invasion == nil || e.Position != participant.Position ||
+			e.Card != current.Invasion.Card || e.ReturnedToHand != (current.Invasion.HitPoints.Int() > 0) {
+			return state, ErrInvalidState
+		}
+		if e.ReturnedToHand {
+			current.Participants = slices.Clone(current.Participants)
+			current.Participants[index].Hand = append(slices.Clone(participant.Hand), e.Card)
+		}
+		current.Invasion = nil
+		current.Phase = PhaseEnding
 	case *TurnEndedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
@@ -260,11 +363,20 @@ func (m Match) debtPhase(index ParticipantIndex) Phase {
 	return PhaseEnding
 }
 
-// 止まったマスで次にすること。空いている土地なら配置を選ぶ（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）
+// 止まったマスで次にすること。空いている土地なら配置を選び（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）、
+// 他人の領地なら通行料か侵略かを選ぶ
 func (m Match) stopPhase() Phase {
 	index, err := m.currentIndex()
-	if err == nil && m.isVacantLand(m.Participants[index].Position) {
+	if err != nil {
+		return PhaseEnding
+	}
+	if m.isVacantLand(m.Participants[index].Position) {
 		return PhaseDeploying
+	}
+	if territory, ok := m.invadedTerritory(); ok {
+		if owner, ok := m.TerritoryOwner(territory); ok && owner != index {
+			return PhaseInvading
+		}
 	}
 	return PhaseEnding
 }
