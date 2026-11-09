@@ -30,6 +30,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *LevelUpTerritoryCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) })
+	case *ExchangeCreatureCommand:
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) })
 	case *SkipTerritoryCommandCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, skipTerritoryCommand)
 	case *InvadeCommand:
@@ -206,6 +208,29 @@ func levelUp(r *recorder, position board.Position, level int) error {
 	magic := r.state.LevelUpChoices()[index].Magic
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: position, Level: level, Magic: magic}
+	}); err != nil {
+		return err
+	}
+	return afterTerritoryCommand(r)
+}
+
+func exchange(r *recorder, position board.Position, handIndex int) error {
+	if !slices.ContainsFunc(r.state.ExchangeChoices(), func(choice ExchangeChoice) bool { return choice.Position == position && choice.HandIndex == handIndex }) {
+		return ErrCreatureNotExchangeable
+	}
+	territory, ok := r.state.TerritoryAt(position)
+	if !ok {
+		return ErrInvalidState
+	}
+	replaced, ok := r.state.DeployedCreature(territory.Creature)
+	if !ok {
+		return ErrInvalidState
+	}
+	ref := r.current().Hand[handIndex]
+	cost := r.state.CardSpecs()[ref].Cost
+	id := r.state.LastDeployedCreatureID + 1
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: position, HandIndex: handIndex, Card: ref, Creature: id, Cost: cost, ReturnedCard: replaced.Card}
 	}); err != nil {
 		return err
 	}

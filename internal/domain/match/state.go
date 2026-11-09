@@ -358,6 +358,31 @@ func (m Match) LevelUpChoices() []LevelUpChoice {
 	return choices
 }
 
+// クリーチャーを交換する選択肢 1 つ
+type ExchangeChoice struct {
+	Position board.Position
+	// 手札の番号（0 始まり）
+	HandIndex int
+	// 払う魔力（出すクリーチャーのコスト）
+	Magic int
+}
+
+// 今の番の人が選べる交換（通った順・手札の順）。領地コマンドの段階でだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ
+func (m Match) ExchangeChoices() []ExchangeChoice {
+	index, ok := m.CurrentParticipant()
+	if m.Phase != PhaseTerritoryCommanding || !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	specs := m.CardSpecs()
+	var choices []ExchangeChoice
+	for _, territory := range m.passedOwnTerritories() {
+		for _, handIndex := range m.payableCreatures() {
+			choices = append(choices, ExchangeChoice{Position: territory.Position, HandIndex: handIndex, Magic: specs[m.Participants[index].Hand[handIndex]].Cost.Int()})
+		}
+	}
+	return choices
+}
+
 // 基本の値 × 倍率の差。連鎖の倍率は掛けないので、飛ばして上げた額は途中の額の合計になる（2026-11-08 オーナー）
 func (m Match) levelUpMagic(territory Territory, level int) int {
 	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(territory.Level))

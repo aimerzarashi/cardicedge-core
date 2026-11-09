@@ -270,6 +270,18 @@ type MatchTerritoryLeveledUpEvent struct {
 	Magic       int
 }
 
+// 領地のクリーチャーを手札のクリーチャーと入れ替えた
+type MatchCreatureExchangedEvent struct {
+	MatchEventMeta
+	Participant  int
+	Position     BoardPosition
+	HandIndex    int
+	Card         MatchCard
+	Creature     int
+	Cost         int
+	ReturnedCard MatchCard
+}
+
 // 領地コマンドを使わなかった
 type MatchTerritoryCommandSkippedEvent struct {
 	MatchEventMeta
@@ -423,6 +435,12 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
+		case *match.CreatureExchangedEvent:
+			for _, exchanged := range []card.Ref{e.Card, e.ReturnedCard} {
+				ref := domain.NewEntityRef(exchanged.EntityType, exchanged.ID)
+				refs = append(refs, ref)
+				inDeck[ref] = specs[exchanged]
+			}
 		case *match.TerritoryInvadedEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
@@ -537,6 +555,9 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.TerritoryLeveledUpEvent:
 		return MatchTerritoryLeveledUpEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Level, e.Magic}, nil
+	case *match.CreatureExchangedEvent:
+		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
+		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), position, e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), e.Cost.Int(), cards[domain.NewEntityRef(e.ReturnedCard.EntityType, e.ReturnedCard.ID)]}, nil
 	case *match.TerritoryCommandSkippedEvent:
 		return MatchTerritoryCommandSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.BattleStartedEvent:

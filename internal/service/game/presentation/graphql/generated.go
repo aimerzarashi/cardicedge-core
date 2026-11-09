@@ -273,6 +273,11 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	ExchangeMatchCreatureSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	FieldCountMismatch struct {
 		Expected func(childComplexity int) int
 		Field    func(childComplexity int) int
@@ -347,6 +352,7 @@ type ComplexityRoot struct {
 		CurrentParticipant  func(childComplexity int) int
 		DeployChoices       func(childComplexity int) int
 		Dice                func(childComplexity int) int
+		ExchangeChoices     func(childComplexity int) int
 		ID                  func(childComplexity int) int
 		InvadeChoices       func(childComplexity int) int
 		Invasion            func(childComplexity int) int
@@ -453,6 +459,19 @@ type ComplexityRoot struct {
 		Revision    func(childComplexity int) int
 	}
 
+	MatchCreatureExchangedEvent struct {
+		Card         func(childComplexity int) int
+		Changes      func(childComplexity int) int
+		Cost         func(childComplexity int) int
+		Creature     func(childComplexity int) int
+		HandIndex    func(childComplexity int) int
+		OccurredAt   func(childComplexity int) int
+		Participant  func(childComplexity int) int
+		Position     func(childComplexity int) int
+		ReturnedCard func(childComplexity int) int
+		Revision     func(childComplexity int) int
+	}
+
 	MatchCreatureStruckEvent struct {
 		Changes            func(childComplexity int) int
 		Damage             func(childComplexity int) int
@@ -499,6 +518,12 @@ type ComplexityRoot struct {
 
 	MatchEventList struct {
 		Events func(childComplexity int) int
+	}
+
+	MatchExchangeChoice struct {
+		HandIndex func(childComplexity int) int
+		Magic     func(childComplexity int) int
+		Position  func(childComplexity int) int
 	}
 
 	MatchHandsDealtEvent struct {
@@ -778,6 +803,7 @@ type ComplexityRoot struct {
 		DiscardMatchCard          func(childComplexity int, input model.DiscardMatchCardInput) int
 		DrawMatchCard             func(childComplexity int, input model.DrawMatchCardInput) int
 		EndMatchTurn              func(childComplexity int, input model.EndMatchTurnInput) int
+		ExchangeMatchCreature     func(childComplexity int, input model.ExchangeMatchCreatureInput) int
 		InvadeMatchTerritory      func(childComplexity int, input model.InvadeMatchTerritoryInput) int
 		LevelUpMatchTerritory     func(childComplexity int, input model.LevelUpMatchTerritoryInput) int
 		PayMatchToll              func(childComplexity int, input model.PayMatchTollInput) int
@@ -1053,6 +1079,7 @@ type MutationResolver interface {
 	DeployMatchCreature(ctx context.Context, input model.DeployMatchCreatureInput) (model.DeployMatchCreatureResult, error)
 	RelinquishMatchTerritory(ctx context.Context, input model.RelinquishMatchTerritoryInput) (model.RelinquishMatchTerritoryResult, error)
 	LevelUpMatchTerritory(ctx context.Context, input model.LevelUpMatchTerritoryInput) (model.LevelUpMatchTerritoryResult, error)
+	ExchangeMatchCreature(ctx context.Context, input model.ExchangeMatchCreatureInput) (model.ExchangeMatchCreatureResult, error)
 	SkipMatchTerritoryCommand(ctx context.Context, input model.SkipMatchTerritoryCommandInput) (model.SkipMatchTerritoryCommandResult, error)
 	InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error)
 	AttackMatchTerritory(ctx context.Context, input model.AttackMatchTerritoryInput) (model.AttackMatchTerritoryResult, error)
@@ -1825,6 +1852,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.EndMatchTurnSuccess.Revision(childComplexity), true
 
+	case "ExchangeMatchCreatureSuccess.id":
+		if e.ComplexityRoot.ExchangeMatchCreatureSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ExchangeMatchCreatureSuccess.ID(childComplexity), true
+	case "ExchangeMatchCreatureSuccess.revision":
+		if e.ComplexityRoot.ExchangeMatchCreatureSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ExchangeMatchCreatureSuccess.Revision(childComplexity), true
+
 	case "FieldCountMismatch.expected":
 		if e.ComplexityRoot.FieldCountMismatch.Expected == nil {
 			break
@@ -2042,6 +2082,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.Dice(childComplexity), true
+	case "Match.exchangeChoices":
+		if e.ComplexityRoot.Match.ExchangeChoices == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.ExchangeChoices(childComplexity), true
 	case "Match.id":
 		if e.ComplexityRoot.Match.ID == nil {
 			break
@@ -2480,6 +2526,67 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchCreatureDeployedEvent.Revision(childComplexity), true
 
+	case "MatchCreatureExchangedEvent.card":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Card == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Card(childComplexity), true
+	case "MatchCreatureExchangedEvent.changes":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Changes(childComplexity), true
+	case "MatchCreatureExchangedEvent.cost":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Cost == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Cost(childComplexity), true
+	case "MatchCreatureExchangedEvent.creature":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Creature == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Creature(childComplexity), true
+	case "MatchCreatureExchangedEvent.handIndex":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.HandIndex == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.HandIndex(childComplexity), true
+	case "MatchCreatureExchangedEvent.occurredAt":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.OccurredAt(childComplexity), true
+	case "MatchCreatureExchangedEvent.participant":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Participant(childComplexity), true
+	case "MatchCreatureExchangedEvent.position":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Position(childComplexity), true
+	case "MatchCreatureExchangedEvent.returnedCard":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.ReturnedCard == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.ReturnedCard(childComplexity), true
+	case "MatchCreatureExchangedEvent.revision":
+		if e.ComplexityRoot.MatchCreatureExchangedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCreatureExchangedEvent.Revision(childComplexity), true
+
 	case "MatchCreatureStruckEvent.changes":
 		if e.ComplexityRoot.MatchCreatureStruckEvent.Changes == nil {
 			break
@@ -2648,6 +2755,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchEventList.Events(childComplexity), true
+
+	case "MatchExchangeChoice.handIndex":
+		if e.ComplexityRoot.MatchExchangeChoice.HandIndex == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchExchangeChoice.HandIndex(childComplexity), true
+	case "MatchExchangeChoice.magic":
+		if e.ComplexityRoot.MatchExchangeChoice.Magic == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchExchangeChoice.Magic(childComplexity), true
+	case "MatchExchangeChoice.position":
+		if e.ComplexityRoot.MatchExchangeChoice.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchExchangeChoice.Position(childComplexity), true
 
 	case "MatchHandsDealtEvent.cards":
 		if e.ComplexityRoot.MatchHandsDealtEvent.Cards == nil {
@@ -3802,6 +3928,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.EndMatchTurn(childComplexity, args["input"].(model.EndMatchTurnInput)), true
+	case "Mutation.exchangeMatchCreature":
+		if e.ComplexityRoot.Mutation.ExchangeMatchCreature == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_exchangeMatchCreature_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ExchangeMatchCreature(childComplexity, args["input"].(model.ExchangeMatchCreatureInput)), true
 	case "Mutation.invadeMatchTerritory":
 		if e.ComplexityRoot.Mutation.InvadeMatchTerritory == nil {
 			break
@@ -4758,6 +4895,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("DiscardMatchCardInput", ec.unmarshalInputDiscardMatchCardInput),
 			graphql.NewInputUnmarshaler("DrawMatchCardInput", ec.unmarshalInputDrawMatchCardInput),
 			graphql.NewInputUnmarshaler("EndMatchTurnInput", ec.unmarshalInputEndMatchTurnInput),
+			graphql.NewInputUnmarshaler("ExchangeMatchCreatureInput", ec.unmarshalInputExchangeMatchCreatureInput),
 			graphql.NewInputUnmarshaler("InvadeMatchTerritoryInput", ec.unmarshalInputInvadeMatchTerritoryInput),
 			graphql.NewInputUnmarshaler("LevelUpMatchTerritoryInput", ec.unmarshalInputLevelUpMatchTerritoryInput),
 			graphql.NewInputUnmarshaler("PayMatchTollInput", ec.unmarshalInputPayMatchTollInput),
@@ -5136,6 +5274,8 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_relinquishChoices(ctx, field)
 	case "levelUpChoices":
 		return ec.fieldContext_Match_levelUpChoices(ctx, field)
+	case "exchangeChoices":
+		return ec.fieldContext_Match_exchangeChoices(ctx, field)
 	case "invasion":
 		return ec.fieldContext_Match_invasion(ctx, field)
 	case "territories":
@@ -5210,6 +5350,18 @@ func (ec *executionContext) childFields_MatchEventChanges(ctx context.Context, f
 		return ec.fieldContext_MatchEventChanges_territoryValues(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchEventChanges", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchExchangeChoice(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "position":
+		return ec.fieldContext_MatchExchangeChoice_position(ctx, field)
+	case "handIndex":
+		return ec.fieldContext_MatchExchangeChoice_handIndex(ctx, field)
+	case "magic":
+		return ec.fieldContext_MatchExchangeChoice_magic(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchExchangeChoice", field.Name)
 }
 
 func (ec *executionContext) childFields_MatchInvasion(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -5900,6 +6052,20 @@ func (ec *executionContext) field_Mutation_endMatchTurn_args(ctx context.Context
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.EndMatchTurnInput, error) {
 			return ec.unmarshalNEndMatchTurnInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐEndMatchTurnInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_exchangeMatchCreature_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ExchangeMatchCreatureInput, error) {
+			return ec.unmarshalNExchangeMatchCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐExchangeMatchCreatureInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -9054,6 +9220,52 @@ func (ec *executionContext) fieldContext_EndMatchTurnSuccess_revision(_ context.
 	return graphql.NewScalarFieldContext("EndMatchTurnSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ExchangeMatchCreatureSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ExchangeMatchCreatureSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ExchangeMatchCreatureSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ExchangeMatchCreatureSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ExchangeMatchCreatureSuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ExchangeMatchCreatureSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ExchangeMatchCreatureSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ExchangeMatchCreatureSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ExchangeMatchCreatureSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ExchangeMatchCreatureSuccess", field, false, false, "Int")
+}
+
 func (ec *executionContext) _FieldCountMismatch_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldCountMismatch) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -10170,6 +10382,38 @@ func (ec *executionContext) fieldContext_Match_levelUpChoices(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_MatchLevelUpChoice(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Match_exchangeChoices(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_exchangeChoices(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExchangeChoices, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MatchExchangeChoice) graphql.Marshaler {
+			return ec.marshalNMatchExchangeChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchExchangeChoiceᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_exchangeChoices(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchExchangeChoice(ctx, field)
 		},
 	}
 	return fc, nil
@@ -11730,6 +11974,272 @@ func (ec *executionContext) fieldContext_MatchCreatureDeployedEvent_cost(_ conte
 	return graphql.NewScalarFieldContext("MatchCreatureDeployedEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchCreatureExchangedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCreatureExchangedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCreatureExchangedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_handIndex(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_handIndex(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HandIndex, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_handIndex(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_card(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Card, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_card(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCreatureExchangedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_creature(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_creature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Creature, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_creature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_cost(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_cost(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cost, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCreatureExchangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent_returnedCard(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureExchangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCreatureExchangedEvent_returnedCard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReturnedCard, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCreatureExchangedEvent_returnedCard(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCreatureExchangedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MatchCreatureStruckEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchCreatureStruckEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12421,6 +12931,84 @@ func (ec *executionContext) fieldContext_MatchEventList_events(_ context.Context
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _MatchExchangeChoice_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchExchangeChoice) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchExchangeChoice_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchExchangeChoice_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchExchangeChoice",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchExchangeChoice_handIndex(ctx context.Context, field graphql.CollectedField, obj *model.MatchExchangeChoice) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchExchangeChoice_handIndex(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HandIndex, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchExchangeChoice_handIndex(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchExchangeChoice", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchExchangeChoice_magic(ctx context.Context, field graphql.CollectedField, obj *model.MatchExchangeChoice) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchExchangeChoice_magic(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Magic, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchExchangeChoice_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchExchangeChoice", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchHandsDealtEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandsDealtEvent) (ret graphql.Marshaler) {
@@ -16786,6 +17374,50 @@ func (ec *executionContext) fieldContext_Mutation_levelUpMatchTerritory(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_levelUpMatchTerritory_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_exchangeMatchCreature(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_exchangeMatchCreature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ExchangeMatchCreature(ctx, fc.Args["input"].(model.ExchangeMatchCreatureInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ExchangeMatchCreatureResult) graphql.Marshaler {
+			return ec.marshalNExchangeMatchCreatureResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐExchangeMatchCreatureResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_exchangeMatchCreature(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ExchangeMatchCreatureResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_exchangeMatchCreature_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -22837,6 +23469,69 @@ func UnmarshalEndMatchTurnInput(ctx context.Context, raw any) (model.EndMatchTur
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputExchangeMatchCreatureInput(ctx context.Context, obj any) (model.ExchangeMatchCreatureInput, error) {
+	var it model.ExchangeMatchCreatureInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "position", "handIndex"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "position":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("position"))
+			data, err := ec.unmarshalNBoardPositionInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardPositionInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Position = data
+		case "handIndex":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("handIndex"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.HandIndex = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalExchangeMatchCreatureInput unmarshals raw into the ExchangeMatchCreatureInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalExchangeMatchCreatureInput(ctx context.Context, raw any) (model.ExchangeMatchCreatureInput, error) {
+	var out model.ExchangeMatchCreatureInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ExchangeMatchCreatureInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputInvadeMatchTerritoryInput(ctx context.Context, obj any) (model.InvadeMatchTerritoryInput, error) {
 	var it model.InvadeMatchTerritoryInput
 	if obj == nil {
@@ -24569,6 +25264,68 @@ func (ec *executionContext) _EndMatchTurnResult(ctx context.Context, sel ast.Sel
 	}
 }
 
+func (ec *executionContext) _ExchangeMatchCreatureResult(ctx context.Context, sel ast.SelectionSet, obj model.ExchangeMatchCreatureResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.PlayerNotRegisteredError:
+		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
+	case *model.PlayerNotRegisteredError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PlayerNotRegisteredError(ctx, sel, obj)
+	case model.MatchPhaseNotAllowedError:
+		return ec._MatchPhaseNotAllowedError(ctx, sel, &obj)
+	case *model.MatchPhaseNotAllowedError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchPhaseNotAllowedError(ctx, sel, obj)
+	case model.MatchNotYourTurnError:
+		return ec._MatchNotYourTurnError(ctx, sel, &obj)
+	case *model.MatchNotYourTurnError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchNotYourTurnError(ctx, sel, obj)
+	case model.MatchNotFoundError:
+		return ec._MatchNotFoundError(ctx, sel, &obj)
+	case *model.MatchNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchNotFoundError(ctx, sel, obj)
+	case model.ExchangeMatchCreatureSuccess:
+		return ec._ExchangeMatchCreatureSuccess(ctx, sel, &obj)
+	case *model.ExchangeMatchCreatureSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ExchangeMatchCreatureSuccess(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ExchangeMatchCreatureResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSet, obj model.FieldError) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -24974,6 +25731,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchCreatureStruckEvent(ctx, sel, obj)
+	case model.MatchCreatureExchangedEvent:
+		return ec._MatchCreatureExchangedEvent(ctx, sel, &obj)
+	case *model.MatchCreatureExchangedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchCreatureExchangedEvent(ctx, sel, obj)
 	case model.MatchCreatureDeployedEvent:
 		return ec._MatchCreatureDeployedEvent(ctx, sel, &obj)
 	case *model.MatchCreatureDeployedEvent:
@@ -27416,6 +28180,44 @@ func (ec *executionContext) _EndMatchTurnSuccess(ctx context.Context, sel ast.Se
 	return out
 }
 
+var exchangeMatchCreatureSuccessImplementors = []string{"ExchangeMatchCreatureSuccess", "ExchangeMatchCreatureResult"}
+
+func (ec *executionContext) _ExchangeMatchCreatureSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ExchangeMatchCreatureSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, exchangeMatchCreatureSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ExchangeMatchCreatureSuccess")
+		case "id":
+			out.Values[i] = ec._ExchangeMatchCreatureSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ExchangeMatchCreatureSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var fieldCountMismatchImplementors = []string{"FieldCountMismatch", "FieldError"}
 
 func (ec *executionContext) _FieldCountMismatch(ctx context.Context, sel ast.SelectionSet, obj *model.FieldCountMismatch) graphql.Marshaler {
@@ -28018,6 +28820,11 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "levelUpChoices":
 			out.Values[i] = ec._Match_levelUpChoices(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "exchangeChoices":
+			out.Values[i] = ec._Match_exchangeChoices(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28641,6 +29448,84 @@ func (ec *executionContext) _MatchCreatureDeployedEvent(ctx context.Context, sel
 	return out
 }
 
+var matchCreatureExchangedEventImplementors = []string{"MatchCreatureExchangedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchCreatureExchangedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchCreatureExchangedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchCreatureExchangedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchCreatureExchangedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "position":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "handIndex":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_handIndex(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "card":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_card(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "creature":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_creature(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cost":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_cost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "returnedCard":
+			out.Values[i] = ec._MatchCreatureExchangedEvent_returnedCard(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var matchCreatureStruckEventImplementors = []string{"MatchCreatureStruckEvent", "MatchEvent"}
 
 func (ec *executionContext) _MatchCreatureStruckEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchCreatureStruckEvent) graphql.Marshaler {
@@ -28952,6 +29837,49 @@ func (ec *executionContext) _MatchEventList(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("MatchEventList")
 		case "events":
 			out.Values[i] = ec._MatchEventList_events(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchExchangeChoiceImplementors = []string{"MatchExchangeChoice"}
+
+func (ec *executionContext) _MatchExchangeChoice(ctx context.Context, sel ast.SelectionSet, obj *model.MatchExchangeChoice) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchExchangeChoiceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchExchangeChoice")
+		case "position":
+			out.Values[i] = ec._MatchExchangeChoice_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "handIndex":
+			out.Values[i] = ec._MatchExchangeChoice_handIndex(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "magic":
+			out.Values[i] = ec._MatchExchangeChoice_magic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29477,7 +30405,7 @@ func (ec *executionContext) _MatchMovedEvent(ctx context.Context, sel ast.Select
 	return out
 }
 
-var matchNotFoundErrorImplementors = []string{"MatchNotFoundError", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult"}
+var matchNotFoundErrorImplementors = []string{"MatchNotFoundError", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult"}
 
 func (ec *executionContext) _MatchNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchNotFoundErrorImplementors)
@@ -29510,7 +30438,7 @@ func (ec *executionContext) _MatchNotFoundError(ctx context.Context, sel ast.Sel
 	return out
 }
 
-var matchNotYourTurnErrorImplementors = []string{"MatchNotYourTurnError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult"}
+var matchNotYourTurnErrorImplementors = []string{"MatchNotYourTurnError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult"}
 
 func (ec *executionContext) _MatchNotYourTurnError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchNotYourTurnError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchNotYourTurnErrorImplementors)
@@ -29674,7 +30602,7 @@ func (ec *executionContext) _MatchParticipant(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var matchPhaseNotAllowedErrorImplementors = []string{"MatchPhaseNotAllowedError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult"}
+var matchPhaseNotAllowedErrorImplementors = []string{"MatchPhaseNotAllowedError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult"}
 
 func (ec *executionContext) _MatchPhaseNotAllowedError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchPhaseNotAllowedError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchPhaseNotAllowedErrorImplementors)
@@ -30794,6 +31722,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "exchangeMatchCreature":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_exchangeMatchCreature(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "skipMatchTerritoryCommand":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_skipMatchTerritoryCommand(ctx, field)
@@ -31260,7 +32195,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "CardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "CardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -31665,7 +32600,7 @@ func (ec *executionContext) _ResumeRoomSuccess(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -32693,7 +33628,7 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "CollectionResult", "DiscardMatchCardResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ChooseMatchRewardPackResult", "MyRoomsResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "RenameRoomResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "RegisterAvatarResult", "BoardsResult", "CollectionResult", "DiscardMatchCardResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "ChooseMatchRewardPackResult", "MyRoomsResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "RenameRoomResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -33768,6 +34703,19 @@ func (ec *executionContext) marshalNEndMatchTurnResult2gitlabᚗcomᚋaimerzaras
 	return ec._EndMatchTurnResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNExchangeMatchCreatureInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐExchangeMatchCreatureInput(ctx context.Context, v any) (model.ExchangeMatchCreatureInput, error) {
+	res, err := ec.unmarshalInputExchangeMatchCreatureInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNExchangeMatchCreatureResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐExchangeMatchCreatureResult(ctx context.Context, sel ast.SelectionSet, v model.ExchangeMatchCreatureResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ExchangeMatchCreatureResult!")
+		return graphql.Null
+	}
+	return ec._ExchangeMatchCreatureResult(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "FieldError!")
@@ -33977,6 +34925,30 @@ func (ec *executionContext) marshalNMatchEventsResult2gitlabᚗcomᚋaimerzarash
 		return graphql.Null
 	}
 	return ec._MatchEventsResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMatchExchangeChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchExchangeChoiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchExchangeChoice) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchExchangeChoice2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchExchangeChoice(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMatchExchangeChoice2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchExchangeChoice(ctx context.Context, sel ast.SelectionSet, v *model.MatchExchangeChoice) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchExchangeChoice!")
+		return graphql.Null
+	}
+	return ec._MatchExchangeChoice(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMatchLevelUpChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLevelUpChoiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchLevelUpChoice) graphql.Marshaler {

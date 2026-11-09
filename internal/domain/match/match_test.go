@@ -238,6 +238,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
 		&match.TerritoryCommandSkippedEvent{EventMeta: meta, Participant: by},
+		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
 	}
@@ -2132,6 +2133,88 @@ func TestDecide_LevelUpRejectsChoicesThatAreNotOffered(t *testing.T) {
 			err := decideErr(t, state, &match.LevelUpTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, tc.x, 0), Level: tc.level})
 
 			require.ErrorIs(t, err, match.ErrTerritoryNotLevelUpable)
+		})
+	}
+}
+
+// 通った領地にいるクリーチャーを、手札に無いカードにして傷を付ける（手札に戻るカードを見分けるため）
+func withWoundedRare(t *testing.T, state match.Match) match.Match {
+	t.Helper()
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	state.DeployedCreatures[0].Card = cardtest.CreatureRef(t, 999)
+	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, 1)
+	return state
+}
+
+func exchange(t *testing.T, state match.Match, x, handIndex int) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.ExchangeCreatureCommand{By: matchtest.Index(t, 1), Position: pos(t, x, 0), HandIndex: handIndex})
+}
+
+func TestMatch_ExchangeChoicesAreCreaturesPayableWithTheMagic(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+	state = withItemInHand(t, state, 1, 301, 20)
+
+	choices := state.ExchangeChoices()
+
+	require.Len(t, choices, len(state.Participants[1].Hand)-1)
+	require.Equal(t, match.ExchangeChoice{Position: pos(t, 1, 0), HandIndex: 0, Magic: 10}, choices[0])
+	require.Empty(t, withMagic(state, 1, 5).ExchangeChoices())
+}
+
+func TestDecide_ExchangeReplacesTheCreatureAndReturnsTheOldCardToTheHand(t *testing.T) {
+	state := withTerritory(t, territoryBoardMatch(t), 1, 1, 3)
+	state = withWoundedRare(t, state)
+	state = rolledTo(t, state, 2)
+	handBefore := len(state.Participants[1].Hand)
+	replaced := state.DeployedCreatures[0].ID
+
+	state, events := exchange(t, state, 1, 0)
+
+	exchanged := eventOf[*match.CreatureExchangedEvent](t, events)
+	require.Equal(t, cardtest.CreatureRef(t, 201), exchanged.Card)
+	require.Equal(t, cardtest.CreatureRef(t, 999), exchanged.ReturnedCard)
+	require.NotEqual(t, replaced, exchanged.Creature)
+	require.Equal(t, 600-10, state.Participants[1].Magic)
+	require.Len(t, state.Participants[1].Hand, handBefore)
+	require.Equal(t, cardtest.CreatureRef(t, 999), state.Participants[1].Hand[handBefore-1])
+	require.Len(t, state.DeployedCreatures, 1)
+	require.Equal(t, exchanged.Creature, state.DeployedCreatures[0].ID)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: exchanged.Creature, Level: 3}}, state.Territories)
+	require.Equal(t, state.LastDeployedCreatureID, exchanged.Creature)
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_ExchangingOnTheTerritoryOfAnotherOnlyPaysTheToll(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 1)
+	state = rolledTo(t, state, 2)
+
+	state, events := exchange(t, state, 1, 0)
+
+	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, match.PhaseEnding, state.Phase)
+}
+
+func TestDecide_ExchangeRejectsChoicesThatAreNotOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+	state = withItemInHand(t, state, 1, 301, 20)
+	itemIndex := len(state.Participants[1].Hand) - 1
+	cases := []struct {
+		name string
+		x    int
+		hand int
+	}{
+		{name: "not_passed", x: 3, hand: 0},
+		{name: "item_as_the_creature", x: 1, hand: itemIndex},
+		{name: "hand_out_of_range", x: 1, hand: 99},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := decideErr(t, state, &match.ExchangeCreatureCommand{By: matchtest.Index(t, 1), Position: pos(t, tc.x, 0), HandIndex: tc.hand})
+
+			require.ErrorIs(t, err, match.ErrCreatureNotExchangeable)
 		})
 	}
 }

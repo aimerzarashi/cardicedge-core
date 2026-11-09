@@ -135,6 +135,24 @@ func (r *mutationResolver) LevelUpMatchTerritory(ctx context.Context, input mode
 	return &model.LevelUpMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ExchangeMatchCreature is the resolver for the exchangeMatchCreature field.
+func (r *mutationResolver) ExchangeMatchCreature(ctx context.Context, input model.ExchangeMatchCreatureInput) (model.ExchangeMatchCreatureResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ExchangeCreature(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ExchangeMatchCreatureResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ExchangeMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // SkipMatchTerritoryCommand is the resolver for the skipMatchTerritoryCommand field.
 func (r *mutationResolver) SkipMatchTerritoryCommand(ctx context.Context, input model.SkipMatchTerritoryCommandInput) (model.SkipMatchTerritoryCommandResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
