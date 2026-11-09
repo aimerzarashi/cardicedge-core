@@ -28,6 +28,10 @@ const matchQuery = `query ($id: UUID!) {
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
 			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
+			awaitingParticipant
+			invadeChoices
+			itemChoices
+			invasion { position { x y } card { id name } hitPoints }
 			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
@@ -88,7 +92,7 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	p := newRoomPlayer(t)
 	matchID := startMatch(t, p, 1, nil)
 	// NPC が先の順番なら、NPC のターンが済んでプレイヤーの番になるのを待つ（NPC は対戦が始まるとすぐ動く）
-	found := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["currentParticipant"] == float64(0) })
+	found := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["awaitingParticipant"] == float64(0) })
 	stranger := newPlayerToken(t)
 	registerPlayer(t, stranger)
 	hidden := client.Data(t, stranger, matchQuery, map[string]any{"id": matchID}, "match")
@@ -156,7 +160,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "invadeMatchTerritory" || name == "defendMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -217,6 +221,16 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 			return matchRevision(t, matchOperation(t, token, "deployMatchCreature", input), "deployMatchCreature")
 		}
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
+	case "INVADING":
+		// 出せるものがあれば core が出す invadeChoices の最初で侵略し、無ければ通行料を払う
+		if choices := m["invadeChoices"].([]any); len(choices) > 0 {
+			input["handIndex"] = choices[0]
+			return matchRevision(t, matchOperation(t, token, "invadeMatchTerritory", input), "invadeMatchTerritory")
+		}
+		return matchRevision(t, matchOperation(t, token, "payMatchToll", input), "payMatchToll")
+	case "DEFENDING":
+		require.NotNil(t, m["invasion"])
+		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
 	case "RELINQUISHING":
 		choices := m["relinquishChoices"].([]any)
 		require.NotEmpty(t, choices)
@@ -242,7 +256,7 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == playerSeat
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == playerSeat
 		})
 		if m["phase"] == "ENDED" {
 			break
@@ -346,6 +360,11 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
+				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
+				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
+				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
+				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature }
+				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
 				... on MatchDiceRolledEvent { participant value }
@@ -370,7 +389,7 @@ func matchEvents(t *testing.T, token, matchID string, after int) map[string]any 
 // 自分の番まで進める（NPC が先なら、その番が済むのを待つ）
 func waitMyTurn(t *testing.T, token, matchID string) map[string]any {
 	t.Helper()
-	return waitMatch(t, token, matchID, func(m map[string]any) bool { return m["currentParticipant"] == float64(0) })
+	return waitMatch(t, token, matchID, func(m map[string]any) bool { return m["awaitingParticipant"] == float64(0) })
 }
 
 // つないだ直後に今の版が届き、プレイヤーの操作で版が進めばすぐ届き、変わらなくても間隔ごとに届く
@@ -480,7 +499,7 @@ func playUntilEnded(t *testing.T, p roomPlayer, matchID string) map[string]any {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			return m
@@ -636,7 +655,7 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			break
@@ -682,7 +701,7 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 	for step := 0; ; step++ {
 		require.Less(t, step, 200)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			break
@@ -747,7 +766,7 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			break
@@ -791,27 +810,65 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 		participant := raw.(map[string]any)
 		require.Equal(t, participant["magic"].(float64)+totals[float64(i)], participant["totalMagic"])
 	}
-	var deployed []map[string]any
+	// イベントを順に当てて、領地ごとの持ち主・クリーチャー・カードを作る（奪われた領地は最後に奪った人のもの）
+	type expectedTerritory struct{ owner, creature, card any }
+	expected := map[string]expectedTerritory{}
+	key := func(position any) string {
+		at := position.(map[string]any)
+		return fmt.Sprint(at["x"], ",", at["y"])
+	}
+	var invadingCard any
+	var lastCreature float64
 	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
-		if event := raw.(map[string]any); event["__typename"] == "MatchCreatureDeployedEvent" {
-			deployed = append(deployed, event)
+		event := raw.(map[string]any)
+		switch event["__typename"] {
+		case "MatchCreatureDeployedEvent":
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
+			// 盤面から外れたクリーチャーの ID も使い回さない
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchTerritoryInvadedEvent":
+			invadingCard = event["card"].(map[string]any)["id"]
+		case "MatchTerritoryConqueredEvent":
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], invadingCard}
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchTerritoryRelinquishedEvent":
+			delete(expected, key(event["position"]))
 		}
 	}
 	// 土地が 2 つあるボードで 10 ラウンド進めるので、誰かが配置している
-	require.NotEmpty(t, deployed)
-	require.Len(t, territories, len(deployed))
-	for i, event := range deployed {
-		position := event["position"].(map[string]any)
-		territory, ok := territories[fmt.Sprint(position["x"], ",", position["y"])]
+	require.Positive(t, lastCreature)
+	require.Len(t, territories, len(expected))
+	for position, want := range expected {
+		territory, ok := territories[position]
 		require.True(t, ok)
 		creature := territory["creature"].(map[string]any)
 		card := creature["card"].(map[string]any)
-		require.Equal(t, event["participant"], territory["owner"])
-		require.Equal(t, event["creature"], creature["id"])
-		require.Equal(t, float64(i+1), creature["id"])
-		require.Equal(t, event["card"].(map[string]any)["id"], card["id"])
-		require.Equal(t, card["cost"], event["cost"])
-		// 配置した直後の体力は、カードの体力（戦闘は先の Issue）
-		require.Equal(t, card["hitPoints"], creature["hitPoints"])
+		require.Equal(t, want.owner, territory["owner"])
+		require.Equal(t, want.creature, creature["id"])
+		require.Equal(t, want.card, card["id"])
+		// 戦闘の傷は残るので、カードの体力以下
+		require.LessOrEqual(t, creature["hitPoints"], card["hitPoints"])
 	}
+}
+
+// 侵略の操作は、侵略を選ぶ段階・守る段階の外では断られる
+func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, nil)
+	m := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "DRAWING" && m["awaitingParticipant"] == float64(0) })
+	input := map[string]any{"id": matchID, "revision": m["revision"]}
+
+	invade := matchOperation(t, p.token, "invadeMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+	toll := matchOperation(t, p.token, "payMatchToll", input)
+	defend := matchOperation(t, p.token, "defendMatchTerritory", input)
+
+	require.Equal(t, "MatchPhaseNotAllowedError", invade["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", toll["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", defend["__typename"])
+	require.Empty(t, m["invadeChoices"])
+	require.Empty(t, m["itemChoices"])
+	require.Nil(t, m["invasion"])
 }

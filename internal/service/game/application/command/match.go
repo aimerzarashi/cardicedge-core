@@ -290,6 +290,28 @@ func (c *MatchHandler) Deploy(ctx context.Context, id uuid.UUID, revision int64,
 	})
 }
 
+// 止まった他人の領地を、手札のクリーチャーで侵略する（アイテムは出さなければ nil）。侵略できない手札は input.Errors（NotFound・項目名 handIndex）、
+// 手札の範囲外は input.Errors（OutOfRange）、出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
+func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int, itemHandIndex *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.InvadeCommand{By: by, HandIndex: handIndex, ItemHandIndex: itemHandIndex}, nil
+	})
+}
+
+// 止まった他人の領地の通行料を払う
+func (c *MatchHandler) PayToll(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.PayTollCommand{By: by}, nil
+	})
+}
+
+// 侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さなければ nil）。出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
+func (c *MatchHandler) Defend(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.DefendCommand{By: by, ItemHandIndex: itemHandIndex}, nil
+	})
+}
+
 // 魔力が負の間に、自分の領地を 1 つ手放す。手放せない位置（自分の領地でない）は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
 func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
@@ -403,8 +425,10 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return ErrMatchPhaseNotAllowed
 	case errors.Is(err, match.ErrHandIndexOutOfRange):
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
-	case errors.Is(err, match.ErrCreatureNotDeployable):
+	case errors.Is(err, match.ErrCreatureNotDeployable), errors.Is(err, match.ErrCreatureNotInvadable):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
+	case errors.Is(err, match.ErrItemNotUsable):
+		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
 	case errors.Is(err, match.ErrTerritoryNotRelinquishable):
 		return input.Errors{&input.NotFound{Field: "position"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
@@ -442,7 +466,7 @@ func (c *MatchNPCTurnHandler) Handle(ctx context.Context, event any) error {
 }
 
 // 受けたイベントの版が今の版と違えば何もしない（1 つの操作で出た複数のイベントのうち、最後のイベントでだけ動くため。
-// 前のイベントの分は、後のイベントで動く）。終わった対戦・プレイヤーの番も何もしない。
+// 前のイベントの分は、後のイベントで動く）。終わった対戦・プレイヤーの操作を待っている間も何もしない。
 // 保存の版の衝突は、ほかが先に進めたものとして成功で返す（ポリシーは二度動くことがある）
 func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventVersion int64) error {
 	random := c.newRandom()
@@ -458,7 +482,7 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		if current.Version != eventVersion || current.Phase == match.PhaseEnded {
 			return struct{}{}, nil
 		}
-		by, ok := current.CurrentParticipant()
+		by, ok := current.AwaitingParticipant()
 		if !ok || current.Participants[by].Participant.NPC == nil {
 			return struct{}{}, nil
 		}
@@ -499,6 +523,14 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return &match.DeployCreatureCommand{By: by, HandIndex: choices[0]}, nil
 		}
 		return &match.EndTurnCommand{By: by}, nil
+	case match.PhaseInvading:
+		// 出せる最初のクリーチャーで侵略し、無ければ通行料を払う。アイテムは使わない（2026-11-09 オーナー。考え方の部品にするのは core#117 以降）
+		if choices := current.InvadeChoices(); len(choices) > 0 {
+			return &match.InvadeCommand{By: by, HandIndex: choices[0]}, nil
+		}
+		return &match.PayTollCommand{By: by}, nil
+	case match.PhaseDefending:
+		return &match.DefendCommand{By: by}, nil
 	case match.PhaseRelinquishing:
 		position, ok := current.LowestValueRelinquishChoice()
 		if !ok {

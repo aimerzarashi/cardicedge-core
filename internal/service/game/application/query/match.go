@@ -35,6 +35,8 @@ const (
 	MatchPhaseRolling       MatchPhase = "rolling"
 	MatchPhaseChoosingPath  MatchPhase = "choosing_path"
 	MatchPhaseDeploying     MatchPhase = "deploying"
+	MatchPhaseInvading      MatchPhase = "invading"
+	MatchPhaseDefending     MatchPhase = "defending"
 	MatchPhaseRelinquishing MatchPhase = "relinquishing"
 	MatchPhaseEnding        MatchPhase = "ending"
 	MatchPhaseEnded         MatchPhase = "ended"
@@ -133,6 +135,13 @@ type MatchTerritory struct {
 	RelinquishMagic int
 }
 
+// 戦闘が終わるまでの、侵略しているクリーチャー。カードの性能は出したときの写し、HitPoints は今の体力
+type MatchInvasion struct {
+	Position  BoardPosition
+	Card      MatchCard
+	HitPoints int
+}
+
 // 戦利品に選べるパック。キーを選ぶ操作に渡す
 type MatchRewardPack struct {
 	Key  string
@@ -148,7 +157,9 @@ type Match struct {
 	Board              MatchBoard
 	Participants       []MatchParticipant
 	CurrentParticipant *int
-	Phase              MatchPhase
+	// 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
+	AwaitingParticipant *int
+	Phase               MatchPhase
 	// このターンに振った目。振る前は nil
 	Dice           *int
 	RemainingSteps int
@@ -156,8 +167,14 @@ type Match struct {
 	PathChoices []BoardPosition
 	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
 	DeployChoices []int
+	// 今の番の人が侵略に出せる手札の番号。侵略を選ぶ段階のときだけ中身がある
+	InvadeChoices []int
+	// 操作を待っている人が戦闘に出せるアイテムの手札の番号。侵略を選ぶ段階と守る段階のときだけ中身がある
+	ItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
+	// 侵略してから戦闘が終わるまでだけある
+	Invasion *MatchInvasion
 	// 領地（できた順）
 	Territories []MatchTerritory
 	// 終わるまでは nil
@@ -241,6 +258,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	for _, deployed := range current.DeployedCreatures {
 		refs = append(refs, domain.NewEntityRef(deployed.Card.EntityType, deployed.Card.ID))
 	}
+	if current.Invasion != nil {
+		refs = append(refs, domain.NewEntityRef(current.Invasion.Card.EntityType, current.Invasion.Card.ID))
+	}
 	publicIDs, err := q.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
 		return Match{}, err
@@ -317,6 +337,13 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		deployedCardIDs[deployed.ID] = cardID
 		cardIDs = append(cardIDs, cardID)
 	}
+	var invasionCardID uuid.UUID
+	if current.Invasion != nil {
+		if invasionCardID, err = publicIDOf(current.Invasion.Card.EntityType, current.Invasion.Card.ID); err != nil {
+			return Match{}, err
+		}
+		cardIDs = append(cardIDs, invasionCardID)
+	}
 	names, err := q.loadNames(ctx, avatarIDs, npcAvatarIDs, cardIDs)
 	if err != nil {
 		return Match{}, err
@@ -361,7 +388,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
-		DeployChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 	}
 	for _, territory := range current.Territories {
 		deployed, ok := current.DeployedCreature(territory.Creature)
@@ -395,6 +422,25 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		index := turn.Int()
 		result.CurrentParticipant = &index
 	}
+	if awaiting, ok := current.AwaitingParticipant(); ok {
+		index := awaiting.Int()
+		result.AwaitingParticipant = &index
+	}
+	if current.Invasion != nil {
+		found, ok := names.Cards[invasionCardID]
+		if !ok {
+			return Match{}, fmt.Errorf("query: card %s of invasion is not found", invasionCardID)
+		}
+		base := current.Invasion.Base
+		spec := current.CardSpecs()[current.Invasion.Card]
+		turn, _ := current.CurrentParticipant()
+		position := current.Participants[turn].Position
+		result.Invasion = &MatchInvasion{
+			Position:  NewBoardPosition(position.X.Int(), position.Y.Int()),
+			Card:      withSpec(found, match.CardSpec{Cost: spec.Cost, Rarity: spec.Rarity, Creature: &base}),
+			HitPoints: current.Invasion.HitPoints.Int(),
+		}
+	}
 	if current.Dice > 0 {
 		dice := current.Dice
 		result.Dice = &dice
@@ -404,6 +450,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	}
 	if choices := current.DeployChoices(); len(choices) > 0 {
 		result.DeployChoices = choices
+	}
+	if choices := current.InvadeChoices(); len(choices) > 0 {
+		result.InvadeChoices = choices
+	}
+	if choices := current.ItemChoices(); len(choices) > 0 {
+		result.ItemChoices = choices
 	}
 	if current.Result != nil {
 		outcome, err := fromMatchResult(*current.Result)
@@ -415,7 +467,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	return result, nil
 }
 
-// moving は Decide の途中だけの段階で、対戦の最後の状態には出ない（版ごとの値は AwaitsOperation で先に除く）。出たらコードの誤り
+// moving・battling は Decide の途中だけの段階で、対戦の最後の状態には出ない（版ごとの値は AwaitsOperation で先に除く）。出たらコードの誤り
 func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 	switch phase {
 	case match.PhaseDrawing:
@@ -428,6 +480,10 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseChoosingPath, nil
 	case match.PhaseDeploying:
 		return MatchPhaseDeploying, nil
+	case match.PhaseInvading:
+		return MatchPhaseInvading, nil
+	case match.PhaseDefending:
+		return MatchPhaseDefending, nil
 	case match.PhaseRelinquishing:
 		return MatchPhaseRelinquishing, nil
 	case match.PhaseEnding:

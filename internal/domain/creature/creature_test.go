@@ -451,3 +451,11 @@ func TestNewHitPoints_AcceptsOneAndRejectsZero(t *testing.T) {
 	_, err = creature.NewHitPoints(0)
 	require.ErrorIs(t, err, creature.ErrHitPointsTooSmall)
 }
+
+func TestHitPoints_DamagedSubtractsTheAttackAndStopsAtZero(t *testing.T) {
+	hitPoints := creaturetest.HitPoints(t, 20)
+
+	require.Equal(t, 15, hitPoints.Damaged(creaturetest.Attack(t, 5)).Int())
+	require.Equal(t, 0, hitPoints.Damaged(creaturetest.Attack(t, 20)).Int())
+	require.Equal(t, 0, hitPoints.Damaged(creaturetest.Attack(t, 30)).Int())
+}

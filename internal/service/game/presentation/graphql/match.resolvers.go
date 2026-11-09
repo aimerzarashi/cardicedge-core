@@ -117,6 +117,57 @@ func (r *mutationResolver) RelinquishMatchTerritory(ctx context.Context, input m
 	return &model.RelinquishMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
+func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Invade(ctx, input.ID, int64(input.Revision), input.HandIndex, input.ItemHandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.InvadeMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.InvadeMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// PayMatchToll is the resolver for the payMatchToll field.
+func (r *mutationResolver) PayMatchToll(ctx context.Context, input model.PayMatchTollInput) (model.PayMatchTollResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.PayToll(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.PayMatchTollResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.PayMatchTollSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// DefendMatchTerritory is the resolver for the defendMatchTerritory field.
+func (r *mutationResolver) DefendMatchTerritory(ctx context.Context, input model.DefendMatchTerritoryInput) (model.DefendMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Defend(ctx, input.ID, int64(input.Revision), input.ItemHandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.DefendMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DefendMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // EndMatchTurn is the resolver for the endMatchTurn field.
 func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

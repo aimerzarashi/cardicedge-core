@@ -59,6 +59,15 @@ type Territory struct {
 	Level int
 }
 
+// 戦闘が終わるまでの、侵略しているクリーチャー。領地（1 マスに 1 体）には倒してから入るので、盤面の実体とは別に持つ
+type Invasion struct {
+	Card card.Ref
+	// 出したときの性能の写し
+	Base CreatureSpec
+	// 今の体力
+	HitPoints creature.HitPoints
+}
+
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
 type Match struct {
 	ID           ID
@@ -85,6 +94,8 @@ type Match struct {
 	DeployedCreatures []DeployedCreature
 	// 領地（できた順）
 	Territories []Territory
+	// 侵略してから戦闘が終わるまでだけある
+	Invasion *Invasion
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastDeployedCreatureID DeployedCreatureID
 }
@@ -198,8 +209,23 @@ func (m Match) DeployedCreature(id DeployedCreatureID) (DeployedCreature, bool) 
 
 // 今の番の人が配置できる手札の番号（手札の順）。配置の段階でだけ中身がある。クリーチャーで、コストが今の魔力以下のもの
 func (m Match) DeployChoices() []int {
+	if m.Phase != PhaseDeploying {
+		return nil
+	}
+	return m.payableCreatures()
+}
+
+// 今の番の人が侵略に出せる手札の番号（手札の順）。侵略を選ぶ段階でだけ中身がある。決まりは配置と同じで、これから変わりうるので関数は分ける
+func (m Match) InvadeChoices() []int {
+	if m.Phase != PhaseInvading {
+		return nil
+	}
+	return m.payableCreatures()
+}
+
+func (m Match) payableCreatures() []int {
 	index, ok := m.CurrentParticipant()
-	if m.Phase != PhaseDeploying || !ok || int(index) >= len(m.Participants) {
+	if !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
 	participant := m.Participants[index]
@@ -212,6 +238,49 @@ func (m Match) DeployChoices() []int {
 		}
 	}
 	return choices
+}
+
+// 今選んでいる人が戦闘に出せるアイテムの手札の番号（手札の順）。侵略を選ぶ段階と守る段階でだけ中身がある。
+// 侵略するクリーチャーと合わせたコストは、どのクリーチャーを選ぶかで変わるので Decide で確かめる
+func (m Match) ItemChoices() []int {
+	if m.Phase != PhaseInvading && m.Phase != PhaseDefending {
+		return nil
+	}
+	index, ok := m.AwaitingParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	participant := m.Participants[index]
+	specs := m.CardSpecs()
+	var choices []int
+	for i, ref := range participant.Hand {
+		spec, ok := specs[ref]
+		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic {
+			choices = append(choices, i)
+		}
+	}
+	return choices
+}
+
+// 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
+func (m Match) AwaitingParticipant() (ParticipantIndex, bool) {
+	if m.Phase == PhaseDefending {
+		territory, ok := m.invadedTerritory()
+		if !ok {
+			return 0, false
+		}
+		return m.TerritoryOwner(territory)
+	}
+	return m.CurrentParticipant()
+}
+
+// 今の番の人が止まっている領地（侵略の間は、攻められている領地）
+func (m Match) invadedTerritory() (Territory, bool) {
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return Territory{}, false
+	}
+	return m.TerritoryAt(m.Participants[index].Position)
 }
 
 // 今の番の人が手放せる領地の位置（できた順）。手放す段階でだけ中身がある

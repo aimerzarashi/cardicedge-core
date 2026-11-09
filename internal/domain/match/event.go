@@ -6,6 +6,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 )
 
 type sealedEvent interface {
@@ -112,6 +113,57 @@ type MagicDepletedEvent struct {
 	Magic       int              `json:"magic"`
 }
 
+// 止まった他人の領地を、手札のクリーチャーで侵略した（手札の何番目か。0 始まり）。コストの分の魔力を払う。
+// 性能は対戦を始めたときの写しから決まるので、イベントには書き写さない
+type TerritoryInvadedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Card        card.Ref         `json:"card"`
+	Position    board.Position   `json:"position"`
+	Cost        card.Cost        `json:"cost"`
+}
+
+// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から無くなる。攻める側も守る側も同じ形で、効果は core#114 で足す
+type ItemUsedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Card        card.Ref         `json:"card"`
+	Cost        card.Cost        `json:"cost"`
+}
+
+// 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の残りの体力で、0 なら倒れた）
+type CreatureStruckEvent struct {
+	EventMeta          `json:"-"`
+	eventMarker        `json:"-"`
+	Striker            BattleSide         `json:"striker"`
+	Damage             creature.Attack    `json:"damage"`
+	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
+}
+
+// 守る側のクリーチャーを倒して土地を奪った。土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID
+type TerritoryConqueredEvent struct {
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	Participant      ParticipantIndex   `json:"participant"`
+	Position         board.Position     `json:"position"`
+	DefeatedCreature DeployedCreatureID `json:"defeated_creature"`
+	Creature         DeployedCreatureID `json:"creature"`
+}
+
+// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる。続けて通行料を払う
+type InvasionRepelledEvent struct {
+	EventMeta      `json:"-"`
+	eventMarker    `json:"-"`
+	Participant    ParticipantIndex `json:"participant"`
+	Position       board.Position   `json:"position"`
+	Card           card.Ref         `json:"card"`
+	ReturnedToHand bool             `json:"returned_to_hand"`
+}
+
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
@@ -196,6 +248,11 @@ var (
 	tollPaidEventType              = domain.NewEventName("TollPaidEvent")
 	territoryRelinquishedEventType = domain.NewEventName("TerritoryRelinquishedEvent")
 	magicDepletedEventType         = domain.NewEventName("MagicDepletedEvent")
+	territoryInvadedEventType      = domain.NewEventName("TerritoryInvadedEvent")
+	itemUsedEventType              = domain.NewEventName("ItemUsedEvent")
+	creatureStruckEventType        = domain.NewEventName("CreatureStruckEvent")
+	territoryConqueredEventType    = domain.NewEventName("TerritoryConqueredEvent")
+	invasionRepelledEventType      = domain.NewEventName("InvasionRepelledEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -343,11 +400,52 @@ func (*MagicDepletedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*TerritoryInvadedEvent) EventType() domain.EventName {
+	return territoryInvadedEventType
+}
+
+func (*TerritoryInvadedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*ItemUsedEvent) EventType() domain.EventName {
+	return itemUsedEventType
+}
+
+func (*ItemUsedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CreatureStruckEvent) EventType() domain.EventName {
+	return creatureStruckEventType
+}
+
+func (*CreatureStruckEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*TerritoryConqueredEvent) EventType() domain.EventName {
+	return territoryConqueredEventType
+}
+
+func (*TerritoryConqueredEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*InvasionRepelledEvent) EventType() domain.EventName {
+	return invasionRepelledEventType
+}
+
+func (*InvasionRepelledEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
+		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType,
 	}}
 }
 
@@ -396,6 +494,16 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TerritoryRelinquishedEvent{EventMeta: meta}
 	case EventType(magicDepletedEventType):
 		event = &MagicDepletedEvent{EventMeta: meta}
+	case EventType(territoryInvadedEventType):
+		event = &TerritoryInvadedEvent{EventMeta: meta}
+	case EventType(itemUsedEventType):
+		event = &ItemUsedEvent{EventMeta: meta}
+	case EventType(creatureStruckEventType):
+		event = &CreatureStruckEvent{EventMeta: meta}
+	case EventType(territoryConqueredEventType):
+		event = &TerritoryConqueredEvent{EventMeta: meta}
+	case EventType(invasionRepelledEventType):
+		event = &InvasionRepelledEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}
