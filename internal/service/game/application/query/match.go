@@ -30,17 +30,18 @@ const (
 type MatchPhase string
 
 const (
-	MatchPhaseDrawing       MatchPhase = "drawing"
-	MatchPhaseDiscarding    MatchPhase = "discarding"
-	MatchPhaseRolling       MatchPhase = "rolling"
-	MatchPhaseChoosingPath  MatchPhase = "choosing_path"
-	MatchPhaseDeploying     MatchPhase = "deploying"
-	MatchPhaseInvading      MatchPhase = "invading"
-	MatchPhaseAttacking     MatchPhase = "attacking"
-	MatchPhaseDefending     MatchPhase = "defending"
-	MatchPhaseRelinquishing MatchPhase = "relinquishing"
-	MatchPhaseEnding        MatchPhase = "ending"
-	MatchPhaseEnded         MatchPhase = "ended"
+	MatchPhaseDrawing             MatchPhase = "drawing"
+	MatchPhaseDiscarding          MatchPhase = "discarding"
+	MatchPhaseRolling             MatchPhase = "rolling"
+	MatchPhaseChoosingPath        MatchPhase = "choosing_path"
+	MatchPhaseDeploying           MatchPhase = "deploying"
+	MatchPhaseInvading            MatchPhase = "invading"
+	MatchPhaseAttacking           MatchPhase = "attacking"
+	MatchPhaseDefending           MatchPhase = "defending"
+	MatchPhaseRelinquishing       MatchPhase = "relinquishing"
+	MatchPhaseTerritoryCommanding MatchPhase = "territory_commanding"
+	MatchPhaseEnding              MatchPhase = "ending"
+	MatchPhaseEnded               MatchPhase = "ended"
 )
 
 type MatchEndReason string
@@ -139,6 +140,13 @@ type MatchTerritory struct {
 }
 
 // 戦闘が終わるまでの、侵略しているクリーチャー。カードの性能は出したときの写し、HitPoints は今の体力
+// 領地のレベルを上げる選択肢 1 つ。Level は上げた後のレベル、Magic は払う魔力
+type MatchLevelUpChoice struct {
+	Position BoardPosition
+	Level    int
+	Magic    int
+}
+
 type MatchInvasion struct {
 	Position  BoardPosition
 	Card      MatchCard
@@ -176,6 +184,8 @@ type Match struct {
 	ItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
+	// 今の番の人が選べるレベルアップ。領地コマンドの段階のときだけ中身がある
+	LevelUpChoices []MatchLevelUpChoice
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *MatchInvasion
 	// 領地（できた順）
@@ -392,6 +402,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		LevelUpChoices: []MatchLevelUpChoice{},
+	}
+	for _, choice := range current.LevelUpChoices() {
+		result.LevelUpChoices = append(result.LevelUpChoices, MatchLevelUpChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), Level: choice.Level, Magic: choice.Magic,
+		})
 	}
 	for _, territory := range current.Territories {
 		deployed, ok := current.DeployedCreature(territory.Creature)
@@ -491,6 +507,8 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseDefending, nil
 	case match.PhaseRelinquishing:
 		return MatchPhaseRelinquishing, nil
+	case match.PhaseTerritoryCommanding:
+		return MatchPhaseTerritoryCommanding, nil
 	case match.PhaseEnding:
 		return MatchPhaseEnding, nil
 	case match.PhaseEnded:

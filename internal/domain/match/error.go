@@ -22,6 +22,7 @@ var (
 	ErrItemNotUsable = errors.New("match: item not usable")
 	// 自分の領地でない位置は手放せない
 	ErrTerritoryNotRelinquishable = errors.New("match: territory not relinquishable")
+	ErrTerritoryNotLevelUpable    = errors.New("match: territory not level-upable")
 )
 
 var (

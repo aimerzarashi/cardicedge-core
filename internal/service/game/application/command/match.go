@@ -343,6 +343,23 @@ func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, re
 	})
 }
 
+// 通った自分の領地のレベルを上げる。選べない位置とレベルの組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) LevelUpTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.LevelUpTerritoryCommand{By: by, Position: position, Level: level}, nil
+	})
+}
+
+func (c *MatchHandler) SkipTerritoryCommand(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.SkipTerritoryCommandCommand{By: by}, nil
+	})
+}
+
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
@@ -449,7 +466,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
-	case errors.Is(err, match.ErrTerritoryNotRelinquishable):
+	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable):
 		return input.Errors{&input.NotFound{Field: "position"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
@@ -543,6 +560,9 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return &match.DeployCreatureCommand{By: by, HandIndex: choices[0]}, nil
 		}
 		return &match.EndTurnCommand{By: by}, nil
+	case match.PhaseTerritoryCommanding:
+		// NPC は領地コマンドを使わない（考え方の部品にするのは core#117）
+		return &match.SkipTerritoryCommandCommand{By: by}, nil
 	case match.PhaseInvading:
 		// 出せる最初のクリーチャーで侵略し、無ければ通行料を払う。アイテムは使わない（2026-11-09 オーナー。考え方の部品にするのは core#117 以降）
 		if choices := current.InvadeChoices(); len(choices) > 0 {

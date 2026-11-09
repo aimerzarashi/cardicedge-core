@@ -117,6 +117,39 @@ func (r *mutationResolver) RelinquishMatchTerritory(ctx context.Context, input m
 	return &model.RelinquishMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// LevelUpMatchTerritory is the resolver for the levelUpMatchTerritory field.
+func (r *mutationResolver) LevelUpMatchTerritory(ctx context.Context, input model.LevelUpMatchTerritoryInput) (model.LevelUpMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.LevelUpTerritory(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.Level)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.LevelUpMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.LevelUpMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// SkipMatchTerritoryCommand is the resolver for the skipMatchTerritoryCommand field.
+func (r *mutationResolver) SkipMatchTerritoryCommand(ctx context.Context, input model.SkipMatchTerritoryCommandInput) (model.SkipMatchTerritoryCommandResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.SkipTerritoryCommand(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.SkipMatchTerritoryCommandResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.SkipMatchTerritoryCommandSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
 func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

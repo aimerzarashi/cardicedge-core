@@ -261,6 +261,21 @@ type MatchInvasionRepelledEvent struct {
 	TerritoryHitPoints int
 }
 
+// 通った自分の領地のレベルを上げた
+type MatchTerritoryLeveledUpEvent struct {
+	MatchEventMeta
+	Participant int
+	Position    BoardPosition
+	Level       int
+	Magic       int
+}
+
+// 領地コマンドを使わなかった
+type MatchTerritoryCommandSkippedEvent struct {
+	MatchEventMeta
+	Participant int
+}
+
 // 戦利品のパックから引いた
 type MatchRewardDrawnEvent struct {
 	MatchEventMeta
@@ -520,6 +535,10 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
 	case *match.ItemSkippedEvent:
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
+	case *match.TerritoryLeveledUpEvent:
+		return MatchTerritoryLeveledUpEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Level, e.Magic}, nil
+	case *match.TerritoryCommandSkippedEvent:
+		return MatchTerritoryCommandSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.BattleStartedEvent:
 		return MatchBattleStartedEvent{meta, fromBattleStats(e.Attacker), fromBattleStats(e.Defender)}, nil
 	case *match.BattleStatModifiedEvent:

@@ -85,6 +85,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Previous = &from
 		current.Participants[index].Position = e.To
+		current.PassedPositions = append(slices.Clone(current.PassedPositions), e.To)
 		current.RemainingSteps--
 		current.Phase = current.settle()
 	case *CheckpointPassedEvent:
@@ -170,6 +171,35 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Position = base
 		current.Participants[index].Previous = nil
 		current.Participants[index].PassedCheckpoints = nil
+	case *TerritoryLeveledUpEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok || current.Phase != PhaseTerritoryCommanding || e.Level <= territory.Level {
+			return state, ErrInvalidState
+		}
+		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic -= e.Magic
+		current.Territories = slices.Clone(current.Territories)
+		for i := range current.Territories {
+			if current.Territories[i].Position == e.Position {
+				current.Territories[i].Level = e.Level
+			}
+		}
+		current.Phase = PhaseEnding
+	case *TerritoryCommandSkippedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if current.Phase != PhaseTerritoryCommanding {
+			return state, ErrInvalidState
+		}
+		current.Phase = current.stopActionPhase()
 	case *TerritoryInvadedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -303,6 +333,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.RemainingSteps = 0
 		current.Dice = 0
+		current.PassedPositions = nil
 		current.Phase = current.turnStartPhase()
 	case *MatchEndedEvent:
 		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}
@@ -398,9 +429,17 @@ func (m Match) debtPhase(index ParticipantIndex) Phase {
 	return PhaseEnding
 }
 
-// 止まったマスで次にすること。空いている土地なら配置を選び（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）、
-// 他人の領地なら通行料か侵略かを選ぶ
+// 止まった後の段階。通った自分の領地があれば領地コマンドを選び（ステップ 1。止まったマスの種類は条件に関わらない。2026-11-09 オーナー）、無ければ止まったマスの行動へ
 func (m Match) stopPhase() Phase {
+	if len(m.passedOwnTerritories()) > 0 {
+		return PhaseTerritoryCommanding
+	}
+	return m.stopActionPhase()
+}
+
+// 止まったマスでの行動（ステップ 2）。空いている土地なら配置を選び（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）、
+// 他人の領地なら通行料か侵略かを選ぶ
+func (m Match) stopActionPhase() Phase {
 	index, err := m.currentIndex()
 	if err != nil {
 		return PhaseEnding

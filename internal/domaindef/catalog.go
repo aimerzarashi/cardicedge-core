@@ -167,6 +167,8 @@ var Types = Catalog{
 			{ID: 3024, Name: "ItemSkippedEvent"},
 			{ID: 3025, Name: "BattleStartedEvent"},
 			{ID: 3026, Name: "BattleStatModifiedEvent"},
+			{ID: 3027, Name: "TerritoryLeveledUpEvent"},
+			{ID: 3028, Name: "TerritoryCommandSkippedEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

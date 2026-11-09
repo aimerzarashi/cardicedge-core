@@ -236,6 +236,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
+		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
+		&match.TerritoryCommandSkippedEvent{EventMeta: meta, Participant: by},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
 	}
@@ -1271,6 +1273,7 @@ func TestDecide_StoppingOnOwnTerritoryPaysNothing(t *testing.T) {
 
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
 	require.Equal(t, 600, state.Participants[1].Magic)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.SkipTerritoryCommandCommand{By: matchtest.Index(t, 1)})
 	require.Equal(t, match.PhaseEnding, state.Phase)
 }
 
@@ -1418,6 +1421,7 @@ func TestDecide_RoundLimitWinnerIsDecidedByTotalMagic(t *testing.T) {
 	state, _ = drawAndRoll(t, state, 1, 2)
 	state, _ = endTurn(t, state, 1)
 	state, _ = drawAndRoll(t, state, 0, 2)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.SkipTerritoryCommandCommand{By: matchtest.Index(t, 0)})
 	state, _ = endTurn(t, state, 0)
 
 	require.Equal(t, match.PhaseEnded, state.Phase)
@@ -1799,6 +1803,7 @@ func TestDecide_BattleReportsEachEffectInOrderBeforeTheStrikes(t *testing.T) {
 	state = withTerritory(t, state, 1, 1, 1)
 	state = withTerritory(t, state, 1, 3, 1)
 	state, _ = drawAndRoll(t, state, 1, 2)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.SkipTerritoryCommandCommand{By: matchtest.Index(t, 1)})
 	state, weapon := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryWeapon, 25, 0)
 	state = attackWithItem(t, state, weapon)
 	state = withDefenderElements(t, withBattlers(t, state, 10, 40, 20, 40), "fire")
@@ -1995,6 +2000,148 @@ func TestDecide_ItemsWithoutAStatChangeEmitNoModification(t *testing.T) {
 			require.Empty(t, statModifications(events))
 		})
 	}
+}
+
+// NPC（参加者 1）が先の番で、face の目だけ進んで止まった対戦
+func rolledTo(t *testing.T, state match.Match, face int) match.Match {
+	t.Helper()
+	state, _ = drawAndRoll(t, state, 1, face)
+	return state
+}
+
+func territoryBoardMatch(t *testing.T) match.Match {
+	t.Helper()
+	return newMatch(t, territoryBoard(t), defaultRules(t))
+}
+
+func levelUp(t *testing.T, state match.Match, x, level int) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.LevelUpTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, x, 0), Level: level})
+}
+
+func TestDecide_PassingOwnTerritoryOffersLevelUpsWithinTheMagic(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	require.Equal(t, match.PhaseTerritoryCommanding, state.Phase)
+	// 手持ちの 600 では 3 まで（4 は 700 かかる）
+	require.Equal(t, []match.LevelUpChoice{
+		{Position: pos(t, 1, 0), Level: 2, Magic: 100},
+		{Position: pos(t, 1, 0), Level: 3, Magic: 300},
+	}, state.LevelUpChoices())
+}
+
+func TestDecide_TerritoryWhereTheTurnStartedIsNotOffered(t *testing.T) {
+	state := withTerritory(t, territoryBoardMatch(t), 1, 1, 1)
+	state.Participants = slices.Clone(state.Participants)
+	base := pos(t, 0, 0)
+	state.Participants[1].Position = pos(t, 1, 0)
+	state.Participants[1].Previous = &base
+
+	state = rolledTo(t, state, 1)
+
+	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Empty(t, state.LevelUpChoices())
+}
+
+func TestDecide_TerritoryWhereTheTurnStoppedIsOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 1)
+
+	require.Equal(t, match.PhaseTerritoryCommanding, state.Phase)
+	require.Equal(t, pos(t, 1, 0), state.LevelUpChoices()[0].Position)
+}
+
+func TestDecide_TerritoriesOfOthersAreNotOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 0, 1, 1), 2)
+
+	require.Equal(t, match.PhaseDeploying, state.Phase)
+}
+
+func TestDecide_PassedTerritoriesAreForgottenWhenTheTurnEnds(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.SkipTerritoryCommandCommand{By: matchtest.Index(t, 1)})
+	state, _ = endTurn(t, state, 1)
+
+	require.Empty(t, state.PassedPositions)
+}
+
+func TestDecide_SkippingTheTerritoryCommandGoesToTheActionOfTheStoppedTile(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*testing.T, match.Match) match.Match
+		face  int
+		want  match.Phase
+	}{
+		{name: "vacant_land", setup: func(_ *testing.T, state match.Match) match.Match { return state }, face: 2, want: match.PhaseDeploying},
+		{name: "territory_of_another", setup: func(t *testing.T, state match.Match) match.Match { return withTerritory(t, state, 0, 2, 1) }, face: 2, want: match.PhaseInvading},
+		{name: "own_territory", setup: func(_ *testing.T, state match.Match) match.Match { return state }, face: 1, want: match.PhaseEnding},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := rolledTo(t, tc.setup(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1)), tc.face)
+
+			state, events := apply(t, state, matchtest.NewRandom(), &match.SkipTerritoryCommandCommand{By: matchtest.Index(t, 1)})
+
+			require.Equal(t, 1, countOf[*match.TerritoryCommandSkippedEvent](events))
+			require.Equal(t, tc.want, state.Phase)
+		})
+	}
+}
+
+func TestDecide_LevelingUpPaysTheMagicRaisesTheValueAndEndsTheTurnOnVacantLand(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	state, events := levelUp(t, state, 1, 3)
+
+	leveled := eventOf[*match.TerritoryLeveledUpEvent](t, events)
+	require.Equal(t, 3, leveled.Level)
+	require.Equal(t, 300, leveled.Magic)
+	require.Equal(t, 600-300, state.Participants[1].Magic)
+	require.Equal(t, 400, valueAt(t, state, 1))
+	require.Zero(t, countOf[*match.CreatureDeployedEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_LevelingUpOnTheTerritoryOfAnotherOnlyPaysTheToll(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 1)
+	state = rolledTo(t, state, 2)
+
+	state, events := levelUp(t, state, 1, 2)
+
+	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
+	require.Zero(t, countOf[*match.TerritoryInvadedEvent](events))
+	require.Equal(t, 600-100-60, state.Participants[1].Magic)
+	require.Equal(t, match.PhaseEnding, state.Phase)
+	require.Empty(t, state.InvadeChoices())
+}
+
+func TestDecide_LevelUpRejectsChoicesThatAreNotOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+	cases := []struct {
+		name  string
+		x     int
+		level int
+	}{
+		{name: "not_passed", x: 3, level: 2},
+		{name: "same_level", x: 1, level: 1},
+		{name: "not_payable", x: 1, level: 4},
+		{name: "above_the_highest_level", x: 1, level: 6},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := decideErr(t, state, &match.LevelUpTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, tc.x, 0), Level: tc.level})
+
+			require.ErrorIs(t, err, match.ErrTerritoryNotLevelUpable)
+		})
+	}
+}
+
+func TestDecide_TerritoryCommandsAreRejectedOutsideTheirPhase(t *testing.T) {
+	state := territoryBoardMatch(t)
+	by := matchtest.Index(t, 1)
+
+	require.ErrorIs(t, decideErr(t, state, &match.LevelUpTerritoryCommand{By: by, Position: pos(t, 1, 0), Level: 2}), match.ErrPhaseNotAllowed)
+	require.ErrorIs(t, decideErr(t, state, &match.SkipTerritoryCommandCommand{By: by}), match.ErrPhaseNotAllowed)
 }
 
 func TestMatch_ItemChoicesAreForWhoeverIsBeingWaitedFor(t *testing.T) {
