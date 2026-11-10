@@ -339,7 +339,7 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
 	require.NoError(t, err)
 	next := f.load(t)
-	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1}}, next.Territories)
+	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, next.Territories)
 	require.Equal(t, 600-10, next.Participants[0].Magic)
 	// 配置したらターンが終わり、NPC の番になる
 	require.Equal(t, match.PhaseRolling, next.Phase)

@@ -121,7 +121,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 		DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
-		LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
+		LandLevels: fromQueryLandLevels(match.LandLevels), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 		ElementChangeChoices: elementChangeChoices,
 	}
 	if invasion := match.Invasion; invasion != nil {
@@ -151,6 +151,14 @@ func fromQueryRewardPacks(packs []query.MatchRewardPack) []*model.MatchRewardPac
 	converted := make([]*model.MatchRewardPack, len(packs))
 	for i, pack := range packs {
 		converted[i] = &model.MatchRewardPack{Key: pack.Key, Name: pack.Name}
+	}
+	return converted
+}
+
+func fromQueryLandLevels(lands []query.MatchLandLevel) []*model.MatchLandLevel {
+	converted := make([]*model.MatchLandLevel, len(lands))
+	for i, land := range lands {
+		converted[i] = &model.MatchLandLevel{Position: &model.BoardPosition{X: land.Position.X, Y: land.Position.Y}, Level: land.Level}
 	}
 	return converted
 }

@@ -1016,7 +1016,7 @@ func TestDecide_DeployPaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Equal(t, 600-10, state.Participants[1].Magic)
 	require.Len(t, state.Participants[1].Hand, handBefore-1)
-	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1}}, state.Territories)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, state.Territories)
 	require.Equal(t, []match.DeployedCreature{{
 		ID: matchtest.DeployedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
 		Base: *creatureSpec(t, 201), HitPoints: creatureSpec(t, 201).HitPoints,
@@ -1094,8 +1094,8 @@ func TestDecide_DeployedCreaturesGetConsecutiveIDs(t *testing.T) {
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 0), HandIndex: 0})
 
 	require.Equal(t, []match.Territory{
-		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1), Level: 1},
-		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2), Level: 1},
+		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
+		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
 	}, state.Territories)
 	require.Equal(t, matchtest.Index(t, 0), state.DeployedCreatures[1].Owner)
 	require.Equal(t, matchtest.DeployedCreatureID(t, 2), state.LastDeployedCreatureID)
@@ -1144,7 +1144,10 @@ func withTerritory(t *testing.T, state match.Match, owner, x, level int) match.M
 	state.DeployedCreatures = append(slices.Clone(state.DeployedCreatures), match.DeployedCreature{
 		ID: id, Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, owner), Base: *spec, HitPoints: spec.HitPoints,
 	})
-	state.Territories = append(slices.Clone(state.Territories), match.Territory{Position: pos(t, x, 0), Creature: id, Level: level})
+	state.Territories = append(slices.Clone(state.Territories), match.Territory{Position: pos(t, x, 0), Creature: id})
+	if level > 1 {
+		state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, x, 0), Level: level})
+	}
 	state.LastDeployedCreatureID = id
 	return state
 }
@@ -1297,6 +1300,33 @@ func TestDecide_UnpayableTollIsPaidInFullAndAsksToRelinquish(t *testing.T) {
 	require.Equal(t, 600+60, state.Participants[0].Magic)
 	require.Equal(t, match.PhaseRelinquishing, state.Phase)
 	require.Equal(t, []board.Position{pos(t, 2, 0), pos(t, 4, 0)}, state.RelinquishChoices())
+}
+
+func TestDecide_RelinquishingKeepsTheLandLevel(t *testing.T) {
+	state := indebtedMatch(t)
+	state.LandLevels = []match.LandLevel{{Position: pos(t, 2, 0), Level: 3}}
+
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
+
+	_, occupied := state.TerritoryAt(pos(t, 2, 0))
+	require.False(t, occupied)
+	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
+}
+
+func TestDecide_DeployingOnALeveledVacantLandInheritsTheLevel(t *testing.T) {
+	state := territoryBoardMatch(t)
+	state.LandLevels = []match.LandLevel{{Position: pos(t, 1, 0), Level: 3}}
+	state = rolledTo(t, state, 1)
+	require.Equal(t, match.PhaseDeploying, state.Phase)
+
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
+	require.Equal(t, 400, valueAt(t, state, 1))
+}
+
+func TestMatch_LandLevelIsOneUntilRaised(t *testing.T) {
+	require.Equal(t, 1, territoryBoardMatch(t).LandLevel(pos(t, 1, 0)))
 }
 
 func TestDecide_RelinquishingRemovesTheCreatureAndFreesTheLand(t *testing.T) {
@@ -1698,7 +1728,7 @@ func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
 	require.Nil(t, state.Invasion)
-	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: conquered.Creature, Level: 2}}, state.Territories)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: conquered.Creature}}, state.Territories)
 	require.Len(t, state.DeployedCreatures, 1)
 	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
 	require.Equal(t, cardtest.CreatureRef(t, 201), state.DeployedCreatures[0].Card)
@@ -2192,7 +2222,7 @@ func TestDecide_ExchangeReplacesTheCreatureAndReturnsTheOldCardToTheHand(t *test
 	require.Equal(t, exchanged.Creature, state.DeployedCreatures[0].ID)
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
 	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
-	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: exchanged.Creature, Level: 3}}, state.Territories)
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: exchanged.Creature}}, state.Territories)
 	require.Equal(t, state.LastDeployedCreatureID, exchanged.Creature)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
@@ -2269,8 +2299,7 @@ func TestDecide_ChangingTheElementRecountsTheChainAndEndsTheTurn(t *testing.T) {
 	require.Equal(t, 600-200, state.Participants[1].Magic)
 	require.Equal(t, 100, valueAt(t, state, 2))
 	// レベルとクリーチャーはそのまま
-	territory, _ := state.TerritoryAt(pos(t, 1, 0))
-	require.Equal(t, 2, territory.Level)
+	require.Equal(t, 2, state.LandLevel(pos(t, 1, 0)))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
 

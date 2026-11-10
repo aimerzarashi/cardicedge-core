@@ -140,6 +140,12 @@ type MatchTerritory struct {
 }
 
 // 戦闘が終わるまでの、侵略しているクリーチャー。カードの性能は出したときの写し、HitPoints は今の体力
+// 土地のレベル（空き地にも残る）
+type MatchLandLevel struct {
+	Position BoardPosition
+	Level    int
+}
+
 // 領地のレベルを上げる選択肢 1 つ。Level は上げた後のレベル、Magic は払う魔力
 type MatchLevelUpChoice struct {
 	Position BoardPosition
@@ -198,6 +204,8 @@ type Match struct {
 	ItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
+	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1）
+	LandLevels []MatchLandLevel
 	// 今の番の人が選べるレベルアップ。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
 	LevelUpChoices []MatchLevelUpChoice
 	// 今の番の人が選べるクリーチャーの交換。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
@@ -420,7 +428,10 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
-		LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
+		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
+	}
+	for _, land := range current.LandLevels {
+		result.LandLevels = append(result.LandLevels, MatchLandLevel{Position: NewBoardPosition(land.Position.X.Int(), land.Position.Y.Int()), Level: land.Level})
 	}
 	for _, choice := range current.ElementChangeChoices() {
 		element, err := NewBoardTileElement(choice.Element.String())
@@ -455,7 +466,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		result.Territories = append(result.Territories, MatchTerritory{
 			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Owner: deployed.Owner.Int(),
 			Creature: MatchDeployedCreature{ID: deployed.ID.Int(), Card: card, HitPoints: deployed.HitPoints.Int()},
-			Level:    territory.Level, Value: current.TerritoryValue(territory), Toll: current.TerritoryToll(territory), RelinquishMagic: current.TerritoryRelinquishMagic(territory),
+			Level:    current.LandLevel(territory.Position), Value: current.TerritoryValue(territory), Toll: current.TerritoryToll(territory), RelinquishMagic: current.TerritoryRelinquishMagic(territory),
 		})
 	}
 	for i, participant := range current.Participants {

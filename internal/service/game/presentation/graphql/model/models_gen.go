@@ -1195,6 +1195,8 @@ type Match struct {
 	ItemChoices []int `json:"itemChoices"`
 	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
+	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）
+	LandLevels []*MatchLandLevel `json:"landLevels"`
 	// 今の番の人が選べるレベルアップ（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
 	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
 	// 今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
@@ -1784,6 +1786,14 @@ func (this MatchLandElementChangedEvent) GetOccurredAt() time.Time { return this
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchLandElementChangedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 土地のレベル
+type MatchLandLevel struct {
+	// 土地の位置
+	Position *BoardPosition `json:"position"`
+	// レベル（2 以上）
+	Level int `json:"level"`
+}
 
 // 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
 type MatchLapCompletedEvent struct {
