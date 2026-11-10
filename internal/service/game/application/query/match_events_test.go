@@ -158,7 +158,7 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
 		query.MatchCardDrawnEvent{MatchEventMeta: metaAt(5, changesOf(phaseOf(query.MatchPhaseRolling), nil)), Participant: 1, Card: dragon},
-		query.MatchDiceRolledEvent{MatchEventMeta: metaAt(6, changesOf(nil, nil)), Participant: 1, Value: 2},
+		query.MatchDiceRolledEvent{MatchEventMeta: metaAt(6, changesOf(nil, nil)), Participant: 1, Value: 2, Dice: []int{}},
 		query.MatchMovedEvent{MatchEventMeta: metaAt(7, changesOf(nil, nil)), Participant: 1, To: query.NewBoardPosition(1, 0)},
 		query.MatchMovedEvent{MatchEventMeta: metaAt(8, changesOf(phaseOf(query.MatchPhaseDeploying), nil)), Participant: 1, To: query.NewBoardPosition(2, 0)},
 		query.MatchCreatureDeployedEvent{

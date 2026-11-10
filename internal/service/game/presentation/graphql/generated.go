@@ -513,8 +513,17 @@ type ComplexityRoot struct {
 		ID        func(childComplexity int) int
 	}
 
+	MatchDiceCountChangedEvent struct {
+		Changes     func(childComplexity int) int
+		Count       func(childComplexity int) int
+		OccurredAt  func(childComplexity int) int
+		Participant func(childComplexity int) int
+		Revision    func(childComplexity int) int
+	}
+
 	MatchDiceRolledEvent struct {
 		Changes     func(childComplexity int) int
+		Dice        func(childComplexity int) int
 		OccurredAt  func(childComplexity int) int
 		Participant func(childComplexity int) int
 		Revision    func(childComplexity int) int
@@ -644,6 +653,14 @@ type ComplexityRoot struct {
 	}
 
 	MatchMagicDepletedEvent struct {
+		Changes     func(childComplexity int) int
+		Magic       func(childComplexity int) int
+		OccurredAt  func(childComplexity int) int
+		Participant func(childComplexity int) int
+		Revision    func(childComplexity int) int
+	}
+
+	MatchMagicGainedEvent struct {
 		Changes     func(childComplexity int) int
 		Magic       func(childComplexity int) int
 		OccurredAt  func(childComplexity int) int
@@ -1133,6 +1150,14 @@ type ComplexityRoot struct {
 	}
 
 	SpellDrawCardsEffect struct {
+		Count func(childComplexity int) int
+	}
+
+	SpellGainMagicEffect struct {
+		PerLap func(childComplexity int) int
+	}
+
+	SpellRollDiceEffect struct {
 		Count func(childComplexity int) int
 	}
 
@@ -2839,12 +2864,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchDeployedCreature.ID(childComplexity), true
 
+	case "MatchDiceCountChangedEvent.changes":
+		if e.ComplexityRoot.MatchDiceCountChangedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceCountChangedEvent.Changes(childComplexity), true
+	case "MatchDiceCountChangedEvent.count":
+		if e.ComplexityRoot.MatchDiceCountChangedEvent.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceCountChangedEvent.Count(childComplexity), true
+	case "MatchDiceCountChangedEvent.occurredAt":
+		if e.ComplexityRoot.MatchDiceCountChangedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceCountChangedEvent.OccurredAt(childComplexity), true
+	case "MatchDiceCountChangedEvent.participant":
+		if e.ComplexityRoot.MatchDiceCountChangedEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceCountChangedEvent.Participant(childComplexity), true
+	case "MatchDiceCountChangedEvent.revision":
+		if e.ComplexityRoot.MatchDiceCountChangedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceCountChangedEvent.Revision(childComplexity), true
+
 	case "MatchDiceRolledEvent.changes":
 		if e.ComplexityRoot.MatchDiceRolledEvent.Changes == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchDiceRolledEvent.Changes(childComplexity), true
+	case "MatchDiceRolledEvent.dice":
+		if e.ComplexityRoot.MatchDiceRolledEvent.Dice == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceRolledEvent.Dice(childComplexity), true
 	case "MatchDiceRolledEvent.occurredAt":
 		if e.ComplexityRoot.MatchDiceRolledEvent.OccurredAt == nil {
 			break
@@ -3343,6 +3405,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchMagicDepletedEvent.Revision(childComplexity), true
+
+	case "MatchMagicGainedEvent.changes":
+		if e.ComplexityRoot.MatchMagicGainedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.Changes(childComplexity), true
+	case "MatchMagicGainedEvent.magic":
+		if e.ComplexityRoot.MatchMagicGainedEvent.Magic == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.Magic(childComplexity), true
+	case "MatchMagicGainedEvent.occurredAt":
+		if e.ComplexityRoot.MatchMagicGainedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.OccurredAt(childComplexity), true
+	case "MatchMagicGainedEvent.participant":
+		if e.ComplexityRoot.MatchMagicGainedEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.Participant(childComplexity), true
+	case "MatchMagicGainedEvent.revision":
+		if e.ComplexityRoot.MatchMagicGainedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.Revision(childComplexity), true
 
 	case "MatchMoveChoice.from":
 		if e.ComplexityRoot.MatchMoveChoice.From == nil {
@@ -5271,6 +5364,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SpellDrawCardsEffect.Count(childComplexity), true
+
+	case "SpellGainMagicEffect.perLap":
+		if e.ComplexityRoot.SpellGainMagicEffect.PerLap == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellGainMagicEffect.PerLap(childComplexity), true
+
+	case "SpellRollDiceEffect.count":
+		if e.ComplexityRoot.SpellRollDiceEffect.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellRollDiceEffect.Count(childComplexity), true
 
 	case "Subscription.matchProgress":
 		if e.ComplexityRoot.Subscription.MatchProgress == nil {
@@ -13441,6 +13548,130 @@ func (ec *executionContext) fieldContext_MatchDeployedCreature_hitPoints(_ conte
 	return graphql.NewScalarFieldContext("MatchDeployedCreature", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchDiceCountChangedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceCountChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceCountChangedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceCountChangedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceCountChangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiceCountChangedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceCountChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceCountChangedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceCountChangedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceCountChangedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchDiceCountChangedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceCountChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceCountChangedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceCountChangedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchDiceCountChangedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchDiceCountChangedEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceCountChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceCountChangedEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceCountChangedEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceCountChangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiceCountChangedEvent_count(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceCountChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceCountChangedEvent_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceCountChangedEvent_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceCountChangedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchDiceRolledEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceRolledEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -13562,6 +13793,29 @@ func (ec *executionContext) _MatchDiceRolledEvent_value(ctx context.Context, fie
 	)
 }
 func (ec *executionContext) fieldContext_MatchDiceRolledEvent_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceRolledEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiceRolledEvent_dice(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceRolledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceRolledEvent_dice(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Dice, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
+			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceRolledEvent_dice(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchDiceRolledEvent", field, false, false, "Int")
 }
 
@@ -15536,6 +15790,130 @@ func (ec *executionContext) _MatchMagicDepletedEvent_magic(ctx context.Context, 
 }
 func (ec *executionContext) fieldContext_MatchMagicDepletedEvent_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchMagicDepletedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchMagicGainedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_magic(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_magic(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Magic, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchMoveChoice_from(ctx context.Context, field graphql.CollectedField, obj *model.MatchMoveChoice) (ret graphql.Marshaler) {
@@ -23301,6 +23679,52 @@ func (ec *executionContext) fieldContext_SpellDrawCardsEffect_count(_ context.Co
 	return graphql.NewScalarFieldContext("SpellDrawCardsEffect", field, false, false, "Int")
 }
 
+func (ec *executionContext) _SpellGainMagicEffect_perLap(ctx context.Context, field graphql.CollectedField, obj *model.SpellGainMagicEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellGainMagicEffect_perLap(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerLap, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellGainMagicEffect_perLap(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellGainMagicEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _SpellRollDiceEffect_count(ctx context.Context, field graphql.CollectedField, obj *model.SpellRollDiceEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellRollDiceEffect_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellRollDiceEffect_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellRollDiceEffect", field, false, false, "Int")
+}
+
 func (ec *executionContext) _Subscription_matchProgress(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
@@ -27895,6 +28319,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchMovedEvent(ctx, sel, obj)
+	case model.MatchMagicGainedEvent:
+		return ec._MatchMagicGainedEvent(ctx, sel, &obj)
+	case *model.MatchMagicGainedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchMagicGainedEvent(ctx, sel, obj)
 	case model.MatchMagicDepletedEvent:
 		return ec._MatchMagicDepletedEvent(ctx, sel, &obj)
 	case *model.MatchMagicDepletedEvent:
@@ -27972,6 +28403,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchDiceRolledEvent(ctx, sel, obj)
+	case model.MatchDiceCountChangedEvent:
+		return ec._MatchDiceCountChangedEvent(ctx, sel, &obj)
+	case *model.MatchDiceCountChangedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchDiceCountChangedEvent(ctx, sel, obj)
 	case model.MatchDecksShuffledEvent:
 		return ec._MatchDecksShuffledEvent(ctx, sel, &obj)
 	case *model.MatchDecksShuffledEvent:
@@ -28774,6 +29212,20 @@ func (ec *executionContext) _SpellEffect(ctx context.Context, sel ast.SelectionS
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.SpellRollDiceEffect:
+		return ec._SpellRollDiceEffect(ctx, sel, &obj)
+	case *model.SpellRollDiceEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellRollDiceEffect(ctx, sel, obj)
+	case model.SpellGainMagicEffect:
+		return ec._SpellGainMagicEffect(ctx, sel, &obj)
+	case *model.SpellGainMagicEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellGainMagicEffect(ctx, sel, obj)
 	case model.SpellDrawCardsEffect:
 		return ec._SpellDrawCardsEffect(ctx, sel, &obj)
 	case *model.SpellDrawCardsEffect:
@@ -32147,6 +32599,59 @@ func (ec *executionContext) _MatchDeployedCreature(ctx context.Context, sel ast.
 	return out
 }
 
+var matchDiceCountChangedEventImplementors = []string{"MatchDiceCountChangedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchDiceCountChangedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchDiceCountChangedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchDiceCountChangedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchDiceCountChangedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchDiceCountChangedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchDiceCountChangedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchDiceCountChangedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchDiceCountChangedEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "count":
+			out.Values[i] = ec._MatchDiceCountChangedEvent_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var matchDiceRolledEventImplementors = []string{"MatchDiceRolledEvent", "MatchEvent"}
 
 func (ec *executionContext) _MatchDiceRolledEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchDiceRolledEvent) graphql.Marshaler {
@@ -32180,6 +32685,11 @@ func (ec *executionContext) _MatchDiceRolledEvent(ctx context.Context, sel ast.S
 			}
 		case "value":
 			out.Values[i] = ec._MatchDiceRolledEvent_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "dice":
+			out.Values[i] = ec._MatchDiceRolledEvent_dice(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -33064,6 +33574,59 @@ func (ec *executionContext) _MatchMagicDepletedEvent(ctx context.Context, sel as
 			}
 		case "magic":
 			out.Values[i] = ec._MatchMagicDepletedEvent_magic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchMagicGainedEventImplementors = []string{"MatchMagicGainedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchMagicGainedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchMagicGainedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchMagicGainedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchMagicGainedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchMagicGainedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchMagicGainedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchMagicGainedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchMagicGainedEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "magic":
+			out.Values[i] = ec._MatchMagicGainedEvent_magic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -36493,6 +37056,72 @@ func (ec *executionContext) _SpellDrawCardsEffect(ctx context.Context, sel ast.S
 			out.Values[i] = graphql.MarshalString("SpellDrawCardsEffect")
 		case "count":
 			out.Values[i] = ec._SpellDrawCardsEffect_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var spellGainMagicEffectImplementors = []string{"SpellGainMagicEffect", "SpellEffect"}
+
+func (ec *executionContext) _SpellGainMagicEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellGainMagicEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, spellGainMagicEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SpellGainMagicEffect")
+		case "perLap":
+			out.Values[i] = ec._SpellGainMagicEffect_perLap(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var spellRollDiceEffectImplementors = []string{"SpellRollDiceEffect", "SpellEffect"}
+
+func (ec *executionContext) _SpellRollDiceEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellRollDiceEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, spellRollDiceEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SpellRollDiceEffect")
+		case "count":
+			out.Values[i] = ec._SpellRollDiceEffect_count(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

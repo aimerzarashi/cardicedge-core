@@ -31,6 +31,8 @@ type ParticipantState struct {
 	Previous *board.Position
 	// 拠点を出てから印を付けたチェックポイント
 	PassedCheckpoints []board.Position
+	// この対戦で周回を終えた回数（魔力を得るスペルが使う）
+	Laps int
 	// 受け取った戦利品。終わった後にパックを選ぶまでは nil（NPC は受け取らない）
 	Reward *Reward
 }
@@ -162,6 +164,8 @@ type Match struct {
 	PassedPositions []board.Position
 	// このターンにスペルを使ったか（1 ターンに 1 枚まで。ターンを終えると消える）
 	SpellUsed bool
+	// このターンに振るサイコロの個数。0 はふだんの 1 個（サイコロを複数振るスペルで変わり、ターンを終えると消える）
+	DiceCount int
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastDeployedCreatureID DeployedCreatureID
 }

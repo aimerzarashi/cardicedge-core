@@ -38,9 +38,19 @@ type CardSpec struct {
 // スペルだけの性能（写した cards.metadata.spell の値）。効果は種類ごとの値のどれか 1 つで、どれも無ければ効果なし
 type SpellSpec struct {
 	DrawCards *SpellDrawCards
+	GainMagic *SpellGainMagic
+	RollDice  *SpellRollDice
 }
 
 type SpellDrawCards struct {
+	Count int
+}
+
+type SpellGainMagic struct {
+	PerLap int
+}
+
+type SpellRollDice struct {
 	Count int
 }
 

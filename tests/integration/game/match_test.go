@@ -398,6 +398,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchDiscardPileShuffledEvent { participant drawPileCount }
 				... on MatchHandLimitExceededEvent { participant }
 				... on MatchSpellUsedEvent { participant handIndex card { id name } cost }
+				... on MatchMagicGainedEvent { participant magic }
+				... on MatchDiceCountChangedEvent { participant count }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
@@ -423,7 +425,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
-				... on MatchDiceRolledEvent { participant value }
+				... on MatchDiceRolledEvent { participant value dice }
 				... on MatchMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
 				... on MatchLapCompletedEvent { participant magic }

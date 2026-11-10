@@ -170,11 +170,21 @@ func discard(r *recorder, handIndex int) error {
 	return endTurn(r)
 }
 
+// このターンのサイコロの個数だけ同時に振り、合計の分だけ進む（1 個ずつ目の範囲で振る。2026-11-10 オーナー）
 func roll(r *recorder, random Random) error {
 	rules := r.state.Rules
-	value := rules.DiceMin + random.IntN(rules.DiceMax-rules.DiceMin+1)
+	var dice []int
+	value := 0
+	for range max(r.state.DiceCount, 1) {
+		face := rules.DiceMin + random.IntN(rules.DiceMax-rules.DiceMin+1)
+		dice = append(dice, face)
+		value += face
+	}
+	if len(dice) == 1 {
+		dice = nil
+	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value}
+		return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value, Dice: dice}
 	}); err != nil {
 		return err
 	}
@@ -207,6 +217,18 @@ func useSpell(r *recorder, handIndex int, random Random) error {
 		return err
 	}
 	effect := spec.Spell.Effect
+	if effect.GainMagic != nil {
+		// 周回数はこの対戦で周回を終えた回数（2026-11-10 オーナー。culdcept-lab.com のマナ）
+		magic := (r.current().Laps + 1) * effect.GainMagic.PerLap.Int()
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic}
+		})
+	}
+	if effect.RollDice != nil {
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: effect.RollDice.Count.Int()}
+		})
+	}
 	if effect.DrawCards != nil {
 		// 山札と捨て札の両方が尽きたら、引ける分だけで止める
 		for range effect.DrawCards.Count.Int() {

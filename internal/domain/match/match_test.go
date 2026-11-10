@@ -224,6 +224,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: refs(t, 102, 101)},
 		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
 		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.Ref(t, card.SpellEntityType, 401), Cost: cardtest.Cost(t, 40)},
+		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 200},
+		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
@@ -2806,4 +2808,68 @@ func TestDecide_SpellCanBeUsedAgainInTheNextTurn(t *testing.T) {
 	state, _ = endTurn(t, state, 1)
 
 	require.False(t, state.SpellUsed)
+}
+
+func TestDecide_GainMagicSpellGivesMagicByTheLaps(t *testing.T) {
+	tests := map[string]struct {
+		laps int
+		want int
+	}{
+		"no_laps":  {laps: 0, want: 100},
+		"two_laps": {laps: 2, want: 300},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := withSpellInHand(t, rollingWithSpell(t), 1, 402, 0, spelltest.GainMagic(t, 100))
+			state.Participants = slices.Clone(state.Participants)
+			state.Participants[1].Laps = tt.laps
+
+			state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+
+			require.Equal(t, tt.want, eventOf[*match.MagicGainedEvent](t, events).Magic)
+			require.Equal(t, 600+tt.want, state.Participants[1].Magic)
+			require.Equal(t, match.PhaseRolling, state.Phase)
+		})
+	}
+}
+
+func TestEvolve_LapCompletedCountsTheLaps(t *testing.T) {
+	state := newMatch(t, lineBoard(t), defaultRules(t))
+
+	evolved, err := match.Evolve(state, &match.LapCompletedEvent{Participant: matchtest.Index(t, 1), Magic: 300})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, evolved.(match.Match).Participants[1].Laps)
+}
+
+func TestDecide_RollDiceSpellRollsTheDiceTogetherAndMovesByTheTotal(t *testing.T) {
+	state := withSpellInHand(t, rollingWithSpell(t), 1, 403, 50, spelltest.RollDice(t, 2))
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+	require.Equal(t, 2, eventOf[*match.DiceCountChangedEvent](t, events).Count)
+	require.Equal(t, match.PhaseRolling, state.Phase)
+
+	state, events = apply(t, state, matchtest.NewRollingRandom(1, 2), &match.RollCommand{By: matchtest.Index(t, 1)})
+
+	rolled := eventOf[*match.DiceRolledEvent](t, events)
+	require.Equal(t, []int{1, 2}, rolled.Dice)
+	require.Equal(t, 3, rolled.Value)
+	require.Equal(t, 3, state.Dice)
+	state, _ = endTurn(t, state, 1)
+	require.Zero(t, state.DiceCount)
+}
+
+func TestDecide_RollWithOneDieLeavesTheDiceOut(t *testing.T) {
+	_, events := apply(t, rollingWithSpell(t), matchtest.NewRollingRandom(4), &match.RollCommand{By: matchtest.Index(t, 1)})
+
+	rolled := eventOf[*match.DiceRolledEvent](t, events)
+	require.Nil(t, rolled.Dice)
+	require.Equal(t, 4, rolled.Value)
+}
+
+func TestEvolve_RejectsDiceThatDoNotAddUpToTheValue(t *testing.T) {
+	state := rollingWithSpell(t)
+
+	_, err := match.Evolve(state, &match.DiceRolledEvent{Participant: matchtest.Index(t, 1), Value: 5, Dice: []int{1, 2}})
+
+	require.ErrorIs(t, err, match.ErrInvalidState)
 }

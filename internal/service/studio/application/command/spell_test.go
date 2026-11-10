@@ -220,3 +220,21 @@ func TestChangeSpellEffect_RejectsNotDraft(t *testing.T) {
 
 	require.ErrorIs(t, err, command.ErrCardNotDraft)
 }
+
+func TestChangeSpellEffect_ChangesToEachKindAndRejectsTooSmallValues(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "マナ")
+	require.NoError(t, err)
+
+	gained, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 100}})
+	require.NoError(t, err)
+	rolled, err := commands.ChangeEffect(ctx, gained.ID, gained.Revision, command.SpellEffect{RollDice: &command.SpellRollDice{Count: 2}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+2, rolled.Revision)
+
+	_, perLapErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 0}})
+	_, diceErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{RollDice: &command.SpellRollDice{Count: 1}})
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}, perLapErr)
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.rollDice.count", Min: 2}}, diceErr)
+}

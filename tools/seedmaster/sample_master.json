@@ -308,7 +308,12 @@
       "type": "spell",
       "name": "フライ",
       "cost": 50,
-      "rarity": "strange"
+      "rarity": "strange",
+      "effect": {
+        "roll_dice": {
+          "count": 2
+        }
+      }
     },
     {
       "type": "spell",
@@ -325,7 +330,12 @@
       "type": "spell",
       "name": "マナ",
       "cost": 0,
-      "rarity": "normal"
+      "rarity": "normal",
+      "effect": {
+        "gain_magic": {
+          "per_lap": 100
+        }
+      }
     },
     {
       "type": "spell",

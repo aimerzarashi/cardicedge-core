@@ -145,28 +145,60 @@ func (c *SpellHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision 
 // スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の spell.Effect と同じ形）
 type SpellEffect struct {
 	DrawCards *SpellDrawCards
+	GainMagic *SpellGainMagic
+	RollDice  *SpellRollDice
 }
 
 type SpellDrawCards struct {
 	Count int
 }
 
+type SpellGainMagic struct {
+	PerLap int
+}
+
+type SpellRollDice struct {
+	Count int
+}
+
 // 効果を変える（準備中だけ）。変えた後の効果の全体を受け取り、どの種類も無ければ効果なしにする。同じ値なら変わらず、revision も進まない。
-// 引く枚数が 1 未満は input.Errors（項目 effect.drawCards.count）。ほかのエラーは ChangeCost と同じ
+// 値が下限より小さいのは input.Errors（項目は effect.drawCards.count・effect.gainMagic.perLap・effect.rollDice.count）。
+// 種類が 2 つ以上あるのはコードの誤り（presentation 層が 1 つだけを渡す）。ほかのエラーは ChangeCost と同じ
 func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect SpellEffect) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	value := spell.NoEffect()
-	if effect.DrawCards != nil {
-		count, err := spell.NewDrawCount(effect.DrawCards.Count)
-		if err != nil {
-			return ChangedCard{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
-		}
-		value = spell.NewDrawCardsEffect(count)
+	value, err := newSpellEffect(effect)
+	if err != nil {
+		return ChangedCard{}, err
 	}
 	return c.change(ctx, id, revision, &spell.ChangeEffectCommand{Effect: value, ChangedBy: changedBy})
+}
+
+func newSpellEffect(effect SpellEffect) (spell.Effect, error) {
+	switch {
+	case effect.DrawCards != nil:
+		count, err := spell.NewDrawCount(effect.DrawCards.Count)
+		if err != nil {
+			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
+		}
+		return spell.NewDrawCardsEffect(count), nil
+	case effect.GainMagic != nil:
+		perLap, err := spell.NewMagicPerLap(effect.GainMagic.PerLap)
+		if err != nil {
+			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}
+		}
+		return spell.NewGainMagicEffect(perLap), nil
+	case effect.RollDice != nil:
+		count, err := spell.NewDiceCount(effect.RollDice.Count)
+		if err != nil {
+			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.rollDice.count", Min: 2}}
+		}
+		return spell.NewRollDiceEffect(count), nil
+	default:
+		return spell.NoEffect(), nil
+	}
 }
 
 func (c *SpellHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd spell.Command) (ChangedCard, error) {

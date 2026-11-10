@@ -479,7 +479,11 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchMagicDepletedEvent:
 		return &model.MatchMagicDepletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
 	case query.MatchDiceRolledEvent:
-		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value}, nil
+		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice}, nil
+	case query.MatchMagicGainedEvent:
+		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
+	case query.MatchDiceCountChangedEvent:
+		return &model.MatchDiceCountChangedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Count: e.Count}, nil
 	case query.MatchMovedEvent:
 		return &model.MatchMovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}}, nil
 	case query.MatchCheckpointPassedEvent:

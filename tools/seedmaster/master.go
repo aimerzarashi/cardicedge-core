@@ -79,6 +79,12 @@ type masterSpellEffect struct {
 	DrawCards *struct {
 		Count int `json:"count"`
 	} `json:"draw_cards"`
+	GainMagic *struct {
+		PerLap int `json:"per_lap"`
+	} `json:"gain_magic"`
+	RollDice *struct {
+		Count int `json:"count"`
+	} `json:"roll_dice"`
 }
 
 // 種類がどれも無い効果は書き間違い（効果なしは effect を書かない）
@@ -89,19 +95,42 @@ func (c masterCard) validateSpellSpec() error {
 	if c.Type != "spell" {
 		return fmt.Errorf("%s cannot have effect", c.Type)
 	}
-	if c.Effect.DrawCards == nil {
-		return errors.New("spell effect needs one kind")
+	kinds := 0
+	var err error
+	if c.Effect.DrawCards != nil {
+		kinds++
+		_, err = spell.NewDrawCount(c.Effect.DrawCards.Count)
 	}
-	_, err := spell.NewDrawCount(c.Effect.DrawCards.Count)
+	if c.Effect.GainMagic != nil {
+		kinds++
+		_, err = spell.NewMagicPerLap(c.Effect.GainMagic.PerLap)
+	}
+	if c.Effect.RollDice != nil {
+		kinds++
+		_, err = spell.NewDiceCount(c.Effect.RollDice.Count)
+	}
+	if kinds != 1 {
+		return errors.New("spell effect needs exactly one kind")
+	}
 	return err
 }
 
 // 見本の効果を、コマンドの入力にする（書いていなければ効果なし）
 func (c masterCard) spellEffect() command.SpellEffect {
-	if c.Effect == nil || c.Effect.DrawCards == nil {
-		return command.SpellEffect{}
+	var effect command.SpellEffect
+	if c.Effect == nil {
+		return effect
 	}
-	return command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: c.Effect.DrawCards.Count}}
+	if c.Effect.DrawCards != nil {
+		effect.DrawCards = &command.SpellDrawCards{Count: c.Effect.DrawCards.Count}
+	}
+	if c.Effect.GainMagic != nil {
+		effect.GainMagic = &command.SpellGainMagic{PerLap: c.Effect.GainMagic.PerLap}
+	}
+	if c.Effect.RollDice != nil {
+		effect.RollDice = &command.SpellRollDice{Count: c.Effect.RollDice.Count}
+	}
+	return effect
 }
 
 type masterPresetDeck struct {

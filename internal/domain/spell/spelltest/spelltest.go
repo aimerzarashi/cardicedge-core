@@ -25,3 +25,19 @@ func DrawCards(t testing.TB, count int) spell.Effect {
 	require.NoError(t, err)
 	return spell.NewDrawCardsEffect(drawCount)
 }
+
+// 魔力を得る効果
+func GainMagic(t testing.TB, perLap int) spell.Effect {
+	t.Helper()
+	value, err := spell.NewMagicPerLap(perLap)
+	require.NoError(t, err)
+	return spell.NewGainMagicEffect(value)
+}
+
+// サイコロを複数振る効果
+func RollDice(t testing.TB, count int) spell.Effect {
+	t.Helper()
+	value, err := spell.NewDiceCount(count)
+	require.NoError(t, err)
+	return spell.NewRollDiceEffect(value)
+}

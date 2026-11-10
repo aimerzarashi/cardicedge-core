@@ -34,9 +34,19 @@ type SpellSpec struct {
 // スペルの効果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（studio の readmodel.SpellEffectMetadata と同じ形）
 type SpellEffect struct {
 	DrawCards *SpellDrawCards
+	GainMagic *SpellGainMagic
+	RollDice  *SpellRollDice
 }
 
 type SpellDrawCards struct {
+	Count int
+}
+
+type SpellGainMagic struct {
+	PerLap int
+}
+
+type SpellRollDice struct {
 	Count int
 }
 
