@@ -1787,13 +1787,122 @@
       ]
     },
     {
+      "id": 66,
+      "type": "stat",
+      "title": "画面の再コンパイル（1 分の最大）",
+      "description": "開発の game・studio の Next.js が出す「Compiled in」の行の数の、1 分ごとの最大（時間の範囲の中）。ふだんは保存のたびに数行で、20 を超えたらビルドのキャッシュの破損による読み直しの繰り返しを疑う（2026-11-10 の再発では 1 分に 106 行）。直し方は game・studio の `make dev-cache-reset`（README の注意）。画面を開いている間だけ増えるので、開いていない間の破損は出ない（core#133）",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 8,
+        "h": 5
+      },
+      "interval": "1m",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "game"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "studio"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"game\", deployment_environment_name=~\"$env\"} |= \"Compiled in\" [1m])) or vector(0)",
+          "legendFormat": "game",
+          "queryType": "range",
+          "step": "1m"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"studio\", deployment_environment_name=~\"$env\"} |= \"Compiled in\" [1m])) or vector(0)",
+          "legendFormat": "studio",
+          "queryType": "range",
+          "step": "1m"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}"
+        }
+      ]
+    },
+    {
       "id": 15,
       "type": "row",
       "title": "Latency",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 27,
         "w": 24,
         "h": 1
       },
@@ -1810,7 +1919,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 28,
         "w": 12,
         "h": 6
       },
@@ -1888,7 +1997,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 28,
         "w": 12,
         "h": 6
       },
@@ -1970,7 +2079,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 34,
         "w": 10,
         "h": 6
       },
@@ -2048,7 +2157,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 29,
+        "y": 34,
         "w": 7,
         "h": 6
       },
@@ -2136,7 +2245,7 @@
       },
       "gridPos": {
         "x": 17,
-        "y": 29,
+        "y": 34,
         "w": 7,
         "h": 6
       },
@@ -2238,7 +2347,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 40,
         "w": 24,
         "h": 1
       },
@@ -2255,7 +2364,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
@@ -2325,7 +2434,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
@@ -2395,7 +2504,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
@@ -2465,7 +2574,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
@@ -2535,7 +2644,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
@@ -2605,7 +2714,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 36,
+        "y": 41,
         "w": 4,
         "h": 5
       },
