@@ -153,6 +153,24 @@ func (r *mutationResolver) ExchangeMatchCreature(ctx context.Context, input mode
 	return &model.ExchangeMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ChangeMatchLandElement is the resolver for the changeMatchLandElement field.
+func (r *mutationResolver) ChangeMatchLandElement(ctx context.Context, input model.ChangeMatchLandElementInput) (model.ChangeMatchLandElementResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ChangeLandElement(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, toBoardElementName(input.Element))
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ChangeMatchLandElementResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeMatchLandElementSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
 func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

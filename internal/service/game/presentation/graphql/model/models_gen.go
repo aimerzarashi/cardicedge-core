@@ -54,6 +54,11 @@ type CardResult interface {
 	IsCardResult()
 }
 
+// changeMatchLandElement の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+type ChangeMatchLandElementResult interface {
+	IsChangeMatchLandElementResult()
+}
+
 // changeRoomMatchRules の結果（公開前、または公開前に決めていなければ準備中。決めるのは作った人）。
 // 入力の誤りは ValidationErrors（段階ごと。8 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
 type ChangeRoomMatchRulesResult interface {
@@ -493,6 +498,28 @@ func (this CardShopTile) GetX() int { return this.X }
 
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
+
+// 通った自分の領地の土地の属性を変える入力
+type ChangeMatchLandElementInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 領地の位置（Match.elementChangeChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）
+	Position *BoardPositionInput `json:"position"`
+	// 変えた後の属性
+	Element BoardTileElement `json:"element"`
+}
+
+// 土地の属性を変えた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）
+type ChangeMatchLandElementSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (ChangeMatchLandElementSuccess) IsChangeMatchLandElementResult() {}
 
 // 対戦ルールを決める入力。8 つの値の名前と決まりは、ボードの既定のルールと同じ
 type ChangeRoomMatchRulesInput struct {
@@ -1170,6 +1197,8 @@ type Match struct {
 	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
 	// 今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
 	ExchangeChoices []*MatchExchangeChoice `json:"exchangeChoices"`
+	// 今の番の人が選べる土地の属性の変更（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ）
+	ElementChangeChoices []*MatchElementChangeChoice `json:"elementChangeChoices"`
 	// 侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）
 	Invasion *MatchInvasion `json:"invasion,omitempty"`
 	// 盤面の領地（できた順）
@@ -1534,6 +1563,16 @@ func (this MatchDiceRolledEvent) GetOccurredAt() time.Time { return this.Occurre
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchDiceRolledEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 土地の属性を変える選択肢 1 つ
+type MatchElementChangeChoice struct {
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 変えた後の属性（火・地・水・風のどれか）
+	Element BoardTileElement `json:"element"`
+	// 払う魔力
+	Magic int `json:"magic"`
+}
+
 // 対戦が終わった
 type MatchEndedEvent struct {
 	// 対戦の版
@@ -1715,6 +1754,35 @@ func (this MatchItemUsedEvent) GetOccurredAt() time.Time { return this.OccurredA
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchItemUsedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 通った自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）
+type MatchLandElementChangedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 変えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 変えた後の属性
+	Element BoardTileElement `json:"element"`
+	// 払った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchLandElementChangedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchLandElementChangedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchLandElementChangedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchLandElementChangedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
 type MatchLapCompletedEvent struct {
 	// 対戦の版
@@ -1830,6 +1898,8 @@ func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsLevelUpMatchTerritoryResult() {}
 
+func (MatchNotFoundError) IsChangeMatchLandElementResult() {}
+
 func (MatchNotFoundError) IsExchangeMatchCreatureResult() {}
 
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
@@ -1867,6 +1937,8 @@ func (MatchNotYourTurnError) IsDefendMatchTerritoryResult() {}
 func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsChangeMatchLandElementResult() {}
 
 func (MatchNotYourTurnError) IsExchangeMatchCreatureResult() {}
 
@@ -1937,6 +2009,8 @@ func (MatchPhaseNotAllowedError) IsDefendMatchTerritoryResult() {}
 func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsLevelUpMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsChangeMatchLandElementResult() {}
 
 func (MatchPhaseNotAllowedError) IsExchangeMatchCreatureResult() {}
 
@@ -2444,6 +2518,8 @@ func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsLevelUpMatchTerritoryResult() {}
 
+func (PlayerNotRegisteredError) IsChangeMatchLandElementResult() {}
+
 func (PlayerNotRegisteredError) IsExchangeMatchCreatureResult() {}
 
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
@@ -2627,6 +2703,8 @@ func (RevisionConflictError) IsDefendMatchTerritoryResult() {}
 func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsLevelUpMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsChangeMatchLandElementResult() {}
 
 func (RevisionConflictError) IsExchangeMatchCreatureResult() {}
 
@@ -2994,6 +3072,8 @@ func (ValidationErrors) IsDefendMatchTerritoryResult() {}
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
 
 func (ValidationErrors) IsLevelUpMatchTerritoryResult() {}
+
+func (ValidationErrors) IsChangeMatchLandElementResult() {}
 
 func (ValidationErrors) IsExchangeMatchCreatureResult() {}
 

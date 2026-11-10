@@ -270,6 +270,15 @@ type MatchTerritoryLeveledUpEvent struct {
 	Magic       int
 }
 
+// 通った自分の領地の土地の属性を変えた
+type MatchLandElementChangedEvent struct {
+	MatchEventMeta
+	Participant int
+	Position    BoardPosition
+	Element     BoardTileElement
+	Magic       int
+}
+
 // 領地のクリーチャーを手札のクリーチャーと入れ替えた
 type MatchCreatureExchangedEvent struct {
 	MatchEventMeta
@@ -549,6 +558,12 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.TerritoryLeveledUpEvent:
 		return MatchTerritoryLeveledUpEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Level, e.Magic}, nil
+	case *match.LandElementChangedEvent:
+		element, err := NewBoardTileElement(e.Element.String())
+		if err != nil {
+			return nil, err
+		}
+		return MatchLandElementChangedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), element, e.Magic}, nil
 	case *match.CreatureExchangedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), position, e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), e.Cost.Int(), cards[domain.NewEntityRef(e.ReturnedCard.EntityType, e.ReturnedCard.ID)]}, nil

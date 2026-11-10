@@ -78,6 +78,10 @@ type Match struct {
 	TerrainBonusPerLevel TerrainBonusPerLevel `json:"terrain_bonus_per_level"`
 	// 支援で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
 	AdjacentTerritoryBonus AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	// 土地の属性を変える費用の、基本の値に掛ける倍率
+	LandElementChangeMultiplier LandElementChangeMultiplier `json:"land_element_change_multiplier"`
+	// 複属性の土地から変えるときの倍率
+	MultiLandElementChangeMultiplier LandElementChangeMultiplier `json:"multi_land_element_change_multiplier"`
 }
 
 // 対戦の値の型は gamerules に置く。対戦の集約（match）は参加者のデッキを写すため npcdeck を読み、npcdeck が gamerules を読むので、match に置くとパッケージが循環する（core#71）
@@ -263,6 +267,20 @@ func (a AdjacentTerritoryBonus) Int() int {
 	return int(a)
 }
 
+// 土地の属性を変える費用の、基本の値に掛ける倍率。1 以上
+type LandElementChangeMultiplier int
+
+func NewLandElementChangeMultiplier(value int) (LandElementChangeMultiplier, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: land element change multiplier is %d", ErrMatchValueNotPositive, value)
+	}
+	return LandElementChangeMultiplier(value), nil
+}
+
+func (l LandElementChangeMultiplier) Int() int {
+	return int(l)
+}
+
 var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
 
 // 項目をまたぐ決まり（人数の最小 ≤ 最大、配る手札 ≤ 手札の上限・デッキの枚数）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
@@ -334,6 +352,11 @@ func Defaults() Rules {
 	must(err)
 	adjacentTerritoryBonus, err := NewAdjacentTerritoryBonus(10)
 	must(err)
+	// 仮の値（2026-11-10 オーナー）
+	landElementChangeMultiplier, err := NewLandElementChangeMultiplier(2)
+	must(err)
+	multiLandElementChangeMultiplier, err := NewLandElementChangeMultiplier(1)
+	must(err)
 	return Rules{
 		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
 		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
@@ -342,6 +365,7 @@ func Defaults() Rules {
 			RewardCardsByRank: rewardCardsByRank, LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers,
 			TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
 			TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
+			LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
 		},
 	}
 }

@@ -30,6 +30,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *LevelUpTerritoryCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhaseDeploying, PhaseInvading)
+	case *ChangeLandElementCommand:
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return changeLandElement(r, c.Position, c.Element) }, PhaseDeploying, PhaseInvading)
 	case *ExchangeCreatureCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) }, PhaseDeploying, PhaseInvading)
 	case *InvadeCommand:
@@ -206,6 +208,20 @@ func levelUp(r *recorder, position board.Position, level int) error {
 	magic := r.state.LevelUpChoices()[index].Magic
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: position, Level: level, Magic: magic}
+	}); err != nil {
+		return err
+	}
+	return afterTerritoryCommand(r)
+}
+
+func changeLandElement(r *recorder, position board.Position, element board.Element) error {
+	index := slices.IndexFunc(r.state.ElementChangeChoices(), func(choice ElementChangeChoice) bool { return choice.Position == position && choice.Element == element })
+	if index < 0 {
+		return ErrLandElementNotChangeable
+	}
+	magic := r.state.ElementChangeChoices()[index].Magic
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &LandElementChangedEvent{EventMeta: meta, Participant: by, Position: position, Element: element, Magic: magic}
 	}); err != nil {
 		return err
 	}

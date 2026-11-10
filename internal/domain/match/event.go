@@ -217,6 +217,16 @@ type CreatureExchangedEvent struct {
 	ReturnedCard card.Ref           `json:"returned_card"`
 }
 
+// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力）。土地のレベルとクリーチャーはそのまま
+type LandElementChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Position    board.Position   `json:"position"`
+	Element     board.Element    `json:"element"`
+	Magic       int              `json:"magic"`
+}
+
 // 振った目
 type DiceRolledEvent struct {
 	EventMeta   `json:"-"`
@@ -311,6 +321,7 @@ var (
 	battleStatModifiedEventType    = domain.NewEventName("BattleStatModifiedEvent")
 	territoryLeveledUpEventType    = domain.NewEventName("TerritoryLeveledUpEvent")
 	creatureExchangedEventType     = domain.NewEventName("CreatureExchangedEvent")
+	landElementChangedEventType    = domain.NewEventName("LandElementChangedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -538,13 +549,21 @@ func (*CreatureExchangedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*LandElementChangedEvent) EventType() domain.EventName {
+	return landElementChangedEventType
+}
+
+func (*LandElementChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
-		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, creatureExchangedEventType,
+		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 	}}
 }
 
@@ -613,6 +632,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TerritoryLeveledUpEvent{EventMeta: meta}
 	case EventType(creatureExchangedEventType):
 		event = &CreatureExchangedEvent{EventMeta: meta}
+	case EventType(landElementChangedEventType):
+		event = &LandElementChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

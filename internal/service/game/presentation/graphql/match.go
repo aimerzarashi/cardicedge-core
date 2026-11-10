@@ -3,6 +3,7 @@ package graphql
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
@@ -100,6 +101,10 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			Level:    territory.Level, Value: territory.Value, Toll: territory.Toll, RelinquishMagic: territory.RelinquishMagic,
 		}
 	}
+	elementChangeChoices, err := fromQueryElementChangeChoices(match.ElementChangeChoices)
+	if err != nil {
+		return nil, err
+	}
 	converted := &model.Match{
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
 		Rules: &model.MatchPlayRules{
@@ -117,6 +122,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 		LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
+		ElementChangeChoices: elementChangeChoices,
 	}
 	if invasion := match.Invasion; invasion != nil {
 		card, err := fromMatchCard(invasion.Card)
@@ -163,6 +169,23 @@ func fromQueryExchangeChoices(choices []query.MatchExchangeChoice) []*model.Matc
 		converted[i] = &model.MatchExchangeChoice{Position: &model.BoardPosition{X: choice.Position.X, Y: choice.Position.Y}, HandIndex: choice.HandIndex, Magic: choice.Magic}
 	}
 	return converted
+}
+
+// GraphQL の属性（FIRE 等）を、application が受け取る属性の名前（fire 等）にする
+func toBoardElementName(element model.BoardTileElement) string {
+	return strings.ToLower(string(element))
+}
+
+func fromQueryElementChangeChoices(choices []query.MatchElementChangeChoice) ([]*model.MatchElementChangeChoice, error) {
+	converted := make([]*model.MatchElementChangeChoice, len(choices))
+	for i, choice := range choices {
+		element, err := fromBoardTileElement(choice.Element)
+		if err != nil {
+			return nil, err
+		}
+		converted[i] = &model.MatchElementChangeChoice{Position: &model.BoardPosition{X: choice.Position.X, Y: choice.Position.Y}, Element: element, Magic: choice.Magic}
+	}
+	return converted, nil
 }
 
 func fromQueryPositions(positions []query.BoardPosition) []*model.BoardPosition {
@@ -338,6 +361,15 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchTerritoryLeveledUpEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Level: e.Level, Magic: e.Magic,
+		}, nil
+	case query.MatchLandElementChangedEvent:
+		element, err := fromBoardTileElement(e.Element)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchLandElementChangedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Element: element, Magic: e.Magic,
 		}, nil
 	case query.MatchCreatureExchangedEvent:
 		card, err := fromMatchCard(e.Card)

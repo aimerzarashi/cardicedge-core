@@ -321,9 +321,12 @@ type Rules struct {
 	// 戦闘の効果の決まり。全体のルールの写し
 	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
 	AdjacentTerritoryBonus gamerules.AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	// 土地の属性を変える費用の決まり。全体のルールの写し
+	LandElementChangeMultiplier      gamerules.LandElementChangeMultiplier `json:"land_element_change_multiplier"`
+	MultiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier `json:"multi_land_element_change_multiplier"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus, landElementChangeMultiplier, multiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
 		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue,
@@ -331,6 +334,7 @@ func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, st
 		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
 		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
 		TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
+		LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
 	}
 }
 

@@ -192,6 +192,28 @@ func Evolve(state State, event Event) (State, error) {
 			}
 		}
 		current.Phase = PhaseEnding
+	case *LandElementChangedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok || !current.acceptsTerritoryCommand() || !slices.Contains(changeableLandElements, e.Element) || current.landElement(e.Position) == e.Element {
+			return state, ErrInvalidState
+		}
+		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic -= e.Magic
+		// 盤面の写しのマスを変える（連鎖・地形効果・画面がマスの属性を 1 か所で読むため）
+		current.Board.Tiles = slices.Clone(current.Board.Tiles)
+		for i := range current.Board.Tiles {
+			if current.Board.Tiles[i].Position == e.Position {
+				current.Board.Tiles[i].Element = e.Element
+			}
+		}
+		current.Phase = PhaseEnding
 	case *CreatureExchangedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {

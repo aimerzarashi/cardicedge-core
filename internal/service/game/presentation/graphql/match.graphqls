@@ -238,6 +238,8 @@ type Match {
   levelUpChoices: [MatchLevelUpChoice!]!
   "今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）"
   exchangeChoices: [MatchExchangeChoice!]!
+  "今の番の人が選べる土地の属性の変更（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ）"
+  elementChangeChoices: [MatchElementChangeChoice!]!
   "侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）"
   invasion: MatchInvasion
   "盤面の領地（できた順）"
@@ -592,6 +594,46 @@ union LevelUpMatchTerritoryResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"土地の属性を変える選択肢 1 つ"
+type MatchElementChangeChoice {
+  "領地の位置"
+  position: BoardPosition!
+  "変えた後の属性（火・地・水・風のどれか）"
+  element: BoardTileElement!
+  "払う魔力"
+  magic: Int!
+}
+
+"通った自分の領地の土地の属性を変える入力"
+input ChangeMatchLandElementInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "領地の位置（Match.elementChangeChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+  "変えた後の属性"
+  element: BoardTileElement!
+}
+
+"土地の属性を変えた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
+type ChangeMatchLandElementSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"changeMatchLandElement の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）"
+union ChangeMatchLandElementResult =
+    ChangeMatchLandElementSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "クリーチャーを交換する選択肢 1 つ"
 type MatchExchangeChoice {
   "領地の位置"
@@ -708,6 +750,8 @@ extend type Mutation {
   levelUpMatchTerritory(input: LevelUpMatchTerritoryInput!): LevelUpMatchTerritoryResult!
   "通った自分の領地のクリーチャーを手札のクリーチャーと交換する（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
   exchangeMatchCreature(input: ExchangeMatchCreatureInput!): ExchangeMatchCreatureResult!
+  "通った自分の領地の土地の属性を変える（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  changeMatchLandElement(input: ChangeMatchLandElementInput!): ChangeMatchLandElementResult!
   "止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定し、コストの分の魔力を払う）"
   invadeMatchTerritory(input: InvadeMatchTerritoryInput!): InvadeMatchTerritoryResult!
   "侵略を確定した人が、アイテムを選ぶ（出さないことも選ぶ）"
@@ -964,6 +1008,24 @@ type MatchTerritoryLeveledUpEvent implements MatchEvent {
   position: BoardPosition!
   "上げた後のレベル"
   level: Int!
+  "払った魔力"
+  magic: Int!
+}
+
+"通った自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）"
+type MatchLandElementChangedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "変えた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "領地の位置"
+  position: BoardPosition!
+  "変えた後の属性"
+  element: BoardTileElement!
   "払った魔力"
   magic: Int!
 }
