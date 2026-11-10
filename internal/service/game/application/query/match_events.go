@@ -101,7 +101,24 @@ type MatchCardDiscardedEvent struct {
 type MatchDiceRolledEvent struct {
 	MatchEventMeta
 	Participant int
-	Value       int
+	// 出た目の合計（進む歩数）
+	Value int
+	// 複数のサイコロを同時に振ったときの 1 個ずつの目（1 個のときは空）
+	Dice []int
+}
+
+// スペルの効果で魔力を得た
+type MatchMagicGainedEvent struct {
+	MatchEventMeta
+	Participant int
+	Magic       int
+}
+
+// スペルの効果で、このターンに振るサイコロの個数が変わった
+type MatchDiceCountChangedEvent struct {
+	MatchEventMeta
+	Participant int
+	Count       int
 }
 
 type MatchMovedEvent struct {
@@ -570,7 +587,15 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 	case *match.CardDiscardedEvent:
 		return MatchCardDiscardedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)]}, nil
 	case *match.DiceRolledEvent:
-		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value}, nil
+		dice := e.Dice
+		if dice == nil {
+			dice = []int{}
+		}
+		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value, dice}, nil
+	case *match.MagicGainedEvent:
+		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic}, nil
+	case *match.DiceCountChangedEvent:
+		return MatchDiceCountChangedEvent{meta, e.Participant.Int(), e.Count}, nil
 	case *match.MovedEvent:
 		return MatchMovedEvent{meta, e.Participant.Int(), NewBoardPosition(e.To.X.Int(), e.To.Y.Int())}, nil
 	case *match.CheckpointPassedEvent:

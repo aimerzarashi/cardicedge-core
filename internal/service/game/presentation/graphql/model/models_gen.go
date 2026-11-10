@@ -1590,6 +1590,31 @@ type MatchDeployedCreature struct {
 	HitPoints int `json:"hitPoints"`
 }
 
+// スペルの効果で、このターンに振るサイコロの個数が変わった（count 個を同時に振り、合計の分だけ進む）
+type MatchDiceCountChangedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// このターンに振るサイコロの個数（2 以上）
+	Count int `json:"count"`
+}
+
+func (MatchDiceCountChangedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDiceCountChangedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDiceCountChangedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDiceCountChangedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // サイコロを振った
 type MatchDiceRolledEvent struct {
 	// 対戦の版
@@ -1600,8 +1625,10 @@ type MatchDiceRolledEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 振った参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
-	// 出た目
+	// 出た目（複数のサイコロを同時に振ったときは合計。進む歩数）
 	Value int `json:"value"`
+	// 複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が value）。1 個のときは空
+	Dice []int `json:"dice"`
 }
 
 func (MatchDiceRolledEvent) IsMatchEvent() {}
@@ -1954,6 +1981,31 @@ func (this MatchMagicDepletedEvent) GetOccurredAt() time.Time { return this.Occu
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchMagicDepletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// スペルの効果で魔力を得た
+type MatchMagicGainedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 得た参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 得た魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchMagicGainedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchMagicGainedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchMagicGainedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchMagicGainedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // クリーチャーを動かす選択肢 1 つ
 type MatchMoveChoice struct {
@@ -3273,6 +3325,22 @@ type SpellDrawCardsEffect struct {
 }
 
 func (SpellDrawCardsEffect) IsSpellEffect() {}
+
+// 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
+type SpellGainMagicEffect struct {
+	// 周回数 1 つあたりの魔力（1 以上）
+	PerLap int `json:"perLap"`
+}
+
+func (SpellGainMagicEffect) IsSpellEffect() {}
+
+// サイコロを複数振る効果（使った人は、そのターンのサイコロを count 個同時に振り、合計の分だけ進む）
+type SpellRollDiceEffect struct {
+	// 振るサイコロの個数（2 以上）
+	Count int `json:"count"`
+}
+
+func (SpellRollDiceEffect) IsSpellEffect() {}
 
 type Subscription struct {
 }

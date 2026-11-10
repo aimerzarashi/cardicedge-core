@@ -117,6 +117,9 @@ func Evolve(state State, event Event) (State, error) {
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
 		}
+		if len(e.Dice) > 0 && sum(e.Dice) != e.Value {
+			return state, ErrInvalidState
+		}
 		current.Dice = e.Value
 		current.RemainingSteps = e.Value
 		current.Phase = current.settle()
@@ -149,6 +152,22 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic += e.Magic
 		current.Participants[index].PassedCheckpoints = nil
+		current.Participants[index].Laps++
+	case *MagicGainedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Magic += e.Magic
+	case *DiceCountChangedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if current.Phase != PhaseRolling || e.Count < 2 {
+			return state, ErrInvalidState
+		}
+		current.DiceCount = e.Count
 	case *CreatureDeployedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -513,6 +532,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Dice = 0
 		current.PassedPositions = nil
 		current.SpellUsed = false
+		current.DiceCount = 0
 		current.Phase = current.turnStartPhase()
 	case *MatchEndedEvent:
 		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}
@@ -587,6 +607,14 @@ func (m Match) handLimitPhase(index ParticipantIndex) Phase {
 		return PhaseDiscarding
 	}
 	return PhaseEnding
+}
+
+func sum(values []int) int {
+	total := 0
+	for _, value := range values {
+		total += value
+	}
+	return total
 }
 
 // 混ぜ直した山札が捨て札と同じカードの組か（並びは問わない）

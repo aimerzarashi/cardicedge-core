@@ -185,10 +185,16 @@ type cardChangeResult interface {
 
 // 効果なしは null（種類ごとの型のどれも返さない）
 func fromSpellEffect(effect readmodel.SpellEffectMetadata) model.SpellEffect {
-	if effect.DrawCards != nil {
+	switch {
+	case effect.DrawCards != nil:
 		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+	case effect.GainMagic != nil:
+		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
+	case effect.RollDice != nil:
+		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
+	default:
+		return nil
 	}
-	return nil
 }
 
 // 種類のどれか 1 つだけを受け付ける（@oneOf の「ちょうど 1 つ」は変数の値だと GraphQL の層が確かめないため。toBoardTileInput と同じ）。
@@ -197,10 +203,21 @@ func toSpellEffect(effect *model.SpellEffectInput) (command.SpellEffect, bool) {
 	if effect == nil {
 		return command.SpellEffect{}, true
 	}
-	if effect.DrawCards == nil {
-		return command.SpellEffect{}, false
+	var converted command.SpellEffect
+	kinds := 0
+	if effect.DrawCards != nil {
+		converted.DrawCards = &command.SpellDrawCards{Count: effect.DrawCards.Count}
+		kinds++
 	}
-	return command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: effect.DrawCards.Count}}, true
+	if effect.GainMagic != nil {
+		converted.GainMagic = &command.SpellGainMagic{PerLap: effect.GainMagic.PerLap}
+		kinds++
+	}
+	if effect.RollDice != nil {
+		converted.RollDice = &command.SpellRollDice{Count: effect.RollDice.Count}
+		kinds++
+	}
+	return converted, kinds == 1
 }
 
 // 種類がどれも無い効果の入力の誤り（resolver の引数の名前 input がパッケージの input と重なるため、ここで作る）

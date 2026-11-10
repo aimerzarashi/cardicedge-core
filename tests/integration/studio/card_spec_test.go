@@ -456,11 +456,36 @@ func TestChangeSpellEffect_ReturnsResultTypePerReason(t *testing.T) {
 
 	tooSmall := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{"drawCards": map[string]any{"count": 0}})
 	noKind := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{})
+	twoKinds := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{"gainMagic": map[string]any{"perLap": 100}, "rollDice": map[string]any{"count": 2}})
 	notASpell := changeSpellEffect(t, token, creature["id"], creature["revision"], nil)
 	notDraft := changeSpellEffect(t, token, published["id"], publishedRevision, nil)
 
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldTooSmall", "field": "effect.drawCards.count", "min": float64(1)}}}, tooSmall)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "effect"}}}, noKind)
+	require.Equal(t, noKind, twoKinds)
 	require.Equal(t, "CardNotFoundError", notASpell["__typename"])
 	require.Equal(t, "CardNotDraftError", notDraft["__typename"])
+}
+
+func TestChangeSpellEffect_ReturnsEachKindAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	mana := registerSpell(t, token, "マナ-"+id)["spell"].(map[string]any)
+	fly := registerSpell(t, token, "フライ-"+id)["spell"].(map[string]any)
+
+	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, mana["id"], mana["revision"], map[string]any{"gainMagic": map[string]any{"perLap": 100}})["__typename"])
+	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, fly["id"], fly["revision"], map[string]any{"rollDice": map[string]any{"count": 2}})["__typename"])
+
+	const effectQuery = `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellGainMagicEffect { perLap } ... on SpellRollDiceEffect { count } } } } }`
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		gotMana, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": mana["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellGainMagicEffect", "perLap": float64(100)}}, gotMana)
+		}
+		gotFly, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": fly["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellRollDiceEffect", "count": float64(2)}}, gotFly)
+		}
+	})
 }

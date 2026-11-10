@@ -52,10 +52,16 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 
 // 効果なしは null（種類ごとの型のどれも返さない）
 func fromSpellEffect(effect query.SpellEffect) model.SpellEffect {
-	if effect.DrawCards != nil {
+	switch {
+	case effect.DrawCards != nil:
 		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+	case effect.GainMagic != nil:
+		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
+	case effect.RollDice != nil:
+		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
+	default:
+		return nil
 	}
-	return nil
 }
 
 // 値の対応を明示する（fromCardRarity と同じ理由）

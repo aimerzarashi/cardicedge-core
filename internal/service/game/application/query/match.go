@@ -693,5 +693,11 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 	if effect.DrawCards != nil {
 		converted.DrawCards = &SpellDrawCards{Count: effect.DrawCards.Count.Int()}
 	}
+	if effect.GainMagic != nil {
+		converted.GainMagic = &SpellGainMagic{PerLap: effect.GainMagic.PerLap.Int()}
+	}
+	if effect.RollDice != nil {
+		converted.RollDice = &SpellRollDice{Count: effect.RollDice.Count.Int()}
+	}
 	return converted
 }

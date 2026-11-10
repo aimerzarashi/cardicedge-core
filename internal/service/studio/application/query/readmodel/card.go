@@ -116,9 +116,19 @@ type SpellMetadata struct {
 // スペルの効果。domain の spell.Effect と同じ形（持っている種類の名前の下に値を入れ、効果なしは {}）。種類ごとの型を分けるのも同じ（2026-11-10 オーナー）
 type SpellEffectMetadata struct {
 	DrawCards *SpellDrawCardsMetadata `json:"draw_cards,omitempty"`
+	GainMagic *SpellGainMagicMetadata `json:"gain_magic,omitempty"`
+	RollDice  *SpellRollDiceMetadata  `json:"roll_dice,omitempty"`
 }
 
 type SpellDrawCardsMetadata struct {
+	Count int `json:"count"`
+}
+
+type SpellGainMagicMetadata struct {
+	PerLap int `json:"per_lap"`
+}
+
+type SpellRollDiceMetadata struct {
 	Count int `json:"count"`
 }
 
@@ -126,6 +136,12 @@ func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
 	var metadata SpellEffectMetadata
 	if effect.DrawCards != nil {
 		metadata.DrawCards = &SpellDrawCardsMetadata{Count: effect.DrawCards.Count.Int()}
+	}
+	if effect.GainMagic != nil {
+		metadata.GainMagic = &SpellGainMagicMetadata{PerLap: effect.GainMagic.PerLap.Int()}
+	}
+	if effect.RollDice != nil {
+		metadata.RollDice = &SpellRollDiceMetadata{Count: effect.RollDice.Count.Int()}
 	}
 	return metadata
 }

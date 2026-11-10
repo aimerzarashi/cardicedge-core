@@ -67,6 +67,12 @@ type spellEffectMetadata struct {
 	DrawCards *struct {
 		Count int `json:"count"`
 	} `json:"draw_cards"`
+	GainMagic *struct {
+		PerLap int `json:"per_lap"`
+	} `json:"gain_magic"`
+	RollDice *struct {
+		Count int `json:"count"`
+	} `json:"roll_dice"`
 }
 
 type itemMetadata struct {
@@ -279,6 +285,12 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 		var effect query.SpellEffect
 		if spellSpec.Effect.DrawCards != nil {
 			effect.DrawCards = &query.SpellDrawCards{Count: spellSpec.Effect.DrawCards.Count}
+		}
+		if spellSpec.Effect.GainMagic != nil {
+			effect.GainMagic = &query.SpellGainMagic{PerLap: spellSpec.Effect.GainMagic.PerLap}
+		}
+		if spellSpec.Effect.RollDice != nil {
+			effect.RollDice = &query.SpellRollDice{Count: spellSpec.Effect.RollDice.Count}
 		}
 		card.Spell = &query.SpellSpec{Effect: effect}
 	}

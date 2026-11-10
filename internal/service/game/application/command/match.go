@@ -225,17 +225,30 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		if source.Spell == nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d has no spell spec", ref.EntityType, ref.ID)
 		}
-		effect := spell.NoEffect()
-		if source.Spell.DrawCards != nil {
-			count, err := spell.NewDrawCount(source.Spell.DrawCards.Count)
-			if err != nil {
-				return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
-			}
-			effect = spell.NewDrawCardsEffect(count)
+		effect, err := newSpellEffect(source.Spell)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
 		}
 		spec.Spell = &match.SpellSpec{Effect: effect}
 	}
 	return spec, nil
+}
+
+// 写した効果のどれか 1 つ（どれも無ければ効果なし）
+func newSpellEffect(source *master.SpellSpec) (spell.Effect, error) {
+	switch {
+	case source.DrawCards != nil:
+		count, err := spell.NewDrawCount(source.DrawCards.Count)
+		return spell.NewDrawCardsEffect(count), err
+	case source.GainMagic != nil:
+		perLap, err := spell.NewMagicPerLap(source.GainMagic.PerLap)
+		return spell.NewGainMagicEffect(perLap), err
+	case source.RollDice != nil:
+		count, err := spell.NewDiceCount(source.RollDice.Count)
+		return spell.NewRollDiceEffect(count), err
+	default:
+		return spell.NoEffect(), nil
+	}
 }
 
 func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {

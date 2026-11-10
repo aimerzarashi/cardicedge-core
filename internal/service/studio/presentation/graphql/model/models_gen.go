@@ -2863,6 +2863,38 @@ type SpellDrawCardsEffectInput struct {
 type SpellEffectInput struct {
 	// カードを引く
 	DrawCards *SpellDrawCardsEffectInput `json:"drawCards,omitempty"`
+	// 魔力を得る
+	GainMagic *SpellGainMagicEffectInput `json:"gainMagic,omitempty"`
+	// サイコロを複数振る
+	RollDice *SpellRollDiceEffectInput `json:"rollDice,omitempty"`
+}
+
+// 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
+type SpellGainMagicEffect struct {
+	// 周回数 1 つあたりの魔力（1 以上）
+	PerLap int `json:"perLap"`
+}
+
+func (SpellGainMagicEffect) IsSpellEffect() {}
+
+// 魔力を得る効果の入力
+type SpellGainMagicEffectInput struct {
+	// 周回数 1 つあたりの魔力（1 以上。上限は無い）
+	PerLap int `json:"perLap"`
+}
+
+// サイコロを複数振る効果（使った人は、そのターンのサイコロを count 個同時に振り、合計の分だけ進む）
+type SpellRollDiceEffect struct {
+	// 振るサイコロの個数（2 以上）
+	Count int `json:"count"`
+}
+
+func (SpellRollDiceEffect) IsSpellEffect() {}
+
+// サイコロを複数振る効果の入力
+type SpellRollDiceEffectInput struct {
+	// 振るサイコロの個数（2 以上。上限は無い）
+	Count int `json:"count"`
 }
 
 // スターターセットの一覧の 1 ページ（名前の順）

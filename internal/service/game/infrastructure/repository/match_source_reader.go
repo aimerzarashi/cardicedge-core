@@ -302,8 +302,15 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 		}
 		if row.card.Spell != nil {
 			spec.Spell = &master.SpellSpec{}
-			if drawCards := row.card.Spell.Effect.DrawCards; drawCards != nil {
-				spec.Spell.DrawCards = &master.SpellDrawCards{Count: drawCards.Count}
+			effect := row.card.Spell.Effect
+			if effect.DrawCards != nil {
+				spec.Spell.DrawCards = &master.SpellDrawCards{Count: effect.DrawCards.Count}
+			}
+			if effect.GainMagic != nil {
+				spec.Spell.GainMagic = &master.SpellGainMagic{PerLap: effect.GainMagic.PerLap}
+			}
+			if effect.RollDice != nil {
+				spec.Spell.RollDice = &master.SpellRollDice{Count: effect.RollDice.Count}
 			}
 		}
 		specs[ref] = spec

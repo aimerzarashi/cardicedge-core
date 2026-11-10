@@ -1408,8 +1408,38 @@ type MatchDiceRolledEvent implements MatchEvent {
   changes: MatchEventChanges!
   "振った参加者（Match.participants の何番目か）"
   participant: Int!
-  "出た目"
+  "出た目（複数のサイコロを同時に振ったときは合計。進む歩数）"
   value: Int!
+  "複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が value）。1 個のときは空"
+  dice: [Int!]!
+}
+
+"スペルの効果で魔力を得た"
+type MatchMagicGainedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "得た参加者（Match.participants の何番目か）"
+  participant: Int!
+  "得た魔力"
+  magic: Int!
+}
+
+"スペルの効果で、このターンに振るサイコロの個数が変わった（count 個を同時に振り、合計の分だけ進む）"
+type MatchDiceCountChangedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "このターンに振るサイコロの個数（2 以上）"
+  count: Int!
 }
 
 "1 マス進んだ"

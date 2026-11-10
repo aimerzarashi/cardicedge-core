@@ -37,11 +37,23 @@ union RegisterSpellResult = RegisterSpellSuccess | ValidationErrors | CardNameAl
 
 # 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする
 "スペルの効果（種類は __typename で見分ける）"
-union SpellEffect = SpellDrawCardsEffect
+union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect
 
 "カードを引く効果（山札の先頭から引く）"
 type SpellDrawCardsEffect {
   "引く枚数（1 以上）"
+  count: Int!
+}
+
+"魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）"
+type SpellGainMagicEffect {
+  "周回数 1 つあたりの魔力（1 以上）"
+  perLap: Int!
+}
+
+"サイコロを複数振る効果（使った人は、そのターンのサイコロを count 個同時に振り、合計の分だけ進む）"
+type SpellRollDiceEffect {
+  "振るサイコロの個数（2 以上）"
   count: Int!
 }
 
@@ -50,11 +62,27 @@ type SpellDrawCardsEffect {
 input SpellEffectInput @oneOf {
   "カードを引く"
   drawCards: SpellDrawCardsEffectInput
+  "魔力を得る"
+  gainMagic: SpellGainMagicEffectInput
+  "サイコロを複数振る"
+  rollDice: SpellRollDiceEffectInput
 }
 
 "カードを引く効果の入力"
 input SpellDrawCardsEffectInput {
   "引く枚数（1 以上。上限は無い）"
+  count: Int!
+}
+
+"魔力を得る効果の入力"
+input SpellGainMagicEffectInput {
+  "周回数 1 つあたりの魔力（1 以上。上限は無い）"
+  perLap: Int!
+}
+
+"サイコロを複数振る効果の入力"
+input SpellRollDiceEffectInput {
+  "振るサイコロの個数（2 以上。上限は無い）"
   count: Int!
 }
 
