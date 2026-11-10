@@ -341,10 +341,15 @@ type LevelUpChoice struct {
 	Magic int
 }
 
-// 今の番の人が選べるレベルアップ（通った順・低いレベルの順）。領地コマンドの段階でだけ中身がある。手持ちの魔力で払える分だけ
+// 止まった後に、領地コマンドを受け付ける段階か。止まったマスの行動と同じ選択肢に並ぶ（2026-11-09 オーナー）
+func (m Match) acceptsTerritoryCommand() bool {
+	return m.Phase == PhaseDeploying || m.Phase == PhaseInvading || m.Phase == PhaseTerritoryCommanding
+}
+
+// 今の番の人が選べるレベルアップ（通った順・低いレベルの順）。止まった後の段階でだけ中身がある。手持ちの魔力で払える分だけ
 func (m Match) LevelUpChoices() []LevelUpChoice {
 	index, ok := m.CurrentParticipant()
-	if m.Phase != PhaseTerritoryCommanding || !ok || int(index) >= len(m.Participants) {
+	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
 	var choices []LevelUpChoice
@@ -367,10 +372,10 @@ type ExchangeChoice struct {
 	Magic int
 }
 
-// 今の番の人が選べる交換（通った順・手札の順）。領地コマンドの段階でだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ
+// 今の番の人が選べる交換（通った順・手札の順）。止まった後の段階でだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ
 func (m Match) ExchangeChoices() []ExchangeChoice {
 	index, ok := m.CurrentParticipant()
-	if m.Phase != PhaseTerritoryCommanding || !ok || int(index) >= len(m.Participants) {
+	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
 	specs := m.CardSpecs()

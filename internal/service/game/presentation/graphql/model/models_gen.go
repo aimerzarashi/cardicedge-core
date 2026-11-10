@@ -136,7 +136,7 @@ type EndMatchTurnResult interface {
 	IsEndMatchTurnResult()
 }
 
-// exchangeMatchCreature の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+// exchangeMatchCreature の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
 type ExchangeMatchCreatureResult interface {
 	IsExchangeMatchCreatureResult()
 }
@@ -158,7 +158,7 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
-// levelUpMatchTerritory の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+// levelUpMatchTerritory の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type LevelUpMatchTerritoryResult interface {
 	IsLevelUpMatchTerritoryResult()
 }
@@ -253,11 +253,6 @@ type RollMatchDiceResult interface {
 // 部屋の詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type RoomResult interface {
 	IsRoomResult()
-}
-
-// skipMatchTerritoryCommand の結果（TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
-type SkipMatchTerritoryCommandResult interface {
-	IsSkipMatchTerritoryCommandResult()
 }
 
 // 侵略を確定した人がアイテムを選ぶ入力
@@ -1171,9 +1166,9 @@ type Match struct {
 	ItemChoices []int `json:"itemChoices"`
 	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
-	// 今の番の人が選べるレベルアップ（TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
+	// 今の番の人が選べるレベルアップ（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
 	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
-	// 今の番の人が選べるクリーチャーの交換（TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
+	// 今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
 	ExchangeChoices []*MatchExchangeChoice `json:"exchangeChoices"`
 	// 侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）
 	Invasion *MatchInvasion `json:"invasion,omitempty"`
@@ -1837,8 +1832,6 @@ func (MatchNotFoundError) IsLevelUpMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsExchangeMatchCreatureResult() {}
 
-func (MatchNotFoundError) IsSkipMatchTerritoryCommandResult() {}
-
 func (MatchNotFoundError) IsEndMatchTurnResult() {}
 
 func (MatchNotFoundError) IsChooseMatchRewardPackResult() {}
@@ -1876,8 +1869,6 @@ func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
 func (MatchNotYourTurnError) IsLevelUpMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsExchangeMatchCreatureResult() {}
-
-func (MatchNotYourTurnError) IsSkipMatchTerritoryCommandResult() {}
 
 func (MatchNotYourTurnError) IsEndMatchTurnResult() {}
 
@@ -1948,8 +1939,6 @@ func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
 func (MatchPhaseNotAllowedError) IsLevelUpMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsExchangeMatchCreatureResult() {}
-
-func (MatchPhaseNotAllowedError) IsSkipMatchTerritoryCommandResult() {}
 
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
@@ -2104,29 +2093,6 @@ type MatchTerritory struct {
 	// 手放したときに受け取る魔力
 	RelinquishMagic int `json:"relinquishMagic"`
 }
-
-// 領地コマンドを使わなかった
-type MatchTerritoryCommandSkippedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 使わなかった参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-}
-
-func (MatchTerritoryCommandSkippedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchTerritoryCommandSkippedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchTerritoryCommandSkippedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchTerritoryCommandSkippedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）
 type MatchTerritoryConqueredEvent struct {
@@ -2480,8 +2446,6 @@ func (PlayerNotRegisteredError) IsLevelUpMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsExchangeMatchCreatureResult() {}
 
-func (PlayerNotRegisteredError) IsSkipMatchTerritoryCommandResult() {}
-
 func (PlayerNotRegisteredError) IsEndMatchTurnResult() {}
 
 func (PlayerNotRegisteredError) IsChooseMatchRewardPackResult() {}
@@ -2665,8 +2629,6 @@ func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 func (RevisionConflictError) IsLevelUpMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsExchangeMatchCreatureResult() {}
-
-func (RevisionConflictError) IsSkipMatchTerritoryCommandResult() {}
 
 func (RevisionConflictError) IsEndMatchTurnResult() {}
 
@@ -2973,24 +2935,6 @@ func (this ShrineTile) GetX() int { return this.X }
 
 // 行
 func (this ShrineTile) GetY() int { return this.Y }
-
-// 領地コマンドを使わない入力
-type SkipMatchTerritoryCommandInput struct {
-	// 対戦の公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていた対戦の revision
-	Revision int `json:"revision"`
-}
-
-// 領地コマンドを使わなかった（止まったマスの行動に進む。成功したら対戦の revision が進む）
-type SkipMatchTerritoryCommandSuccess struct {
-	// 対戦の公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 操作した後の対戦の revision
-	Revision int `json:"revision"`
-}
-
-func (SkipMatchTerritoryCommandSuccess) IsSkipMatchTerritoryCommandResult() {}
 
 // スペル
 type SpellCardInfo struct {
@@ -3595,7 +3539,7 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// 空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
 	MatchPhaseDeploying MatchPhase = "DEPLOYING"
-	// 止まった後のステップ 1。通った自分の領地に領地コマンドを実行する（levelUpMatchTerritory）か、使わない（skipMatchTerritoryCommand）。通った自分の領地が無ければ入らない
+	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchTerritory・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは DEPLOYING・INVADING の中で領地コマンドを選ぶ
 	MatchPhaseTerritoryCommanding MatchPhase = "TERRITORY_COMMANDING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"

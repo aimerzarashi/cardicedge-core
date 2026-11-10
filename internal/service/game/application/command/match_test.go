@@ -589,12 +589,19 @@ func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEn
 
 	require.NoError(t, f.npc.Play(f.ctx, f.id, changed.Revision))
 
-	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、通行料を払って、ターンを終える段階になる
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、通行料を払って、そのままターンが終わる
 	ended := f.load(t)
-	require.Equal(t, match.PhaseEnding, ended.Phase)
+	requireTurnOf(t, ended, 1)
 	require.Nil(t, ended.Invasion)
 	require.Equal(t, 600-10-60, ended.Participants[0].Magic)
 	require.Equal(t, 10, ended.DeployedCreatures[0].HitPoints.Int())
+}
+
+func requireTurnOf(t *testing.T, current match.Match, seat int) {
+	t.Helper()
+	participant, ok := current.CurrentParticipant()
+	require.True(t, ok)
+	require.Equal(t, seat, participant.Int())
 }
 
 func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
@@ -605,7 +612,7 @@ func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
 
 	require.NoError(t, err)
 	current := f.load(t)
-	require.Equal(t, match.PhaseEnding, current.Phase)
+	requireTurnOf(t, current, 1)
 	require.Equal(t, 600-60, current.Participants[0].Magic)
 }
 
@@ -665,7 +672,7 @@ func TestMatchNPCTurn_PaysTheTollWhenNoCreatureCanBePaid(t *testing.T) {
 	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
 
 	paid := f.load(t)
-	require.Equal(t, match.PhaseEnding, paid.Phase)
+	requireTurnOf(t, paid, 0)
 	require.Nil(t, paid.Invasion)
 	require.Equal(t, 600-60, paid.Participants[1].Magic)
 }
@@ -682,7 +689,7 @@ func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testi
 
 	require.NoError(t, err)
 	current := f.load(t)
-	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、NPC は通行料を払う
-	require.Equal(t, match.PhaseEnding, current.Phase)
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、NPC は通行料を払ってターンが終わる
+	requireTurnOf(t, current, 0)
 	require.Equal(t, 600-30-60, current.Participants[1].Magic)
 }

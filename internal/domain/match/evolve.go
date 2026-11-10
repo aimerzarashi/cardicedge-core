@@ -177,7 +177,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		territory, ok := current.TerritoryAt(e.Position)
-		if !ok || current.Phase != PhaseTerritoryCommanding || e.Level <= territory.Level {
+		if !ok || !current.acceptsTerritoryCommand() || e.Level <= territory.Level {
 			return state, ErrInvalidState
 		}
 		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
@@ -205,7 +205,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		replaced, ok := current.DeployedCreature(territory.Creature)
 		switch {
-		case !ok, current.Phase != PhaseTerritoryCommanding, replaced.Owner != index, replaced.Card != e.ReturnedCard,
+		case !ok, !current.acceptsTerritoryCommand(), replaced.Owner != index, replaced.Card != e.ReturnedCard,
 			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
 			!specified, spec.Creature == nil, e.Creature != current.LastDeployedCreatureID+1:
 			return state, ErrInvalidState
@@ -225,14 +225,6 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.LastDeployedCreatureID = e.Creature
 		current.Phase = PhaseEnding
-	case *TerritoryCommandSkippedEvent:
-		if _, err := current.actor(e.Participant); err != nil {
-			return state, err
-		}
-		if current.Phase != PhaseTerritoryCommanding {
-			return state, ErrInvalidState
-		}
-		current.Phase = current.stopActionPhase()
 	case *TerritoryInvadedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -462,15 +454,16 @@ func (m Match) debtPhase(index ParticipantIndex) Phase {
 	return PhaseEnding
 }
 
-// 止まった後の段階。通った自分の領地があれば領地コマンドを選び（ステップ 1。止まったマスの種類は条件に関わらない。2026-11-09 オーナー）、無ければ止まったマスの行動へ
+// 止まった後の段階。止まったマスに行動が無くても、通った自分の領地があれば領地コマンドを選ぶ（止まったマスの行動と同じ選択肢に並ぶ。2026-11-09 オーナー）
 func (m Match) stopPhase() Phase {
-	if len(m.passedOwnTerritories()) > 0 {
+	phase := m.stopActionPhase()
+	if phase == PhaseEnding && len(m.passedOwnTerritories()) > 0 {
 		return PhaseTerritoryCommanding
 	}
-	return m.stopActionPhase()
+	return phase
 }
 
-// 止まったマスでの行動（ステップ 2）。空いている土地なら配置を選び（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）、
+// 止まったマスでの行動。空いている土地なら配置を選び（配置できる手札が無くても、配置しないを選ぶ段階に入る。2026-11-08 オーナー）、
 // 他人の領地なら通行料か侵略かを選ぶ
 func (m Match) stopActionPhase() Phase {
 	index, err := m.currentIndex()

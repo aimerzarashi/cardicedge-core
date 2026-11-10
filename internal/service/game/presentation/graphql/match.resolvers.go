@@ -153,21 +153,6 @@ func (r *mutationResolver) ExchangeMatchCreature(ctx context.Context, input mode
 	return &model.ExchangeMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// SkipMatchTerritoryCommand is the resolver for the skipMatchTerritoryCommand field.
-func (r *mutationResolver) SkipMatchTerritoryCommand(ctx context.Context, input model.SkipMatchTerritoryCommandInput) (model.SkipMatchTerritoryCommandResult, error) {
-	if notRegistered := requirePlayer(ctx); notRegistered != nil {
-		return notRegistered, nil
-	}
-	changed, err := r.matches.SkipTerritoryCommand(ctx, input.ID, int64(input.Revision))
-	if result, ok := matchError(err).(model.SkipMatchTerritoryCommandResult); ok {
-		return result, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &model.SkipMatchTerritoryCommandSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
-}
-
 // InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
 func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

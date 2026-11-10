@@ -352,8 +352,6 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, HandIndex: e.HandIndex, Card: card, Creature: e.Creature, Cost: e.Cost, ReturnedCard: returned,
 		}, nil
-	case query.MatchTerritoryCommandSkippedEvent:
-		return &model.MatchTerritoryCommandSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchBattleStartedEvent:
 		return &model.MatchBattleStartedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Attacker: fromMatchBattleStats(e.Attacker), Defender: fromMatchBattleStats(e.Defender)}, nil
 	case query.MatchBattleStatModifiedEvent:

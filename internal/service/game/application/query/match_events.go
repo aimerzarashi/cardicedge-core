@@ -282,12 +282,6 @@ type MatchCreatureExchangedEvent struct {
 	ReturnedCard MatchCard
 }
 
-// 領地コマンドを使わなかった
-type MatchTerritoryCommandSkippedEvent struct {
-	MatchEventMeta
-	Participant int
-}
-
 // 戦利品のパックから引いた
 type MatchRewardDrawnEvent struct {
 	MatchEventMeta
@@ -558,8 +552,6 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 	case *match.CreatureExchangedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), position, e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), e.Cost.Int(), cards[domain.NewEntityRef(e.ReturnedCard.EntityType, e.ReturnedCard.ID)]}, nil
-	case *match.TerritoryCommandSkippedEvent:
-		return MatchTerritoryCommandSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.BattleStartedEvent:
 		return MatchBattleStartedEvent{meta, fromBattleStats(e.Attacker), fromBattleStats(e.Defender)}, nil
 	case *match.BattleStatModifiedEvent:

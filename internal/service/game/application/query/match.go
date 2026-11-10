@@ -191,9 +191,9 @@ type Match struct {
 	ItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
-	// 今の番の人が選べるレベルアップ。領地コマンドの段階のときだけ中身がある
+	// 今の番の人が選べるレベルアップ。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
 	LevelUpChoices []MatchLevelUpChoice
-	// 今の番の人が選べるクリーチャーの交換。領地コマンドの段階のときだけ中身がある
+	// 今の番の人が選べるクリーチャーの交換。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
 	ExchangeChoices []MatchExchangeChoice
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *MatchInvasion
