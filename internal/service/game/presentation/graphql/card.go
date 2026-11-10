@@ -10,7 +10,7 @@ import (
 )
 
 // 種類ごとの型にする（種類が増えて写し忘れたら、黙って落とさずエラーにする）
-func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rarity string, creature *query.CreatureSpec, item *query.ItemSpec) (model.CardInfo, error) {
+func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rarity string, creature *query.CreatureSpec, item *query.ItemSpec, spell *query.SpellSpec) (model.CardInfo, error) {
 	converted, err := fromCardRarity(rarity)
 	if err != nil {
 		return nil, err
@@ -40,10 +40,22 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		}
 		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, AttackBonus: item.AttackBonus, HitPointsBonus: item.HitPointsBonus}, nil
 	case query.CardTypeSpell:
-		return &model.SpellCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted}, nil
+		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
+		if spell == nil {
+			return nil, fmt.Errorf("graphql: spell card %s has no spell spec", id)
+		}
+		return &model.SpellCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Effect: fromSpellEffect(spell.Effect)}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown card type: %d", cardType)
 	}
+}
+
+// 効果なしは null（種類ごとの型のどれも返さない）
+func fromSpellEffect(effect query.SpellEffect) model.SpellEffect {
+	if effect.DrawCards != nil {
+		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+	}
+	return nil
 }
 
 // 値の対応を明示する（fromCardRarity と同じ理由）

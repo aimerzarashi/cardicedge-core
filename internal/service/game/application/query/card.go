@@ -22,6 +22,22 @@ type Card struct {
 	Creature *CreatureSpec
 	// アイテムだけの性能（アイテム以外は nil）
 	Item *ItemSpec
+	// スペルだけの性能（スペル以外は nil）
+	Spell *SpellSpec
+}
+
+// スペルだけの性能。写した cards.metadata.spell の値
+type SpellSpec struct {
+	Effect SpellEffect
+}
+
+// スペルの効果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（studio の readmodel.SpellEffectMetadata と同じ形）
+type SpellEffect struct {
+	DrawCards *SpellDrawCards
+}
+
+type SpellDrawCards struct {
+	Count int
 }
 
 // アイテムだけの性能。写した cards.metadata.item の値（分類は weapon・armor・scroll）

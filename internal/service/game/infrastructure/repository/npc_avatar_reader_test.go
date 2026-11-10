@@ -67,6 +67,11 @@ func defaultItemSpec() *query.ItemSpec {
 	return &query.ItemSpec{Category: "weapon", AttackBonus: 30, HitPointsBonus: 0}
 }
 
+// insertCardRow が写すスペルの性能（効果なし）
+func defaultSpellSpec() *query.SpellSpec {
+	return &query.SpellSpec{}
+}
+
 func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string, cardType query.CardType) {
 	t.Helper()
 	metadata := readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal"}
@@ -75,6 +80,9 @@ func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string,
 	}
 	if cardType == query.CardTypeItem {
 		metadata.Item = &readmodel.ItemMetadata{Category: "weapon", AttackBonus: 30}
+	}
+	if cardType == query.CardTypeSpell {
+		metadata.Spell = &readmodel.SpellMetadata{}
 	}
 	raw, err := json.Marshal(metadata)
 	require.NoError(t, err)
@@ -178,7 +186,7 @@ func TestNPCAvatarReader_ListDecksReturnsOnlyPublishedRequestedDecksWithCardsInT
 			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
 			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 4},
 			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 2},
-			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Count: 1},
+			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 		},
 	}}, got)
 }

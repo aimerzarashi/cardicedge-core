@@ -34,6 +34,7 @@ type RegisteredEvent struct {
 	Name         card.Name   `json:"name"`
 	Cost         card.Cost   `json:"cost"`
 	Rarity       card.Rarity `json:"rarity"`
+	Effect       Effect      `json:"effect"`
 	RegisteredBy operator.ID `json:"registered_by"`
 }
 
@@ -118,11 +119,29 @@ func (*RarityChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+// 効果を変えた（変えた後の効果の全体）
+type EffectChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Effect      Effect      `json:"effect"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var effectChangedEventType = domain.NewEventName("EffectChangedEvent")
+
+func (*EffectChangedEvent) EventType() domain.EventName {
+	return effectChangedEventType
+}
+
+func (*EffectChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
-			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
+			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType, effectChangedEventType,
 		},
 	}
 }
@@ -146,6 +165,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CostChangedEvent{EventMeta: meta}
 	case EventType(rarityChangedEventType):
 		event = &RarityChangedEvent{EventMeta: meta}
+	case EventType(effectChangedEventType):
+		event = &EffectChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

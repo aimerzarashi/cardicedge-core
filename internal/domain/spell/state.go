@@ -23,6 +23,7 @@ type Spell struct {
 	Status   card.Status
 	Cost     card.Cost
 	Rarity   card.Rarity
+	Effect   Effect
 }
 
 func (Spell) isSpellState() {}

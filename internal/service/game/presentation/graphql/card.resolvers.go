@@ -27,7 +27,7 @@ func (r *queryResolver) Card(ctx context.Context, id uuid.UUID) (model.CardResul
 	if err != nil {
 		return nil, err
 	}
-	info, err := fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item)
+	info, err := fromCard(card.Type, card.ID, card.Name, card.Cost, card.Rarity, card.Creature, card.Item, card.Spell)
 	if err != nil {
 		return nil, err
 	}

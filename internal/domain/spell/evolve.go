@@ -16,6 +16,7 @@ func Evolve(state State, event Event) (State, error) {
 			Status:   card.StatusDraft,
 			Cost:     e.Cost,
 			Rarity:   e.Rarity,
+			Effect:   e.Effect,
 		}, nil
 	case *PublishedEvent:
 		spell, ok := state.(Spell)
@@ -55,6 +56,14 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		spell.Rarity = e.Rarity
+		spell.Version = e.GetMeta().AggregateVersion
+		return spell, nil
+	case *EffectChangedEvent:
+		spell, ok := state.(Spell)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		spell.Effect = e.Effect
 		spell.Version = e.GetMeta().AggregateVersion
 		return spell, nil
 	default:

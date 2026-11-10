@@ -22,6 +22,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseDrawing, now, func(r *recorder) error { return draw(r, random) })
 	case *DiscardCommand:
 		return playTurn(state, c.By, PhaseDiscarding, now, func(r *recorder) error { return discard(r, c.HandIndex) })
+	case *UseSpellCommand:
+		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return useSpell(r, c.HandIndex, random) })
 	case *RollCommand:
 		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return roll(r, random) })
 	case *ChoosePathCommand:
@@ -187,6 +189,36 @@ func choosePath(r *recorder, to board.Position) error {
 		return err
 	}
 	return advance(r)
+}
+
+// コストを払ってスペルを捨て札に移し、効果を当てる。段階は振る段階のまま（使った後もサイコロは振る）
+func useSpell(r *recorder, handIndex int, random Random) error {
+	if !slices.Contains(r.state.SpellChoices(), handIndex) {
+		if handIndex < 0 || handIndex >= len(r.current().Hand) {
+			return ErrHandIndexOutOfRange
+		}
+		return ErrSpellNotUsable
+	}
+	used := r.current().Hand[handIndex]
+	spec := r.state.CardSpecs()[used]
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: used, Cost: spec.Cost}
+	}); err != nil {
+		return err
+	}
+	effect := spec.Spell.Effect
+	if effect.DrawCards != nil {
+		// 山札と捨て札の両方が尽きたら、引ける分だけで止める
+		for range effect.DrawCards.Count.Int() {
+			if len(r.current().DrawPile) == 0 && len(r.current().DiscardPile) == 0 {
+				break
+			}
+			if err := draw(r, random); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // 配置して、そのままターンを終える

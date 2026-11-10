@@ -314,7 +314,12 @@
       "type": "spell",
       "name": "ホープ",
       "cost": 40,
-      "rarity": "strange"
+      "rarity": "strange",
+      "effect": {
+        "draw_cards": {
+          "count": 2
+        }
+      }
     },
     {
       "type": "spell",

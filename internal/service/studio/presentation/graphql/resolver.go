@@ -29,6 +29,7 @@ type ItemRegistrar interface {
 // 実装は command.SpellHandler
 type SpellRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredSpell, error)
+	ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect command.SpellEffect) (command.ChangedCard, error)
 }
 
 // 実装は command.CardHandler

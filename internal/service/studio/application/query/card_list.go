@@ -31,6 +31,8 @@ type Card struct {
 	Creature *readmodel.CreatureMetadata
 	// アイテムだけの性能（アイテム以外は nil）
 	Item *readmodel.ItemMetadata
+	// スペルだけの性能（スペル以外は nil）
+	Spell *readmodel.SpellMetadata
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64
 	RegisteredAt time.Time

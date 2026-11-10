@@ -26,6 +26,8 @@ var (
 	ErrCreatureNotExchangeable    = errors.New("match: creature not exchangeable")
 	ErrLandElementNotChangeable   = errors.New("match: land element not changeable")
 	ErrCreatureNotMovable         = errors.New("match: creature not movable")
+	// 使えない手札（スペルでない・効果が無い・コストが払えない・このターンにもう使った）
+	ErrSpellNotUsable = errors.New("match: spell not usable")
 )
 
 var (

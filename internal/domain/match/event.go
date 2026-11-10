@@ -150,6 +150,16 @@ type ItemUsedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
+// サイコロを振る前に、手札のスペルを使った（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。効果は続くイベントになる
+type SpellUsedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Card        card.Ref         `json:"card"`
+	Cost        card.Cost        `json:"cost"`
+}
+
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
 type ItemSkippedEvent struct {
 	EventMeta   `json:"-"`
@@ -364,6 +374,7 @@ var (
 	territoryInvadedByMoveEventType = domain.NewEventName("TerritoryInvadedByMoveEvent")
 	discardPileShuffledEventType    = domain.NewEventName("DiscardPileShuffledEvent")
 	handLimitExceededEventType      = domain.NewEventName("HandLimitExceededEvent")
+	spellUsedEventType              = domain.NewEventName("SpellUsedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -631,6 +642,14 @@ func (*HandLimitExceededEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*SpellUsedEvent) EventType() domain.EventName {
+	return spellUsedEventType
+}
+
+func (*SpellUsedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
@@ -639,6 +658,7 @@ func Types() domain.AggregateTypes {
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
+		spellUsedEventType,
 	}}
 }
 
@@ -717,6 +737,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &DiscardPileShuffledEvent{EventMeta: meta}
 	case EventType(handLimitExceededEventType):
 		event = &HandLimitExceededEvent{EventMeta: meta}
+	case EventType(spellUsedEventType):
+		event = &SpellUsedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

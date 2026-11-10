@@ -160,6 +160,8 @@ type Match struct {
 	Battle *Battle
 	// このターンに移動で入ったマス（入った順。止まったマスを含み、ターンの始めのマスは含まない）
 	PassedPositions []board.Position
+	// このターンにスペルを使ったか（1 ターンに 1 枚まで。ターンを終えると消える）
+	SpellUsed bool
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastDeployedCreatureID DeployedCreatureID
 }
@@ -285,6 +287,28 @@ func (m Match) InvadeChoices() []int {
 		return nil
 	}
 	return m.payableCreatures()
+}
+
+// 今の番の人が使えるスペルの手札の番号（手札の順）。サイコロを振る段階で、このターンにまだ使っていないときだけ中身がある。
+// 効果の無いスペルは使えない（2026-11-10 オーナー）
+func (m Match) SpellChoices() []int {
+	if m.Phase != PhaseRolling || m.SpellUsed {
+		return nil
+	}
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	participant := m.Participants[index]
+	specs := m.CardSpecs()
+	var choices []int
+	for i, ref := range participant.Hand {
+		spec, ok := specs[ref]
+		if ok && spec.Spell != nil && !spec.Spell.Effect.IsNone() && spec.Cost.Int() <= participant.Magic {
+			choices = append(choices, i)
+		}
+	}
+	return choices
 }
 
 func (m Match) payableCreatures() []int {

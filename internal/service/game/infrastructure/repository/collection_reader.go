@@ -99,5 +99,5 @@ func (r *CollectionReader) List(ctx context.Context, playerID uuid.UUID, conditi
 }
 
 func toCard(card query.DeckCard) query.Card {
-	return query.Card{ID: card.CardID, Name: card.Name, Type: card.Type, Cost: card.Cost, Rarity: card.Rarity, Creature: card.Creature, Item: card.Item}
+	return query.Card{ID: card.CardID, Name: card.Name, Type: card.Type, Cost: card.Cost, Rarity: card.Rarity, Creature: card.Creature, Item: card.Item, Spell: card.Spell}
 }

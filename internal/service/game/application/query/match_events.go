@@ -186,6 +186,16 @@ type MatchTerritoryInvadedEvent struct {
 	Cost      int
 }
 
+// サイコロを振る前に、手札のスペルを使った。Cost は払った魔力。効果は続くイベント（引いたカード等）
+type MatchSpellUsedEvent struct {
+	MatchEventMeta
+	Participant int
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+	Card      MatchCard
+	Cost      int
+}
+
 // 戦闘に手札のアイテムを出した（攻める側も守る側も同じ）。Cost は払った魔力
 type MatchItemUsedEvent struct {
 	MatchEventMeta
@@ -487,6 +497,10 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
+		case *match.SpellUsedEvent:
+			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
+			refs = append(refs, ref)
+			inDeck[ref] = specs[e.Card]
 		case *match.BattleStatModifiedEvent:
 			if e.Source.Item != nil {
 				ref := domain.NewEntityRef(e.Source.Item.Card.EntityType, e.Source.Item.Card.ID)
@@ -591,6 +605,8 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 	case *match.TerritoryInvadedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchTerritoryInvadedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], position, e.Cost.Int()}, nil
+	case *match.SpellUsedEvent:
+		return MatchSpellUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
 	case *match.ItemUsedEvent:
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
 	case *match.ItemSkippedEvent:

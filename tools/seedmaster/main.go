@@ -931,6 +931,10 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		if err == nil && c.Type == "item" {
 			changed, err = s.items.ChangeStatBonuses(ctx, changed.ID, changed.Revision, *c.AttackBonus, *c.HitPointsBonus)
 		}
+		// 効果はスペルだけ（書いていなければ効果なしのまま）
+		if err == nil && c.Type == "spell" {
+			changed, err = s.spells.ChangeEffect(ctx, changed.ID, changed.Revision, c.spellEffect())
+		}
 		if err == nil {
 			current.Revision = changed.Revision
 			return current, nil

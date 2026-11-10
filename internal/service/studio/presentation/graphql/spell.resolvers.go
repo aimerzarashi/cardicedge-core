@@ -13,6 +13,28 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
 
+// ChangeSpellEffect is the resolver for the changeSpellEffect field.
+func (r *mutationResolver) ChangeSpellEffect(ctx context.Context, input model.ChangeSpellEffectInput) (model.ChangeSpellEffectResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	effect, ok := toSpellEffect(input.Effect)
+	if !ok {
+		return invalidSpellEffect(), nil
+	}
+	changed, err := r.spells.ChangeEffect(ctx, input.ID, int64(input.Revision), effect)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeSpellEffectSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterSpell is the resolver for the registerSpell field.
 func (r *mutationResolver) RegisterSpell(ctx context.Context, input model.RegisterSpellInput) (model.RegisterSpellResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {

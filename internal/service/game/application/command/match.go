@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
@@ -219,6 +220,21 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		}
 		spec.Item = &match.ItemSpec{Category: category, AttackBonus: item.NewAttackBonus(source.Item.AttackBonus), HitPointsBonus: item.NewHitPointsBonus(source.Item.HitPointsBonus)}
 	}
+	// クリーチャーと同じく、スペルの性能が無いのを黙って効果なしにしない
+	if ref.EntityType == card.SpellEntityType {
+		if source.Spell == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no spell spec", ref.EntityType, ref.ID)
+		}
+		effect := spell.NoEffect()
+		if source.Spell.DrawCards != nil {
+			count, err := spell.NewDrawCount(source.Spell.DrawCards.Count)
+			if err != nil {
+				return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+			}
+			effect = spell.NewDrawCardsEffect(count)
+		}
+		spec.Spell = &match.SpellSpec{Effect: effect}
+	}
 	return spec, nil
 }
 
@@ -313,6 +329,13 @@ func (c *MatchHandler) Deploy(ctx context.Context, id uuid.UUID, revision int64,
 func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.InvadeCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+// サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで）。使えないスペルは input.Errors（NotFound・項目名 handIndex）
+func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.UseSpellCommand{By: by, HandIndex: handIndex}, nil
 	})
 }
 
@@ -502,7 +525,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return ErrMatchPhaseNotAllowed
 	case errors.Is(err, match.ErrHandIndexOutOfRange):
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
-	case errors.Is(err, match.ErrCreatureNotDeployable), errors.Is(err, match.ErrCreatureNotInvadable):
+	case errors.Is(err, match.ErrCreatureNotDeployable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}

@@ -34,6 +34,7 @@ const cardQuery = `query ($id: UUID!) {
 	card(id: $id) {
 		__typename
 		... on CardInfo { id name cost rarity }
+		... on SpellCardInfo { effect { __typename ... on SpellDrawCardsEffect { count } } }
 		... on CardNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
 	}
@@ -177,13 +178,23 @@ func TestCard_ReturnsRetiredCard(t *testing.T) {
 	id := uuid.New()
 	row := models.Card{
 		CardID: id.String(), CardType: 3, SortName: "しょうめつ", Status: "retired",
-		Metadata: []byte(`{"id":"` + id.String() + `","name":"しょうめつ","status":"retired","cost":5,"rarity":"extra"}`),
+		Metadata: []byte(`{"id":"` + id.String() + `","name":"しょうめつ","status":"retired","cost":5,"rarity":"extra","spell":{"effect":{}}}`),
 	}
 	require.NoError(t, row.Insert(t.Context(), gameDB, boil.Infer()))
 
 	result := client.Data(t, token, cardQuery, map[string]any{"id": id}, "card")
 
-	require.Equal(t, map[string]any{"__typename": "SpellCardInfo", "id": id.String(), "name": "しょうめつ", "cost": float64(5), "rarity": "EXTRA"}, result)
+	require.Equal(t, map[string]any{"__typename": "SpellCardInfo", "id": id.String(), "name": "しょうめつ", "cost": float64(5), "rarity": "EXTRA", "effect": nil}, result)
+}
+
+// スペルの効果は種類ごとの型で返す（効果なしは null。上の使用不可のカード）
+func TestCard_ReturnsTheEffectOfASpell(t *testing.T) {
+	t.Parallel()
+	token := registeredPlayerToken(t)
+
+	result := client.Data(t, token, cardQuery, map[string]any{"id": master.NPCAvatars.Spell}, "card")
+
+	require.Equal(t, map[string]any{"__typename": "SpellDrawCardsEffect", "count": float64(2)}, result["effect"])
 }
 
 // 無い ID も、カードでない ID（登録済みのプレイヤーの ID）も、見つからない扱い

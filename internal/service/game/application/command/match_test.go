@@ -25,6 +25,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -231,6 +232,11 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 
 func newMatchTurnFixtureWithNPCCost(t *testing.T, startRandom match.Random, roundLimit, npcCost int) matchTurnFixture {
 	t.Helper()
+	return newMatchTurnFixtureWithPlayerCards(t, startRandom, roundLimit, npcCost, matchDeckCard(t, 1, 4, 10), matchDeckCard(t, 2, 3, 990))
+}
+
+func newMatchTurnFixtureWithPlayerCards(t *testing.T, startRandom match.Random, roundLimit, npcCost int, playerCards ...match.DeckCard) matchTurnFixture {
+	t.Helper()
 	ctx := isolatedDatabase(t)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -244,7 +250,7 @@ func newMatchTurnFixtureWithNPCCost(t *testing.T, startRandom match.Random, roun
 	events, err := match.Decide(match.InitialState(), &match.StartCommand{
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
-			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 1, 4, 10), matchDeckCard(t, 2, 3, 990)}),
+			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), playerCards),
 			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, npcCost)}),
 		},
 	}, time.Now().UTC().Truncate(time.Microsecond), startRandom)
@@ -722,4 +728,35 @@ func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testi
 	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、NPC は通行料を払ってターンが終わる
 	requireTurnOf(t, current, 0)
 	require.Equal(t, 600-30-60, current.Participants[1].Magic)
+}
+
+// カードを引くスペル
+func spellDeckCard(t *testing.T, id int64, quantity int, cost int, count int) match.DeckCard {
+	t.Helper()
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.DrawCards(t, count)}}
+	return match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
+	// 並べ替えない乱数なので、手札はクリーチャー 4 枚とスペル 2 枚、山札はスペル 1 枚
+	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), spellDeckCard(t, 5, 3, 40, 1))
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	rolling := f.load(t)
+	choices := rolling.SpellChoices()
+	require.NotEmpty(t, choices)
+
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0)
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0])
+
+	require.NoError(t, err)
+	used := f.load(t)
+	// 山札が空なので、使ったスペルだけの捨て札を混ぜて 1 枚引く
+	require.Len(t, used.Participants[0].Hand, len(rolling.Participants[0].Hand))
+	require.Equal(t, 600-40, used.Participants[0].Magic)
+	require.Equal(t, match.PhaseRolling, used.Phase)
+	require.Empty(t, used.SpellChoices())
 }
