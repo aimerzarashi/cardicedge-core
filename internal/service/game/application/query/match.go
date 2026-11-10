@@ -59,6 +59,32 @@ type MatchOutcome struct {
 	Reason  MatchEndReason
 }
 
+// 使えるスペル 1 枚。Targets は選べる対象のプレイヤー（参加者の番号）で、対象を選ばないスペルは空
+type MatchSpellChoice struct {
+	HandIndex int
+	Targets   []int
+}
+
+// プレイヤーにかかっている呪い。効き方は種類ごとの値のどれか 1 つ（今は次のサイコロの目だけ）
+type MatchCurse struct {
+	// 次のサイコロの目（目を決める呪いのときだけ）
+	FixedDice *int
+	// 解けるまでのターン数
+	RemainingTurns int
+}
+
+func fromCurse(curse *match.Curse) *MatchCurse {
+	if curse == nil {
+		return nil
+	}
+	converted := &MatchCurse{RemainingTurns: curse.Expiry.RemainingTurns}
+	if curse.FixedDice != nil {
+		value := curse.FixedDice.Value
+		converted.FixedDice = &value
+	}
+	return converted
+}
+
 // 手札のカード 1 枚。名前と種類は写した cards から引く
 type MatchCard struct {
 	ID   uuid.UUID
@@ -119,6 +145,8 @@ type MatchParticipant struct {
 	TurnOrder   int
 	// 拠点を出てから印を付けたチェックポイントの位置
 	PassedCheckpoints []BoardPosition
+	// かかっている呪い（無ければ nil）
+	Curse *MatchCurse
 	// 戦利品を受け取ったか（プレイヤーだけ。NPC は受け取らないので、いつも false）
 	RewardReceived bool
 	// 受け取った戦利品のカード（受け取るまでは空）
@@ -208,7 +236,7 @@ type Match struct {
 	// 今の番の人が選べる行き先。分かれ道で選ぶ段階のときだけ中身がある
 	PathChoices []BoardPosition
 	// 今の番の人が使えるスペルの手札の番号。振る段階で、このターンにまだ使っていないときだけ中身がある
-	SpellChoices []int
+	SpellChoices []MatchSpellChoice
 	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
 	DeployChoices []int
 	// 今の番の人が侵略に出せる手札の番号。侵略を選ぶ段階のときだけ中身がある
@@ -338,6 +366,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			TotalMagic: totals[i],
 			Magic:      participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
 			PassedCheckpoints: fromBoardPositions(participant.PassedCheckpoints),
+			Curse:             fromCurse(participant.Curse),
 		}
 		switch {
 		case participant.Participant.Player != nil:
@@ -465,7 +494,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
-		SpellChoices: []int{}, DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		SpellChoices: []MatchSpellChoice{}, DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
 		MoveChoices: []MatchMoveChoice{},
 	}
@@ -553,8 +582,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	if phase == MatchPhaseChoosingPath {
 		result.PathChoices = fromBoardPositions(current.PathChoices())
 	}
-	if choices := current.SpellChoices(); len(choices) > 0 {
-		result.SpellChoices = choices
+	for _, choice := range current.SpellChoices() {
+		targets := make([]int, len(choice.Targets))
+		for i, target := range choice.Targets {
+			targets[i] = target.Int()
+		}
+		result.SpellChoices = append(result.SpellChoices, MatchSpellChoice{HandIndex: choice.HandIndex, Targets: targets})
 	}
 	if choices := current.DeployChoices(); len(choices) > 0 {
 		result.DeployChoices = choices
@@ -698,6 +731,9 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 	}
 	if effect.RollDice != nil {
 		converted.RollDice = &SpellRollDice{Count: effect.RollDice.Count.Int()}
+	}
+	if effect.FixedDiceCurse != nil {
+		converted.FixedDiceCurse = &SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value.Int(), Turns: effect.FixedDiceCurse.Turns.Int()}
 	}
 	return converted
 }

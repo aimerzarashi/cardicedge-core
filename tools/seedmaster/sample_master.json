@@ -296,13 +296,25 @@
       "type": "spell",
       "name": "ホーリーワード1",
       "cost": 30,
-      "rarity": "normal"
+      "rarity": "normal",
+      "effect": {
+        "fixed_dice_curse": {
+          "value": 1,
+          "turns": 1
+        }
+      }
     },
     {
       "type": "spell",
       "name": "ホーリーワード6",
       "cost": 50,
-      "rarity": "normal"
+      "rarity": "normal",
+      "effect": {
+        "fixed_dice_curse": {
+          "value": 6,
+          "turns": 1
+        }
+      }
     },
     {
       "type": "spell",

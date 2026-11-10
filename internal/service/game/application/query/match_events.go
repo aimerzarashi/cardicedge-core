@@ -105,6 +105,22 @@ type MatchDiceRolledEvent struct {
 	Value int
 	// 複数のサイコロを同時に振ったときの 1 個ずつの目（1 個のときは空）
 	Dice []int
+	// 呪いで目が決まった
+	FixedByCurse bool
+}
+
+// スペルで、対象のプレイヤーに呪いをかけた
+type MatchCurseCastEvent struct {
+	MatchEventMeta
+	Participant int
+	Target      int
+	Curse       MatchCurse
+}
+
+// 自分のターンを終えて、かかっていた呪いが解けた
+type MatchCurseRemovedEvent struct {
+	MatchEventMeta
+	Participant int
 }
 
 // スペルの効果で魔力を得た
@@ -591,7 +607,12 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		if dice == nil {
 			dice = []int{}
 		}
-		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value, dice}, nil
+		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value, dice, e.FixedByCurse}, nil
+	case *match.CurseCastEvent:
+		curse := e.Curse
+		return MatchCurseCastEvent{meta, e.Participant.Int(), e.Target.Int(), *fromCurse(&curse)}, nil
+	case *match.CurseRemovedEvent:
+		return MatchCurseRemovedEvent{meta, e.Participant.Int()}, nil
 	case *match.MagicGainedEvent:
 		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic}, nil
 	case *match.DiceCountChangedEvent:

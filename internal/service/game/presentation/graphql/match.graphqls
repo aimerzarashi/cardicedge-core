@@ -171,6 +171,8 @@ type MatchParticipant {
   discardPile: [CardInfo!]!
   "順番の何番目か（0 始まり）。順番が早い人ほど小さい"
   turnOrder: Int!
+  "かかっている呪い（無ければ null）"
+  curse: MatchCurse
   "拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）"
   passedCheckpoints: [BoardPosition!]!
   "戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）"
@@ -228,8 +230,8 @@ type Match {
   "今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）"
   pathChoices: [BoardPosition!]!
   # 使えるかの決まり（効果のあるスペルか・コストが払えるか・このターンにまだ使っていないか）を画面に持たせないため、core が選べる手札を出す
-  "今の番の人が使えるスペルの手札の番号（0 始まり。手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）"
-  spellChoices: [Int!]!
+  "今の番の人が使えるスペル（手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）"
+  spellChoices: [MatchSpellChoice!]!
   # 配置できるかの決まり（クリーチャーか・コストが払えるか）を画面に持たせないため、core が選べる手札を出す
   "今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）"
   deployChoices: [Int!]!
@@ -426,6 +428,32 @@ union DeployMatchCreatureResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"使えるスペル 1 枚"
+type MatchSpellChoice {
+  "手札の番号（0 始まり）"
+  handIndex: Int!
+  "選べる対象のプレイヤー（Match.participants の何番目か。呪いのスペルだけ中身があり、自分を含む。対象を選ばないスペルは空）"
+  targets: [Int!]!
+}
+
+"プレイヤーにかかっている呪い（1 人に 1 つまで）"
+type MatchCurse {
+  "効き方（種類は __typename で見分ける）"
+  effect: MatchCurseEffect!
+  "解けるまでのターン数（かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）"
+  remainingTurns: Int!
+}
+
+# 種類どうしに共通の項目が無いので union（スペルの効果と同じ）
+"呪いの効き方"
+union MatchCurseEffect = MatchFixedDiceCurse
+
+"次のサイコロの目を決める（複数のサイコロを振るスペルより優先し、サイコロ 1 個でその目だけ進む）"
+type MatchFixedDiceCurse {
+  "決まる目"
+  value: Int!
+}
+
 "サイコロを振る前にスペルを使う入力"
 input UseMatchSpellInput {
   "対戦の公開用の ID"
@@ -434,6 +462,8 @@ input UseMatchSpellInput {
   revision: Int!
   "使うスペルの手札の番号（0 始まり。Match.spellChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で使えないものは FieldNotFound）"
   handIndex: Int!
+  "対象のプレイヤー（Match.participants の何番目か。spellChoices の targets の中から選ぶ。呪いのスペルで無ければ FieldRequired、対象を選ばないスペルに付けた・選べない対象は FieldNotFound）"
+  target: Int
 }
 
 "スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）"
@@ -1412,6 +1442,36 @@ type MatchDiceRolledEvent implements MatchEvent {
   value: Int!
   "複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が value）。1 個のときは空"
   dice: [Int!]!
+  "呪いで目が決まった（サイコロは 1 個）"
+  fixedByCurse: Boolean!
+}
+
+"スペルで、対象のプレイヤーに呪いをかけた（かかっていた呪いは上書きする）"
+type MatchCurseCastEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "かけられた参加者（Match.participants の何番目か）"
+  target: Int!
+  "かけた呪い"
+  curse: MatchCurse!
+}
+
+"自分のターンを終えて、かかっていた呪いが解けた"
+type MatchCurseRemovedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "呪いが解けた参加者（Match.participants の何番目か）"
+  participant: Int!
 }
 
 "スペルの効果で魔力を得た"

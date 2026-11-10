@@ -501,6 +501,27 @@ type ComplexityRoot struct {
 		Striker            func(childComplexity int) int
 	}
 
+	MatchCurse struct {
+		Effect         func(childComplexity int) int
+		RemainingTurns func(childComplexity int) int
+	}
+
+	MatchCurseCastEvent struct {
+		Changes     func(childComplexity int) int
+		Curse       func(childComplexity int) int
+		OccurredAt  func(childComplexity int) int
+		Participant func(childComplexity int) int
+		Revision    func(childComplexity int) int
+		Target      func(childComplexity int) int
+	}
+
+	MatchCurseRemovedEvent struct {
+		Changes     func(childComplexity int) int
+		OccurredAt  func(childComplexity int) int
+		Participant func(childComplexity int) int
+		Revision    func(childComplexity int) int
+	}
+
 	MatchDecksShuffledEvent struct {
 		Changes    func(childComplexity int) int
 		OccurredAt func(childComplexity int) int
@@ -522,12 +543,13 @@ type ComplexityRoot struct {
 	}
 
 	MatchDiceRolledEvent struct {
-		Changes     func(childComplexity int) int
-		Dice        func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Revision    func(childComplexity int) int
-		Value       func(childComplexity int) int
+		Changes      func(childComplexity int) int
+		Dice         func(childComplexity int) int
+		FixedByCurse func(childComplexity int) int
+		OccurredAt   func(childComplexity int) int
+		Participant  func(childComplexity int) int
+		Revision     func(childComplexity int) int
+		Value        func(childComplexity int) int
 	}
 
 	MatchDiscardPileShuffledEvent struct {
@@ -567,6 +589,10 @@ type ComplexityRoot struct {
 		HandIndex func(childComplexity int) int
 		Magic     func(childComplexity int) int
 		Position  func(childComplexity int) int
+	}
+
+	MatchFixedDiceCurse struct {
+		Value func(childComplexity int) int
 	}
 
 	MatchHandLimitExceededEvent struct {
@@ -697,6 +723,7 @@ type ComplexityRoot struct {
 
 	MatchParticipant struct {
 		Avatar            func(childComplexity int) int
+		Curse             func(childComplexity int) int
 		DiscardPile       func(childComplexity int) int
 		DrawPileCount     func(childComplexity int) int
 		Hand              func(childComplexity int) int
@@ -767,6 +794,11 @@ type ComplexityRoot struct {
 		MaxPlayers        func(childComplexity int) int
 		MinPlayers        func(childComplexity int) int
 		StartingHandCards func(childComplexity int) int
+	}
+
+	MatchSpellChoice struct {
+		HandIndex func(childComplexity int) int
+		Targets   func(childComplexity int) int
 	}
 
 	MatchSpellUsedEvent struct {
@@ -1151,6 +1183,11 @@ type ComplexityRoot struct {
 
 	SpellDrawCardsEffect struct {
 		Count func(childComplexity int) int
+	}
+
+	SpellFixedDiceCurseEffect struct {
+		Turns func(childComplexity int) int
+		Value func(childComplexity int) int
 	}
 
 	SpellGainMagicEffect struct {
@@ -2826,6 +2863,81 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchCreatureStruckEvent.Striker(childComplexity), true
 
+	case "MatchCurse.effect":
+		if e.ComplexityRoot.MatchCurse.Effect == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurse.Effect(childComplexity), true
+	case "MatchCurse.remainingTurns":
+		if e.ComplexityRoot.MatchCurse.RemainingTurns == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurse.RemainingTurns(childComplexity), true
+
+	case "MatchCurseCastEvent.changes":
+		if e.ComplexityRoot.MatchCurseCastEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.Changes(childComplexity), true
+	case "MatchCurseCastEvent.curse":
+		if e.ComplexityRoot.MatchCurseCastEvent.Curse == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.Curse(childComplexity), true
+	case "MatchCurseCastEvent.occurredAt":
+		if e.ComplexityRoot.MatchCurseCastEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.OccurredAt(childComplexity), true
+	case "MatchCurseCastEvent.participant":
+		if e.ComplexityRoot.MatchCurseCastEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.Participant(childComplexity), true
+	case "MatchCurseCastEvent.revision":
+		if e.ComplexityRoot.MatchCurseCastEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.Revision(childComplexity), true
+	case "MatchCurseCastEvent.target":
+		if e.ComplexityRoot.MatchCurseCastEvent.Target == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseCastEvent.Target(childComplexity), true
+
+	case "MatchCurseRemovedEvent.changes":
+		if e.ComplexityRoot.MatchCurseRemovedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseRemovedEvent.Changes(childComplexity), true
+	case "MatchCurseRemovedEvent.occurredAt":
+		if e.ComplexityRoot.MatchCurseRemovedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseRemovedEvent.OccurredAt(childComplexity), true
+	case "MatchCurseRemovedEvent.participant":
+		if e.ComplexityRoot.MatchCurseRemovedEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseRemovedEvent.Participant(childComplexity), true
+	case "MatchCurseRemovedEvent.revision":
+		if e.ComplexityRoot.MatchCurseRemovedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCurseRemovedEvent.Revision(childComplexity), true
+
 	case "MatchDecksShuffledEvent.changes":
 		if e.ComplexityRoot.MatchDecksShuffledEvent.Changes == nil {
 			break
@@ -2907,6 +3019,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchDiceRolledEvent.Dice(childComplexity), true
+	case "MatchDiceRolledEvent.fixedByCurse":
+		if e.ComplexityRoot.MatchDiceRolledEvent.FixedByCurse == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiceRolledEvent.FixedByCurse(childComplexity), true
 	case "MatchDiceRolledEvent.occurredAt":
 		if e.ComplexityRoot.MatchDiceRolledEvent.OccurredAt == nil {
 			break
@@ -3063,6 +3181,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchExchangeChoice.Position(childComplexity), true
+
+	case "MatchFixedDiceCurse.value":
+		if e.ComplexityRoot.MatchFixedDiceCurse.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchFixedDiceCurse.Value(childComplexity), true
 
 	case "MatchHandLimitExceededEvent.changes":
 		if e.ComplexityRoot.MatchHandLimitExceededEvent.Changes == nil {
@@ -3520,6 +3645,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchParticipant.Avatar(childComplexity), true
+	case "MatchParticipant.curse":
+		if e.ComplexityRoot.MatchParticipant.Curse == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchParticipant.Curse(childComplexity), true
 	case "MatchParticipant.discardPile":
 		if e.ComplexityRoot.MatchParticipant.DiscardPile == nil {
 			break
@@ -3804,6 +3935,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchRules.StartingHandCards(childComplexity), true
+
+	case "MatchSpellChoice.handIndex":
+		if e.ComplexityRoot.MatchSpellChoice.HandIndex == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchSpellChoice.HandIndex(childComplexity), true
+	case "MatchSpellChoice.targets":
+		if e.ComplexityRoot.MatchSpellChoice.Targets == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchSpellChoice.Targets(childComplexity), true
 
 	case "MatchSpellUsedEvent.card":
 		if e.ComplexityRoot.MatchSpellUsedEvent.Card == nil {
@@ -5365,6 +5509,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.SpellDrawCardsEffect.Count(childComplexity), true
 
+	case "SpellFixedDiceCurseEffect.turns":
+		if e.ComplexityRoot.SpellFixedDiceCurseEffect.Turns == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellFixedDiceCurseEffect.Turns(childComplexity), true
+	case "SpellFixedDiceCurseEffect.value":
+		if e.ComplexityRoot.SpellFixedDiceCurseEffect.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellFixedDiceCurseEffect.Value(childComplexity), true
+
 	case "SpellGainMagicEffect.perLap":
 		if e.ComplexityRoot.SpellGainMagicEffect.PerLap == nil {
 			break
@@ -5895,6 +6052,16 @@ func (ec *executionContext) childFields_MatchBoard(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type MatchBoard", field.Name)
 }
 
+func (ec *executionContext) childFields_MatchCurse(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "effect":
+		return ec.fieldContext_MatchCurse_effect(ctx, field)
+	case "remainingTurns":
+		return ec.fieldContext_MatchCurse_remainingTurns(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchCurse", field.Name)
+}
+
 func (ec *executionContext) childFields_MatchDeployedCreature(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -6021,6 +6188,8 @@ func (ec *executionContext) childFields_MatchParticipant(ctx context.Context, fi
 		return ec.fieldContext_MatchParticipant_discardPile(ctx, field)
 	case "turnOrder":
 		return ec.fieldContext_MatchParticipant_turnOrder(ctx, field)
+	case "curse":
+		return ec.fieldContext_MatchParticipant_curse(ctx, field)
 	case "passedCheckpoints":
 		return ec.fieldContext_MatchParticipant_passedCheckpoints(ctx, field)
 	case "rewardReceived":
@@ -6087,6 +6256,16 @@ func (ec *executionContext) childFields_MatchRules(ctx context.Context, field gr
 		return ec.fieldContext_MatchRules_startingHandCards(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchRules", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchSpellChoice(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "handIndex":
+		return ec.fieldContext_MatchSpellChoice_handIndex(ctx, field)
+	case "targets":
+		return ec.fieldContext_MatchSpellChoice_targets(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchSpellChoice", field.Name)
 }
 
 func (ec *executionContext) childFields_MatchTerritory(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -10964,15 +11143,24 @@ func (ec *executionContext) _Match_spellChoices(ctx context.Context, field graph
 			return obj.SpellChoices, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
-			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MatchSpellChoice) graphql.Marshaler {
+			return ec.marshalNMatchSpellChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchSpellChoiceᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Match_spellChoices(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, "Int")
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchSpellChoice(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Match_deployChoices(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
@@ -13392,6 +13580,309 @@ func (ec *executionContext) fieldContext_MatchCreatureStruckEvent_remainingHitPo
 	return graphql.NewScalarFieldContext("MatchCreatureStruckEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchCurse_effect(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurse_effect(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Effect, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.MatchCurseEffect) graphql.Marshaler {
+			return ec.marshalNMatchCurseEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurseEffect(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurse_effect(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurse", field, false, false, "MatchCurseEffect")
+}
+
+func (ec *executionContext) _MatchCurse_remainingTurns(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurse_remainingTurns(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RemainingTurns, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurse_remainingTurns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurse", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseCastEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseCastEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCurseCastEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseCastEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_target(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_target(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Target, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseCastEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCurseCastEvent_curse(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseCastEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseCastEvent_curse(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Curse, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchCurse) graphql.Marshaler {
+			return ec.marshalNMatchCurse2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseCastEvent_curse(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCurseCastEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchCurse(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCurseRemovedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseRemovedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseRemovedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseRemovedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseRemovedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchCurseRemovedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseRemovedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseRemovedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseRemovedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseRemovedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchCurseRemovedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseRemovedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseRemovedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseRemovedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCurseRemovedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCurseRemovedEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchCurseRemovedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCurseRemovedEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCurseRemovedEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCurseRemovedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchDecksShuffledEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchDecksShuffledEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -13817,6 +14308,29 @@ func (ec *executionContext) _MatchDiceRolledEvent_dice(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_MatchDiceRolledEvent_dice(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchDiceRolledEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiceRolledEvent_fixedByCurse(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiceRolledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiceRolledEvent_fixedByCurse(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FixedByCurse, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiceRolledEvent_fixedByCurse(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiceRolledEvent", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _MatchDiscardPileShuffledEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
@@ -14363,6 +14877,29 @@ func (ec *executionContext) _MatchExchangeChoice_magic(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_MatchExchangeChoice_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchExchangeChoice", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchFixedDiceCurse_value(ctx context.Context, field graphql.CollectedField, obj *model.MatchFixedDiceCurse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchFixedDiceCurse_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchFixedDiceCurse_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchFixedDiceCurse", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchHandLimitExceededEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
@@ -16494,6 +17031,38 @@ func (ec *executionContext) fieldContext_MatchParticipant_turnOrder(_ context.Co
 	return graphql.NewScalarFieldContext("MatchParticipant", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchParticipant_curse(ctx context.Context, field graphql.CollectedField, obj *model.MatchParticipant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchParticipant_curse(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Curse, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchCurse) graphql.Marshaler {
+			return ec.marshalOMatchCurse2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurse(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchParticipant_curse(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchParticipant",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchCurse(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MatchParticipant_passedCheckpoints(ctx context.Context, field graphql.CollectedField, obj *model.MatchParticipant) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -17388,6 +17957,52 @@ func (ec *executionContext) _MatchRules_startingHandCards(ctx context.Context, f
 }
 func (ec *executionContext) fieldContext_MatchRules_startingHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchSpellChoice_handIndex(ctx context.Context, field graphql.CollectedField, obj *model.MatchSpellChoice) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSpellChoice_handIndex(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HandIndex, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSpellChoice_handIndex(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSpellChoice", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchSpellChoice_targets(ctx context.Context, field graphql.CollectedField, obj *model.MatchSpellChoice) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSpellChoice_targets(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Targets, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
+			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSpellChoice_targets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSpellChoice", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchSpellUsedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchSpellUsedEvent) (ret graphql.Marshaler) {
@@ -23679,6 +24294,52 @@ func (ec *executionContext) fieldContext_SpellDrawCardsEffect_count(_ context.Co
 	return graphql.NewScalarFieldContext("SpellDrawCardsEffect", field, false, false, "Int")
 }
 
+func (ec *executionContext) _SpellFixedDiceCurseEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.SpellFixedDiceCurseEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellFixedDiceCurseEffect_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellFixedDiceCurseEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellFixedDiceCurseEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _SpellFixedDiceCurseEffect_turns(ctx context.Context, field graphql.CollectedField, obj *model.SpellFixedDiceCurseEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellFixedDiceCurseEffect_turns(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Turns, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellFixedDiceCurseEffect_turns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellFixedDiceCurseEffect", field, false, false, "Int")
+}
+
 func (ec *executionContext) _SpellGainMagicEffect_perLap(ctx context.Context, field graphql.CollectedField, obj *model.SpellGainMagicEffect) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -26594,7 +27255,7 @@ func (ec *executionContext) unmarshalInputUseMatchSpellInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "handIndex"}
+	fieldsInOrder := [...]string{"id", "revision", "handIndex", "target"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -26622,6 +27283,13 @@ func (ec *executionContext) unmarshalInputUseMatchSpellInput(ctx context.Context
 				return it, err
 			}
 			it.HandIndex = data
+		case "target":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("target"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Target = data
 		}
 	}
 	return it, nil
@@ -28231,6 +28899,26 @@ func (ec *executionContext) _MatchBattleStatSource(ctx context.Context, sel ast.
 	}
 }
 
+func (ec *executionContext) _MatchCurseEffect(ctx context.Context, sel ast.SelectionSet, obj model.MatchCurseEffect) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.MatchFixedDiceCurse:
+		return ec._MatchFixedDiceCurse(ctx, sel, &obj)
+	case *model.MatchFixedDiceCurse:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchFixedDiceCurse(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of MatchCurseEffect must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSet, obj model.MatchEvent) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -28417,6 +29105,20 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchDecksShuffledEvent(ctx, sel, obj)
+	case model.MatchCurseRemovedEvent:
+		return ec._MatchCurseRemovedEvent(ctx, sel, &obj)
+	case *model.MatchCurseRemovedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchCurseRemovedEvent(ctx, sel, obj)
+	case model.MatchCurseCastEvent:
+		return ec._MatchCurseCastEvent(ctx, sel, &obj)
+	case *model.MatchCurseCastEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchCurseCastEvent(ctx, sel, obj)
 	case model.MatchCreatureStruckEvent:
 		return ec._MatchCreatureStruckEvent(ctx, sel, &obj)
 	case *model.MatchCreatureStruckEvent:
@@ -29226,6 +29928,13 @@ func (ec *executionContext) _SpellEffect(ctx context.Context, sel ast.SelectionS
 			return graphql.Null
 		}
 		return ec._SpellGainMagicEffect(ctx, sel, obj)
+	case model.SpellFixedDiceCurseEffect:
+		return ec._SpellFixedDiceCurseEffect(ctx, sel, &obj)
+	case *model.SpellFixedDiceCurseEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellFixedDiceCurseEffect(ctx, sel, obj)
 	case model.SpellDrawCardsEffect:
 		return ec._SpellDrawCardsEffect(ctx, sel, &obj)
 	case *model.SpellDrawCardsEffect:
@@ -32513,6 +33222,150 @@ func (ec *executionContext) _MatchCreatureStruckEvent(ctx context.Context, sel a
 	return out
 }
 
+var matchCurseImplementors = []string{"MatchCurse"}
+
+func (ec *executionContext) _MatchCurse(ctx context.Context, sel ast.SelectionSet, obj *model.MatchCurse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchCurseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchCurse")
+		case "effect":
+			out.Values[i] = ec._MatchCurse_effect(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "remainingTurns":
+			out.Values[i] = ec._MatchCurse_remainingTurns(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchCurseCastEventImplementors = []string{"MatchCurseCastEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchCurseCastEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchCurseCastEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchCurseCastEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchCurseCastEvent")
+		case "revision":
+			out.Values[i] = ec._MatchCurseCastEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchCurseCastEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchCurseCastEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchCurseCastEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "target":
+			out.Values[i] = ec._MatchCurseCastEvent_target(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "curse":
+			out.Values[i] = ec._MatchCurseCastEvent_curse(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchCurseRemovedEventImplementors = []string{"MatchCurseRemovedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchCurseRemovedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchCurseRemovedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchCurseRemovedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchCurseRemovedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchCurseRemovedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchCurseRemovedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchCurseRemovedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchCurseRemovedEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var matchDecksShuffledEventImplementors = []string{"MatchDecksShuffledEvent", "MatchEvent"}
 
 func (ec *executionContext) _MatchDecksShuffledEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchDecksShuffledEvent) graphql.Marshaler {
@@ -32690,6 +33543,11 @@ func (ec *executionContext) _MatchDiceRolledEvent(ctx context.Context, sel ast.S
 			}
 		case "dice":
 			out.Values[i] = ec._MatchDiceRolledEvent_dice(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fixedByCurse":
+			out.Values[i] = ec._MatchDiceRolledEvent_fixedByCurse(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -32963,6 +33821,39 @@ func (ec *executionContext) _MatchExchangeChoice(ctx context.Context, sel ast.Se
 			}
 		case "magic":
 			out.Values[i] = ec._MatchExchangeChoice_magic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchFixedDiceCurseImplementors = []string{"MatchFixedDiceCurse", "MatchCurseEffect"}
+
+func (ec *executionContext) _MatchFixedDiceCurse(ctx context.Context, sel ast.SelectionSet, obj *model.MatchFixedDiceCurse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchFixedDiceCurseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchFixedDiceCurse")
+		case "value":
+			out.Values[i] = ec._MatchFixedDiceCurse_value(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -33908,6 +34799,11 @@ func (ec *executionContext) _MatchParticipant(ctx context.Context, sel ast.Selec
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "curse":
+			out.Values[i] = ec._MatchParticipant_curse(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "passedCheckpoints":
 			out.Values[i] = ec._MatchParticipant_passedCheckpoints(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -34314,6 +35210,44 @@ func (ec *executionContext) _MatchRules(ctx context.Context, sel ast.SelectionSe
 			}
 		case "startingHandCards":
 			out.Values[i] = ec._MatchRules_startingHandCards(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchSpellChoiceImplementors = []string{"MatchSpellChoice"}
+
+func (ec *executionContext) _MatchSpellChoice(ctx context.Context, sel ast.SelectionSet, obj *model.MatchSpellChoice) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchSpellChoiceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchSpellChoice")
+		case "handIndex":
+			out.Values[i] = ec._MatchSpellChoice_handIndex(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "targets":
+			out.Values[i] = ec._MatchSpellChoice_targets(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -37076,6 +38010,44 @@ func (ec *executionContext) _SpellDrawCardsEffect(ctx context.Context, sel ast.S
 	return out
 }
 
+var spellFixedDiceCurseEffectImplementors = []string{"SpellFixedDiceCurseEffect", "SpellEffect"}
+
+func (ec *executionContext) _SpellFixedDiceCurseEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellFixedDiceCurseEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, spellFixedDiceCurseEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SpellFixedDiceCurseEffect")
+		case "value":
+			out.Values[i] = ec._SpellFixedDiceCurseEffect_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "turns":
+			out.Values[i] = ec._SpellFixedDiceCurseEffect_turns(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var spellGainMagicEffectImplementors = []string{"SpellGainMagicEffect", "SpellEffect"}
 
 func (ec *executionContext) _SpellGainMagicEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellGainMagicEffect) graphql.Marshaler {
@@ -38454,6 +39426,22 @@ func (ec *executionContext) marshalNMatchBoard2ᚖgitlabᚗcomᚋaimerzarashiᚋ
 	return ec._MatchBoard(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNMatchCurse2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurse(ctx context.Context, sel ast.SelectionSet, v *model.MatchCurse) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchCurse!")
+		return graphql.Null
+	}
+	return ec._MatchCurse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMatchCurseEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurseEffect(ctx context.Context, sel ast.SelectionSet, v model.MatchCurseEffect) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchCurseEffect!")
+		return graphql.Null
+	}
+	return ec._MatchCurseEffect(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNMatchDeployedCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchDeployedCreature(ctx context.Context, sel ast.SelectionSet, v *model.MatchDeployedCreature) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "MatchDeployedCreature!")
@@ -38730,6 +39718,30 @@ func (ec *executionContext) marshalNMatchRules2ᚖgitlabᚗcomᚋaimerzarashiᚋ
 		return graphql.Null
 	}
 	return ec._MatchRules(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMatchSpellChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchSpellChoiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchSpellChoice) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchSpellChoice2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchSpellChoice(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMatchSpellChoice2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchSpellChoice(ctx context.Context, sel ast.SelectionSet, v *model.MatchSpellChoice) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchSpellChoice!")
+		return graphql.Null
+	}
+	return ec._MatchSpellChoice(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMatchTerritory2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchTerritoryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchTerritory) graphql.Marshaler {
@@ -39535,6 +40547,13 @@ func (ec *executionContext) marshalOMatch2ᚖgitlabᚗcomᚋaimerzarashiᚋdieca
 		return graphql.Null
 	}
 	return ec._Match(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOMatchCurse2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurse(ctx context.Context, sel ast.SelectionSet, v *model.MatchCurse) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._MatchCurse(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOMatchInvasion2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchInvasion(ctx context.Context, sel ast.SelectionSet, v *model.MatchInvasion) graphql.Marshaler {

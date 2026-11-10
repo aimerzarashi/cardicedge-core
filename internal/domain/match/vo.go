@@ -189,6 +189,27 @@ type CardSpec struct {
 	Spell *SpellSpec `json:"spell,omitempty"`
 }
 
+// プレイヤーにかかっている呪い。効き方は種類ごとの値のどれか 1 つ、解ける条件は Expiry（今はターン数だけ。2026-11-10 オーナー）
+type Curse struct {
+	FixedDice *FixedDiceCurse `json:"fixed_dice,omitempty"`
+	Expiry    CurseExpiry     `json:"expiry"`
+}
+
+// 次のサイコロの目を決める呪い（remainingTurns ターンで解ける）
+func NewFixedDiceCurse(value, remainingTurns int) Curse {
+	return Curse{FixedDice: &FixedDiceCurse{Value: value}, Expiry: CurseExpiry{RemainingTurns: remainingTurns}}
+}
+
+// 次のサイコロの目を決める（ホーリーワード）
+type FixedDiceCurse struct {
+	Value int `json:"value"`
+}
+
+// 呪いが解ける条件。RemainingTurns は、かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける
+type CurseExpiry struct {
+	RemainingTurns int `json:"remaining_turns"`
+}
+
 // スペルの性能の写し。値の型は CreatureSpec と同じ理由で spell パッケージのものをそのまま使う
 type SpellSpec struct {
 	Effect spell.Effect `json:"effect"`

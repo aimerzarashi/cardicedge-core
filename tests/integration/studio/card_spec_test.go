@@ -473,11 +473,13 @@ func TestChangeSpellEffect_ReturnsEachKindAfterProjected(t *testing.T) {
 	id := testhelper.UniqueID(t)
 	mana := registerSpell(t, token, "マナ-"+id)["spell"].(map[string]any)
 	fly := registerSpell(t, token, "フライ-"+id)["spell"].(map[string]any)
+	holyWord := registerSpell(t, token, "ホーリーワード6-"+id)["spell"].(map[string]any)
 
 	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, mana["id"], mana["revision"], map[string]any{"gainMagic": map[string]any{"perLap": 100}})["__typename"])
 	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, fly["id"], fly["revision"], map[string]any{"rollDice": map[string]any{"count": 2}})["__typename"])
+	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, holyWord["id"], holyWord["revision"], map[string]any{"fixedDiceCurse": map[string]any{"value": 6, "turns": 1}})["__typename"])
 
-	const effectQuery = `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellGainMagicEffect { perLap } ... on SpellRollDiceEffect { count } } } } }`
+	const effectQuery = `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellGainMagicEffect { perLap } ... on SpellRollDiceEffect { count } ... on SpellFixedDiceCurseEffect { value turns } } } } }`
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		gotMana, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": mana["id"]}, "card")
 		if assert.NoError(c, err) {
@@ -486,6 +488,10 @@ func TestChangeSpellEffect_ReturnsEachKindAfterProjected(t *testing.T) {
 		gotFly, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": fly["id"]}, "card")
 		if assert.NoError(c, err) {
 			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellRollDiceEffect", "count": float64(2)}}, gotFly)
+		}
+		gotHolyWord, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": holyWord["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellFixedDiceCurseEffect", "value": float64(6), "turns": float64(1)}}, gotHolyWord)
 		}
 	})
 }

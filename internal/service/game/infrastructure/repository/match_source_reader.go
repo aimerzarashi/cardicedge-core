@@ -312,6 +312,9 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 			if effect.RollDice != nil {
 				spec.Spell.RollDice = &master.SpellRollDice{Count: effect.RollDice.Count}
 			}
+			if effect.FixedDiceCurse != nil {
+				spec.Spell.FixedDiceCurse = &master.SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
+			}
 		}
 		specs[ref] = spec
 	}

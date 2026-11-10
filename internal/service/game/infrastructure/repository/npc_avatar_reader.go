@@ -73,6 +73,10 @@ type spellEffectMetadata struct {
 	RollDice *struct {
 		Count int `json:"count"`
 	} `json:"roll_dice"`
+	FixedDiceCurse *struct {
+		Value int `json:"value"`
+		Turns int `json:"turns"`
+	} `json:"fixed_dice_curse"`
 }
 
 type itemMetadata struct {
@@ -291,6 +295,9 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 		}
 		if spellSpec.Effect.RollDice != nil {
 			effect.RollDice = &query.SpellRollDice{Count: spellSpec.Effect.RollDice.Count}
+		}
+		if curse := spellSpec.Effect.FixedDiceCurse; curse != nil {
+			effect.FixedDiceCurse = &query.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
 		}
 		card.Spell = &query.SpellSpec{Effect: effect}
 	}

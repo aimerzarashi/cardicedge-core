@@ -33,6 +33,8 @@ type ParticipantState struct {
 	PassedCheckpoints []board.Position
 	// この対戦で周回を終えた回数（魔力を得るスペルが使う）
 	Laps int
+	// かかっている呪い（1 つまで。新しくかけると上書きする）。無ければ nil
+	Curse *Curse
 	// 受け取った戦利品。終わった後にパックを選ぶまでは nil（NPC は受け取らない）
 	Reward *Reward
 }
@@ -293,9 +295,15 @@ func (m Match) InvadeChoices() []int {
 	return m.payableCreatures()
 }
 
-// 今の番の人が使えるスペルの手札の番号（手札の順）。サイコロを振る段階で、このターンにまだ使っていないときだけ中身がある。
-// 効果の無いスペルは使えない（2026-11-10 オーナー）
-func (m Match) SpellChoices() []int {
+// 使えるスペル 1 枚。Targets は選べる対象のプレイヤー（参加者の順）で、対象を選ばないスペルは空
+type SpellChoice struct {
+	HandIndex int
+	Targets   []ParticipantIndex
+}
+
+// 今の番の人が使えるスペル（手札の順）。サイコロを振る段階で、このターンにまだ使っていないときだけ中身がある。
+// 効果の無いスペルは使えない（2026-11-10 オーナー）。呪いは自分を含めて誰にでもかけられる
+func (m Match) SpellChoices() []SpellChoice {
 	if m.Phase != PhaseRolling || m.SpellUsed {
 		return nil
 	}
@@ -305,12 +313,19 @@ func (m Match) SpellChoices() []int {
 	}
 	participant := m.Participants[index]
 	specs := m.CardSpecs()
-	var choices []int
+	var choices []SpellChoice
 	for i, ref := range participant.Hand {
 		spec, ok := specs[ref]
-		if ok && spec.Spell != nil && !spec.Spell.Effect.IsNone() && spec.Cost.Int() <= participant.Magic {
-			choices = append(choices, i)
+		if !ok || spec.Spell == nil || spec.Spell.Effect.IsNone() || spec.Cost.Int() > participant.Magic {
+			continue
 		}
+		choice := SpellChoice{HandIndex: i, Targets: []ParticipantIndex{}}
+		if spec.Spell.Effect.NeedsTarget() {
+			for target := range m.Participants {
+				choice.Targets = append(choice.Targets, ParticipantIndex(target))
+			}
+		}
+		choices = append(choices, choice)
 	}
 	return choices
 }

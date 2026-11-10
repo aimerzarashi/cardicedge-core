@@ -28,6 +28,10 @@ var (
 	ErrCreatureNotMovable         = errors.New("match: creature not movable")
 	// 使えない手札（スペルでない・効果が無い・コストが払えない・このターンにもう使った）
 	ErrSpellNotUsable = errors.New("match: spell not usable")
+	// 対象を選ぶスペルで、対象が無い
+	ErrSpellTargetRequired = errors.New("match: spell target required")
+	// 選べない対象（対象を選ばないスペルに対象がある・参加者でない）
+	ErrSpellTargetNotAllowed = errors.New("match: spell target not allowed")
 )
 
 var (

@@ -832,6 +832,11 @@ type ComplexityRoot struct {
 		Count func(childComplexity int) int
 	}
 
+	SpellFixedDiceCurseEffect struct {
+		Turns func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
 	SpellGainMagicEffect struct {
 		PerLap func(childComplexity int) int
 	}
@@ -3751,6 +3756,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.SpellDrawCardsEffect.Count(childComplexity), true
 
+	case "SpellFixedDiceCurseEffect.turns":
+		if e.ComplexityRoot.SpellFixedDiceCurseEffect.Turns == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellFixedDiceCurseEffect.Turns(childComplexity), true
+	case "SpellFixedDiceCurseEffect.value":
+		if e.ComplexityRoot.SpellFixedDiceCurseEffect.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SpellFixedDiceCurseEffect.Value(childComplexity), true
+
 	case "SpellGainMagicEffect.perLap":
 		if e.ComplexityRoot.SpellGainMagicEffect.PerLap == nil {
 			break
@@ -4009,6 +4027,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("SetStarterSetUnlockNpcAvatarsInput", ec.unmarshalInputSetStarterSetUnlockNpcAvatarsInput),
 			graphql.NewInputUnmarshaler("SpellDrawCardsEffectInput", ec.unmarshalInputSpellDrawCardsEffectInput),
 			graphql.NewInputUnmarshaler("SpellEffectInput", ec.unmarshalInputSpellEffectInput),
+			graphql.NewInputUnmarshaler("SpellFixedDiceCurseEffectInput", ec.unmarshalInputSpellFixedDiceCurseEffectInput),
 			graphql.NewInputUnmarshaler("SpellGainMagicEffectInput", ec.unmarshalInputSpellGainMagicEffectInput),
 			graphql.NewInputUnmarshaler("SpellRollDiceEffectInput", ec.unmarshalInputSpellRollDiceEffectInput),
 			graphql.NewInputUnmarshaler("StarterSetFilter", ec.unmarshalInputStarterSetFilter),
@@ -16318,6 +16337,52 @@ func (ec *executionContext) fieldContext_SpellDrawCardsEffect_count(_ context.Co
 	return graphql.NewScalarFieldContext("SpellDrawCardsEffect", field, false, false, "Int")
 }
 
+func (ec *executionContext) _SpellFixedDiceCurseEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.SpellFixedDiceCurseEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellFixedDiceCurseEffect_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellFixedDiceCurseEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellFixedDiceCurseEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _SpellFixedDiceCurseEffect_turns(ctx context.Context, field graphql.CollectedField, obj *model.SpellFixedDiceCurseEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SpellFixedDiceCurseEffect_turns(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Turns, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SpellFixedDiceCurseEffect_turns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpellFixedDiceCurseEffect", field, false, false, "Int")
+}
+
 func (ec *executionContext) _SpellGainMagicEffect_perLap(ctx context.Context, field graphql.CollectedField, obj *model.SpellGainMagicEffect) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -21629,7 +21694,7 @@ func (ec *executionContext) unmarshalInputSpellEffectInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"drawCards", "gainMagic", "rollDice"}
+	fieldsInOrder := [...]string{"drawCards", "gainMagic", "rollDice", "fixedDiceCurse"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -21657,6 +21722,13 @@ func (ec *executionContext) unmarshalInputSpellEffectInput(ctx context.Context, 
 				return it, err
 			}
 			it.RollDice = data
+		case "fixedDiceCurse":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fixedDiceCurse"))
+			data, err := ec.unmarshalOSpellFixedDiceCurseEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐSpellFixedDiceCurseEffectInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FixedDiceCurse = data
 		}
 	}
 	return it, nil
@@ -21671,6 +21743,55 @@ func (ec *executionContext) unmarshalInputSpellEffectInput(ctx context.Context, 
 func UnmarshalSpellEffectInput(ctx context.Context, raw any) (model.SpellEffectInput, error) {
 	var out model.SpellEffectInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "SpellEffectInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputSpellFixedDiceCurseEffectInput(ctx context.Context, obj any) (model.SpellFixedDiceCurseEffectInput, error) {
+	var it model.SpellFixedDiceCurseEffectInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"value", "turns"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "turns":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("turns"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Turns = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalSpellFixedDiceCurseEffectInput unmarshals raw into the SpellFixedDiceCurseEffectInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalSpellFixedDiceCurseEffectInput(ctx context.Context, raw any) (model.SpellFixedDiceCurseEffectInput, error) {
+	var out model.SpellFixedDiceCurseEffectInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "SpellFixedDiceCurseEffectInput", raw, &out)
 	return out, err
 }
 
@@ -25245,6 +25366,13 @@ func (ec *executionContext) _SpellEffect(ctx context.Context, sel ast.SelectionS
 			return graphql.Null
 		}
 		return ec._SpellGainMagicEffect(ctx, sel, obj)
+	case model.SpellFixedDiceCurseEffect:
+		return ec._SpellFixedDiceCurseEffect(ctx, sel, &obj)
+	case *model.SpellFixedDiceCurseEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SpellFixedDiceCurseEffect(ctx, sel, obj)
 	case model.SpellDrawCardsEffect:
 		return ec._SpellDrawCardsEffect(ctx, sel, &obj)
 	case *model.SpellDrawCardsEffect:
@@ -31236,6 +31364,44 @@ func (ec *executionContext) _SpellDrawCardsEffect(ctx context.Context, sel ast.S
 	return out
 }
 
+var spellFixedDiceCurseEffectImplementors = []string{"SpellFixedDiceCurseEffect", "SpellEffect"}
+
+func (ec *executionContext) _SpellFixedDiceCurseEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellFixedDiceCurseEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, spellFixedDiceCurseEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SpellFixedDiceCurseEffect")
+		case "value":
+			out.Values[i] = ec._SpellFixedDiceCurseEffect_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "turns":
+			out.Values[i] = ec._SpellFixedDiceCurseEffect_turns(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var spellGainMagicEffectImplementors = []string{"SpellGainMagicEffect", "SpellEffect"}
 
 func (ec *executionContext) _SpellGainMagicEffect(ctx context.Context, sel ast.SelectionSet, obj *model.SpellGainMagicEffect) graphql.Marshaler {
@@ -34272,6 +34438,14 @@ func (ec *executionContext) unmarshalOSpellEffectInput2ᚖgitlabᚗcomᚋaimerza
 		return nil, nil
 	}
 	res, err := ec.unmarshalInputSpellEffectInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOSpellFixedDiceCurseEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐSpellFixedDiceCurseEffectInput(ctx context.Context, v any) (*model.SpellFixedDiceCurseEffectInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputSpellFixedDiceCurseEffectInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
