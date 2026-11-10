@@ -238,6 +238,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
+		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 3)},
+		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 3)},
 		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
@@ -2332,6 +2334,158 @@ func TestDecide_ElementChangeRejectsChoicesThatAreNotOffered(t *testing.T) {
 			require.ErrorIs(t, err, match.ErrLandElementNotChangeable)
 		})
 	}
+}
+
+// その位置の領地のクリーチャーの性能を変える
+func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints, movement int) match.Match {
+	t.Helper()
+	territory, ok := state.TerritoryAt(pos(t, x, 0))
+	require.True(t, ok)
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	for i := range state.DeployedCreatures {
+		if state.DeployedCreatures[i].ID == territory.Creature {
+			state.DeployedCreatures[i].Base.Attack = creaturetest.Attack(t, attack)
+			state.DeployedCreatures[i].Base.Movement = creaturetest.Movement(t, movement)
+			state.DeployedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
+		}
+	}
+	return state
+}
+
+func move(t *testing.T, state match.Match, from, to int) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.MoveCreatureCommand{By: matchtest.Index(t, 1), From: pos(t, from, 0), To: pos(t, to, 0)})
+}
+
+func TestMatch_MoveChoicesWalkExactlyTheMovementWithoutTurningBack(t *testing.T) {
+	tests := []struct {
+		name     string
+		movement int
+		want     []int
+	}{
+		{name: "one_step", movement: 1, want: []int{2, 4}},
+		{name: "two_steps", movement: 2, want: []int{1, 5}},
+		// 拠点の先は行き止まりなので、3 歩では左に届かない
+		{name: "three_steps", movement: 3, want: []int{6}},
+		{name: "cannot_move", movement: 0, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20, tt.movement)
+			state = rolledTo(t, state, 3)
+
+			var got []int
+			for _, choice := range state.MoveChoices() {
+				require.Equal(t, pos(t, 3, 0), choice.From)
+				got = append(got, choice.To.X.Int())
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestMatch_MoveChoicesExcludeOwnTerritoriesAndTilesThatAreNotLand(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 1, 2, 1)
+	state = rolledTo(t, state, 2)
+
+	require.Equal(t, []match.MoveChoice{{From: pos(t, 2, 0), To: pos(t, 3, 0)}}, state.MoveChoices())
+}
+
+func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t *testing.T) {
+	state := withTerritory(t, territoryBoardMatch(t), 1, 1, 3)
+	state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, 2, 0), Level: 2})
+	state = withCreatureAt(t, state, 1, 5, 7, 1)
+	mover := state.DeployedCreatures[0].ID
+	state = rolledTo(t, state, 1)
+
+	state, events := move(t, state, 1, 2)
+
+	moved := eventOf[*match.CreatureMovedEvent](t, events)
+	require.Equal(t, mover, moved.Creature)
+	require.Equal(t, []match.Territory{{Position: pos(t, 2, 0), Creature: mover}}, state.Territories)
+	require.Equal(t, creaturetest.HitPoints(t, 7), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
+	require.Equal(t, 2, state.LandLevel(pos(t, 2, 0)))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+// 自分（参加者 1）の領地 (1,0) から、参加者 0 の領地 (2,0) へ動いて戦闘する
+func movingIntoAnother(t *testing.T, moverAttack, moverHitPoints, defenderAttack, defenderHitPoints int) (match.Match, []match.Event) {
+	t.Helper()
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 2)
+	state = withCreatureAt(t, state, 1, moverAttack, moverHitPoints, 1)
+	state = withCreatureAt(t, state, 2, defenderAttack, defenderHitPoints, 1)
+	state = rolledTo(t, state, 1)
+	state, _ = move(t, state, 1, 2)
+	require.Equal(t, match.PhaseAttacking, state.Phase)
+	require.Equal(t, pos(t, 2, 0), state.Invasion.Position)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
+	awaiting, _ := state.AwaitingParticipant()
+	require.Equal(t, matchtest.Index(t, 0), awaiting)
+	return defend(t, state)
+}
+
+func TestDecide_MovingIntoAnotherAndWinningMovesTheSameCreatureAndFreesTheOrigin(t *testing.T) {
+	state, events := movingIntoAnother(t, 50, 20, 5, 20)
+
+	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
+	mover := state.DeployedCreatures[0].ID
+	require.Equal(t, mover, conquered.Creature)
+	require.Equal(t, []match.Territory{{Position: pos(t, 2, 0), Creature: mover}}, state.Territories)
+	require.Len(t, state.DeployedCreatures, 1)
+	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
+	require.Equal(t, 2, state.LandLevel(pos(t, 2, 0)))
+	require.Zero(t, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_MovingIntoAnotherAndSurvivingReturnsToTheOriginWithTheWound(t *testing.T) {
+	state, events := movingIntoAnother(t, 5, 20, 5, 20)
+
+	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
+	require.False(t, repelled.ReturnedToHand)
+	require.Equal(t, pos(t, 1, 0), *repelled.ReturnedTo)
+	require.Equal(t, creaturetest.HitPoints(t, 15), *repelled.ReturnedHitPoints)
+	territory, ok := state.TerritoryAt(pos(t, 1, 0))
+	require.True(t, ok)
+	mover, _ := state.DeployedCreature(territory.Creature)
+	require.Equal(t, creaturetest.HitPoints(t, 15), mover.HitPoints)
+	require.Nil(t, state.Invasion)
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_MovingIntoAnotherAndBeingDestroyedFreesTheOrigin(t *testing.T) {
+	state, events := movingIntoAnother(t, 5, 5, 10, 20)
+
+	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
+	require.Nil(t, repelled.ReturnedTo)
+	require.Nil(t, repelled.ReturnedHitPoints)
+	_, occupied := state.TerritoryAt(pos(t, 1, 0))
+	require.False(t, occupied)
+	require.Len(t, state.DeployedCreatures, 1)
+}
+
+func TestDecide_AdjacentTerritoriesOfAMoveDoNotCountTheOrigin(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 1)
+	state = withTerritory(t, state, 1, 3, 1)
+	state = withCreatureAt(t, state, 1, 5, 20, 1)
+	state = rolledTo(t, state, 1)
+	state, _ = move(t, state, 1, 2)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
+
+	_, events := defend(t, state)
+
+	modifications := statModifications(events)
+	require.NotEmpty(t, modifications)
+	require.Equal(t, match.NewAdjacentTerritoriesSource([]board.Position{pos(t, 3, 0)}), modifications[0].Source)
+}
+
+func TestDecide_MoveRejectsChoicesThatAreNotOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	err := decideErr(t, state, &match.MoveCreatureCommand{By: matchtest.Index(t, 1), From: pos(t, 1, 0), To: pos(t, 3, 0)})
+
+	require.ErrorIs(t, err, match.ErrCreatureNotMovable)
 }
 
 func TestDecide_TerritoryCommandsAreRejectedOutsideTheirPhase(t *testing.T) {

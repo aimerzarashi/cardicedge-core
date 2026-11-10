@@ -30,6 +30,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *LevelUpTerritoryCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhaseDeploying, PhaseInvading)
+	case *MoveCreatureCommand:
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return moveCreature(r, c.From, c.To) }, PhaseDeploying, PhaseInvading)
 	case *ChangeLandElementCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return changeLandElement(r, c.Position, c.Element) }, PhaseDeploying, PhaseInvading)
 	case *ExchangeCreatureCommand:
@@ -214,6 +216,28 @@ func levelUp(r *recorder, position board.Position, level int) error {
 	return afterTerritoryCommand(r)
 }
 
+func moveCreature(r *recorder, from, to board.Position) error {
+	if !slices.Contains(r.state.MoveChoices(), MoveChoice{From: from, To: to}) {
+		return ErrCreatureNotMovable
+	}
+	territory, ok := r.state.TerritoryAt(from)
+	if !ok {
+		return ErrInvalidState
+	}
+	if _, occupied := r.state.TerritoryAt(to); occupied {
+		// 他人の領地へは侵略と同じ戦闘をする。アイテムを選ぶところから続ける
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: from, Position: to, Creature: territory.Creature}
+		})
+	}
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CreatureMovedEvent{EventMeta: meta, Participant: by, From: from, To: to, Creature: territory.Creature}
+	}); err != nil {
+		return err
+	}
+	return afterTerritoryCommand(r)
+}
+
 func changeLandElement(r *recorder, position board.Position, element board.Element) error {
 	index := slices.IndexFunc(r.state.ElementChangeChoices(), func(choice ElementChangeChoice) bool { return choice.Position == position && choice.Element == element })
 	if index < 0 {
@@ -328,7 +352,7 @@ func battle(r *recorder) error {
 }
 
 func startBattle(r *recorder) error {
-	territory, ok := r.state.invadedTerritory()
+	territory, ok := r.state.battleTerritory()
 	if !ok || r.state.Invasion == nil {
 		return ErrInvalidState
 	}
@@ -362,12 +386,18 @@ func applyAdjacentTerritories(r *recorder) error {
 	if !ok {
 		return ErrInvalidState
 	}
-	positions := r.state.adjacentTerritoriesOf(r.current().Position, attacker)
+	if r.state.Invasion == nil {
+		return ErrInvalidState
+	}
+	// 移動で侵略したときは、動いたクリーチャーがもういない元の領地を数えない（2026-11-10 オーナー）
+	positions := slices.DeleteFunc(r.state.adjacentTerritoriesOf(r.state.Invasion.Position, attacker), func(position board.Position) bool {
+		return r.state.Invasion.From != nil && position == *r.state.Invasion.From
+	})
 	return modifyBattleStats(r, BattleSideAttacker, NewAdjacentTerritoriesSource(positions), len(positions)*r.state.Rules.AdjacentTerritoryBonus.Int(), 0)
 }
 
 func applyTerrain(r *recorder) error {
-	territory, ok := r.state.invadedTerritory()
+	territory, ok := r.state.battleTerritory()
 	if !ok {
 		return ErrInvalidState
 	}
@@ -433,16 +463,23 @@ func settleBattle(r *recorder) error {
 
 // 奪ったら、配置と同じくそのままターンを終える
 func conquer(r *recorder) error {
-	territory, ok := r.state.invadedTerritory()
-	if !ok {
+	territory, ok := r.state.battleTerritory()
+	if !ok || r.state.Invasion == nil {
 		return ErrInvalidState
 	}
+	moved := r.state.Invasion.From != nil
 	id := r.state.LastDeployedCreatureID + 1
+	if moved {
+		id = r.state.Invasion.Creature
+	}
 	hitPoints := r.state.Battle.Attacker.territoryHitPoints()
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: territory.Position, DefeatedCreature: territory.Creature, Creature: id, TerritoryHitPoints: hitPoints}
 	}); err != nil {
 		return err
+	}
+	if moved {
+		return afterTerritoryCommand(r)
 	}
 	return endTurn(r)
 }
@@ -452,13 +489,23 @@ func repel(r *recorder) error {
 		return ErrInvalidState
 	}
 	invasion := *r.state.Invasion
-	position := r.current().Position
-	returned := r.state.Battle.Attacker.Stats.HitPoints.Int() > 0
+	survived := r.state.Battle.Attacker.Stats.HitPoints.Int() > 0
 	hitPoints := r.state.Battle.Defender.territoryHitPoints()
+	repelled := &InvasionRepelledEvent{Participant: 0, Position: invasion.Position, Card: invasion.Card, ReturnedToHand: survived && invasion.From == nil, TerritoryHitPoints: hitPoints}
+	if survived && invasion.From != nil {
+		// 移動で侵略して生き残ったクリーチャーは、元の領地に戻る（傷は残る）
+		from, returnedHitPoints := *invasion.From, r.state.Battle.Attacker.territoryHitPoints()
+		repelled.ReturnedTo, repelled.ReturnedHitPoints = &from, &returnedHitPoints
+	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: invasion.Card, ReturnedToHand: returned, TerritoryHitPoints: hitPoints}
+		event := *repelled
+		event.EventMeta, event.Participant = meta, by
+		return &event
 	}); err != nil {
 		return err
+	}
+	if invasion.From != nil {
+		return afterTerritoryCommand(r)
 	}
 	return payToll(r)
 }

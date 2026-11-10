@@ -67,6 +67,11 @@ type LandLevel struct {
 // 戦闘が終わるまでの、侵略しているクリーチャー。領地（1 マスに 1 体）には倒してから入るので、盤面の実体とは別に持つ
 type Invasion struct {
 	Card card.Ref
+	// 攻められている領地の位置（手札から侵略したときは止まったマス、移動で侵略したときは移動先）
+	Position board.Position
+	// 移動で侵略したときだけ持つ。元の領地の位置と、動いたクリーチャー（戦闘の間も元の領地にいる）
+	From     *board.Position
+	Creature DeployedCreatureID
 	// 出したときの性能の写し
 	Base CreatureSpec
 	// 戦闘の前の体力（戦闘の中の値は Battle が持つ）
@@ -321,7 +326,7 @@ func (m Match) ItemChoices() []int {
 // 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
 func (m Match) AwaitingParticipant() (ParticipantIndex, bool) {
 	if m.Phase == PhaseDefending {
-		territory, ok := m.invadedTerritory()
+		territory, ok := m.battleTerritory()
 		if !ok {
 			return 0, false
 		}
@@ -461,6 +466,87 @@ func (m Match) passedOwnTerritories() []Territory {
 		}
 	}
 	return owned
+}
+
+// 戦闘で攻められている領地。侵略の間は侵略の位置（移動で侵略したときは止まったマスと違う）、ほかは止まったマス
+func (m Match) battleTerritory() (Territory, bool) {
+	if m.Invasion != nil {
+		return m.TerritoryAt(m.Invasion.Position)
+	}
+	return m.invadedTerritory()
+}
+
+// クリーチャーを動かす選択肢 1 つ
+type MoveChoice struct {
+	From board.Position
+	To   board.Position
+}
+
+// 今の番の人が選べる移動（通った順・行き先の位置の順）。止まった後の段階でだけ中身がある。ちょうど移動の歩数だけ、ボードのつながりで
+// 進み（転送円・橋の対は使わない）、途中はどのマスも通り抜けられ、来たマスへは折り返さない。行き先は土地の空き地か他人の領地
+// （2026-11-10 オーナー。core#147）
+func (m Match) MoveChoices() []MoveChoice {
+	index, ok := m.CurrentParticipant()
+	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	var choices []MoveChoice
+	for _, territory := range m.passedOwnTerritories() {
+		deployed, ok := m.DeployedCreature(territory.Creature)
+		if !ok || deployed.Base.Movement.Int() == 0 {
+			continue
+		}
+		var destinations []board.Position
+		m.walk(territory.Position, nil, deployed.Base.Movement.Int(), &destinations)
+		slices.SortFunc(destinations, board.Position.Compare)
+		for _, to := range slices.Compact(destinations) {
+			if m.isMoveDestination(to, index) {
+				choices = append(choices, MoveChoice{From: territory.Position, To: to})
+			}
+		}
+	}
+	return choices
+}
+
+// 来たマスへ折り返さずに steps 歩進んで届くマスを集める（行き止まりで歩数が残れば届かない）
+func (m Match) walk(at board.Position, previous *board.Position, steps int, reached *[]board.Position) {
+	if steps == 0 {
+		*reached = append(*reached, at)
+		return
+	}
+	for _, next := range m.neighbors(at) {
+		if previous != nil && next == *previous {
+			continue
+		}
+		from := at
+		m.walk(next, &from, steps-1, reached)
+	}
+}
+
+func (m Match) neighbors(position board.Position) []board.Position {
+	var neighbors []board.Position
+	for _, connection := range m.Board.Connections {
+		switch position {
+		case connection.A:
+			neighbors = append(neighbors, connection.B)
+		case connection.B:
+			neighbors = append(neighbors, connection.A)
+		}
+	}
+	return neighbors
+}
+
+// 移動先にできるか。土地で、空き地か他人の領地（自分の領地は選べない）
+func (m Match) isMoveDestination(position board.Position, index ParticipantIndex) bool {
+	if m.isVacantLand(position) {
+		return true
+	}
+	territory, ok := m.TerritoryAt(position)
+	if !ok {
+		return false
+	}
+	owner, ok := m.TerritoryOwner(territory)
+	return ok && owner != index
 }
 
 // 今の番の人が手放せる領地の位置（できた順）。手放す段階でだけ中身がある

@@ -121,7 +121,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 		DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
-		LandLevels: fromQueryLandLevels(match.LandLevels), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
+		LandLevels: fromQueryLandLevels(match.LandLevels), MoveChoices: fromQueryMoveChoices(match.MoveChoices), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 		ElementChangeChoices: elementChangeChoices,
 	}
 	if invasion := match.Invasion; invasion != nil {
@@ -151,6 +151,14 @@ func fromQueryRewardPacks(packs []query.MatchRewardPack) []*model.MatchRewardPac
 	converted := make([]*model.MatchRewardPack, len(packs))
 	for i, pack := range packs {
 		converted[i] = &model.MatchRewardPack{Key: pack.Key, Name: pack.Name}
+	}
+	return converted
+}
+
+func fromQueryMoveChoices(choices []query.MatchMoveChoice) []*model.MatchMoveChoice {
+	converted := make([]*model.MatchMoveChoice, len(choices))
+	for i, choice := range choices {
+		converted[i] = &model.MatchMoveChoice{From: &model.BoardPosition{X: choice.From.X, Y: choice.From.Y}, To: &model.BoardPosition{X: choice.To.X, Y: choice.To.Y}}
 	}
 	return converted
 }
@@ -370,6 +378,16 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Level: e.Level, Magic: e.Magic,
 		}, nil
+	case query.MatchCreatureMovedEvent:
+		return &model.MatchCreatureMovedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			From: &model.BoardPosition{X: e.From.X, Y: e.From.Y}, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}, Creature: e.Creature,
+		}, nil
+	case query.MatchTerritoryInvadedByMoveEvent:
+		return &model.MatchTerritoryInvadedByMoveEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			From: &model.BoardPosition{X: e.From.X, Y: e.From.Y}, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature,
+		}, nil
 	case query.MatchLandElementChangedEvent:
 		element, err := fromBoardTileElement(e.Element)
 		if err != nil {
@@ -423,9 +441,14 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if err != nil {
 			return nil, err
 		}
+		var returnedTo *model.BoardPosition
+		if e.ReturnedTo != nil {
+			returnedTo = &model.BoardPosition{X: e.ReturnedTo.X, Y: e.ReturnedTo.Y}
+		}
 		return &model.MatchInvasionRepelledEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Card: card, ReturnedToHand: e.ReturnedToHand, TerritoryHitPoints: e.TerritoryHitPoints,
+			ReturnedTo: returnedTo, ReturnedHitPoints: e.ReturnedHitPoints,
 		}, nil
 	case query.MatchTollPaidEvent:
 		return &model.MatchTollPaidEvent{

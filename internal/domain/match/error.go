@@ -25,6 +25,7 @@ var (
 	ErrTerritoryNotLevelUpable    = errors.New("match: territory not level-upable")
 	ErrCreatureNotExchangeable    = errors.New("match: creature not exchangeable")
 	ErrLandElementNotChangeable   = errors.New("match: land element not changeable")
+	ErrCreatureNotMovable         = errors.New("match: creature not movable")
 )
 
 var (
