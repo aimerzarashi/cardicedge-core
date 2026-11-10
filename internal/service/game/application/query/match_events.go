@@ -259,6 +259,9 @@ type MatchInvasionRepelledEvent struct {
 	Card               MatchCard
 	ReturnedToHand     bool
 	TerritoryHitPoints int
+	// 移動で侵略して生き残ったときだけ。戻った元の領地の位置と体力
+	ReturnedTo        *BoardPosition
+	ReturnedHitPoints *int
 }
 
 // 通った自分の領地のレベルを上げた
@@ -268,6 +271,24 @@ type MatchTerritoryLeveledUpEvent struct {
 	Position    BoardPosition
 	Level       int
 	Magic       int
+}
+
+// 通った自分の領地のクリーチャーを空き地へ動かした
+type MatchCreatureMovedEvent struct {
+	MatchEventMeta
+	Participant int
+	From        BoardPosition
+	To          BoardPosition
+	Creature    int
+}
+
+// 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した
+type MatchTerritoryInvadedByMoveEvent struct {
+	MatchEventMeta
+	Participant int
+	From        BoardPosition
+	Position    BoardPosition
+	Creature    int
 }
 
 // 通った自分の領地の土地の属性を変えた
@@ -558,6 +579,10 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.TerritoryLeveledUpEvent:
 		return MatchTerritoryLeveledUpEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Level, e.Magic}, nil
+	case *match.CreatureMovedEvent:
+		return MatchCreatureMovedEvent{meta, e.Participant.Int(), NewBoardPosition(e.From.X.Int(), e.From.Y.Int()), NewBoardPosition(e.To.X.Int(), e.To.Y.Int()), e.Creature.Int()}, nil
+	case *match.TerritoryInvadedByMoveEvent:
+		return MatchTerritoryInvadedByMoveEvent{meta, e.Participant.Int(), NewBoardPosition(e.From.X.Int(), e.From.Y.Int()), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int()}, nil
 	case *match.LandElementChangedEvent:
 		element, err := NewBoardTileElement(e.Element.String())
 		if err != nil {
@@ -589,7 +614,13 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchTerritoryConqueredEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.DefeatedCreature.Int(), e.Creature.Int(), e.TerritoryHitPoints.Int()}, nil
 	case *match.InvasionRepelledEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
-		return MatchInvasionRepelledEvent{meta, e.Participant.Int(), position, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.ReturnedToHand, e.TerritoryHitPoints.Int()}, nil
+		var returnedTo *BoardPosition
+		var returnedHitPoints *int
+		if e.ReturnedTo != nil && e.ReturnedHitPoints != nil {
+			to, hitPoints := NewBoardPosition(e.ReturnedTo.X.Int(), e.ReturnedTo.Y.Int()), e.ReturnedHitPoints.Int()
+			returnedTo, returnedHitPoints = &to, &hitPoints
+		}
+		return MatchInvasionRepelledEvent{meta, e.Participant.Int(), position, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.ReturnedToHand, e.TerritoryHitPoints.Int(), returnedTo, returnedHitPoints}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
 	}

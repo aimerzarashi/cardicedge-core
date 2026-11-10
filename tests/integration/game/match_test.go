@@ -32,7 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -160,7 +160,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -235,7 +235,12 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		require.NotNil(t, m["invasion"])
 		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
 	case "TERRITORY_COMMANDING":
-		// 版を 3 で割った余りで属性の変更・交換・レベルアップを分けて、どの操作も通す。選べるものが無ければ何もしない
+		// 版を 4 で割った余りで移動・属性の変更・交換・レベルアップを分けて、どの操作も通す。選べるものが無ければ何もしない
+		if choices := m["moveChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%4 == 2 {
+			choice := choices[0].(map[string]any)
+			input["from"], input["to"] = choice["from"], choice["to"]
+			return matchRevision(t, matchOperation(t, token, "moveMatchCreature", input), "moveMatchCreature")
+		}
 		if choices := m["elementChangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%3 == 1 {
 			choice := choices[0].(map[string]any)
 			input["position"], input["element"] = choice["position"], choice["element"]
@@ -386,6 +391,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchItemSkippedEvent { participant }
 				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
 				... on MatchLandElementChangedEvent { participant position { x y } element magic }
+				... on MatchCreatureMovedEvent { participant from { x y } to { x y } creature }
+				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature }
 				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleStatModifiedEvent {
@@ -399,7 +406,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				}
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
 				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature territoryHitPoints }
-				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints }
+				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
 				... on MatchDiceRolledEvent { participant value }
@@ -855,6 +862,7 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	}
 	var invadingCard any
 	var lastCreature float64
+	var movingFrom any
 	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
 		event := raw.(map[string]any)
 		switch event["__typename"] {
@@ -867,12 +875,29 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
 			require.Equal(t, lastCreature+1, event["creature"])
 			lastCreature = event["creature"].(float64)
+		case "MatchCreatureMovedEvent":
+			expected[key(event["to"])] = expected[key(event["from"])]
+			delete(expected, key(event["from"]))
 		case "MatchTerritoryInvadedEvent":
-			invadingCard = event["card"].(map[string]any)["id"]
+			invadingCard, movingFrom = event["card"].(map[string]any)["id"], nil
+		case "MatchTerritoryInvadedByMoveEvent":
+			movingFrom = event["from"]
 		case "MatchTerritoryConqueredEvent":
+			if movingFrom != nil {
+				// 動いたクリーチャーは同じ ID のまま移り、元の土地は空き地になる
+				expected[key(event["position"])] = expected[key(movingFrom)]
+				delete(expected, key(movingFrom))
+				movingFrom = nil
+				break
+			}
 			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], invadingCard}
 			require.Equal(t, lastCreature+1, event["creature"])
 			lastCreature = event["creature"].(float64)
+		case "MatchInvasionRepelledEvent":
+			if movingFrom != nil && event["returnedTo"] == nil {
+				delete(expected, key(movingFrom))
+			}
+			movingFrom = nil
 		case "MatchTerritoryRelinquishedEvent":
 			delete(expected, key(event["position"]))
 		}

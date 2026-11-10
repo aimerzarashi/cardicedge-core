@@ -385,6 +385,21 @@ func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revi
 	})
 }
 
+// 通った自分の領地のクリーチャーを動かす（他人の領地へなら続けて戦闘）。選べない組は input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
+func (c *MatchHandler) MoveCreature(ctx context.Context, id uuid.UUID, revision int64, fromX, fromY, toX, toY int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		from, err := newPosition(fromX, fromY)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "to"}}
+		}
+		to, err := newPosition(toX, toY)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "to"}}
+		}
+		return &match.MoveCreatureCommand{By: by, From: from, To: to}, nil
+	})
+}
+
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
@@ -493,6 +508,8 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
 	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable), errors.Is(err, match.ErrLandElementNotChangeable):
 		return input.Errors{&input.NotFound{Field: "position"}}
+	case errors.Is(err, match.ErrCreatureNotMovable):
+		return input.Errors{&input.NotFound{Field: "to"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
 	case errors.Is(err, match.ErrRewardAlreadyReceived):

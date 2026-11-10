@@ -160,6 +160,12 @@ type MatchExchangeChoice struct {
 	Magic     int
 }
 
+// クリーチャーを動かす選択肢 1 つ（元の領地と行き先）
+type MatchMoveChoice struct {
+	From BoardPosition
+	To   BoardPosition
+}
+
 // 土地の属性を変える選択肢 1 つ。Element は変えた後の属性、Magic は払う魔力
 type MatchElementChangeChoice struct {
 	Position BoardPosition
@@ -212,6 +218,8 @@ type Match struct {
 	ExchangeChoices []MatchExchangeChoice
 	// 今の番の人が選べる土地の属性の変更。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
 	ElementChangeChoices []MatchElementChangeChoice
+	// 今の番の人が選べるクリーチャーの移動。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	MoveChoices []MatchMoveChoice
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *MatchInvasion
 	// 領地（できた順）
@@ -429,6 +437,12 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
+		MoveChoices: []MatchMoveChoice{},
+	}
+	for _, choice := range current.MoveChoices() {
+		result.MoveChoices = append(result.MoveChoices, MatchMoveChoice{
+			From: NewBoardPosition(choice.From.X.Int(), choice.From.Y.Int()), To: NewBoardPosition(choice.To.X.Int(), choice.To.Y.Int()),
+		})
 	}
 	for _, land := range current.LandLevels {
 		result.LandLevels = append(result.LandLevels, MatchLandLevel{Position: NewBoardPosition(land.Position.X.Int(), land.Position.Y.Int()), Level: land.Level})
@@ -495,8 +509,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		}
 		base := current.Invasion.Base
 		spec := current.CardSpecs()[current.Invasion.Card]
-		turn, _ := current.CurrentParticipant()
-		position := current.Participants[turn].Position
+		position := current.Invasion.Position
 		result.Invasion = &MatchInvasion{
 			Position:  NewBoardPosition(position.X.Int(), position.Y.Int()),
 			Card:      withSpec(found, match.CardSpec{Cost: spec.Cost, Rarity: spec.Rarity, Creature: &base}),
