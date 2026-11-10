@@ -189,6 +189,24 @@ func (r *mutationResolver) ChangeMatchLandElement(ctx context.Context, input mod
 	return &model.ChangeMatchLandElementSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// UseMatchSpell is the resolver for the useMatchSpell field.
+func (r *mutationResolver) UseMatchSpell(ctx context.Context, input model.UseMatchSpellInput) (model.UseMatchSpellResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.UseSpell(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.UseMatchSpellResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.UseMatchSpellSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
 func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

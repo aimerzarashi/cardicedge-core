@@ -33,10 +33,12 @@ func NewSpellHandler(
 
 // presentation 層にドメインの型（spell.Spell・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredSpell struct {
-	ID           uuid.UUID
-	Name         string
-	Cost         int
-	Rarity       string
+	ID     uuid.UUID
+	Name   string
+	Cost   int
+	Rarity string
+	// 登録の直後は効果なし
+	Effect       SpellEffect
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
@@ -138,6 +140,33 @@ func (c *SpellHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision 
 		return ChangedCard{}, input.Errors{invalid}
 	}
 	return c.change(ctx, id, revision, &spell.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
+}
+
+// スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の spell.Effect と同じ形）
+type SpellEffect struct {
+	DrawCards *SpellDrawCards
+}
+
+type SpellDrawCards struct {
+	Count int
+}
+
+// 効果を変える（準備中だけ）。変えた後の効果の全体を受け取り、どの種類も無ければ効果なしにする。同じ値なら変わらず、revision も進まない。
+// 引く枚数が 1 未満は input.Errors（項目 effect.drawCards.count）。ほかのエラーは ChangeCost と同じ
+func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect SpellEffect) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value := spell.NoEffect()
+	if effect.DrawCards != nil {
+		count, err := spell.NewDrawCount(effect.DrawCards.Count)
+		if err != nil {
+			return ChangedCard{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
+		}
+		value = spell.NewDrawCardsEffect(count)
+	}
+	return c.change(ctx, id, revision, &spell.ChangeEffectCommand{Effect: value, ChangedBy: changedBy})
 }
 
 func (c *SpellHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd spell.Command) (ChangedCard, error) {

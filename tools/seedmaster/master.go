@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
@@ -69,6 +70,38 @@ type masterCard struct {
 	Category       string `json:"category"`
 	AttackBonus    *int   `json:"attack_bonus"`
 	HitPointsBonus *int   `json:"hit_points_bonus"`
+	// スペルだけが持つ。書かなければ効果なし（効果の無いスペルを公開できない決まりは、効果の種類がそろうまで効かせない。core#149）。
+	// 形は studio の read model と同じく、種類の名前の下に値を入れる（{"draw_cards":{"count":1}}）
+	Effect *masterSpellEffect `json:"effect"`
+}
+
+type masterSpellEffect struct {
+	DrawCards *struct {
+		Count int `json:"count"`
+	} `json:"draw_cards"`
+}
+
+// 種類がどれも無い効果は書き間違い（効果なしは effect を書かない）
+func (c masterCard) validateSpellSpec() error {
+	if c.Effect == nil {
+		return nil
+	}
+	if c.Type != "spell" {
+		return fmt.Errorf("%s cannot have effect", c.Type)
+	}
+	if c.Effect.DrawCards == nil {
+		return errors.New("spell effect needs one kind")
+	}
+	_, err := spell.NewDrawCount(c.Effect.DrawCards.Count)
+	return err
+}
+
+// 見本の効果を、コマンドの入力にする（書いていなければ効果なし）
+func (c masterCard) spellEffect() command.SpellEffect {
+	if c.Effect == nil || c.Effect.DrawCards == nil {
+		return command.SpellEffect{}
+	}
+	return command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: c.Effect.DrawCards.Count}}
 }
 
 type masterPresetDeck struct {
@@ -198,6 +231,9 @@ func (m master) validate() error {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 		if err := c.validateCreatureSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateSpellSpec(); err != nil {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 	}

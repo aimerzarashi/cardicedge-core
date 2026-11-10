@@ -139,6 +139,7 @@ func toCard(cardType readmodel.CardType, metadata readmodel.CardMetadata) query.
 		Rarity:       metadata.Rarity,
 		Creature:     metadata.Creature,
 		Item:         metadata.Item,
+		Spell:        metadata.Spell,
 		Revision:     metadata.Revision,
 		RegisteredAt: metadata.RegisteredAt,
 		UpdatedAt:    metadata.UpdatedAt,

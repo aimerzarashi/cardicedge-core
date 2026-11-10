@@ -73,6 +73,24 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].DrawPile = e.DrawPile
 		current.Participants[index].DiscardPile = nil
+	case *SpellUsedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		spec, ok := current.CardSpecs()[e.Card]
+		switch {
+		case current.Phase != PhaseRolling, current.SpellUsed,
+			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
+			!ok, spec.Spell == nil:
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[index].Magic -= e.Cost.Int()
+		current.Participants[index].DiscardPile = append(slices.Clone(participant.DiscardPile), e.Card)
+		current.SpellUsed = true
 	case *HandLimitExceededEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -494,6 +512,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.RemainingSteps = 0
 		current.Dice = 0
 		current.PassedPositions = nil
+		current.SpellUsed = false
 		current.Phase = current.turnStartPhase()
 	case *MatchEndedEvent:
 		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}

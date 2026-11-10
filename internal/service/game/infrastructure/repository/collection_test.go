@@ -93,6 +93,9 @@ func expectedCollectionRow(id uuid.UUID, name string, cardType query.CardType, c
 	if cardType == query.CardTypeItem {
 		card.Item = defaultItemSpec()
 	}
+	if cardType == query.CardTypeSpell {
+		card.Spell = defaultSpellSpec()
+	}
 	owned := query.CollectionCard{Card: card, Count: count}
 	cursor := query.CollectionListCursor{CardType: cardType, SortName: name, CardID: id}
 	return query.CollectionListRow{Card: owned, Cursor: cursor}
@@ -250,7 +253,7 @@ func TestCardReader_GetReturnsPublishedAndRetiredCardsButNotMissing(t *testing.T
 	f := newPlayerFixture(t)
 	published, _ := f.insertPublishedCard(t, "公開中", query.CardTypeItem)
 	retired := uuid.New()
-	raw, err := json.Marshal(map[string]any{"id": retired, "name": "使用不可", "status": "retired", "cost": 7, "rarity": "rare"})
+	raw, err := json.Marshal(map[string]any{"id": retired, "name": "使用不可", "status": "retired", "cost": 7, "rarity": "rare", "spell": map[string]any{"effect": map[string]any{}}})
 	require.NoError(t, err)
 	exec, err := rdb.GetExecutor(f.ctx)
 	require.NoError(t, err)
@@ -265,7 +268,7 @@ func TestCardReader_GetReturnsPublishedAndRetiredCardsButNotMissing(t *testing.T
 	_, errMissing := reader.Get(f.ctx, uuid.New())
 
 	require.Equal(t, query.Card{ID: published, Name: "公開中", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec()}, gotPublished)
-	require.Equal(t, query.Card{ID: retired, Name: "使用不可", Type: query.CardTypeSpell, Cost: 7, Rarity: "rare"}, gotRetired)
+	require.Equal(t, query.Card{ID: retired, Name: "使用不可", Type: query.CardTypeSpell, Cost: 7, Rarity: "rare", Spell: defaultSpellSpec()}, gotRetired)
 	require.ErrorIs(t, errMissing, query.ErrCardNotFound)
 }
 

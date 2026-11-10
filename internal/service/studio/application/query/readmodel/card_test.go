@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -94,7 +95,10 @@ func TestCard_EvolvesFromSpellRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｆireball", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{
+		ID: publicID, Name: "Ｆireball", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Revision: 1, RegisteredAt: at, UpdatedAt: at,
+		Spell: &readmodel.SpellMetadata{},
+	}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeSpell,
@@ -237,4 +241,44 @@ func TestCard_ItemHasItsSpecFromRegistrationAndChanges(t *testing.T) {
 	require.Equal(t, &readmodel.ItemMetadata{Category: "armor", AttackBonus: 5, HitPointsBonus: 30}, changed.Metadata.Item)
 	// 元の状態の入れ子を書き換えない
 	require.Equal(t, "weapon", registered.Metadata.Item.Category)
+}
+
+func TestCard_EvolvesSpellEffectFromEffectChanged(t *testing.T) {
+	registeredAt := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	changedAt := registeredAt.Add(time.Hour)
+	events := registeredSpell(t, uuid.New(), "Hope", registeredAt)
+	registeredState := readmodel.Card{}.Evolve(events[0])
+	registered, err := spell.Evolve(spell.InitialState(), events[0])
+	require.NoError(t, err)
+	changed, err := spell.Decide(registered, &spell.ChangeEffectCommand{Effect: spelltest.DrawCards(t, 2), ChangedBy: operatortest.ID(t, 11)}, changedAt)
+	require.NoError(t, err)
+
+	afterEffect := registeredState.Evolve(changed[0])
+
+	drawTwo := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 2}}
+	require.Equal(t, &readmodel.SpellMetadata{Effect: drawTwo}, afterEffect.Metadata.Spell)
+	require.Equal(t, int64(2), afterEffect.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 11), afterEffect.UpdatedBy)
+	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
+	require.Equal(t, &readmodel.SpellMetadata{}, registeredState.Metadata.Spell)
+}
+
+// 効果の JSON は domain の spell.Effect と同じ形（game が読む約束。効果なしは {}）
+func TestSpellMetadata_EffectJSONMatchesTheDomainEffect(t *testing.T) {
+	var none readmodel.SpellEffectMetadata
+	drawOne := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 1}}
+	tests := map[string]struct {
+		effect readmodel.SpellEffectMetadata
+		want   string
+	}{
+		"no_effect":  {effect: none, want: `{"effect":{}}`},
+		"draw_cards": {effect: drawOne, want: `{"effect":{"draw_cards":{"count":1}}}`},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			raw, err := json.Marshal(readmodel.SpellMetadata{Effect: tt.effect})
+			require.NoError(t, err)
+			require.JSONEq(t, tt.want, string(raw))
+		})
+	}
 }

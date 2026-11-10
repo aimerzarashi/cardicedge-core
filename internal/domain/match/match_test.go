@@ -26,6 +26,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 )
 
 var startedAt = time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
@@ -221,6 +223,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
 		&match.DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: refs(t, 102, 101)},
 		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
+		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.Ref(t, card.SpellEntityType, 401), Cost: cardtest.Cost(t, 40)},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
@@ -2662,4 +2665,145 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 			require.ErrorIs(t, err, match.ErrInvalidState)
 		})
 	}
+}
+
+// 手札の最後にスペルを足す（デッキの写しにも足す。性能は写しから読むため）
+func withSpellInHand(t *testing.T, state match.Match, participant int, id int64, cost int, effect spell.Effect) match.Match {
+	t.Helper()
+	ref := cardtest.Ref(t, card.SpellEntityType, id)
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: effect}}
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Hand = append(slices.Clone(target.Hand), ref)
+	target.Participant.Cards = append(slices.Clone(target.Participant.Cards), match.DeckCard{
+		Card: ref, Quantity: cardtest.DeckQuantity(t, 1), Spec: spec,
+	})
+	state.Participants[participant] = target
+	return state
+}
+
+// 参加者 1 が引いた後の、サイコロを振る段階の対戦（手札は 3 枚目にスペル 401（コスト 40・2 枚引く））
+func rollingWithSpell(t *testing.T) match.Match {
+	t.Helper()
+	state, _ := apply(t, newMatch(t, lineBoard(t), defaultRules(t)), matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
+	require.Equal(t, match.PhaseRolling, state.Phase)
+	return withSpellInHand(t, state, 1, 401, 40, spelltest.DrawCards(t, 2))
+}
+
+func spellIndex(state match.Match) int {
+	return len(state.Participants[1].Hand) - 1
+}
+
+func TestDecide_UseSpellPaysAndDrawsAndPutsTheSpellIntoTheDiscardPile(t *testing.T) {
+	state := withPiles(t, rollingWithSpell(t), 1, refs(t, 5, 6, 7), nil)
+	handBefore := len(state.Participants[1].Hand)
+	require.Equal(t, []int{spellIndex(state)}, state.SpellChoices())
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+
+	used := eventOf[*match.SpellUsedEvent](t, events)
+	require.Equal(t, cardtest.Ref(t, card.SpellEntityType, 401), used.Card)
+	require.Equal(t, cardtest.Cost(t, 40), used.Cost)
+	require.Equal(t, 2, countOf[*match.CardDrawnEvent](events))
+	require.Len(t, state.Participants[1].Hand, handBefore-1+2)
+	require.Equal(t, refs(t, 7), state.Participants[1].DrawPile)
+	require.Equal(t, []card.Ref{cardtest.Ref(t, card.SpellEntityType, 401)}, state.Participants[1].DiscardPile)
+	require.Equal(t, 600-40, state.Participants[1].Magic)
+	// 使った後もサイコロを振る。スペルは 1 ターンに 1 枚まで
+	require.Equal(t, match.PhaseRolling, state.Phase)
+	require.Empty(t, state.SpellChoices())
+}
+
+func TestDecide_UseSpellDrawsOnlyWhatIsLeftAndShufflesTheDiscardPile(t *testing.T) {
+	state := withPiles(t, rollingWithSpell(t), 1, refs(t, 5), nil)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+
+	// 1 枚目は山札から、2 枚目は使ったスペルだけの捨て札を混ぜて引く
+	require.Equal(t, 2, countOf[*match.CardDrawnEvent](events))
+	require.Equal(t, 1, countOf[*match.DiscardPileShuffledEvent](events))
+	require.Empty(t, state.Participants[1].DrawPile)
+	require.Empty(t, state.Participants[1].DiscardPile)
+}
+
+func TestDecide_UseSpellStopsDrawingWhenBothPilesAreEmpty(t *testing.T) {
+	state := rollingWithSpell(t)
+	state = withPiles(t, state, 1, nil, nil)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+
+	// 使ったスペルが捨て札に入るので、その 1 枚だけを混ぜて引ける
+	require.Equal(t, 1, countOf[*match.CardDrawnEvent](events))
+	require.Equal(t, match.PhaseRolling, state.Phase)
+}
+
+func TestDecide_UseSpellRejectsWhatCannotBeUsed(t *testing.T) {
+	creatureIndex := 0
+	tests := map[string]struct {
+		state     func(t *testing.T) match.Match
+		handIndex func(state match.Match) int
+		err       error
+	}{
+		"creature": {
+			state:     rollingWithSpell,
+			handIndex: func(match.Match) int { return creatureIndex },
+			err:       match.ErrSpellNotUsable,
+		},
+		"no_effect": {
+			state: func(t *testing.T) match.Match {
+				return withSpellInHand(t, rollingWithSpell(t), 1, 402, 10, spell.NoEffect())
+			},
+			handIndex: spellIndex,
+			err:       match.ErrSpellNotUsable,
+		},
+		"not_payable": {
+			state:     func(t *testing.T) match.Match { return withMagic(rollingWithSpell(t), 1, 39) },
+			handIndex: spellIndex,
+			err:       match.ErrSpellNotUsable,
+		},
+		"already_used": {
+			state: func(t *testing.T) match.Match {
+				state := withSpellInHand(t, rollingWithSpell(t), 1, 403, 10, spelltest.DrawCards(t, 1))
+				state, _ = apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+				return state
+			},
+			handIndex: func(state match.Match) int { return spellIndex(state) - 1 },
+			err:       match.ErrSpellNotUsable,
+		},
+		"out_of_range": {
+			state:     rollingWithSpell,
+			handIndex: func(state match.Match) int { return len(state.Participants[1].Hand) },
+			err:       match.ErrHandIndexOutOfRange,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := tt.state(t)
+
+			err := decideErr(t, state, &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: tt.handIndex(state)})
+
+			require.ErrorIs(t, err, tt.err)
+		})
+	}
+}
+
+func TestDecide_UseSpellIsOnlyBeforeRolling(t *testing.T) {
+	state := withSpellInHand(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 401, 40, spelltest.DrawCards(t, 1))
+	require.Equal(t, match.PhaseDrawing, state.Phase)
+	require.Empty(t, state.SpellChoices())
+
+	err := decideErr(t, state, &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+
+	require.ErrorIs(t, err, match.ErrPhaseNotAllowed)
+}
+
+func TestDecide_SpellCanBeUsedAgainInTheNextTurn(t *testing.T) {
+	state := rollingWithSpell(t)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+	require.True(t, state.SpellUsed)
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	state, _ = endTurn(t, state, 1)
+
+	require.False(t, state.SpellUsed)
 }

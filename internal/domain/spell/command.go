@@ -40,7 +40,14 @@ type ChangeRarityCommand struct {
 	ChangedBy operator.ID
 }
 
+// 効果を変える（準備中だけ）。変えた後の効果の全体（効果なしにもできる）。同じ値なら何も変えない
+type ChangeEffectCommand struct {
+	Effect    Effect
+	ChangedBy operator.ID
+}
+
 func (*RegisterCommand) isSpellCommand()     {}
+func (*ChangeEffectCommand) isSpellCommand() {}
 func (*PublishCommand) isSpellCommand()      {}
 func (*RetireCommand) isSpellCommand()       {}
 func (*ChangeCostCommand) isSpellCommand()   {}

@@ -41,7 +41,9 @@ type DeckCard struct {
 	// クリーチャーだけの性能（クリーチャー以外は nil）
 	Creature *CreatureSpec
 	// アイテムだけの性能（アイテム以外は nil）
-	Item  *ItemSpec
+	Item *ItemSpec
+	// スペルだけの性能（スペル以外は nil）
+	Spell *SpellSpec
 	Count int
 }
 

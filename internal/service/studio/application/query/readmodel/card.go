@@ -83,6 +83,7 @@ type CardMetadata struct {
 	// 2026-11-07 オーナー）。クリーチャー以外は持たず、省く
 	Creature *CreatureMetadata `json:"creature,omitempty"`
 	Item     *ItemMetadata     `json:"item,omitempty"`
+	Spell    *SpellMetadata    `json:"spell,omitempty"`
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64     `json:"revision"`
 	RegisteredAt time.Time `json:"registered_at"`
@@ -105,6 +106,28 @@ type ItemMetadata struct {
 	Category       string `json:"category"`
 	AttackBonus    int    `json:"attack_bonus"`
 	HitPointsBonus int    `json:"hit_points_bonus"`
+}
+
+// スペルだけの性能
+type SpellMetadata struct {
+	Effect SpellEffectMetadata `json:"effect"`
+}
+
+// スペルの効果。domain の spell.Effect と同じ形（持っている種類の名前の下に値を入れ、効果なしは {}）。種類ごとの型を分けるのも同じ（2026-11-10 オーナー）
+type SpellEffectMetadata struct {
+	DrawCards *SpellDrawCardsMetadata `json:"draw_cards,omitempty"`
+}
+
+type SpellDrawCardsMetadata struct {
+	Count int `json:"count"`
+}
+
+func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
+	var metadata SpellEffectMetadata
+	if effect.DrawCards != nil {
+		metadata.DrawCards = &SpellDrawCardsMetadata{Count: effect.DrawCards.Count.Int()}
+	}
+	return metadata
 }
 
 // Creature・Item・Spell のイベントだけを扱い、ほかは状態をそのまま返す
@@ -147,6 +170,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
+			Spell:        &SpellMetadata{Effect: spellEffectMetadata(e.Effect)},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -185,6 +209,9 @@ func (state Card) Evolve(event any) Card {
 		changed.Attack = e.Attack.Int()
 		changed.HitPoints = e.HitPoints.Int()
 		state.Metadata.Creature = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *spell.EffectChangedEvent:
+		state.Metadata.Spell = &SpellMetadata{Effect: spellEffectMetadata(e.Effect)}
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *creature.MovementChangedEvent:
 		changed := *state.Metadata.Creature

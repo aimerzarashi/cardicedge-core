@@ -3,5 +3,6 @@
   "name": "ファイアボール",
   "cost": 10,
   "rarity": "normal",
+  "effect": {},
   "registered_by": 10
 }

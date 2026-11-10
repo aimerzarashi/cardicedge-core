@@ -186,3 +186,37 @@ func TestRegisterSpell_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	require.Equal(t, 1, succeeded)
 	spellIDByName(t, ctx, name)
 }
+
+func TestChangeSpellEffect_ChangesDraftAndRejectsCountLessThanOne(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホープ")
+	require.NoError(t, err)
+	require.Equal(t, command.SpellEffect{}, registered.Effect)
+	drawOne := command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 1}}
+
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, drawOne)
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	unchanged, err := commands.ChangeEffect(ctx, changed.ID, changed.Revision, drawOne)
+	require.NoError(t, err)
+	require.Equal(t, changed, unchanged)
+	cleared, err := commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{})
+	require.NoError(t, err)
+	require.Equal(t, changed.Revision+1, cleared.Revision)
+	_, err = commands.ChangeEffect(ctx, cleared.ID, cleared.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 0}})
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}, err)
+}
+
+func TestChangeSpellEffect_RejectsNotDraft(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホープ")
+	require.NoError(t, err)
+	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+
+	_, err = commands.ChangeEffect(ctx, published.ID, published.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 1}})
+
+	require.ErrorIs(t, err, command.ErrCardNotDraft)
+}

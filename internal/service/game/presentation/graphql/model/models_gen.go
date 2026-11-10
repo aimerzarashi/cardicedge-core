@@ -265,6 +265,16 @@ type RoomResult interface {
 	IsRoomResult()
 }
 
+// スペルの効果（種類は __typename で見分ける）
+type SpellEffect interface {
+	IsSpellEffect()
+}
+
+// useMatchSpell の結果（ROLLING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type UseMatchSpellResult interface {
+	IsUseMatchSpellResult()
+}
+
 // 侵略を確定した人がアイテムを選ぶ入力
 type AttackMatchTerritoryInput struct {
 	// 対戦の公開用の ID
@@ -1192,6 +1202,8 @@ type Match struct {
 	RemainingSteps int `json:"remainingSteps"`
 	// 今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）
 	PathChoices []*BoardPosition `json:"pathChoices"`
+	// 今の番の人が使えるスペルの手札の番号（0 始まり。手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）
+	SpellChoices []int `json:"spellChoices"`
 	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）
 	DeployChoices []int `json:"deployChoices"`
 	// 今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）
@@ -1994,6 +2006,8 @@ func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
 func (MatchNotFoundError) IsDeployMatchCreatureResult() {}
 
+func (MatchNotFoundError) IsUseMatchSpellResult() {}
+
 func (MatchNotFoundError) IsInvadeMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsAttackMatchTerritoryResult() {}
@@ -2035,6 +2049,8 @@ func (MatchNotYourTurnError) IsRollMatchDiceResult() {}
 func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
 
 func (MatchNotYourTurnError) IsDeployMatchCreatureResult() {}
+
+func (MatchNotYourTurnError) IsUseMatchSpellResult() {}
 
 func (MatchNotYourTurnError) IsInvadeMatchTerritoryResult() {}
 
@@ -2111,6 +2127,8 @@ func (MatchPhaseNotAllowedError) IsRollMatchDiceResult() {}
 func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
 
 func (MatchPhaseNotAllowedError) IsDeployMatchCreatureResult() {}
+
+func (MatchPhaseNotAllowedError) IsUseMatchSpellResult() {}
 
 func (MatchPhaseNotAllowedError) IsInvadeMatchTerritoryResult() {}
 
@@ -2255,6 +2273,35 @@ type MatchRules struct {
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
 }
+
+// サイコロを振る前に、手札のスペルを使った（効果は続くイベント。スペルは捨て札に入る）
+type MatchSpellUsedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 使った手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 使ったカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 払った魔力
+	Cost int `json:"cost"`
+}
+
+func (MatchSpellUsedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchSpellUsedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchSpellUsedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchSpellUsedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 地形効果（効いた土地）
 type MatchTerrainSource struct {
@@ -2673,6 +2720,8 @@ func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
 
 func (PlayerNotRegisteredError) IsDeployMatchCreatureResult() {}
 
+func (PlayerNotRegisteredError) IsUseMatchSpellResult() {}
+
 func (PlayerNotRegisteredError) IsInvadeMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsAttackMatchTerritoryResult() {}
@@ -2860,6 +2909,8 @@ func (RevisionConflictError) IsRollMatchDiceResult() {}
 func (RevisionConflictError) IsChooseMatchPathResult() {}
 
 func (RevisionConflictError) IsDeployMatchCreatureResult() {}
+
+func (RevisionConflictError) IsUseMatchSpellResult() {}
 
 func (RevisionConflictError) IsInvadeMatchTerritoryResult() {}
 
@@ -3195,6 +3246,8 @@ type SpellCardInfo struct {
 	Cost int `json:"cost"`
 	// 希少度
 	Rarity CardRarity `json:"rarity"`
+	// 効果（効果が無ければ null。効果の無いスペルは、対戦で使えない）
+	Effect SpellEffect `json:"effect,omitempty"`
 }
 
 func (SpellCardInfo) IsCardInfo() {}
@@ -3213,8 +3266,36 @@ func (this SpellCardInfo) GetRarity() CardRarity { return this.Rarity }
 
 func (SpellCardInfo) IsCardResult() {}
 
+// カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）
+type SpellDrawCardsEffect struct {
+	// 引く枚数（1 以上）
+	Count int `json:"count"`
+}
+
+func (SpellDrawCardsEffect) IsSpellEffect() {}
+
 type Subscription struct {
 }
+
+// サイコロを振る前にスペルを使う入力
+type UseMatchSpellInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 使うスペルの手札の番号（0 始まり。Match.spellChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で使えないものは FieldNotFound）
+	HandIndex int `json:"handIndex"`
+}
+
+// スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）
+type UseMatchSpellSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (UseMatchSpellSuccess) IsUseMatchSpellResult() {}
 
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
@@ -3233,6 +3314,8 @@ func (ValidationErrors) IsDiscardMatchCardResult() {}
 func (ValidationErrors) IsChooseMatchPathResult() {}
 
 func (ValidationErrors) IsDeployMatchCreatureResult() {}
+
+func (ValidationErrors) IsUseMatchSpellResult() {}
 
 func (ValidationErrors) IsInvadeMatchTerritoryResult() {}
 

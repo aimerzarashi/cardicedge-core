@@ -86,7 +86,7 @@ func TestDeckReader_ListsOwnDecksInRegistrationOrderWithCardsInTypeThenNameOrder
 			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
 			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 4},
 			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 2},
-			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Count: 1},
+			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 		}},
 		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 4}}},
 	}, got)
@@ -109,7 +109,7 @@ func TestDeckReader_GetReturnsOwnDeckWithCardsInTypeThenNameOrder(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, query.Deck{ID: deckPublicID, Name: "火", Cards: []query.DeckCard{
 		{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
-		{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Count: 1},
+		{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 	}}, got)
 }
 

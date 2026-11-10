@@ -1,0 +1,9 @@
+{
+  "participant": 1,
+  "hand_index": 1,
+  "card": {
+    "entity_type": "spell",
+    "id": 401
+  },
+  "cost": 40
+}

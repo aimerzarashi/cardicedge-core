@@ -31,6 +31,17 @@ type CardSpec struct {
 	Creature *CreatureSpec
 	// アイテムだけが持つ（アイテム以外は nil）
 	Item *ItemSpec
+	// スペルだけが持つ（スペル以外は nil）
+	Spell *SpellSpec
+}
+
+// スペルだけの性能（写した cards.metadata.spell の値）。効果は種類ごとの値のどれか 1 つで、どれも無ければ効果なし
+type SpellSpec struct {
+	DrawCards *SpellDrawCards
+}
+
+type SpellDrawCards struct {
+	Count int
 }
 
 // アイテムだけの性能（写した cards.metadata.item の値）

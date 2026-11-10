@@ -406,3 +406,61 @@ func TestItem_CategoryAndStatBonusesAreRejectedForOtherThanADraftItem(t *testing
 	require.Equal(t, "CardNotFoundError", notAnItem["__typename"])
 	require.Equal(t, "CardNotDraftError", notDraft["__typename"])
 }
+
+const changeSpellEffectMutation = `mutation ($input: ChangeSpellEffectInput!) {
+	changeSpellEffect(input: $input) {
+		__typename
+		... on ChangeSpellEffectSuccess { id revision }
+		... on ValidationErrors { errors { __typename field ... on FieldTooSmall { min } } }
+	}
+}`
+
+func changeSpellEffect(t *testing.T, token string, id, revision, effect any) map[string]any {
+	t.Helper()
+	return client.Data(t, token, changeSpellEffectMutation, map[string]any{"input": map[string]any{"id": id, "revision": revision, "effect": effect}}, "changeSpellEffect")
+}
+
+func TestChangeSpellEffect_ChangesSpellAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerSpell(t, token, "ホープ-"+testhelper.UniqueID(t))["spell"].(map[string]any)
+
+	changed := changeSpellEffect(t, token, card["id"], card["revision"], map[string]any{"drawCards": map[string]any{"count": 2}})
+
+	require.Equal(t, map[string]any{"__typename": "ChangeSpellEffectSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellDrawCardsEffect { count } } revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellDrawCardsEffect", "count": float64(2)}, "revision": float64(2)}, got)
+		}
+	})
+	// null は効果なしに戻す
+	cleared := changeSpellEffect(t, token, card["id"], changed["revision"], nil)
+	require.Equal(t, "ChangeSpellEffectSuccess", cleared["__typename"])
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename } revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"effect": nil, "revision": float64(3)}, got)
+		}
+	})
+}
+
+func TestChangeSpellEffect_ReturnsResultTypePerReason(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	spell := registerSpell(t, token, "ホープ-"+id)["spell"].(map[string]any)
+	creature := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
+	published := registerSpell(t, token, "フライ-"+id)["spell"].(map[string]any)
+	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
+
+	tooSmall := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{"drawCards": map[string]any{"count": 0}})
+	noKind := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{})
+	notASpell := changeSpellEffect(t, token, creature["id"], creature["revision"], nil)
+	notDraft := changeSpellEffect(t, token, published["id"], publishedRevision, nil)
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldTooSmall", "field": "effect.drawCards.count", "min": float64(1)}}}, tooSmall)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "effect"}}}, noKind)
+	require.Equal(t, "CardNotFoundError", notASpell["__typename"])
+	require.Equal(t, "CardNotDraftError", notDraft["__typename"])
+}

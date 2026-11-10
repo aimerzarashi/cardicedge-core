@@ -64,6 +64,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		Name:         f.name,
 		Cost:         card.DefaultCost,
 		Rarity:       card.DefaultRarity,
+		Effect:       spell.NoEffect(),
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -84,7 +85,7 @@ func TestEvolve_RegisteredEventMakesSpell(t *testing.T) {
 
 	require.Equal(t, spell.Spell{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
-		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity, Effect: spell.NoEffect(),
 	}, registered)
 }
 
@@ -106,6 +107,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, retired := f.retire(t, f.publishedState(t))
 	_, costChanged := f.decide(t, state, &spell.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
 	_, rarityChanged := f.decide(t, state, &spell.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
+	_, effectChanged := f.decide(t, state, &spell.ChangeEffectCommand{Effect: spelltest.DrawCards(t, 2), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event spell.Event
@@ -115,6 +117,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "retired", event: retired},
 		{name: "cost_changed", event: costChanged[0]},
 		{name: "rarity_changed", event: rarityChanged[0]},
+		{name: "effect_changed", event: effectChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,6 +274,7 @@ func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
 
 	afterCost, costEvents := f.decide(t, registered, &spell.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
 	afterRarity, rarityEvents := f.decide(t, afterCost, &spell.ChangeRarityCommand{Rarity: card.RarityRare, ChangedBy: f.registeredBy})
+	afterEffect, effectEvents := f.decide(t, afterRarity, &spell.ChangeEffectCommand{Effect: spelltest.DrawCards(t, 2), ChangedBy: f.registeredBy})
 
 	require.Equal(t, []spell.Event{&spell.CostChangedEvent{
 		EventMeta: spell.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
@@ -282,10 +286,15 @@ func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
 		Rarity:    card.RarityRare,
 		ChangedBy: f.registeredBy,
 	}}, rarityEvents)
+	require.Equal(t, []spell.Event{&spell.EffectChangedEvent{
+		EventMeta: spell.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
+		Effect:    spelltest.DrawCards(t, 2),
+		ChangedBy: f.registeredBy,
+	}}, effectEvents)
 	require.Equal(t, spell.Spell{
-		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
-		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
-	}, afterRarity)
+		ID: f.id, Version: 4, PublicID: publicID, Status: card.StatusDraft,
+		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare, Effect: spelltest.DrawCards(t, 2),
+	}, afterEffect)
 }
 
 // 同じ値への変更は、イベントを作らない（版を進めず、画面の版を古くしないため）
@@ -296,6 +305,7 @@ func TestDecide_SpecChangesEmitNothingWhenUnchanged(t *testing.T) {
 	}{
 		{name: "same_cost", cmd: &spell.ChangeCostCommand{Cost: card.DefaultCost}},
 		{name: "same_rarity", cmd: &spell.ChangeRarityCommand{Rarity: card.DefaultRarity}},
+		{name: "same_effect", cmd: &spell.ChangeEffectCommand{Effect: spell.NoEffect()}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -319,6 +329,7 @@ func TestDecide_RejectsSpecChangesWhenNotDraft(t *testing.T) {
 	}{
 		{name: "cost_published", state: func(t *testing.T, f fixture) spell.State { return f.publishedState(t) }, cmd: &spell.ChangeCostCommand{Cost: cardtest.Cost(t, 30)}},
 		{name: "rarity_retired", state: func(t *testing.T, f fixture) spell.State { return f.retiredState(t) }, cmd: &spell.ChangeRarityCommand{Rarity: card.RarityRare}},
+		{name: "effect_published", state: func(t *testing.T, f fixture) spell.State { return f.publishedState(t) }, cmd: &spell.ChangeEffectCommand{Effect: spelltest.DrawCards(t, 1)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -338,6 +349,7 @@ func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
 	}{
 		{name: "cost", cmd: &spell.ChangeCostCommand{}},
 		{name: "rarity", cmd: &spell.ChangeRarityCommand{}},
+		{name: "effect", cmd: &spell.ChangeEffectCommand{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -346,4 +358,17 @@ func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
 			require.ErrorIs(t, err, spell.ErrInvalidState)
 		})
 	}
+}
+
+func TestNewDrawCount_RejectsLessThanOne(t *testing.T) {
+	_, err := spell.NewDrawCount(0)
+
+	require.ErrorIs(t, err, spell.ErrDrawCountTooSmall)
+}
+
+func TestEffect_EqualComparesTheContents(t *testing.T) {
+	require.True(t, spelltest.DrawCards(t, 1).Equal(spelltest.DrawCards(t, 1)))
+	require.False(t, spelltest.DrawCards(t, 1).Equal(spelltest.DrawCards(t, 2)))
+	require.False(t, spelltest.DrawCards(t, 1).Equal(spell.NoEffect()))
+	require.True(t, spell.NoEffect().Equal(spell.NoEffect()))
 }

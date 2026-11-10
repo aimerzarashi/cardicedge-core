@@ -115,6 +115,11 @@ type ChangeItemStatBonusesResult interface {
 	IsChangeItemStatBonusesResult()
 }
 
+// スペルの効果を変える操作の結果（カードでない ID・スペル以外のカードの ID は CardNotFoundError）
+type ChangeSpellEffectResult interface {
+	IsChangeSpellEffectResult()
+}
+
 // ボードのレイアウトの判定の結果
 type CheckBoardLayoutResult interface {
 	IsCheckBoardLayoutResult()
@@ -393,6 +398,11 @@ type SetStarterSetUnlockBoardsResult interface {
 // 新しく入れる公開中でないアバターは使えない）
 type SetStarterSetUnlockNpcAvatarsResult interface {
 	IsSetStarterSetUnlockNpcAvatarsResult()
+}
+
+// スペルの効果（種類は __typename で見分ける）
+type SpellEffect interface {
+	IsSpellEffect()
 }
 
 // スターターセットの詳細の結果
@@ -763,6 +773,8 @@ func (CardNotDraftError) IsChangeItemCategoryResult() {}
 
 func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
 
+func (CardNotDraftError) IsChangeSpellEffectResult() {}
+
 // カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）
 type CardNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -788,6 +800,8 @@ func (CardNotFoundError) IsChangeCreatureMovementResult() {}
 func (CardNotFoundError) IsChangeItemCategoryResult() {}
 
 func (CardNotFoundError) IsChangeItemStatBonusesResult() {}
+
+func (CardNotFoundError) IsChangeSpellEffectResult() {}
 
 // カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
 type CardShopTile struct {
@@ -1010,6 +1024,26 @@ type ChangeItemStatBonusesSuccess struct {
 }
 
 func (ChangeItemStatBonusesSuccess) IsChangeItemStatBonusesResult() {}
+
+// スペルの効果を変える入力
+type ChangeSpellEffectInput struct {
+	// スペルの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスペルの revision
+	Revision int `json:"revision"`
+	// 変えた後の効果（null なら効果なし）
+	Effect *SpellEffectInput `json:"effect,omitempty"`
+}
+
+// スペルの効果を変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeSpellEffectSuccess struct {
+	// 変えたスペルの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスペルの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeSpellEffectSuccess) IsChangeSpellEffectResult() {}
 
 // ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）
 type CheckBoardLayoutInput struct {
@@ -1515,6 +1549,8 @@ func (ForbiddenError) IsSetPresetDeckCardCountsResult() {}
 func (ForbiddenError) IsDeletePresetDeckResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
+
+func (ForbiddenError) IsChangeSpellEffectResult() {}
 
 func (ForbiddenError) IsStarterSetsResult() {}
 
@@ -2571,6 +2607,8 @@ func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
 func (RevisionConflictError) IsDeletePresetDeckResult() {}
 
+func (RevisionConflictError) IsChangeSpellEffectResult() {}
+
 func (RevisionConflictError) IsRenameStarterSetResult() {}
 
 func (RevisionConflictError) IsSetStarterSetGrantDecksResult() {}
@@ -2769,6 +2807,8 @@ type Spell struct {
 	Cost int `json:"cost"`
 	// 希少度
 	Rarity CardRarity `json:"rarity"`
+	// 効果（効果が無ければ null。効果の無いスペルは、対戦で使えない）
+	Effect SpellEffect `json:"effect,omitempty"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -2804,6 +2844,26 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// カードを引く効果（山札の先頭から引く）
+type SpellDrawCardsEffect struct {
+	// 引く枚数（1 以上）
+	Count int `json:"count"`
+}
+
+func (SpellDrawCardsEffect) IsSpellEffect() {}
+
+// カードを引く効果の入力
+type SpellDrawCardsEffectInput struct {
+	// 引く枚数（1 以上。上限は無い）
+	Count int `json:"count"`
+}
+
+// スペルの効果の入力（種類のどれか 1 つだけ）
+type SpellEffectInput struct {
+	// カードを引く
+	DrawCards *SpellDrawCardsEffectInput `json:"drawCards,omitempty"`
+}
 
 // スターターセットの一覧の 1 ページ（名前の順）
 type StarterSetConnection struct {
@@ -3010,6 +3070,8 @@ func (ValidationErrors) IsRenamePresetDeckResult() {}
 func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
+
+func (ValidationErrors) IsChangeSpellEffectResult() {}
 
 func (ValidationErrors) IsStarterSetsResult() {}
 

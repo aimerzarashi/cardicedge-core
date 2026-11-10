@@ -19,6 +19,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Name:         c.Name,
 			Cost:         card.DefaultCost,
 			Rarity:       card.DefaultRarity,
+			Effect:       NoEffect(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -53,12 +54,18 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&RarityChangedEvent{EventMeta: nextMeta(spell, now), Rarity: c.Rarity, ChangedBy: c.ChangedBy}}, nil
+	case *ChangeEffectCommand:
+		spell, err := editable(state)
+		if err != nil || spell.Effect.Equal(c.Effect) {
+			return nil, err
+		}
+		return []Event{&EffectChangedEvent{EventMeta: nextMeta(spell, now), Effect: c.Effect, ChangedBy: c.ChangedBy}}, nil
 	default:
 		return nil, ErrInvalidState
 	}
 }
 
-// 性能を変えられる（登録済みで準備中の）クリーチャー
+// 性能を変えられる（登録済みで準備中の）スペル
 func editable(state State) (Spell, error) {
 	spell, ok := state.(Spell)
 	if !ok {

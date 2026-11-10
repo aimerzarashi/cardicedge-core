@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
@@ -142,8 +143,13 @@ func toCard(card query.Card) (model.Card, error) {
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeSpell:
+		// 投影が必ず書く値なので、無ければ read model の不整合（黙って空にしない）
+		if card.Spell == nil {
+			return nil, fmt.Errorf("graphql: spell %s has no spell spec", card.ID)
+		}
 		return &model.Spell{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity, Revision: revision,
+			Effect:       fromSpellEffect(card.Spell.Effect),
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	default:
@@ -174,6 +180,32 @@ type cardChangeResult interface {
 	model.ChangeCreatureMovementResult
 	model.ChangeItemCategoryResult
 	model.ChangeItemStatBonusesResult
+	model.ChangeSpellEffectResult
+}
+
+// 効果なしは null（種類ごとの型のどれも返さない）
+func fromSpellEffect(effect readmodel.SpellEffectMetadata) model.SpellEffect {
+	if effect.DrawCards != nil {
+		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+	}
+	return nil
+}
+
+// 種類のどれか 1 つだけを受け付ける（@oneOf の「ちょうど 1 つ」は変数の値だと GraphQL の層が確かめないため。toBoardTileInput と同じ）。
+// null は効果なし。どれも無いのは入力の誤り（ok が false）
+func toSpellEffect(effect *model.SpellEffectInput) (command.SpellEffect, bool) {
+	if effect == nil {
+		return command.SpellEffect{}, true
+	}
+	if effect.DrawCards == nil {
+		return command.SpellEffect{}, false
+	}
+	return command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: effect.DrawCards.Count}}, true
+}
+
+// 種類がどれも無い効果の入力の誤り（resolver の引数の名前 input がパッケージの input と重なるため、ここで作る）
+func invalidSpellEffect() *model.ValidationErrors {
+	return validationErrors(input.Errors{&input.InvalidFormat{Field: "effect"}})
 }
 
 // enum の値と希少度の対応を明示する（toCardType と同じ理由）

@@ -56,6 +56,15 @@ type DeployCreatureCommand struct {
 
 func (*DeployCreatureCommand) isMatchCommand() {}
 
+// サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで。2026-11-10 オーナー。core#149）。コストを払い、効果を当て、スペルは捨て札に入る
+type UseSpellCommand struct {
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+}
+
+func (*UseSpellCommand) isMatchCommand() {}
+
 // 止まった他人の領地を、手札のクリーチャーで侵略する。選んだ時点で確定し、コストを払う
 type InvadeCommand struct {
 	By ParticipantIndex

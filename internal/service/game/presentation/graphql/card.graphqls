@@ -72,6 +72,18 @@ type SpellCardInfo implements CardInfo {
   cost: Int!
   "希少度"
   rarity: CardRarity!
+  "効果（効果が無ければ null。効果の無いスペルは、対戦で使えない）"
+  effect: SpellEffect
+}
+
+# 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする
+"スペルの効果（種類は __typename で見分ける）"
+union SpellEffect = SpellDrawCardsEffect
+
+"カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）"
+type SpellDrawCardsEffect {
+  "引く枚数（1 以上）"
+  count: Int!
 }
 
 # 画面の略称（N・S・R・E）は game が作る。上下の順は戦利品のパックで使うときに決める

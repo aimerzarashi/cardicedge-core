@@ -17,3 +17,11 @@ func ID(t testing.TB, value int64) spell.ID {
 	require.NoError(t, err)
 	return id
 }
+
+// カードを引く効果
+func DrawCards(t testing.TB, count int) spell.Effect {
+	t.Helper()
+	drawCount, err := spell.NewDrawCount(count)
+	require.NoError(t, err)
+	return spell.NewDrawCardsEffect(drawCount)
+}

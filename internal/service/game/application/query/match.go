@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 // 公開 ID に当たる対戦が、そのプレイヤーの対戦として無い（無い・参加していない対戦。存在を明かさないため区別しない）
@@ -70,6 +71,8 @@ type MatchCard struct {
 	Creature *CreatureSpec
 	// アイテムだけの性能（アイテム以外は nil）。クリーチャーと同じく、対戦の中は写しの性能
 	Item *ItemSpec
+	// スペルだけの性能（スペル以外は nil）。クリーチャーと同じく、対戦の中は写しの性能
+	Spell *SpellSpec
 }
 
 // 対戦の盤面の写し。始めた時点のボードの形（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）
@@ -204,6 +207,8 @@ type Match struct {
 	RemainingSteps int
 	// 今の番の人が選べる行き先。分かれ道で選ぶ段階のときだけ中身がある
 	PathChoices []BoardPosition
+	// 今の番の人が使えるスペルの手札の番号。振る段階で、このターンにまだ使っていないときだけ中身がある
+	SpellChoices []int
 	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
 	DeployChoices []int
 	// 今の番の人が侵略に出せる手札の番号。侵略を選ぶ段階のときだけ中身がある
@@ -460,7 +465,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
-		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		SpellChoices: []int{}, DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
 		MoveChoices: []MatchMoveChoice{},
 	}
@@ -547,6 +552,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	}
 	if phase == MatchPhaseChoosingPath {
 		result.PathChoices = fromBoardPositions(current.PathChoices())
+	}
+	if choices := current.SpellChoices(); len(choices) > 0 {
+		result.SpellChoices = choices
 	}
 	if choices := current.DeployChoices(); len(choices) > 0 {
 		result.DeployChoices = choices
@@ -673,5 +681,17 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	if spec.Item != nil {
 		found.Item = &ItemSpec{Category: spec.Item.Category.String(), AttackBonus: spec.Item.AttackBonus.Int(), HitPointsBonus: spec.Item.HitPointsBonus.Int()}
 	}
+	found.Spell = nil
+	if spec.Spell != nil {
+		found.Spell = &SpellSpec{Effect: fromSpellEffect(spec.Spell.Effect)}
+	}
 	return found
+}
+
+func fromSpellEffect(effect spell.Effect) SpellEffect {
+	var converted SpellEffect
+	if effect.DrawCards != nil {
+		converted.DrawCards = &SpellDrawCards{Count: effect.DrawCards.Count.Int()}
+	}
+	return converted
 }

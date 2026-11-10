@@ -40,6 +40,7 @@ var Types = Catalog{
 			{ID: 1303, Name: "RetiredEvent"},
 			{ID: 1304, Name: "CostChangedEvent"},
 			{ID: 1305, Name: "RarityChangedEvent"},
+			{ID: 1306, Name: "EffectChangedEvent"},
 		}},
 		{ID: 1400, Name: "preset_deck", Events: []EventTypeDef{
 			{ID: 1401, Name: "RegisteredEvent"},
@@ -175,6 +176,7 @@ var Types = Catalog{
 			{ID: 3031, Name: "TerritoryInvadedByMoveEvent"},
 			{ID: 3032, Name: "DiscardPileShuffledEvent"},
 			{ID: 3033, Name: "HandLimitExceededEvent"},
+			{ID: 3034, Name: "SpellUsedEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

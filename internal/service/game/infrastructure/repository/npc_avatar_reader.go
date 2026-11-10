@@ -54,6 +54,19 @@ type cardMetadata struct {
 	Creature *creatureMetadata `json:"creature"`
 	// アイテムだけが持つ入れ子
 	Item *itemMetadata `json:"item"`
+	// スペルだけが持つ入れ子
+	Spell *spellMetadata `json:"spell"`
+}
+
+type spellMetadata struct {
+	// 効果なしは {}（null ではない）。無いのは効果を足す前に投影した行
+	Effect *spellEffectMetadata `json:"effect"`
+}
+
+type spellEffectMetadata struct {
+	DrawCards *struct {
+		Count int `json:"count"`
+	} `json:"draw_cards"`
 }
 
 type itemMetadata struct {
@@ -257,6 +270,17 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category, attack_bonus or hit_points_bonus (project the cards again and publish the master)", id)
 		}
 		card.Item = &query.ItemSpec{Category: itemSpec.Category, AttackBonus: *itemSpec.AttackBonus, HitPointsBonus: *itemSpec.HitPointsBonus}
+	}
+	if cardType == query.CardTypeSpell {
+		spellSpec := metadata.Spell
+		if spellSpec == nil || spellSpec.Effect == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no spell effect (project the cards again and publish the master)", id)
+		}
+		var effect query.SpellEffect
+		if spellSpec.Effect.DrawCards != nil {
+			effect.DrawCards = &query.SpellDrawCards{Count: spellSpec.Effect.DrawCards.Count}
+		}
+		card.Spell = &query.SpellSpec{Effect: effect}
 	}
 	return cardRow{card: card, sortName: sortName}, nil
 }

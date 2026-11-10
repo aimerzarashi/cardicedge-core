@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 type ID int64
@@ -184,6 +185,13 @@ type CardSpec struct {
 	Creature *CreatureSpec `json:"creature,omitempty"`
 	// アイテムだけが持つ。クリーチャー・スペルは nil で、JSON にも出さない
 	Item *ItemSpec `json:"item,omitempty"`
+	// スペルだけが持つ。クリーチャー・アイテムは nil で、JSON にも出さない
+	Spell *SpellSpec `json:"spell,omitempty"`
+}
+
+// スペルの性能の写し。値の型は CreatureSpec と同じ理由で spell パッケージのものをそのまま使う
+type SpellSpec struct {
+	Effect spell.Effect `json:"effect"`
 }
 
 // アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う

@@ -300,6 +300,12 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 		if row.card.Item != nil {
 			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, AttackBonus: row.card.Item.AttackBonus, HitPointsBonus: row.card.Item.HitPointsBonus}
 		}
+		if row.card.Spell != nil {
+			spec.Spell = &master.SpellSpec{}
+			if drawCards := row.card.Spell.Effect.DrawCards; drawCards != nil {
+				spec.Spell.DrawCards = &master.SpellDrawCards{Count: drawCards.Count}
+			}
+		}
 		specs[ref] = spec
 	}
 	return specs, nil
