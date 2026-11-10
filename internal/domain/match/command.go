@@ -114,6 +114,15 @@ type ExchangeCreatureCommand struct {
 
 func (*ExchangeCreatureCommand) isMatchCommand() {}
 
+// 通った自分の領地の土地の属性を Element に変える
+type ChangeLandElementCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+	Element  board.Element
+}
+
+func (*ChangeLandElementCommand) isMatchCommand() {}
+
 type EndTurnCommand struct {
 	By ParticipantIndex
 }

@@ -118,6 +118,8 @@
     "toll_percentage": 60,
     "relinquish_percentage": 80,
     "terrain_bonus_per_level": 10,
-    "adjacent_territory_bonus": 10
+    "adjacent_territory_bonus": 10,
+    "land_element_change_multiplier": 2,
+    "multi_land_element_change_multiplier": 1
   }
 }

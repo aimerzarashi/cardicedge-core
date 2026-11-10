@@ -388,6 +388,48 @@ func (m Match) ExchangeChoices() []ExchangeChoice {
 	return choices
 }
 
+// 土地の属性を変える選択肢 1 つ
+type ElementChangeChoice struct {
+	Position board.Position
+	// 変えた後の属性
+	Element board.Element
+	// 払う魔力
+	Magic int
+}
+
+// 変えられる先の属性。無属性・複属性へは変えられない（2026-11-10 オーナー）
+var changeableLandElements = []board.Element{board.ElementFire, board.ElementEarth, board.ElementWater, board.ElementWind}
+
+// 今の番の人が選べる属性の変更（通った順・火・地・水・風の順）。止まった後の段階でだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ
+func (m Match) ElementChangeChoices() []ElementChangeChoice {
+	index, ok := m.CurrentParticipant()
+	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	var choices []ElementChangeChoice
+	for _, territory := range m.passedOwnTerritories() {
+		current := m.landElement(territory.Position)
+		magic := m.landElementChangeMagic(current)
+		if magic > m.Participants[index].Magic {
+			continue
+		}
+		for _, element := range changeableLandElements {
+			if element != current {
+				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic})
+			}
+		}
+	}
+	return choices
+}
+
+// 基本の値 × 倍率。複属性の土地からは安い倍率（2026-11-10 オーナー）
+func (m Match) landElementChangeMagic(current board.Element) int {
+	if current == board.ElementMulti {
+		return m.Rules.BaseLandValue * m.Rules.MultiLandElementChangeMultiplier.Int()
+	}
+	return m.Rules.BaseLandValue * m.Rules.LandElementChangeMultiplier.Int()
+}
+
 // 基本の値 × 倍率の差。連鎖の倍率は掛けないので、飛ばして上げた額は途中の額の合計になる（2026-11-08 オーナー）
 func (m Match) levelUpMagic(territory Territory, level int) int {
 	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(territory.Level))

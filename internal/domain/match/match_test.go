@@ -237,6 +237,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
+		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
@@ -2223,6 +2224,82 @@ func TestDecide_ExchangeRejectsChoicesThatAreNotOffered(t *testing.T) {
 			err := decideErr(t, state, &match.ExchangeCreatureCommand{By: matchtest.Index(t, 1), Position: pos(t, tc.x, 0), HandIndex: tc.hand})
 
 			require.ErrorIs(t, err, match.ErrCreatureNotExchangeable)
+		})
+	}
+}
+
+func changeElement(t *testing.T, state match.Match, x int, element board.Element) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, matchtest.NewRandom(), &match.ChangeLandElementCommand{By: matchtest.Index(t, 1), Position: pos(t, x, 0), Element: element})
+}
+
+func TestMatch_ElementChangeChoicesAreOtherElementsWithinTheMagic(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	require.Equal(t, []match.ElementChangeChoice{
+		{Position: pos(t, 1, 0), Element: board.ElementEarth, Magic: 200},
+		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200},
+		{Position: pos(t, 1, 0), Element: board.ElementWind, Magic: 200},
+	}, state.ElementChangeChoices())
+	require.Empty(t, withMagic(state, 1, 199).ElementChangeChoices())
+}
+
+func TestMatch_ChangingFromMultiLandIsCheaperAndOffersAllFourElements(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 5, 1), 5)
+
+	choices := state.ElementChangeChoices()
+
+	require.Len(t, choices, 4)
+	for _, choice := range choices {
+		require.Equal(t, 100, choice.Magic)
+	}
+}
+
+func TestDecide_ChangingTheElementRecountsTheChainAndEndsTheTurn(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 2), 1, 2, 1)
+	state = rolledTo(t, state, 3)
+	require.Equal(t, 150, valueAt(t, state, 2))
+
+	state, events := changeElement(t, state, 1, board.ElementWater)
+
+	changed := eventOf[*match.LandElementChangedEvent](t, events)
+	require.Equal(t, board.ElementWater, changed.Element)
+	require.Equal(t, 200, changed.Magic)
+	require.Equal(t, 600-200, state.Participants[1].Magic)
+	require.Equal(t, 100, valueAt(t, state, 2))
+	// レベルとクリーチャーはそのまま
+	territory, _ := state.TerritoryAt(pos(t, 1, 0))
+	require.Equal(t, 2, territory.Level)
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_ChangingTheElementOnTheTerritoryOfAnotherOnlyPaysTheToll(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 1)
+	state = rolledTo(t, state, 2)
+
+	_, events := changeElement(t, state, 1, board.ElementWater)
+
+	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_ElementChangeRejectsChoicesThatAreNotOffered(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+	cases := []struct {
+		name    string
+		x       int
+		element board.Element
+	}{
+		{name: "same_element", x: 1, element: board.ElementFire},
+		{name: "to_multi", x: 1, element: board.ElementMulti},
+		{name: "to_neutral", x: 1, element: board.ElementNeutral},
+		{name: "not_passed", x: 3, element: board.ElementWater},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := decideErr(t, state, &match.ChangeLandElementCommand{By: matchtest.Index(t, 1), Position: pos(t, tc.x, 0), Element: tc.element})
+
+			require.ErrorIs(t, err, match.ErrLandElementNotChangeable)
 		})
 	}
 }

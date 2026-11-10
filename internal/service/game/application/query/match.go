@@ -154,6 +154,13 @@ type MatchExchangeChoice struct {
 	Magic     int
 }
 
+// 土地の属性を変える選択肢 1 つ。Element は変えた後の属性、Magic は払う魔力
+type MatchElementChangeChoice struct {
+	Position BoardPosition
+	Element  BoardTileElement
+	Magic    int
+}
+
 type MatchInvasion struct {
 	Position  BoardPosition
 	Card      MatchCard
@@ -195,6 +202,8 @@ type Match struct {
 	LevelUpChoices []MatchLevelUpChoice
 	// 今の番の人が選べるクリーチャーの交換。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
 	ExchangeChoices []MatchExchangeChoice
+	// 今の番の人が選べる土地の属性の変更。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	ElementChangeChoices []MatchElementChangeChoice
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *MatchInvasion
 	// 領地（できた順）
@@ -411,7 +420,16 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		DeployChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
-		LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{},
+		LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
+	}
+	for _, choice := range current.ElementChangeChoices() {
+		element, err := NewBoardTileElement(choice.Element.String())
+		if err != nil {
+			return Match{}, err
+		}
+		result.ElementChangeChoices = append(result.ElementChangeChoices, MatchElementChangeChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), Element: element, Magic: choice.Magic,
+		})
 	}
 	for _, choice := range current.ExchangeChoices() {
 		result.ExchangeChoices = append(result.ExchangeChoices, MatchExchangeChoice{

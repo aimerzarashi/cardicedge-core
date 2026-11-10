@@ -110,7 +110,8 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 		ID: matchID, Participants: participants, Board: snapshot,
 		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks(),
 			gameRules.Match.LandLevelMultipliers, gameRules.Match.ChainMultipliers, gameRules.Match.TollPercentage, gameRules.Match.RelinquishPercentage,
-			gameRules.Match.TerrainBonusPerLevel, gameRules.Match.AdjacentTerritoryBonus),
+			gameRules.Match.TerrainBonusPerLevel, gameRules.Match.AdjacentTerritoryBonus,
+			gameRules.Match.LandElementChangeMultiplier, gameRules.Match.MultiLandElementChangeMultiplier),
 	}
 	random := c.newRandom()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
@@ -365,6 +366,21 @@ func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revis
 	})
 }
 
+// 通った自分の領地の土地の属性を変える。element は board の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
+func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, element string) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		parsed, err := board.NewElement(element)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "element"}}
+		}
+		return &match.ChangeLandElementCommand{By: by, Position: position, Element: parsed}, nil
+	})
+}
+
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
@@ -471,7 +487,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
-	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable):
+	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable), errors.Is(err, match.ErrLandElementNotChangeable):
 		return input.Errors{&input.NotFound{Field: "position"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
