@@ -36,6 +36,7 @@ type CreatureSpec struct {
 	Elements  []string
 	Attack    int
 	HitPoints int
+	Movement  int
 }
 
 // 写した cards から 1 枚読む。無ければ ErrCardNotFound

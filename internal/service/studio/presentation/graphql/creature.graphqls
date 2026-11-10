@@ -16,6 +16,8 @@ type Creature implements Card {
   attack: Int!
   "体力（HP。1 以上）"
   hitPoints: Int!
+  "移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 以上。0 は動けない）"
+  movement: Int!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -97,6 +99,27 @@ type ChangeCreatureStatsSuccess {
 "クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
 union ChangeCreatureStatsResult = ChangeCreatureStatsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
 
+"クリーチャーの移動を変える入力"
+input ChangeCreatureMovementInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の移動（0 以上。上限は無い）"
+  movement: Int!
+}
+
+"クリーチャーの移動を変えた（同じ値なら何も変えず、revision も進まない）"
+type ChangeCreatureMovementSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの移動を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureMovementResult = ChangeCreatureMovementSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
 extend type Mutation {
   "クリーチャーの属性を変える（紐づいたオペレーターだけ。準備中だけ）"
   changeCreatureElements(
@@ -108,6 +131,11 @@ extend type Mutation {
     "変えるクリーチャーと攻撃力・体力"
     input: ChangeCreatureStatsInput!
   ): ChangeCreatureStatsResult!
+  "クリーチャーの移動を変える（紐づいたオペレーターだけ。準備中だけ。AT・HP とは別の操作）"
+  changeCreatureMovement(
+    "変えるクリーチャーと移動"
+    input: ChangeCreatureMovementInput!
+  ): ChangeCreatureMovementResult!
   "クリーチャーを登録する（紐づいたオペレーターだけ）"
   registerCreature(
     "登録するクリーチャー"

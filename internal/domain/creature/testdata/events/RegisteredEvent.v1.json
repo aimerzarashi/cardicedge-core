@@ -6,5 +6,6 @@
   "elements": ["neutral"],
   "attack": 10,
   "hit_points": 10,
+  "movement": 1,
   "registered_by": 10
 }

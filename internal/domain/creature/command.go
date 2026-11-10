@@ -53,6 +53,12 @@ type ChangeStatsCommand struct {
 	ChangedBy operator.ID
 }
 
+// 移動を変える（準備中だけ）。同じ値なら何も変えない。AT・HP とは別の操作にする（2026-11-10 オーナー）
+type ChangeMovementCommand struct {
+	Movement  Movement
+	ChangedBy operator.ID
+}
+
 func (*RegisterCommand) isCreatureCommand()       {}
 func (*PublishCommand) isCreatureCommand()        {}
 func (*RetireCommand) isCreatureCommand()         {}
@@ -60,3 +66,4 @@ func (*ChangeCostCommand) isCreatureCommand()     {}
 func (*ChangeRarityCommand) isCreatureCommand()   {}
 func (*ChangeElementsCommand) isCreatureCommand() {}
 func (*ChangeStatsCommand) isCreatureCommand()    {}
+func (*ChangeMovementCommand) isCreatureCommand() {}

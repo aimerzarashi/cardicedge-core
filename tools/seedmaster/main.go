@@ -914,12 +914,15 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		if err == nil {
 			changed, err = s.cardCommands.ChangeRarity(ctx, changed.ID, changed.Revision, c.Rarity)
 		}
-		// 属性・攻撃力・体力はクリーチャーだけ（validate が、クリーチャーには必ず書いてあることを確かめている）
+		// 属性・攻撃力・体力・移動はクリーチャーだけ（validate が、クリーチャーには必ず書いてあることを確かめている）
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangeElements(ctx, changed.ID, changed.Revision, c.Elements)
 		}
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangeStats(ctx, changed.ID, changed.Revision, *c.Attack, *c.HitPoints)
+		}
+		if err == nil && c.Type == "creature" {
+			changed, err = s.creatures.ChangeMovement(ctx, changed.ID, changed.Revision, *c.Movement)
 		}
 		// 分類と増減はアイテムだけ（validate が、アイテムには必ず書いてあることを確かめている）
 		if err == nil && c.Type == "item" {

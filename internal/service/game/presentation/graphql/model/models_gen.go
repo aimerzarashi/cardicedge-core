@@ -739,6 +739,8 @@ type CreatureCardInfo struct {
 	Attack int `json:"attack"`
 	// 体力（HP）
 	HitPoints int `json:"hitPoints"`
+	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 は動けない）
+	Movement int `json:"movement"`
 }
 
 func (CreatureCardInfo) IsCardInfo() {}

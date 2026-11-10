@@ -124,7 +124,7 @@ func toCard(card query.Card) (model.Card, error) {
 		}
 		return &model.Creature{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
-			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Revision: revision,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, Revision: revision,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
@@ -171,6 +171,7 @@ type cardChangeResult interface {
 	model.ChangeCardRarityResult
 	model.ChangeCreatureElementsResult
 	model.ChangeCreatureStatsResult
+	model.ChangeCreatureMovementResult
 	model.ChangeItemCategoryResult
 	model.ChangeItemStatBonusesResult
 }

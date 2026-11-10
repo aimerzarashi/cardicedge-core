@@ -121,6 +121,23 @@ func (a Attack) Modified(delta int) Attack {
 	return Attack(max(int(a)+delta, 0))
 }
 
+// 移動。領地コマンドのクリーチャーの移動で進めるマスの数。0 以上（0 は動けない。防御型のクリーチャー）。上限は持たない（2026-11-10 オーナー）
+type Movement int
+
+// 登録の直後の移動（2026-11-10 オーナー）
+const DefaultMovement Movement = 1
+
+func NewMovement(value int) (Movement, error) {
+	if value < 0 {
+		return 0, ErrMovementNegative
+	}
+	return Movement(value), nil
+}
+
+func (m Movement) Int() int {
+	return int(m)
+}
+
 // 体力（HP）。1 以上（0 だと出した直後に倒れるため）。上限は持たない
 type HitPoints int
 

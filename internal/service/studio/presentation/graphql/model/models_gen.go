@@ -95,6 +95,11 @@ type ChangeCreatureElementsResult interface {
 	IsChangeCreatureElementsResult()
 }
 
+// クリーチャーの移動を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureMovementResult interface {
+	IsChangeCreatureMovementResult()
+}
+
 // クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
 type ChangeCreatureStatsResult interface {
 	IsChangeCreatureStatsResult()
@@ -752,6 +757,8 @@ func (CardNotDraftError) IsChangeCreatureElementsResult() {}
 
 func (CardNotDraftError) IsChangeCreatureStatsResult() {}
 
+func (CardNotDraftError) IsChangeCreatureMovementResult() {}
+
 func (CardNotDraftError) IsChangeItemCategoryResult() {}
 
 func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
@@ -775,6 +782,8 @@ func (CardNotFoundError) IsChangeCardRarityResult() {}
 func (CardNotFoundError) IsChangeCreatureElementsResult() {}
 
 func (CardNotFoundError) IsChangeCreatureStatsResult() {}
+
+func (CardNotFoundError) IsChangeCreatureMovementResult() {}
 
 func (CardNotFoundError) IsChangeItemCategoryResult() {}
 
@@ -918,6 +927,26 @@ type ChangeCreatureElementsSuccess struct {
 
 func (ChangeCreatureElementsSuccess) IsChangeCreatureElementsResult() {}
 
+// クリーチャーの移動を変える入力
+type ChangeCreatureMovementInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の移動（0 以上。上限は無い）
+	Movement int `json:"movement"`
+}
+
+// クリーチャーの移動を変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeCreatureMovementSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureMovementSuccess) IsChangeCreatureMovementResult() {}
+
 // クリーチャーの攻撃力と体力を変える入力
 type ChangeCreatureStatsInput struct {
 	// クリーチャーの公開用の ID
@@ -1038,6 +1067,8 @@ type Creature struct {
 	Attack int `json:"attack"`
 	// 体力（HP。1 以上）
 	HitPoints int `json:"hitPoints"`
+	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 以上。0 は動けない）
+	Movement int `json:"movement"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1408,6 +1439,8 @@ func (ForbiddenError) IsRegisterCreatureResult() {}
 func (ForbiddenError) IsChangeCreatureElementsResult() {}
 
 func (ForbiddenError) IsChangeCreatureStatsResult() {}
+
+func (ForbiddenError) IsChangeCreatureMovementResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
@@ -2496,6 +2529,8 @@ func (RevisionConflictError) IsChangeCreatureElementsResult() {}
 
 func (RevisionConflictError) IsChangeCreatureStatsResult() {}
 
+func (RevisionConflictError) IsChangeCreatureMovementResult() {}
+
 func (RevisionConflictError) IsRenameGrantDeckResult() {}
 
 func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
@@ -2923,6 +2958,8 @@ func (ValidationErrors) IsRegisterCreatureResult() {}
 func (ValidationErrors) IsChangeCreatureElementsResult() {}
 
 func (ValidationErrors) IsChangeCreatureStatsResult() {}
+
+func (ValidationErrors) IsChangeCreatureMovementResult() {}
 
 func (ValidationErrors) IsGrantDecksResult() {}
 

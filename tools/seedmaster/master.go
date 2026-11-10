@@ -64,6 +64,7 @@ type masterCard struct {
 	Elements  []string `json:"elements"`
 	Attack    *int     `json:"attack"`
 	HitPoints *int     `json:"hit_points"`
+	Movement  *int     `json:"movement"`
 	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
 	Category       string `json:"category"`
 	AttackBonus    *int   `json:"attack_bonus"`
@@ -124,19 +125,22 @@ const (
 	deckTotalCount = 40
 )
 
-// クリーチャーは属性・攻撃力・体力を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
+// クリーチャーは属性・攻撃力・体力・移動を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
 func (c masterCard) validateCreatureSpec() error {
 	if c.Type != "creature" {
-		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil {
-			return fmt.Errorf("%s cannot have elements, attack or hit_points", c.Type)
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.Movement != nil {
+			return fmt.Errorf("%s cannot have elements, attack, hit_points or movement", c.Type)
 		}
 		return nil
 	}
 	if _, err := creature.NewElements(c.Elements); err != nil {
 		return err
 	}
-	if c.Attack == nil || c.HitPoints == nil {
-		return errors.New("creature needs attack and hit_points")
+	if c.Attack == nil || c.HitPoints == nil || c.Movement == nil {
+		return errors.New("creature needs attack, hit_points and movement")
+	}
+	if _, err := creature.NewMovement(*c.Movement); err != nil {
+		return err
 	}
 	if _, err := creature.NewAttack(*c.Attack); err != nil {
 		return err

@@ -97,6 +97,7 @@ type CreatureMetadata struct {
 	Elements  []string `json:"elements"`
 	Attack    int      `json:"attack"`
 	HitPoints int      `json:"hit_points"`
+	Movement  int      `json:"movement"`
 }
 
 // アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
@@ -118,7 +119,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int()},
+			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), Movement: e.Movement.Int()},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -183,6 +184,11 @@ func (state Card) Evolve(event any) Card {
 		changed := *state.Metadata.Creature
 		changed.Attack = e.Attack.Int()
 		changed.HitPoints = e.HitPoints.Int()
+		state.Metadata.Creature = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *creature.MovementChangedEvent:
+		changed := *state.Metadata.Creature
+		changed.Movement = e.Movement.Int()
 		state.Metadata.Creature = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *item.RarityChangedEvent:

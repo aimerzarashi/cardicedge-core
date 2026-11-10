@@ -51,6 +51,7 @@ func creatureSpec(t *testing.T, id int64) *match.CreatureSpec {
 	t.Helper()
 	return &match.CreatureSpec{
 		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, int(id%100)*5), HitPoints: creaturetest.HitPoints(t, int(id%100)*10+10),
+		Movement: creaturetest.Movement(t, 1),
 	}
 }
 

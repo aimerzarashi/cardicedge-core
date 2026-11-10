@@ -53,6 +53,24 @@ func (r *mutationResolver) ChangeCreatureStats(ctx context.Context, input model.
 	return &model.ChangeCreatureStatsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ChangeCreatureMovement is the resolver for the changeCreatureMovement field.
+func (r *mutationResolver) ChangeCreatureMovement(ctx context.Context, input model.ChangeCreatureMovementInput) (model.ChangeCreatureMovementResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.creatures.ChangeMovement(ctx, input.ID, int64(input.Revision), input.Movement)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCreatureMovementSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterCreature is the resolver for the registerCreature field.
 func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -78,7 +96,7 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints,
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, Movement: registered.Movement,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

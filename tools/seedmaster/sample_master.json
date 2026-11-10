@@ -7,7 +7,8 @@
       "rarity": "normal",
       "elements": ["neutral"],
       "attack": 20,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -16,7 +17,8 @@
       "rarity": "normal",
       "elements": ["neutral"],
       "attack": 40,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -25,7 +27,8 @@
       "rarity": "normal",
       "elements": ["fire"],
       "attack": 20,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -34,7 +37,8 @@
       "rarity": "normal",
       "elements": ["fire"],
       "attack": 40,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -43,7 +47,8 @@
       "rarity": "normal",
       "elements": ["fire"],
       "attack": 30,
-      "hit_points": 20
+      "hit_points": 20,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -52,7 +57,8 @@
       "rarity": "normal",
       "elements": ["fire"],
       "attack": 30,
-      "hit_points": 50
+      "hit_points": 50,
+      "movement": 0
     },
     {
       "type": "creature",
@@ -61,7 +67,8 @@
       "rarity": "normal",
       "elements": ["fire"],
       "attack": 30,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -70,7 +77,8 @@
       "rarity": "normal",
       "elements": ["earth"],
       "attack": 20,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -79,7 +87,8 @@
       "rarity": "normal",
       "elements": ["earth"],
       "attack": 30,
-      "hit_points": 50
+      "hit_points": 50,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -88,7 +97,8 @@
       "rarity": "normal",
       "elements": ["earth"],
       "attack": 0,
-      "hit_points": 60
+      "hit_points": 60,
+      "movement": 0
     },
     {
       "type": "creature",
@@ -97,7 +107,8 @@
       "rarity": "normal",
       "elements": ["earth"],
       "attack": 20,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -106,7 +117,8 @@
       "rarity": "normal",
       "elements": ["earth"],
       "attack": 30,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -115,7 +127,8 @@
       "rarity": "normal",
       "elements": ["water"],
       "attack": 20,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -124,7 +137,8 @@
       "rarity": "normal",
       "elements": ["water"],
       "attack": 0,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 0
     },
     {
       "type": "creature",
@@ -133,7 +147,8 @@
       "rarity": "normal",
       "elements": ["water"],
       "attack": 10,
-      "hit_points": 50
+      "hit_points": 50,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -142,7 +157,8 @@
       "rarity": "normal",
       "elements": ["water"],
       "attack": 30,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -151,7 +167,8 @@
       "rarity": "normal",
       "elements": ["water"],
       "attack": 30,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -160,7 +177,8 @@
       "rarity": "normal",
       "elements": ["wind"],
       "attack": 20,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -169,7 +187,8 @@
       "rarity": "normal",
       "elements": ["wind"],
       "attack": 0,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -178,7 +197,8 @@
       "rarity": "normal",
       "elements": ["wind"],
       "attack": 20,
-      "hit_points": 50
+      "hit_points": 50,
+      "movement": 0
     },
     {
       "type": "creature",
@@ -187,7 +207,8 @@
       "rarity": "normal",
       "elements": ["wind"],
       "attack": 30,
-      "hit_points": 30
+      "hit_points": 30,
+      "movement": 1
     },
     {
       "type": "creature",
@@ -196,7 +217,8 @@
       "rarity": "normal",
       "elements": ["wind"],
       "attack": 30,
-      "hit_points": 40
+      "hit_points": 40,
+      "movement": 1
     },
     {
       "type": "item",

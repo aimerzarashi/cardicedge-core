@@ -199,6 +199,7 @@ type CreatureSpec struct {
 	Elements  creature.Elements  `json:"elements"`
 	Attack    creature.Attack    `json:"attack"`
 	HitPoints creature.HitPoints `json:"hit_points"`
+	Movement  creature.Movement  `json:"movement"`
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため
