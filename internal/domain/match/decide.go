@@ -19,7 +19,7 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		}
 		return start(c, now, random)
 	case *DrawCommand:
-		return playTurn(state, c.By, PhaseDrawing, now, draw)
+		return playTurn(state, c.By, PhaseDrawing, now, func(r *recorder) error { return draw(r, random) })
 	case *DiscardCommand:
 		return playTurn(state, c.By, PhaseDiscarding, now, func(r *recorder) error { return discard(r, c.HandIndex) })
 	case *RollCommand:
@@ -131,24 +131,41 @@ func playTurn(state State, by ParticipantIndex, phase Phase, now time.Time, act 
 	return r.events, nil
 }
 
-func draw(r *recorder) error {
-	pile := r.current().DrawPile
-	if len(pile) == 0 {
-		return ErrInvalidState
+// 山札が空なら、捨て札を混ぜて山札にしてから引く（2026-11-10 オーナー。core#148）
+func draw(r *recorder, random Random) error {
+	if len(r.current().DrawPile) == 0 {
+		pile := slices.Clone(r.current().DiscardPile)
+		if len(pile) == 0 {
+			return ErrInvalidState
+		}
+		random.Shuffle(len(pile), func(a, b int) { pile[a], pile[b] = pile[b], pile[a] })
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: pile}
+		}); err != nil {
+			return err
+		}
 	}
+	pile := r.current().DrawPile
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &CardDrawnEvent{EventMeta: meta, Participant: by, Card: pile[0]}
 	})
 }
 
+// 上限まで捨てたら、止めていたターンの終わりを続ける
 func discard(r *recorder, handIndex int) error {
 	hand := r.current().Hand
 	if handIndex < 0 || handIndex >= len(hand) {
 		return ErrHandIndexOutOfRange
 	}
-	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: hand[handIndex]}
-	})
+	}); err != nil {
+		return err
+	}
+	if r.state.Phase == PhaseDiscarding {
+		return nil
+	}
+	return endTurn(r)
 }
 
 func roll(r *recorder, random Random) error {
@@ -640,7 +657,8 @@ func (m Match) allCheckpointsPassed(participant ParticipantState) bool {
 	return true
 }
 
-// 上限のラウンドの最後の人が終えるときは、ラウンドを進めず（上限 +1 に見えないように）対戦を終える
+// 上限のラウンドの最後の人が終えるときは、ラウンドを進めず（上限 +1 に見えないように）対戦を終える。
+// 対戦が続くときだけ、手札が上限を超えていれば捨てる段階に入り、捨て終えてから終える（2026-11-10 オーナー。引いたターンのうちに手札を使えるよう、ターンの始めから移した。core#148）
 func endTurn(r *recorder) error {
 	lastInRound := r.state.Turn+1 >= len(r.state.TurnOrder)
 	if lastInRound && r.state.Round >= r.state.Rules.RoundLimit {
@@ -658,6 +676,11 @@ func endTurn(r *recorder) error {
 		}
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Ranks: ranksByMagic(totals), Reason: EndReasonRoundLimit}
+		})
+	}
+	if index, _ := r.state.CurrentParticipant(); r.state.exceedsHandLimit(index) {
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &HandLimitExceededEvent{EventMeta: meta, Participant: by}
 		})
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {

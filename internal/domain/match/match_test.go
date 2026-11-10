@@ -219,6 +219,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.HandsDealtEvent{EventMeta: meta, Cards: 5},
 		&match.CardDrawnEvent{EventMeta: meta, Participant: by, Card: cardtest.CreatureRef(t, 101)},
 		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
+		&match.DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: refs(t, 102, 101)},
+		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
@@ -447,27 +449,95 @@ func TestDecide_DrawMovesTheTopOfTheDrawPileToTheHand(t *testing.T) {
 	require.Equal(t, int64(5), events[0].GetMeta().AggregateVersion)
 }
 
-func TestDecide_DrawOverTheHandLimitMovesToDiscardingAndDiscardRemovesTheChosenCard(t *testing.T) {
-	state := newMatch(t, lineBoard(t), defaultRules(t))
-	state.Participants = append([]match.ParticipantState(nil), state.Participants...)
-	state.Participants[1].Hand = refs(t, 1, 2, 3, 4, 5, 6)
+func TestDecide_DrawDoesNotCheckTheHandLimit(t *testing.T) {
+	state := withHand(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1, 2, 3, 4, 5, 6)
 
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
-	require.Equal(t, match.PhaseDiscarding, state.Phase)
+
 	require.Len(t, state.Participants[1].Hand, 7)
-
-	state, events := apply(t, state, matchtest.NewRandom(), &match.DiscardCommand{By: matchtest.Index(t, 1), HandIndex: 1})
-
-	require.Equal(t, refs(t, 1, 3, 4, 5, 6, 201), state.Participants[1].Hand)
 	require.Equal(t, match.PhaseRolling, state.Phase)
+}
+
+func TestDecide_DrawFromAnEmptyDrawPileShufflesTheDiscardPileIntoIt(t *testing.T) {
+	state := withPiles(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, nil, refs(t, 5, 6, 7))
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
+
+	require.Len(t, events, 2)
+	shuffled := eventOf[*match.DiscardPileShuffledEvent](t, events)
+	require.ElementsMatch(t, refs(t, 5, 6, 7), shuffled.DrawPile)
+	require.Equal(t, shuffled.DrawPile[0], eventOf[*match.CardDrawnEvent](t, events).Card)
+	require.Empty(t, state.Participants[1].DiscardPile)
+	require.Equal(t, shuffled.DrawPile[1:], state.Participants[1].DrawPile)
+	require.Equal(t, match.PhaseRolling, state.Phase)
+}
+
+func TestDecide_TurnStartsWithDrawingWhileTheDiscardPileHasCards(t *testing.T) {
+	tests := map[string]struct {
+		discardPile []card.Ref
+		phase       match.Phase
+	}{
+		"discard_pile_has_cards": {discardPile: refs(t, 5), phase: match.PhaseDrawing},
+		"both_piles_are_empty":   {discardPile: nil, phase: match.PhaseRolling},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			state, _ := drawAndRoll(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1)
+			state = withPiles(t, state, 0, nil, tt.discardPile)
+
+			state, _ = endTurn(t, state, 1)
+
+			require.Equal(t, tt.phase, state.Phase)
+		})
+	}
+}
+
+func TestDecide_EndTurnOverTheHandLimitAsksToDiscardAndEndsTheTurnAfterDiscarding(t *testing.T) {
+	state, _ := drawAndRoll(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1)
+	state = withHand(t, state, 1, 1, 2, 3, 4, 5, 6, 7)
+
+	state, events := endTurn(t, state, 1)
+	require.Len(t, events, 1)
+	require.IsType(t, &match.HandLimitExceededEvent{}, events[0])
+	require.Equal(t, match.PhaseDiscarding, state.Phase)
+
+	state, events = apply(t, state, matchtest.NewRandom(), &match.DiscardCommand{By: matchtest.Index(t, 1), HandIndex: 1})
+
+	require.Len(t, events, 2)
 	require.Equal(t, refs(t, 2)[0], events[0].(*match.CardDiscardedEvent).Card)
+	require.IsType(t, &match.TurnEndedEvent{}, events[1])
+	require.Equal(t, refs(t, 1, 3, 4, 5, 6, 7), state.Participants[1].Hand)
+	require.Equal(t, refs(t, 2), state.Participants[1].DiscardPile)
+	current, _ := state.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 0), current)
+}
+
+func TestDecide_DiscardKeepsAskingWhileTheHandIsOverTheLimit(t *testing.T) {
+	state, _ := drawAndRoll(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1)
+	state, _ = endTurn(t, withHand(t, state, 1, 1, 2, 3, 4, 5, 6, 7, 8), 1)
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.DiscardCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	require.Len(t, events, 1)
+	require.Equal(t, match.PhaseDiscarding, state.Phase)
+}
+
+func TestDecide_EndTurnAtTheRoundLimitEndsTheMatchWithoutDiscarding(t *testing.T) {
+	rules := matchtest.RulesOf(t, 8000, 600, 300, 100, 1, 1, 6, 1)
+	state := newMatch(t, lineBoard(t), rules)
+	state, _ = drawAndRoll(t, state, 1, 1)
+	state, _ = endTurn(t, state, 1)
+	state, _ = drawAndRoll(t, state, 0, 1)
+
+	_, events := endTurn(t, withHand(t, state, 0, 1, 2, 3, 4, 5, 6, 7), 0)
+
+	require.Len(t, events, 1)
+	require.IsType(t, &match.MatchEndedEvent{}, events[0])
 }
 
 func TestDecide_DiscardRejectsHandIndexOutOfRange(t *testing.T) {
-	state := newMatch(t, lineBoard(t), defaultRules(t))
-	state.Participants = append([]match.ParticipantState(nil), state.Participants...)
-	state.Participants[1].Hand = refs(t, 1, 2, 3, 4, 5, 6)
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
+	state, _ := drawAndRoll(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1)
+	state, _ = endTurn(t, withHand(t, state, 1, 1, 2, 3, 4, 5, 6, 7), 1)
 
 	for name, index := range map[string]int{"past_the_end": 7, "negative": -1} {
 		t.Run(name, func(t *testing.T) {
@@ -475,6 +545,31 @@ func TestDecide_DiscardRejectsHandIndexOutOfRange(t *testing.T) {
 			require.ErrorIs(t, err, match.ErrHandIndexOutOfRange)
 		})
 	}
+}
+
+func TestEvolve_RejectsShuffledDrawPileThatIsNotTheDiscardPile(t *testing.T) {
+	state := withPiles(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, nil, refs(t, 5, 6))
+
+	_, err := match.Evolve(state, &match.DiscardPileShuffledEvent{Participant: matchtest.Index(t, 1), DrawPile: refs(t, 5, 7)})
+
+	require.ErrorIs(t, err, match.ErrInvalidState)
+}
+
+// 参加者の手札を差し替える
+func withHand(t *testing.T, state match.Match, participant int, ids ...int64) match.Match {
+	t.Helper()
+	state.Participants = slices.Clone(state.Participants)
+	state.Participants[participant].Hand = refs(t, ids...)
+	return state
+}
+
+// 参加者の山札と捨て札を差し替える
+func withPiles(t *testing.T, state match.Match, participant int, drawPile, discardPile []card.Ref) match.Match {
+	t.Helper()
+	state.Participants = slices.Clone(state.Participants)
+	state.Participants[participant].DrawPile = drawPile
+	state.Participants[participant].DiscardPile = discardPile
+	return state
 }
 
 func TestEvolve_RejectsDrawnCardThatIsNotTheTopOfTheDrawPile(t *testing.T) {
@@ -1342,6 +1437,7 @@ func TestDecide_RelinquishingRemovesTheCreatureAndFreesTheLand(t *testing.T) {
 	require.False(t, occupied)
 	_, deployed := state.DeployedCreature(matchtest.DeployedCreatureID(t, 2))
 	require.False(t, deployed)
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
 
@@ -1698,6 +1794,7 @@ func TestDecide_DefendWithAnItemPaysAndRemovesIt(t *testing.T) {
 
 	require.Equal(t, matchtest.Index(t, 0), eventOf[*match.ItemUsedEvent](t, events).Participant)
 	require.Len(t, state.Participants[0].Hand, handBefore-1)
+	require.Equal(t, []card.Ref{cardtest.Ref(t, card.ItemEntityType, 301)}, state.Participants[0].DiscardPile)
 	// 持ち主は通行料の 60 を受け取り、アイテムの 20 を払う
 	require.Equal(t, 600+60-20, state.Participants[0].Magic)
 }
@@ -1737,6 +1834,8 @@ func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
 	require.Equal(t, state.LastDeployedCreatureID, conquered.Creature)
 	require.NotEqual(t, defeated, conquered.Creature)
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[0].DiscardPile)
+	require.Empty(t, state.Participants[1].DiscardPile)
 }
 
 func TestDecide_FailingToDefeatTheDefenderReturnsTheSurvivorToTheHandAndPaysTheToll(t *testing.T) {
@@ -1768,6 +1867,7 @@ func TestDecide_AttackerDestroyedByTheCounterattackIsNotReturnedToTheHand(t *tes
 
 	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
 	require.Len(t, state.Participants[1].Hand, handBefore)
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
 }
 
@@ -2463,6 +2563,7 @@ func TestDecide_MovingIntoAnotherAndBeingDestroyedFreesTheOrigin(t *testing.T) {
 	_, occupied := state.TerritoryAt(pos(t, 1, 0))
 	require.False(t, occupied)
 	require.Len(t, state.DeployedCreatures, 1)
+	require.Len(t, state.Participants[1].DiscardPile, 1)
 }
 
 func TestDecide_AdjacentTerritoriesOfAMoveDoNotCountTheOrigin(t *testing.T) {

@@ -26,7 +26,7 @@ const matchQuery = `query ($id: UUID!) {
 			id revision round
 			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
+			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount discardPile { __typename id name } turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
 			awaitingParticipant
 			invadeChoices
@@ -127,6 +127,8 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(2), player["drawPileCount"])
 	require.NotEmpty(t, npc["hand"])
 	require.Equal(t, float64(0), npc["drawPileCount"])
+	// 捨て札は、まだ何も使っていないので空
+	require.Empty(t, player["discardPile"])
 	// 順番は 0 と 1 の並べ替えで、先頭の人の番から始まる
 	require.ElementsMatch(t, []any{float64(0), float64(1)}, []any{player["turnOrder"], npc["turnOrder"]})
 	require.Equal(t, "DRAWING", found["phase"])
@@ -384,6 +386,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchHandsDealtEvent { cards }
 				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
 				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
+				... on MatchDiscardPileShuffledEvent { participant drawPileCount }
+				... on MatchHandLimitExceededEvent { participant }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }

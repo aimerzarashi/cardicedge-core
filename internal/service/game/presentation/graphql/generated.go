@@ -520,6 +520,14 @@ type ComplexityRoot struct {
 		Value       func(childComplexity int) int
 	}
 
+	MatchDiscardPileShuffledEvent struct {
+		Changes       func(childComplexity int) int
+		DrawPileCount func(childComplexity int) int
+		OccurredAt    func(childComplexity int) int
+		Participant   func(childComplexity int) int
+		Revision      func(childComplexity int) int
+	}
+
 	MatchElementChangeChoice struct {
 		Element  func(childComplexity int) int
 		Magic    func(childComplexity int) int
@@ -549,6 +557,13 @@ type ComplexityRoot struct {
 		HandIndex func(childComplexity int) int
 		Magic     func(childComplexity int) int
 		Position  func(childComplexity int) int
+	}
+
+	MatchHandLimitExceededEvent struct {
+		Changes     func(childComplexity int) int
+		OccurredAt  func(childComplexity int) int
+		Participant func(childComplexity int) int
+		Revision    func(childComplexity int) int
 	}
 
 	MatchHandsDealtEvent struct {
@@ -664,6 +679,7 @@ type ComplexityRoot struct {
 
 	MatchParticipant struct {
 		Avatar            func(childComplexity int) int
+		DiscardPile       func(childComplexity int) int
 		DrawPileCount     func(childComplexity int) int
 		Hand              func(childComplexity int) int
 		Kind              func(childComplexity int) int
@@ -2825,6 +2841,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchDiceRolledEvent.Value(childComplexity), true
 
+	case "MatchDiscardPileShuffledEvent.changes":
+		if e.ComplexityRoot.MatchDiscardPileShuffledEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiscardPileShuffledEvent.Changes(childComplexity), true
+	case "MatchDiscardPileShuffledEvent.drawPileCount":
+		if e.ComplexityRoot.MatchDiscardPileShuffledEvent.DrawPileCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiscardPileShuffledEvent.DrawPileCount(childComplexity), true
+	case "MatchDiscardPileShuffledEvent.occurredAt":
+		if e.ComplexityRoot.MatchDiscardPileShuffledEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiscardPileShuffledEvent.OccurredAt(childComplexity), true
+	case "MatchDiscardPileShuffledEvent.participant":
+		if e.ComplexityRoot.MatchDiscardPileShuffledEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiscardPileShuffledEvent.Participant(childComplexity), true
+	case "MatchDiscardPileShuffledEvent.revision":
+		if e.ComplexityRoot.MatchDiscardPileShuffledEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchDiscardPileShuffledEvent.Revision(childComplexity), true
+
 	case "MatchElementChangeChoice.element":
 		if e.ComplexityRoot.MatchElementChangeChoice.Element == nil {
 			break
@@ -2925,6 +2972,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchExchangeChoice.Position(childComplexity), true
+
+	case "MatchHandLimitExceededEvent.changes":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.Changes(childComplexity), true
+	case "MatchHandLimitExceededEvent.occurredAt":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.OccurredAt(childComplexity), true
+	case "MatchHandLimitExceededEvent.participant":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.Participant == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.Participant(childComplexity), true
+	case "MatchHandLimitExceededEvent.revision":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.Revision(childComplexity), true
 
 	case "MatchHandsDealtEvent.cards":
 		if e.ComplexityRoot.MatchHandsDealtEvent.Cards == nil {
@@ -3326,6 +3398,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchParticipant.Avatar(childComplexity), true
+	case "MatchParticipant.discardPile":
+		if e.ComplexityRoot.MatchParticipant.DiscardPile == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchParticipant.DiscardPile(childComplexity), true
 	case "MatchParticipant.drawPileCount":
 		if e.ComplexityRoot.MatchParticipant.DrawPileCount == nil {
 			break
@@ -5720,6 +5798,8 @@ func (ec *executionContext) childFields_MatchParticipant(ctx context.Context, fi
 		return ec.fieldContext_MatchParticipant_hand(ctx, field)
 	case "drawPileCount":
 		return ec.fieldContext_MatchParticipant_drawPileCount(ctx, field)
+	case "discardPile":
+		return ec.fieldContext_MatchParticipant_discardPile(ctx, field)
 	case "turnOrder":
 		return ec.fieldContext_MatchParticipant_turnOrder(ctx, field)
 	case "passedCheckpoints":
@@ -13336,6 +13416,130 @@ func (ec *executionContext) fieldContext_MatchDiceRolledEvent_value(_ context.Co
 	return graphql.NewScalarFieldContext("MatchDiceRolledEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchDiscardPileShuffledEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiscardPileShuffledEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiscardPileShuffledEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiscardPileShuffledEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiscardPileShuffledEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiscardPileShuffledEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiscardPileShuffledEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiscardPileShuffledEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchDiscardPileShuffledEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiscardPileShuffledEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiscardPileShuffledEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchDiscardPileShuffledEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchDiscardPileShuffledEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiscardPileShuffledEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiscardPileShuffledEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiscardPileShuffledEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchDiscardPileShuffledEvent_drawPileCount(ctx context.Context, field graphql.CollectedField, obj *model.MatchDiscardPileShuffledEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchDiscardPileShuffledEvent_drawPileCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DrawPileCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchDiscardPileShuffledEvent_drawPileCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchDiscardPileShuffledEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchElementChangeChoice_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchElementChangeChoice) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -13756,6 +13960,107 @@ func (ec *executionContext) _MatchExchangeChoice_magic(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_MatchExchangeChoice_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchExchangeChoice", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchHandLimitExceededEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_participant(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Participant, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchHandsDealtEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandsDealtEvent) (ret graphql.Marshaler) {
@@ -15605,6 +15910,38 @@ func (ec *executionContext) _MatchParticipant_drawPileCount(ctx context.Context,
 }
 func (ec *executionContext) fieldContext_MatchParticipant_drawPileCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchParticipant", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchParticipant_discardPile(ctx context.Context, field graphql.CollectedField, obj *model.MatchParticipant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchParticipant_discardPile(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DiscardPile, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfoᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchParticipant_discardPile(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchParticipant",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _MatchParticipant_turnOrder(ctx context.Context, field graphql.CollectedField, obj *model.MatchParticipant) (ret graphql.Marshaler) {
@@ -27080,6 +27417,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchHandsDealtEvent(ctx, sel, obj)
+	case model.MatchHandLimitExceededEvent:
+		return ec._MatchHandLimitExceededEvent(ctx, sel, &obj)
+	case *model.MatchHandLimitExceededEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchHandLimitExceededEvent(ctx, sel, obj)
 	case model.MatchEndedEvent:
 		return ec._MatchEndedEvent(ctx, sel, &obj)
 	case *model.MatchEndedEvent:
@@ -27087,6 +27431,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchEndedEvent(ctx, sel, obj)
+	case model.MatchDiscardPileShuffledEvent:
+		return ec._MatchDiscardPileShuffledEvent(ctx, sel, &obj)
+	case *model.MatchDiscardPileShuffledEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchDiscardPileShuffledEvent(ctx, sel, obj)
 	case model.MatchDiceRolledEvent:
 		return ec._MatchDiceRolledEvent(ctx, sel, &obj)
 	case *model.MatchDiceRolledEvent:
@@ -31235,6 +31586,59 @@ func (ec *executionContext) _MatchDiceRolledEvent(ctx context.Context, sel ast.S
 	return out
 }
 
+var matchDiscardPileShuffledEventImplementors = []string{"MatchDiscardPileShuffledEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchDiscardPileShuffledEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchDiscardPileShuffledEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchDiscardPileShuffledEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchDiscardPileShuffledEvent")
+		case "revision":
+			out.Values[i] = ec._MatchDiscardPileShuffledEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchDiscardPileShuffledEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchDiscardPileShuffledEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchDiscardPileShuffledEvent_participant(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "drawPileCount":
+			out.Values[i] = ec._MatchDiscardPileShuffledEvent_drawPileCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var matchElementChangeChoiceImplementors = []string{"MatchElementChangeChoice"}
 
 func (ec *executionContext) _MatchElementChangeChoice(ctx context.Context, sel ast.SelectionSet, obj *model.MatchElementChangeChoice) graphql.Marshaler {
@@ -31435,6 +31839,54 @@ func (ec *executionContext) _MatchExchangeChoice(ctx context.Context, sel ast.Se
 			}
 		case "magic":
 			out.Values[i] = ec._MatchExchangeChoice_magic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchHandLimitExceededEventImplementors = []string{"MatchHandLimitExceededEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchHandLimitExceededEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchHandLimitExceededEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchHandLimitExceededEvent")
+		case "revision":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "participant":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_participant(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -32266,6 +32718,11 @@ func (ec *executionContext) _MatchParticipant(ctx context.Context, sel ast.Selec
 			}
 		case "drawPileCount":
 			out.Values[i] = ec._MatchParticipant_drawPileCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "discardPile":
+			out.Values[i] = ec._MatchParticipant_discardPile(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -25,6 +25,8 @@ type ParticipantState struct {
 	// 先頭から引く
 	DrawPile []card.Ref
 	Hand     []card.Ref
+	// 捨て札（入った順）。山札が空のまま引くときに混ぜて山札にする
+	DiscardPile []card.Ref
 	// 直前にいたマス。向き無しのつながりで戻らないための記憶で、次のターンの最初の一歩でも使うのでターンを終えても残す。最初の一歩の前は無い
 	Previous *board.Position
 	// 拠点を出てから印を付けたチェックポイント

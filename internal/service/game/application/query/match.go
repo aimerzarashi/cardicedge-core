@@ -111,7 +111,9 @@ type MatchParticipant struct {
 	TotalMagic    int
 	Hand          []MatchCard
 	DrawPileCount int
-	TurnOrder     int
+	// 捨て札（入った順）。使った・捨てた・倒されたカードで、誰でも見られる
+	DiscardPile []MatchCard
+	TurnOrder   int
 	// 拠点を出てから印を付けたチェックポイントの位置
 	PassedCheckpoints []BoardPosition
 	// 戦利品を受け取ったか（プレイヤーだけ。NPC は受け取らないので、いつも false）
@@ -296,6 +298,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		for _, hand := range participant.Hand {
 			refs = append(refs, domain.NewEntityRef(hand.EntityType, hand.ID))
 		}
+		for _, discarded := range participant.DiscardPile {
+			refs = append(refs, domain.NewEntityRef(discarded.EntityType, discarded.ID))
+		}
 		if participant.Reward != nil {
 			for _, reward := range participant.Reward.Cards {
 				refs = append(refs, domain.NewEntityRef(reward.EntityType, reward.ID))
@@ -361,6 +366,15 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			converted.Hand[j].ID = cardID
 			cardIDs = append(cardIDs, cardID)
 		}
+		converted.DiscardPile = make([]MatchCard, len(participant.DiscardPile))
+		for j, discarded := range participant.DiscardPile {
+			cardID, err := publicIDOf(discarded.EntityType, discarded.ID)
+			if err != nil {
+				return Match{}, err
+			}
+			converted.DiscardPile[j].ID = cardID
+			cardIDs = append(cardIDs, cardID)
+		}
 		converted.RewardCards = []MatchCard{}
 		if participant.Reward != nil {
 			converted.RewardReceived = true
@@ -418,6 +432,17 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 				return Match{}, fmt.Errorf("query: card %s of match hand has no spec", found.ID)
 			}
 			participant.Hand[j] = withSpec(found, spec)
+		}
+		for j := range participant.DiscardPile {
+			found, ok := names.Cards[participant.DiscardPile[j].ID]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match is not found", participant.DiscardPile[j].ID)
+			}
+			spec, ok := specs[current.Participants[i].DiscardPile[j]]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match discard pile has no spec", found.ID)
+			}
+			participant.DiscardPile[j] = withSpec(found, spec)
 		}
 		for j := range participant.RewardCards {
 			found, ok := names.Cards[participant.RewardCards[j].ID]

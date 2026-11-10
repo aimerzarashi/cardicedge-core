@@ -63,7 +63,22 @@ type CardDrawnEvent struct {
 	Card        card.Ref         `json:"card"`
 }
 
-// 手札から捨てたカード（手札の何番目か。0 始まり）
+// 山札が空のまま引くときに、捨て札を混ぜて山札にした（新しい山札の並び。先頭から引く）。並びは見せないが、読み直しても同じ状態にするため残す
+type DiscardPileShuffledEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	DrawPile    []card.Ref       `json:"draw_pile"`
+}
+
+// ターンを終えるときに、手札が上限を超えていた。上限まで捨ててからターンを終える
+type HandLimitExceededEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+}
+
+// 手札から捨てたカード（手札の何番目か。0 始まり）。捨て札に入る
 type CardDiscardedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -95,7 +110,7 @@ type TollPaidEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れ、土地は空く（レベルは土地に残る。core#146）
+// 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れて持ち主の捨て札に入り、土地は空く（レベルは土地に残る。core#146）
 type TerritoryRelinquishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -125,7 +140,7 @@ type TerritoryInvadedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から無くなる。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
+// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
 type ItemUsedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -172,7 +187,7 @@ type CreatureStruckEvent struct {
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
 }
 
-// 守る側のクリーチャーを倒して土地を奪った。土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID、TerritoryHitPoints はその体力
+// 守る側のクリーチャーを倒して土地を奪った。倒したクリーチャーは持ち主の捨て札に入り、土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID、TerritoryHitPoints はその体力
 type TerritoryConqueredEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
@@ -347,6 +362,8 @@ var (
 	landElementChangedEventType     = domain.NewEventName("LandElementChangedEvent")
 	creatureMovedEventType          = domain.NewEventName("CreatureMovedEvent")
 	territoryInvadedByMoveEventType = domain.NewEventName("TerritoryInvadedByMoveEvent")
+	discardPileShuffledEventType    = domain.NewEventName("DiscardPileShuffledEvent")
+	handLimitExceededEventType      = domain.NewEventName("HandLimitExceededEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -598,6 +615,22 @@ func (*TerritoryInvadedByMoveEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*DiscardPileShuffledEvent) EventType() domain.EventName {
+	return discardPileShuffledEventType
+}
+
+func (*DiscardPileShuffledEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*HandLimitExceededEvent) EventType() domain.EventName {
+	return handLimitExceededEventType
+}
+
+func (*HandLimitExceededEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
@@ -605,7 +638,7 @@ func Types() domain.AggregateTypes {
 		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
-		creatureMovedEventType, territoryInvadedByMoveEventType,
+		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 	}}
 }
 
@@ -680,6 +713,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CreatureMovedEvent{EventMeta: meta}
 	case EventType(territoryInvadedByMoveEventType):
 		event = &TerritoryInvadedByMoveEvent{EventMeta: meta}
+	case EventType(discardPileShuffledEventType):
+		event = &DiscardPileShuffledEvent{EventMeta: meta}
+	case EventType(handLimitExceededEventType):
+		event = &HandLimitExceededEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

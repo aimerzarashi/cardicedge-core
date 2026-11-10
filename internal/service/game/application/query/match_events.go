@@ -76,6 +76,20 @@ type MatchCardDrawnEvent struct {
 	Card        MatchCard
 }
 
+// 山札が空のまま引くときに、捨て札を混ぜて山札にした。並びは見せないので、枚数だけを持つ
+type MatchDiscardPileShuffledEvent struct {
+	MatchEventMeta
+	Participant int
+	// 山札にした枚数（捨て札はこれで空になる）
+	DrawPileCount int
+}
+
+// ターンを終えるときに、手札が上限を超えていた。上限まで捨ててからターンを終える
+type MatchHandLimitExceededEvent struct {
+	MatchEventMeta
+	Participant int
+}
+
 type MatchCardDiscardedEvent struct {
 	MatchEventMeta
 	Participant int
@@ -535,6 +549,10 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchHandsDealtEvent{meta, e.Cards}, nil
 	case *match.CardDrawnEvent:
 		return MatchCardDrawnEvent{meta, e.Participant.Int(), cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)]}, nil
+	case *match.DiscardPileShuffledEvent:
+		return MatchDiscardPileShuffledEvent{meta, e.Participant.Int(), len(e.DrawPile)}, nil
+	case *match.HandLimitExceededEvent:
+		return MatchHandLimitExceededEvent{meta, e.Participant.Int()}, nil
 	case *match.CardDiscardedEvent:
 		return MatchCardDiscardedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)]}, nil
 	case *match.DiceRolledEvent:

@@ -295,12 +295,10 @@ func (f matchTurnFixture) load(t *testing.T) match.Match {
 	return current
 }
 
-// プレイヤーの番で、引いて捨てて振り、分かれ道で止まるところまで進める
+// プレイヤーの番で、引いて振り、分かれ道で止まるところまで進める（手札は上限を 1 枚超えた 7 枚）
 func (f matchTurnFixture) playUntilChoosingPath(t *testing.T) command.ChangedMatch {
 	t.Helper()
 	changed, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
-	require.NoError(t, err)
-	changed, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
 	require.NoError(t, err)
 	changed, err = f.handler.Roll(f.player, f.publicID, changed.Revision)
 	require.NoError(t, err)
@@ -316,10 +314,6 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	changed, err := f.handler.Draw(f.player, f.publicID, start.Version)
 	require.NoError(t, err)
 	require.Equal(t, command.ChangedMatch{ID: f.publicID, Revision: start.Version + 1}, changed)
-	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
-
-	changed, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
-	require.NoError(t, err)
 	require.Equal(t, match.PhaseRolling, f.load(t).Phase)
 
 	changed, err = f.handler.Roll(f.player, f.publicID, changed.Revision)
@@ -359,6 +353,26 @@ func TestMatchHandler_EndTurnWhileDeployingLeavesTheLandVacant(t *testing.T) {
 	next := f.load(t)
 	require.Empty(t, next.Territories)
 	require.Equal(t, 600, next.Participants[0].Magic)
+}
+
+func TestMatchHandler_EndTurnOverTheHandLimitDiscardsBeforePassingTheTurn(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	rolled := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+	require.NoError(t, err)
+
+	changed, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
+
+	_, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
+
+	require.NoError(t, err)
+	next := f.load(t)
+	require.Len(t, next.Participants[0].Hand, 6)
+	require.Len(t, next.Participants[0].DiscardPile, 1)
+	current, _ := next.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 1), current)
 }
 
 func TestMatchHandler_RejectsOperationsOfOtherThanTheParticipantsInTurn(t *testing.T) {
@@ -411,10 +425,13 @@ func TestMatchHandler_RejectsOperationsOfOtherThanTheParticipantsInTurn(t *testi
 func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 	t.Run("hand_index_out_of_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, orderedRandom{})
-		drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+		ending, err := f.handler.EndTurn(f.player, f.publicID, changed.Revision)
 		require.NoError(t, err)
 
-		_, err = f.handler.Discard(f.player, f.publicID, drawn.Revision, 7)
+		_, err = f.handler.Discard(f.player, f.publicID, ending.Revision, 7)
 
 		invalid, ok := input.AsErrors(err)
 		require.True(t, ok)
@@ -457,7 +474,7 @@ func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 
 		invalid, ok := input.AsErrors(err)
 		require.True(t, ok)
-		require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 5}}, invalid)
+		require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 6}}, invalid)
 	})
 	t.Run("not_your_turn_comes_before_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, matchtest.NewRandom())
@@ -589,12 +606,23 @@ func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEn
 
 	require.NoError(t, f.npc.Play(f.ctx, f.id, changed.Revision))
 
-	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、通行料を払って、そのままターンが終わる
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、手札に戻って通行料を払い、上限を超えた手札を捨ててターンが終わる
+	f.discardUntilTheTurnEnds(t)
 	ended := f.load(t)
 	requireTurnOf(t, ended, 1)
 	require.Nil(t, ended.Invasion)
 	require.Equal(t, 600-10-60, ended.Participants[0].Magic)
 	require.Equal(t, 10, ended.DeployedCreatures[0].HitPoints.Int())
+}
+
+// ターンの終わりに手札が上限を超えて捨てる段階に入っていれば、先頭から捨ててターンを終える
+func (f matchTurnFixture) discardUntilTheTurnEnds(t *testing.T) {
+	t.Helper()
+	for i := 0; f.load(t).Phase == match.PhaseDiscarding; i++ {
+		require.Less(t, i, 10)
+		_, err := f.handler.Discard(f.player, f.publicID, f.load(t).Version, 0)
+		require.NoError(t, err)
+	}
 }
 
 func requireTurnOf(t *testing.T, current match.Match, seat int) {
@@ -611,6 +639,8 @@ func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
 	_, err := f.handler.PayToll(f.player, f.publicID, changed.Revision)
 
 	require.NoError(t, err)
+	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
+	f.discardUntilTheTurnEnds(t)
 	current := f.load(t)
 	requireTurnOf(t, current, 1)
 	require.Equal(t, 600-60, current.Participants[0].Magic)
@@ -628,7 +658,7 @@ func TestMatchHandler_ReportsInvasionInputThatCannotBeUsed(t *testing.T) {
 	require.NoError(t, err)
 	_, notUsable := f.handler.Attack(f.player, f.publicID, invaded.Revision, &creatureAsItem)
 
-	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 5}}, outOfRange)
+	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 6}}, outOfRange)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, notInvadable)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "itemHandIndex"}}, notUsable)
 }

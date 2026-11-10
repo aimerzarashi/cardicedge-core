@@ -1,0 +1,13 @@
+{
+  "participant": 1,
+  "draw_pile": [
+    {
+      "entity_type": "creature",
+      "id": 102
+    },
+    {
+      "entity_type": "creature",
+      "id": 101
+    }
+  ]
+}
