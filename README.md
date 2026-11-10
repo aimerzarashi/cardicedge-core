@@ -23,7 +23,7 @@ make seed-master    # 開発で触る見本のマスタ（カード・プリセ�
 make publish-master # （カード・ボード・NPC のアバターは game の domain_entities にも行を作り、game の内部 ID を振る。何度流しても同じ）studio の cards（公開中・使用不可だけ）・grant_decks（全行を状態つきで）・boards・npc_avatars（cards と同じく公開中・使用不可だけ）・npc_decks（写した npc_avatars に割り当てられたものだけ。状態つき）・starter_sets（全行を状態つきで）・game_rules を core_game に写す（game が配るマスタを読めるようにする）
 make fmt     # gofmt でフォーマットを修正
 make lint    # gofmt・go vet・staticcheck・カスタムリンター（tools/linter）・migrations の検査
-make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race を実行
+make test    # テンプレートの DB（core_template）を用意してから、コンテナ内で go test ./... -race -p 3 を実行
 make down    # 停止して DB のデータも破棄
 make clean   # down に加えて、トレースとログ（otel-lgtm のデータ）と core-db のログも破棄
 ```

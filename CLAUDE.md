@@ -2,7 +2,7 @@
 
 - `make up` / `make down` / `make clean` / `make migrate` / `make migrate-hash` / `make gen-orm` / `make gen-api` / `make seed-master` / `make publish-master` / `make fmt` / `make lint` / `make test`
 - lint は `make lint`（gofmt の検出、go vet、staticcheck、カスタムリンター `go run ./tools/linter ./...`、scripts/check-gen-api.sh、scripts/check-migrations.sh）でファイルを書き換えない。フォーマットの修正は `make fmt`。staticcheck は go.mod の tool で管理する
-- テストは `make test`（テンプレートの DB を用意してから、コンテナ内で `-race` 付き）で実行する。ホストには cgo がなく `-race` が使えない
+- テストは `make test`（テンプレートの DB を用意してから、コンテナ内で `-race` 付き・同時に動かすパッケージは 3 つ。core#137）で実行する。ホストには cgo がなく `-race` が使えない
 - 単体で動かすときは `docker compose exec core go test ./<pkg> -race -run <Test>`
 
 # ディレクトリ構成

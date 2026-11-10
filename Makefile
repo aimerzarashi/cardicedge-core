@@ -129,4 +129,5 @@ lint:
 # テスト
 .PHONY: test
 test: migrate-template
-	docker compose exec core go test ./... -race
+	# 同時に動かすパッケージを 3 つにする。既定の 6 だと load が 6 コアの 4 倍を超え、ほかの作業と重なると E2E が落ちるため（core#137）
+	docker compose exec core go test ./... -race -p 3
