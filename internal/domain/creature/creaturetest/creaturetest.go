@@ -32,6 +32,13 @@ func Attack(t testing.TB, value int) creature.Attack {
 	return attack
 }
 
+func Movement(t testing.TB, value int) creature.Movement {
+	t.Helper()
+	movement, err := creature.NewMovement(value)
+	require.NoError(t, err)
+	return movement
+}
+
 func HitPoints(t testing.TB, value int) creature.HitPoints {
 	t.Helper()
 	hitPoints, err := creature.NewHitPoints(value)

@@ -216,6 +216,7 @@ type ComplexityRoot struct {
 		Elements  func(childComplexity int) int
 		HitPoints func(childComplexity int) int
 		ID        func(childComplexity int) int
+		Movement  func(childComplexity int) int
 		Name      func(childComplexity int) int
 		Rarity    func(childComplexity int) int
 	}
@@ -1701,6 +1702,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureCardInfo.ID(childComplexity), true
+	case "CreatureCardInfo.movement":
+		if e.ComplexityRoot.CreatureCardInfo.Movement == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Movement(childComplexity), true
 	case "CreatureCardInfo.name":
 		if e.ComplexityRoot.CreatureCardInfo.Name == nil {
 			break
@@ -5249,6 +5256,8 @@ func (ec *executionContext) childFields_CreatureCardInfo(ctx context.Context, fi
 		return ec.fieldContext_CreatureCardInfo_attack(ctx, field)
 	case "hitPoints":
 		return ec.fieldContext_CreatureCardInfo_hitPoints(ctx, field)
+	case "movement":
+		return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CreatureCardInfo", field.Name)
 }
@@ -8728,6 +8737,29 @@ func (ec *executionContext) _CreatureCardInfo_hitPoints(ctx context.Context, fie
 	)
 }
 func (ec *executionContext) fieldContext_CreatureCardInfo_hitPoints(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureCardInfo_movement(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Movement, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_movement(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
 }
 
@@ -28041,6 +28073,11 @@ func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.Selec
 			}
 		case "hitPoints":
 			out.Values[i] = ec._CreatureCardInfo_hitPoints(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "movement":
+			out.Values[i] = ec._CreatureCardInfo_movement(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

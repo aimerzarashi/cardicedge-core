@@ -237,6 +237,28 @@ func TestChangeCreatureElementsAndStats_ChangesCreatureAfterProjected(t *testing
 	})
 }
 
+func TestChangeCreatureMovement_ChangesCreatureAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	changed := client.Data(t, token, `mutation ($input: ChangeCreatureMovementInput!) {
+		changeCreatureMovement(input: $input) { __typename ... on ChangeCreatureMovementSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "movement": 0}}, "changeCreatureMovement")
+	invalid := client.Data(t, token, `mutation ($input: ChangeCreatureMovementInput!) {
+		changeCreatureMovement(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "movement": -1}}, "changeCreatureMovement")
+
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureMovementSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldTooSmall", "field": "movement"}}}, invalid)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { movement revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"movement": float64(0), "revision": float64(2)}, got)
+		}
+	})
+}
+
 // 登録した直後の性能は、登録の結果にも出る
 func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
 	t.Parallel()

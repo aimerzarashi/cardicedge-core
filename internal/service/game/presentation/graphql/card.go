@@ -27,7 +27,7 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		}
 		return &model.CreatureCardInfo{
 			ID: id, Name: name, Cost: cost, Rarity: converted,
-			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints,
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, Movement: creature.Movement,
 		}, nil
 	case query.CardTypeItem:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り

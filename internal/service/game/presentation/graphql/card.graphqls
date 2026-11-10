@@ -30,6 +30,8 @@ type CreatureCardInfo implements CardInfo {
   attack: Int!
   "体力（HP）"
   hitPoints: Int!
+  "移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 は動けない）"
+  movement: Int!
 }
 
 "アイテム"

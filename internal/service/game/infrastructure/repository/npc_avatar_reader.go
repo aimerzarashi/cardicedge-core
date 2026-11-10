@@ -66,6 +66,7 @@ type creatureMetadata struct {
 	Elements  []string `json:"elements"`
 	Attack    *int     `json:"attack"`
 	HitPoints *int     `json:"hit_points"`
+	Movement  *int     `json:"movement"`
 }
 
 // プレイヤーが解放した NPC のアバターを、解放した順（read model unlocks の metadata の並び）に読む。公開中でないもの
@@ -245,10 +246,10 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	card := query.DeckCard{CardID: id, Name: metadata.Name, Type: cardType, Cost: *metadata.Cost, Rarity: metadata.Rarity}
 	if cardType == query.CardTypeCreature {
 		creatureSpec := metadata.Creature
-		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack or hit_points (project the cards again and publish the master)", id)
+		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.Movement == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points or movement (project the cards again and publish the master)", id)
 		}
-		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints}
+		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, Movement: *creatureSpec.Movement}
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item

@@ -37,6 +37,7 @@ type RegisteredEvent struct {
 	Elements     Elements    `json:"elements"`
 	Attack       Attack      `json:"attack"`
 	HitPoints    HitPoints   `json:"hit_points"`
+	Movement     Movement    `json:"movement"`
 	RegisteredBy operator.ID `json:"registered_by"`
 }
 
@@ -158,12 +159,30 @@ func (*StatsChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+// 移動を変えた（変えた後の値）
+type MovementChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Movement    Movement    `json:"movement"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var movementChangedEventType = domain.NewEventName("MovementChangedEvent")
+
+func (*MovementChangedEvent) EventType() domain.EventName {
+	return movementChangedEventType
+}
+
+func (*MovementChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			elementsChangedEventType, statsChangedEventType,
+			elementsChangedEventType, statsChangedEventType, movementChangedEventType,
 		},
 	}
 }
@@ -191,6 +210,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ElementsChangedEvent{EventMeta: meta}
 	case EventType(statsChangedEventType):
 		event = &StatsChangedEvent{EventMeta: meta}
+	case EventType(movementChangedEventType):
+		event = &MovementChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

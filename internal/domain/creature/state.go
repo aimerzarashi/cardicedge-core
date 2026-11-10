@@ -23,10 +23,11 @@ type Creature struct {
 	Status   card.Status
 	Cost     card.Cost
 	Rarity   card.Rarity
-	// 属性・攻撃力・体力
+	// 属性・攻撃力・体力・移動
 	Elements  Elements
 	Attack    Attack
 	HitPoints HitPoints
+	Movement  Movement
 }
 
 func (Creature) isCreatureState() {}

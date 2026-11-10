@@ -212,7 +212,7 @@ func TestCard_ReturnsPlayerNotRegisteredForUnregisteredPlayer(t *testing.T) {
 const creatureCardQuery = `query ($id: UUID!) {
 	card(id: $id) {
 		__typename
-		... on CreatureCardInfo { id name elements attack hitPoints }
+		... on CreatureCardInfo { id name elements attack hitPoints movement }
 	}
 }`
 
@@ -225,6 +225,6 @@ func TestCard_ReturnsCreatureElementsAttackAndHitPoints(t *testing.T) {
 
 	require.Equal(t, map[string]any{
 		"__typename": "CreatureCardInfo", "id": master.NPCAvatars.Creature.String(), "name": "ゴブリン",
-		"elements": []any{"FIRE", "WIND"}, "attack": float64(25), "hitPoints": float64(45),
+		"elements": []any{"FIRE", "WIND"}, "attack": float64(25), "hitPoints": float64(45), "movement": float64(2),
 	}, result)
 }

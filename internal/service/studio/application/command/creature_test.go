@@ -147,6 +147,23 @@ func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
 	require.Equal(t, []string{"neutral"}, registered.Elements)
 	require.Equal(t, creature.DefaultAttack.Int(), registered.Attack)
 	require.Equal(t, creature.DefaultHitPoints.Int(), registered.HitPoints)
+	require.Equal(t, creature.DefaultMovement.Int(), registered.Movement)
+}
+
+func TestChangeCreatureMovement_ChangesDraftAndRejectsNegative(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+
+	changed, err := commands.ChangeMovement(ctx, registered.ID, registered.Revision, 0)
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	unchanged, err := commands.ChangeMovement(ctx, changed.ID, changed.Revision, 0)
+	require.NoError(t, err)
+	require.Equal(t, changed, unchanged)
+	_, err = commands.ChangeMovement(ctx, changed.ID, changed.Revision, -1)
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "movement", Min: 0}}, err)
 }
 
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
@@ -241,9 +258,11 @@ func TestChangeCreatureElementsAndStats_RejectNotDraft(t *testing.T) {
 
 	_, elementsErr := commands.ChangeElements(ctx, published.ID, published.Revision, []string{"fire"})
 	_, statsErr := commands.ChangeStats(ctx, published.ID, published.Revision, 30, 50)
+	_, movementErr := commands.ChangeMovement(ctx, published.ID, published.Revision, 2)
 
 	require.ErrorIs(t, elementsErr, command.ErrCardNotDraft)
 	require.ErrorIs(t, statsErr, command.ErrCardNotDraft)
+	require.ErrorIs(t, movementErr, command.ErrCardNotDraft)
 }
 
 func TestChangeCreatureElementsAndStats_RejectStaleRevision(t *testing.T) {

@@ -67,6 +67,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		Elements:     creature.DefaultElements(),
 		Attack:       creature.DefaultAttack,
 		HitPoints:    creature.DefaultHitPoints,
+		Movement:     creature.DefaultMovement,
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -88,7 +89,7 @@ func TestEvolve_RegisteredEventMakesCreature(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement,
 	}, registered)
 }
 
@@ -112,6 +113,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, rarityChanged := f.decide(t, state, &creature.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
 	_, elementsChanged := f.decide(t, state, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: f.registeredBy})
 	_, statsChanged := f.decide(t, state, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50), ChangedBy: f.registeredBy})
+	_, movementChanged := f.decide(t, state, &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event creature.Event
@@ -123,6 +125,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "rarity_changed", event: rarityChanged[0]},
 		{name: "elements_changed", event: elementsChanged[0]},
 		{name: "stats_changed", event: statsChanged[0]},
+		{name: "movement_changed", event: movementChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -293,7 +296,7 @@ func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement,
 	}, afterRarity)
 }
 
@@ -384,7 +387,7 @@ func TestDecide_ChangeElementsAndStatsEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60),
+		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), Movement: creature.DefaultMovement,
 	}, afterStats)
 }
 
@@ -397,6 +400,29 @@ func TestDecide_ChangeStatsEmitsEventWhenOnlyOneValueChanges(t *testing.T) {
 
 	require.Len(t, events, 1)
 	require.Equal(t, creaturetest.HitPoints(t, 11), events[0].(*creature.StatsChangedEvent).HitPoints)
+}
+
+func TestDecide_ChangeMovementEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	changed, events := f.decide(t, registered, &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 0), ChangedBy: f.registeredBy})
+
+	require.Len(t, events, 1)
+	require.Equal(t, creaturetest.Movement(t, 0), changed.(creature.Creature).Movement)
+	_, same := f.decide(t, registered, &creature.ChangeMovementCommand{Movement: creature.DefaultMovement, ChangedBy: f.registeredBy})
+	require.Empty(t, same)
+	_, err := creature.Decide(f.retiredState(t), &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy}, changedAt)
+	require.ErrorIs(t, err, card.ErrNotDraft)
+}
+
+func TestNewMovement_AcceptsZeroAndRejectsNegative(t *testing.T) {
+	zero, err := creature.NewMovement(0)
+	require.NoError(t, err)
+	require.Equal(t, 0, zero.Int())
+
+	_, err = creature.NewMovement(-1)
+	require.ErrorIs(t, err, creature.ErrMovementNegative)
 }
 
 func TestNewElements_SortsIntoCanonicalOrder(t *testing.T) {

@@ -11,4 +11,5 @@ var (
 	ErrElementsNeutralMixed = errors.New("creature: neutral is mixed with other elements")
 	ErrAttackNegative       = errors.New("creature: attack is negative")
 	ErrHitPointsTooSmall    = errors.New("creature: hit points are less than 1")
+	ErrMovementNegative     = errors.New("creature: movement is negative")
 )
