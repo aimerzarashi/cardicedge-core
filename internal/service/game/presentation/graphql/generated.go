@@ -703,13 +703,6 @@ type ComplexityRoot struct {
 		Value           func(childComplexity int) int
 	}
 
-	MatchTerritoryCommandSkippedEvent struct {
-		Changes     func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Revision    func(childComplexity int) int
-	}
-
 	MatchTerritoryConqueredEvent struct {
 		Changes            func(childComplexity int) int
 		Creature           func(childComplexity int) int
@@ -788,33 +781,32 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AttackMatchTerritory      func(childComplexity int, input model.AttackMatchTerritoryInput) int
-		ChangeRoomMatchRules      func(childComplexity int, input model.ChangeRoomMatchRulesInput) int
-		ChangeRoomSeatChoice      func(childComplexity int, input model.ChangeRoomSeatChoiceInput) int
-		ChangeRoomSeats           func(childComplexity int, input model.ChangeRoomSeatsInput) int
-		ChooseMatchPath           func(childComplexity int, input model.ChooseMatchPathInput) int
-		ChooseMatchRewardPack     func(childComplexity int, input model.ChooseMatchRewardPackInput) int
-		CloseRoom                 func(childComplexity int, input model.CloseRoomInput) int
-		CreateRoom                func(childComplexity int, input model.CreateRoomInput) int
-		DeclareRoomNext           func(childComplexity int, input model.DeclareRoomNextInput) int
-		DeclareRoomReady          func(childComplexity int, input model.DeclareRoomReadyInput) int
-		DefendMatchTerritory      func(childComplexity int, input model.DefendMatchTerritoryInput) int
-		DeployMatchCreature       func(childComplexity int, input model.DeployMatchCreatureInput) int
-		DiscardMatchCard          func(childComplexity int, input model.DiscardMatchCardInput) int
-		DrawMatchCard             func(childComplexity int, input model.DrawMatchCardInput) int
-		EndMatchTurn              func(childComplexity int, input model.EndMatchTurnInput) int
-		ExchangeMatchCreature     func(childComplexity int, input model.ExchangeMatchCreatureInput) int
-		InvadeMatchTerritory      func(childComplexity int, input model.InvadeMatchTerritoryInput) int
-		LevelUpMatchTerritory     func(childComplexity int, input model.LevelUpMatchTerritoryInput) int
-		PayMatchToll              func(childComplexity int, input model.PayMatchTollInput) int
-		PublishRoom               func(childComplexity int, input model.PublishRoomInput) int
-		RegisterAvatar            func(childComplexity int, input model.RegisterAvatarInput) int
-		RegisterPlayer            func(childComplexity int) int
-		RelinquishMatchTerritory  func(childComplexity int, input model.RelinquishMatchTerritoryInput) int
-		RenameRoom                func(childComplexity int, input model.RenameRoomInput) int
-		ResumeRoom                func(childComplexity int, input model.ResumeRoomInput) int
-		RollMatchDice             func(childComplexity int, input model.RollMatchDiceInput) int
-		SkipMatchTerritoryCommand func(childComplexity int, input model.SkipMatchTerritoryCommandInput) int
+		AttackMatchTerritory     func(childComplexity int, input model.AttackMatchTerritoryInput) int
+		ChangeRoomMatchRules     func(childComplexity int, input model.ChangeRoomMatchRulesInput) int
+		ChangeRoomSeatChoice     func(childComplexity int, input model.ChangeRoomSeatChoiceInput) int
+		ChangeRoomSeats          func(childComplexity int, input model.ChangeRoomSeatsInput) int
+		ChooseMatchPath          func(childComplexity int, input model.ChooseMatchPathInput) int
+		ChooseMatchRewardPack    func(childComplexity int, input model.ChooseMatchRewardPackInput) int
+		CloseRoom                func(childComplexity int, input model.CloseRoomInput) int
+		CreateRoom               func(childComplexity int, input model.CreateRoomInput) int
+		DeclareRoomNext          func(childComplexity int, input model.DeclareRoomNextInput) int
+		DeclareRoomReady         func(childComplexity int, input model.DeclareRoomReadyInput) int
+		DefendMatchTerritory     func(childComplexity int, input model.DefendMatchTerritoryInput) int
+		DeployMatchCreature      func(childComplexity int, input model.DeployMatchCreatureInput) int
+		DiscardMatchCard         func(childComplexity int, input model.DiscardMatchCardInput) int
+		DrawMatchCard            func(childComplexity int, input model.DrawMatchCardInput) int
+		EndMatchTurn             func(childComplexity int, input model.EndMatchTurnInput) int
+		ExchangeMatchCreature    func(childComplexity int, input model.ExchangeMatchCreatureInput) int
+		InvadeMatchTerritory     func(childComplexity int, input model.InvadeMatchTerritoryInput) int
+		LevelUpMatchTerritory    func(childComplexity int, input model.LevelUpMatchTerritoryInput) int
+		PayMatchToll             func(childComplexity int, input model.PayMatchTollInput) int
+		PublishRoom              func(childComplexity int, input model.PublishRoomInput) int
+		RegisterAvatar           func(childComplexity int, input model.RegisterAvatarInput) int
+		RegisterPlayer           func(childComplexity int) int
+		RelinquishMatchTerritory func(childComplexity int, input model.RelinquishMatchTerritoryInput) int
+		RenameRoom               func(childComplexity int, input model.RenameRoomInput) int
+		ResumeRoom               func(childComplexity int, input model.ResumeRoomInput) int
+		RollMatchDice            func(childComplexity int, input model.RollMatchDiceInput) int
 	}
 
 	NpcAvatar struct {
@@ -1040,11 +1032,6 @@ type ComplexityRoot struct {
 		Y func(childComplexity int) int
 	}
 
-	SkipMatchTerritoryCommandSuccess struct {
-		ID       func(childComplexity int) int
-		Revision func(childComplexity int) int
-	}
-
 	SpellCardInfo struct {
 		Cost   func(childComplexity int) int
 		ID     func(childComplexity int) int
@@ -1080,7 +1067,6 @@ type MutationResolver interface {
 	RelinquishMatchTerritory(ctx context.Context, input model.RelinquishMatchTerritoryInput) (model.RelinquishMatchTerritoryResult, error)
 	LevelUpMatchTerritory(ctx context.Context, input model.LevelUpMatchTerritoryInput) (model.LevelUpMatchTerritoryResult, error)
 	ExchangeMatchCreature(ctx context.Context, input model.ExchangeMatchCreatureInput) (model.ExchangeMatchCreatureResult, error)
-	SkipMatchTerritoryCommand(ctx context.Context, input model.SkipMatchTerritoryCommandInput) (model.SkipMatchTerritoryCommandResult, error)
 	InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error)
 	AttackMatchTerritory(ctx context.Context, input model.AttackMatchTerritoryInput) (model.AttackMatchTerritoryResult, error)
 	PayMatchToll(ctx context.Context, input model.PayMatchTollInput) (model.PayMatchTollResult, error)
@@ -3429,31 +3415,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchTerritory.Value(childComplexity), true
 
-	case "MatchTerritoryCommandSkippedEvent.changes":
-		if e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Changes == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Changes(childComplexity), true
-	case "MatchTerritoryCommandSkippedEvent.occurredAt":
-		if e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.OccurredAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.OccurredAt(childComplexity), true
-	case "MatchTerritoryCommandSkippedEvent.participant":
-		if e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Participant == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Participant(childComplexity), true
-	case "MatchTerritoryCommandSkippedEvent.revision":
-		if e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Revision == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryCommandSkippedEvent.Revision(childComplexity), true
-
 	case "MatchTerritoryConqueredEvent.changes":
 		if e.ComplexityRoot.MatchTerritoryConqueredEvent.Changes == nil {
 			break
@@ -4044,17 +4005,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RollMatchDice(childComplexity, args["input"].(model.RollMatchDiceInput)), true
-	case "Mutation.skipMatchTerritoryCommand":
-		if e.ComplexityRoot.Mutation.SkipMatchTerritoryCommand == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_skipMatchTerritoryCommand_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Mutation.SkipMatchTerritoryCommand(childComplexity, args["input"].(model.SkipMatchTerritoryCommandInput)), true
 
 	case "NpcAvatar.decks":
 		if e.ComplexityRoot.NpcAvatar.Decks == nil {
@@ -4799,19 +4749,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ShrineTile.Y(childComplexity), true
 
-	case "SkipMatchTerritoryCommandSuccess.id":
-		if e.ComplexityRoot.SkipMatchTerritoryCommandSuccess.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SkipMatchTerritoryCommandSuccess.ID(childComplexity), true
-	case "SkipMatchTerritoryCommandSuccess.revision":
-		if e.ComplexityRoot.SkipMatchTerritoryCommandSuccess.Revision == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SkipMatchTerritoryCommandSuccess.Revision(childComplexity), true
-
 	case "SpellCardInfo.cost":
 		if e.ComplexityRoot.SpellCardInfo.Cost == nil {
 			break
@@ -4905,7 +4842,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("RenameRoomInput", ec.unmarshalInputRenameRoomInput),
 			graphql.NewInputUnmarshaler("ResumeRoomInput", ec.unmarshalInputResumeRoomInput),
 			graphql.NewInputUnmarshaler("RollMatchDiceInput", ec.unmarshalInputRollMatchDiceInput),
-			graphql.NewInputUnmarshaler("SkipMatchTerritoryCommandInput", ec.unmarshalInputSkipMatchTerritoryCommandInput),
 		)
 	}
 	first := true
@@ -6192,20 +6128,6 @@ func (ec *executionContext) field_Mutation_rollMatchDice_args(ctx context.Contex
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.RollMatchDiceInput, error) {
 			return ec.unmarshalNRollMatchDiceInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRollMatchDiceInput(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_skipMatchTerritoryCommand_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
-		func(ctx context.Context, v any) (model.SkipMatchTerritoryCommandInput, error) {
-			return ec.unmarshalNSkipMatchTerritoryCommandInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐSkipMatchTerritoryCommandInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -15651,107 +15573,6 @@ func (ec *executionContext) fieldContext_MatchTerritory_relinquishMagic(_ contex
 	return graphql.NewScalarFieldContext("MatchTerritory", field, false, false, "Int")
 }
 
-func (ec *executionContext) _MatchTerritoryCommandSkippedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryCommandSkippedEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryCommandSkippedEvent_revision(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Revision, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryCommandSkippedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryCommandSkippedEvent", field, false, false, "Int")
-}
-
-func (ec *executionContext) _MatchTerritoryCommandSkippedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryCommandSkippedEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryCommandSkippedEvent_occurredAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.OccurredAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryCommandSkippedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryCommandSkippedEvent", field, false, false, "DateTime")
-}
-
-func (ec *executionContext) _MatchTerritoryCommandSkippedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryCommandSkippedEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryCommandSkippedEvent_changes(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Changes, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
-			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryCommandSkippedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MatchTerritoryCommandSkippedEvent",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_MatchEventChanges(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MatchTerritoryCommandSkippedEvent_participant(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryCommandSkippedEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryCommandSkippedEvent_participant(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Participant, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryCommandSkippedEvent_participant(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryCommandSkippedEvent", field, false, false, "Int")
-}
-
 func (ec *executionContext) _MatchTerritoryConqueredEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryConqueredEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -17418,50 +17239,6 @@ func (ec *executionContext) fieldContext_Mutation_exchangeMatchCreature(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_exchangeMatchCreature_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Mutation_skipMatchTerritoryCommand(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_skipMatchTerritoryCommand(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().SkipMatchTerritoryCommand(ctx, fc.Args["input"].(model.SkipMatchTerritoryCommandInput))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.SkipMatchTerritoryCommandResult) graphql.Marshaler {
-			return ec.marshalNSkipMatchTerritoryCommandResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐSkipMatchTerritoryCommandResult(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_skipMatchTerritoryCommand(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type SkipMatchTerritoryCommandResult does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_skipMatchTerritoryCommand_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -21177,52 +20954,6 @@ func (ec *executionContext) fieldContext_ShrineTile_y(_ context.Context, field g
 	return graphql.NewScalarFieldContext("ShrineTile", field, false, false, "Int")
 }
 
-func (ec *executionContext) _SkipMatchTerritoryCommandSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.SkipMatchTerritoryCommandSuccess) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SkipMatchTerritoryCommandSuccess_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SkipMatchTerritoryCommandSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SkipMatchTerritoryCommandSuccess", field, false, false, "UUID")
-}
-
-func (ec *executionContext) _SkipMatchTerritoryCommandSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.SkipMatchTerritoryCommandSuccess) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SkipMatchTerritoryCommandSuccess_revision(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Revision, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_SkipMatchTerritoryCommandSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SkipMatchTerritoryCommandSuccess", field, false, false, "Int")
-}
-
 func (ec *executionContext) _SpellCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.SpellCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -24001,55 +23732,6 @@ func UnmarshalRollMatchDiceInput(ctx context.Context, raw any) (model.RollMatchD
 	return out, err
 }
 
-func (ec *executionContext) unmarshalInputSkipMatchTerritoryCommandInput(ctx context.Context, obj any) (model.SkipMatchTerritoryCommandInput, error) {
-	var it model.SkipMatchTerritoryCommandInput
-	if obj == nil {
-		return it, nil
-	}
-
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"id", "revision"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ID = data
-		case "revision":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
-			data, err := ec.unmarshalNInt2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Revision = data
-		}
-	}
-	return it, nil
-}
-
-// UnmarshalSkipMatchTerritoryCommandInput unmarshals raw into the SkipMatchTerritoryCommandInput input type, using the
-// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
-// object that was not passed as a field argument.
-//
-// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
-// and the returned error says so.
-func UnmarshalSkipMatchTerritoryCommandInput(ctx context.Context, raw any) (model.SkipMatchTerritoryCommandInput, error) {
-	var out model.SkipMatchTerritoryCommandInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "SkipMatchTerritoryCommandInput", raw, &out)
-	return out, err
-}
-
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -25633,13 +25315,6 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchTerritoryConqueredEvent(ctx, sel, obj)
-	case model.MatchTerritoryCommandSkippedEvent:
-		return ec._MatchTerritoryCommandSkippedEvent(ctx, sel, &obj)
-	case *model.MatchTerritoryCommandSkippedEvent:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._MatchTerritoryCommandSkippedEvent(ctx, sel, obj)
 	case model.MatchRewardsCompletedEvent:
 		return ec._MatchRewardsCompletedEvent(ctx, sel, &obj)
 	case *model.MatchRewardsCompletedEvent:
@@ -26442,61 +26117,6 @@ func (ec *executionContext) _RoomResult(ctx context.Context, sel ast.SelectionSe
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of RoomResult must implement graphql.Marshaler", obj))
-		}
-	}
-}
-
-func (ec *executionContext) _SkipMatchTerritoryCommandResult(ctx context.Context, sel ast.SelectionSet, obj model.SkipMatchTerritoryCommandResult) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.SkipMatchTerritoryCommandSuccess:
-		return ec._SkipMatchTerritoryCommandSuccess(ctx, sel, &obj)
-	case *model.SkipMatchTerritoryCommandSuccess:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._SkipMatchTerritoryCommandSuccess(ctx, sel, obj)
-	case model.RevisionConflictError:
-		return ec._RevisionConflictError(ctx, sel, &obj)
-	case *model.RevisionConflictError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._RevisionConflictError(ctx, sel, obj)
-	case model.PlayerNotRegisteredError:
-		return ec._PlayerNotRegisteredError(ctx, sel, &obj)
-	case *model.PlayerNotRegisteredError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._PlayerNotRegisteredError(ctx, sel, obj)
-	case model.MatchPhaseNotAllowedError:
-		return ec._MatchPhaseNotAllowedError(ctx, sel, &obj)
-	case *model.MatchPhaseNotAllowedError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._MatchPhaseNotAllowedError(ctx, sel, obj)
-	case model.MatchNotYourTurnError:
-		return ec._MatchNotYourTurnError(ctx, sel, &obj)
-	case *model.MatchNotYourTurnError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._MatchNotYourTurnError(ctx, sel, obj)
-	case model.MatchNotFoundError:
-		return ec._MatchNotFoundError(ctx, sel, &obj)
-	case *model.MatchNotFoundError:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._MatchNotFoundError(ctx, sel, obj)
-	default:
-		if typedObj, ok := obj.(graphql.Marshaler); ok {
-			return typedObj
-		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of SkipMatchTerritoryCommandResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -30405,7 +30025,7 @@ func (ec *executionContext) _MatchMovedEvent(ctx context.Context, sel ast.Select
 	return out
 }
 
-var matchNotFoundErrorImplementors = []string{"MatchNotFoundError", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult"}
+var matchNotFoundErrorImplementors = []string{"MatchNotFoundError", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult"}
 
 func (ec *executionContext) _MatchNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchNotFoundErrorImplementors)
@@ -30438,7 +30058,7 @@ func (ec *executionContext) _MatchNotFoundError(ctx context.Context, sel ast.Sel
 	return out
 }
 
-var matchNotYourTurnErrorImplementors = []string{"MatchNotYourTurnError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult"}
+var matchNotYourTurnErrorImplementors = []string{"MatchNotYourTurnError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "EndMatchTurnResult"}
 
 func (ec *executionContext) _MatchNotYourTurnError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchNotYourTurnError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchNotYourTurnErrorImplementors)
@@ -30602,7 +30222,7 @@ func (ec *executionContext) _MatchParticipant(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var matchPhaseNotAllowedErrorImplementors = []string{"MatchPhaseNotAllowedError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult"}
+var matchPhaseNotAllowedErrorImplementors = []string{"MatchPhaseNotAllowedError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult"}
 
 func (ec *executionContext) _MatchPhaseNotAllowedError(ctx context.Context, sel ast.SelectionSet, obj *model.MatchPhaseNotAllowedError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, matchPhaseNotAllowedErrorImplementors)
@@ -31077,54 +30697,6 @@ func (ec *executionContext) _MatchTerritory(ctx context.Context, sel ast.Selecti
 			}
 		case "relinquishMagic":
 			out.Values[i] = ec._MatchTerritory_relinquishMagic(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var matchTerritoryCommandSkippedEventImplementors = []string{"MatchTerritoryCommandSkippedEvent", "MatchEvent"}
-
-func (ec *executionContext) _MatchTerritoryCommandSkippedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchTerritoryCommandSkippedEvent) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, matchTerritoryCommandSkippedEventImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("MatchTerritoryCommandSkippedEvent")
-		case "revision":
-			out.Values[i] = ec._MatchTerritoryCommandSkippedEvent_revision(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "occurredAt":
-			out.Values[i] = ec._MatchTerritoryCommandSkippedEvent_occurredAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "changes":
-			out.Values[i] = ec._MatchTerritoryCommandSkippedEvent_changes(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "participant":
-			out.Values[i] = ec._MatchTerritoryCommandSkippedEvent_participant(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -31729,13 +31301,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "skipMatchTerritoryCommand":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_skipMatchTerritoryCommand(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "invadeMatchTerritory":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_invadeMatchTerritory(ctx, field)
@@ -32195,7 +31760,7 @@ func (ec *executionContext) _Player(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
-var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "CardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
+var playerNotRegisteredErrorImplementors = []string{"PlayerNotRegisteredError", "RegisterAvatarResult", "BoardsResult", "BoardResult", "CardResult", "DeckResult", "GameRulesResult", "MatchResult", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "MatchProgressResult", "MatchEventsResult", "NpcAvatarResult", "MeResult", "MyRoomsResult", "RoomResult", "CreateRoomResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _PlayerNotRegisteredError(ctx context.Context, sel ast.SelectionSet, obj *model.PlayerNotRegisteredError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, playerNotRegisteredErrorImplementors)
@@ -32600,7 +32165,7 @@ func (ec *executionContext) _ResumeRoomSuccess(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "SkipMatchTerritoryCommandResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "DrawMatchCardResult", "DiscardMatchCardResult", "RollMatchDiceResult", "ChooseMatchPathResult", "DeployMatchCreatureResult", "InvadeMatchTerritoryResult", "AttackMatchTerritoryResult", "PayMatchTollResult", "DefendMatchTerritoryResult", "RelinquishMatchTerritoryResult", "LevelUpMatchTerritoryResult", "ExchangeMatchCreatureResult", "EndMatchTurnResult", "ChooseMatchRewardPackResult", "ChangeRoomSeatsResult", "ChangeRoomMatchRulesResult", "ChangeRoomSeatChoiceResult", "PublishRoomResult", "DeclareRoomReadyResult", "DeclareRoomNextResult", "ResumeRoomResult", "RenameRoomResult", "CloseRoomResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -33502,44 +33067,6 @@ func (ec *executionContext) _ShrineTile(ctx context.Context, sel ast.SelectionSe
 			}
 		case "y":
 			out.Values[i] = ec._ShrineTile_y(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var skipMatchTerritoryCommandSuccessImplementors = []string{"SkipMatchTerritoryCommandSuccess", "SkipMatchTerritoryCommandResult"}
-
-func (ec *executionContext) _SkipMatchTerritoryCommandSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.SkipMatchTerritoryCommandSuccess) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, skipMatchTerritoryCommandSuccessImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SkipMatchTerritoryCommandSuccess")
-		case "id":
-			out.Values[i] = ec._SkipMatchTerritoryCommandSuccess_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "revision":
-			out.Values[i] = ec._SkipMatchTerritoryCommandSuccess_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -35566,19 +35093,6 @@ func (ec *executionContext) marshalNRoomsEdge2ᚖgitlabᚗcomᚋaimerzarashiᚋd
 		return graphql.Null
 	}
 	return ec._RoomsEdge(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNSkipMatchTerritoryCommandInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐSkipMatchTerritoryCommandInput(ctx context.Context, v any) (model.SkipMatchTerritoryCommandInput, error) {
-	res, err := ec.unmarshalInputSkipMatchTerritoryCommandInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNSkipMatchTerritoryCommandResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐSkipMatchTerritoryCommandResult(ctx context.Context, sel ast.SelectionSet, v model.SkipMatchTerritoryCommandResult) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "SkipMatchTerritoryCommandResult!")
-		return graphql.Null
-	}
-	return ec._SkipMatchTerritoryCommandResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNStarterGrantStatus2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐStarterGrantStatus(ctx context.Context, v any) (model.StarterGrantStatus, error) {

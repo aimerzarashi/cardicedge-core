@@ -114,13 +114,6 @@ type ExchangeCreatureCommand struct {
 
 func (*ExchangeCreatureCommand) isMatchCommand() {}
 
-// 領地コマンドを使わず、止まったマスの行動に進む
-type SkipTerritoryCommandCommand struct {
-	By ParticipantIndex
-}
-
-func (*SkipTerritoryCommandCommand) isMatchCommand() {}
-
 type EndTurnCommand struct {
 	By ParticipantIndex
 }

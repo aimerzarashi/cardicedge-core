@@ -365,12 +365,6 @@ func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revis
 	})
 }
 
-func (c *MatchHandler) SkipTerritoryCommand(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
-		return &match.SkipTerritoryCommandCommand{By: by}, nil
-	})
-}
-
 func (c *MatchHandler) EndTurn(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		return &match.EndTurnCommand{By: by}, nil
@@ -573,7 +567,7 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 		return &match.EndTurnCommand{By: by}, nil
 	case match.PhaseTerritoryCommanding:
 		// NPC は領地コマンドを使わない（考え方の部品にするのは core#117）
-		return &match.SkipTerritoryCommandCommand{By: by}, nil
+		return &match.EndTurnCommand{By: by}, nil
 	case match.PhaseInvading:
 		// 出せる最初のクリーチャーで侵略し、無ければ通行料を払う。アイテムは使わない（2026-11-09 オーナー。考え方の部品にするのは core#117 以降）
 		if choices := current.InvadeChoices(); len(choices) > 0 {

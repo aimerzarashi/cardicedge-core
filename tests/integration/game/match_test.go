@@ -235,7 +235,7 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		require.NotNil(t, m["invasion"])
 		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
 	case "TERRITORY_COMMANDING":
-		// 版の偶奇で交換とレベルアップを分けて、どちらの操作も通す。選べるものが無ければ使わない
+		// 版の偶奇で交換とレベルアップを分けて、どちらの操作も通す。選べるものが無ければ何もしない
 		if choices := m["exchangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%2 == 0 {
 			choice := choices[0].(map[string]any)
 			input["position"], input["handIndex"] = choice["position"], choice["handIndex"]
@@ -246,7 +246,7 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 			input["position"], input["level"] = choice["position"], choice["level"]
 			return matchRevision(t, matchOperation(t, token, "levelUpMatchTerritory", input), "levelUpMatchTerritory")
 		}
-		return matchRevision(t, matchOperation(t, token, "skipMatchTerritoryCommand", input), "skipMatchTerritoryCommand")
+		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
 	case "RELINQUISHING":
 		choices := m["relinquishChoices"].([]any)
 		require.NotEmpty(t, choices)
@@ -380,7 +380,6 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
 				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
-				... on MatchTerritoryCommandSkippedEvent { participant }
 				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleStatModifiedEvent {

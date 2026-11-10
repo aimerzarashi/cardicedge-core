@@ -29,11 +29,9 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *DeployCreatureCommand:
 		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
 	case *LevelUpTerritoryCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) })
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhaseDeploying, PhaseInvading)
 	case *ExchangeCreatureCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) })
-	case *SkipTerritoryCommandCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, skipTerritoryCommand)
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) }, PhaseDeploying, PhaseInvading)
 	case *InvadeCommand:
 		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex) })
 	case *AttackCommand:
@@ -45,8 +43,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *RelinquishTerritoryCommand:
 		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
-		// 配置の段階でターンを終えるのが「配置しない」（専用の操作を作らない。2026-11-08 オーナー）
-		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhaseDeploying)
+		// 配置の段階でターンを終えるのが「配置しない」、領地コマンドの段階でターンを終えるのが「何もしない」（専用の操作を作らない。2026-11-08・11-09 オーナー）
+		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhaseDeploying, PhaseTerritoryCommanding)
 	case *ChooseRewardPackCommand:
 		return chooseRewardPack(state, c, now, random)
 	default:
@@ -246,12 +244,6 @@ func afterTerritoryCommand(r *recorder) error {
 		}
 	}
 	return endTurn(r)
-}
-
-func skipTerritoryCommand(r *recorder) error {
-	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryCommandSkippedEvent{EventMeta: meta, Participant: by}
-	})
 }
 
 // 手札のクリーチャーを出して確定する。アイテムは攻める側 → 守る側の順に、別の操作で選ぶ
@@ -473,10 +465,14 @@ func payToll(r *recorder) error {
 	return settleDebt(r)
 }
 
+// 支払いと手放しの後の始末。手放せる領地が残っていて負のままなら手放す段階を続け、0 以上ならターンを終える（2026-11-10 オーナー。選ぶものが無いのにターン終了を待たせないため）。
 // 手放す領地も無く負のままなら、魔力が枯渇して拠点からやり直し、ターンを終える。周回のボーナスも勝ちの判定も無い（2026-11-08 オーナー）
 func settleDebt(r *recorder) error {
-	if r.state.Phase != PhaseEnding || r.current().Magic >= 0 {
+	if r.state.Phase != PhaseEnding {
 		return nil
+	}
+	if r.current().Magic >= 0 {
+		return endTurn(r)
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: r.state.Rules.StartingMagic}
