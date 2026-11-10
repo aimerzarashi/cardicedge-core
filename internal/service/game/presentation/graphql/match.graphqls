@@ -11,7 +11,7 @@
 enum MatchPhase {
   "カードを引く段階（drawMatchCard）"
   DRAWING
-  "手札が上限を超えているので捨てる段階（discardMatchCard）"
+  "ターンを終えるときに手札が上限を超えているので、上限まで捨てる段階（discardMatchCard）。捨て終えるとターンを終える"
   DISCARDING
   "サイコロを振る段階（rollMatchDice）"
   ROLLING
@@ -167,6 +167,8 @@ type MatchParticipant {
   hand: [CardInfo!]!
   "山札の残りの枚数。並びと中身は見せない"
   drawPileCount: Int!
+  "捨て札（入った順）。使った・捨てた・倒された・手放したカードで、誰でも見られる。山札が空のまま引くときに混ぜて山札にする"
+  discardPile: [CardInfo!]!
   "順番の何番目か（0 始まり）。順番が早い人ほど小さい"
   turnOrder: Int!
   "拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）"
@@ -950,7 +952,33 @@ type MatchCardDrawnEvent implements MatchEvent {
   card: CardInfo!
 }
 
-"手札を 1 枚捨てた"
+"山札が空のまま引くときに、捨て札を混ぜて山札にした（並びは見せない）"
+type MatchDiscardPileShuffledEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "混ぜた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "山札にした枚数（捨て札はこれで空になる）"
+  drawPileCount: Int!
+}
+
+"ターンを終えるときに、手札が上限を超えていた（上限まで捨ててからターンを終える）"
+type MatchHandLimitExceededEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "手札が上限を超えた参加者（Match.participants の何番目か）"
+  participant: Int!
+}
+
+"手札を 1 枚捨てた（捨て札に入る）"
 type MatchCardDiscardedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!

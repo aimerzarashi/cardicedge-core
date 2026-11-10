@@ -1,6 +1,10 @@
 package match
 
-import "slices"
+import (
+	"slices"
+
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 // 状態は値で返し、渡された状態を書き換えない
 func Evolve(state State, event Event) (State, error) {
@@ -56,7 +60,28 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Hand = append(slices.Clone(participant.Hand), e.Card)
 		current.Participants[index].DrawPile = participant.DrawPile[1:]
-		current.Phase = current.handLimitPhase(index)
+		current.Phase = PhaseRolling
+	case *DiscardPileShuffledEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		participant := current.Participants[index]
+		if len(participant.DrawPile) > 0 || !sameCards(participant.DiscardPile, e.DrawPile) {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].DrawPile = e.DrawPile
+		current.Participants[index].DiscardPile = nil
+	case *HandLimitExceededEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		if !current.exceedsHandLimit(index) {
+			return state, ErrInvalidState
+		}
+		current.Phase = PhaseDiscarding
 	case *CardDiscardedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -68,6 +93,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[index].DiscardPile = append(slices.Clone(current.Participants[index].DiscardPile), e.Card)
 		current.Phase = current.handLimitPhase(index)
 	case *DiceRolledEvent:
 		if _, err := current.actor(e.Participant); err != nil {
@@ -152,8 +178,13 @@ func Evolve(state State, event Event) (State, error) {
 		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
 			return state, ErrInvalidState
 		}
+		relinquished, found := current.DeployedCreature(e.Creature)
+		if !found {
+			return state, ErrInvalidState
+		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic += e.Magic
+		current.Participants[index].DiscardPile = append(slices.Clone(current.Participants[index].DiscardPile), relinquished.Card)
 		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
 		current.DeployedCreatures = slices.DeleteFunc(slices.Clone(current.DeployedCreatures), func(d DeployedCreature) bool { return d.ID == e.Creature })
 		current.Phase = current.debtPhase(index)
@@ -308,6 +339,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[e.Participant].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[e.Participant].DiscardPile = append(slices.Clone(current.Participants[e.Participant].DiscardPile), e.Card)
 		current.Participants[e.Participant].Magic -= e.Cost.Int()
 		invasion := *current.Invasion
 		used := e.Card
@@ -357,6 +389,12 @@ func Evolve(state State, event Event) (State, error) {
 			e.Position != current.Invasion.Position {
 			return state, ErrInvalidState
 		}
+		defeated, found := current.DeployedCreature(e.DefeatedCreature)
+		if !found {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[defeated.Owner].DiscardPile = append(slices.Clone(current.Participants[defeated.Owner].DiscardPile), defeated.Card)
 		invasion := *current.Invasion
 		if invasion.From != nil {
 			// 移動で侵略したクリーチャーは同じ 1 体のまま移り、元の土地は空き地になる
@@ -433,9 +471,12 @@ func Evolve(state State, event Event) (State, error) {
 				current.DeployedCreatures[i].HitPoints = e.TerritoryHitPoints
 			}
 		}
-		if e.ReturnedToHand {
-			current.Participants = slices.Clone(current.Participants)
+		current.Participants = slices.Clone(current.Participants)
+		switch {
+		case e.ReturnedToHand:
 			current.Participants[index].Hand = append(slices.Clone(participant.Hand), e.Card)
+		case !survived:
+			current.Participants[index].DiscardPile = append(slices.Clone(participant.DiscardPile), e.Card)
 		}
 		current.Invasion = nil
 		current.Battle = nil
@@ -508,21 +549,43 @@ func (m Match) currentIndex() (ParticipantIndex, error) {
 	return index, nil
 }
 
-// 山札が空なら引く操作は待たない（引けないのに止まらないように）
+// 山札も捨て札も空なら引く操作は待たない（引けないのに止まらないように）。山札だけが空なら、引くときに捨て札を混ぜて山札にする
 func (m Match) turnStartPhase() Phase {
 	index, err := m.currentIndex()
-	if err != nil || len(m.Participants[index].DrawPile) == 0 {
+	if err != nil || (len(m.Participants[index].DrawPile) == 0 && len(m.Participants[index].DiscardPile) == 0) {
 		return PhaseRolling
 	}
 	return PhaseDrawing
 }
 
-// 捨てた後も確かめ直すのは、上限を 2 枚以上超える形（配る枚数や引く枚数を変えたとき）でも 1 枚で振る段階に進まないため
+func (m Match) exceedsHandLimit(index ParticipantIndex) bool {
+	return len(m.Participants[index].Hand) > m.Rules.MaxHandCards.Int()
+}
+
+// 捨てた後も確かめ直すのは、上限を 2 枚以上超えたとき（引くスペル等）に 1 枚でターンを終えないため。上限に収まれば Decide がターンを終える
 func (m Match) handLimitPhase(index ParticipantIndex) Phase {
-	if len(m.Participants[index].Hand) > m.Rules.MaxHandCards.Int() {
+	if m.exceedsHandLimit(index) {
 		return PhaseDiscarding
 	}
-	return PhaseRolling
+	return PhaseEnding
+}
+
+// 混ぜ直した山札が捨て札と同じカードの組か（並びは問わない）
+func sameCards(a, b []card.Ref) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	counts := make(map[card.Ref]int, len(a))
+	for _, ref := range a {
+		counts[ref]++
+	}
+	for _, ref := range b {
+		counts[ref]--
+		if counts[ref] < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // 進んだ直後の段階。行き先が無いのに歩数が残る形（つながりの無い拠点）は、止まって終えるしかない

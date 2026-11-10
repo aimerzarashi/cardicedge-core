@@ -39,9 +39,16 @@ func newEndedMatchFixture(t *testing.T) matchTurnFixture {
 	changed := f.playUntilChoosingPath(t)
 	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 2, 0)
 	require.NoError(t, err)
-	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	changed, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
 	require.NoError(t, err)
-	for f.load(t).Phase != match.PhaseEnded {
+	// 引いた分で手札が上限を超えているので、ターンの終わりに 1 枚捨てる
+	if f.load(t).Phase == match.PhaseDiscarding {
+		_, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
+		require.NoError(t, err)
+	}
+	// NPC の番が進まなくなったときに、時間切れまで回り続けないように回数を区切る
+	for i := 0; f.load(t).Phase != match.PhaseEnded; i++ {
+		require.Less(t, i, 100)
 		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
 	}
 	return f

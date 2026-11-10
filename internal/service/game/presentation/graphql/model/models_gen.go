@@ -1323,7 +1323,7 @@ type MatchBoard struct {
 	Pairs []*BoardTilePair `json:"pairs"`
 }
 
-// 手札を 1 枚捨てた
+// 手札を 1 枚捨てた（捨て札に入る）
 type MatchCardDiscardedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -1603,6 +1603,31 @@ func (this MatchDiceRolledEvent) GetOccurredAt() time.Time { return this.Occurre
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchDiceRolledEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 山札が空のまま引くときに、捨て札を混ぜて山札にした（並びは見せない）
+type MatchDiscardPileShuffledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 混ぜた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 山札にした枚数（捨て札はこれで空になる）
+	DrawPileCount int `json:"drawPileCount"`
+}
+
+func (MatchDiscardPileShuffledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDiscardPileShuffledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDiscardPileShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDiscardPileShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 土地の属性を変える選択肢 1 つ
 type MatchElementChangeChoice struct {
 	// 領地の位置
@@ -1669,6 +1694,29 @@ type MatchExchangeChoice struct {
 	// 払う魔力（出すクリーチャーのコスト）
 	Magic int `json:"magic"`
 }
+
+// ターンを終えるときに、手札が上限を超えていた（上限まで捨ててからターンを終える）
+type MatchHandLimitExceededEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 手札が上限を超えた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchHandLimitExceededEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchHandLimitExceededEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchHandLimitExceededEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchHandLimitExceededEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 全員に手札が配られた
 type MatchHandsDealtEvent struct {
@@ -2036,6 +2084,8 @@ type MatchParticipant struct {
 	Hand []CardInfo `json:"hand"`
 	// 山札の残りの枚数。並びと中身は見せない
 	DrawPileCount int `json:"drawPileCount"`
+	// 捨て札（入った順）。使った・捨てた・倒された・手放したカードで、誰でも見られる。山札が空のまま引くときに混ぜて山札にする
+	DiscardPile []CardInfo `json:"discardPile"`
 	// 順番の何番目か（0 始まり）。順番が早い人ほど小さい
 	TurnOrder int `json:"turnOrder"`
 	// 拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）
@@ -3734,7 +3784,7 @@ type MatchPhase string
 const (
 	// カードを引く段階（drawMatchCard）
 	MatchPhaseDrawing MatchPhase = "DRAWING"
-	// 手札が上限を超えているので捨てる段階（discardMatchCard）
+	// ターンを終えるときに手札が上限を超えているので、上限まで捨てる段階（discardMatchCard）。捨て終えるとターンを終える
 	MatchPhaseDiscarding MatchPhase = "DISCARDING"
 	// サイコロを振る段階（rollMatchDice）
 	MatchPhaseRolling MatchPhase = "ROLLING"

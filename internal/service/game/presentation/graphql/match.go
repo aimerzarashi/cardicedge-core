@@ -64,6 +64,12 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 				return nil, err
 			}
 		}
+		discardPile := make([]model.CardInfo, len(participant.DiscardPile))
+		for j, card := range participant.DiscardPile {
+			if discardPile[j], err = fromMatchCard(card); err != nil {
+				return nil, err
+			}
+		}
 		rewardCards := make([]model.CardInfo, len(participant.RewardCards))
 		for j, card := range participant.RewardCards {
 			if rewardCards[j], err = fromMatchCard(card); err != nil {
@@ -76,7 +82,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			Avatar:     &model.MatchAvatar{ID: participant.Avatar.ID, Name: participant.Avatar.Name},
 			Position:   &model.BoardPosition{X: participant.Position.X, Y: participant.Position.Y},
 			TotalMagic: participant.TotalMagic,
-			Magic:      participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, TurnOrder: participant.TurnOrder,
+			Magic:      participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, DiscardPile: discardPile, TurnOrder: participant.TurnOrder,
 			PassedCheckpoints: fromQueryPositions(participant.PassedCheckpoints),
 		}
 	}
@@ -341,6 +347,10 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchCardDrawnEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Card: card}, nil
+	case query.MatchDiscardPileShuffledEvent:
+		return &model.MatchDiscardPileShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, DrawPileCount: e.DrawPileCount}, nil
+	case query.MatchHandLimitExceededEvent:
+		return &model.MatchHandLimitExceededEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchCardDiscardedEvent:
 		card, err := fromMatchCard(e.Card)
 		if err != nil {
