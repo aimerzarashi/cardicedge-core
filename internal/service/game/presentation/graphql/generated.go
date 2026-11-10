@@ -364,6 +364,7 @@ type ComplexityRoot struct {
 		InvadeChoices        func(childComplexity int) int
 		Invasion             func(childComplexity int) int
 		ItemChoices          func(childComplexity int) int
+		LandLevels           func(childComplexity int) int
 		LevelUpChoices       func(childComplexity int) int
 		Number               func(childComplexity int) int
 		Outcome              func(childComplexity int) int
@@ -592,6 +593,11 @@ type ComplexityRoot struct {
 		Participant func(childComplexity int) int
 		Position    func(childComplexity int) int
 		Revision    func(childComplexity int) int
+	}
+
+	MatchLandLevel struct {
+		Level    func(childComplexity int) int
+		Position func(childComplexity int) int
 	}
 
 	MatchLapCompletedEvent struct {
@@ -2148,6 +2154,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.ItemChoices(childComplexity), true
+	case "Match.landLevels":
+		if e.ComplexityRoot.Match.LandLevels == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.LandLevels(childComplexity), true
 	case "Match.levelUpChoices":
 		if e.ComplexityRoot.Match.LevelUpChoices == nil {
 			break
@@ -3040,6 +3052,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchLandElementChangedEvent.Revision(childComplexity), true
+
+	case "MatchLandLevel.level":
+		if e.ComplexityRoot.MatchLandLevel.Level == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLandLevel.Level(childComplexity), true
+	case "MatchLandLevel.position":
+		if e.ComplexityRoot.MatchLandLevel.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLandLevel.Position(childComplexity), true
 
 	case "MatchLapCompletedEvent.changes":
 		if e.ComplexityRoot.MatchLapCompletedEvent.Changes == nil {
@@ -5334,6 +5359,8 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_itemChoices(ctx, field)
 	case "relinquishChoices":
 		return ec.fieldContext_Match_relinquishChoices(ctx, field)
+	case "landLevels":
+		return ec.fieldContext_Match_landLevels(ctx, field)
 	case "levelUpChoices":
 		return ec.fieldContext_Match_levelUpChoices(ctx, field)
 	case "exchangeChoices":
@@ -5450,6 +5477,16 @@ func (ec *executionContext) childFields_MatchInvasion(ctx context.Context, field
 		return ec.fieldContext_MatchInvasion_hitPoints(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchInvasion", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchLandLevel(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "position":
+		return ec.fieldContext_MatchLandLevel_position(ctx, field)
+	case "level":
+		return ec.fieldContext_MatchLandLevel_level(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchLandLevel", field.Name)
 }
 
 func (ec *executionContext) childFields_MatchLevelUpChoice(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -10500,6 +10537,38 @@ func (ec *executionContext) fieldContext_Match_relinquishChoices(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Match_landLevels(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_landLevels(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LandLevels, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MatchLandLevel) graphql.Marshaler {
+			return ec.marshalNMatchLandLevel2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLandLevelᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_landLevels(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchLandLevel(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Match_levelUpChoices(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -14154,6 +14223,61 @@ func (ec *executionContext) _MatchLandElementChangedEvent_magic(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_MatchLandElementChangedEvent_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchLandElementChangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchLandLevel_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchLandLevel) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLandLevel_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLandLevel_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchLandLevel",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchLandLevel_level(ctx context.Context, field graphql.CollectedField, obj *model.MatchLandLevel) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLandLevel_level(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Level, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLandLevel_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLandLevel", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchLapCompletedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchLapCompletedEvent) (ret graphql.Marshaler) {
@@ -29169,6 +29293,11 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "landLevels":
+			out.Values[i] = ec._Match_landLevels(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "levelUpChoices":
 			out.Values[i] = ec._Match_levelUpChoices(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -30645,6 +30774,44 @@ func (ec *executionContext) _MatchLandElementChangedEvent(ctx context.Context, s
 			}
 		case "magic":
 			out.Values[i] = ec._MatchLandElementChangedEvent_magic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchLandLevelImplementors = []string{"MatchLandLevel"}
+
+func (ec *executionContext) _MatchLandLevel(ctx context.Context, sel ast.SelectionSet, obj *model.MatchLandLevel) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchLandLevelImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchLandLevel")
+		case "position":
+			out.Values[i] = ec._MatchLandLevel_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "level":
+			out.Values[i] = ec._MatchLandLevel_level(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -35362,6 +35529,30 @@ func (ec *executionContext) marshalNMatchExchangeChoice2ᚖgitlabᚗcomᚋaimerz
 		return graphql.Null
 	}
 	return ec._MatchExchangeChoice(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMatchLandLevel2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLandLevelᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchLandLevel) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchLandLevel2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLandLevel(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMatchLandLevel2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLandLevel(ctx context.Context, sel ast.SelectionSet, v *model.MatchLandLevel) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "MatchLandLevel!")
+		return graphql.Null
+	}
+	return ec._MatchLandLevel(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMatchLevelUpChoice2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchLevelUpChoiceᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MatchLevelUpChoice) graphql.Marshaler {

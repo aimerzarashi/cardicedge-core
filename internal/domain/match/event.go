@@ -95,7 +95,7 @@ type TollPaidEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る
+// 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れ、土地は空く（レベルは土地に残る。core#146）
 type TerritoryRelinquishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`

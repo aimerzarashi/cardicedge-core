@@ -379,7 +379,8 @@ func applyTerrain(r *recorder) error {
 	if !terrainMatches(element, defending.Base.Elements) {
 		return nil
 	}
-	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, territory.Level), 0, territory.Level*r.state.Rules.TerrainBonusPerLevel.Int())
+	level := r.state.LandLevel(territory.Position)
+	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, level), 0, level*r.state.Rules.TerrainBonusPerLevel.Int())
 }
 
 // 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）

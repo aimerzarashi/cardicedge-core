@@ -124,7 +124,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.DeployedCreatures = append(slices.Clone(current.DeployedCreatures), DeployedCreature{
 			ID: e.Creature, Card: e.Card, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints,
 		})
-		current.Territories = append(slices.Clone(current.Territories), Territory{Position: e.Position, Creature: e.Creature, Level: 1})
+		current.Territories = append(slices.Clone(current.Territories), Territory{Position: e.Position, Creature: e.Creature})
 		current.LastDeployedCreatureID = e.Creature
 		current.Phase = PhaseEnding
 	case *TollPaidEvent:
@@ -177,7 +177,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		territory, ok := current.TerritoryAt(e.Position)
-		if !ok || !current.acceptsTerritoryCommand() || e.Level <= territory.Level {
+		if !ok || !current.acceptsTerritoryCommand() || e.Level <= current.LandLevel(e.Position) {
 			return state, ErrInvalidState
 		}
 		if owner, ok := current.TerritoryOwner(territory); !ok || owner != index {
@@ -185,12 +185,8 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic -= e.Magic
-		current.Territories = slices.Clone(current.Territories)
-		for i := range current.Territories {
-			if current.Territories[i].Position == e.Position {
-				current.Territories[i].Level = e.Level
-			}
-		}
+		current.LandLevels = append(slices.DeleteFunc(slices.Clone(current.LandLevels), func(l LandLevel) bool { return l.Position == e.Position }),
+			LandLevel{Position: e.Position, Level: e.Level})
 		current.Phase = PhaseEnding
 	case *LandElementChangedEvent:
 		index, err := current.actor(e.Participant)

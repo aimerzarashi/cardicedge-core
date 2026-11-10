@@ -55,8 +55,13 @@ type DeployedCreature struct {
 type Territory struct {
 	Position board.Position
 	Creature DeployedCreatureID
-	// 土地のレベル（1 始まり）。上げる操作は core#115
-	Level int
+}
+
+// 土地のレベル。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても（手放しても、倒されても、動いても）土地に残り、
+// 次に配置・移動したクリーチャーが引き継ぐ（2026-11-10 オーナー。core#146）
+type LandLevel struct {
+	Position board.Position
+	Level    int
 }
 
 // 戦闘が終わるまでの、侵略しているクリーチャー。領地（1 マスに 1 体）には倒してから入るので、盤面の実体とは別に持つ
@@ -140,6 +145,8 @@ type Match struct {
 	DeployedCreatures []DeployedCreature
 	// 領地（できた順）
 	Territories []Territory
+	// レベルを上げた土地（上げた順）。無い土地はレベル 1
+	LandLevels []LandLevel
 	// 侵略してから戦闘が終わるまでだけある
 	Invasion *Invasion
 	// 戦闘が始まってから終わるまでだけある
@@ -354,7 +361,7 @@ func (m Match) LevelUpChoices() []LevelUpChoice {
 	}
 	var choices []LevelUpChoice
 	for _, territory := range m.passedOwnTerritories() {
-		for level := territory.Level + 1; level <= len(m.Rules.LandLevelMultipliers); level++ {
+		for level := m.LandLevel(territory.Position) + 1; level <= len(m.Rules.LandLevelMultipliers); level++ {
 			if magic := m.levelUpMagic(territory, level); magic <= m.Participants[index].Magic {
 				choices = append(choices, LevelUpChoice{Position: territory.Position, Level: level, Magic: magic})
 			}
@@ -432,7 +439,7 @@ func (m Match) landElementChangeMagic(current board.Element) int {
 
 // 基本の値 × 倍率の差。連鎖の倍率は掛けないので、飛ばして上げた額は途中の額の合計になる（2026-11-08 オーナー）
 func (m Match) levelUpMagic(territory Territory, level int) int {
-	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(territory.Level))
+	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)))
 }
 
 // 今の番の人が、このターンに通った自分の領地（入った順で重ならない）
@@ -494,6 +501,16 @@ func (m Match) territoriesOf(index ParticipantIndex) []Territory {
 	return owned
 }
 
+// その位置の土地のレベル（上げていなければ 1）
+func (m Match) LandLevel(position board.Position) int {
+	for _, land := range m.LandLevels {
+		if land.Position == position {
+			return land.Level
+		}
+	}
+	return 1
+}
+
 // 領地の持ち主。そこにいるクリーチャーの持ち主
 func (m Match) TerritoryOwner(territory Territory) (ParticipantIndex, bool) {
 	deployed, ok := m.DeployedCreature(territory.Creature)
@@ -550,7 +567,7 @@ func (m Match) chainCount(territory Territory) int {
 
 // 土地の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
 func (m Match) TerritoryValue(territory Territory) int {
-	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(territory.Level) * m.Rules.chainMultiplier(m.chainCount(territory)) / 100
+	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)) * m.Rules.chainMultiplier(m.chainCount(territory)) / 100
 }
 
 // 他人が止まったときに払う魔力（端数は切り捨て）

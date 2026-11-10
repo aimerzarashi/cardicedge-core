@@ -234,6 +234,8 @@ type Match {
   itemChoices: [Int!]!
   "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
   relinquishChoices: [BoardPosition!]!
+  "レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）"
+  landLevels: [MatchLandLevel!]!
   "今の番の人が選べるレベルアップ（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）"
   levelUpChoices: [MatchLevelUpChoice!]!
   "今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）"
@@ -553,6 +555,14 @@ union RelinquishMatchTerritoryResult =
   | MatchPhaseNotAllowedError
   | RevisionConflictError
   | PlayerNotRegisteredError
+
+"土地のレベル"
+type MatchLandLevel {
+  "土地の位置"
+  position: BoardPosition!
+  "レベル（2 以上）"
+  level: Int!
+}
 
 "領地のレベルを上げる選択肢 1 つ"
 type MatchLevelUpChoice {
