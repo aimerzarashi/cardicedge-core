@@ -61,6 +61,8 @@ type UseSpellCommand struct {
 	By ParticipantIndex
 	// 手札の何番目か（0 始まり）
 	HandIndex int
+	// 対象のプレイヤー（呪いのスペルだけ。ほかのスペルは nil）
+	Target *ParticipantIndex
 }
 
 func (*UseSpellCommand) isMatchCommand() {}

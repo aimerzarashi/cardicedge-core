@@ -160,6 +160,26 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic += e.Magic
+	case *CurseCastEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if e.Target < 0 || int(e.Target) >= len(current.Participants) || e.Curse.Expiry.RemainingTurns < 1 {
+			return state, ErrInvalidState
+		}
+		curse := e.Curse
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Target].Curse = &curse
+	case *CurseRemovedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		if current.Participants[index].Curse == nil {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[index].Curse = nil
 	case *DiceCountChangedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
@@ -519,8 +539,16 @@ func Evolve(state State, event Event) (State, error) {
 		current.Battle = nil
 		current.Phase = PhaseEnding
 	case *TurnEndedEvent:
-		if _, err := current.actor(e.Participant); err != nil {
+		index, err := current.actor(e.Participant)
+		if err != nil {
 			return state, err
+		}
+		// 解けるのは CurseRemovedEvent。残るターンがあれば 1 減らす
+		if curse := current.Participants[index].Curse; curse != nil {
+			remaining := *curse
+			remaining.Expiry.RemainingTurns--
+			current.Participants = slices.Clone(current.Participants)
+			current.Participants[index].Curse = &remaining
 		}
 		if current.Turn+1 < len(current.TurnOrder) {
 			current.Turn++

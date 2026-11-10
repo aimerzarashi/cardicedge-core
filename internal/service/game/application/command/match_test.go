@@ -746,11 +746,11 @@ func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
 	choices := rolling.SpellChoices()
 	require.NotEmpty(t, choices)
 
-	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0, nil)
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
-	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0])
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0].HandIndex, nil)
 
 	require.NoError(t, err)
 	used := f.load(t)
@@ -759,4 +759,29 @@ func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
 	require.Equal(t, 600-40, used.Participants[0].Magic)
 	require.Equal(t, match.PhaseRolling, used.Phase)
 	require.Empty(t, used.SpellChoices())
+}
+
+// 次の目を決める呪い
+func curseDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
+	t.Helper()
+	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.FixedDiceCurse(t, 6, 1)}}
+	return match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+func TestMatchHandler_UseSpellReportsTheTargetOfACurse(t *testing.T) {
+	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), curseDeckCard(t, 6, 3))
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	choice := f.load(t).SpellChoices()[0]
+	outside := 9
+	npc := 1
+
+	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil)
+	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &outside)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &npc)
+
+	require.Equal(t, input.Errors{&input.Required{Field: "target"}}, missing)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "target"}}, notFound)
+	require.NoError(t, err)
+	require.NotNil(t, f.load(t).Participants[1].Curse)
 }

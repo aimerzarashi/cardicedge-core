@@ -238,3 +238,20 @@ func TestChangeSpellEffect_ChangesToEachKindAndRejectsTooSmallValues(t *testing.
 	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}, perLapErr)
 	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.rollDice.count", Min: 2}}, diceErr)
 }
+
+func TestChangeSpellEffect_ChangesToAFixedDiceCurseAndRejectsTooSmallValuesTogether(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホーリーワード6")
+	require.NoError(t, err)
+
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{FixedDiceCurse: &command.SpellFixedDiceCurse{Value: 6, Turns: 1}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+
+	_, err = commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{FixedDiceCurse: &command.SpellFixedDiceCurse{Value: 0, Turns: 0}})
+	require.Equal(t, input.Errors{
+		&input.TooSmall{Field: "effect.fixedDiceCurse.value", Min: 1},
+		&input.TooSmall{Field: "effect.fixedDiceCurse.turns", Min: 1},
+	}, err)
+}

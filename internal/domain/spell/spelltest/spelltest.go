@@ -41,3 +41,13 @@ func RollDice(t testing.TB, count int) spell.Effect {
 	require.NoError(t, err)
 	return spell.NewRollDiceEffect(value)
 }
+
+// 次のサイコロの目を決める呪いの効果
+func FixedDiceCurse(t testing.TB, value, turns int) spell.Effect {
+	t.Helper()
+	face, err := spell.NewDiceFace(value)
+	require.NoError(t, err)
+	curseTurns, err := spell.NewCurseTurns(turns)
+	require.NoError(t, err)
+	return spell.NewFixedDiceCurseEffect(face, curseTurns)
+}

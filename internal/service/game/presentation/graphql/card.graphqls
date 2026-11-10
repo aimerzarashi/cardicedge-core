@@ -78,7 +78,7 @@ type SpellCardInfo implements CardInfo {
 
 # 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする
 "スペルの効果（種類は __typename で見分ける）"
-union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect
+union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect | SpellFixedDiceCurseEffect
 
 "カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）"
 type SpellDrawCardsEffect {
@@ -96,6 +96,14 @@ type SpellGainMagicEffect {
 type SpellRollDiceEffect {
   "振るサイコロの個数（2 以上）"
   count: Int!
+}
+
+"次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）"
+type SpellFixedDiceCurseEffect {
+  "決める目（1 以上）"
+  value: Int!
+  "解けるまでのターン数（1 以上。かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）"
+  turns: Int!
 }
 
 # 画面の略称（N・S・R・E）は game が作る。上下の順は戦利品のパックで使うときに決める

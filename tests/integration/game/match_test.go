@@ -26,13 +26,13 @@ const matchQuery = `query ($id: UUID!) {
 			id revision round
 			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount discardPile { __typename id name } turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
+			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount discardPile { __typename id name } curse { remainingTurns effect { __typename ... on MatchFixedDiceCurse { value } } } turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
 			awaitingParticipant
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } spellChoices deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -127,8 +127,9 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(2), player["drawPileCount"])
 	require.NotEmpty(t, npc["hand"])
 	require.Equal(t, float64(0), npc["drawPileCount"])
-	// 捨て札は、まだ何も使っていないので空
+	// 捨て札は、まだ何も使っていないので空。呪いもかかっていない
 	require.Empty(t, player["discardPile"])
+	require.Nil(t, player["curse"])
 	// 順番は 0 と 1 の並べ替えで、先頭の人の番から始まる
 	require.ElementsMatch(t, []any{float64(0), float64(1)}, []any{player["turnOrder"], npc["turnOrder"]})
 	require.Equal(t, "DRAWING", found["phase"])
@@ -400,6 +401,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchSpellUsedEvent { participant handIndex card { id name } cost }
 				... on MatchMagicGainedEvent { participant magic }
 				... on MatchDiceCountChangedEvent { participant count }
+				... on MatchCurseCastEvent { participant target curse { remainingTurns effect { __typename ... on MatchFixedDiceCurse { value } } } }
+				... on MatchCurseRemovedEvent { participant }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
@@ -425,7 +428,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
-				... on MatchDiceRolledEvent { participant value dice }
+				... on MatchDiceRolledEvent { participant value dice fixedByCurse }
 				... on MatchMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
 				... on MatchLapCompletedEvent { participant magic }

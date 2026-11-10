@@ -36,6 +36,13 @@ type SpellEffect struct {
 	DrawCards *SpellDrawCards
 	GainMagic *SpellGainMagic
 	RollDice  *SpellRollDice
+	// 対象のプレイヤーにかける呪い
+	FixedDiceCurse *SpellFixedDiceCurse
+}
+
+type SpellFixedDiceCurse struct {
+	Value int
+	Turns int
 }
 
 type SpellDrawCards struct {

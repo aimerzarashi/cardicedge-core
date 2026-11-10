@@ -84,6 +84,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			TotalMagic: participant.TotalMagic,
 			Magic:      participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, DiscardPile: discardPile, TurnOrder: participant.TurnOrder,
 			PassedCheckpoints: fromQueryPositions(participant.PassedCheckpoints),
+			Curse:             fromMatchCurse(participant.Curse),
 		}
 	}
 	rules := match.Rules
@@ -125,7 +126,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
-		SpellChoices: match.SpellChoices, DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
+		SpellChoices: fromSpellChoices(match.SpellChoices), DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 		LandLevels: fromQueryLandLevels(match.LandLevels), MoveChoices: fromQueryMoveChoices(match.MoveChoices), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 		ElementChangeChoices: elementChangeChoices,
@@ -479,7 +480,11 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchMagicDepletedEvent:
 		return &model.MatchMagicDepletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
 	case query.MatchDiceRolledEvent:
-		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice}, nil
+		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice, FixedByCurse: e.FixedByCurse}, nil
+	case query.MatchCurseCastEvent:
+		return &model.MatchCurseCastEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Target: e.Target, Curse: fromMatchCurse(&e.Curse)}, nil
+	case query.MatchCurseRemovedEvent:
+		return &model.MatchCurseRemovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchMagicGainedEvent:
 		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
 	case query.MatchDiceCountChangedEvent:
@@ -547,4 +552,24 @@ func fromMatchBattleStatSource(source query.MatchBattleStatSource) (model.MatchB
 		}
 		return &model.MatchAdjacentTerritoriesSource{Positions: positions}, nil
 	}
+}
+
+func fromSpellChoices(choices []query.MatchSpellChoice) []*model.MatchSpellChoice {
+	converted := make([]*model.MatchSpellChoice, len(choices))
+	for i, choice := range choices {
+		converted[i] = &model.MatchSpellChoice{HandIndex: choice.HandIndex, Targets: choice.Targets}
+	}
+	return converted
+}
+
+// 呪いの効き方は種類ごとの型にする（無ければ null）
+func fromMatchCurse(curse *query.MatchCurse) *model.MatchCurse {
+	if curse == nil {
+		return nil
+	}
+	converted := &model.MatchCurse{RemainingTurns: curse.RemainingTurns}
+	if curse.FixedDice != nil {
+		converted.Effect = &model.MatchFixedDiceCurse{Value: *curse.FixedDice}
+	}
+	return converted
 }

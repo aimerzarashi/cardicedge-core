@@ -176,6 +176,22 @@ type DiceCountChangedEvent struct {
 	Count       int              `json:"count"`
 }
 
+// スペルで、対象のプレイヤーに呪いをかけた（Participant は使った人。かかっていた呪いは上書きする）
+type CurseCastEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Target      ParticipantIndex `json:"target"`
+	Curse       Curse            `json:"curse"`
+}
+
+// 自分のターンを終えて、かかっていた呪いが解けた
+type CurseRemovedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+}
+
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
 type ItemSkippedEvent struct {
 	EventMeta   `json:"-"`
@@ -300,6 +316,8 @@ type DiceRolledEvent struct {
 	Value int `json:"value"`
 	// 複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が Value）。1 個のときは持たない
 	Dice []int `json:"dice,omitempty"`
+	// 呪いで目が決まった（サイコロは 1 個で、目は呪いの値）
+	FixedByCurse bool `json:"fixed_by_curse,omitempty"`
 }
 
 // 1 歩進んで入ったマス
@@ -396,6 +414,8 @@ var (
 	spellUsedEventType              = domain.NewEventName("SpellUsedEvent")
 	magicGainedEventType            = domain.NewEventName("MagicGainedEvent")
 	diceCountChangedEventType       = domain.NewEventName("DiceCountChangedEvent")
+	curseCastEventType              = domain.NewEventName("CurseCastEvent")
+	curseRemovedEventType           = domain.NewEventName("CurseRemovedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -687,6 +707,22 @@ func (*DiceCountChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*CurseCastEvent) EventType() domain.EventName {
+	return curseCastEventType
+}
+
+func (*CurseCastEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CurseRemovedEvent) EventType() domain.EventName {
+	return curseRemovedEventType
+}
+
+func (*CurseRemovedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
@@ -695,7 +731,7 @@ func Types() domain.AggregateTypes {
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
-		spellUsedEventType, magicGainedEventType, diceCountChangedEventType,
+		spellUsedEventType, magicGainedEventType, diceCountChangedEventType, curseCastEventType, curseRemovedEventType,
 	}}
 }
 
@@ -780,6 +816,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &MagicGainedEvent{EventMeta: meta}
 	case EventType(diceCountChangedEventType):
 		event = &DiceCountChangedEvent{EventMeta: meta}
+	case EventType(curseCastEventType):
+		event = &CurseCastEvent{EventMeta: meta}
+	case EventType(curseRemovedEventType):
+		event = &CurseRemovedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

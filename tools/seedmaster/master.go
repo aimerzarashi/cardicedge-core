@@ -85,6 +85,10 @@ type masterSpellEffect struct {
 	RollDice *struct {
 		Count int `json:"count"`
 	} `json:"roll_dice"`
+	FixedDiceCurse *struct {
+		Value int `json:"value"`
+		Turns int `json:"turns"`
+	} `json:"fixed_dice_curse"`
 }
 
 // 種類がどれも無い効果は書き間違い（効果なしは effect を書かない）
@@ -109,6 +113,12 @@ func (c masterCard) validateSpellSpec() error {
 		kinds++
 		_, err = spell.NewDiceCount(c.Effect.RollDice.Count)
 	}
+	if curse := c.Effect.FixedDiceCurse; curse != nil {
+		kinds++
+		if _, err = spell.NewDiceFace(curse.Value); err == nil {
+			_, err = spell.NewCurseTurns(curse.Turns)
+		}
+	}
 	if kinds != 1 {
 		return errors.New("spell effect needs exactly one kind")
 	}
@@ -129,6 +139,9 @@ func (c masterCard) spellEffect() command.SpellEffect {
 	}
 	if c.Effect.RollDice != nil {
 		effect.RollDice = &command.SpellRollDice{Count: c.Effect.RollDice.Count}
+	}
+	if curse := c.Effect.FixedDiceCurse; curse != nil {
+		effect.FixedDiceCurse = &command.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
 	}
 	return effect
 }

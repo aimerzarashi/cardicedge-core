@@ -246,6 +246,13 @@ func newSpellEffect(source *master.SpellSpec) (spell.Effect, error) {
 	case source.RollDice != nil:
 		count, err := spell.NewDiceCount(source.RollDice.Count)
 		return spell.NewRollDiceEffect(count), err
+	case source.FixedDiceCurse != nil:
+		value, err := spell.NewDiceFace(source.FixedDiceCurse.Value)
+		if err != nil {
+			return spell.Effect{}, err
+		}
+		turns, err := spell.NewCurseTurns(source.FixedDiceCurse.Turns)
+		return spell.NewFixedDiceCurseEffect(value, turns), err
 	default:
 		return spell.NoEffect(), nil
 	}
@@ -346,9 +353,22 @@ func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64,
 }
 
 // サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで）。使えないスペルは input.Errors（NotFound・項目名 handIndex）
-func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
-	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
-		return &match.UseSpellCommand{By: by, HandIndex: handIndex}, nil
+// 呪いのスペルは target（参加者の番号）が要り、無ければ input.Errors（Required・項目名 target）、選べない対象は input.Errors（NotFound・target）
+func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, current match.Match, by match.ParticipantIndex) (match.Command, error) {
+		cmd := &match.UseSpellCommand{By: by, HandIndex: handIndex}
+		if target != nil {
+			// 参加者の範囲の外は、ドメインの番号の型に入れずに選べない対象とする
+			if *target < 0 || *target >= len(current.Participants) {
+				return nil, input.Errors{&input.NotFound{Field: "target"}}
+			}
+			index, err := match.NewParticipantIndex(*target)
+			if err != nil {
+				return nil, err
+			}
+			cmd.Target = &index
+		}
+		return cmd, nil
 	})
 }
 
@@ -540,6 +560,10 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
 	case errors.Is(err, match.ErrCreatureNotDeployable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
+	case errors.Is(err, match.ErrSpellTargetRequired):
+		return input.Errors{&input.Required{Field: "target"}}
+	case errors.Is(err, match.ErrSpellTargetNotAllowed):
+		return input.Errors{&input.NotFound{Field: "target"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
 	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable), errors.Is(err, match.ErrLandElementNotChangeable):

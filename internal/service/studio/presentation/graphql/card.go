@@ -192,6 +192,8 @@ func fromSpellEffect(effect readmodel.SpellEffectMetadata) model.SpellEffect {
 		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
 	case effect.RollDice != nil:
 		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
+	case effect.FixedDiceCurse != nil:
+		return &model.SpellFixedDiceCurseEffect{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
 	default:
 		return nil
 	}
@@ -215,6 +217,10 @@ func toSpellEffect(effect *model.SpellEffectInput) (command.SpellEffect, bool) {
 	}
 	if effect.RollDice != nil {
 		converted.RollDice = &command.SpellRollDice{Count: effect.RollDice.Count}
+		kinds++
+	}
+	if effect.FixedDiceCurse != nil {
+		converted.FixedDiceCurse = &command.SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
 		kinds++
 	}
 	return converted, kinds == 1

@@ -59,6 +59,8 @@ func fromSpellEffect(effect query.SpellEffect) model.SpellEffect {
 		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
 	case effect.RollDice != nil:
 		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
+	case effect.FixedDiceCurse != nil:
+		return &model.SpellFixedDiceCurseEffect{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
 	default:
 		return nil
 	}

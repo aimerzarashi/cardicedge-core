@@ -23,7 +23,7 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *DiscardCommand:
 		return playTurn(state, c.By, PhaseDiscarding, now, func(r *recorder) error { return discard(r, c.HandIndex) })
 	case *UseSpellCommand:
-		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return useSpell(r, c.HandIndex, random) })
+		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return useSpell(r, c.HandIndex, c.Target, random) })
 	case *RollCommand:
 		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return roll(r, random) })
 	case *ChoosePathCommand:
@@ -172,6 +172,16 @@ func discard(r *recorder, handIndex int) error {
 
 // このターンのサイコロの個数だけ同時に振り、合計の分だけ進む（1 個ずつ目の範囲で振る。2026-11-10 オーナー）
 func roll(r *recorder, random Random) error {
+	// 目を決める呪いは、サイコロを複数振るスペルより優先する（サイコロ 1 個で、その目だけ進む。2026-11-10 オーナー）
+	if curse := r.current().Curse; curse != nil && curse.FixedDice != nil {
+		value := curse.FixedDice.Value
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value, FixedByCurse: true}
+		}); err != nil {
+			return err
+		}
+		return advance(r)
+	}
 	rules := r.state.Rules
 	var dice []int
 	value := 0
@@ -202,12 +212,20 @@ func choosePath(r *recorder, to board.Position) error {
 }
 
 // コストを払ってスペルを捨て札に移し、効果を当てる。段階は振る段階のまま（使った後もサイコロは振る）
-func useSpell(r *recorder, handIndex int, random Random) error {
-	if !slices.Contains(r.state.SpellChoices(), handIndex) {
+func useSpell(r *recorder, handIndex int, target *ParticipantIndex, random Random) error {
+	index := slices.IndexFunc(r.state.SpellChoices(), func(choice SpellChoice) bool { return choice.HandIndex == handIndex })
+	if index < 0 {
 		if handIndex < 0 || handIndex >= len(r.current().Hand) {
 			return ErrHandIndexOutOfRange
 		}
 		return ErrSpellNotUsable
+	}
+	targets := r.state.SpellChoices()[index].Targets
+	switch {
+	case len(targets) > 0 && target == nil:
+		return ErrSpellTargetRequired
+	case len(targets) == 0 && target != nil, target != nil && !slices.Contains(targets, *target):
+		return ErrSpellTargetNotAllowed
 	}
 	used := r.current().Hand[handIndex]
 	spec := r.state.CardSpecs()[used]
@@ -217,6 +235,12 @@ func useSpell(r *recorder, handIndex int, random Random) error {
 		return err
 	}
 	effect := spec.Spell.Effect
+	if effect.FixedDiceCurse != nil {
+		curse := NewFixedDiceCurse(effect.FixedDiceCurse.Value.Int(), effect.FixedDiceCurse.Turns.Int())
+		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &CurseCastEvent{EventMeta: meta, Participant: by, Target: *target, Curse: curse}
+		})
+	}
 	if effect.GainMagic != nil {
 		// 周回数はこの対戦で周回を終えた回数（2026-11-10 オーナー。culdcept-lab.com のマナ）
 		magic := (r.current().Laps + 1) * effect.GainMagic.PerLap.Int()
@@ -736,6 +760,14 @@ func endTurn(r *recorder) error {
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &HandLimitExceededEvent{EventMeta: meta, Participant: by}
 		})
+	}
+	// 最後のターンを終えると呪いが解ける（残るターンがあれば TurnEndedEvent で 1 減る）
+	if curse := r.current().Curse; curse != nil && curse.Expiry.RemainingTurns <= 1 {
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &CurseRemovedEvent{EventMeta: meta, Participant: by}
+		}); err != nil {
+			return err
+		}
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TurnEndedEvent{EventMeta: meta, Participant: by}

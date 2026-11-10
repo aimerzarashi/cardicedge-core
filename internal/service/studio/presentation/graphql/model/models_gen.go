@@ -2867,6 +2867,26 @@ type SpellEffectInput struct {
 	GainMagic *SpellGainMagicEffectInput `json:"gainMagic,omitempty"`
 	// サイコロを複数振る
 	RollDice *SpellRollDiceEffectInput `json:"rollDice,omitempty"`
+	// 次のサイコロの目を決める呪い
+	FixedDiceCurse *SpellFixedDiceCurseEffectInput `json:"fixedDiceCurse,omitempty"`
+}
+
+// 次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）
+type SpellFixedDiceCurseEffect struct {
+	// 決める目（1 以上）
+	Value int `json:"value"`
+	// 解けるまでのターン数（1 以上。かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）
+	Turns int `json:"turns"`
+}
+
+func (SpellFixedDiceCurseEffect) IsSpellEffect() {}
+
+// 次のサイコロの目を決める呪いの入力
+type SpellFixedDiceCurseEffectInput struct {
+	// 決める目（1 以上）
+	Value int `json:"value"`
+	// 解けるまでのターン数（1 以上）
+	Turns int `json:"turns"`
 }
 
 // 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）

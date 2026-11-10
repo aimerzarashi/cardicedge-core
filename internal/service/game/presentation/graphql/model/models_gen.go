@@ -173,6 +173,11 @@ type MatchBattleStatSource interface {
 	IsMatchBattleStatSource()
 }
 
+// 呪いの効き方
+type MatchCurseEffect interface {
+	IsMatchCurseEffect()
+}
+
 // 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
 // 誰が（participant）は Match.participants の何番目か
 type MatchEvent interface {
@@ -1202,8 +1207,8 @@ type Match struct {
 	RemainingSteps int `json:"remainingSteps"`
 	// 今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）
 	PathChoices []*BoardPosition `json:"pathChoices"`
-	// 今の番の人が使えるスペルの手札の番号（0 始まり。手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）
-	SpellChoices []int `json:"spellChoices"`
+	// 今の番の人が使えるスペル（手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）
+	SpellChoices []*MatchSpellChoice `json:"spellChoices"`
 	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）
 	DeployChoices []int `json:"deployChoices"`
 	// 今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）
@@ -1559,6 +1564,64 @@ func (this MatchCreatureStruckEvent) GetOccurredAt() time.Time { return this.Occ
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureStruckEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// プレイヤーにかかっている呪い（1 人に 1 つまで）
+type MatchCurse struct {
+	// 効き方（種類は __typename で見分ける）
+	Effect MatchCurseEffect `json:"effect"`
+	// 解けるまでのターン数（かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）
+	RemainingTurns int `json:"remainingTurns"`
+}
+
+// スペルで、対象のプレイヤーに呪いをかけた（かかっていた呪いは上書きする）
+type MatchCurseCastEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// かけられた参加者（Match.participants の何番目か）
+	Target int `json:"target"`
+	// かけた呪い
+	Curse *MatchCurse `json:"curse"`
+}
+
+func (MatchCurseCastEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCurseCastEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCurseCastEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCurseCastEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 自分のターンを終えて、かかっていた呪いが解けた
+type MatchCurseRemovedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 呪いが解けた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+}
+
+func (MatchCurseRemovedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCurseRemovedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCurseRemovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCurseRemovedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 山札が混ざった（並びは見せないので、項目を持たない）
 type MatchDecksShuffledEvent struct {
 	// 対戦の版
@@ -1629,6 +1692,8 @@ type MatchDiceRolledEvent struct {
 	Value int `json:"value"`
 	// 複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が value）。1 個のときは空
 	Dice []int `json:"dice"`
+	// 呪いで目が決まった（サイコロは 1 個）
+	FixedByCurse bool `json:"fixedByCurse"`
 }
 
 func (MatchDiceRolledEvent) IsMatchEvent() {}
@@ -1733,6 +1798,14 @@ type MatchExchangeChoice struct {
 	// 払う魔力（出すクリーチャーのコスト）
 	Magic int `json:"magic"`
 }
+
+// 次のサイコロの目を決める（複数のサイコロを振るスペルより優先し、サイコロ 1 個でその目だけ進む）
+type MatchFixedDiceCurse struct {
+	// 決まる目
+	Value int `json:"value"`
+}
+
+func (MatchFixedDiceCurse) IsMatchCurseEffect() {}
 
 // ターンを終えるときに、手札が上限を超えていた（上限まで捨ててからターンを終える）
 type MatchHandLimitExceededEvent struct {
@@ -2156,6 +2229,8 @@ type MatchParticipant struct {
 	DiscardPile []CardInfo `json:"discardPile"`
 	// 順番の何番目か（0 始まり）。順番が早い人ほど小さい
 	TurnOrder int `json:"turnOrder"`
+	// かかっている呪い（無ければ null）
+	Curse *MatchCurse `json:"curse,omitempty"`
 	// 拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）
 	PassedCheckpoints []*BoardPosition `json:"passedCheckpoints"`
 	// 戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）
@@ -2324,6 +2399,14 @@ type MatchRules struct {
 	MaxHandCards int `json:"maxHandCards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
+}
+
+// 使えるスペル 1 枚
+type MatchSpellChoice struct {
+	// 手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 選べる対象のプレイヤー（Match.participants の何番目か。呪いのスペルだけ中身があり、自分を含む。対象を選ばないスペルは空）
+	Targets []int `json:"targets"`
 }
 
 // サイコロを振る前に、手札のスペルを使った（効果は続くイベント。スペルは捨て札に入る）
@@ -3326,6 +3409,16 @@ type SpellDrawCardsEffect struct {
 
 func (SpellDrawCardsEffect) IsSpellEffect() {}
 
+// 次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）
+type SpellFixedDiceCurseEffect struct {
+	// 決める目（1 以上）
+	Value int `json:"value"`
+	// 解けるまでのターン数（1 以上。かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）
+	Turns int `json:"turns"`
+}
+
+func (SpellFixedDiceCurseEffect) IsSpellEffect() {}
+
 // 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
 type SpellGainMagicEffect struct {
 	// 周回数 1 つあたりの魔力（1 以上）
@@ -3353,6 +3446,8 @@ type UseMatchSpellInput struct {
 	Revision int `json:"revision"`
 	// 使うスペルの手札の番号（0 始まり。Match.spellChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で使えないものは FieldNotFound）
 	HandIndex int `json:"handIndex"`
+	// 対象のプレイヤー（Match.participants の何番目か。spellChoices の targets の中から選ぶ。呪いのスペルで無ければ FieldRequired、対象を選ばないスペルに付けた・選べない対象は FieldNotFound）
+	Target *int `json:"target,omitempty"`
 }
 
 // スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）

@@ -32,6 +32,8 @@ type Effect struct {
 	DrawCards *DrawCardsEffect `json:"draw_cards,omitempty"`
 	GainMagic *GainMagicEffect `json:"gain_magic,omitempty"`
 	RollDice  *RollDiceEffect  `json:"roll_dice,omitempty"`
+	// 対象のプレイヤーにかける呪い（core#151）
+	FixedDiceCurse *FixedDiceCurseEffect `json:"fixed_dice_curse,omitempty"`
 }
 
 // 効果なし（登録の直後の値）
@@ -40,12 +42,18 @@ func NoEffect() Effect {
 }
 
 func (e Effect) IsNone() bool {
-	return e.DrawCards == nil && e.GainMagic == nil && e.RollDice == nil
+	return e.DrawCards == nil && e.GainMagic == nil && e.RollDice == nil && e.FixedDiceCurse == nil
+}
+
+// 対象のプレイヤーを選ぶ効果か（呪い）
+func (e Effect) NeedsTarget() bool {
+	return e.FixedDiceCurse != nil
 }
 
 // 中身で比べる（種類ごとの値をポインタで持つため == では比べられない）
 func (e Effect) Equal(other Effect) bool {
-	return equalPointee(e.DrawCards, other.DrawCards) && equalPointee(e.GainMagic, other.GainMagic) && equalPointee(e.RollDice, other.RollDice)
+	return equalPointee(e.DrawCards, other.DrawCards) && equalPointee(e.GainMagic, other.GainMagic) && equalPointee(e.RollDice, other.RollDice) &&
+		equalPointee(e.FixedDiceCurse, other.FixedDiceCurse)
 }
 
 func equalPointee[T comparable](a, b *T) bool {
@@ -122,4 +130,43 @@ func NewDiceCount(value int) (DiceCount, error) {
 
 func (c DiceCount) Int() int {
 	return int(c)
+}
+
+// 次のサイコロの目を決める呪い（ホーリーワード）。対象のプレイヤーが次に振ると、目は Value になる。Turns は解けるまでのターン数
+// （かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける。解ける条件は今はターン数だけで、ほかの条件は要るときに足す。2026-11-10 オーナー）
+type FixedDiceCurseEffect struct {
+	Value DiceFace   `json:"value"`
+	Turns CurseTurns `json:"turns"`
+}
+
+func NewFixedDiceCurseEffect(value DiceFace, turns CurseTurns) Effect {
+	return Effect{FixedDiceCurse: &FixedDiceCurseEffect{Value: value, Turns: turns}}
+}
+
+// 呪いで決めるサイコロの目。1 以上（ボードのサイコロの目の範囲は確かめない。範囲はボードごとに違い、マスタの値は対戦の外で決まるため）
+type DiceFace int
+
+func NewDiceFace(value int) (DiceFace, error) {
+	if value < 1 {
+		return 0, ErrDiceFaceTooSmall
+	}
+	return DiceFace(value), nil
+}
+
+func (f DiceFace) Int() int {
+	return int(f)
+}
+
+// 呪いが解けるまでのターン数。1 以上
+type CurseTurns int
+
+func NewCurseTurns(value int) (CurseTurns, error) {
+	if value < 1 {
+		return 0, ErrCurseTurnsTooSmall
+	}
+	return CurseTurns(value), nil
+}
+
+func (t CurseTurns) Int() int {
+	return int(t)
 }
