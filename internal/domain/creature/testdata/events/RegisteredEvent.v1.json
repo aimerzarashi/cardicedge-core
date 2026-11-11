@@ -7,5 +7,6 @@
   "attack": 10,
   "hit_points": 10,
   "movement": 1,
+  "item_restrictions": [],
   "registered_by": 10
 }

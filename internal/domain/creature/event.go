@@ -28,17 +28,18 @@ type EventMeta = domain.EventMeta[ID]
 // 登録した人は、ほかの集約を指すため内部 ID（operator.ID の数値）で持つ。性能は登録の直後の値を明示して持つ
 // （既定の値を変えても、過去のカードの意味が変わらないため。ボードの大きさと同じ）
 type RegisteredEvent struct {
-	EventMeta    `json:"-"`
-	eventMarker  `json:"-"`
-	PublicID     uuid.UUID   `json:"public_id"`
-	Name         card.Name   `json:"name"`
-	Cost         card.Cost   `json:"cost"`
-	Rarity       card.Rarity `json:"rarity"`
-	Elements     Elements    `json:"elements"`
-	Attack       Attack      `json:"attack"`
-	HitPoints    HitPoints   `json:"hit_points"`
-	Movement     Movement    `json:"movement"`
-	RegisteredBy operator.ID `json:"registered_by"`
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	PublicID         uuid.UUID        `json:"public_id"`
+	Name             card.Name        `json:"name"`
+	Cost             card.Cost        `json:"cost"`
+	Rarity           card.Rarity      `json:"rarity"`
+	Elements         Elements         `json:"elements"`
+	Attack           Attack           `json:"attack"`
+	HitPoints        HitPoints        `json:"hit_points"`
+	Movement         Movement         `json:"movement"`
+	ItemRestrictions ItemRestrictions `json:"item_restrictions"`
+	RegisteredBy     operator.ID      `json:"registered_by"`
 }
 
 var registeredEventType = domain.NewEventName("RegisteredEvent")
@@ -177,12 +178,30 @@ func (*MovementChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+// アイテム制限を変えた（変えた後の値）
+type ItemRestrictionsChangedEvent struct {
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	ItemRestrictions ItemRestrictions `json:"item_restrictions"`
+	ChangedBy        operator.ID      `json:"changed_by"`
+}
+
+var itemRestrictionsChangedEventType = domain.NewEventName("ItemRestrictionsChangedEvent")
+
+func (*ItemRestrictionsChangedEvent) EventType() domain.EventName {
+	return itemRestrictionsChangedEventType
+}
+
+func (*ItemRestrictionsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			elementsChangedEventType, statsChangedEventType, movementChangedEventType,
+			elementsChangedEventType, statsChangedEventType, movementChangedEventType, itemRestrictionsChangedEventType,
 		},
 	}
 }
@@ -212,6 +231,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &StatsChangedEvent{EventMeta: meta}
 	case EventType(movementChangedEventType):
 		event = &MovementChangedEvent{EventMeta: meta}
+	case EventType(itemRestrictionsChangedEventType):
+		event = &ItemRestrictionsChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

@@ -225,10 +225,16 @@ type ItemSpec struct {
 // クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、
 // 決まりが 2 か所になり、写すときに変換が要るだけで得るものが無いため）
 type CreatureSpec struct {
-	Elements  creature.Elements  `json:"elements"`
-	Attack    creature.Attack    `json:"attack"`
-	HitPoints creature.HitPoints `json:"hit_points"`
-	Movement  creature.Movement  `json:"movement"`
+	Elements         creature.Elements         `json:"elements"`
+	Attack           creature.Attack           `json:"attack"`
+	HitPoints        creature.HitPoints        `json:"hit_points"`
+	Movement         creature.Movement         `json:"movement"`
+	ItemRestrictions creature.ItemRestrictions `json:"item_restrictions"`
+}
+
+// 持てない分類のアイテムか。性能の無いアイテムは分類が無いので制限に当たらない
+func (s CreatureSpec) forbidsItem(candidate CardSpec) bool {
+	return candidate.Item != nil && s.ItemRestrictions.Forbids(candidate.Item.Category.String())
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

@@ -166,6 +166,23 @@ func TestChangeCreatureMovement_ChangesDraftAndRejectsNegative(t *testing.T) {
 	require.Equal(t, input.Errors{&input.TooSmall{Field: "movement", Min: 0}}, err)
 }
 
+func TestChangeCreatureItemRestrictions_ChangesDraftAndRejectsUnknown(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	require.Empty(t, registered.ItemRestrictions)
+
+	changed, err := commands.ChangeItemRestrictions(ctx, registered.ID, registered.Revision, []string{"scroll", "armor"})
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	unchanged, err := commands.ChangeItemRestrictions(ctx, changed.ID, changed.Revision, []string{"armor", "scroll"})
+	require.NoError(t, err)
+	require.Equal(t, changed, unchanged)
+	_, err = commands.ChangeItemRestrictions(ctx, changed.ID, changed.Revision, []string{"tool"})
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "itemRestrictions"}}, err)
+}
+
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)

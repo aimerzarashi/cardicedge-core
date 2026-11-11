@@ -123,9 +123,13 @@ func toCard(card query.Card) (model.Card, error) {
 		if err != nil {
 			return nil, err
 		}
+		itemRestrictions, err := fromItemCategories(card.Creature.ItemRestrictions)
+		if err != nil {
+			return nil, err
+		}
 		return &model.Creature{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
-			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, Revision: revision,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, ItemRestrictions: itemRestrictions, Revision: revision,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
@@ -178,6 +182,7 @@ type cardChangeResult interface {
 	model.ChangeCreatureElementsResult
 	model.ChangeCreatureStatsResult
 	model.ChangeCreatureMovementResult
+	model.ChangeCreatureItemRestrictionsResult
 	model.ChangeItemCategoryResult
 	model.ChangeItemStatBonusesResult
 	model.ChangeSpellEffectResult
@@ -281,6 +286,30 @@ func toItemCategory(category model.ItemCategory) (string, error) {
 	default:
 		return "", fmt.Errorf("graphql: unknown item category: %q", category)
 	}
+}
+
+func fromItemCategories(values []string) ([]model.ItemCategory, error) {
+	categories := make([]model.ItemCategory, len(values))
+	for i, value := range values {
+		category, err := fromItemCategory(value)
+		if err != nil {
+			return nil, err
+		}
+		categories[i] = category
+	}
+	return categories, nil
+}
+
+func toItemCategories(categories []model.ItemCategory) ([]string, error) {
+	values := make([]string, len(categories))
+	for i, category := range categories {
+		value, err := toItemCategory(category)
+		if err != nil {
+			return nil, err
+		}
+		values[i] = value
+	}
+	return values, nil
 }
 
 func fromItemCategory(value string) (model.ItemCategory, error) {

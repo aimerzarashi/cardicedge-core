@@ -211,14 +211,15 @@ type ComplexityRoot struct {
 	}
 
 	CreatureCardInfo struct {
-		Attack    func(childComplexity int) int
-		Cost      func(childComplexity int) int
-		Elements  func(childComplexity int) int
-		HitPoints func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Movement  func(childComplexity int) int
-		Name      func(childComplexity int) int
-		Rarity    func(childComplexity int) int
+		Attack           func(childComplexity int) int
+		Cost             func(childComplexity int) int
+		Elements         func(childComplexity int) int
+		HitPoints        func(childComplexity int) int
+		ID               func(childComplexity int) int
+		ItemRestrictions func(childComplexity int) int
+		Movement         func(childComplexity int) int
+		Name             func(childComplexity int) int
+		Rarity           func(childComplexity int) int
 	}
 
 	Deck struct {
@@ -1869,6 +1870,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureCardInfo.ID(childComplexity), true
+	case "CreatureCardInfo.itemRestrictions":
+		if e.ComplexityRoot.CreatureCardInfo.ItemRestrictions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.ItemRestrictions(childComplexity), true
 	case "CreatureCardInfo.movement":
 		if e.ComplexityRoot.CreatureCardInfo.Movement == nil {
 			break
@@ -6036,6 +6043,8 @@ func (ec *executionContext) childFields_CreatureCardInfo(ctx context.Context, fi
 		return ec.fieldContext_CreatureCardInfo_hitPoints(ctx, field)
 	case "movement":
 		return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
+	case "itemRestrictions":
+		return ec.fieldContext_CreatureCardInfo_itemRestrictions(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CreatureCardInfo", field.Name)
 }
@@ -9619,6 +9628,29 @@ func (ec *executionContext) _CreatureCardInfo_movement(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_CreatureCardInfo_movement(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureCardInfo_itemRestrictions(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_itemRestrictions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ItemRestrictions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.ItemCategory) graphql.Marshaler {
+			return ec.marshalNItemCategory2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategoryᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_itemRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "ItemCategory")
 }
 
 func (ec *executionContext) _Deck_id(ctx context.Context, field graphql.CollectedField, obj *model.Deck) (ret graphql.Marshaler) {
@@ -31852,6 +31884,11 @@ func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.Selec
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "itemRestrictions":
+			out.Values[i] = ec._CreatureCardInfo_itemRestrictions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40100,6 +40137,36 @@ func (ec *executionContext) unmarshalNItemCategory2gitlabᚗcomᚋaimerzarashi�
 
 func (ec *executionContext) marshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx context.Context, sel ast.SelectionSet, v model.ItemCategory) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) unmarshalNItemCategory2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategoryᚄ(ctx context.Context, v any) ([]model.ItemCategory, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.ItemCategory, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNItemCategory2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategoryᚄ(ctx context.Context, sel ast.SelectionSet, v []model.ItemCategory) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNLevelUpMatchTerritoryInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐLevelUpMatchTerritoryInput(ctx context.Context, v any) (model.LevelUpMatchTerritoryInput, error) {
