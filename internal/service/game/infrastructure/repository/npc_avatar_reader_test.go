@@ -59,7 +59,7 @@ func insertDeckCard(t *testing.T, ctx context.Context, name string, cardType que
 
 // insertCardRow が写すクリーチャーの性能
 func defaultCreatureSpec() *query.CreatureSpec {
-	return &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}
+	return &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []query.CreatureAbility{}}
 }
 
 // insertCardRow が写すアイテムの性能
@@ -76,7 +76,7 @@ func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string,
 	t.Helper()
 	metadata := readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal"}
 	if cardType == query.CardTypeCreature {
-		metadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}
+		metadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}
 	}
 	if cardType == query.CardTypeItem {
 		metadata.Item = &readmodel.ItemMetadata{Category: "weapon", AttackBonus: 30}

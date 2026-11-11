@@ -95,12 +95,12 @@ type CardMetadata struct {
 
 // クリーチャーだけの性能。属性は domain の creature.Element の値（fire・earth・water・wind・neutral）を火・地・水・風の順に並べた配列
 type CreatureMetadata struct {
-	Elements              []string `json:"elements"`
-	Attack                int      `json:"attack"`
-	HitPoints             int      `json:"hit_points"`
-	Movement              int      `json:"movement"`
-	ItemRestrictions      []string `json:"item_restrictions"`
-	PlacementRestrictions []string `json:"placement_restrictions"`
+	Elements              []string                  `json:"elements"`
+	Attack                int                       `json:"attack"`
+	HitPoints             int                       `json:"hit_points"`
+	ItemRestrictions      []string                  `json:"item_restrictions"`
+	PlacementRestrictions []string                  `json:"placement_restrictions"`
+	Abilities             []CreatureAbilityMetadata `json:"abilities"`
 }
 
 // アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
@@ -147,6 +147,23 @@ type SpellRollDiceMetadata struct {
 	Count int `json:"count"`
 }
 
+// クリーチャーの能力。domain の creature.Ability と同じ形（持っている種類の名前の下に値を置く）
+type CreatureAbilityMetadata struct {
+	Defensive *CreatureDefensiveAbilityMetadata `json:"defensive,omitempty"`
+}
+
+type CreatureDefensiveAbilityMetadata struct{}
+
+func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMetadata {
+	values := make([]CreatureAbilityMetadata, len(abilities))
+	for i, ability := range abilities {
+		if ability.IsDefensive() {
+			values[i].Defensive = &CreatureDefensiveAbilityMetadata{}
+		}
+	}
+	return values
+}
+
 func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
 	var metadata SpellEffectMetadata
 	if effect.DrawCards != nil {
@@ -179,7 +196,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), Movement: e.Movement.Int(), ItemRestrictions: e.ItemRestrictions.Strings(), PlacementRestrictions: e.PlacementRestrictions.Strings()},
+			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), ItemRestrictions: e.ItemRestrictions.Strings(), PlacementRestrictions: e.PlacementRestrictions.Strings(), Abilities: creatureAbilitiesMetadata(e.Abilities)},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -250,9 +267,9 @@ func (state Card) Evolve(event any) Card {
 	case *spell.EffectChangedEvent:
 		state.Metadata.Spell = &SpellMetadata{Effect: spellEffectMetadata(e.Effect)}
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
-	case *creature.MovementChangedEvent:
+	case *creature.AbilitiesChangedEvent:
 		changed := *state.Metadata.Creature
-		changed.Movement = e.Movement.Int()
+		changed.Abilities = creatureAbilitiesMetadata(e.Abilities)
 		state.Metadata.Creature = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *creature.ItemRestrictionsChangedEvent:

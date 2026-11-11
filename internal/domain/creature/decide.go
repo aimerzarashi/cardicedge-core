@@ -22,9 +22,9 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Elements:              DefaultElements(),
 			Attack:                DefaultAttack,
 			HitPoints:             DefaultHitPoints,
-			Movement:              DefaultMovement,
 			ItemRestrictions:      DefaultItemRestrictions(),
 			PlacementRestrictions: DefaultPlacementRestrictions(),
+			Abilities:             DefaultAbilities(),
 			RegisteredBy:          c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -71,12 +71,12 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&StatsChangedEvent{EventMeta: nextMeta(creature, now), Attack: c.Attack, HitPoints: c.HitPoints, ChangedBy: c.ChangedBy}}, nil
-	case *ChangeMovementCommand:
+	case *ChangeAbilitiesCommand:
 		creature, err := editable(state)
-		if err != nil || creature.Movement == c.Movement {
+		if err != nil || creature.Abilities.Equal(c.Abilities) {
 			return nil, err
 		}
-		return []Event{&MovementChangedEvent{EventMeta: nextMeta(creature, now), Movement: c.Movement, ChangedBy: c.ChangedBy}}, nil
+		return []Event{&AbilitiesChangedEvent{EventMeta: nextMeta(creature, now), Abilities: c.Abilities, ChangedBy: c.ChangedBy}}, nil
 	case *ChangeItemRestrictionsCommand:
 		creature, err := editable(state)
 		if err != nil || creature.ItemRestrictions.Equal(c.ItemRestrictions) {

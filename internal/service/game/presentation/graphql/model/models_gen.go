@@ -101,6 +101,13 @@ type CreateRoomResult interface {
 	IsCreateRoomResult()
 }
 
+// クリーチャーの能力
+type CreatureAbility interface {
+	IsCreatureAbility()
+	// 能力の種類
+	GetKind() CreatureAbilityKind
+}
+
 // デッキの詳細の結果。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError
 type DeckResult interface {
 	IsDeckResult()
@@ -759,12 +766,12 @@ type CreatureCardInfo struct {
 	Attack int `json:"attack"`
 	// 体力（HP）
 	HitPoints int `json:"hitPoints"`
-	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 は動けない）
-	Movement int `json:"movement"`
 	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
 	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
 	// 配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）
 	PlacementRestrictions []CreatureElement `json:"placementRestrictions"`
+	// 能力（並びは決めた順。無ければ空）
+	Abilities []CreatureAbility `json:"abilities"`
 }
 
 func (CreatureCardInfo) IsCardInfo() {}
@@ -782,6 +789,17 @@ func (this CreatureCardInfo) GetCost() int { return this.Cost }
 func (this CreatureCardInfo) GetRarity() CardRarity { return this.Rarity }
 
 func (CreatureCardInfo) IsCardResult() {}
+
+// 防御型
+type CreatureDefensiveAbility struct {
+	// 能力の種類（DEFENSIVE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureDefensiveAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）
 type Deck struct {
@@ -3791,6 +3809,61 @@ func (e *CardType) UnmarshalJSON(b []byte) error {
 }
 
 func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// クリーチャーの能力の種類
+type CreatureAbilityKind string
+
+const (
+	// 防御型（侵略に出せず、クリーチャー移動もできない）
+	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
+)
+
+var AllCreatureAbilityKind = []CreatureAbilityKind{
+	CreatureAbilityKindDefensive,
+}
+
+func (e CreatureAbilityKind) IsValid() bool {
+	switch e {
+	case CreatureAbilityKindDefensive:
+		return true
+	}
+	return false
+}
+
+func (e CreatureAbilityKind) String() string {
+	return string(e)
+}
+
+func (e *CreatureAbilityKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CreatureAbilityKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CreatureAbilityKind", str)
+	}
+	return nil
+}
+
+func (e CreatureAbilityKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CreatureAbilityKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CreatureAbilityKind) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

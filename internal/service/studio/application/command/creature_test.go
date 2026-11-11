@@ -147,23 +147,24 @@ func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
 	require.Equal(t, []string{"neutral"}, registered.Elements)
 	require.Equal(t, creature.DefaultAttack.Int(), registered.Attack)
 	require.Equal(t, creature.DefaultHitPoints.Int(), registered.HitPoints)
-	require.Equal(t, creature.DefaultMovement.Int(), registered.Movement)
+	require.Empty(t, registered.Abilities)
 }
 
-func TestChangeCreatureMovement_ChangesDraftAndRejectsNegative(t *testing.T) {
+func TestChangeCreatureAbilities_ChangesDraftAndRejectsDuplicates(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
 	registered, err := commands.Register(ctx, "ドラゴン")
 	require.NoError(t, err)
+	defensive := command.CreatureAbility{Defensive: true}
 
-	changed, err := commands.ChangeMovement(ctx, registered.ID, registered.Revision, 0)
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{defensive})
 	require.NoError(t, err)
 	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
-	unchanged, err := commands.ChangeMovement(ctx, changed.ID, changed.Revision, 0)
+	unchanged, err := commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{defensive})
 	require.NoError(t, err)
 	require.Equal(t, changed, unchanged)
-	_, err = commands.ChangeMovement(ctx, changed.ID, changed.Revision, -1)
-	require.Equal(t, input.Errors{&input.TooSmall{Field: "movement", Min: 0}}, err)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{defensive, defensive})
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities"}}, err)
 }
 
 func TestChangeCreatureItemRestrictions_ChangesDraftAndRejectsUnknown(t *testing.T) {
@@ -292,11 +293,11 @@ func TestChangeCreatureElementsAndStats_RejectNotDraft(t *testing.T) {
 
 	_, elementsErr := commands.ChangeElements(ctx, published.ID, published.Revision, []string{"fire"})
 	_, statsErr := commands.ChangeStats(ctx, published.ID, published.Revision, 30, 50)
-	_, movementErr := commands.ChangeMovement(ctx, published.ID, published.Revision, 2)
+	_, abilitiesErr := commands.ChangeAbilities(ctx, published.ID, published.Revision, []command.CreatureAbility{{Defensive: true}})
 
 	require.ErrorIs(t, elementsErr, command.ErrCardNotDraft)
 	require.ErrorIs(t, statsErr, command.ErrCardNotDraft)
-	require.ErrorIs(t, movementErr, command.ErrCardNotDraft)
+	require.ErrorIs(t, abilitiesErr, command.ErrCardNotDraft)
 }
 
 func TestChangeCreatureElementsAndStats_RejectStaleRevision(t *testing.T) {

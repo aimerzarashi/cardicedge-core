@@ -233,23 +233,6 @@ func (r ItemRestrictions) Forbids(itemCategory string) bool {
 	return slices.Contains(r, ItemRestriction(itemCategory))
 }
 
-// 移動。領地コマンドのクリーチャーの移動で進めるマスの数。0 以上（0 は動けない。防御型のクリーチャー）。上限は持たない（2026-11-10 オーナー）
-type Movement int
-
-// 登録の直後の移動（2026-11-10 オーナー）
-const DefaultMovement Movement = 1
-
-func NewMovement(value int) (Movement, error) {
-	if value < 0 {
-		return 0, ErrMovementNegative
-	}
-	return Movement(value), nil
-}
-
-func (m Movement) Int() int {
-	return int(m)
-}
-
 // 体力（HP）。1 以上（0 だと出した直後に倒れるため）。上限は持たない
 type HitPoints int
 
@@ -275,4 +258,62 @@ func (h HitPoints) Damaged(attack Attack) HitPoints {
 // 効果で増減した後の体力。0 で止める（0 は Damaged と同じく倒れたことを表す）
 func (h HitPoints) Modified(delta int) HitPoints {
 	return HitPoints(max(int(h)+delta, 0))
+}
+
+// クリーチャーの能力 1 つ。種類ごとの値のどれか 1 つだけを持つ（spell.Effect と同じ形。種類ごとに型を分ける。2026-11-10 オーナー）
+type Ability struct {
+	// 防御型。侵略に出せず、クリーチャー移動もできない（守ることはできる）
+	Defensive *DefensiveAbility `json:"defensive,omitempty"`
+}
+
+type DefensiveAbility struct{}
+
+func NewDefensiveAbility() Ability {
+	return Ability{Defensive: &DefensiveAbility{}}
+}
+
+// 種類の名前。同じ種類を重ねて持てないことを確かめるのに使う
+func (a Ability) kind() string {
+	if a.Defensive != nil {
+		return "defensive"
+	}
+	return ""
+}
+
+func (a Ability) IsDefensive() bool {
+	return a.Defensive != nil
+}
+
+// クリーチャーの能力の並び。同じ種類は 1 つまで。並びは入力のまま持つ（core#127。効果を当てる順になりうるため）。値の比較は Equal。
+// 無いときも nil でなく空にする（理由は ItemRestrictions と同じ）
+type Abilities []Ability
+
+// 登録の直後の能力（無し）。共有のスライスを変えられないよう、呼ぶたびに作る
+func DefaultAbilities() Abilities {
+	return Abilities{}
+}
+
+func NewAbilities(values []Ability) (Abilities, error) {
+	seen := map[string]bool{}
+	abilities := make(Abilities, 0, len(values))
+	for _, value := range values {
+		kind := value.kind()
+		if kind == "" {
+			return nil, ErrAbilityEmpty
+		}
+		if seen[kind] {
+			return nil, fmt.Errorf("%w: %q", ErrAbilitiesDuplicated, kind)
+		}
+		seen[kind] = true
+		abilities = append(abilities, value)
+	}
+	return abilities, nil
+}
+
+func (a Abilities) Equal(other Abilities) bool {
+	return slices.EqualFunc(a, other, func(x, y Ability) bool { return x.kind() == y.kind() })
+}
+
+func (a Abilities) IsDefensive() bool {
+	return slices.ContainsFunc(a, Ability.IsDefensive)
 }

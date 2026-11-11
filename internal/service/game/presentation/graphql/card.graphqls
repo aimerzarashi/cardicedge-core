@@ -30,12 +30,32 @@ type CreatureCardInfo implements CardInfo {
   attack: Int!
   "体力（HP）"
   hitPoints: Int!
-  "移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 は動けない）"
-  movement: Int!
   "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
   itemRestrictions: [ItemCategory!]!
   "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
   placementRestrictions: [CreatureElement!]!
+  "能力（並びは決めた順。無ければ空）"
+  abilities: [CreatureAbility!]!
+}
+
+"クリーチャーの能力の種類"
+enum CreatureAbilityKind {
+  "防御型（侵略に出せず、クリーチャー移動もできない）"
+  DEFENSIVE
+}
+
+# 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
+# すべての能力に共通の kind を持たせて interface にする（2026-11-11 オーナー。core#156）
+"クリーチャーの能力"
+interface CreatureAbility {
+  "能力の種類"
+  kind: CreatureAbilityKind!
+}
+
+"防御型"
+type CreatureDefensiveAbility implements CreatureAbility {
+  "能力の種類（DEFENSIVE）"
+  kind: CreatureAbilityKind!
 }
 
 "アイテム"

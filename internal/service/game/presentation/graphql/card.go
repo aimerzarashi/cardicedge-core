@@ -39,7 +39,7 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		}
 		return &model.CreatureCardInfo{
 			ID: id, Name: name, Cost: cost, Rarity: converted,
-			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, Movement: creature.Movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions,
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilities(creature.Abilities),
 		}, nil
 	case query.CardTypeItem:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
@@ -130,4 +130,14 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 		}
 	}
 	return elements, nil
+}
+
+func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAbility {
+	values := make([]model.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		if ability.Defensive {
+			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
+		}
+	}
+	return values
 }

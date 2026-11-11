@@ -297,10 +297,10 @@ func TestCardReader_GetFailsForCreatureWithoutCreatureSpec(t *testing.T) {
 		{name: "no_creature_object", metadata: map[string]any{}},
 		{name: "no_elements", metadata: map[string]any{"creature": map[string]any{"attack": 10, "hit_points": 10}}},
 		{name: "no_attack", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "hit_points": 10}}},
-		{name: "no_hit_points", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "movement": 1, "item_restrictions": []string{}, "placement_restrictions": []string{}}}},
-		{name: "no_movement", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "item_restrictions": []string{}, "placement_restrictions": []string{}}}},
-		{name: "no_item_restrictions", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "movement": 1, "placement_restrictions": []string{}}}},
-		{name: "no_placement_restrictions", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "movement": 1, "item_restrictions": []string{}}}},
+		{name: "no_hit_points", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "item_restrictions": []string{}, "placement_restrictions": []string{}, "abilities": []any{}}}},
+		{name: "no_item_restrictions", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "placement_restrictions": []string{}, "abilities": []any{}}}},
+		{name: "no_abilities", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "item_restrictions": []string{}, "placement_restrictions": []string{}}}},
+		{name: "no_placement_restrictions", metadata: map[string]any{"creature": map[string]any{"elements": []string{"fire"}, "attack": 10, "hit_points": 10, "item_restrictions": []string{}, "abilities": []any{}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -317,7 +317,7 @@ func TestCardReader_GetFailsForCreatureWithoutCreatureSpec(t *testing.T) {
 
 			_, err = repository.NewCardReader().Get(f.ctx, id)
 
-			require.ErrorContains(t, err, "has no creature elements, attack, hit_points, movement, item_restrictions or placement_restrictions")
+			require.ErrorContains(t, err, "has no creature elements, attack, hit_points, item_restrictions, placement_restrictions or abilities")
 		})
 	}
 }

@@ -281,24 +281,24 @@ func TestChangeCreaturePlacementRestrictions_ChangesCreatureAfterProjected(t *te
 	})
 }
 
-func TestChangeCreatureMovement_ChangesCreatureAfterProjected(t *testing.T) {
+func TestChangeCreatureAbilities_ChangesCreatureAfterProjected(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
 
-	changed := client.Data(t, token, `mutation ($input: ChangeCreatureMovementInput!) {
-		changeCreatureMovement(input: $input) { __typename ... on ChangeCreatureMovementSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
-	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "movement": 0}}, "changeCreatureMovement")
-	invalid := client.Data(t, token, `mutation ($input: ChangeCreatureMovementInput!) {
-		changeCreatureMovement(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
-	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "movement": -1}}, "changeCreatureMovement")
+	changed := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
+		changeCreatureAbilities(input: $input) { __typename ... on ChangeCreatureAbilitiesSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}}}}, "changeCreatureAbilities")
+	invalid := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
+		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "DEFENSIVE"}}}}, "changeCreatureAbilities")
 
-	require.Equal(t, map[string]any{"__typename": "ChangeCreatureMovementSuccess", "id": card["id"], "revision": float64(2)}, changed)
-	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldTooSmall", "field": "movement"}}}, invalid)
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureAbilitiesSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities"}}}, invalid)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
-		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { movement revision } } }`, map[string]any{"id": card["id"]}, "card")
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind } revision } } }`, map[string]any{"id": card["id"]}, "card")
 		if assert.NoError(c, err) {
-			assert.Equal(c, map[string]any{"movement": float64(0), "revision": float64(2)}, got)
+			assert.Equal(c, map[string]any{"abilities": []any{map[string]any{"__typename": "CreatureDefensiveAbility", "kind": "DEFENSIVE"}}, "revision": float64(2)}, got)
 		}
 	})
 }

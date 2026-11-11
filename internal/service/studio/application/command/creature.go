@@ -40,9 +40,9 @@ type RegisteredCreature struct {
 	Elements              []string
 	Attack                int
 	HitPoints             int
-	Movement              int
 	ItemRestrictions      []string
 	PlacementRestrictions []string
+	Abilities             []CreatureAbility
 	RegisteredAt          time.Time
 	UpdatedAt             time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
@@ -95,7 +95,7 @@ func (c *CreatureHandler) Register(ctx context.Context, name string) (Registered
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredCreature{
 		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
-		Elements: registered.Elements.Strings(), Attack: registered.Attack.Int(), HitPoints: registered.HitPoints.Int(), Movement: registered.Movement.Int(), ItemRestrictions: registered.ItemRestrictions.Strings(), PlacementRestrictions: registered.PlacementRestrictions.Strings(),
+		Elements: registered.Elements.Strings(), Attack: registered.Attack.Int(), HitPoints: registered.HitPoints.Int(), ItemRestrictions: registered.ItemRestrictions.Strings(), PlacementRestrictions: registered.PlacementRestrictions.Strings(), Abilities: creatureAbilities(registered.Abilities),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -213,17 +213,25 @@ func (c *CreatureHandler) ChangeItemRestrictions(ctx context.Context, id uuid.UU
 	return c.change(ctx, id, revision, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: value, ChangedBy: changedBy})
 }
 
-// 移動を変える（準備中だけ）。同じ値なら変わらず、revision も進まない。0 未満は input.Errors。ほかのエラーは ChangeElements と同じ
-func (c *CreatureHandler) ChangeMovement(ctx context.Context, id uuid.UUID, revision int64, movement int) (ChangedCard, error) {
+// 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類が無い・重複は input.Errors。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []CreatureAbility) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	value, err := creature.NewMovement(movement)
-	if err != nil {
-		return ChangedCard{}, input.Errors{&input.TooSmall{Field: "movement", Min: 0}}
+	values := make([]creature.Ability, 0, len(abilities))
+	for _, ability := range abilities {
+		var value creature.Ability
+		if ability.Defensive {
+			value = creature.NewDefensiveAbility()
+		}
+		values = append(values, value)
 	}
-	return c.change(ctx, id, revision, &creature.ChangeMovementCommand{Movement: value, ChangedBy: changedBy})
+	value, err := creature.NewAbilities(values)
+	if err != nil {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "abilities"}}
+	}
+	return c.change(ctx, id, revision, &creature.ChangeAbilitiesCommand{Abilities: value, ChangedBy: changedBy})
 }
 
 func (c *CreatureHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd creature.Command) (ChangedCard, error) {
@@ -271,4 +279,17 @@ func (c *CreatureHandler) load(ctx context.Context, publicID uuid.UUID, revision
 		return creature.Creature{}, ErrRevisionConflict
 	}
 	return loaded, nil
+}
+
+// クリーチャーの能力の入力。種類ごとに 1 つの値を持つ（値の無い能力は印だけ）
+type CreatureAbility struct {
+	Defensive bool
+}
+
+func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
+	values := make([]CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		values[i] = CreatureAbility{Defensive: ability.IsDefensive()}
+	}
+	return values
 }

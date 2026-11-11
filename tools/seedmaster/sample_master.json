@@ -8,9 +8,9 @@
       "elements": ["neutral"],
       "attack": 20,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -20,9 +20,9 @@
       "elements": ["neutral"],
       "attack": 40,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -32,9 +32,9 @@
       "elements": ["fire"],
       "attack": 20,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -44,9 +44,9 @@
       "elements": ["fire"],
       "attack": 40,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -56,9 +56,9 @@
       "elements": ["fire"],
       "attack": 30,
       "hit_points": 20,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -68,9 +68,9 @@
       "elements": ["fire"],
       "attack": 30,
       "hit_points": 50,
-      "movement": 0,
       "item_restrictions": ["armor", "scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": ["defensive"]
     },
     {
       "type": "creature",
@@ -80,9 +80,9 @@
       "elements": ["fire"],
       "attack": 30,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -92,9 +92,9 @@
       "elements": ["earth"],
       "attack": 20,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -104,9 +104,9 @@
       "elements": ["earth"],
       "attack": 30,
       "hit_points": 50,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -116,9 +116,9 @@
       "elements": ["earth"],
       "attack": 0,
       "hit_points": 60,
-      "movement": 0,
       "item_restrictions": ["armor", "scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": ["defensive"]
     },
     {
       "type": "creature",
@@ -128,9 +128,9 @@
       "elements": ["earth"],
       "attack": 20,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -140,9 +140,9 @@
       "elements": ["earth"],
       "attack": 30,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": ["weapon"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -152,9 +152,9 @@
       "elements": ["water"],
       "attack": 20,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -164,9 +164,9 @@
       "elements": ["water"],
       "attack": 0,
       "hit_points": 40,
-      "movement": 0,
       "item_restrictions": ["armor", "scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": ["defensive"]
     },
     {
       "type": "creature",
@@ -176,9 +176,9 @@
       "elements": ["water"],
       "attack": 10,
       "hit_points": 50,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -188,9 +188,9 @@
       "elements": ["water"],
       "attack": 30,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -200,9 +200,9 @@
       "elements": ["water"],
       "attack": 30,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -212,9 +212,9 @@
       "elements": ["wind"],
       "attack": 20,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": ["scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -224,9 +224,9 @@
       "elements": ["wind"],
       "attack": 0,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -236,9 +236,9 @@
       "elements": ["wind"],
       "attack": 20,
       "hit_points": 50,
-      "movement": 0,
       "item_restrictions": ["armor", "scroll"],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": ["defensive"]
     },
     {
       "type": "creature",
@@ -248,9 +248,9 @@
       "elements": ["wind"],
       "attack": 30,
       "hit_points": 30,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "creature",
@@ -260,9 +260,9 @@
       "elements": ["wind"],
       "attack": 30,
       "hit_points": 40,
-      "movement": 1,
       "item_restrictions": [],
-      "placement_restrictions": []
+      "placement_restrictions": [],
+      "abilities": []
     },
     {
       "type": "item",

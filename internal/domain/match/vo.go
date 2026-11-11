@@ -228,9 +228,9 @@ type CreatureSpec struct {
 	Elements              creature.Elements              `json:"elements"`
 	Attack                creature.Attack                `json:"attack"`
 	HitPoints             creature.HitPoints             `json:"hit_points"`
-	Movement              creature.Movement              `json:"movement"`
 	ItemRestrictions      creature.ItemRestrictions      `json:"item_restrictions"`
 	PlacementRestrictions creature.PlacementRestrictions `json:"placement_restrictions"`
+	Abilities             creature.Abilities             `json:"abilities"`
 }
 
 // 持てない分類のアイテムか。性能の無いアイテムは分類が無いので制限に当たらない

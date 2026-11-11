@@ -274,10 +274,6 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 	if err != nil {
 		return match.CreatureSpec{}, err
 	}
-	movement, err := creature.NewMovement(source.Movement)
-	if err != nil {
-		return match.CreatureSpec{}, err
-	}
 	itemRestrictions, err := creature.NewItemRestrictions(source.ItemRestrictions)
 	if err != nil {
 		return match.CreatureSpec{}, err
@@ -286,7 +282,19 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 	if err != nil {
 		return match.CreatureSpec{}, err
 	}
-	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, Movement: movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions}, nil
+	values := make([]creature.Ability, 0, len(source.Abilities))
+	for _, ability := range source.Abilities {
+		var value creature.Ability
+		if ability.Defensive {
+			value = creature.NewDefensiveAbility()
+		}
+		values = append(values, value)
+	}
+	abilities, err := creature.NewAbilities(values)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities}, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）

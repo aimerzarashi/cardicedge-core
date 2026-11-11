@@ -23,9 +23,9 @@ var Types = Catalog{
 			{ID: 1105, Name: "RarityChangedEvent"},
 			{ID: 1106, Name: "ElementsChangedEvent"},
 			{ID: 1107, Name: "StatsChangedEvent"},
-			{ID: 1108, Name: "MovementChangedEvent"},
 			{ID: 1109, Name: "ItemRestrictionsChangedEvent"},
 			{ID: 1110, Name: "PlacementRestrictionsChangedEvent"},
+			{ID: 1111, Name: "AbilitiesChangedEvent"},
 		}},
 		{ID: 1200, Name: "item", Events: []EventTypeDef{
 			{ID: 1201, Name: "RegisteredEvent"},

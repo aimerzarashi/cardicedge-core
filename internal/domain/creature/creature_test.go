@@ -67,8 +67,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		Elements:         creature.DefaultElements(),
 		Attack:           creature.DefaultAttack,
 		HitPoints:        creature.DefaultHitPoints,
-		Movement:         creature.DefaultMovement,
-		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -90,7 +89,7 @@ func TestEvolve_RegisteredEventMakesCreature(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}, registered)
 }
 
@@ -114,7 +113,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, rarityChanged := f.decide(t, state, &creature.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
 	_, elementsChanged := f.decide(t, state, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: f.registeredBy})
 	_, statsChanged := f.decide(t, state, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50), ChangedBy: f.registeredBy})
-	_, movementChanged := f.decide(t, state, &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy})
+	_, abilitiesChanged := f.decide(t, state, &creature.ChangeAbilitiesCommand{Abilities: defensiveAbilities(t), ChangedBy: f.registeredBy})
 	_, itemRestrictionsChanged := f.decide(t, state, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: creaturetest.ItemRestrictions(t, "armor", "scroll"), ChangedBy: f.registeredBy})
 	_, placementRestrictionsChanged := f.decide(t, state, &creature.ChangePlacementRestrictionsCommand{PlacementRestrictions: creaturetest.PlacementRestrictions(t, "fire", "wind"), ChangedBy: f.registeredBy})
 	tests := []struct {
@@ -128,7 +127,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "rarity_changed", event: rarityChanged[0]},
 		{name: "elements_changed", event: elementsChanged[0]},
 		{name: "stats_changed", event: statsChanged[0]},
-		{name: "movement_changed", event: movementChanged[0]},
+		{name: "abilities_changed", event: abilitiesChanged[0]},
 		{name: "item_restrictions_changed", event: itemRestrictionsChanged[0]},
 		{name: "placement_restrictions_changed", event: placementRestrictionsChanged[0]},
 	}
@@ -301,7 +300,7 @@ func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}, afterRarity)
 }
 
@@ -392,7 +391,7 @@ func TestDecide_ChangeElementsAndStatsEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}, afterStats)
 }
 
@@ -407,18 +406,37 @@ func TestDecide_ChangeStatsEmitsEventWhenOnlyOneValueChanges(t *testing.T) {
 	require.Equal(t, creaturetest.HitPoints(t, 11), events[0].(*creature.StatsChangedEvent).HitPoints)
 }
 
-func TestDecide_ChangeMovementEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
+func defensiveAbilities(t *testing.T) creature.Abilities {
+	t.Helper()
+	abilities, err := creature.NewAbilities([]creature.Ability{creature.NewDefensiveAbility()})
+	require.NoError(t, err)
+	return abilities
+}
+
+func TestDecide_ChangeAbilitiesEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
 
-	changed, events := f.decide(t, registered, &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 0), ChangedBy: f.registeredBy})
+	changed, events := f.decide(t, registered, &creature.ChangeAbilitiesCommand{Abilities: defensiveAbilities(t), ChangedBy: f.registeredBy})
 
 	require.Len(t, events, 1)
-	require.Equal(t, creaturetest.Movement(t, 0), changed.(creature.Creature).Movement)
-	_, same := f.decide(t, registered, &creature.ChangeMovementCommand{Movement: creature.DefaultMovement, ChangedBy: f.registeredBy})
+	require.True(t, changed.(creature.Creature).Abilities.IsDefensive())
+	_, same := f.decide(t, registered, &creature.ChangeAbilitiesCommand{Abilities: creature.DefaultAbilities(), ChangedBy: f.registeredBy})
 	require.Empty(t, same)
-	_, err := creature.Decide(f.retiredState(t), &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy}, changedAt)
+	_, err := creature.Decide(f.retiredState(t), &creature.ChangeAbilitiesCommand{Abilities: defensiveAbilities(t), ChangedBy: f.registeredBy}, changedAt)
 	require.ErrorIs(t, err, card.ErrNotDraft)
+}
+
+func TestNewAbilities_RejectsEmptyKindAndDuplicates(t *testing.T) {
+	empty, err := creature.NewAbilities(nil)
+	require.NoError(t, err)
+	require.NotNil(t, empty)
+	require.False(t, empty.IsDefensive())
+
+	_, err = creature.NewAbilities([]creature.Ability{{}})
+	require.ErrorIs(t, err, creature.ErrAbilityEmpty)
+	_, err = creature.NewAbilities([]creature.Ability{creature.NewDefensiveAbility(), creature.NewDefensiveAbility()})
+	require.ErrorIs(t, err, creature.ErrAbilitiesDuplicated)
 }
 
 func TestDecide_ChangeItemRestrictionsEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
@@ -496,15 +514,6 @@ func TestPlacementRestrictions_ForbidsOnlyTheListedLandElements(t *testing.T) {
 	require.True(t, restrictions.Forbids("fire"))
 	require.False(t, restrictions.Forbids("neutral"))
 	require.False(t, restrictions.Forbids("multi"))
-}
-
-func TestNewMovement_AcceptsZeroAndRejectsNegative(t *testing.T) {
-	zero, err := creature.NewMovement(0)
-	require.NoError(t, err)
-	require.Equal(t, 0, zero.Int())
-
-	_, err = creature.NewMovement(-1)
-	require.ErrorIs(t, err, creature.ErrMovementNegative)
 }
 
 func TestNewElements_SortsIntoCanonicalOrder(t *testing.T) {

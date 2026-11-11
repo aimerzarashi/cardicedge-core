@@ -75,9 +75,9 @@ type CreatureSpec struct {
 	Elements              []string
 	Attack                int
 	HitPoints             int
-	Movement              int
 	ItemRestrictions      []string
 	PlacementRestrictions []string
+	Abilities             []CreatureAbility
 }
 
 // 写した cards から 1 枚読む。無ければ ErrCardNotFound
@@ -93,4 +93,9 @@ func NewCardHandler(get GetCardFunc) *CardHandler {
 
 func (q *CardHandler) Get(ctx context.Context, id uuid.UUID) (Card, error) {
 	return q.get(ctx, id)
+}
+
+// クリーチャーの能力。種類ごとの値のどれか 1 つだけを持つ
+type CreatureAbility struct {
+	Defensive bool
 }

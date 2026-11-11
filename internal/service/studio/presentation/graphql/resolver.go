@@ -16,7 +16,7 @@ type CreatureRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredCreature, error)
 	ChangeElements(ctx context.Context, id uuid.UUID, revision int64, elements []string) (command.ChangedCard, error)
 	ChangeStats(ctx context.Context, id uuid.UUID, revision int64, attack, hitPoints int) (command.ChangedCard, error)
-	ChangeMovement(ctx context.Context, id uuid.UUID, revision int64, movement int) (command.ChangedCard, error)
+	ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []command.CreatureAbility) (command.ChangedCard, error)
 	ChangeItemRestrictions(ctx context.Context, id uuid.UUID, revision int64, itemRestrictions []string) (command.ChangedCard, error)
 	ChangePlacementRestrictions(ctx context.Context, id uuid.UUID, revision int64, placementRestrictions []string) (command.ChangedCard, error)
 }

@@ -292,7 +292,20 @@ func (m Match) InvadeChoices() []int {
 	if m.Phase != PhaseInvading {
 		return nil
 	}
-	return m.placeableCreaturesAtStop()
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	hand := m.Participants[index].Hand
+	specs := m.CardSpecs()
+	var choices []int
+	for _, handIndex := range m.placeableCreaturesAtStop() {
+		// 防御型は侵略に出せない（2026-11-11 オーナー。core#156）
+		if !specs[hand[handIndex]].Creature.Abilities.IsDefensive() {
+			choices = append(choices, handIndex)
+		}
+	}
+	return choices
 }
 
 // 使えるスペル 1 枚。Targets は選べる対象のプレイヤー（参加者の順）で、対象を選ばないスペルは空
@@ -582,13 +595,16 @@ func (m Match) battleTerritory() (Territory, bool) {
 	return m.invadedTerritory()
 }
 
+// クリーチャー移動で進むマスの数。2 マス動ける能力を足すときは、ここを能力で変える形にする（性能の項目にしない。2026-11-11 オーナー。core#156）
+const creatureMoveSteps = 1
+
 // クリーチャーを動かす選択肢 1 つ
 type MoveChoice struct {
 	From board.Position
 	To   board.Position
 }
 
-// 今の番の人が選べる移動（通った順・行き先の位置の順）。止まった後の段階でだけ中身がある。ちょうど移動の歩数だけ、ボードのつながりで
+// 今の番の人が選べる移動（通った順・行き先の位置の順）。止まった後の段階でだけ中身がある。ちょうど creatureMoveSteps だけ、ボードのつながりで
 // 進み（転送円・橋の対は使わない）、途中はどのマスも通り抜けられ、来たマスへは折り返さない。行き先は土地の空き地か他人の領地
 // （2026-11-10 オーナー。core#147）
 func (m Match) MoveChoices() []MoveChoice {
@@ -599,11 +615,11 @@ func (m Match) MoveChoices() []MoveChoice {
 	var choices []MoveChoice
 	for _, territory := range m.passedOwnTerritories() {
 		deployed, ok := m.DeployedCreature(territory.Creature)
-		if !ok || deployed.Base.Movement.Int() == 0 {
+		if !ok || deployed.Base.Abilities.IsDefensive() {
 			continue
 		}
 		var destinations []board.Position
-		m.walk(territory.Position, nil, deployed.Base.Movement.Int(), &destinations)
+		m.walk(territory.Position, nil, creatureMoveSteps, &destinations)
 		slices.SortFunc(destinations, board.Position.Compare)
 		for _, to := range slices.Compact(destinations) {
 			if m.isMoveDestination(to, index) && !deployed.Base.forbidsLand(m.landElement(to)) {

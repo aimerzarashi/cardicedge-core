@@ -16,7 +16,7 @@
           "spec": {
             "cost": 10,
             "rarity": "normal",
-            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "movement": 1, "item_restrictions": [], "placement_restrictions": [] }
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": [] }
           }
         },
         {
@@ -28,7 +28,7 @@
           "spec": {
             "cost": 20,
             "rarity": "normal",
-            "creature": { "elements": ["neutral"], "attack": 10, "hit_points": 30, "movement": 1, "item_restrictions": [], "placement_restrictions": [] }
+            "creature": { "elements": ["neutral"], "attack": 10, "hit_points": 30, "item_restrictions": [], "placement_restrictions": [], "abilities": [] }
           }
         }
       ]
@@ -48,7 +48,7 @@
           "spec": {
             "cost": 10,
             "rarity": "normal",
-            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "movement": 1, "item_restrictions": [], "placement_restrictions": [] }
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": [] }
           }
         }
       ]

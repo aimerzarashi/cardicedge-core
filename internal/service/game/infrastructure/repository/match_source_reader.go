@@ -18,6 +18,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 )
 
 // 対戦を始めるときに、ボードとデッキのカードを写す元を読む（decks・npc_decks・boards の read model）。
@@ -295,7 +296,7 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 		}
 		spec := master.CardSpec{Cost: row.card.Cost, Rarity: row.card.Rarity}
 		if row.card.Creature != nil {
-			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, Movement: row.card.Creature.Movement, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions}
+			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions, Abilities: masterCreatureAbilities(row.card.Creature.Abilities)}
 		}
 		if row.card.Item != nil {
 			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, AttackBonus: row.card.Item.AttackBonus, HitPointsBonus: row.card.Item.HitPointsBonus}
@@ -322,4 +323,12 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 		specs[ref] = spec
 	}
 	return specs, nil
+}
+
+func masterCreatureAbilities(abilities []query.CreatureAbility) []master.CreatureAbility {
+	values := make([]master.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		values[i] = master.CreatureAbility{Defensive: ability.Defensive}
+	}
+	return values
 }

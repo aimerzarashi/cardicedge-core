@@ -133,7 +133,7 @@ func toCard(card query.Card) (model.Card, error) {
 		}
 		return &model.Creature{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
-			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Revision: revision,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilitiesMetadata(card.Creature.Abilities), Revision: revision,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
@@ -185,7 +185,7 @@ type cardChangeResult interface {
 	model.ChangeCardRarityResult
 	model.ChangeCreatureElementsResult
 	model.ChangeCreatureStatsResult
-	model.ChangeCreatureMovementResult
+	model.ChangeCreatureAbilitiesResult
 	model.ChangeCreatureItemRestrictionsResult
 	model.ChangeCreaturePlacementRestrictionsResult
 	model.ChangeItemCategoryResult
@@ -370,4 +370,37 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 		}
 	}
 	return elements, nil
+}
+
+func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata) []model.CreatureAbility {
+	values := make([]model.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		if ability.Defensive != nil {
+			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
+		}
+	}
+	return values
+}
+
+func fromCreatureAbilities(abilities []command.CreatureAbility) []model.CreatureAbility {
+	values := make([]model.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		if ability.Defensive {
+			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
+		}
+	}
+	return values
+}
+
+func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.CreatureAbility, error) {
+	values := make([]command.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		switch ability.Kind {
+		case model.CreatureAbilityKindDefensive:
+			values[i] = command.CreatureAbility{Defensive: true}
+		default:
+			return nil, fmt.Errorf("graphql: unknown creature ability kind %q", ability.Kind)
+		}
+	}
+	return values, nil
 }
