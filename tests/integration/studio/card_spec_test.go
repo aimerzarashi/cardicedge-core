@@ -237,6 +237,28 @@ func TestChangeCreatureElementsAndStats_ChangesCreatureAfterProjected(t *testing
 	})
 }
 
+func TestChangeCreatureItemRestrictions_ChangesCreatureAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	changed := client.Data(t, token, `mutation ($input: ChangeCreatureItemRestrictionsInput!) {
+		changeCreatureItemRestrictions(input: $input) { __typename ... on ChangeCreatureItemRestrictionsSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "itemRestrictions": []string{"SCROLL", "ARMOR"}}}, "changeCreatureItemRestrictions")
+	invalid := client.Data(t, token, `mutation ($input: ChangeCreatureItemRestrictionsInput!) {
+		changeCreatureItemRestrictions(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "itemRestrictions": []string{"ARMOR", "ARMOR"}}}, "changeCreatureItemRestrictions")
+
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureItemRestrictionsSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "itemRestrictions"}}}, invalid)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { itemRestrictions revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"itemRestrictions": []any{"ARMOR", "SCROLL"}, "revision": float64(2)}, got)
+		}
+	})
+}
+
 func TestChangeCreatureMovement_ChangesCreatureAfterProjected(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)

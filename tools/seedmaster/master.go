@@ -58,14 +58,15 @@ type masterNPCAvatar struct {
 // 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
 // （攻撃力は 0 が正しい値なので、書き忘れと見分けるためにポインタで受ける）
 type masterCard struct {
-	Type      string   `json:"type"`
-	Name      string   `json:"name"`
-	Cost      int      `json:"cost"`
-	Rarity    string   `json:"rarity"`
-	Elements  []string `json:"elements"`
-	Attack    *int     `json:"attack"`
-	HitPoints *int     `json:"hit_points"`
-	Movement  *int     `json:"movement"`
+	Type             string   `json:"type"`
+	Name             string   `json:"name"`
+	Cost             int      `json:"cost"`
+	Rarity           string   `json:"rarity"`
+	Elements         []string `json:"elements"`
+	Attack           *int     `json:"attack"`
+	HitPoints        *int     `json:"hit_points"`
+	Movement         *int     `json:"movement"`
+	ItemRestrictions []string `json:"item_restrictions"`
 	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
 	Category       string `json:"category"`
 	AttackBonus    *int   `json:"attack_bonus"`
@@ -210,19 +211,22 @@ const (
 	deckTotalCount = 40
 )
 
-// クリーチャーは属性・攻撃力・体力・移動を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
+// クリーチャーは属性・攻撃力・体力・移動・アイテム制限（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
 func (c masterCard) validateCreatureSpec() error {
 	if c.Type != "creature" {
-		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.Movement != nil {
-			return fmt.Errorf("%s cannot have elements, attack, hit_points or movement", c.Type)
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.Movement != nil || c.ItemRestrictions != nil {
+			return fmt.Errorf("%s cannot have elements, attack, hit_points, movement or item_restrictions", c.Type)
 		}
 		return nil
 	}
 	if _, err := creature.NewElements(c.Elements); err != nil {
 		return err
 	}
-	if c.Attack == nil || c.HitPoints == nil || c.Movement == nil {
-		return errors.New("creature needs attack, hit_points and movement")
+	if c.Attack == nil || c.HitPoints == nil || c.Movement == nil || c.ItemRestrictions == nil {
+		return errors.New("creature needs attack, hit_points, movement and item_restrictions")
+	}
+	if _, err := creature.NewItemRestrictions(c.ItemRestrictions); err != nil {
+		return err
 	}
 	if _, err := creature.NewMovement(*c.Movement); err != nil {
 		return err

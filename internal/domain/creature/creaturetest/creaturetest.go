@@ -39,6 +39,13 @@ func Movement(t testing.TB, value int) creature.Movement {
 	return movement
 }
 
+func ItemRestrictions(t testing.TB, values ...string) creature.ItemRestrictions {
+	t.Helper()
+	restrictions, err := creature.NewItemRestrictions(values)
+	require.NoError(t, err)
+	return restrictions
+}
+
 func HitPoints(t testing.TB, value int) creature.HitPoints {
 	t.Helper()
 	hitPoints, err := creature.NewHitPoints(value)

@@ -25,9 +25,17 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		if err != nil {
 			return nil, err
 		}
+		itemRestrictions := make([]model.ItemCategory, len(creature.ItemRestrictions))
+		for i, value := range creature.ItemRestrictions {
+			category, err := fromItemCategory(value)
+			if err != nil {
+				return nil, err
+			}
+			itemRestrictions[i] = category
+		}
 		return &model.CreatureCardInfo{
 			ID: id, Name: name, Cost: cost, Rarity: converted,
-			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, Movement: creature.Movement,
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, Movement: creature.Movement, ItemRestrictions: itemRestrictions,
 		}, nil
 	case query.CardTypeItem:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り

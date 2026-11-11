@@ -121,6 +121,70 @@ func (a Attack) Modified(delta int) Attack {
 	return Attack(max(int(a)+delta, 0))
 }
 
+// アイテム制限の 1 つ。持てないアイテムの分類（武器・防具・巻物）。分類は item.Category と名前をそろえるが、型はパッケージごとに持つ
+// （creature が item を読むと、カードの種類どうしが依存するため。core#127 で決めた形）
+type ItemRestriction string
+
+const (
+	ItemRestrictionWeapon ItemRestriction = "weapon"
+	ItemRestrictionArmor  ItemRestriction = "armor"
+	ItemRestrictionScroll ItemRestriction = "scroll"
+)
+
+// 保存の並び（武器・防具・巻物）。入力の並びが違うだけの同じ集合を別の値にしない
+var canonicalItemRestrictions = []ItemRestriction{ItemRestrictionWeapon, ItemRestrictionArmor, ItemRestrictionScroll}
+
+func (r ItemRestriction) String() string {
+	return string(r)
+}
+
+// クリーチャーのアイテム制限の集合。0〜3 個（重複なし）。並びは武器・防具・巻物に固定する。値の比較は Equal
+// （スライスなので == は使えない）。制限が無いときも nil でなく空にする（JSON を null でなく [] にし、読む側が項目の欠けと見分けるため）
+type ItemRestrictions []ItemRestriction
+
+// 登録の直後のアイテム制限（無し）。共有のスライスを変えられないよう、呼ぶたびに作る
+func DefaultItemRestrictions() ItemRestrictions {
+	return ItemRestrictions{}
+}
+
+func NewItemRestrictions(values []string) (ItemRestrictions, error) {
+	selected := map[ItemRestriction]bool{}
+	for _, value := range values {
+		restriction := ItemRestriction(value)
+		if !slices.Contains(canonicalItemRestrictions, restriction) {
+			return nil, fmt.Errorf("%w: %q", ErrItemRestrictionUnknown, value)
+		}
+		if selected[restriction] {
+			return nil, fmt.Errorf("%w: %q", ErrItemRestrictionsDuplicated, value)
+		}
+		selected[restriction] = true
+	}
+	restrictions := make(ItemRestrictions, 0, len(values))
+	for _, restriction := range canonicalItemRestrictions {
+		if selected[restriction] {
+			restrictions = append(restrictions, restriction)
+		}
+	}
+	return restrictions, nil
+}
+
+func (r ItemRestrictions) Strings() []string {
+	values := make([]string, len(r))
+	for i, restriction := range r {
+		values[i] = restriction.String()
+	}
+	return values
+}
+
+func (r ItemRestrictions) Equal(other ItemRestrictions) bool {
+	return slices.Equal(r, other)
+}
+
+// 文字列で受けるのは、呼ぶ側が持つ item.Category と型が別のため
+func (r ItemRestrictions) Forbids(itemCategory string) bool {
+	return slices.Contains(r, ItemRestriction(itemCategory))
+}
+
 // 移動。領地コマンドのクリーチャーの移動で進めるマスの数。0 以上（0 は動けない。防御型のクリーチャー）。上限は持たない（2026-11-10 オーナー）
 type Movement int
 

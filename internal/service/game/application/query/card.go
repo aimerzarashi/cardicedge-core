@@ -72,10 +72,11 @@ type ItemSpec struct {
 
 // クリーチャーだけの性能。写した cards.metadata.creature の値（属性は fire・earth・water・wind・neutral を火・地・水・風の順に並べたもの）
 type CreatureSpec struct {
-	Elements  []string
-	Attack    int
-	HitPoints int
-	Movement  int
+	Elements         []string
+	Attack           int
+	HitPoints        int
+	Movement         int
+	ItemRestrictions []string
 }
 
 // 写した cards から 1 枚読む。無ければ ErrCardNotFound

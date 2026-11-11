@@ -95,6 +95,11 @@ type ChangeCreatureElementsResult interface {
 	IsChangeCreatureElementsResult()
 }
 
+// クリーチャーのアイテム制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureItemRestrictionsResult interface {
+	IsChangeCreatureItemRestrictionsResult()
+}
+
 // クリーチャーの移動を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
 type ChangeCreatureMovementResult interface {
 	IsChangeCreatureMovementResult()
@@ -769,6 +774,8 @@ func (CardNotDraftError) IsChangeCreatureStatsResult() {}
 
 func (CardNotDraftError) IsChangeCreatureMovementResult() {}
 
+func (CardNotDraftError) IsChangeCreatureItemRestrictionsResult() {}
+
 func (CardNotDraftError) IsChangeItemCategoryResult() {}
 
 func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
@@ -796,6 +803,8 @@ func (CardNotFoundError) IsChangeCreatureElementsResult() {}
 func (CardNotFoundError) IsChangeCreatureStatsResult() {}
 
 func (CardNotFoundError) IsChangeCreatureMovementResult() {}
+
+func (CardNotFoundError) IsChangeCreatureItemRestrictionsResult() {}
 
 func (CardNotFoundError) IsChangeItemCategoryResult() {}
 
@@ -940,6 +949,26 @@ type ChangeCreatureElementsSuccess struct {
 }
 
 func (ChangeCreatureElementsSuccess) IsChangeCreatureElementsResult() {}
+
+// クリーチャーのアイテム制限を変える入力
+type ChangeCreatureItemRestrictionsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後のアイテム制限（持てないアイテムの分類。重複なし。無しは空）
+	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
+}
+
+// クリーチャーのアイテム制限を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreatureItemRestrictionsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureItemRestrictionsSuccess) IsChangeCreatureItemRestrictionsResult() {}
 
 // クリーチャーの移動を変える入力
 type ChangeCreatureMovementInput struct {
@@ -1103,6 +1132,8 @@ type Creature struct {
 	HitPoints int `json:"hitPoints"`
 	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 以上。0 は動けない）
 	Movement int `json:"movement"`
+	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
+	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1475,6 +1506,8 @@ func (ForbiddenError) IsChangeCreatureElementsResult() {}
 func (ForbiddenError) IsChangeCreatureStatsResult() {}
 
 func (ForbiddenError) IsChangeCreatureMovementResult() {}
+
+func (ForbiddenError) IsChangeCreatureItemRestrictionsResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
@@ -2567,6 +2600,8 @@ func (RevisionConflictError) IsChangeCreatureStatsResult() {}
 
 func (RevisionConflictError) IsChangeCreatureMovementResult() {}
 
+func (RevisionConflictError) IsChangeCreatureItemRestrictionsResult() {}
+
 func (RevisionConflictError) IsRenameGrantDeckResult() {}
 
 func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
@@ -3096,6 +3131,8 @@ func (ValidationErrors) IsChangeCreatureElementsResult() {}
 func (ValidationErrors) IsChangeCreatureStatsResult() {}
 
 func (ValidationErrors) IsChangeCreatureMovementResult() {}
+
+func (ValidationErrors) IsChangeCreatureItemRestrictionsResult() {}
 
 func (ValidationErrors) IsGrantDecksResult() {}
 

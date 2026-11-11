@@ -761,6 +761,8 @@ type CreatureCardInfo struct {
 	HitPoints int `json:"hitPoints"`
 	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 は動けない）
 	Movement int `json:"movement"`
+	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
+	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
 }
 
 func (CreatureCardInfo) IsCardInfo() {}

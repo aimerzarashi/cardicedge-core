@@ -12,4 +12,7 @@ var (
 	ErrAttackNegative       = errors.New("creature: attack is negative")
 	ErrHitPointsTooSmall    = errors.New("creature: hit points are less than 1")
 	ErrMovementNegative     = errors.New("creature: movement is negative")
+
+	ErrItemRestrictionUnknown     = errors.New("creature: unknown item restriction")
+	ErrItemRestrictionsDuplicated = errors.New("creature: duplicated item restriction")
 )

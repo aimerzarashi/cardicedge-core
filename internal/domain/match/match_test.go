@@ -53,7 +53,7 @@ func creatureSpec(t *testing.T, id int64) *match.CreatureSpec {
 	t.Helper()
 	return &match.CreatureSpec{
 		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, int(id%100)*5), HitPoints: creaturetest.HitPoints(t, int(id%100)*10+10),
-		Movement: creaturetest.Movement(t, 1),
+		Movement: creaturetest.Movement(t, 1), ItemRestrictions: creature.DefaultItemRestrictions(),
 	}
 }
 
@@ -2614,6 +2614,64 @@ func TestMatch_ItemChoicesAreForWhoeverIsBeingWaitedFor(t *testing.T) {
 	require.Empty(t, defending.ItemChoices())
 	require.Empty(t, invadingMatch(t).ItemChoices())
 	require.Empty(t, newMatch(t, territoryBoard(t), defaultRules(t)).ItemChoices())
+}
+
+// 手札の最後のカードを、分類を持つアイテムにする
+func withLastItemCategory(t *testing.T, state match.Match, participant int, category item.Category) match.Match {
+	t.Helper()
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Participant.Cards = slices.Clone(target.Participant.Cards)
+	last := len(target.Participant.Cards) - 1
+	target.Participant.Cards[last].Spec.Item = &match.ItemSpec{Category: category}
+	state.Participants[participant] = target
+	return state
+}
+
+func TestMatch_ItemChoicesExcludeTheCategoriesTheFighterCannotHold(t *testing.T) {
+	restrictions := creaturetest.ItemRestrictions(t, "armor")
+	attackerState := func(t *testing.T, category item.Category) match.Match {
+		t.Helper()
+		state := withLastItemCategory(t, withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20), 1, category)
+		invasion := *state.Invasion
+		invasion.Base.ItemRestrictions = restrictions
+		state.Invasion = &invasion
+		return state
+	}
+	defenderState := func(t *testing.T, category item.Category) match.Match {
+		t.Helper()
+		state := withLastItemCategory(t, withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20), 0, category)
+		state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+		for i := range state.DeployedCreatures {
+			state.DeployedCreatures[i].Base.ItemRestrictions = restrictions
+		}
+		return state
+	}
+	tests := []struct {
+		name  string
+		state func(*testing.T, item.Category) match.Match
+		by    int
+	}{
+		{name: "attacker", state: attackerState, by: 1},
+		{name: "defender", state: defenderState, by: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			allowed := tt.state(t, item.CategoryWeapon)
+			require.Equal(t, []int{len(allowed.Participants[tt.by].Hand) - 1}, allowed.ItemChoices())
+			require.Empty(t, tt.state(t, item.CategoryArmor).ItemChoices())
+		})
+	}
+}
+
+func TestDecide_AttackWithAnItemTheFighterCannotHoldIsRejected(t *testing.T) {
+	state := withLastItemCategory(t, withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20), 1, item.CategoryScroll)
+	invasion := *state.Invasion
+	invasion.Base.ItemRestrictions = creaturetest.ItemRestrictions(t, "scroll")
+	state.Invasion = &invasion
+	itemIndex := len(state.Participants[1].Hand) - 1
+
+	require.ErrorIs(t, decideErr(t, state, &match.AttackCommand{By: matchtest.Index(t, 1), ItemHandIndex: &itemIndex}), match.ErrItemNotUsable)
 }
 
 func TestPhase_AwaitsOperationIsFalseWhileBattling(t *testing.T) {

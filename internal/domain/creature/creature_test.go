@@ -59,16 +59,17 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 	_, event := f.register(t)
 
 	require.Equal(t, &creature.RegisteredEvent{
-		EventMeta:    creature.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
-		PublicID:     publicID,
-		Name:         f.name,
-		Cost:         card.DefaultCost,
-		Rarity:       card.DefaultRarity,
-		Elements:     creature.DefaultElements(),
-		Attack:       creature.DefaultAttack,
-		HitPoints:    creature.DefaultHitPoints,
-		Movement:     creature.DefaultMovement,
-		RegisteredBy: f.registeredBy,
+		EventMeta:        creature.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
+		PublicID:         publicID,
+		Name:             f.name,
+		Cost:             card.DefaultCost,
+		Rarity:           card.DefaultRarity,
+		Elements:         creature.DefaultElements(),
+		Attack:           creature.DefaultAttack,
+		HitPoints:        creature.DefaultHitPoints,
+		Movement:         creature.DefaultMovement,
+		ItemRestrictions: creature.DefaultItemRestrictions(),
+		RegisteredBy:     f.registeredBy,
 	}, event)
 }
 
@@ -89,7 +90,7 @@ func TestEvolve_RegisteredEventMakesCreature(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(),
 	}, registered)
 }
 
@@ -114,6 +115,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, elementsChanged := f.decide(t, state, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: f.registeredBy})
 	_, statsChanged := f.decide(t, state, &creature.ChangeStatsCommand{Attack: creaturetest.Attack(t, 30), HitPoints: creaturetest.HitPoints(t, 50), ChangedBy: f.registeredBy})
 	_, movementChanged := f.decide(t, state, &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy})
+	_, itemRestrictionsChanged := f.decide(t, state, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: creaturetest.ItemRestrictions(t, "armor", "scroll"), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event creature.Event
@@ -126,6 +128,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "elements_changed", event: elementsChanged[0]},
 		{name: "stats_changed", event: statsChanged[0]},
 		{name: "movement_changed", event: movementChanged[0]},
+		{name: "item_restrictions_changed", event: itemRestrictionsChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -296,7 +299,7 @@ func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement,
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(),
 	}, afterRarity)
 }
 
@@ -387,7 +390,7 @@ func TestDecide_ChangeElementsAndStatsEmitChangedEventsWhenDraft(t *testing.T) {
 	require.Equal(t, creature.Creature{
 		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
 		Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), Movement: creature.DefaultMovement,
+		Elements: creaturetest.Elements(t, "fire", "water"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(),
 	}, afterStats)
 }
 
@@ -414,6 +417,43 @@ func TestDecide_ChangeMovementEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
 	require.Empty(t, same)
 	_, err := creature.Decide(f.retiredState(t), &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 2), ChangedBy: f.registeredBy}, changedAt)
 	require.ErrorIs(t, err, card.ErrNotDraft)
+}
+
+func TestDecide_ChangeItemRestrictionsEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	changed, events := f.decide(t, registered, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: creaturetest.ItemRestrictions(t, "scroll"), ChangedBy: f.registeredBy})
+
+	require.Len(t, events, 1)
+	require.Equal(t, creaturetest.ItemRestrictions(t, "scroll"), changed.(creature.Creature).ItemRestrictions)
+	_, same := f.decide(t, registered, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: creature.DefaultItemRestrictions(), ChangedBy: f.registeredBy})
+	require.Empty(t, same)
+	_, err := creature.Decide(f.retiredState(t), &creature.ChangeItemRestrictionsCommand{ItemRestrictions: creaturetest.ItemRestrictions(t, "scroll"), ChangedBy: f.registeredBy}, changedAt)
+	require.ErrorIs(t, err, card.ErrNotDraft)
+}
+
+func TestNewItemRestrictions_SortsAndRejectsUnknownAndDuplicates(t *testing.T) {
+	empty, err := creature.NewItemRestrictions(nil)
+	require.NoError(t, err)
+	require.NotNil(t, empty)
+	require.Empty(t, empty)
+
+	sorted, err := creature.NewItemRestrictions([]string{"scroll", "weapon"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"weapon", "scroll"}, sorted.Strings())
+
+	_, err = creature.NewItemRestrictions([]string{"tool"})
+	require.ErrorIs(t, err, creature.ErrItemRestrictionUnknown)
+	_, err = creature.NewItemRestrictions([]string{"armor", "armor"})
+	require.ErrorIs(t, err, creature.ErrItemRestrictionsDuplicated)
+}
+
+func TestItemRestrictions_ForbidsOnlyTheListedCategories(t *testing.T) {
+	restrictions := creaturetest.ItemRestrictions(t, "armor")
+
+	require.True(t, restrictions.Forbids("armor"))
+	require.False(t, restrictions.Forbids("weapon"))
 }
 
 func TestNewMovement_AcceptsZeroAndRejectsNegative(t *testing.T) {

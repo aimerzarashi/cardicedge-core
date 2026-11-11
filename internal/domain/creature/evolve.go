@@ -10,16 +10,17 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		meta := e.GetMeta()
 		return Creature{
-			ID:        meta.EntityID,
-			Version:   meta.AggregateVersion,
-			PublicID:  e.PublicID,
-			Status:    card.StatusDraft,
-			Cost:      e.Cost,
-			Rarity:    e.Rarity,
-			Elements:  e.Elements,
-			Attack:    e.Attack,
-			HitPoints: e.HitPoints,
-			Movement:  e.Movement,
+			ID:               meta.EntityID,
+			Version:          meta.AggregateVersion,
+			PublicID:         e.PublicID,
+			Status:           card.StatusDraft,
+			Cost:             e.Cost,
+			Rarity:           e.Rarity,
+			Elements:         e.Elements,
+			Attack:           e.Attack,
+			HitPoints:        e.HitPoints,
+			Movement:         e.Movement,
+			ItemRestrictions: e.ItemRestrictions,
 		}, nil
 	case *PublishedEvent:
 		creature, ok := state.(Creature)
@@ -84,6 +85,14 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		creature.Movement = e.Movement
+		creature.Version = e.GetMeta().AggregateVersion
+		return creature, nil
+	case *ItemRestrictionsChangedEvent:
+		creature, ok := state.(Creature)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		creature.ItemRestrictions = e.ItemRestrictions
 		creature.Version = e.GetMeta().AggregateVersion
 		return creature, nil
 	default:

@@ -368,16 +368,36 @@ func (m Match) ItemChoices() []int {
 	if !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
+	fighter, ok := m.awaitingFighter()
+	if !ok {
+		return nil
+	}
 	participant := m.Participants[index]
 	specs := m.CardSpecs()
 	var choices []int
 	for i, ref := range participant.Hand {
 		spec, ok := specs[ref]
-		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic {
+		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic && !fighter.forbidsItem(spec) {
 			choices = append(choices, i)
 		}
 	}
 	return choices
+}
+
+// アイテムの選びを待っている側の、戦うクリーチャーの性能。攻める段階は侵略しているクリーチャー、守る段階は領地のクリーチャー
+func (m Match) awaitingFighter() (CreatureSpec, bool) {
+	if m.Phase == PhaseAttacking {
+		if m.Invasion == nil {
+			return CreatureSpec{}, false
+		}
+		return m.Invasion.Base, true
+	}
+	territory, ok := m.battleTerritory()
+	if !ok {
+		return CreatureSpec{}, false
+	}
+	deployed, ok := m.DeployedCreature(territory.Creature)
+	return deployed.Base, ok
 }
 
 // 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人

@@ -76,10 +76,11 @@ type ItemSpec struct {
 
 // クリーチャーだけの性能（写した cards.metadata.creature の値）
 type CreatureSpec struct {
-	Elements  []string
-	Attack    int
-	HitPoints int
-	Movement  int
+	Elements         []string
+	Attack           int
+	HitPoints        int
+	Movement         int
+	ItemRestrictions []string
 }
 
 // カードの性能を、写した cards から 1 回で読む。写していないカードはエラー（デッキのカードは必ず写してあるため）
