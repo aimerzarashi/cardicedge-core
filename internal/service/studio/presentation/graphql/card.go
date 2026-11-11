@@ -127,9 +127,13 @@ func toCard(card query.Card) (model.Card, error) {
 		if err != nil {
 			return nil, err
 		}
+		placementRestrictions, err := fromElements(card.Creature.PlacementRestrictions)
+		if err != nil {
+			return nil, err
+		}
 		return &model.Creature{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
-			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, ItemRestrictions: itemRestrictions, Revision: revision,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, Movement: card.Creature.Movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Revision: revision,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
@@ -183,6 +187,7 @@ type cardChangeResult interface {
 	model.ChangeCreatureStatsResult
 	model.ChangeCreatureMovementResult
 	model.ChangeCreatureItemRestrictionsResult
+	model.ChangeCreaturePlacementRestrictionsResult
 	model.ChangeItemCategoryResult
 	model.ChangeItemStatBonusesResult
 	model.ChangeSpellEffectResult

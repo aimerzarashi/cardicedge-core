@@ -8,5 +8,6 @@
   "hit_points": 10,
   "movement": 1,
   "item_restrictions": [],
+  "placement_restrictions": [],
   "registered_by": 10
 }

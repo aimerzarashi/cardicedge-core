@@ -710,7 +710,7 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	found.Rarity = spec.Rarity.String()
 	found.Creature = nil
 	if spec.Creature != nil {
-		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), Movement: spec.Creature.Movement.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings()}
+		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), Movement: spec.Creature.Movement.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings()}
 	}
 	found.Item = nil
 	if spec.Item != nil {

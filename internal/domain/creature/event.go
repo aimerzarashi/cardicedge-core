@@ -28,18 +28,19 @@ type EventMeta = domain.EventMeta[ID]
 // 登録した人は、ほかの集約を指すため内部 ID（operator.ID の数値）で持つ。性能は登録の直後の値を明示して持つ
 // （既定の値を変えても、過去のカードの意味が変わらないため。ボードの大きさと同じ）
 type RegisteredEvent struct {
-	EventMeta        `json:"-"`
-	eventMarker      `json:"-"`
-	PublicID         uuid.UUID        `json:"public_id"`
-	Name             card.Name        `json:"name"`
-	Cost             card.Cost        `json:"cost"`
-	Rarity           card.Rarity      `json:"rarity"`
-	Elements         Elements         `json:"elements"`
-	Attack           Attack           `json:"attack"`
-	HitPoints        HitPoints        `json:"hit_points"`
-	Movement         Movement         `json:"movement"`
-	ItemRestrictions ItemRestrictions `json:"item_restrictions"`
-	RegisteredBy     operator.ID      `json:"registered_by"`
+	EventMeta             `json:"-"`
+	eventMarker           `json:"-"`
+	PublicID              uuid.UUID             `json:"public_id"`
+	Name                  card.Name             `json:"name"`
+	Cost                  card.Cost             `json:"cost"`
+	Rarity                card.Rarity           `json:"rarity"`
+	Elements              Elements              `json:"elements"`
+	Attack                Attack                `json:"attack"`
+	HitPoints             HitPoints             `json:"hit_points"`
+	Movement              Movement              `json:"movement"`
+	ItemRestrictions      ItemRestrictions      `json:"item_restrictions"`
+	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
+	RegisteredBy          operator.ID           `json:"registered_by"`
 }
 
 var registeredEventType = domain.NewEventName("RegisteredEvent")
@@ -196,12 +197,30 @@ func (*ItemRestrictionsChangedEvent) SchemaVersion() int {
 	return 1
 }
 
+// 配置制限を変えた（変えた後の値）
+type PlacementRestrictionsChangedEvent struct {
+	EventMeta             `json:"-"`
+	eventMarker           `json:"-"`
+	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
+	ChangedBy             operator.ID           `json:"changed_by"`
+}
+
+var placementRestrictionsChangedEventType = domain.NewEventName("PlacementRestrictionsChangedEvent")
+
+func (*PlacementRestrictionsChangedEvent) EventType() domain.EventName {
+	return placementRestrictionsChangedEventType
+}
+
+func (*PlacementRestrictionsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			elementsChangedEventType, statsChangedEventType, movementChangedEventType, itemRestrictionsChangedEventType,
+			elementsChangedEventType, statsChangedEventType, movementChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType,
 		},
 	}
 }
@@ -233,6 +252,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &MovementChangedEvent{EventMeta: meta}
 	case EventType(itemRestrictionsChangedEventType):
 		event = &ItemRestrictionsChangedEvent{EventMeta: meta}
+	case EventType(placementRestrictionsChangedEventType):
+		event = &PlacementRestrictionsChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

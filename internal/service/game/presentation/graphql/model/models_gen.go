@@ -763,6 +763,8 @@ type CreatureCardInfo struct {
 	Movement int `json:"movement"`
 	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
 	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
+	// 配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）
+	PlacementRestrictions []CreatureElement `json:"placementRestrictions"`
 }
 
 func (CreatureCardInfo) IsCardInfo() {}

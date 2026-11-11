@@ -33,17 +33,18 @@ func NewCreatureHandler(
 
 // presentation 層にドメインの型（creature.Creature・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredCreature struct {
-	ID               uuid.UUID
-	Name             string
-	Cost             int
-	Rarity           string
-	Elements         []string
-	Attack           int
-	HitPoints        int
-	Movement         int
-	ItemRestrictions []string
-	RegisteredAt     time.Time
-	UpdatedAt        time.Time
+	ID                    uuid.UUID
+	Name                  string
+	Cost                  int
+	Rarity                string
+	Elements              []string
+	Attack                int
+	HitPoints             int
+	Movement              int
+	ItemRestrictions      []string
+	PlacementRestrictions []string
+	RegisteredAt          time.Time
+	UpdatedAt             time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
 	Revision int64
 }
@@ -94,7 +95,7 @@ func (c *CreatureHandler) Register(ctx context.Context, name string) (Registered
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredCreature{
 		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
-		Elements: registered.Elements.Strings(), Attack: registered.Attack.Int(), HitPoints: registered.HitPoints.Int(), Movement: registered.Movement.Int(), ItemRestrictions: registered.ItemRestrictions.Strings(),
+		Elements: registered.Elements.Strings(), Attack: registered.Attack.Int(), HitPoints: registered.HitPoints.Int(), Movement: registered.Movement.Int(), ItemRestrictions: registered.ItemRestrictions.Strings(), PlacementRestrictions: registered.PlacementRestrictions.Strings(),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -184,6 +185,19 @@ func (c *CreatureHandler) ChangeStats(ctx context.Context, id uuid.UUID, revisio
 		return ChangedCard{}, invalid
 	}
 	return c.change(ctx, id, revision, &creature.ChangeStatsCommand{Attack: attackValue, HitPoints: hitPointsValue, ChangedBy: changedBy})
+}
+
+// 配置制限を変える（準備中だけ）。同じ集合なら変わらず、revision も進まない。知らない属性・重複は input.Errors。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangePlacementRestrictions(ctx context.Context, id uuid.UUID, revision int64, placementRestrictions []string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := creature.NewPlacementRestrictions(placementRestrictions)
+	if err != nil {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "placementRestrictions"}}
+	}
+	return c.change(ctx, id, revision, &creature.ChangePlacementRestrictionsCommand{PlacementRestrictions: value, ChangedBy: changedBy})
 }
 
 // アイテム制限を変える（準備中だけ）。同じ集合なら変わらず、revision も進まない。知らない分類・重複は input.Errors。ほかのエラーは ChangeElements と同じ

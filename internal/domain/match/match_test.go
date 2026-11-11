@@ -53,7 +53,7 @@ func creatureSpec(t *testing.T, id int64) *match.CreatureSpec {
 	t.Helper()
 	return &match.CreatureSpec{
 		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, int(id%100)*5), HitPoints: creaturetest.HitPoints(t, int(id%100)*10+10),
-		Movement: creaturetest.Movement(t, 1), ItemRestrictions: creature.DefaultItemRestrictions(),
+		Movement: creaturetest.Movement(t, 1), ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
 	}
 }
 
@@ -2672,6 +2672,96 @@ func TestDecide_AttackWithAnItemTheFighterCannotHoldIsRejected(t *testing.T) {
 	itemIndex := len(state.Participants[1].Hand) - 1
 
 	require.ErrorIs(t, decideErr(t, state, &match.AttackCommand{By: matchtest.Index(t, 1), ItemHandIndex: &itemIndex}), match.ErrItemNotUsable)
+}
+
+// 参加者の山札の全部のクリーチャーの性能に配置制限を入れる（性能は写しから読むため）
+func withHandRestrictedFrom(t *testing.T, state match.Match, participant int, elements ...string) match.Match {
+	t.Helper()
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Participant.Cards = slices.Clone(target.Participant.Cards)
+	for i, deckCard := range target.Participant.Cards {
+		if deckCard.Spec.Creature != nil {
+			restricted := *deckCard.Spec.Creature
+			restricted.PlacementRestrictions = creaturetest.PlacementRestrictions(t, elements...)
+			target.Participant.Cards[i].Spec.Creature = &restricted
+		}
+	}
+	state.Participants[participant] = target
+	return state
+}
+
+// 配置済みのクリーチャーすべての性能に配置制限を入れる
+func withDeployedRestrictedFrom(t *testing.T, state match.Match, elements ...string) match.Match {
+	t.Helper()
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	for i := range state.DeployedCreatures {
+		state.DeployedCreatures[i].Base.PlacementRestrictions = creaturetest.PlacementRestrictions(t, elements...)
+	}
+	return state
+}
+
+func TestMatch_DeployChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T) {
+	stoppedOnFire := rolledTo(t, territoryBoardMatch(t), 2)
+
+	require.NotEmpty(t, stoppedOnFire.DeployChoices())
+	require.Empty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "fire").DeployChoices())
+	require.NotEmpty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "water").DeployChoices())
+}
+
+func TestMatch_NeutralAndMultiLandsAreNeverRestricted(t *testing.T) {
+	tests := []struct {
+		name string
+		roll int
+	}{
+		{name: "multi_land", roll: 5},
+		{name: "neutral_land", roll: 6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withHandRestrictedFrom(t, rolledTo(t, territoryBoardMatch(t), tt.roll), 1, "fire", "earth", "water", "wind")
+
+			require.NotEmpty(t, state.DeployChoices())
+		})
+	}
+}
+
+func TestMatch_InvadeChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T) {
+	state := invadingMatch(t)
+
+	require.NotEmpty(t, state.InvadeChoices())
+	require.Empty(t, withHandRestrictedFrom(t, state, 1, "fire").InvadeChoices())
+}
+
+func TestMatch_ExchangeChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
+
+	require.NotEmpty(t, state.ExchangeChoices())
+	require.Empty(t, withHandRestrictedFrom(t, state, 1, "fire").ExchangeChoices())
+}
+
+func TestMatch_MoveChoicesExcludeLandsTheCreatureIsRestrictedFrom(t *testing.T) {
+	// 3 にいるクリーチャーの 1 歩先は、2（火）と 4（水）
+	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20, 1), 3)
+	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}, {From: pos(t, 3, 0), To: pos(t, 4, 0)}}, state.MoveChoices())
+
+	restricted := withDeployedRestrictedFrom(t, state, "water")
+
+	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}}, restricted.MoveChoices())
+}
+
+func TestMatch_ElementChangeChoicesExcludeElementsTheCreatureIsRestrictedFrom(t *testing.T) {
+	state := withDeployedRestrictedFrom(t, rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2), "earth", "wind")
+
+	require.Equal(t, []match.ElementChangeChoice{
+		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200},
+	}, state.ElementChangeChoices())
+}
+
+func TestDecide_DeployOnARestrictedLandIsRejected(t *testing.T) {
+	state := withHandRestrictedFrom(t, rolledTo(t, territoryBoardMatch(t), 2), 1, "fire")
+
+	require.ErrorIs(t, decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0}), match.ErrCreatureNotDeployable)
 }
 
 func TestPhase_AwaitsOperationIsFalseWhileBattling(t *testing.T) {

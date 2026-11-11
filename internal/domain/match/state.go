@@ -284,7 +284,7 @@ func (m Match) DeployChoices() []int {
 	if m.Phase != PhaseDeploying {
 		return nil
 	}
-	return m.payableCreatures()
+	return m.placeableCreaturesAtStop()
 }
 
 // 今の番の人が侵略に出せる手札の番号（手札の順）。侵略を選ぶ段階でだけ中身がある。決まりは配置と同じで、これから変わりうるので関数は分ける
@@ -292,7 +292,7 @@ func (m Match) InvadeChoices() []int {
 	if m.Phase != PhaseInvading {
 		return nil
 	}
-	return m.payableCreatures()
+	return m.placeableCreaturesAtStop()
 }
 
 // 使えるスペル 1 枚。Targets は選べる対象のプレイヤー（参加者の順）で、対象を選ばないスペルは空
@@ -338,6 +338,33 @@ func (m Match) SpellChoices() []SpellChoice {
 			}
 		}
 		choices = append(choices, choice)
+	}
+	return choices
+}
+
+// 止まったマスに出せる手札（配置・侵略）
+func (m Match) placeableCreaturesAtStop() []int {
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	return m.creaturesPlaceableOn(m.Participants[index].Position)
+}
+
+// その土地に入れる、魔力の足りる手札（配置制限の属性の土地には入れない。2026-11-11 オーナー。core#155）
+func (m Match) creaturesPlaceableOn(position board.Position) []int {
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	element := m.landElement(position)
+	hand := m.Participants[index].Hand
+	specs := m.CardSpecs()
+	var choices []int
+	for _, handIndex := range m.payableCreatures() {
+		if !specs[hand[handIndex]].Creature.forbidsLand(element) {
+			choices = append(choices, handIndex)
+		}
 	}
 	return choices
 }
@@ -470,7 +497,7 @@ func (m Match) ExchangeChoices() []ExchangeChoice {
 	specs := m.CardSpecs()
 	var choices []ExchangeChoice
 	for _, territory := range m.passedOwnTerritories() {
-		for _, handIndex := range m.payableCreatures() {
+		for _, handIndex := range m.creaturesPlaceableOn(territory.Position) {
 			choices = append(choices, ExchangeChoice{Position: territory.Position, HandIndex: handIndex, Magic: specs[m.Participants[index].Hand[handIndex]].Cost.Int()})
 		}
 	}
@@ -499,11 +526,13 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 	for _, territory := range m.passedOwnTerritories() {
 		current := m.landElement(territory.Position)
 		magic := m.landElementChangeMagic(current)
-		if magic > m.Participants[index].Magic {
+		deployed, ok := m.DeployedCreature(territory.Creature)
+		if !ok || magic > m.Participants[index].Magic {
 			continue
 		}
 		for _, element := range changeableLandElements {
-			if element != current {
+			// いるクリーチャーの配置制限の属性には変えられない（2026-11-11 オーナー。core#155）
+			if element != current && !deployed.Base.forbidsLand(element) {
 				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic})
 			}
 		}
@@ -577,7 +606,7 @@ func (m Match) MoveChoices() []MoveChoice {
 		m.walk(territory.Position, nil, deployed.Base.Movement.Int(), &destinations)
 		slices.SortFunc(destinations, board.Position.Compare)
 		for _, to := range slices.Compact(destinations) {
-			if m.isMoveDestination(to, index) {
+			if m.isMoveDestination(to, index) && !deployed.Base.forbidsLand(m.landElement(to)) {
 				choices = append(choices, MoveChoice{From: territory.Position, To: to})
 			}
 		}

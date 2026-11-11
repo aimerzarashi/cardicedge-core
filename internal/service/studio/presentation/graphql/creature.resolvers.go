@@ -93,6 +93,28 @@ func (r *mutationResolver) ChangeCreatureItemRestrictions(ctx context.Context, i
 	return &model.ChangeCreatureItemRestrictionsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// ChangeCreaturePlacementRestrictions is the resolver for the changeCreaturePlacementRestrictions field.
+func (r *mutationResolver) ChangeCreaturePlacementRestrictions(ctx context.Context, input model.ChangeCreaturePlacementRestrictionsInput) (model.ChangeCreaturePlacementRestrictionsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	placementRestrictions, err := toElements(input.PlacementRestrictions)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.creatures.ChangePlacementRestrictions(ctx, input.ID, int64(input.Revision), placementRestrictions)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCreaturePlacementRestrictionsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterCreature is the resolver for the registerCreature field.
 func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -120,9 +142,13 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	if err != nil {
 		return nil, err
 	}
+	placementRestrictions, err := fromElements(registered.PlacementRestrictions)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, Movement: registered.Movement, ItemRestrictions: itemRestrictions,
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, Movement: registered.Movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

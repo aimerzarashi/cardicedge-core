@@ -34,6 +34,8 @@ type CreatureCardInfo implements CardInfo {
   movement: Int!
   "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
   itemRestrictions: [ItemCategory!]!
+  "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
+  placementRestrictions: [CreatureElement!]!
 }
 
 "アイテム"

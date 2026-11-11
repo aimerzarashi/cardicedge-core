@@ -183,6 +183,23 @@ func TestChangeCreatureItemRestrictions_ChangesDraftAndRejectsUnknown(t *testing
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "itemRestrictions"}}, err)
 }
 
+func TestChangeCreaturePlacementRestrictions_ChangesDraftAndRejectsNeutral(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	require.Empty(t, registered.PlacementRestrictions)
+
+	changed, err := commands.ChangePlacementRestrictions(ctx, registered.ID, registered.Revision, []string{"wind", "fire"})
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	unchanged, err := commands.ChangePlacementRestrictions(ctx, changed.ID, changed.Revision, []string{"fire", "wind"})
+	require.NoError(t, err)
+	require.Equal(t, changed, unchanged)
+	_, err = commands.ChangePlacementRestrictions(ctx, changed.ID, changed.Revision, []string{"neutral"})
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "placementRestrictions"}}, err)
+}
+
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)

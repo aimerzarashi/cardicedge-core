@@ -927,6 +927,9 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangeItemRestrictions(ctx, changed.ID, changed.Revision, c.ItemRestrictions)
 		}
+		if err == nil && c.Type == "creature" {
+			changed, err = s.creatures.ChangePlacementRestrictions(ctx, changed.ID, changed.Revision, c.PlacementRestrictions)
+		}
 		// 分類と増減はアイテムだけ（validate が、アイテムには必ず書いてあることを確かめている）
 		if err == nil && c.Type == "item" {
 			changed, err = s.items.ChangeCategory(ctx, changed.ID, changed.Revision, c.Category)

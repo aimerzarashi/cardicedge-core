@@ -46,6 +46,13 @@ func ItemRestrictions(t testing.TB, values ...string) creature.ItemRestrictions 
 	return restrictions
 }
 
+func PlacementRestrictions(t testing.TB, values ...string) creature.PlacementRestrictions {
+	t.Helper()
+	restrictions, err := creature.NewPlacementRestrictions(values)
+	require.NoError(t, err)
+	return restrictions
+}
+
 func HitPoints(t testing.TB, value int) creature.HitPoints {
 	t.Helper()
 	hitPoints, err := creature.NewHitPoints(value)

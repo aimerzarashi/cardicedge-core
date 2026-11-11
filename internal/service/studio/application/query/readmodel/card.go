@@ -95,11 +95,12 @@ type CardMetadata struct {
 
 // クリーチャーだけの性能。属性は domain の creature.Element の値（fire・earth・water・wind・neutral）を火・地・水・風の順に並べた配列
 type CreatureMetadata struct {
-	Elements         []string `json:"elements"`
-	Attack           int      `json:"attack"`
-	HitPoints        int      `json:"hit_points"`
-	Movement         int      `json:"movement"`
-	ItemRestrictions []string `json:"item_restrictions"`
+	Elements              []string `json:"elements"`
+	Attack                int      `json:"attack"`
+	HitPoints             int      `json:"hit_points"`
+	Movement              int      `json:"movement"`
+	ItemRestrictions      []string `json:"item_restrictions"`
+	PlacementRestrictions []string `json:"placement_restrictions"`
 }
 
 // アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
@@ -178,7 +179,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), Movement: e.Movement.Int(), ItemRestrictions: e.ItemRestrictions.Strings()},
+			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), Movement: e.Movement.Int(), ItemRestrictions: e.ItemRestrictions.Strings(), PlacementRestrictions: e.PlacementRestrictions.Strings()},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -257,6 +258,11 @@ func (state Card) Evolve(event any) Card {
 	case *creature.ItemRestrictionsChangedEvent:
 		changed := *state.Metadata.Creature
 		changed.ItemRestrictions = e.ItemRestrictions.Strings()
+		state.Metadata.Creature = &changed
+		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
+	case *creature.PlacementRestrictionsChangedEvent:
+		changed := *state.Metadata.Creature
+		changed.PlacementRestrictions = e.PlacementRestrictions.Strings()
 		state.Metadata.Creature = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *item.RarityChangedEvent:
