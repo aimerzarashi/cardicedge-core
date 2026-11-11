@@ -687,6 +687,17 @@ func payToll(r *recorder) error {
 		return ErrInvalidState
 	}
 	toll := r.state.TerritoryToll(territory)
+	// 倍率は盤面の通行料（切り捨てた後の値）に掛けて、もう一度切り捨てる。画面に見せた通行料から計算が合うようにするため
+	// （2026-11-11 オーナー。core#157 の「最後に 1 回だけ切り捨てる」から変えた）
+	if percent, ok := r.state.tollMultiplier(territory); ok {
+		multiplied := toll * percent.Int() / 100
+		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+			return &TollMultiplierActivatedEvent{EventMeta: meta, Position: territory.Position, Percent: percent, Toll: toll, MultipliedToll: multiplied}
+		}); err != nil {
+			return err
+		}
+		toll = multiplied
+	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &TollPaidEvent{EventMeta: meta, Participant: by, Owner: owner, Position: territory.Position, Magic: toll}
 	}); err != nil {

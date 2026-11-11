@@ -2602,7 +2602,7 @@ type MatchTerritory struct {
 	Level int `json:"level"`
 	// 土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
 	Value int `json:"value"`
-	// 他人が止まったときに払う通行料
+	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））
 	Toll int `json:"toll"`
 	// 手放したときに受け取る魔力
 	RelinquishMagic int `json:"relinquishMagic"`
@@ -2763,9 +2763,38 @@ type MatchTerritoryValue struct {
 	Position *BoardPosition `json:"position"`
 	// 土地の価値（連鎖を含む）
 	Value int `json:"value"`
-	// 他人が止まったときに払う通行料
+	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））
 	Toll int `json:"toll"`
 }
+
+// 通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した（倍率を持っていれば、効き目が無くても出る）。続く MatchTollPaidEvent が multipliedToll を払う
+type MatchTollMultiplierActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 止まった領地の位置
+	Position *BoardPosition `json:"position"`
+	// 倍率（百分率。150 で 1.5 倍）
+	Percent int `json:"percent"`
+	// 盤面の通行料（倍率を掛ける前）
+	Toll int `json:"toll"`
+	// 倍率を掛けて切り捨てた、払う通行料
+	MultipliedToll int `json:"multipliedToll"`
+}
+
+func (MatchTollMultiplierActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchTollMultiplierActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchTollMultiplierActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchTollMultiplierActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）
 type MatchTollPaidEvent struct {

@@ -932,6 +932,16 @@ type ComplexityRoot struct {
 		Value    func(childComplexity int) int
 	}
 
+	MatchTollMultiplierActivatedEvent struct {
+		Changes        func(childComplexity int) int
+		MultipliedToll func(childComplexity int) int
+		OccurredAt     func(childComplexity int) int
+		Percent        func(childComplexity int) int
+		Position       func(childComplexity int) int
+		Revision       func(childComplexity int) int
+		Toll           func(childComplexity int) int
+	}
+
 	MatchTollPaidEvent struct {
 		Changes     func(childComplexity int) int
 		Magic       func(childComplexity int) int
@@ -4514,6 +4524,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryValue.Value(childComplexity), true
+
+	case "MatchTollMultiplierActivatedEvent.changes":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Changes(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.multipliedToll":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.MultipliedToll == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.MultipliedToll(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.occurredAt":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.OccurredAt(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.percent":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Percent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Percent(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.position":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Position(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.revision":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Revision(childComplexity), true
+	case "MatchTollMultiplierActivatedEvent.toll":
+		if e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Toll == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTollMultiplierActivatedEvent.Toll(childComplexity), true
 
 	case "MatchTollPaidEvent.changes":
 		if e.ComplexityRoot.MatchTollPaidEvent.Changes == nil {
@@ -20364,6 +20417,185 @@ func (ec *executionContext) fieldContext_MatchTerritoryValue_toll(_ context.Cont
 	return graphql.NewScalarFieldContext("MatchTerritoryValue", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTollMultiplierActivatedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTollMultiplierActivatedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchTollMultiplierActivatedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.BoardPosition) graphql.Marshaler {
+			return ec.marshalNBoardPosition2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐBoardPosition(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchTollMultiplierActivatedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_BoardPosition(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_percent(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_percent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Percent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTollMultiplierActivatedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_toll(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_toll(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Toll, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_toll(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTollMultiplierActivatedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent_multipliedToll(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollMultiplierActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTollMultiplierActivatedEvent_multipliedToll(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MultipliedToll, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTollMultiplierActivatedEvent_multipliedToll(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTollMultiplierActivatedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchTollPaidEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTollPaidEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -29933,6 +30165,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchTollPaidEvent(ctx, sel, obj)
+	case model.MatchTollMultiplierActivatedEvent:
+		return ec._MatchTollMultiplierActivatedEvent(ctx, sel, &obj)
+	case *model.MatchTollMultiplierActivatedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchTollMultiplierActivatedEvent(ctx, sel, obj)
 	case model.MatchTerritoryRelinquishedEvent:
 		return ec._MatchTerritoryRelinquishedEvent(ctx, sel, &obj)
 	case *model.MatchTerritoryRelinquishedEvent:
@@ -37128,6 +37367,69 @@ func (ec *executionContext) _MatchTerritoryValue(ctx context.Context, sel ast.Se
 			}
 		case "toll":
 			out.Values[i] = ec._MatchTerritoryValue_toll(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchTollMultiplierActivatedEventImplementors = []string{"MatchTollMultiplierActivatedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchTollMultiplierActivatedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchTollMultiplierActivatedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchTollMultiplierActivatedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchTollMultiplierActivatedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "position":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "percent":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_percent(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "toll":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_toll(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "multipliedToll":
+			out.Values[i] = ec._MatchTollMultiplierActivatedEvent_multipliedToll(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
