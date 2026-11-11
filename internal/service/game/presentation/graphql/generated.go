@@ -227,6 +227,14 @@ type ComplexityRoot struct {
 		Kind func(childComplexity int) int
 	}
 
+	CreatureFirstStrikeAbility struct {
+		Kind func(childComplexity int) int
+	}
+
+	CreatureLastStrikeAbility struct {
+		Kind func(childComplexity int) int
+	}
+
 	CreatureTollMultiplierAbility struct {
 		Kind    func(childComplexity int) int
 		Percent func(childComplexity int) int
@@ -401,6 +409,14 @@ type ComplexityRoot struct {
 	MatchAvatar struct {
 		ID   func(childComplexity int) int
 		Name func(childComplexity int) int
+	}
+
+	MatchBattleAbilityActivatedEvent struct {
+		Ability    func(childComplexity int) int
+		Changes    func(childComplexity int) int
+		OccurredAt func(childComplexity int) int
+		Revision   func(childComplexity int) int
+		Side       func(childComplexity int) int
 	}
 
 	MatchBattleStartedEvent struct {
@@ -1918,6 +1934,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CreatureDefensiveAbility.Kind(childComplexity), true
 
+	case "CreatureFirstStrikeAbility.kind":
+		if e.ComplexityRoot.CreatureFirstStrikeAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureFirstStrikeAbility.Kind(childComplexity), true
+
+	case "CreatureLastStrikeAbility.kind":
+		if e.ComplexityRoot.CreatureLastStrikeAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureLastStrikeAbility.Kind(childComplexity), true
+
 	case "CreatureTollMultiplierAbility.kind":
 		if e.ComplexityRoot.CreatureTollMultiplierAbility.Kind == nil {
 			break
@@ -2480,6 +2510,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchAvatar.Name(childComplexity), true
+
+	case "MatchBattleAbilityActivatedEvent.ability":
+		if e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Ability == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Ability(childComplexity), true
+	case "MatchBattleAbilityActivatedEvent.changes":
+		if e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Changes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Changes(childComplexity), true
+	case "MatchBattleAbilityActivatedEvent.occurredAt":
+		if e.ComplexityRoot.MatchBattleAbilityActivatedEvent.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.OccurredAt(childComplexity), true
+	case "MatchBattleAbilityActivatedEvent.revision":
+		if e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Revision(childComplexity), true
+	case "MatchBattleAbilityActivatedEvent.side":
+		if e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Side == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Side(childComplexity), true
 
 	case "MatchBattleStartedEvent.attacker":
 		if e.ComplexityRoot.MatchBattleStartedEvent.Attacker == nil {
@@ -9746,6 +9807,52 @@ func (ec *executionContext) fieldContext_CreatureDefensiveAbility_kind(_ context
 	return graphql.NewScalarFieldContext("CreatureDefensiveAbility", field, false, false, "CreatureAbilityKind")
 }
 
+func (ec *executionContext) _CreatureFirstStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureFirstStrikeAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureFirstStrikeAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureFirstStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureFirstStrikeAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureLastStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureLastStrikeAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureLastStrikeAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureLastStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureLastStrikeAbility", field, false, false, "CreatureAbilityKind")
+}
+
 func (ec *executionContext) _CreatureTollMultiplierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11971,6 +12078,130 @@ func (ec *executionContext) _MatchAvatar_name(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_MatchAvatar_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchAvatar", field, false, false, "String")
+}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleAbilityActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleAbilityActivatedEvent_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleAbilityActivatedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleAbilityActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleAbilityActivatedEvent_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleAbilityActivatedEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent_changes(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleAbilityActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleAbilityActivatedEvent_changes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Changes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchEventChanges) graphql.Marshaler {
+			return ec.marshalNMatchEventChanges2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchEventChanges(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_changes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchBattleAbilityActivatedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventChanges(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent_side(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleAbilityActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleAbilityActivatedEvent_side(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Side, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.MatchBattleSide) graphql.Marshaler {
+			return ec.marshalNMatchBattleSide2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchBattleSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_side(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleAbilityActivatedEvent", field, false, false, "MatchBattleSide")
+}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent_ability(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleAbilityActivatedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleAbilityActivatedEvent_ability(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ability, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_ability(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleAbilityActivatedEvent", field, false, false, "CreatureAbilityKind")
 }
 
 func (ec *executionContext) _MatchBattleStartedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleStartedEvent) (ret graphql.Marshaler) {
@@ -28857,6 +29088,20 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureTollMultiplierAbility(ctx, sel, obj)
+	case model.CreatureLastStrikeAbility:
+		return ec._CreatureLastStrikeAbility(ctx, sel, &obj)
+	case *model.CreatureLastStrikeAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureLastStrikeAbility(ctx, sel, obj)
+	case model.CreatureFirstStrikeAbility:
+		return ec._CreatureFirstStrikeAbility(ctx, sel, &obj)
+	case *model.CreatureFirstStrikeAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureFirstStrikeAbility(ctx, sel, obj)
 	case model.CreatureDefensiveAbility:
 		return ec._CreatureDefensiveAbility(ctx, sel, &obj)
 	case *model.CreatureDefensiveAbility:
@@ -29947,6 +30192,13 @@ func (ec *executionContext) _MatchEvent(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._MatchBattleStartedEvent(ctx, sel, obj)
+	case model.MatchBattleAbilityActivatedEvent:
+		return ec._MatchBattleAbilityActivatedEvent(ctx, sel, &obj)
+	case *model.MatchBattleAbilityActivatedEvent:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchBattleAbilityActivatedEvent(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -32110,6 +32362,72 @@ func (ec *executionContext) _CreatureDefensiveAbility(ctx context.Context, sel a
 	return out
 }
 
+var creatureFirstStrikeAbilityImplementors = []string{"CreatureFirstStrikeAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureFirstStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureFirstStrikeAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureFirstStrikeAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureFirstStrikeAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureFirstStrikeAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureLastStrikeAbilityImplementors = []string{"CreatureLastStrikeAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureLastStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureLastStrikeAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureLastStrikeAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureLastStrikeAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureLastStrikeAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var creatureTollMultiplierAbilityImplementors = []string{"CreatureTollMultiplierAbility", "CreatureAbility"}
 
 func (ec *executionContext) _CreatureTollMultiplierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureTollMultiplierAbility) graphql.Marshaler {
@@ -33347,6 +33665,59 @@ func (ec *executionContext) _MatchAvatar(ctx context.Context, sel ast.SelectionS
 			}
 		case "name":
 			out.Values[i] = ec._MatchAvatar_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchBattleAbilityActivatedEventImplementors = []string{"MatchBattleAbilityActivatedEvent", "MatchEvent"}
+
+func (ec *executionContext) _MatchBattleAbilityActivatedEvent(ctx context.Context, sel ast.SelectionSet, obj *model.MatchBattleAbilityActivatedEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchBattleAbilityActivatedEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchBattleAbilityActivatedEvent")
+		case "revision":
+			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_occurredAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changes":
+			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_changes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "side":
+			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_side(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "ability":
+			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_ability(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

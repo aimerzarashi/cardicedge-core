@@ -151,9 +151,15 @@ type SpellRollDiceMetadata struct {
 type CreatureAbilityMetadata struct {
 	Defensive      *CreatureDefensiveAbilityMetadata      `json:"defensive,omitempty"`
 	TollMultiplier *CreatureTollMultiplierAbilityMetadata `json:"toll_multiplier,omitempty"`
+	FirstStrike    *CreatureFirstStrikeAbilityMetadata    `json:"first_strike,omitempty"`
+	LastStrike     *CreatureLastStrikeAbilityMetadata     `json:"last_strike,omitempty"`
 }
 
 type CreatureDefensiveAbilityMetadata struct{}
+
+type CreatureFirstStrikeAbilityMetadata struct{}
+
+type CreatureLastStrikeAbilityMetadata struct{}
 
 type CreatureTollMultiplierAbilityMetadata struct {
 	Percent int `json:"percent"`
@@ -167,6 +173,12 @@ func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMe
 		}
 		if ability.TollMultiplier != nil {
 			values[i].TollMultiplier = &CreatureTollMultiplierAbilityMetadata{Percent: ability.TollMultiplier.Percent.Int()}
+		}
+		if ability.FirstStrike != nil {
+			values[i].FirstStrike = &CreatureFirstStrikeAbilityMetadata{}
+		}
+		if ability.LastStrike != nil {
+			values[i].LastStrike = &CreatureLastStrikeAbilityMetadata{}
 		}
 	}
 	return values

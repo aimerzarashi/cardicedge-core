@@ -240,6 +240,15 @@ type BattleStatModifiedEvent struct {
 	HitPoints      creature.HitPoints `json:"hit_points"`
 }
 
+// 戦闘で能力が発動した（Side の側のクリーチャーの Ability）。効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出す
+// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。状態は変えない
+type BattleAbilityActivatedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Side        BattleSide    `json:"side"`
+	Ability     BattleAbility `json:"ability"`
+}
+
 // 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の、効果で増えた分も含む戦闘の中の残りの体力で、0 なら倒れた）
 type CreatureStruckEvent struct {
 	EventMeta          `json:"-"`
@@ -424,6 +433,7 @@ var (
 	itemSkippedEventType            = domain.NewEventName("ItemSkippedEvent")
 	battleStartedEventType          = domain.NewEventName("BattleStartedEvent")
 	battleStatModifiedEventType     = domain.NewEventName("BattleStatModifiedEvent")
+	battleAbilityActivatedEventType = domain.NewEventName("BattleAbilityActivatedEvent")
 	territoryLeveledUpEventType     = domain.NewEventName("TerritoryLeveledUpEvent")
 	creatureExchangedEventType      = domain.NewEventName("CreatureExchangedEvent")
 	landElementChangedEventType     = domain.NewEventName("LandElementChangedEvent")
@@ -649,6 +659,14 @@ func (*BattleStatModifiedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*BattleAbilityActivatedEvent) EventType() domain.EventName {
+	return battleAbilityActivatedEventType
+}
+
+func (*BattleAbilityActivatedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*TerritoryLeveledUpEvent) EventType() domain.EventName {
 	return territoryLeveledUpEventType
 }
@@ -770,7 +788,7 @@ func Types() domain.AggregateTypes {
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 		spellUsedEventType, magicGainedEventType, diceCountChangedEventType, curseCastEventType, curseRemovedEventType,
-		creatureDamagedEventType, creatureDestroyedEventType,
+		creatureDamagedEventType, creatureDestroyedEventType, battleAbilityActivatedEventType,
 	}}
 }
 
@@ -835,6 +853,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &BattleStartedEvent{EventMeta: meta}
 	case EventType(battleStatModifiedEventType):
 		event = &BattleStatModifiedEvent{EventMeta: meta}
+	case EventType(battleAbilityActivatedEventType):
+		event = &BattleAbilityActivatedEvent{EventMeta: meta}
 	case EventType(territoryLeveledUpEventType):
 		event = &TerritoryLeveledUpEvent{EventMeta: meta}
 	case EventType(creatureExchangedEventType):

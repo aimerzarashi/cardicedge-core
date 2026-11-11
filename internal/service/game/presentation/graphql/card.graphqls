@@ -44,6 +44,10 @@ enum CreatureAbilityKind {
   DEFENSIVE
   "通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）"
   TOLL_MULTIPLIER
+  "先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）"
+  FIRST_STRIKE
+  "後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）"
+  LAST_STRIKE
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -66,6 +70,18 @@ type CreatureTollMultiplierAbility implements CreatureAbility {
   kind: CreatureAbilityKind!
   "倍率（百分率。150 で 1.5 倍）"
   percent: Int!
+}
+
+"先制"
+type CreatureFirstStrikeAbility implements CreatureAbility {
+  "能力の種類（FIRST_STRIKE）"
+  kind: CreatureAbilityKind!
+}
+
+"後手"
+type CreatureLastStrikeAbility implements CreatureAbility {
+  "能力の種類（LAST_STRIKE）"
+  kind: CreatureAbilityKind!
 }
 
 "アイテム"

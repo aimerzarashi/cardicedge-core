@@ -294,6 +294,10 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 				return match.CreatureSpec{}, err
 			}
 			value = creature.NewTollMultiplierAbility(percent)
+		case ability.FirstStrike:
+			value = creature.NewFirstStrikeAbility()
+		case ability.LastStrike:
+			value = creature.NewLastStrikeAbility()
 		}
 		values = append(values, value)
 	}

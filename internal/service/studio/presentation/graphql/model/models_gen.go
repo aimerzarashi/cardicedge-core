@@ -952,7 +952,7 @@ type ChangeCreatureAbilitiesInput struct {
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていたクリーチャーの revision
 	Revision int `json:"revision"`
-	// 変えた後の能力の並び（同じ種類は 1 つまで。無しは空）
+	// 変えた後の能力の並び（同じ種類は 1 つまで。先制と後手は同時に持てない。どちらも違えば FieldInvalidFormat（abilities）。無しは空）
 	Abilities []*CreatureAbilityInput `json:"abilities"`
 }
 
@@ -1226,6 +1226,28 @@ func (CreatureDefensiveAbility) IsCreatureAbility() {}
 
 // 能力の種類
 func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
+// 先制
+type CreatureFirstStrikeAbility struct {
+	// 能力の種類（FIRST_STRIKE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureFirstStrikeAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureFirstStrikeAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
+// 後手
+type CreatureLastStrikeAbility struct {
+	// 能力の種類（LAST_STRIKE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureLastStrikeAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureLastStrikeAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // 通行料の倍率
 type CreatureTollMultiplierAbility struct {
@@ -3618,16 +3640,22 @@ const (
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
 	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
 	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"
+	// 先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）
+	CreatureAbilityKindFirstStrike CreatureAbilityKind = "FIRST_STRIKE"
+	// 後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）
+	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindDefensive,
 	CreatureAbilityKindTollMultiplier,
+	CreatureAbilityKindFirstStrike,
+	CreatureAbilityKindLastStrike,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike:
 		return true
 	}
 	return false

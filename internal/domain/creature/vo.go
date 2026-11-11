@@ -266,9 +266,25 @@ type Ability struct {
 	Defensive *DefensiveAbility `json:"defensive,omitempty"`
 	// 通行料の倍率。このクリーチャーのいる領地の通行料に掛ける（core#157）
 	TollMultiplier *TollMultiplierAbility `json:"toll_multiplier,omitempty"`
+	// 先制。戦闘で、先制の無い相手より先に攻撃する（core#158）
+	FirstStrike *FirstStrikeAbility `json:"first_strike,omitempty"`
+	// 後手。戦闘で、後手の無い相手より後に攻撃する（core#158）
+	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
 }
 
 type DefensiveAbility struct{}
+
+type FirstStrikeAbility struct{}
+
+type LastStrikeAbility struct{}
+
+func NewFirstStrikeAbility() Ability {
+	return Ability{FirstStrike: &FirstStrikeAbility{}}
+}
+
+func NewLastStrikeAbility() Ability {
+	return Ability{LastStrike: &LastStrikeAbility{}}
+}
 
 type TollMultiplierAbility struct {
 	Percent TollMultiplierPercent `json:"percent"`
@@ -298,13 +314,23 @@ func NewDefensiveAbility() Ability {
 
 // 種類の名前。同じ種類を重ねて持てないことを確かめるのに使う
 func (a Ability) kind() string {
-	switch {
-	case a.Defensive != nil && a.TollMultiplier == nil:
-		return "defensive"
-	case a.TollMultiplier != nil && a.Defensive == nil:
-		return "toll_multiplier"
+	var kinds []string
+	if a.Defensive != nil {
+		kinds = append(kinds, "defensive")
 	}
-	return ""
+	if a.TollMultiplier != nil {
+		kinds = append(kinds, "toll_multiplier")
+	}
+	if a.FirstStrike != nil {
+		kinds = append(kinds, "first_strike")
+	}
+	if a.LastStrike != nil {
+		kinds = append(kinds, "last_strike")
+	}
+	if len(kinds) != 1 {
+		return ""
+	}
+	return kinds[0]
 }
 
 // 種類と値が同じか（ポインタの先を比べる）
@@ -342,6 +368,10 @@ func NewAbilities(values []Ability) (Abilities, error) {
 		seen[kind] = true
 		abilities = append(abilities, value)
 	}
+	// 先制と後手は同時に持てない（2026-11-11 オーナー。core#158）
+	if seen["first_strike"] && seen["last_strike"] {
+		return nil, ErrAbilitiesConflicted
+	}
 	return abilities, nil
 }
 
@@ -351,6 +381,14 @@ func (a Abilities) Equal(other Abilities) bool {
 
 func (a Abilities) IsDefensive() bool {
 	return slices.ContainsFunc(a, Ability.IsDefensive)
+}
+
+func (a Abilities) HasFirstStrike() bool {
+	return slices.ContainsFunc(a, func(ability Ability) bool { return ability.FirstStrike != nil })
+}
+
+func (a Abilities) HasLastStrike() bool {
+	return slices.ContainsFunc(a, func(ability Ability) bool { return ability.LastStrike != nil })
 }
 
 // 通行料の倍率（百分率）。持っていなければ 100

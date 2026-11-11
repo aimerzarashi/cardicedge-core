@@ -100,4 +100,6 @@ type CreatureAbility struct {
 	Defensive bool
 	// 通行料の倍率（百分率）。持っていなければ nil
 	TollMultiplierPercent *int
+	FirstStrike           bool
+	LastStrike            bool
 }

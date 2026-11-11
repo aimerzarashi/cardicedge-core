@@ -261,6 +261,17 @@ func fromMatchBattleSide(side query.MatchBattleSide) (model.MatchBattleSide, err
 	}
 }
 
+func fromMatchBattleAbility(ability query.MatchBattleAbility) (model.CreatureAbilityKind, error) {
+	switch ability {
+	case query.MatchBattleAbilityFirstStrike:
+		return model.CreatureAbilityKindFirstStrike, nil
+	case query.MatchBattleAbilityLastStrike:
+		return model.CreatureAbilityKindLastStrike, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown match battle ability: %q", ability)
+	}
+}
+
 func fromMatchEndReason(reason query.MatchEndReason) (model.MatchEndReason, error) {
 	switch reason {
 	case query.MatchEndReasonTargetMagic:
@@ -442,6 +453,16 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Source: source,
 			AttackDelta: e.AttackDelta, HitPointsDelta: e.HitPointsDelta, Attack: e.Attack, HitPoints: e.HitPoints,
 		}, nil
+	case query.MatchBattleAbilityActivatedEvent:
+		side, err := fromMatchBattleSide(e.Side)
+		if err != nil {
+			return nil, err
+		}
+		ability, err := fromMatchBattleAbility(e.Ability)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchBattleAbilityActivatedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Ability: ability}, nil
 	case query.MatchCreatureStruckEvent:
 		striker, err := fromMatchBattleSide(e.Striker)
 		if err != nil {

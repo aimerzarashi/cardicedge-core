@@ -381,6 +381,12 @@ func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata
 		if ability.TollMultiplier != nil {
 			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: ability.TollMultiplier.Percent}
 		}
+		if ability.FirstStrike != nil {
+			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
+		}
+		if ability.LastStrike != nil {
+			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
+		}
 	}
 	return values
 }
@@ -393,6 +399,10 @@ func fromCreatureAbilities(abilities []command.CreatureAbility) []model.Creature
 			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
 		case command.CreatureAbilityTollMultiplier:
 			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.Percent}
+		case command.CreatureAbilityFirstStrike:
+			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
+		case command.CreatureAbilityLastStrike:
+			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
 		}
 	}
 	return values
@@ -406,6 +416,10 @@ func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.Cre
 			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityDefensive, Percent: ability.Percent}
 		case model.CreatureAbilityKindTollMultiplier:
 			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityTollMultiplier, Percent: ability.Percent}
+		case model.CreatureAbilityKindFirstStrike:
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityFirstStrike, Percent: ability.Percent}
+		case model.CreatureAbilityKindLastStrike:
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityLastStrike, Percent: ability.Percent}
 		default:
 			return nil, fmt.Errorf("graphql: unknown creature ability kind %q", ability.Kind)
 		}

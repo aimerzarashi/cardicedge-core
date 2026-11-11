@@ -58,7 +58,7 @@
       "hit_points": 20,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "first_strike" }]
     },
     {
       "type": "creature",
@@ -178,7 +178,7 @@
       "hit_points": 50,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "last_strike" }]
     },
     {
       "type": "creature",
@@ -202,7 +202,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "first_strike" }]
     },
     {
       "type": "creature",
@@ -238,7 +238,7 @@
       "hit_points": 50,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "defensive" }]
+      "abilities": [{ "kind": "defensive" }, { "kind": "first_strike" }]
     },
     {
       "type": "creature",
@@ -250,7 +250,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "first_strike" }]
     },
     {
       "type": "creature",

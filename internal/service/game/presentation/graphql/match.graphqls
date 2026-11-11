@@ -1322,6 +1322,20 @@ type MatchBattleStatModifiedEvent implements MatchEvent {
   hitPoints: Int!
 }
 
+"戦闘で能力が発動した（効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る）"
+type MatchBattleAbilityActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "能力を持つクリーチャーの側"
+  side: MatchBattleSide!
+  "発動した能力（今は FIRST_STRIKE・LAST_STRIKE）"
+  ability: CreatureAbilityKind!
+}
+
 "戦闘の攻撃が 1 回当たった"
 type MatchCreatureStruckEvent implements MatchEvent {
   "対戦の版"

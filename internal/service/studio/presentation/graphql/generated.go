@@ -269,6 +269,14 @@ type ComplexityRoot struct {
 		Kind func(childComplexity int) int
 	}
 
+	CreatureFirstStrikeAbility struct {
+		Kind func(childComplexity int) int
+	}
+
+	CreatureLastStrikeAbility struct {
+		Kind func(childComplexity int) int
+	}
+
 	CreatureTollMultiplierAbility struct {
 		Kind    func(childComplexity int) int
 		Percent func(childComplexity int) int
@@ -1757,6 +1765,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureDefensiveAbility.Kind(childComplexity), true
+
+	case "CreatureFirstStrikeAbility.kind":
+		if e.ComplexityRoot.CreatureFirstStrikeAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureFirstStrikeAbility.Kind(childComplexity), true
+
+	case "CreatureLastStrikeAbility.kind":
+		if e.ComplexityRoot.CreatureLastStrikeAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureLastStrikeAbility.Kind(childComplexity), true
 
 	case "CreatureTollMultiplierAbility.kind":
 		if e.ComplexityRoot.CreatureTollMultiplierAbility.Kind == nil {
@@ -8717,6 +8739,52 @@ func (ec *executionContext) _CreatureDefensiveAbility_kind(ctx context.Context, 
 }
 func (ec *executionContext) fieldContext_CreatureDefensiveAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureDefensiveAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureFirstStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureFirstStrikeAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureFirstStrikeAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureFirstStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureFirstStrikeAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureLastStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureLastStrikeAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureLastStrikeAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureLastStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureLastStrikeAbility", field, false, false, "CreatureAbilityKind")
 }
 
 func (ec *executionContext) _CreatureTollMultiplierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
@@ -23703,6 +23771,20 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureTollMultiplierAbility(ctx, sel, obj)
+	case model.CreatureLastStrikeAbility:
+		return ec._CreatureLastStrikeAbility(ctx, sel, &obj)
+	case *model.CreatureLastStrikeAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureLastStrikeAbility(ctx, sel, obj)
+	case model.CreatureFirstStrikeAbility:
+		return ec._CreatureFirstStrikeAbility(ctx, sel, &obj)
+	case *model.CreatureFirstStrikeAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureFirstStrikeAbility(ctx, sel, obj)
 	case model.CreatureDefensiveAbility:
 		return ec._CreatureDefensiveAbility(ctx, sel, &obj)
 	case *model.CreatureDefensiveAbility:
@@ -27961,6 +28043,72 @@ func (ec *executionContext) _CreatureDefensiveAbility(ctx context.Context, sel a
 			out.Values[i] = graphql.MarshalString("CreatureDefensiveAbility")
 		case "kind":
 			out.Values[i] = ec._CreatureDefensiveAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureFirstStrikeAbilityImplementors = []string{"CreatureFirstStrikeAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureFirstStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureFirstStrikeAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureFirstStrikeAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureFirstStrikeAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureFirstStrikeAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureLastStrikeAbilityImplementors = []string{"CreatureLastStrikeAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureLastStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureLastStrikeAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureLastStrikeAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureLastStrikeAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureLastStrikeAbility_kind(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
