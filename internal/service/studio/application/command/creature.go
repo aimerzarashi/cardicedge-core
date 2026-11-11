@@ -214,7 +214,7 @@ func (c *CreatureHandler) ChangeItemRestrictions(ctx context.Context, id uuid.UU
 	return c.change(ctx, id, revision, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: value, ChangedBy: changedBy})
 }
 
-// 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせの誤り・値の範囲・重複は input.Errors
+// 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせの誤り・値の範囲・重複・先制と後手の同時の指定は input.Errors
 // （項目は abilities.N・abilities.N.percent・abilities）。ほかのエラーは ChangeElements と同じ
 func (c *CreatureHandler) ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []CreatureAbility) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -294,6 +294,8 @@ func (c *CreatureHandler) load(ctx context.Context, publicID uuid.UUID, revision
 const (
 	CreatureAbilityDefensive      = "defensive"
 	CreatureAbilityTollMultiplier = "toll_multiplier"
+	CreatureAbilityFirstStrike    = "first_strike"
+	CreatureAbilityLastStrike     = "last_strike"
 )
 
 // クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent）
@@ -315,6 +317,10 @@ func (a CreatureAbility) domain() (creature.Ability, error) {
 			return creature.Ability{}, err
 		}
 		return creature.NewTollMultiplierAbility(percent), nil
+	case a.Kind == CreatureAbilityFirstStrike && a.Percent == nil:
+		return creature.NewFirstStrikeAbility(), nil
+	case a.Kind == CreatureAbilityLastStrike && a.Percent == nil:
+		return creature.NewLastStrikeAbility(), nil
 	}
 	return creature.Ability{}, errCreatureAbilityShape
 }
@@ -328,6 +334,10 @@ func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		case ability.TollMultiplier != nil:
 			percent := ability.TollMultiplier.Percent.Int()
 			values[i] = CreatureAbility{Kind: CreatureAbilityTollMultiplier, Percent: &percent}
+		case ability.FirstStrike != nil:
+			values[i] = CreatureAbility{Kind: CreatureAbilityFirstStrike}
+		case ability.LastStrike != nil:
+			values[i] = CreatureAbility{Kind: CreatureAbilityLastStrike}
 		}
 	}
 	return values

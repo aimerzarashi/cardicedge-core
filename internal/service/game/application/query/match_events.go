@@ -308,6 +308,21 @@ type MatchBattleStatModifiedEvent struct {
 	HitPoints      int
 }
 
+// 戦闘で能力が発動した（効き目が無くても、持っていれば出る）
+type MatchBattleAbilityActivatedEvent struct {
+	MatchEventMeta
+	Side    MatchBattleSide
+	Ability MatchBattleAbility
+}
+
+// 戦闘で発動する能力の種類
+type MatchBattleAbility string
+
+const (
+	MatchBattleAbilityFirstStrike MatchBattleAbility = "first_strike"
+	MatchBattleAbilityLastStrike  MatchBattleAbility = "last_strike"
+)
+
 // 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
 type MatchCreatureStruckEvent struct {
 	MatchEventMeta
@@ -706,6 +721,16 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 			return nil, err
 		}
 		return MatchBattleStatModifiedEvent{meta, side, source, e.AttackDelta, e.HitPointsDelta, e.Attack.Int(), e.HitPoints.Int()}, nil
+	case *match.BattleAbilityActivatedEvent:
+		side, err := fromBattleSide(e.Side)
+		if err != nil {
+			return nil, err
+		}
+		ability, err := fromBattleAbility(e.Ability)
+		if err != nil {
+			return nil, err
+		}
+		return MatchBattleAbilityActivatedEvent{meta, side, ability}, nil
 	case *match.CreatureStruckEvent:
 		striker, err := fromBattleSide(e.Striker)
 		if err != nil {
@@ -762,6 +787,17 @@ func fromBattleSide(side match.BattleSide) (MatchBattleSide, error) {
 		return MatchBattleSideDefender, nil
 	default:
 		return "", fmt.Errorf("query: unknown battle side: %q", side)
+	}
+}
+
+func fromBattleAbility(ability match.BattleAbility) (MatchBattleAbility, error) {
+	switch ability {
+	case match.BattleAbilityFirstStrike:
+		return MatchBattleAbilityFirstStrike, nil
+	case match.BattleAbilityLastStrike:
+		return MatchBattleAbilityLastStrike, nil
+	default:
+		return "", fmt.Errorf("query: unknown battle ability: %q", ability)
 	}
 }
 

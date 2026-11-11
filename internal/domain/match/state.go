@@ -588,6 +588,19 @@ func (m Match) passedOwnTerritories() []Territory {
 }
 
 // 戦闘で攻められている領地。侵略の間は侵略の位置（移動で侵略したときは止まったマスと違う）、ほかは止まったマス
+// 戦闘で守っているクリーチャー（侵略の途中でなければ ErrInvalidState）
+func (m Match) defendingCreature() (DeployedCreature, error) {
+	territory, ok := m.battleTerritory()
+	if !ok || m.Invasion == nil {
+		return DeployedCreature{}, ErrInvalidState
+	}
+	defending, ok := m.DeployedCreature(territory.Creature)
+	if !ok {
+		return DeployedCreature{}, ErrInvalidState
+	}
+	return defending, nil
+}
+
 func (m Match) battleTerritory() (Territory, bool) {
 	if m.Invasion != nil {
 		return m.TerritoryAt(m.Invasion.Position)

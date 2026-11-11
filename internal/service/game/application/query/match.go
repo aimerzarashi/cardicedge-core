@@ -747,7 +747,7 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 	values := make([]CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		values[i] = CreatureAbility{Defensive: ability.IsDefensive()}
+		values[i] = CreatureAbility{Defensive: ability.IsDefensive(), FirstStrike: ability.FirstStrike != nil, LastStrike: ability.LastStrike != nil}
 		if ability.TollMultiplier != nil {
 			percent := ability.TollMultiplier.Percent.Int()
 			values[i].TollMultiplierPercent = &percent

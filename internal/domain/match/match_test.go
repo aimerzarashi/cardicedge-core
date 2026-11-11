@@ -255,6 +255,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
+		&match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -1927,6 +1928,81 @@ func TestDecide_AttackerDestroyedByTheCounterattackIsNotReturnedToTheHand(t *tes
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
 }
 
+func withStrikeAbilities(t *testing.T, state match.Match, attacker, defender []creature.Ability) match.Match {
+	t.Helper()
+	attackerAbilities, err := creature.NewAbilities(attacker)
+	require.NoError(t, err)
+	defenderAbilities, err := creature.NewAbilities(defender)
+	require.NoError(t, err)
+	invasion := *state.Invasion
+	invasion.Base.Abilities = attackerAbilities
+	state.Invasion = &invasion
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	state.DeployedCreatures[0].Base.Abilities = defenderAbilities
+	return state
+}
+
+func TestDecide_StrikeOrderFollowsFirstStrikeAndLastStrike(t *testing.T) {
+	first := []creature.Ability{creature.NewFirstStrikeAbility()}
+	last := []creature.Ability{creature.NewLastStrikeAbility()}
+	attackerFirst := []match.BattleSide{match.BattleSideAttacker, match.BattleSideDefender}
+	defenderFirst := []match.BattleSide{match.BattleSideDefender, match.BattleSideAttacker}
+	tests := []struct {
+		name     string
+		attacker []creature.Ability
+		defender []creature.Ability
+		want     []match.BattleSide
+		// 発動した能力（側と種類。攻める側 → 守る側の順）
+		activated []string
+	}{
+		{name: "neither", want: attackerFirst},
+		{name: "defender_first_strike", defender: first, want: defenderFirst, activated: []string{"defender:first_strike"}},
+		{name: "attacker_first_strike", attacker: first, want: attackerFirst, activated: []string{"attacker:first_strike"}},
+		{name: "both_first_strike", attacker: first, defender: first, want: attackerFirst, activated: []string{"attacker:first_strike", "defender:first_strike"}},
+		{name: "attacker_last_strike", attacker: last, want: defenderFirst, activated: []string{"attacker:last_strike"}},
+		{name: "defender_last_strike", defender: last, want: attackerFirst, activated: []string{"defender:last_strike"}},
+		{name: "both_last_strike", attacker: last, defender: last, want: attackerFirst, activated: []string{"attacker:last_strike", "defender:last_strike"}},
+		{name: "attacker_last_strike_against_first_strike", attacker: last, defender: first, want: defenderFirst, activated: []string{"attacker:last_strike", "defender:first_strike"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 攻撃 5・体力 20 どうしなので、どちらも倒れず 2 回とも攻撃する
+			state := withStrikeAbilities(t, invade(t, invadingMatch(t)), tt.attacker, tt.defender)
+
+			_, events := defend(t, state)
+
+			var strikers []match.BattleSide
+			var activated []string
+			for _, event := range events {
+				switch e := event.(type) {
+				case *match.CreatureStruckEvent:
+					strikers = append(strikers, e.Striker)
+				case *match.BattleAbilityActivatedEvent:
+					// 発動は攻撃の前にそろう
+					require.Empty(t, strikers)
+					activated = append(activated, string(e.Side)+":"+string(e.Ability))
+				}
+			}
+			require.Equal(t, tt.want, strikers)
+			require.Equal(t, tt.activated, activated)
+		})
+	}
+}
+
+func TestDecide_DefenderWithFirstStrikeDestroysTheAttackerBeforeItStrikes(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 50, 10, 10, 20)
+	state = withStrikeAbilities(t, state, nil, []creature.Ability{creature.NewFirstStrikeAbility()})
+
+	state, events := defend(t, state)
+
+	struck := eventOf[*match.CreatureStruckEvent](t, events)
+	require.Equal(t, 1, countOf[*match.CreatureStruckEvent](events))
+	require.Equal(t, match.BattleSideDefender, struck.Striker)
+	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
+	// 守る側は攻撃を受けていない
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+}
+
 func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T) {
 	state := withMagic(invadingMatch(t), 1, 10)
 	state = invade(t, state)
@@ -2875,6 +2951,7 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		{name: "skipped_by_who_is_not_awaited", state: defending, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "battle_started_outside_the_phase", state: invading, event: &match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 5, 20), Defender: battleStats(t, 5, 20)}},
 		{name: "stat_modified_before_the_battle", state: defending, event: &match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Attack: damage, HitPoints: hitPoints}},
+		{name: "ability_activated_before_the_battle", state: defending, event: &match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityFirstStrike}},
 		{name: "struck_before_the_battle", state: defending, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: next}},

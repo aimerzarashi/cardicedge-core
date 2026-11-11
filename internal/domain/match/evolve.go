@@ -456,6 +456,10 @@ func Evolve(state State, event Event) (State, error) {
 		modified.Stats = BattleStats{Attack: e.Attack, HitPoints: e.HitPoints}
 		modified.HitPointsBonus += e.HitPointsDelta
 		current.Battle = current.Battle.withCreature(e.Side, modified)
+	case *BattleAbilityActivatedEvent:
+		if current.Phase != PhaseBattling || current.Battle == nil || !e.Side.valid() || !e.Ability.valid() {
+			return state, ErrInvalidState
+		}
 	case *CreatureStruckEvent:
 		if current.Phase != PhaseBattling || current.Battle == nil || !e.Striker.valid() {
 			return state, ErrInvalidState

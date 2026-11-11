@@ -449,7 +449,7 @@ func defend(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
 	return battle(r)
 }
 
-// 効果を順に当て、残っていれば攻める側が先に攻撃し、守る側が生きていれば反撃する。
+// 効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
 // どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）
 func battle(r *recorder) error {
 	if err := startBattle(r); err != nil {
@@ -463,7 +463,14 @@ func battle(r *recorder) error {
 			return settleBattle(r)
 		}
 	}
-	for _, striker := range []BattleSide{BattleSideAttacker, BattleSideDefender} {
+	if err := activateStrikeAbilities(r); err != nil {
+		return err
+	}
+	order, err := strikeOrder(r.state)
+	if err != nil {
+		return err
+	}
+	for _, striker := range order {
 		if err := strike(r, striker); err != nil {
 			return err
 		}
@@ -472,6 +479,42 @@ func battle(r *recorder) error {
 		}
 	}
 	return settleBattle(r)
+}
+
+// 攻撃の順に効く能力（先制・後手）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
+func activateStrikeAbilities(r *recorder) error {
+	defending, err := r.state.defendingCreature()
+	if err != nil {
+		return err
+	}
+	sides := []struct {
+		side BattleSide
+		spec CreatureSpec
+	}{{BattleSideAttacker, r.state.Invasion.Base}, {BattleSideDefender, defending.Base}}
+	for _, s := range sides {
+		ability, ok := s.spec.strikeAbility()
+		if !ok {
+			continue
+		}
+		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+			return &BattleAbilityActivatedEvent{EventMeta: meta, Side: s.side, Ability: ability}
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）
+func strikeOrder(state Match) ([]BattleSide, error) {
+	defending, err := state.defendingCreature()
+	if err != nil {
+		return nil, err
+	}
+	if defending.Base.strikePriority() > state.Invasion.Base.strikePriority() {
+		return []BattleSide{BattleSideDefender, BattleSideAttacker}, nil
+	}
+	return []BattleSide{BattleSideAttacker, BattleSideDefender}, nil
 }
 
 func startBattle(r *recorder) error {

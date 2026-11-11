@@ -106,6 +106,18 @@ func (s BattleSide) valid() bool {
 	return s == BattleSideAttacker || s == BattleSideDefender
 }
 
+// 戦闘で発動した能力の種類（creature.Ability の種類の名前とそろえる）。戦闘の能力を足すときにここへ足す
+type BattleAbility string
+
+const (
+	BattleAbilityFirstStrike BattleAbility = "first_strike"
+	BattleAbilityLastStrike  BattleAbility = "last_strike"
+)
+
+func (a BattleAbility) valid() bool {
+	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike
+}
+
 func (s BattleSide) opponent() BattleSide {
 	if s == BattleSideAttacker {
 		return BattleSideDefender
@@ -241,6 +253,28 @@ func (s CreatureSpec) forbidsItem(candidate CardSpec) bool {
 // その属性の土地に入れないか
 func (s CreatureSpec) forbidsLand(element board.Element) bool {
 	return s.PlacementRestrictions.Forbids(element.String())
+}
+
+// 攻撃の順に効く能力（先制か後手。持っていなければ無し）
+func (s CreatureSpec) strikeAbility() (BattleAbility, bool) {
+	switch {
+	case s.Abilities.HasFirstStrike():
+		return BattleAbilityFirstStrike, true
+	case s.Abilities.HasLastStrike():
+		return BattleAbilityLastStrike, true
+	}
+	return "", false
+}
+
+// 攻撃する順の強さ（大きい方が先）。先制と後手は同時に持てない（creature.NewAbilities が守る）
+func (s CreatureSpec) strikePriority() int {
+	switch {
+	case s.Abilities.HasFirstStrike():
+		return 1
+	case s.Abilities.HasLastStrike():
+		return -1
+	}
+	return 0
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

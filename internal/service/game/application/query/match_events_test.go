@@ -305,6 +305,22 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 	}, events)
 }
 
+func TestMatchEventsHandler_ReturnsTheActivatedBattleAbilities(t *testing.T) {
+	f := newEventsFixture(t, append(invadingEvents(t),
+		battleStarted(t, 16),
+		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Ability: match.BattleAbilityLastStrike},
+		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
+	))
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Ability: query.MatchBattleAbilityLastStrike},
+		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityFirstStrike},
+	}, events)
+}
+
 func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testing.T) {
 	player := matchtest.Index(t, 0)
 	f := newEventsFixture(t, append(invadingEvents(t),

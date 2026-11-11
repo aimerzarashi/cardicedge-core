@@ -20,5 +20,6 @@ var (
 
 	ErrAbilityEmpty                  = errors.New("creature: ability has no kind")
 	ErrAbilitiesDuplicated           = errors.New("creature: duplicated ability")
+	ErrAbilitiesConflicted           = errors.New("creature: first strike and last strike cannot be combined")
 	ErrTollMultiplierPercentTooSmall = errors.New("creature: toll multiplier percent is less than 1")
 )

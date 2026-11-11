@@ -456,6 +456,20 @@ func TestNewAbilities_RejectsEmptyKindAndDuplicates(t *testing.T) {
 	require.ErrorIs(t, err, creature.ErrAbilitiesDuplicated)
 }
 
+func TestNewAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
+	_, err := creature.NewAbilities([]creature.Ability{creature.NewFirstStrikeAbility(), creature.NewLastStrikeAbility()})
+	require.ErrorIs(t, err, creature.ErrAbilitiesConflicted)
+
+	first, err := creature.NewAbilities([]creature.Ability{creature.NewFirstStrikeAbility()})
+	require.NoError(t, err)
+	require.True(t, first.HasFirstStrike())
+	require.False(t, first.HasLastStrike())
+	last, err := creature.NewAbilities([]creature.Ability{creature.NewLastStrikeAbility()})
+	require.NoError(t, err)
+	require.True(t, last.HasLastStrike())
+	require.False(t, last.Equal(first))
+}
+
 func TestDecide_ChangeItemRestrictionsEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)

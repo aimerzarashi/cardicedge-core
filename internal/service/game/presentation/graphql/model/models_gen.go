@@ -801,6 +801,28 @@ func (CreatureDefensiveAbility) IsCreatureAbility() {}
 // 能力の種類
 func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
+// 先制
+type CreatureFirstStrikeAbility struct {
+	// 能力の種類（FIRST_STRIKE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureFirstStrikeAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureFirstStrikeAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
+// 後手
+type CreatureLastStrikeAbility struct {
+	// 能力の種類（LAST_STRIKE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureLastStrikeAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureLastStrikeAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
 // 通行料の倍率
 type CreatureTollMultiplierAbility struct {
 	// 能力の種類（TOLL_MULTIPLIER）
@@ -1293,6 +1315,31 @@ type MatchAvatar struct {
 	// 名前
 	Name string `json:"name"`
 }
+
+// 戦闘で能力が発動した（効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る）
+type MatchBattleAbilityActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 能力を持つクリーチャーの側
+	Side MatchBattleSide `json:"side"`
+	// 発動した能力（今は FIRST_STRIKE・LAST_STRIKE）
+	Ability CreatureAbilityKind `json:"ability"`
+}
+
+func (MatchBattleAbilityActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleAbilityActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleAbilityActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleAbilityActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘が始まった（効果を当てる前の両方の AT・HP）
 type MatchBattleStartedEvent struct {
@@ -3835,16 +3882,22 @@ const (
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
 	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
 	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"
+	// 先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）
+	CreatureAbilityKindFirstStrike CreatureAbilityKind = "FIRST_STRIKE"
+	// 後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）
+	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindDefensive,
 	CreatureAbilityKindTollMultiplier,
+	CreatureAbilityKindFirstStrike,
+	CreatureAbilityKindLastStrike,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike:
 		return true
 	}
 	return false

@@ -592,7 +592,7 @@ type masterAbility struct {
 // 種類と値の組み合わせは studio の ChangeAbilities が確かめるので、ここでは知らない種類だけを弾く（流してから気づくより先に止めるため）
 func (a masterAbility) command() (command.CreatureAbility, error) {
 	switch a.Kind {
-	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier:
+	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike:
 		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent}, nil
 	}
 	return command.CreatureAbility{}, fmt.Errorf("unknown ability %q", a.Kind)

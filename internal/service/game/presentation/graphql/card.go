@@ -140,6 +140,10 @@ func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAb
 			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
 		case ability.TollMultiplierPercent != nil:
 			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.TollMultiplierPercent}
+		case ability.FirstStrike:
+			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
+		case ability.LastStrike:
+			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
 		}
 	}
 	return values

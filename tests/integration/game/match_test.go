@@ -425,6 +425,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 						... on MatchItemSource { card { id name } }
 					}
 				}
+				... on MatchBattleAbilityActivatedEvent { side ability }
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
 				... on MatchTerritoryConqueredEvent { participant position { x y } defeatedCreature creature territoryHitPoints }
 				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
@@ -780,13 +781,30 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 		at := position.(map[string]any)
 		return fmt.Sprint(at["x"], ",", at["y"])
 	}
+	// 領地が無くなった位置は changes に出ないので、イベントの事実から消す（移動で侵略した元の領地は、奪っても倒れても空く）
+	var movedFrom any
 	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
 		event := raw.(map[string]any)
 		if event["revision"].(float64) > final["revision"].(float64) {
 			break
 		}
-		if event["__typename"] == "MatchTerritoryRelinquishedEvent" {
+		switch event["__typename"] {
+		case "MatchTerritoryRelinquishedEvent", "MatchCreatureDestroyedEvent":
 			delete(values, key(event["position"]))
+		case "MatchCreatureMovedEvent":
+			delete(values, key(event["from"]))
+		case "MatchTerritoryInvadedByMoveEvent":
+			movedFrom = event["from"]
+		case "MatchTerritoryConqueredEvent":
+			if movedFrom != nil {
+				delete(values, key(movedFrom))
+			}
+			movedFrom = nil
+		case "MatchInvasionRepelledEvent":
+			if movedFrom != nil && event["returnedTo"] == nil {
+				delete(values, key(movedFrom))
+			}
+			movedFrom = nil
 		}
 		changes := event["changes"].(map[string]any)
 		phase = changes["phase"]

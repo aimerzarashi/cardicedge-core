@@ -219,6 +219,14 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	require.NoError(t, err)
 	tollChanged := creature.AbilitiesChangedEvent{Abilities: tolled, ChangedBy: operatortest.ID(t, 17)}
 	require.Equal(t, []readmodel.CreatureAbilityMetadata{{TollMultiplier: &readmodel.CreatureTollMultiplierAbilityMetadata{Percent: 150}}}, afterAbilities.Evolve(&tollChanged).Metadata.Creature.Abilities)
+	firstStrike, err := creature.NewAbilities([]creature.Ability{creature.NewFirstStrikeAbility()})
+	require.NoError(t, err)
+	firstStrikeChanged := creature.AbilitiesChangedEvent{Abilities: firstStrike, ChangedBy: operatortest.ID(t, 18)}
+	require.Equal(t, []readmodel.CreatureAbilityMetadata{{FirstStrike: &readmodel.CreatureFirstStrikeAbilityMetadata{}}}, afterAbilities.Evolve(&firstStrikeChanged).Metadata.Creature.Abilities)
+	lastStrike, err := creature.NewAbilities([]creature.Ability{creature.NewLastStrikeAbility()})
+	require.NoError(t, err)
+	lastStrikeChanged := creature.AbilitiesChangedEvent{Abilities: lastStrike, ChangedBy: operatortest.ID(t, 19)}
+	require.Equal(t, []readmodel.CreatureAbilityMetadata{{LastStrike: &readmodel.CreatureLastStrikeAbilityMetadata{}}}, afterAbilities.Evolve(&lastStrikeChanged).Metadata.Creature.Abilities)
 	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
 	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, registeredState.Metadata.Creature)
 }

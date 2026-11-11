@@ -223,6 +223,22 @@ func TestChangeCreatureAbilities_RejectsMismatchedValuesAndTooSmallPercent(t *te
 	}, err)
 }
 
+func TestChangeCreatureAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	percent := 150
+
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityFirstStrike}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityFirstStrike}, {Kind: command.CreatureAbilityLastStrike}})
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities"}}, err)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityLastStrike, Percent: &percent}})
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities.0"}}, err)
+}
+
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
