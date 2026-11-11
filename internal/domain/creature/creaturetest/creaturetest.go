@@ -32,13 +32,6 @@ func Attack(t testing.TB, value int) creature.Attack {
 	return attack
 }
 
-func Movement(t testing.TB, value int) creature.Movement {
-	t.Helper()
-	movement, err := creature.NewMovement(value)
-	require.NoError(t, err)
-	return movement
-}
-
 func ItemRestrictions(t testing.TB, values ...string) creature.ItemRestrictions {
 	t.Helper()
 	restrictions, err := creature.NewItemRestrictions(values)

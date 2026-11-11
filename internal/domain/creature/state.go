@@ -27,9 +27,9 @@ type Creature struct {
 	Elements              Elements
 	Attack                Attack
 	HitPoints             HitPoints
-	Movement              Movement
 	ItemRestrictions      ItemRestrictions
 	PlacementRestrictions PlacementRestrictions
+	Abilities             Abilities
 }
 
 func (Creature) isCreatureState() {}

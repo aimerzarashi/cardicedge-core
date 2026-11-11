@@ -19,9 +19,9 @@ func Evolve(state State, event Event) (State, error) {
 			Elements:              e.Elements,
 			Attack:                e.Attack,
 			HitPoints:             e.HitPoints,
-			Movement:              e.Movement,
 			ItemRestrictions:      e.ItemRestrictions,
 			PlacementRestrictions: e.PlacementRestrictions,
+			Abilities:             e.Abilities,
 		}, nil
 	case *PublishedEvent:
 		creature, ok := state.(Creature)
@@ -80,12 +80,12 @@ func Evolve(state State, event Event) (State, error) {
 		creature.HitPoints = e.HitPoints
 		creature.Version = e.GetMeta().AggregateVersion
 		return creature, nil
-	case *MovementChangedEvent:
+	case *AbilitiesChangedEvent:
 		creature, ok := state.(Creature)
 		if !ok {
 			return state, ErrInvalidState
 		}
-		creature.Movement = e.Movement
+		creature.Abilities = e.Abilities
 		creature.Version = e.GetMeta().AggregateVersion
 		return creature, nil
 	case *ItemRestrictionsChangedEvent:

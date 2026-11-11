@@ -6,8 +6,8 @@
   "elements": ["neutral"],
   "attack": 10,
   "hit_points": 10,
-  "movement": 1,
   "item_restrictions": [],
   "placement_restrictions": [],
+  "abilities": [],
   "registered_by": 10
 }

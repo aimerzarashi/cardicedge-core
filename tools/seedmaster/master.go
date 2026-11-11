@@ -65,9 +65,9 @@ type masterCard struct {
 	Elements              []string `json:"elements"`
 	Attack                *int     `json:"attack"`
 	HitPoints             *int     `json:"hit_points"`
-	Movement              *int     `json:"movement"`
 	ItemRestrictions      []string `json:"item_restrictions"`
 	PlacementRestrictions []string `json:"placement_restrictions"`
+	Abilities             []string `json:"abilities"`
 	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
 	Category       string `json:"category"`
 	AttackBonus    *int   `json:"attack_bonus"`
@@ -212,19 +212,19 @@ const (
 	deckTotalCount = 40
 )
 
-// クリーチャーは属性・攻撃力・体力・移動・アイテム制限・配置制限（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
+// クリーチャーは属性・攻撃力・体力・アイテム制限・配置制限・能力（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
 func (c masterCard) validateCreatureSpec() error {
 	if c.Type != "creature" {
-		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.Movement != nil || c.ItemRestrictions != nil || c.PlacementRestrictions != nil {
-			return fmt.Errorf("%s cannot have elements, attack, hit_points, movement, item_restrictions or placement_restrictions", c.Type)
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.ItemRestrictions != nil || c.PlacementRestrictions != nil || c.Abilities != nil {
+			return fmt.Errorf("%s cannot have elements, attack, hit_points, item_restrictions, placement_restrictions or abilities", c.Type)
 		}
 		return nil
 	}
 	if _, err := creature.NewElements(c.Elements); err != nil {
 		return err
 	}
-	if c.Attack == nil || c.HitPoints == nil || c.Movement == nil || c.ItemRestrictions == nil || c.PlacementRestrictions == nil {
-		return errors.New("creature needs attack, hit_points, movement, item_restrictions and placement_restrictions")
+	if c.Attack == nil || c.HitPoints == nil || c.ItemRestrictions == nil || c.PlacementRestrictions == nil || c.Abilities == nil {
+		return errors.New("creature needs attack, hit_points, item_restrictions, placement_restrictions and abilities")
 	}
 	if _, err := creature.NewItemRestrictions(c.ItemRestrictions); err != nil {
 		return err
@@ -232,8 +232,10 @@ func (c masterCard) validateCreatureSpec() error {
 	if _, err := creature.NewPlacementRestrictions(c.PlacementRestrictions); err != nil {
 		return err
 	}
-	if _, err := creature.NewMovement(*c.Movement); err != nil {
-		return err
+	for _, ability := range c.Abilities {
+		if ability != "defensive" {
+			return fmt.Errorf("unknown ability %q", ability)
+		}
 	}
 	if _, err := creature.NewAttack(*c.Attack); err != nil {
 		return err

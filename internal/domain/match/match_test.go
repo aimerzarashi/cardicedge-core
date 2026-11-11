@@ -53,7 +53,7 @@ func creatureSpec(t *testing.T, id int64) *match.CreatureSpec {
 	t.Helper()
 	return &match.CreatureSpec{
 		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, int(id%100)*5), HitPoints: creaturetest.HitPoints(t, int(id%100)*10+10),
-		Movement: creaturetest.Movement(t, 1), ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}
 }
 
@@ -2446,7 +2446,7 @@ func TestDecide_ElementChangeRejectsChoicesThatAreNotOffered(t *testing.T) {
 }
 
 // その位置の領地のクリーチャーの性能を変える
-func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints, movement int) match.Match {
+func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints int) match.Match {
 	t.Helper()
 	territory, ok := state.TerritoryAt(pos(t, x, 0))
 	require.True(t, ok)
@@ -2454,7 +2454,6 @@ func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints, movem
 	for i := range state.DeployedCreatures {
 		if state.DeployedCreatures[i].ID == territory.Creature {
 			state.DeployedCreatures[i].Base.Attack = creaturetest.Attack(t, attack)
-			state.DeployedCreatures[i].Base.Movement = creaturetest.Movement(t, movement)
 			state.DeployedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
 		}
 	}
@@ -2466,31 +2465,57 @@ func move(t *testing.T, state match.Match, from, to int) (match.Match, []match.E
 	return apply(t, state, matchtest.NewRandom(), &match.MoveCreatureCommand{By: matchtest.Index(t, 1), From: pos(t, from, 0), To: pos(t, to, 0)})
 }
 
-func TestMatch_MoveChoicesWalkExactlyTheMovementWithoutTurningBack(t *testing.T) {
-	tests := []struct {
-		name     string
-		movement int
-		want     []int
-	}{
-		{name: "one_step", movement: 1, want: []int{2, 4}},
-		{name: "two_steps", movement: 2, want: []int{1, 5}},
-		// 拠点の先は行き止まりなので、3 歩では左に届かない
-		{name: "three_steps", movement: 3, want: []int{6}},
-		{name: "cannot_move", movement: 0, want: nil},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state := withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20, tt.movement)
-			state = rolledTo(t, state, 3)
+func TestMatch_MoveChoicesAreOneStepAlongTheConnections(t *testing.T) {
+	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20), 3)
 
-			var got []int
-			for _, choice := range state.MoveChoices() {
-				require.Equal(t, pos(t, 3, 0), choice.From)
-				got = append(got, choice.To.X.Int())
-			}
-			require.Equal(t, tt.want, got)
-		})
+	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}, {From: pos(t, 3, 0), To: pos(t, 4, 0)}}, state.MoveChoices())
+}
+
+func defensiveAbilities(t *testing.T) creature.Abilities {
+	t.Helper()
+	abilities, err := creature.NewAbilities([]creature.Ability{creature.NewDefensiveAbility()})
+	require.NoError(t, err)
+	return abilities
+}
+
+func TestMatch_DefensiveCreaturesCannotMove(t *testing.T) {
+	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20), 3)
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	state.DeployedCreatures[0].Base.Abilities = defensiveAbilities(t)
+
+	require.Empty(t, state.MoveChoices())
+}
+
+// 手札のクリーチャーをすべて防御型にする（性能は写しから読むため）
+func withHandDefensive(t *testing.T, state match.Match, participant int) match.Match {
+	t.Helper()
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Participant.Cards = slices.Clone(target.Participant.Cards)
+	for i, deckCard := range target.Participant.Cards {
+		if deckCard.Spec.Creature != nil {
+			defensive := *deckCard.Spec.Creature
+			defensive.Abilities = defensiveAbilities(t)
+			target.Participant.Cards[i].Spec.Creature = &defensive
+		}
 	}
+	state.Participants[participant] = target
+	return state
+}
+
+func TestMatch_DefensiveCreaturesCannotInvadeButCanBeDeployed(t *testing.T) {
+	invading := invadingMatch(t)
+	require.NotEmpty(t, invading.InvadeChoices())
+	require.Empty(t, withHandDefensive(t, invading, 1).InvadeChoices())
+
+	deploying := rolledTo(t, territoryBoardMatch(t), 2)
+	require.NotEmpty(t, withHandDefensive(t, deploying, 1).DeployChoices())
+}
+
+func TestDecide_InvadingWithADefensiveCreatureIsRejected(t *testing.T) {
+	state := withHandDefensive(t, invadingMatch(t), 1)
+
+	require.ErrorIs(t, decideErr(t, state, &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0}), match.ErrCreatureNotInvadable)
 }
 
 func TestMatch_MoveChoicesExcludeOwnTerritoriesAndTilesThatAreNotLand(t *testing.T) {
@@ -2503,7 +2528,7 @@ func TestMatch_MoveChoicesExcludeOwnTerritoriesAndTilesThatAreNotLand(t *testing
 func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t *testing.T) {
 	state := withTerritory(t, territoryBoardMatch(t), 1, 1, 3)
 	state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, 2, 0), Level: 2})
-	state = withCreatureAt(t, state, 1, 5, 7, 1)
+	state = withCreatureAt(t, state, 1, 5, 7)
 	mover := state.DeployedCreatures[0].ID
 	state = rolledTo(t, state, 1)
 
@@ -2522,8 +2547,8 @@ func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t
 func movingIntoAnother(t *testing.T, moverAttack, moverHitPoints, defenderAttack, defenderHitPoints int) (match.Match, []match.Event) {
 	t.Helper()
 	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 2)
-	state = withCreatureAt(t, state, 1, moverAttack, moverHitPoints, 1)
-	state = withCreatureAt(t, state, 2, defenderAttack, defenderHitPoints, 1)
+	state = withCreatureAt(t, state, 1, moverAttack, moverHitPoints)
+	state = withCreatureAt(t, state, 2, defenderAttack, defenderHitPoints)
 	state = rolledTo(t, state, 1)
 	state, _ = move(t, state, 1, 2)
 	require.Equal(t, match.PhaseAttacking, state.Phase)
@@ -2578,7 +2603,7 @@ func TestDecide_MovingIntoAnotherAndBeingDestroyedFreesTheOrigin(t *testing.T) {
 func TestDecide_AdjacentTerritoriesOfAMoveDoNotCountTheOrigin(t *testing.T) {
 	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 1)
 	state = withTerritory(t, state, 1, 3, 1)
-	state = withCreatureAt(t, state, 1, 5, 20, 1)
+	state = withCreatureAt(t, state, 1, 5, 20)
 	state = rolledTo(t, state, 1)
 	state, _ = move(t, state, 1, 2)
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
@@ -2742,7 +2767,7 @@ func TestMatch_ExchangeChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T
 
 func TestMatch_MoveChoicesExcludeLandsTheCreatureIsRestrictedFrom(t *testing.T) {
 	// 3 にいるクリーチャーの 1 歩先は、2（火）と 4（水）
-	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20, 1), 3)
+	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20), 3)
 	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}, {From: pos(t, 3, 0), To: pos(t, 4, 0)}}, state.MoveChoices())
 
 	restricted := withDeployedRestrictedFrom(t, state, "water")

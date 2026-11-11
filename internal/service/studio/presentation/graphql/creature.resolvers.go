@@ -53,12 +53,16 @@ func (r *mutationResolver) ChangeCreatureStats(ctx context.Context, input model.
 	return &model.ChangeCreatureStatsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// ChangeCreatureMovement is the resolver for the changeCreatureMovement field.
-func (r *mutationResolver) ChangeCreatureMovement(ctx context.Context, input model.ChangeCreatureMovementInput) (model.ChangeCreatureMovementResult, error) {
+// ChangeCreatureAbilities is the resolver for the changeCreatureAbilities field.
+func (r *mutationResolver) ChangeCreatureAbilities(ctx context.Context, input model.ChangeCreatureAbilitiesInput) (model.ChangeCreatureAbilitiesResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	changed, err := r.creatures.ChangeMovement(ctx, input.ID, int64(input.Revision), input.Movement)
+	abilities, err := toCreatureAbilities(input.Abilities)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.creatures.ChangeAbilities(ctx, input.ID, int64(input.Revision), abilities)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
@@ -68,7 +72,7 @@ func (r *mutationResolver) ChangeCreatureMovement(ctx context.Context, input mod
 	if err != nil {
 		return nil, err
 	}
-	return &model.ChangeCreatureMovementSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.ChangeCreatureAbilitiesSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // ChangeCreatureItemRestrictions is the resolver for the changeCreatureItemRestrictions field.
@@ -148,7 +152,7 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, Movement: registered.Movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions,
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilities(registered.Abilities),
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

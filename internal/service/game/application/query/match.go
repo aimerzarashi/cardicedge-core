@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -710,7 +711,7 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	found.Rarity = spec.Rarity.String()
 	found.Creature = nil
 	if spec.Creature != nil {
-		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), Movement: spec.Creature.Movement.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings()}
+		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings(), Abilities: queryCreatureAbilities(spec.Creature.Abilities)}
 	}
 	found.Item = nil
 	if spec.Item != nil {
@@ -741,4 +742,12 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 		converted.Damage = &SpellDamage{Amount: effect.Damage.Amount.Int()}
 	}
 	return converted
+}
+
+func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
+	values := make([]CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		values[i] = CreatureAbility{Defensive: ability.IsDefensive()}
+	}
+	return values
 }

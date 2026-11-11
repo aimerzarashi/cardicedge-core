@@ -90,6 +90,11 @@ type ChangeCardRarityResult interface {
 	IsChangeCardRarityResult()
 }
 
+// クリーチャーの能力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureAbilitiesResult interface {
+	IsChangeCreatureAbilitiesResult()
+}
+
 // クリーチャーの属性を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
 type ChangeCreatureElementsResult interface {
 	IsChangeCreatureElementsResult()
@@ -98,11 +103,6 @@ type ChangeCreatureElementsResult interface {
 // クリーチャーのアイテム制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
 type ChangeCreatureItemRestrictionsResult interface {
 	IsChangeCreatureItemRestrictionsResult()
-}
-
-// クリーチャーの移動を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
-type ChangeCreatureMovementResult interface {
-	IsChangeCreatureMovementResult()
 }
 
 // クリーチャーの配置制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
@@ -133,6 +133,13 @@ type ChangeSpellEffectResult interface {
 // ボードのレイアウトの判定の結果
 type CheckBoardLayoutResult interface {
 	IsCheckBoardLayoutResult()
+}
+
+// クリーチャーの能力
+type CreatureAbility interface {
+	IsCreatureAbility()
+	// 能力の種類
+	GetKind() CreatureAbilityKind
 }
 
 // ボードの削除の結果（準備中のものだけ消せる）
@@ -777,7 +784,7 @@ func (CardNotDraftError) IsChangeCreatureElementsResult() {}
 
 func (CardNotDraftError) IsChangeCreatureStatsResult() {}
 
-func (CardNotDraftError) IsChangeCreatureMovementResult() {}
+func (CardNotDraftError) IsChangeCreatureAbilitiesResult() {}
 
 func (CardNotDraftError) IsChangeCreatureItemRestrictionsResult() {}
 
@@ -809,7 +816,7 @@ func (CardNotFoundError) IsChangeCreatureElementsResult() {}
 
 func (CardNotFoundError) IsChangeCreatureStatsResult() {}
 
-func (CardNotFoundError) IsChangeCreatureMovementResult() {}
+func (CardNotFoundError) IsChangeCreatureAbilitiesResult() {}
 
 func (CardNotFoundError) IsChangeCreatureItemRestrictionsResult() {}
 
@@ -939,6 +946,26 @@ type ChangeCardRaritySuccess struct {
 
 func (ChangeCardRaritySuccess) IsChangeCardRarityResult() {}
 
+// クリーチャーの能力を変える入力
+type ChangeCreatureAbilitiesInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の能力の並び（同じ種類は 1 つまで。無しは空）
+	Abilities []*CreatureAbilityInput `json:"abilities"`
+}
+
+// クリーチャーの能力を変えた（同じ並びなら何も変えず、revision も進まない）
+type ChangeCreatureAbilitiesSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureAbilitiesSuccess) IsChangeCreatureAbilitiesResult() {}
+
 // クリーチャーの属性を変える入力
 type ChangeCreatureElementsInput struct {
 	// クリーチャーの公開用の ID
@@ -978,26 +1005,6 @@ type ChangeCreatureItemRestrictionsSuccess struct {
 }
 
 func (ChangeCreatureItemRestrictionsSuccess) IsChangeCreatureItemRestrictionsResult() {}
-
-// クリーチャーの移動を変える入力
-type ChangeCreatureMovementInput struct {
-	// クリーチャーの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていたクリーチャーの revision
-	Revision int `json:"revision"`
-	// 変えた後の移動（0 以上。上限は無い）
-	Movement int `json:"movement"`
-}
-
-// クリーチャーの移動を変えた（同じ値なら何も変えず、revision も進まない）
-type ChangeCreatureMovementSuccess struct {
-	// 変えたクリーチャーの公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
-	Revision int `json:"revision"`
-}
-
-func (ChangeCreatureMovementSuccess) IsChangeCreatureMovementResult() {}
 
 // クリーチャーの配置制限を変える入力
 type ChangeCreaturePlacementRestrictionsInput struct {
@@ -1159,12 +1166,12 @@ type Creature struct {
 	Attack int `json:"attack"`
 	// 体力（HP。1 以上）
 	HitPoints int `json:"hitPoints"`
-	// 移動（領地コマンドのクリーチャーの移動で進めるマスの数。0 以上。0 は動けない）
-	Movement int `json:"movement"`
 	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
 	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
 	// 配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）
 	PlacementRestrictions []CreatureElement `json:"placementRestrictions"`
+	// 能力（並びは決めた順。無ければ空）
+	Abilities []CreatureAbility `json:"abilities"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1200,6 +1207,23 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// 能力 1 つの入力。値の要る能力を足すときは、その値の項目を足す
+type CreatureAbilityInput struct {
+	// 能力の種類
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+// 防御型
+type CreatureDefensiveAbility struct {
+	// 能力の種類（DEFENSIVE）
+	Kind CreatureAbilityKind `json:"kind"`
+}
+
+func (CreatureDefensiveAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // デッキに入れたカードと枚数
 type DeckCard struct {
@@ -1536,7 +1560,7 @@ func (ForbiddenError) IsChangeCreatureElementsResult() {}
 
 func (ForbiddenError) IsChangeCreatureStatsResult() {}
 
-func (ForbiddenError) IsChangeCreatureMovementResult() {}
+func (ForbiddenError) IsChangeCreatureAbilitiesResult() {}
 
 func (ForbiddenError) IsChangeCreatureItemRestrictionsResult() {}
 
@@ -2631,7 +2655,7 @@ func (RevisionConflictError) IsChangeCreatureElementsResult() {}
 
 func (RevisionConflictError) IsChangeCreatureStatsResult() {}
 
-func (RevisionConflictError) IsChangeCreatureMovementResult() {}
+func (RevisionConflictError) IsChangeCreatureAbilitiesResult() {}
 
 func (RevisionConflictError) IsChangeCreatureItemRestrictionsResult() {}
 
@@ -3165,7 +3189,7 @@ func (ValidationErrors) IsChangeCreatureElementsResult() {}
 
 func (ValidationErrors) IsChangeCreatureStatsResult() {}
 
-func (ValidationErrors) IsChangeCreatureMovementResult() {}
+func (ValidationErrors) IsChangeCreatureAbilitiesResult() {}
 
 func (ValidationErrors) IsChangeCreatureItemRestrictionsResult() {}
 
@@ -3566,6 +3590,61 @@ func (e *CardType) UnmarshalJSON(b []byte) error {
 }
 
 func (e CardType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// クリーチャーの能力の種類
+type CreatureAbilityKind string
+
+const (
+	// 防御型（侵略に出せず、クリーチャー移動もできない）
+	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
+)
+
+var AllCreatureAbilityKind = []CreatureAbilityKind{
+	CreatureAbilityKindDefensive,
+}
+
+func (e CreatureAbilityKind) IsValid() bool {
+	switch e {
+	case CreatureAbilityKindDefensive:
+		return true
+	}
+	return false
+}
+
+func (e CreatureAbilityKind) String() string {
+	return string(e)
+}
+
+func (e *CreatureAbilityKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CreatureAbilityKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CreatureAbilityKind", str)
+	}
+	return nil
+}
+
+func (e CreatureAbilityKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CreatureAbilityKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CreatureAbilityKind) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

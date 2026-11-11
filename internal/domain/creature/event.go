@@ -37,9 +37,9 @@ type RegisteredEvent struct {
 	Elements              Elements              `json:"elements"`
 	Attack                Attack                `json:"attack"`
 	HitPoints             HitPoints             `json:"hit_points"`
-	Movement              Movement              `json:"movement"`
 	ItemRestrictions      ItemRestrictions      `json:"item_restrictions"`
 	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
+	Abilities             Abilities             `json:"abilities"`
 	RegisteredBy          operator.ID           `json:"registered_by"`
 }
 
@@ -161,21 +161,21 @@ func (*StatsChangedEvent) SchemaVersion() int {
 	return 1
 }
 
-// 移動を変えた（変えた後の値）
-type MovementChangedEvent struct {
+// 能力を変えた（変えた後の並び）
+type AbilitiesChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Movement    Movement    `json:"movement"`
+	Abilities   Abilities   `json:"abilities"`
 	ChangedBy   operator.ID `json:"changed_by"`
 }
 
-var movementChangedEventType = domain.NewEventName("MovementChangedEvent")
+var abilitiesChangedEventType = domain.NewEventName("AbilitiesChangedEvent")
 
-func (*MovementChangedEvent) EventType() domain.EventName {
-	return movementChangedEventType
+func (*AbilitiesChangedEvent) EventType() domain.EventName {
+	return abilitiesChangedEventType
 }
 
-func (*MovementChangedEvent) SchemaVersion() int {
+func (*AbilitiesChangedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -220,7 +220,7 @@ func Types() domain.AggregateTypes {
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			elementsChangedEventType, statsChangedEventType, movementChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType,
+			elementsChangedEventType, statsChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType, abilitiesChangedEventType,
 		},
 	}
 }
@@ -248,8 +248,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ElementsChangedEvent{EventMeta: meta}
 	case EventType(statsChangedEventType):
 		event = &StatsChangedEvent{EventMeta: meta}
-	case EventType(movementChangedEventType):
-		event = &MovementChangedEvent{EventMeta: meta}
+	case EventType(abilitiesChangedEventType):
+		event = &AbilitiesChangedEvent{EventMeta: meta}
 	case EventType(itemRestrictionsChangedEventType):
 		event = &ItemRestrictionsChangedEvent{EventMeta: meta}
 	case EventType(placementRestrictionsChangedEventType):

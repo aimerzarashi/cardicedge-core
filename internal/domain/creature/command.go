@@ -54,8 +54,8 @@ type ChangeStatsCommand struct {
 }
 
 // 移動を変える（準備中だけ）。同じ値なら何も変えない。AT・HP とは別の操作にする（2026-11-10 オーナー）
-type ChangeMovementCommand struct {
-	Movement  Movement
+type ChangeAbilitiesCommand struct {
+	Abilities Abilities
 	ChangedBy operator.ID
 }
 
@@ -76,6 +76,6 @@ func (*ChangeCostCommand) isCreatureCommand()                  {}
 func (*ChangeRarityCommand) isCreatureCommand()                {}
 func (*ChangeElementsCommand) isCreatureCommand()              {}
 func (*ChangeStatsCommand) isCreatureCommand()                 {}
-func (*ChangeMovementCommand) isCreatureCommand()              {}
+func (*ChangeAbilitiesCommand) isCreatureCommand()             {}
 func (*ChangeItemRestrictionsCommand) isCreatureCommand()      {}
 func (*ChangePlacementRestrictionsCommand) isCreatureCommand() {}

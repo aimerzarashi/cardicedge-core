@@ -31,7 +31,7 @@ func TestCard_EvolvesFromCreatureRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeCreature,
@@ -138,11 +138,11 @@ func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 
 	require.Equal(t, readmodel.CardStatusPublished, afterPublished.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
 	}, afterPublished.Metadata)
 	require.Equal(t, readmodel.CardStatusRetired, afterRetired.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
 	}, afterRetired.Metadata)
 	require.Equal(t, operatortest.ID(t, 10), afterPublished.RegisteredBy)
 	require.Equal(t, operatortest.ID(t, 11), afterPublished.UpdatedBy)
@@ -163,7 +163,7 @@ func TestCard_EvolvesSpecFromCostAndRarityChanged(t *testing.T) {
 	publicID := uuid.New()
 	state := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
 	registered := creature.Creature{ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions()}
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities()}
 	costChanged, err := creature.Decide(registered, &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: operatortest.ID(t, 11)}, changedAt)
 	require.NoError(t, err)
 	afterCostState, err := creature.Evolve(registered, costChanged[0])
@@ -174,7 +174,7 @@ func TestCard_EvolvesSpecFromCostAndRarityChanged(t *testing.T) {
 	after := state.Evolve(costChanged[0]).Evolve(rarityChanged[0])
 
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusDraft, Cost: 30, Rarity: "rare", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: changedAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusDraft, Cost: 30, Rarity: "rare", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: changedAt,
 	}, after.Metadata)
 	require.Equal(t, operatortest.ID(t, 12), after.UpdatedBy)
 }
@@ -186,7 +186,7 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	registeredState := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
 	registered := creature.Creature{
 		ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, Movement: creature.DefaultMovement, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(),
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}
 	elementsChanged, err := creature.Decide(registered, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: operatortest.ID(t, 11)}, changedAt)
 	require.NoError(t, err)
@@ -198,30 +198,23 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	afterElements := registeredState.Evolve(elementsChanged[0])
 	afterStats := afterElements.Evolve(statsChanged[0])
 
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, afterElements.Metadata.Creature)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, afterStats.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterElements.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterStats.Metadata.Creature)
 	require.Equal(t, int64(3), afterStats.Metadata.Revision)
 	require.Equal(t, operatortest.ID(t, 12), afterStats.UpdatedBy)
-	movementChanged, err := creature.Decide(afterStatsState(t, afterElementsState, statsChanged[0]), &creature.ChangeMovementCommand{Movement: creaturetest.Movement(t, 0), ChangedBy: operatortest.ID(t, 13)}, changedAt)
-	require.NoError(t, err)
-	afterMovement := afterStats.Evolve(movementChanged[0])
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, Movement: 0, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, afterMovement.Metadata.Creature)
-	require.Equal(t, operatortest.ID(t, 13), afterMovement.UpdatedBy)
 	restrictionsChanged := creature.ItemRestrictionsChangedEvent{ItemRestrictions: creaturetest.ItemRestrictions(t, "armor", "scroll"), ChangedBy: operatortest.ID(t, 14)}
-	afterRestrictions := afterMovement.Evolve(&restrictionsChanged)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, Movement: 0, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{}}, afterRestrictions.Metadata.Creature)
+	afterRestrictions := afterStats.Evolve(&restrictionsChanged)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterRestrictions.Metadata.Creature)
 	placementChanged := creature.PlacementRestrictionsChangedEvent{PlacementRestrictions: creaturetest.PlacementRestrictions(t, "fire"), ChangedBy: operatortest.ID(t, 15)}
 	afterPlacement := afterRestrictions.Evolve(&placementChanged)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, Movement: 0, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"fire"}}, afterPlacement.Metadata.Creature)
-	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, Movement: 1, ItemRestrictions: []string{}, PlacementRestrictions: []string{}}, registeredState.Metadata.Creature)
-}
-
-func afterStatsState(t *testing.T, state creature.State, event creature.Event) creature.State {
-	t.Helper()
-	next, err := creature.Evolve(state, event)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"fire"}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterPlacement.Metadata.Creature)
+	defensive, err := creature.NewAbilities([]creature.Ability{creature.NewDefensiveAbility()})
 	require.NoError(t, err)
-	return next
+	abilitiesChanged := creature.AbilitiesChangedEvent{Abilities: defensive, ChangedBy: operatortest.ID(t, 16)}
+	afterAbilities := afterPlacement.Evolve(&abilitiesChanged)
+	require.Equal(t, []readmodel.CreatureAbilityMetadata{{Defensive: &readmodel.CreatureDefensiveAbilityMetadata{}}}, afterAbilities.Metadata.Creature.Abilities)
+	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, registeredState.Metadata.Creature)
 }
 
 // アイテム・呪文は、クリーチャーだけの性能を持たない（JSON にも出さない）

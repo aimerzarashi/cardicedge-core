@@ -89,12 +89,12 @@ type itemMetadata struct {
 }
 
 type creatureMetadata struct {
-	Elements              []string `json:"elements"`
-	Attack                *int     `json:"attack"`
-	HitPoints             *int     `json:"hit_points"`
-	Movement              *int     `json:"movement"`
-	ItemRestrictions      []string `json:"item_restrictions"`
-	PlacementRestrictions []string `json:"placement_restrictions"`
+	Elements              []string                  `json:"elements"`
+	Attack                *int                      `json:"attack"`
+	HitPoints             *int                      `json:"hit_points"`
+	ItemRestrictions      []string                  `json:"item_restrictions"`
+	PlacementRestrictions []string                  `json:"placement_restrictions"`
+	Abilities             []creatureAbilityMetadata `json:"abilities"`
 }
 
 // プレイヤーが解放した NPC のアバターを、解放した順（read model unlocks の metadata の並び）に読む。公開中でないもの
@@ -274,10 +274,10 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	card := query.DeckCard{CardID: id, Name: metadata.Name, Type: cardType, Cost: *metadata.Cost, Rarity: metadata.Rarity}
 	if cardType == query.CardTypeCreature {
 		creatureSpec := metadata.Creature
-		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.Movement == nil || creatureSpec.ItemRestrictions == nil || creatureSpec.PlacementRestrictions == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, movement, item_restrictions or placement_restrictions (project the cards again and publish the master)", id)
+		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.ItemRestrictions == nil || creatureSpec.PlacementRestrictions == nil || creatureSpec.Abilities == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, item_restrictions, placement_restrictions or abilities (project the cards again and publish the master)", id)
 		}
-		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, Movement: *creatureSpec.Movement, ItemRestrictions: creatureSpec.ItemRestrictions, PlacementRestrictions: creatureSpec.PlacementRestrictions}
+		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, ItemRestrictions: creatureSpec.ItemRestrictions, PlacementRestrictions: creatureSpec.PlacementRestrictions, Abilities: queryCreatureAbilities(creatureSpec.Abilities)}
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item
@@ -318,4 +318,16 @@ func uuidArgs(ids []uuid.UUID) []any {
 		args = append(args, id.String())
 	}
 	return args
+}
+
+type creatureAbilityMetadata struct {
+	Defensive *struct{} `json:"defensive"`
+}
+
+func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
+	values := make([]query.CreatureAbility, len(abilities))
+	for i, ability := range abilities {
+		values[i] = query.CreatureAbility{Defensive: ability.Defensive != nil}
+	}
+	return values
 }

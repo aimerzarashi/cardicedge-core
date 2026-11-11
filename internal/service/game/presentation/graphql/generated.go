@@ -211,16 +211,20 @@ type ComplexityRoot struct {
 	}
 
 	CreatureCardInfo struct {
+		Abilities             func(childComplexity int) int
 		Attack                func(childComplexity int) int
 		Cost                  func(childComplexity int) int
 		Elements              func(childComplexity int) int
 		HitPoints             func(childComplexity int) int
 		ID                    func(childComplexity int) int
 		ItemRestrictions      func(childComplexity int) int
-		Movement              func(childComplexity int) int
 		Name                  func(childComplexity int) int
 		PlacementRestrictions func(childComplexity int) int
 		Rarity                func(childComplexity int) int
+	}
+
+	CreatureDefensiveAbility struct {
+		Kind func(childComplexity int) int
 	}
 
 	Deck struct {
@@ -1841,6 +1845,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CreateRoomSuccess.Revision(childComplexity), true
 
+	case "CreatureCardInfo.abilities":
+		if e.ComplexityRoot.CreatureCardInfo.Abilities == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.Abilities(childComplexity), true
 	case "CreatureCardInfo.attack":
 		if e.ComplexityRoot.CreatureCardInfo.Attack == nil {
 			break
@@ -1877,12 +1887,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureCardInfo.ItemRestrictions(childComplexity), true
-	case "CreatureCardInfo.movement":
-		if e.ComplexityRoot.CreatureCardInfo.Movement == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureCardInfo.Movement(childComplexity), true
 	case "CreatureCardInfo.name":
 		if e.ComplexityRoot.CreatureCardInfo.Name == nil {
 			break
@@ -1901,6 +1905,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureCardInfo.Rarity(childComplexity), true
+
+	case "CreatureDefensiveAbility.kind":
+		if e.ComplexityRoot.CreatureDefensiveAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureDefensiveAbility.Kind(childComplexity), true
 
 	case "Deck.cards":
 		if e.ComplexityRoot.Deck.Cards == nil {
@@ -6048,12 +6059,12 @@ func (ec *executionContext) childFields_CreatureCardInfo(ctx context.Context, fi
 		return ec.fieldContext_CreatureCardInfo_attack(ctx, field)
 	case "hitPoints":
 		return ec.fieldContext_CreatureCardInfo_hitPoints(ctx, field)
-	case "movement":
-		return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
 	case "itemRestrictions":
 		return ec.fieldContext_CreatureCardInfo_itemRestrictions(ctx, field)
 	case "placementRestrictions":
 		return ec.fieldContext_CreatureCardInfo_placementRestrictions(ctx, field)
+	case "abilities":
+		return ec.fieldContext_CreatureCardInfo_abilities(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CreatureCardInfo", field.Name)
 }
@@ -9616,29 +9627,6 @@ func (ec *executionContext) fieldContext_CreatureCardInfo_hitPoints(_ context.Co
 	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
 }
 
-func (ec *executionContext) _CreatureCardInfo_movement(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Movement, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureCardInfo_movement(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "Int")
-}
-
 func (ec *executionContext) _CreatureCardInfo_itemRestrictions(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9683,6 +9671,61 @@ func (ec *executionContext) _CreatureCardInfo_placementRestrictions(ctx context.
 }
 func (ec *executionContext) fieldContext_CreatureCardInfo_placementRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "CreatureElement")
+}
+
+func (ec *executionContext) _CreatureCardInfo_abilities(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_abilities(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Abilities, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureAbility) graphql.Marshaler {
+			return ec.marshalNCreatureAbility2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_abilities(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CreatureCardInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CreatureDefensiveAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureDefensiveAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureDefensiveAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureDefensiveAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureDefensiveAbility", field, false, false, "CreatureAbilityKind")
 }
 
 func (ec *executionContext) _Deck_id(ctx context.Context, field graphql.CollectedField, obj *model.Deck) (ret graphql.Marshaler) {
@@ -28739,6 +28782,26 @@ func (ec *executionContext) _CreateRoomResult(ctx context.Context, sel ast.Selec
 	}
 }
 
+func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.SelectionSet, obj model.CreatureAbility) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.CreatureDefensiveAbility:
+		return ec._CreatureDefensiveAbility(ctx, sel, &obj)
+	case *model.CreatureDefensiveAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureDefensiveAbility(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of CreatureAbility must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _DeckResult(ctx context.Context, sel ast.SelectionSet, obj model.DeckResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -31911,11 +31974,6 @@ func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.Selec
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "movement":
-			out.Values[i] = ec._CreatureCardInfo_movement(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "itemRestrictions":
 			out.Values[i] = ec._CreatureCardInfo_itemRestrictions(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -31923,6 +31981,44 @@ func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.Selec
 			}
 		case "placementRestrictions":
 			out.Values[i] = ec._CreatureCardInfo_placementRestrictions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "abilities":
+			out.Values[i] = ec._CreatureCardInfo_abilities(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureDefensiveAbilityImplementors = []string{"CreatureDefensiveAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureDefensiveAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureDefensiveAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureDefensiveAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureDefensiveAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureDefensiveAbility_kind(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -39846,6 +39942,40 @@ func (ec *executionContext) marshalNCreateRoomResult2gitlabᚗcomᚋaimerzarashi
 		return graphql.Null
 	}
 	return ec._CreateRoomResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCreatureAbility2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbility(ctx context.Context, sel ast.SelectionSet, v model.CreatureAbility) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CreatureAbility!")
+		return graphql.Null
+	}
+	return ec._CreatureAbility(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCreatureAbility2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CreatureAbility) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCreatureAbility2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbility(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx context.Context, v any) (model.CreatureAbilityKind, error) {
+	var res model.CreatureAbilityKind
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx context.Context, sel ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNCreatureCardInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureCardInfo(ctx context.Context, sel ast.SelectionSet, v *model.CreatureCardInfo) graphql.Marshaler {
