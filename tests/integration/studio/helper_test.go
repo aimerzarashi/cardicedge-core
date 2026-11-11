@@ -135,7 +135,9 @@ func registerPublishedItem(t *testing.T, token, name string) any {
 func registerPublishedSpell(t *testing.T, token, name string) any {
 	t.Helper()
 	registered := registerSpell(t, token, name)["spell"].(map[string]any)
-	require.Equal(t, "PublishCardSuccess", publishCard(t, token, registered["id"], registered["revision"])["__typename"])
+	// 効果の無いスペルは公開できないので、先に効果を入れる（revision は 2 になり、公開して 3）
+	effective := changeSpellEffect(t, token, registered["id"], registered["revision"], map[string]any{"drawCards": map[string]any{"count": 1}})
+	require.Equal(t, "PublishCardSuccess", publishCard(t, token, registered["id"], effective["revision"])["__typename"])
 	return registered["id"]
 }
 

@@ -253,6 +253,9 @@ func newSpellEffect(source *master.SpellSpec) (spell.Effect, error) {
 		}
 		turns, err := spell.NewCurseTurns(source.FixedDiceCurse.Turns)
 		return spell.NewFixedDiceCurseEffect(value, turns), err
+	case source.Damage != nil:
+		amount, err := spell.NewDamageAmount(source.Damage.Amount)
+		return spell.NewDamageEffect(amount), err
 	default:
 		return spell.NoEffect(), nil
 	}
@@ -353,10 +356,24 @@ func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64,
 }
 
 // サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで）。使えないスペルは input.Errors（NotFound・項目名 handIndex）
+// スペルの対象の領地の位置
+type SpellTargetPosition struct {
+	X, Y int
+}
+
 // 呪いのスペルは target（参加者の番号）が要り、無ければ input.Errors（Required・項目名 target）、選べない対象は input.Errors（NotFound・target）
-func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int) (ChangedMatch, error) {
+// クリーチャーを選ぶスペルは targetPosition（対象の領地の位置）が要り、無ければ input.Errors（Required・targetPosition）、選べない位置は
+// input.Errors（NotFound・targetPosition。位置が負の値でも同じ）
+func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int, targetPosition *SpellTargetPosition) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, current match.Match, by match.ParticipantIndex) (match.Command, error) {
 		cmd := &match.UseSpellCommand{By: by, HandIndex: handIndex}
+		if targetPosition != nil {
+			position, err := newPosition(targetPosition.X, targetPosition.Y)
+			if err != nil {
+				return nil, input.Errors{&input.NotFound{Field: "targetPosition"}}
+			}
+			cmd.TargetPosition = &position
+		}
 		if target != nil {
 			// 参加者の範囲の外は、ドメインの番号の型に入れずに選べない対象とする
 			if *target < 0 || *target >= len(current.Participants) {
@@ -564,6 +581,10 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return input.Errors{&input.Required{Field: "target"}}
 	case errors.Is(err, match.ErrSpellTargetNotAllowed):
 		return input.Errors{&input.NotFound{Field: "target"}}
+	case errors.Is(err, match.ErrSpellTargetPositionRequired):
+		return input.Errors{&input.Required{Field: "targetPosition"}}
+	case errors.Is(err, match.ErrSpellTargetPositionNotAllowed):
+		return input.Errors{&input.NotFound{Field: "targetPosition"}}
 	case errors.Is(err, match.ErrItemNotUsable):
 		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
 	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable), errors.Is(err, match.ErrLandElementNotChangeable):

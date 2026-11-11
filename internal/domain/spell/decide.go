@@ -31,6 +31,10 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil || !changed {
 			return nil, err
 		}
+		// 効果の無いスペルは対戦で使えないため、公開できない（6 種類の効果がそろった core#152 から。2026-11-10 オーナー）
+		if spell.Effect.IsNone() {
+			return nil, ErrNoEffect
+		}
 		return []Event{&PublishedEvent{EventMeta: nextMeta(spell, now), PublishedBy: c.PublishedBy}}, nil
 	case *RetireCommand:
 		spell, ok := state.(Spell)

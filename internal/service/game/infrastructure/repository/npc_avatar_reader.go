@@ -77,6 +77,9 @@ type spellEffectMetadata struct {
 		Value int `json:"value"`
 		Turns int `json:"turns"`
 	} `json:"fixed_dice_curse"`
+	Damage *struct {
+		Amount int `json:"amount"`
+	} `json:"damage"`
 }
 
 type itemMetadata struct {
@@ -298,6 +301,9 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 		}
 		if curse := spellSpec.Effect.FixedDiceCurse; curse != nil {
 			effect.FixedDiceCurse = &query.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
+		}
+		if damage := spellSpec.Effect.Damage; damage != nil {
+			effect.Damage = &query.SpellDamage{Amount: damage.Amount}
 		}
 		card.Spell = &query.SpellSpec{Effect: effect}
 	}

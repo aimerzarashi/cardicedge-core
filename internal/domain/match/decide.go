@@ -23,7 +23,9 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *DiscardCommand:
 		return playTurn(state, c.By, PhaseDiscarding, now, func(r *recorder) error { return discard(r, c.HandIndex) })
 	case *UseSpellCommand:
-		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return useSpell(r, c.HandIndex, c.Target, random) })
+		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error {
+			return useSpell(r, c.HandIndex, c.Target, c.TargetPosition, random)
+		})
 	case *RollCommand:
 		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return roll(r, random) })
 	case *ChoosePathCommand:
@@ -212,7 +214,7 @@ func choosePath(r *recorder, to board.Position) error {
 }
 
 // コストを払ってスペルを捨て札に移し、効果を当てる。段階は振る段階のまま（使った後もサイコロは振る）
-func useSpell(r *recorder, handIndex int, target *ParticipantIndex, random Random) error {
+func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPosition *board.Position, random Random) error {
 	index := slices.IndexFunc(r.state.SpellChoices(), func(choice SpellChoice) bool { return choice.HandIndex == handIndex })
 	if index < 0 {
 		if handIndex < 0 || handIndex >= len(r.current().Hand) {
@@ -220,12 +222,17 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, random Rando
 		}
 		return ErrSpellNotUsable
 	}
-	targets := r.state.SpellChoices()[index].Targets
+	choice := r.state.SpellChoices()[index]
+	targets, positions := choice.Targets, choice.TargetPositions
 	switch {
 	case len(targets) > 0 && target == nil:
 		return ErrSpellTargetRequired
 	case len(targets) == 0 && target != nil, target != nil && !slices.Contains(targets, *target):
 		return ErrSpellTargetNotAllowed
+	case len(positions) > 0 && targetPosition == nil:
+		return ErrSpellTargetPositionRequired
+	case len(positions) == 0 && targetPosition != nil, targetPosition != nil && !slices.Contains(positions, *targetPosition):
+		return ErrSpellTargetPositionNotAllowed
 	}
 	used := r.current().Hand[handIndex]
 	spec := r.state.CardSpecs()[used]
@@ -235,6 +242,9 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, random Rando
 		return err
 	}
 	effect := spec.Spell.Effect
+	if effect.Damage != nil {
+		return damageCreature(r, *targetPosition, effect.Damage.Amount.Int())
+	}
 	if effect.FixedDiceCurse != nil {
 		curse := NewFixedDiceCurse(effect.FixedDiceCurse.Value.Int(), effect.FixedDiceCurse.Turns.Int())
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
@@ -265,6 +275,24 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, random Rando
 		}
 	}
 	return nil
+}
+
+// 今の HP から引き、0 になれば破壊する（2026-11-10 オーナー。減った HP の戻り方は core#114）
+func damageCreature(r *recorder, position board.Position, damage int) error {
+	territory, _ := r.state.TerritoryAt(position)
+	target, _ := r.state.DeployedCreature(territory.Creature)
+	remaining := target.HitPoints.Modified(-damage)
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Creature: target.ID, Damage: damage, RemainingHitPoints: remaining}
+	}); err != nil {
+		return err
+	}
+	if remaining.Int() > 0 {
+		return nil
+	}
+	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return &CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: position, Creature: target.ID}
+	})
 }
 
 // 配置して、そのままターンを終える

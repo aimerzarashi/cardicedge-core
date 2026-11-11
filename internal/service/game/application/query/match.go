@@ -63,6 +63,8 @@ type MatchOutcome struct {
 type MatchSpellChoice struct {
 	HandIndex int
 	Targets   []int
+	// 選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ）
+	TargetPositions []BoardPosition
 }
 
 // プレイヤーにかかっている呪い。効き方は種類ごとの値のどれか 1 つ（今は次のサイコロの目だけ）
@@ -587,7 +589,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		for i, target := range choice.Targets {
 			targets[i] = target.Int()
 		}
-		result.SpellChoices = append(result.SpellChoices, MatchSpellChoice{HandIndex: choice.HandIndex, Targets: targets})
+		result.SpellChoices = append(result.SpellChoices, MatchSpellChoice{HandIndex: choice.HandIndex, Targets: targets, TargetPositions: fromBoardPositions(choice.TargetPositions)})
 	}
 	if choices := current.DeployChoices(); len(choices) > 0 {
 		result.DeployChoices = choices
@@ -734,6 +736,9 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 	}
 	if effect.FixedDiceCurse != nil {
 		converted.FixedDiceCurse = &SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value.Int(), Turns: effect.FixedDiceCurse.Turns.Int()}
+	}
+	if effect.Damage != nil {
+		converted.Damage = &SpellDamage{Amount: effect.Damage.Amount.Int()}
 	}
 	return converted
 }

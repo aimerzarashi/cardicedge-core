@@ -54,6 +54,8 @@ func cardChangeError(err error) error {
 		return ErrInvalidCardStatusTransition
 	case errors.Is(err, card.ErrNotDraft):
 		return ErrCardNotDraft
+	case errors.Is(err, spell.ErrNoEffect):
+		return ErrSpellEffectRequired
 	default:
 		return revisionConflict(err)
 	}

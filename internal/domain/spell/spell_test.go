@@ -103,7 +103,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	f := newFixture(t)
 	_, registered := f.register(t)
 	state, _ := f.register(t)
-	_, published := f.publish(t, state)
+	_, published := f.publish(t, f.effectiveState(t))
 	_, retired := f.retire(t, f.publishedState(t))
 	_, costChanged := f.decide(t, state, &spell.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
 	_, rarityChanged := f.decide(t, state, &spell.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
@@ -169,10 +169,17 @@ func (f fixture) retire(t *testing.T, state spell.State) (spell.State, spell.Eve
 	return next, events[0]
 }
 
-func (f fixture) publishedState(t *testing.T) spell.State {
+// 効果を入れた準備中のスペル（効果の無いスペルは公開できないため、公開の前に入れる）
+func (f fixture) effectiveState(t *testing.T) spell.State {
 	t.Helper()
 	registered, _ := f.register(t)
-	published, _ := f.publish(t, registered)
+	state, _ := f.decide(t, registered, &spell.ChangeEffectCommand{Effect: spelltest.DrawCards(t, 1), ChangedBy: f.registeredBy})
+	return state
+}
+
+func (f fixture) publishedState(t *testing.T) spell.State {
+	t.Helper()
+	published, _ := f.publish(t, f.effectiveState(t))
 	return published
 }
 
@@ -188,8 +195,8 @@ func TestDecide_PublishEmitsPublishedEventFromDraftAndRetired(t *testing.T) {
 		state func(t *testing.T, f fixture) spell.State
 		from  int64
 	}{
-		{name: "draft", state: func(t *testing.T, f fixture) spell.State { s, _ := f.register(t); return s }, from: 1},
-		{name: "retired", state: func(t *testing.T, f fixture) spell.State { return f.retiredState(t) }, from: 3},
+		{name: "draft", state: func(t *testing.T, f fixture) spell.State { return f.effectiveState(t) }, from: 2},
+		{name: "retired", state: func(t *testing.T, f fixture) spell.State { return f.retiredState(t) }, from: 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -213,11 +220,11 @@ func TestDecide_RetireEmitsRetiredEventFromPublished(t *testing.T) {
 	state, event := f.retire(t, f.publishedState(t))
 
 	require.Equal(t, &spell.RetiredEvent{
-		EventMeta: spell.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		EventMeta: spell.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
 		RetiredBy: f.registeredBy,
 	}, event)
 	require.Equal(t, card.StatusRetired, state.(spell.Spell).Status)
-	require.Equal(t, int64(3), state.(spell.Spell).Version)
+	require.Equal(t, int64(4), state.(spell.Spell).Version)
 }
 
 // 変わらない操作は、イベントを作らない（版を進めず、画面の版を古くしないため）
@@ -382,4 +389,14 @@ func TestNewMagicPerLapAndDiceCount_RejectTooSmall(t *testing.T) {
 
 	require.ErrorIs(t, perLapErr, spell.ErrMagicPerLapTooSmall)
 	require.ErrorIs(t, diceErr, spell.ErrDiceCountTooSmall)
+}
+
+// 効果の無いスペルは対戦で使えないため、公開できない
+func TestDecide_RejectsPublishingASpellWithoutEffect(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	_, err := spell.Decide(registered, &spell.PublishCommand{PublishedBy: f.registeredBy}, changedAt)
+
+	require.ErrorIs(t, err, spell.ErrNoEffect)
 }

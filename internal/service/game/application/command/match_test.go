@@ -746,11 +746,11 @@ func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
 	choices := rolling.SpellChoices()
 	require.NotEmpty(t, choices)
 
-	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0, nil)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0, nil, nil)
 	invalid, ok := input.AsErrors(err)
 	require.True(t, ok)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
-	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0].HandIndex, nil)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0].HandIndex, nil, nil)
 
 	require.NoError(t, err)
 	used := f.load(t)
@@ -776,12 +776,38 @@ func TestMatchHandler_UseSpellReportsTheTargetOfACurse(t *testing.T) {
 	outside := 9
 	npc := 1
 
-	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil)
-	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &outside)
-	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &npc)
+	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, nil)
+	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &outside, nil)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &npc, nil)
 
 	require.Equal(t, input.Errors{&input.Required{Field: "target"}}, missing)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "target"}}, notFound)
 	require.NoError(t, err)
 	require.NotNil(t, f.load(t).Participants[1].Curse)
+}
+
+func TestMatchHandler_UseSpellReportsTheTargetPositionOfDamage(t *testing.T) {
+	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.Damage(t, 20)}}
+	damage := match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, 7), Quantity: cardtest.DeckQuantity(t, 3), Spec: spec}
+	// NPC が先に動く乱数（playUntilPlayerStopsOnTheTerritoryOfTheNPC と同じ）。NPC が (1,1) に配置するまで進めてから、プレイヤーが引いて振る段階にする
+	f := newMatchTurnFixtureWithPlayerCards(t, matchtest.NewRandom(), 30, 30, matchDeckCard(t, 1, 4, 10), damage)
+	for range 3 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	choices := f.load(t).SpellChoices()
+	require.NotEmpty(t, choices)
+	choice := choices[0]
+	require.Equal(t, []board.Position{boardtest.Position(t, 1, 1)}, choice.TargetPositions)
+	noTerritory := command.SpellTargetPosition{X: 0, Y: 0}
+	negative := command.SpellTargetPosition{X: -1, Y: 0}
+
+	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, nil)
+	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, &noTerritory)
+	_, negativeErr := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, &negative)
+
+	require.Equal(t, input.Errors{&input.Required{Field: "targetPosition"}}, missing)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, notFound)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, negativeErr)
 }

@@ -452,7 +452,9 @@ func TestChangeSpellEffect_ReturnsResultTypePerReason(t *testing.T) {
 	spell := registerSpell(t, token, "ホープ-"+id)["spell"].(map[string]any)
 	creature := registerCreature(t, token, "ドラゴン-"+id)["creature"].(map[string]any)
 	published := registerSpell(t, token, "フライ-"+id)["spell"].(map[string]any)
-	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
+	// 効果の無いスペルは公開できないので、先に効果を入れる
+	effective := changeSpellEffect(t, token, published["id"], published["revision"], map[string]any{"rollDice": map[string]any{"count": 2}})
+	publishedRevision := publishCard(t, token, published["id"], effective["revision"])["revision"]
 
 	tooSmall := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{"drawCards": map[string]any{"count": 0}})
 	noKind := changeSpellEffect(t, token, spell["id"], spell["revision"], map[string]any{})
@@ -479,7 +481,7 @@ func TestChangeSpellEffect_ReturnsEachKindAfterProjected(t *testing.T) {
 	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, fly["id"], fly["revision"], map[string]any{"rollDice": map[string]any{"count": 2}})["__typename"])
 	require.Equal(t, "ChangeSpellEffectSuccess", changeSpellEffect(t, token, holyWord["id"], holyWord["revision"], map[string]any{"fixedDiceCurse": map[string]any{"value": 6, "turns": 1}})["__typename"])
 
-	const effectQuery = `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellGainMagicEffect { perLap } ... on SpellRollDiceEffect { count } ... on SpellFixedDiceCurseEffect { value turns } } } } }`
+	const effectQuery = `query ($id: UUID!) { card(id: $id) { ... on Spell { effect { __typename ... on SpellGainMagicEffect { perLap } ... on SpellRollDiceEffect { count } ... on SpellFixedDiceCurseEffect { value turns } ... on SpellDamageEffect { amount } } } } }`
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		gotMana, err := client.TryData(t.Context(), token, effectQuery, map[string]any{"id": mana["id"]}, "card")
 		if assert.NoError(c, err) {
@@ -494,4 +496,14 @@ func TestChangeSpellEffect_ReturnsEachKindAfterProjected(t *testing.T) {
 			assert.Equal(c, map[string]any{"effect": map[string]any{"__typename": "SpellFixedDiceCurseEffect", "value": float64(6), "turns": float64(1)}}, gotHolyWord)
 		}
 	})
+}
+
+func TestPublishCard_ReturnsSpellEffectRequiredForASpellWithoutEffect(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	spell := registerSpell(t, token, "マジックボルト-"+testhelper.UniqueID(t))["spell"].(map[string]any)
+
+	result := client.Data(t, token, `mutation ($input: PublishCardInput!) { publishCard(input: $input) { __typename } }`, map[string]any{"input": map[string]any{"id": spell["id"], "revision": spell["revision"]}}, "publishCard")
+
+	require.Equal(t, "SpellEffectRequiredError", result["__typename"])
 }

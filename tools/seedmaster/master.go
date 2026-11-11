@@ -89,6 +89,9 @@ type masterSpellEffect struct {
 		Value int `json:"value"`
 		Turns int `json:"turns"`
 	} `json:"fixed_dice_curse"`
+	Damage *struct {
+		Amount int `json:"amount"`
+	} `json:"damage"`
 }
 
 // 種類がどれも無い効果は書き間違い（効果なしは effect を書かない）
@@ -119,6 +122,10 @@ func (c masterCard) validateSpellSpec() error {
 			_, err = spell.NewCurseTurns(curse.Turns)
 		}
 	}
+	if c.Effect.Damage != nil {
+		kinds++
+		_, err = spell.NewDamageAmount(c.Effect.Damage.Amount)
+	}
 	if kinds != 1 {
 		return errors.New("spell effect needs exactly one kind")
 	}
@@ -142,6 +149,9 @@ func (c masterCard) spellEffect() command.SpellEffect {
 	}
 	if curse := c.Effect.FixedDiceCurse; curse != nil {
 		effect.FixedDiceCurse = &command.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
+	}
+	if c.Effect.Damage != nil {
+		effect.Damage = &command.SpellDamage{Amount: c.Effect.Damage.Amount}
 	}
 	return effect
 }

@@ -353,7 +353,12 @@
       "type": "spell",
       "name": "マジックボルト",
       "cost": 50,
-      "rarity": "normal"
+      "rarity": "normal",
+      "effect": {
+        "damage": {
+          "amount": 20
+        }
+      }
     }
   ],
   "preset_decks": [

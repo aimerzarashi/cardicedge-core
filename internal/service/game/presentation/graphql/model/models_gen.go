@@ -1440,6 +1440,37 @@ func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）
+type MatchCreatureDamagedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 対象のクリーチャーがいる領地の位置
+	Position *BoardPosition `json:"position"`
+	// 対象のクリーチャー（MatchDeployedCreature.id）
+	Creature int `json:"creature"`
+	// 与えたダメージ
+	Damage int `json:"damage"`
+	// 残りの HP（0 なら破壊される）
+	RemainingHitPoints int `json:"remainingHitPoints"`
+}
+
+func (MatchCreatureDamagedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatureDamagedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatureDamagedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatureDamagedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）
 type MatchCreatureDeployedEvent struct {
 	// 対戦の版
@@ -1472,6 +1503,33 @@ func (this MatchCreatureDeployedEvent) GetOccurredAt() time.Time { return this.O
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureDeployedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// スペルのダメージで、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札に入る）
+type MatchCreatureDestroyedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 破壊されたクリーチャーがいた領地の位置
+	Position *BoardPosition `json:"position"`
+	// 破壊されたクリーチャー（MatchDeployedCreature.id）
+	Creature int `json:"creature"`
+}
+
+func (MatchCreatureDestroyedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatureDestroyedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatureDestroyedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 領地のクリーチャーを手札のクリーチャーと入れ替えた
 type MatchCreatureExchangedEvent struct {
@@ -2407,6 +2465,8 @@ type MatchSpellChoice struct {
 	HandIndex int `json:"handIndex"`
 	// 選べる対象のプレイヤー（Match.participants の何番目か。呪いのスペルだけ中身があり、自分を含む。対象を選ばないスペルは空）
 	Targets []int `json:"targets"`
+	// 選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ中身がある。自分の領地を含む。領地ができた順）
+	TargetPositions []*BoardPosition `json:"targetPositions"`
 }
 
 // サイコロを振る前に、手札のスペルを使った（効果は続くイベント。スペルは捨て札に入る）
@@ -3401,6 +3461,14 @@ func (this SpellCardInfo) GetRarity() CardRarity { return this.Rarity }
 
 func (SpellCardInfo) IsCardResult() {}
 
+// 対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）
+type SpellDamageEffect struct {
+	// ダメージ（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (SpellDamageEffect) IsSpellEffect() {}
+
 // カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）
 type SpellDrawCardsEffect struct {
 	// 引く枚数（1 以上）
@@ -3448,6 +3516,8 @@ type UseMatchSpellInput struct {
 	HandIndex int `json:"handIndex"`
 	// 対象のプレイヤー（Match.participants の何番目か。spellChoices の targets の中から選ぶ。呪いのスペルで無ければ FieldRequired、対象を選ばないスペルに付けた・選べない対象は FieldNotFound）
 	Target *int `json:"target,omitempty"`
+	// 対象のクリーチャーがいる領地の位置（spellChoices の targetPositions の中から選ぶ。クリーチャーを選ぶスペルで無ければ FieldRequired、それ以外のスペルに付けた・選べない位置は FieldNotFound）
+	TargetPosition *BoardPositionInput `json:"targetPosition,omitempty"`
 }
 
 // スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）

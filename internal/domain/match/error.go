@@ -32,6 +32,10 @@ var (
 	ErrSpellTargetRequired = errors.New("match: spell target required")
 	// 選べない対象（対象を選ばないスペルに対象がある・参加者でない）
 	ErrSpellTargetNotAllowed = errors.New("match: spell target not allowed")
+	// クリーチャーを選ぶスペルで、対象の領地の位置が無い
+	ErrSpellTargetPositionRequired = errors.New("match: spell target position required")
+	// 選べない対象の領地（クリーチャーを選ばないスペルに位置がある・領地でない）
+	ErrSpellTargetPositionNotAllowed = errors.New("match: spell target position not allowed")
 )
 
 var (

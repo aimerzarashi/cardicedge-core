@@ -37,7 +37,7 @@ union RegisterSpellResult = RegisterSpellSuccess | ValidationErrors | CardNameAl
 
 # 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする
 "スペルの効果（種類は __typename で見分ける）"
-union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect | SpellFixedDiceCurseEffect
+union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect | SpellFixedDiceCurseEffect | SpellDamageEffect
 
 "カードを引く効果（山札の先頭から引く）"
 type SpellDrawCardsEffect {
@@ -65,6 +65,12 @@ type SpellFixedDiceCurseEffect {
   turns: Int!
 }
 
+"対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）"
+type SpellDamageEffect {
+  "ダメージ（1 以上）"
+  amount: Int!
+}
+
 # @oneOf の「ちょうど 1 つ」は変数で送られた値だと GraphQL の層が確かめないため、core が確かめて FieldInvalidFormat（effect）にする
 "スペルの効果の入力（種類のどれか 1 つだけ）"
 input SpellEffectInput @oneOf {
@@ -76,6 +82,14 @@ input SpellEffectInput @oneOf {
   rollDice: SpellRollDiceEffectInput
   "次のサイコロの目を決める呪い"
   fixedDiceCurse: SpellFixedDiceCurseEffectInput
+  "対象のクリーチャーにダメージ"
+  damage: SpellDamageEffectInput
+}
+
+"対象のクリーチャーにダメージの入力"
+input SpellDamageEffectInput {
+  "ダメージ（1 以上。上限は無い）"
+  amount: Int!
 }
 
 "次のサイコロの目を決める呪いの入力"

@@ -32,7 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -403,6 +403,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchDiceCountChangedEvent { participant count }
 				... on MatchCurseCastEvent { participant target curse { remainingTurns effect { __typename ... on MatchFixedDiceCurse { value } } } }
 				... on MatchCurseRemovedEvent { participant }
+				... on MatchCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
+				... on MatchCreatureDestroyedEvent { participant position { x y } creature }
 				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }

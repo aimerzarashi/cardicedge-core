@@ -63,6 +63,8 @@ type UseSpellCommand struct {
 	HandIndex int
 	// 対象のプレイヤー（呪いのスペルだけ。ほかのスペルは nil）
 	Target *ParticipantIndex
+	// 対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ。ほかのスペルは nil）
+	TargetPosition *board.Position
 }
 
 func (*UseSpellCommand) isMatchCommand() {}

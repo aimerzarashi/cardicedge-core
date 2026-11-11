@@ -67,6 +67,8 @@ var (
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした
 	ErrInvalidCardStatusTransition = errors.New("command: invalid card status transition")
+	// 効果の無いスペルを公開しようとした
+	ErrSpellEffectRequired = errors.New("command: spell effect required")
 	// 準備中でないカードの性能（コスト・希少度等）を変えようとした
 	ErrCardNotDraft = errors.New("command: card is not draft")
 	// ゲーム全体のルールがまだ作られていない（studio は起動時に作るので、起きないはずの状態）
