@@ -98,4 +98,6 @@ func (q *CardHandler) Get(ctx context.Context, id uuid.UUID) (Card, error) {
 // クリーチャーの能力。種類ごとの値のどれか 1 つだけを持つ
 type CreatureAbility struct {
 	Defensive bool
+	// 通行料の倍率（百分率）。持っていなければ nil
+	TollMultiplierPercent *int
 }

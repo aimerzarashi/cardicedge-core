@@ -18,6 +18,7 @@ var (
 	ErrPlacementRestrictionUnknown     = errors.New("creature: unknown placement restriction")
 	ErrPlacementRestrictionsDuplicated = errors.New("creature: duplicated placement restriction")
 
-	ErrAbilityEmpty        = errors.New("creature: ability has no kind")
-	ErrAbilitiesDuplicated = errors.New("creature: duplicated ability")
+	ErrAbilityEmpty                  = errors.New("creature: ability has no kind")
+	ErrAbilitiesDuplicated           = errors.New("creature: duplicated ability")
+	ErrTollMultiplierPercentTooSmall = errors.New("creature: toll multiplier percent is less than 1")
 )

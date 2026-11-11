@@ -70,7 +70,7 @@
       "hit_points": 50,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": ["defensive"]
+      "abilities": [{ "kind": "defensive" }]
     },
     {
       "type": "creature",
@@ -118,7 +118,7 @@
       "hit_points": 60,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": ["defensive"]
+      "abilities": [{ "kind": "defensive" }]
     },
     {
       "type": "creature",
@@ -130,7 +130,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "toll_multiplier", "percent": 150 }]
     },
     {
       "type": "creature",
@@ -166,7 +166,7 @@
       "hit_points": 40,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": ["defensive"]
+      "abilities": [{ "kind": "defensive" }]
     },
     {
       "type": "creature",
@@ -238,7 +238,7 @@
       "hit_points": 50,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": ["defensive"]
+      "abilities": [{ "kind": "defensive" }]
     },
     {
       "type": "creature",

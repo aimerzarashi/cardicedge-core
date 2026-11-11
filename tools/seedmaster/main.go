@@ -923,9 +923,9 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		}
 		if err == nil && c.Type == "creature" {
 			abilities := make([]command.CreatureAbility, len(c.Abilities))
-			for i := range c.Abilities {
-				// validate が知らない種類を弾いている（今は防御型だけ）
-				abilities[i] = command.CreatureAbility{Defensive: true}
+			for i, ability := range c.Abilities {
+				// validate が知らない種類を弾いている
+				abilities[i], _ = ability.command()
 			}
 			changed, err = s.creatures.ChangeAbilities(ctx, changed.ID, changed.Revision, abilities)
 		}

@@ -94,4 +94,6 @@ type GetPublishedCardsFunc func(ctx context.Context) ([]card.Ref, error)
 // クリーチャーの能力の写し。種類ごとの値のどれか 1 つだけを持つ
 type CreatureAbility struct {
 	Defensive bool
+	// 通行料の倍率（百分率）。持っていなければ nil
+	TollMultiplierPercent *int
 }

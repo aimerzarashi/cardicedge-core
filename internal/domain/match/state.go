@@ -778,9 +778,14 @@ func (m Match) TerritoryValue(territory Territory) int {
 	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)) * m.Rules.chainMultiplier(m.chainCount(territory)) / 100
 }
 
-// 他人が止まったときに払う魔力（端数は切り捨て）
+// 他人が止まったときに払う魔力。価値 × 通行料の割合 × いるクリーチャーの通行料の倍率で、端数は最後に 1 回だけ切り捨てる
+// （2026-11-08 オーナー。core#128・core#157）
 func (m Match) TerritoryToll(territory Territory) int {
-	return m.TerritoryValue(territory) * m.Rules.TollPercentage.Int() / 100
+	percent := 100
+	if deployed, ok := m.DeployedCreature(territory.Creature); ok {
+		percent = deployed.Base.Abilities.TollPercent()
+	}
+	return m.TerritoryValue(territory) * m.Rules.TollPercentage.Int() * percent / 10000
 }
 
 // 手放したときに受け取る魔力（端数は切り捨て）

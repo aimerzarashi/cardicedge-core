@@ -801,6 +801,19 @@ func (CreatureDefensiveAbility) IsCreatureAbility() {}
 // 能力の種類
 func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
+// 通行料の倍率
+type CreatureTollMultiplierAbility struct {
+	// 能力の種類（TOLL_MULTIPLIER）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 倍率（百分率。150 で 1.5 倍）
+	Percent int `json:"percent"`
+}
+
+func (CreatureTollMultiplierAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureTollMultiplierAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
 // プレイヤーのデッキ。持ち主のプレイヤーだけが読む（ほかのプレイヤーのデッキは、me.decks にも deck(id) にも出ない）
 type Deck struct {
 	// デッキの公開用の ID
@@ -3820,15 +3833,18 @@ type CreatureAbilityKind string
 const (
 	// 防御型（侵略に出せず、クリーチャー移動もできない）
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
+	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
+	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindDefensive,
+	CreatureAbilityKindTollMultiplier,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier:
 		return true
 	}
 	return false

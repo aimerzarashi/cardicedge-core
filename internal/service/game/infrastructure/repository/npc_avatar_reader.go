@@ -321,13 +321,19 @@ func uuidArgs(ids []uuid.UUID) []any {
 }
 
 type creatureAbilityMetadata struct {
-	Defensive *struct{} `json:"defensive"`
+	Defensive      *struct{} `json:"defensive"`
+	TollMultiplier *struct {
+		Percent int `json:"percent"`
+	} `json:"toll_multiplier"`
 }
 
 func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
 	values := make([]query.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		values[i] = query.CreatureAbility{Defensive: ability.Defensive != nil}
+		if ability.TollMultiplier != nil {
+			values[i].TollMultiplierPercent = &ability.TollMultiplier.Percent
+		}
 	}
 	return values
 }

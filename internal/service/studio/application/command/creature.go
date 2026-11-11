@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -213,19 +214,27 @@ func (c *CreatureHandler) ChangeItemRestrictions(ctx context.Context, id uuid.UU
 	return c.change(ctx, id, revision, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: value, ChangedBy: changedBy})
 }
 
-// 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類が無い・重複は input.Errors。ほかのエラーは ChangeElements と同じ
+// 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせの誤り・値の範囲・重複は input.Errors
+// （項目は abilities.N・abilities.N.percent・abilities）。ほかのエラーは ChangeElements と同じ
 func (c *CreatureHandler) ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []CreatureAbility) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
 	values := make([]creature.Ability, 0, len(abilities))
-	for _, ability := range abilities {
-		var value creature.Ability
-		if ability.Defensive {
-			value = creature.NewDefensiveAbility()
+	invalid := input.Errors{}
+	for i, ability := range abilities {
+		value, err := ability.domain()
+		switch {
+		case errors.Is(err, creature.ErrTollMultiplierPercentTooSmall):
+			invalid = append(invalid, &input.TooSmall{Field: fmt.Sprintf("abilities.%d.percent", i), Min: 1})
+		case err != nil:
+			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("abilities.%d", i)})
 		}
 		values = append(values, value)
+	}
+	if len(invalid) > 0 {
+		return ChangedCard{}, invalid
 	}
 	value, err := creature.NewAbilities(values)
 	if err != nil {
@@ -281,15 +290,45 @@ func (c *CreatureHandler) load(ctx context.Context, publicID uuid.UUID, revision
 	return loaded, nil
 }
 
-// クリーチャーの能力の入力。種類ごとに 1 つの値を持つ（値の無い能力は印だけ）
+// クリーチャーの能力の種類（domain の種類の名前と同じ）
+const (
+	CreatureAbilityDefensive      = "defensive"
+	CreatureAbilityTollMultiplier = "toll_multiplier"
+)
+
+// クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent）
 type CreatureAbility struct {
-	Defensive bool
+	Kind    string
+	Percent *int
+}
+
+var errCreatureAbilityShape = errors.New("command: creature ability kind and values do not match")
+
+// 種類と値の組み合わせが合わないものは errCreatureAbilityShape、値の範囲の誤りは domain の誤り
+func (a CreatureAbility) domain() (creature.Ability, error) {
+	switch {
+	case a.Kind == CreatureAbilityDefensive && a.Percent == nil:
+		return creature.NewDefensiveAbility(), nil
+	case a.Kind == CreatureAbilityTollMultiplier && a.Percent != nil:
+		percent, err := creature.NewTollMultiplierPercent(*a.Percent)
+		if err != nil {
+			return creature.Ability{}, err
+		}
+		return creature.NewTollMultiplierAbility(percent), nil
+	}
+	return creature.Ability{}, errCreatureAbilityShape
 }
 
 func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
 	values := make([]CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		values[i] = CreatureAbility{Defensive: ability.IsDefensive()}
+		switch {
+		case ability.IsDefensive():
+			values[i] = CreatureAbility{Kind: CreatureAbilityDefensive}
+		case ability.TollMultiplier != nil:
+			percent := ability.TollMultiplier.Percent.Int()
+			values[i] = CreatureAbility{Kind: CreatureAbilityTollMultiplier, Percent: &percent}
+		}
 	}
 	return values
 }

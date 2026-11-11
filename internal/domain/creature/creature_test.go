@@ -427,6 +427,23 @@ func TestDecide_ChangeAbilitiesEmitsEventOnlyWhenDraftAndChanged(t *testing.T) {
 	require.ErrorIs(t, err, card.ErrNotDraft)
 }
 
+func TestAbilities_TollMultiplierChangesTheTollPercentAndIsComparedByValue(t *testing.T) {
+	percent := func(value int) creature.Abilities {
+		p, err := creature.NewTollMultiplierPercent(value)
+		require.NoError(t, err)
+		abilities, err := creature.NewAbilities([]creature.Ability{creature.NewTollMultiplierAbility(p)})
+		require.NoError(t, err)
+		return abilities
+	}
+
+	require.Equal(t, 100, creature.DefaultAbilities().TollPercent())
+	require.Equal(t, 150, percent(150).TollPercent())
+	require.True(t, percent(150).Equal(percent(150)))
+	require.False(t, percent(150).Equal(percent(200)))
+	_, err := creature.NewTollMultiplierPercent(0)
+	require.ErrorIs(t, err, creature.ErrTollMultiplierPercentTooSmall)
+}
+
 func TestNewAbilities_RejectsEmptyKindAndDuplicates(t *testing.T) {
 	empty, err := creature.NewAbilities(nil)
 	require.NoError(t, err)

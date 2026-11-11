@@ -155,7 +155,7 @@ func TestChangeCreatureAbilities_ChangesDraftAndRejectsDuplicates(t *testing.T) 
 	commands := newCreatureHandler(t, ctx)
 	registered, err := commands.Register(ctx, "ドラゴン")
 	require.NoError(t, err)
-	defensive := command.CreatureAbility{Defensive: true}
+	defensive := command.CreatureAbility{Kind: command.CreatureAbilityDefensive}
 
 	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{defensive})
 	require.NoError(t, err)
@@ -199,6 +199,28 @@ func TestChangeCreaturePlacementRestrictions_ChangesDraftAndRejectsNeutral(t *te
 	require.Equal(t, changed, unchanged)
 	_, err = commands.ChangePlacementRestrictions(ctx, changed.ID, changed.Revision, []string{"neutral"})
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "placementRestrictions"}}, err)
+}
+
+func TestChangeCreatureAbilities_RejectsMismatchedValuesAndTooSmallPercent(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	zero, half := 0, 150
+
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityTollMultiplier, Percent: &half}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityDefensive, Percent: &half},
+		{Kind: command.CreatureAbilityTollMultiplier, Percent: &zero},
+		{Kind: command.CreatureAbilityTollMultiplier},
+	})
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "abilities.0"},
+		&input.TooSmall{Field: "abilities.1.percent", Min: 1},
+		&input.InvalidFormat{Field: "abilities.2"},
+	}, err)
 }
 
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
@@ -293,7 +315,7 @@ func TestChangeCreatureElementsAndStats_RejectNotDraft(t *testing.T) {
 
 	_, elementsErr := commands.ChangeElements(ctx, published.ID, published.Revision, []string{"fire"})
 	_, statsErr := commands.ChangeStats(ctx, published.ID, published.Revision, 30, 50)
-	_, abilitiesErr := commands.ChangeAbilities(ctx, published.ID, published.Revision, []command.CreatureAbility{{Defensive: true}})
+	_, abilitiesErr := commands.ChangeAbilities(ctx, published.ID, published.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityDefensive}})
 
 	require.ErrorIs(t, elementsErr, command.ErrCardNotDraft)
 	require.ErrorIs(t, statsErr, command.ErrCardNotDraft)
