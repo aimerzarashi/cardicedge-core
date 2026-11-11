@@ -436,8 +436,11 @@ func TestAbilities_TollMultiplierChangesTheTollPercentAndIsComparedByValue(t *te
 		return abilities
 	}
 
-	require.Equal(t, 100, creature.DefaultAbilities().TollPercent())
-	require.Equal(t, 150, percent(150).TollPercent())
+	_, ok := creature.DefaultAbilities().TollMultiplier()
+	require.False(t, ok)
+	got, ok := percent(150).TollMultiplier()
+	require.True(t, ok)
+	require.Equal(t, 150, got.Int())
 	require.True(t, percent(150).Equal(percent(150)))
 	require.False(t, percent(150).Equal(percent(200)))
 	_, err := creature.NewTollMultiplierPercent(0)

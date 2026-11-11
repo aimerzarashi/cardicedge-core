@@ -488,6 +488,11 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Card: card, ReturnedToHand: e.ReturnedToHand, TerritoryHitPoints: e.TerritoryHitPoints,
 			ReturnedTo: returnedTo, ReturnedHitPoints: e.ReturnedHitPoints,
 		}, nil
+	case query.MatchTollMultiplierActivatedEvent:
+		return &model.MatchTollMultiplierActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Percent: e.Percent, Toll: e.Toll, MultipliedToll: e.MultipliedToll,
+		}, nil
 	case query.MatchTollPaidEvent:
 		return &model.MatchTollPaidEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Owner: e.Owner,

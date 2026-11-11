@@ -188,6 +188,15 @@ type MatchEndedEvent struct {
 	Reason  MatchEndReason
 }
 
+// 通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した。Toll は盤面の通行料、MultipliedToll は払う額
+type MatchTollMultiplierActivatedEvent struct {
+	MatchEventMeta
+	Position       BoardPosition
+	Percent        int
+	Toll           int
+	MultipliedToll int
+}
+
 // 他人の領地に止まって通行料を払った（足りなくても全額。魔力は負になる）。Owner は受け取った参加者の番号
 type MatchTollPaidEvent struct {
 	MatchEventMeta
@@ -676,6 +685,8 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchRewardDrawnEvent{meta, e.Participant.Int(), string(e.Pack), drawn}, nil
 	case *match.RewardsCompletedEvent:
 		return MatchRewardsCompletedEvent{meta}, nil
+	case *match.TollMultiplierActivatedEvent:
+		return MatchTollMultiplierActivatedEvent{meta, NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Percent.Int(), e.Toll, e.MultipliedToll}, nil
 	case *match.TollPaidEvent:
 		return MatchTollPaidEvent{meta, e.Participant.Int(), e.Owner.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Magic}, nil
 	case *match.TerritoryRelinquishedEvent:

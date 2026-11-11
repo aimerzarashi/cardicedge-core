@@ -391,12 +391,12 @@ func (a Abilities) HasLastStrike() bool {
 	return slices.ContainsFunc(a, func(ability Ability) bool { return ability.LastStrike != nil })
 }
 
-// 通行料の倍率（百分率）。持っていなければ 100
-func (a Abilities) TollPercent() int {
+// 通行料の倍率。持っていなければ false
+func (a Abilities) TollMultiplier() (TollMultiplierPercent, bool) {
 	for _, ability := range a {
 		if ability.TollMultiplier != nil {
-			return ability.TollMultiplier.Percent.Int()
+			return ability.TollMultiplier.Percent, true
 		}
 	}
-	return 100
+	return 0, false
 }

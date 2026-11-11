@@ -321,6 +321,21 @@ func TestMatchEventsHandler_ReturnsTheActivatedBattleAbilities(t *testing.T) {
 	}, events)
 }
 
+func TestMatchEventsHandler_ReturnsTheActivatedTollMultiplier(t *testing.T) {
+	percent, err := creature.NewTollMultiplierPercent(150)
+	require.NoError(t, err)
+	f := newEventsFixture(t, append(invadingEvents(t),
+		&match.TollMultiplierActivatedEvent{EventMeta: eventMeta(t, 16), Position: boardtest.Position(t, 2, 0), Percent: percent, Toll: 60, MultipliedToll: 90},
+	))
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 15)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchTollMultiplierActivatedEvent{MatchEventMeta: metaAt(16, changesOf(phaseOf(query.MatchPhaseDefending), nil)), Position: query.NewBoardPosition(2, 0), Percent: 150, Toll: 60, MultipliedToll: 90},
+	}, events)
+}
+
 func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testing.T) {
 	player := matchtest.Index(t, 0)
 	f := newEventsFixture(t, append(invadingEvents(t),

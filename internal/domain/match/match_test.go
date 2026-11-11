@@ -256,6 +256,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
 		&match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
+		&match.TollMultiplierActivatedEvent{EventMeta: meta, Position: boardtest.Position(t, 1, 0), Percent: tollMultiplierPercent(t, 150), Toll: 60, MultipliedToll: 90},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -1348,6 +1349,13 @@ func TestDecide_StoppingOnAnotherTerritoryWaitsEvenWithoutACreatureThatCanBePaid
 }
 
 // 領地のクリーチャーに通行料の倍率を持たせる
+func tollMultiplierPercent(t *testing.T, percent int) creature.TollMultiplierPercent {
+	t.Helper()
+	value, err := creature.NewTollMultiplierPercent(percent)
+	require.NoError(t, err)
+	return value
+}
+
 func withTollMultiplier(t *testing.T, state match.Match, percent int) match.Match {
 	t.Helper()
 	value, err := creature.NewTollMultiplierPercent(percent)
@@ -1361,37 +1369,70 @@ func withTollMultiplier(t *testing.T, state match.Match, percent int) match.Matc
 	return state
 }
 
-func TestMatch_TerritoryTollAppliesTheTollMultiplierOfTheCreatureAndFloorsOnce(t *testing.T) {
+func TestMatch_TerritoryTollDoesNotApplyTheTollMultiplier(t *testing.T) {
+	state := withTollMultiplier(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), 150)
+	territory, ok := state.TerritoryAt(pos(t, 1, 0))
+	require.True(t, ok)
+
+	// 盤面の通行料は価値 100 × 60% のままで、倍率は払うときに発動する
+	require.Equal(t, 60, state.TerritoryToll(territory))
+	require.Equal(t, 100, state.TerritoryValue(territory))
+}
+
+func TestDecide_PayTollActivatesTheTollMultiplierBeforePaying(t *testing.T) {
 	tests := []struct {
 		name    string
 		percent int
 		want    int
 	}{
-		// 価値 100 × 60% × 150% = 90
+		// 盤面の通行料 60 × 150% = 90
 		{name: "one_and_a_half", percent: 150, want: 90},
-		// 100 × 60% × 133% = 79.8 → 79（60% で切り捨ててから掛けると 60 × 133% = 79.8 で同じだが、割合ごとに切り捨てない）
-		{name: "floors_at_the_end", percent: 133, want: 79},
+		// 60 × 133% = 79.8 → 79（盤面の通行料に掛けてから切り捨てる）
+		{name: "floors", percent: 133, want: 79},
+		// 効き目が無くても、持っていれば発動する
+		{name: "no_effect", percent: 100, want: 60},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := withTollMultiplier(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), tt.percent)
-			territory, ok := state.TerritoryAt(pos(t, 1, 0))
-			require.True(t, ok)
+			state, _ = drawAndRoll(t, state, 1, 1)
 
-			require.Equal(t, tt.want, state.TerritoryToll(territory))
-			// 倍率は通行料だけで、価値は変えない
-			require.Equal(t, 100, state.TerritoryValue(territory))
+			state, events := payToll(t, state, 1)
+
+			activated := eventOf[*match.TollMultiplierActivatedEvent](t, events)
+			require.Equal(t, pos(t, 1, 0), activated.Position)
+			require.Equal(t, tt.percent, activated.Percent.Int())
+			require.Equal(t, 60, activated.Toll)
+			require.Equal(t, tt.want, activated.MultipliedToll)
+			require.Equal(t, tt.want, eventOf[*match.TollPaidEvent](t, events).Magic)
+			require.Less(t, slices.IndexFunc(events, isEvent[*match.TollMultiplierActivatedEvent]), slices.IndexFunc(events, isEvent[*match.TollPaidEvent]))
+			require.Equal(t, 600-tt.want, state.Participants[1].Magic)
 		})
 	}
 }
 
-func TestDecide_PayTollPaysTheMultipliedToll(t *testing.T) {
-	state := withTollMultiplier(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), 150)
+func TestDecide_PayTollWithoutTheTollMultiplierDoesNotActivateIt(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
 	state, _ = drawAndRoll(t, state, 1, 1)
 
-	state, _ = payToll(t, state, 1)
+	_, events := payToll(t, state, 1)
 
-	require.Equal(t, 600-90, state.Participants[1].Magic)
+	require.Zero(t, countOf[*match.TollMultiplierActivatedEvent](events))
+	require.Equal(t, 60, eventOf[*match.TollPaidEvent](t, events).Magic)
+}
+
+func TestDecide_FailedInvasionActivatesTheTollMultiplierOfTheDefender(t *testing.T) {
+	state := invade(t, withTollMultiplier(t, invadingMatch(t), 150))
+
+	state, events := defend(t, state)
+
+	require.Equal(t, 90, eventOf[*match.TollMultiplierActivatedEvent](t, events).MultipliedToll)
+	require.Equal(t, 600-10-90, state.Participants[1].Magic)
+}
+
+func isEvent[T match.Event](event match.Event) bool {
+	_, ok := event.(T)
+	return ok
 }
 
 func TestDecide_PayTollPaysAndEndsTheTurn(t *testing.T) {
@@ -2951,6 +2992,7 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		{name: "skipped_by_who_is_not_awaited", state: defending, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "battle_started_outside_the_phase", state: invading, event: &match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 5, 20), Defender: battleStats(t, 5, 20)}},
 		{name: "stat_modified_before_the_battle", state: defending, event: &match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Attack: damage, HitPoints: hitPoints}},
+		{name: "toll_multiplier_without_territory", state: invading, event: &match.TollMultiplierActivatedEvent{EventMeta: meta, Position: pos(t, 2, 0), Percent: tollMultiplierPercent(t, 150), Toll: 60, MultipliedToll: 90}},
 		{name: "ability_activated_before_the_battle", state: defending, event: &match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityFirstStrike}},
 		{name: "struck_before_the_battle", state: defending, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
