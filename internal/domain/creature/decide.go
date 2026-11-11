@@ -14,17 +14,18 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, ErrInvalidState
 		}
 		return []Event{&RegisteredEvent{
-			EventMeta:        EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
-			PublicID:         c.PublicID,
-			Name:             c.Name,
-			Cost:             card.DefaultCost,
-			Rarity:           card.DefaultRarity,
-			Elements:         DefaultElements(),
-			Attack:           DefaultAttack,
-			HitPoints:        DefaultHitPoints,
-			Movement:         DefaultMovement,
-			ItemRestrictions: DefaultItemRestrictions(),
-			RegisteredBy:     c.RegisteredBy,
+			EventMeta:             EventMeta{EntityID: c.ID, AggregateVersion: 1, OccurredAt: now},
+			PublicID:              c.PublicID,
+			Name:                  c.Name,
+			Cost:                  card.DefaultCost,
+			Rarity:                card.DefaultRarity,
+			Elements:              DefaultElements(),
+			Attack:                DefaultAttack,
+			HitPoints:             DefaultHitPoints,
+			Movement:              DefaultMovement,
+			ItemRestrictions:      DefaultItemRestrictions(),
+			PlacementRestrictions: DefaultPlacementRestrictions(),
+			RegisteredBy:          c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
 		creature, ok := state.(Creature)
@@ -82,6 +83,12 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&ItemRestrictionsChangedEvent{EventMeta: nextMeta(creature, now), ItemRestrictions: c.ItemRestrictions, ChangedBy: c.ChangedBy}}, nil
+	case *ChangePlacementRestrictionsCommand:
+		creature, err := editable(state)
+		if err != nil || creature.PlacementRestrictions.Equal(c.PlacementRestrictions) {
+			return nil, err
+		}
+		return []Event{&PlacementRestrictionsChangedEvent{EventMeta: nextMeta(creature, now), PlacementRestrictions: c.PlacementRestrictions, ChangedBy: c.ChangedBy}}, nil
 	default:
 		return nil, ErrInvalidState
 	}

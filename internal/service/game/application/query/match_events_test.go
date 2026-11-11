@@ -114,7 +114,7 @@ func dragonCard(t *testing.T) []match.DeckCard {
 	t.Helper()
 	spec := match.CardSpec{
 		Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal,
-		Creature: &match.CreatureSpec{Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20), ItemRestrictions: creature.DefaultItemRestrictions()},
+		Creature: &match.CreatureSpec{Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20), ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions()},
 	}
 	return []match.DeckCard{{Card: cardtest.CreatureRef(t, 101), Quantity: cardtest.DeckQuantity(t, 3), Spec: spec}}
 }
@@ -123,7 +123,7 @@ func dragonCard(t *testing.T) []match.DeckCard {
 func deployedDragon(id uuid.UUID) query.MatchCard {
 	return query.MatchCard{
 		ID: id, Name: "ドラゴン", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal",
-		Creature: &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 20, ItemRestrictions: []string{}},
+		Creature: &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 20, ItemRestrictions: []string{}, PlacementRestrictions: []string{}},
 	}
 }
 

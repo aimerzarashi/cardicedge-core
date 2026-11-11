@@ -64,12 +64,18 @@ type ChangeItemRestrictionsCommand struct {
 	ChangedBy        operator.ID
 }
 
-func (*RegisterCommand) isCreatureCommand()               {}
-func (*PublishCommand) isCreatureCommand()                {}
-func (*RetireCommand) isCreatureCommand()                 {}
-func (*ChangeCostCommand) isCreatureCommand()             {}
-func (*ChangeRarityCommand) isCreatureCommand()           {}
-func (*ChangeElementsCommand) isCreatureCommand()         {}
-func (*ChangeStatsCommand) isCreatureCommand()            {}
-func (*ChangeMovementCommand) isCreatureCommand()         {}
-func (*ChangeItemRestrictionsCommand) isCreatureCommand() {}
+type ChangePlacementRestrictionsCommand struct {
+	PlacementRestrictions PlacementRestrictions
+	ChangedBy             operator.ID
+}
+
+func (*RegisterCommand) isCreatureCommand()                    {}
+func (*PublishCommand) isCreatureCommand()                     {}
+func (*RetireCommand) isCreatureCommand()                      {}
+func (*ChangeCostCommand) isCreatureCommand()                  {}
+func (*ChangeRarityCommand) isCreatureCommand()                {}
+func (*ChangeElementsCommand) isCreatureCommand()              {}
+func (*ChangeStatsCommand) isCreatureCommand()                 {}
+func (*ChangeMovementCommand) isCreatureCommand()              {}
+func (*ChangeItemRestrictionsCommand) isCreatureCommand()      {}
+func (*ChangePlacementRestrictionsCommand) isCreatureCommand() {}

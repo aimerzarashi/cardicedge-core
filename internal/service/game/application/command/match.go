@@ -282,7 +282,11 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 	if err != nil {
 		return match.CreatureSpec{}, err
 	}
-	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, Movement: movement, ItemRestrictions: itemRestrictions}, nil
+	placementRestrictions, err := creature.NewPlacementRestrictions(source.PlacementRestrictions)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, Movement: movement, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions}, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）

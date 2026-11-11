@@ -259,6 +259,28 @@ func TestChangeCreatureItemRestrictions_ChangesCreatureAfterProjected(t *testing
 	})
 }
 
+func TestChangeCreaturePlacementRestrictions_ChangesCreatureAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ドラゴン-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	changed := client.Data(t, token, `mutation ($input: ChangeCreaturePlacementRestrictionsInput!) {
+		changeCreaturePlacementRestrictions(input: $input) { __typename ... on ChangeCreaturePlacementRestrictionsSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "placementRestrictions": []string{"WIND", "FIRE"}}}, "changeCreaturePlacementRestrictions")
+	invalid := client.Data(t, token, `mutation ($input: ChangeCreaturePlacementRestrictionsInput!) {
+		changeCreaturePlacementRestrictions(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "placementRestrictions": []string{"NEUTRAL"}}}, "changeCreaturePlacementRestrictions")
+
+	require.Equal(t, map[string]any{"__typename": "ChangeCreaturePlacementRestrictionsSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "placementRestrictions"}}}, invalid)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { placementRestrictions revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"placementRestrictions": []any{"FIRE", "WIND"}, "revision": float64(2)}, got)
+		}
+	})
+}
+
 func TestChangeCreatureMovement_ChangesCreatureAfterProjected(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)

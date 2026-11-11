@@ -20,6 +20,8 @@ type Creature implements Card {
   movement: Int!
   "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
   itemRestrictions: [ItemCategory!]!
+  "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
+  placementRestrictions: [CreatureElement!]!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -143,6 +145,27 @@ type ChangeCreatureItemRestrictionsSuccess {
 "クリーチャーのアイテム制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
 union ChangeCreatureItemRestrictionsResult = ChangeCreatureItemRestrictionsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
 
+"クリーチャーの配置制限を変える入力"
+input ChangeCreaturePlacementRestrictionsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の配置制限（置けない土地の属性。火・地・水・風で重複なし。無しは空）"
+  placementRestrictions: [CreatureElement!]!
+}
+
+"クリーチャーの配置制限を変えた（同じ集合なら何も変えず、revision も進まない）"
+type ChangeCreaturePlacementRestrictionsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの配置制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreaturePlacementRestrictionsResult = ChangeCreaturePlacementRestrictionsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
 extend type Mutation {
   "クリーチャーの属性を変える（紐づいたオペレーターだけ。準備中だけ）"
   changeCreatureElements(
@@ -164,6 +187,11 @@ extend type Mutation {
     "変えるクリーチャーとアイテム制限"
     input: ChangeCreatureItemRestrictionsInput!
   ): ChangeCreatureItemRestrictionsResult!
+  "クリーチャーの配置制限を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCreaturePlacementRestrictions(
+    "変えるクリーチャーと配置制限"
+    input: ChangeCreaturePlacementRestrictionsInput!
+  ): ChangeCreaturePlacementRestrictionsResult!
   "クリーチャーを登録する（紐づいたオペレーターだけ）"
   registerCreature(
     "登録するクリーチャー"

@@ -121,6 +121,54 @@ func (a Attack) Modified(delta int) Attack {
 	return Attack(max(int(a)+delta, 0))
 }
 
+// クリーチャーの配置制限の集合。置けない土地の属性を 0〜4 個（火・地・水・風。無は土地の属性としてあるが制限の値に無いので持てない。
+// 重複なし）。並びは火・地・水・風に固定する。Elements と違って空を許し、無を持たない（決まりが別なので型を分ける）。
+// 制限が無いときも nil でなく空にする（理由は ItemRestrictions と同じ）
+type PlacementRestrictions []Element
+
+// 登録の直後の配置制限（無し）。共有のスライスを変えられないよう、呼ぶたびに作る
+func DefaultPlacementRestrictions() PlacementRestrictions {
+	return PlacementRestrictions{}
+}
+
+func NewPlacementRestrictions(values []string) (PlacementRestrictions, error) {
+	selected := map[Element]bool{}
+	for _, value := range values {
+		element := Element(value)
+		if !slices.Contains(canonicalElements, element) {
+			return nil, fmt.Errorf("%w: %q", ErrPlacementRestrictionUnknown, value)
+		}
+		if selected[element] {
+			return nil, fmt.Errorf("%w: %q", ErrPlacementRestrictionsDuplicated, value)
+		}
+		selected[element] = true
+	}
+	restrictions := make(PlacementRestrictions, 0, len(values))
+	for _, element := range canonicalElements {
+		if selected[element] {
+			restrictions = append(restrictions, element)
+		}
+	}
+	return restrictions, nil
+}
+
+func (r PlacementRestrictions) Strings() []string {
+	values := make([]string, len(r))
+	for i, element := range r {
+		values[i] = element.String()
+	}
+	return values
+}
+
+func (r PlacementRestrictions) Equal(other PlacementRestrictions) bool {
+	return slices.Equal(r, other)
+}
+
+// 文字列で受けるのは、呼ぶ側が持つ board.Element と型が別のため。無・複の土地は値に無いので当たらない
+func (r PlacementRestrictions) Forbids(landElement string) bool {
+	return slices.Contains(r, Element(landElement))
+}
+
 // アイテム制限の 1 つ。持てないアイテムの分類（武器・防具・巻物）。分類は item.Category と名前をそろえるが、型はパッケージごとに持つ
 // （creature が item を読むと、カードの種類どうしが依存するため。core#127 で決めた形）
 type ItemRestriction string

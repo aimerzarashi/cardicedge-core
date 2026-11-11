@@ -105,6 +105,11 @@ type ChangeCreatureMovementResult interface {
 	IsChangeCreatureMovementResult()
 }
 
+// クリーチャーの配置制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreaturePlacementRestrictionsResult interface {
+	IsChangeCreaturePlacementRestrictionsResult()
+}
+
 // クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
 type ChangeCreatureStatsResult interface {
 	IsChangeCreatureStatsResult()
@@ -776,6 +781,8 @@ func (CardNotDraftError) IsChangeCreatureMovementResult() {}
 
 func (CardNotDraftError) IsChangeCreatureItemRestrictionsResult() {}
 
+func (CardNotDraftError) IsChangeCreaturePlacementRestrictionsResult() {}
+
 func (CardNotDraftError) IsChangeItemCategoryResult() {}
 
 func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
@@ -805,6 +812,8 @@ func (CardNotFoundError) IsChangeCreatureStatsResult() {}
 func (CardNotFoundError) IsChangeCreatureMovementResult() {}
 
 func (CardNotFoundError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (CardNotFoundError) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (CardNotFoundError) IsChangeItemCategoryResult() {}
 
@@ -990,6 +999,26 @@ type ChangeCreatureMovementSuccess struct {
 
 func (ChangeCreatureMovementSuccess) IsChangeCreatureMovementResult() {}
 
+// クリーチャーの配置制限を変える入力
+type ChangeCreaturePlacementRestrictionsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の配置制限（置けない土地の属性。火・地・水・風で重複なし。無しは空）
+	PlacementRestrictions []CreatureElement `json:"placementRestrictions"`
+}
+
+// クリーチャーの配置制限を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreaturePlacementRestrictionsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreaturePlacementRestrictionsSuccess) IsChangeCreaturePlacementRestrictionsResult() {}
+
 // クリーチャーの攻撃力と体力を変える入力
 type ChangeCreatureStatsInput struct {
 	// クリーチャーの公開用の ID
@@ -1134,6 +1163,8 @@ type Creature struct {
 	Movement int `json:"movement"`
 	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
 	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
+	// 配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）
+	PlacementRestrictions []CreatureElement `json:"placementRestrictions"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1508,6 +1539,8 @@ func (ForbiddenError) IsChangeCreatureStatsResult() {}
 func (ForbiddenError) IsChangeCreatureMovementResult() {}
 
 func (ForbiddenError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (ForbiddenError) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
@@ -2602,6 +2635,8 @@ func (RevisionConflictError) IsChangeCreatureMovementResult() {}
 
 func (RevisionConflictError) IsChangeCreatureItemRestrictionsResult() {}
 
+func (RevisionConflictError) IsChangeCreaturePlacementRestrictionsResult() {}
+
 func (RevisionConflictError) IsRenameGrantDeckResult() {}
 
 func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
@@ -3133,6 +3168,8 @@ func (ValidationErrors) IsChangeCreatureStatsResult() {}
 func (ValidationErrors) IsChangeCreatureMovementResult() {}
 
 func (ValidationErrors) IsChangeCreatureItemRestrictionsResult() {}
+
+func (ValidationErrors) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (ValidationErrors) IsGrantDecksResult() {}
 

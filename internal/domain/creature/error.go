@@ -15,4 +15,7 @@ var (
 
 	ErrItemRestrictionUnknown     = errors.New("creature: unknown item restriction")
 	ErrItemRestrictionsDuplicated = errors.New("creature: duplicated item restriction")
+
+	ErrPlacementRestrictionUnknown     = errors.New("creature: unknown placement restriction")
+	ErrPlacementRestrictionsDuplicated = errors.New("creature: duplicated placement restriction")
 )

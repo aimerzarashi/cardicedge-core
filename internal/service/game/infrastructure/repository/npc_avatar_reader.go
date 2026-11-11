@@ -89,11 +89,12 @@ type itemMetadata struct {
 }
 
 type creatureMetadata struct {
-	Elements         []string `json:"elements"`
-	Attack           *int     `json:"attack"`
-	HitPoints        *int     `json:"hit_points"`
-	Movement         *int     `json:"movement"`
-	ItemRestrictions []string `json:"item_restrictions"`
+	Elements              []string `json:"elements"`
+	Attack                *int     `json:"attack"`
+	HitPoints             *int     `json:"hit_points"`
+	Movement              *int     `json:"movement"`
+	ItemRestrictions      []string `json:"item_restrictions"`
+	PlacementRestrictions []string `json:"placement_restrictions"`
 }
 
 // プレイヤーが解放した NPC のアバターを、解放した順（read model unlocks の metadata の並び）に読む。公開中でないもの
@@ -273,10 +274,10 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	card := query.DeckCard{CardID: id, Name: metadata.Name, Type: cardType, Cost: *metadata.Cost, Rarity: metadata.Rarity}
 	if cardType == query.CardTypeCreature {
 		creatureSpec := metadata.Creature
-		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.Movement == nil || creatureSpec.ItemRestrictions == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, movement or item_restrictions (project the cards again and publish the master)", id)
+		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.Movement == nil || creatureSpec.ItemRestrictions == nil || creatureSpec.PlacementRestrictions == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, movement, item_restrictions or placement_restrictions (project the cards again and publish the master)", id)
 		}
-		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, Movement: *creatureSpec.Movement, ItemRestrictions: creatureSpec.ItemRestrictions}
+		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, Movement: *creatureSpec.Movement, ItemRestrictions: creatureSpec.ItemRestrictions, PlacementRestrictions: creatureSpec.PlacementRestrictions}
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item

@@ -211,15 +211,16 @@ type ComplexityRoot struct {
 	}
 
 	CreatureCardInfo struct {
-		Attack           func(childComplexity int) int
-		Cost             func(childComplexity int) int
-		Elements         func(childComplexity int) int
-		HitPoints        func(childComplexity int) int
-		ID               func(childComplexity int) int
-		ItemRestrictions func(childComplexity int) int
-		Movement         func(childComplexity int) int
-		Name             func(childComplexity int) int
-		Rarity           func(childComplexity int) int
+		Attack                func(childComplexity int) int
+		Cost                  func(childComplexity int) int
+		Elements              func(childComplexity int) int
+		HitPoints             func(childComplexity int) int
+		ID                    func(childComplexity int) int
+		ItemRestrictions      func(childComplexity int) int
+		Movement              func(childComplexity int) int
+		Name                  func(childComplexity int) int
+		PlacementRestrictions func(childComplexity int) int
+		Rarity                func(childComplexity int) int
 	}
 
 	Deck struct {
@@ -1888,6 +1889,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureCardInfo.Name(childComplexity), true
+	case "CreatureCardInfo.placementRestrictions":
+		if e.ComplexityRoot.CreatureCardInfo.PlacementRestrictions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureCardInfo.PlacementRestrictions(childComplexity), true
 	case "CreatureCardInfo.rarity":
 		if e.ComplexityRoot.CreatureCardInfo.Rarity == nil {
 			break
@@ -6045,6 +6052,8 @@ func (ec *executionContext) childFields_CreatureCardInfo(ctx context.Context, fi
 		return ec.fieldContext_CreatureCardInfo_movement(ctx, field)
 	case "itemRestrictions":
 		return ec.fieldContext_CreatureCardInfo_itemRestrictions(ctx, field)
+	case "placementRestrictions":
+		return ec.fieldContext_CreatureCardInfo_placementRestrictions(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CreatureCardInfo", field.Name)
 }
@@ -9651,6 +9660,29 @@ func (ec *executionContext) _CreatureCardInfo_itemRestrictions(ctx context.Conte
 }
 func (ec *executionContext) fieldContext_CreatureCardInfo_itemRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "ItemCategory")
+}
+
+func (ec *executionContext) _CreatureCardInfo_placementRestrictions(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureCardInfo_placementRestrictions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PlacementRestrictions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureCardInfo_placementRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureCardInfo", field, false, false, "CreatureElement")
 }
 
 func (ec *executionContext) _Deck_id(ctx context.Context, field graphql.CollectedField, obj *model.Deck) (ret graphql.Marshaler) {
@@ -31886,6 +31918,11 @@ func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.Selec
 			}
 		case "itemRestrictions":
 			out.Values[i] = ec._CreatureCardInfo_itemRestrictions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "placementRestrictions":
+			out.Values[i] = ec._CreatureCardInfo_placementRestrictions(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

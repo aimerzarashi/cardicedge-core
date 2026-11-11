@@ -214,6 +214,11 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	ChangeCreaturePlacementRestrictionsSuccess struct {
+		ID       func(childComplexity int) int
+		Revision func(childComplexity int) int
+	}
+
 	ChangeCreatureStatsSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
@@ -244,19 +249,20 @@ type ComplexityRoot struct {
 	}
 
 	Creature struct {
-		Attack           func(childComplexity int) int
-		Cost             func(childComplexity int) int
-		Elements         func(childComplexity int) int
-		HitPoints        func(childComplexity int) int
-		ID               func(childComplexity int) int
-		ItemRestrictions func(childComplexity int) int
-		Movement         func(childComplexity int) int
-		Name             func(childComplexity int) int
-		Rarity           func(childComplexity int) int
-		RegisteredAt     func(childComplexity int) int
-		Revision         func(childComplexity int) int
-		Status           func(childComplexity int) int
-		UpdatedAt        func(childComplexity int) int
+		Attack                func(childComplexity int) int
+		Cost                  func(childComplexity int) int
+		Elements              func(childComplexity int) int
+		HitPoints             func(childComplexity int) int
+		ID                    func(childComplexity int) int
+		ItemRestrictions      func(childComplexity int) int
+		Movement              func(childComplexity int) int
+		Name                  func(childComplexity int) int
+		PlacementRestrictions func(childComplexity int) int
+		Rarity                func(childComplexity int) int
+		RegisteredAt          func(childComplexity int) int
+		Revision              func(childComplexity int) int
+		Status                func(childComplexity int) int
+		UpdatedAt             func(childComplexity int) int
 	}
 
 	DeckCard struct {
@@ -448,59 +454,60 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		ChangeBoardDefaultRules         func(childComplexity int, input model.ChangeBoardDefaultRulesInput) int
-		ChangeBoardLayout               func(childComplexity int, input model.ChangeBoardLayoutInput) int
-		ChangeCardCost                  func(childComplexity int, input model.ChangeCardCostInput) int
-		ChangeCardRarity                func(childComplexity int, input model.ChangeCardRarityInput) int
-		ChangeCreatureElements          func(childComplexity int, input model.ChangeCreatureElementsInput) int
-		ChangeCreatureItemRestrictions  func(childComplexity int, input model.ChangeCreatureItemRestrictionsInput) int
-		ChangeCreatureMovement          func(childComplexity int, input model.ChangeCreatureMovementInput) int
-		ChangeCreatureStats             func(childComplexity int, input model.ChangeCreatureStatsInput) int
-		ChangeItemCategory              func(childComplexity int, input model.ChangeItemCategoryInput) int
-		ChangeItemStatBonuses           func(childComplexity int, input model.ChangeItemStatBonusesInput) int
-		ChangeSpellEffect               func(childComplexity int, input model.ChangeSpellEffectInput) int
-		DeleteBoard                     func(childComplexity int, input model.DeleteBoardInput) int
-		DeleteGrantDeck                 func(childComplexity int, input model.DeleteGrantDeckInput) int
-		DeleteNpcAvatar                 func(childComplexity int, input model.DeleteNpcAvatarInput) int
-		DeleteNpcDeck                   func(childComplexity int, input model.DeleteNpcDeckInput) int
-		DeletePresetDeck                func(childComplexity int, input model.DeletePresetDeckInput) int
-		DeleteStarterSet                func(childComplexity int, input model.DeleteStarterSetInput) int
-		PublishBoard                    func(childComplexity int, input model.PublishBoardInput) int
-		PublishCard                     func(childComplexity int, input model.PublishCardInput) int
-		PublishGrantDeck                func(childComplexity int, input model.PublishGrantDeckInput) int
-		PublishNpcAvatar                func(childComplexity int, input model.PublishNpcAvatarInput) int
-		PublishNpcDeck                  func(childComplexity int, input model.PublishNpcDeckInput) int
-		PublishStarterSet               func(childComplexity int, input model.PublishStarterSetInput) int
-		RegisterBoard                   func(childComplexity int, input model.RegisterBoardInput) int
-		RegisterCreature                func(childComplexity int, input model.RegisterCreatureInput) int
-		RegisterGrantDeck               func(childComplexity int, input model.RegisterGrantDeckInput) int
-		RegisterGrantDeckFromPresetDeck func(childComplexity int, input model.RegisterGrantDeckFromPresetDeckInput) int
-		RegisterItem                    func(childComplexity int, input model.RegisterItemInput) int
-		RegisterNpcAvatar               func(childComplexity int, input model.RegisterNpcAvatarInput) int
-		RegisterNpcDeck                 func(childComplexity int, input model.RegisterNpcDeckInput) int
-		RegisterNpcDeckFromPresetDeck   func(childComplexity int, input model.RegisterNpcDeckFromPresetDeckInput) int
-		RegisterPresetDeck              func(childComplexity int, input model.RegisterPresetDeckInput) int
-		RegisterSpell                   func(childComplexity int, input model.RegisterSpellInput) int
-		RegisterStarterSet              func(childComplexity int, input model.RegisterStarterSetInput) int
-		RenameBoard                     func(childComplexity int, input model.RenameBoardInput) int
-		RenameGrantDeck                 func(childComplexity int, input model.RenameGrantDeckInput) int
-		RenameNpcAvatar                 func(childComplexity int, input model.RenameNpcAvatarInput) int
-		RenameNpcDeck                   func(childComplexity int, input model.RenameNpcDeckInput) int
-		RenamePresetDeck                func(childComplexity int, input model.RenamePresetDeckInput) int
-		RenameStarterSet                func(childComplexity int, input model.RenameStarterSetInput) int
-		RetireBoard                     func(childComplexity int, input model.RetireBoardInput) int
-		RetireCard                      func(childComplexity int, input model.RetireCardInput) int
-		RetireGrantDeck                 func(childComplexity int, input model.RetireGrantDeckInput) int
-		RetireNpcAvatar                 func(childComplexity int, input model.RetireNpcAvatarInput) int
-		RetireNpcDeck                   func(childComplexity int, input model.RetireNpcDeckInput) int
-		RetireStarterSet                func(childComplexity int, input model.RetireStarterSetInput) int
-		SetGrantDeckCardCounts          func(childComplexity int, input model.SetGrantDeckCardCountsInput) int
-		SetNpcAvatarDecks               func(childComplexity int, input model.SetNpcAvatarDecksInput) int
-		SetNpcDeckCardCounts            func(childComplexity int, input model.SetNpcDeckCardCountsInput) int
-		SetPresetDeckCardCounts         func(childComplexity int, input model.SetPresetDeckCardCountsInput) int
-		SetStarterSetGrantDecks         func(childComplexity int, input model.SetStarterSetGrantDecksInput) int
-		SetStarterSetUnlockBoards       func(childComplexity int, input model.SetStarterSetUnlockBoardsInput) int
-		SetStarterSetUnlockNpcAvatars   func(childComplexity int, input model.SetStarterSetUnlockNpcAvatarsInput) int
+		ChangeBoardDefaultRules             func(childComplexity int, input model.ChangeBoardDefaultRulesInput) int
+		ChangeBoardLayout                   func(childComplexity int, input model.ChangeBoardLayoutInput) int
+		ChangeCardCost                      func(childComplexity int, input model.ChangeCardCostInput) int
+		ChangeCardRarity                    func(childComplexity int, input model.ChangeCardRarityInput) int
+		ChangeCreatureElements              func(childComplexity int, input model.ChangeCreatureElementsInput) int
+		ChangeCreatureItemRestrictions      func(childComplexity int, input model.ChangeCreatureItemRestrictionsInput) int
+		ChangeCreatureMovement              func(childComplexity int, input model.ChangeCreatureMovementInput) int
+		ChangeCreaturePlacementRestrictions func(childComplexity int, input model.ChangeCreaturePlacementRestrictionsInput) int
+		ChangeCreatureStats                 func(childComplexity int, input model.ChangeCreatureStatsInput) int
+		ChangeItemCategory                  func(childComplexity int, input model.ChangeItemCategoryInput) int
+		ChangeItemStatBonuses               func(childComplexity int, input model.ChangeItemStatBonusesInput) int
+		ChangeSpellEffect                   func(childComplexity int, input model.ChangeSpellEffectInput) int
+		DeleteBoard                         func(childComplexity int, input model.DeleteBoardInput) int
+		DeleteGrantDeck                     func(childComplexity int, input model.DeleteGrantDeckInput) int
+		DeleteNpcAvatar                     func(childComplexity int, input model.DeleteNpcAvatarInput) int
+		DeleteNpcDeck                       func(childComplexity int, input model.DeleteNpcDeckInput) int
+		DeletePresetDeck                    func(childComplexity int, input model.DeletePresetDeckInput) int
+		DeleteStarterSet                    func(childComplexity int, input model.DeleteStarterSetInput) int
+		PublishBoard                        func(childComplexity int, input model.PublishBoardInput) int
+		PublishCard                         func(childComplexity int, input model.PublishCardInput) int
+		PublishGrantDeck                    func(childComplexity int, input model.PublishGrantDeckInput) int
+		PublishNpcAvatar                    func(childComplexity int, input model.PublishNpcAvatarInput) int
+		PublishNpcDeck                      func(childComplexity int, input model.PublishNpcDeckInput) int
+		PublishStarterSet                   func(childComplexity int, input model.PublishStarterSetInput) int
+		RegisterBoard                       func(childComplexity int, input model.RegisterBoardInput) int
+		RegisterCreature                    func(childComplexity int, input model.RegisterCreatureInput) int
+		RegisterGrantDeck                   func(childComplexity int, input model.RegisterGrantDeckInput) int
+		RegisterGrantDeckFromPresetDeck     func(childComplexity int, input model.RegisterGrantDeckFromPresetDeckInput) int
+		RegisterItem                        func(childComplexity int, input model.RegisterItemInput) int
+		RegisterNpcAvatar                   func(childComplexity int, input model.RegisterNpcAvatarInput) int
+		RegisterNpcDeck                     func(childComplexity int, input model.RegisterNpcDeckInput) int
+		RegisterNpcDeckFromPresetDeck       func(childComplexity int, input model.RegisterNpcDeckFromPresetDeckInput) int
+		RegisterPresetDeck                  func(childComplexity int, input model.RegisterPresetDeckInput) int
+		RegisterSpell                       func(childComplexity int, input model.RegisterSpellInput) int
+		RegisterStarterSet                  func(childComplexity int, input model.RegisterStarterSetInput) int
+		RenameBoard                         func(childComplexity int, input model.RenameBoardInput) int
+		RenameGrantDeck                     func(childComplexity int, input model.RenameGrantDeckInput) int
+		RenameNpcAvatar                     func(childComplexity int, input model.RenameNpcAvatarInput) int
+		RenameNpcDeck                       func(childComplexity int, input model.RenameNpcDeckInput) int
+		RenamePresetDeck                    func(childComplexity int, input model.RenamePresetDeckInput) int
+		RenameStarterSet                    func(childComplexity int, input model.RenameStarterSetInput) int
+		RetireBoard                         func(childComplexity int, input model.RetireBoardInput) int
+		RetireCard                          func(childComplexity int, input model.RetireCardInput) int
+		RetireGrantDeck                     func(childComplexity int, input model.RetireGrantDeckInput) int
+		RetireNpcAvatar                     func(childComplexity int, input model.RetireNpcAvatarInput) int
+		RetireNpcDeck                       func(childComplexity int, input model.RetireNpcDeckInput) int
+		RetireStarterSet                    func(childComplexity int, input model.RetireStarterSetInput) int
+		SetGrantDeckCardCounts              func(childComplexity int, input model.SetGrantDeckCardCountsInput) int
+		SetNpcAvatarDecks                   func(childComplexity int, input model.SetNpcAvatarDecksInput) int
+		SetNpcDeckCardCounts                func(childComplexity int, input model.SetNpcDeckCardCountsInput) int
+		SetPresetDeckCardCounts             func(childComplexity int, input model.SetPresetDeckCardCountsInput) int
+		SetStarterSetGrantDecks             func(childComplexity int, input model.SetStarterSetGrantDecksInput) int
+		SetStarterSetUnlockBoards           func(childComplexity int, input model.SetStarterSetUnlockBoardsInput) int
+		SetStarterSetUnlockNpcAvatars       func(childComplexity int, input model.SetStarterSetUnlockNpcAvatarsInput) int
 	}
 
 	NoCheckpointProblem struct {
@@ -946,6 +953,7 @@ type MutationResolver interface {
 	ChangeCreatureStats(ctx context.Context, input model.ChangeCreatureStatsInput) (model.ChangeCreatureStatsResult, error)
 	ChangeCreatureMovement(ctx context.Context, input model.ChangeCreatureMovementInput) (model.ChangeCreatureMovementResult, error)
 	ChangeCreatureItemRestrictions(ctx context.Context, input model.ChangeCreatureItemRestrictionsInput) (model.ChangeCreatureItemRestrictionsResult, error)
+	ChangeCreaturePlacementRestrictions(ctx context.Context, input model.ChangeCreaturePlacementRestrictionsInput) (model.ChangeCreaturePlacementRestrictionsResult, error)
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
 	RegisterGrantDeck(ctx context.Context, input model.RegisterGrantDeckInput) (model.RegisterGrantDeckResult, error)
 	RegisterGrantDeckFromPresetDeck(ctx context.Context, input model.RegisterGrantDeckFromPresetDeckInput) (model.RegisterGrantDeckFromPresetDeckResult, error)
@@ -1564,6 +1572,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ChangeCreatureMovementSuccess.Revision(childComplexity), true
 
+	case "ChangeCreaturePlacementRestrictionsSuccess.id":
+		if e.ComplexityRoot.ChangeCreaturePlacementRestrictionsSuccess.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeCreaturePlacementRestrictionsSuccess.ID(childComplexity), true
+	case "ChangeCreaturePlacementRestrictionsSuccess.revision":
+		if e.ComplexityRoot.ChangeCreaturePlacementRestrictionsSuccess.Revision == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ChangeCreaturePlacementRestrictionsSuccess.Revision(childComplexity), true
+
 	case "ChangeCreatureStatsSuccess.id":
 		if e.ComplexityRoot.ChangeCreatureStatsSuccess.ID == nil {
 			break
@@ -1684,6 +1705,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.Name(childComplexity), true
+	case "Creature.placementRestrictions":
+		if e.ComplexityRoot.Creature.PlacementRestrictions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.PlacementRestrictions(childComplexity), true
 	case "Creature.rarity":
 		if e.ComplexityRoot.Creature.Rarity == nil {
 			break
@@ -2257,6 +2284,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ChangeCreatureMovement(childComplexity, args["input"].(model.ChangeCreatureMovementInput)), true
+	case "Mutation.changeCreaturePlacementRestrictions":
+		if e.ComplexityRoot.Mutation.ChangeCreaturePlacementRestrictions == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_changeCreaturePlacementRestrictions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ChangeCreaturePlacementRestrictions(childComplexity, args["input"].(model.ChangeCreaturePlacementRestrictionsInput)), true
 	case "Mutation.changeCreatureStats":
 		if e.ComplexityRoot.Mutation.ChangeCreatureStats == nil {
 			break
@@ -4033,6 +4071,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChangeCreatureElementsInput", ec.unmarshalInputChangeCreatureElementsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureItemRestrictionsInput", ec.unmarshalInputChangeCreatureItemRestrictionsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureMovementInput", ec.unmarshalInputChangeCreatureMovementInput),
+			graphql.NewInputUnmarshaler("ChangeCreaturePlacementRestrictionsInput", ec.unmarshalInputChangeCreaturePlacementRestrictionsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureStatsInput", ec.unmarshalInputChangeCreatureStatsInput),
 			graphql.NewInputUnmarshaler("ChangeItemCategoryInput", ec.unmarshalInputChangeItemCategoryInput),
 			graphql.NewInputUnmarshaler("ChangeItemStatBonusesInput", ec.unmarshalInputChangeItemStatBonusesInput),
@@ -4375,6 +4414,8 @@ func (ec *executionContext) childFields_Creature(ctx context.Context, field grap
 		return ec.fieldContext_Creature_movement(ctx, field)
 	case "itemRestrictions":
 		return ec.fieldContext_Creature_itemRestrictions(ctx, field)
+	case "placementRestrictions":
+		return ec.fieldContext_Creature_placementRestrictions(ctx, field)
 	case "revision":
 		return ec.fieldContext_Creature_revision(ctx, field)
 	case "registeredAt":
@@ -4839,6 +4880,20 @@ func (ec *executionContext) field_Mutation_changeCreatureMovement_args(ctx conte
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.ChangeCreatureMovementInput, error) {
 			return ec.unmarshalNChangeCreatureMovementInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureMovementInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_changeCreaturePlacementRestrictions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.ChangeCreaturePlacementRestrictionsInput, error) {
+			return ec.unmarshalNChangeCreaturePlacementRestrictionsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreaturePlacementRestrictionsInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -7972,6 +8027,52 @@ func (ec *executionContext) fieldContext_ChangeCreatureMovementSuccess_revision(
 	return graphql.NewScalarFieldContext("ChangeCreatureMovementSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ChangeCreaturePlacementRestrictionsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreaturePlacementRestrictionsSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeCreaturePlacementRestrictionsSuccess_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeCreaturePlacementRestrictionsSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeCreaturePlacementRestrictionsSuccess", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _ChangeCreaturePlacementRestrictionsSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreaturePlacementRestrictionsSuccess) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ChangeCreaturePlacementRestrictionsSuccess_revision(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Revision, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ChangeCreaturePlacementRestrictionsSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeCreaturePlacementRestrictionsSuccess", field, false, false, "Int")
+}
+
 func (ec *executionContext) _ChangeCreatureStatsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureStatsSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8462,6 +8563,29 @@ func (ec *executionContext) _Creature_itemRestrictions(ctx context.Context, fiel
 }
 func (ec *executionContext) fieldContext_Creature_itemRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Creature", field, false, false, "ItemCategory")
+}
+
+func (ec *executionContext) _Creature_placementRestrictions(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_placementRestrictions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PlacementRestrictions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_placementRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, "CreatureElement")
 }
 
 func (ec *executionContext) _Creature_revision(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
@@ -10874,6 +10998,50 @@ func (ec *executionContext) fieldContext_Mutation_changeCreatureItemRestrictions
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_changeCreatureItemRestrictions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_changeCreaturePlacementRestrictions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_changeCreaturePlacementRestrictions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ChangeCreaturePlacementRestrictions(ctx, fc.Args["input"].(model.ChangeCreaturePlacementRestrictionsInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeCreaturePlacementRestrictionsResult) graphql.Marshaler {
+			return ec.marshalNChangeCreaturePlacementRestrictionsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreaturePlacementRestrictionsResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_changeCreaturePlacementRestrictions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ChangeCreaturePlacementRestrictionsResult does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_changeCreaturePlacementRestrictions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -19246,6 +19414,62 @@ func UnmarshalChangeCreatureMovementInput(ctx context.Context, raw any) (model.C
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputChangeCreaturePlacementRestrictionsInput(ctx context.Context, obj any) (model.ChangeCreaturePlacementRestrictionsInput, error) {
+	var it model.ChangeCreaturePlacementRestrictionsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"id", "revision", "placementRestrictions"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "revision":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("revision"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Revision = data
+		case "placementRestrictions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("placementRestrictions"))
+			data, err := ec.unmarshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PlacementRestrictions = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalChangeCreaturePlacementRestrictionsInput unmarshals raw into the ChangeCreaturePlacementRestrictionsInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalChangeCreaturePlacementRestrictionsInput(ctx context.Context, raw any) (model.ChangeCreaturePlacementRestrictionsInput, error) {
+	var out model.ChangeCreaturePlacementRestrictionsInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeCreaturePlacementRestrictionsInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputChangeCreatureStatsInput(ctx context.Context, obj any) (model.ChangeCreatureStatsInput, error) {
 	var it model.ChangeCreatureStatsInput
 	if obj == nil {
@@ -22998,6 +23222,61 @@ func (ec *executionContext) _ChangeCreatureMovementResult(ctx context.Context, s
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeCreatureMovementResult must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _ChangeCreaturePlacementRestrictionsResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeCreaturePlacementRestrictionsResult) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.ValidationErrors:
+		return ec._ValidationErrors(ctx, sel, &obj)
+	case *model.ValidationErrors:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ValidationErrors(ctx, sel, obj)
+	case model.RevisionConflictError:
+		return ec._RevisionConflictError(ctx, sel, &obj)
+	case *model.RevisionConflictError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._RevisionConflictError(ctx, sel, obj)
+	case model.ForbiddenError:
+		return ec._ForbiddenError(ctx, sel, &obj)
+	case *model.ForbiddenError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbiddenError(ctx, sel, obj)
+	case model.ChangeCreaturePlacementRestrictionsSuccess:
+		return ec._ChangeCreaturePlacementRestrictionsSuccess(ctx, sel, &obj)
+	case *model.ChangeCreaturePlacementRestrictionsSuccess:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ChangeCreaturePlacementRestrictionsSuccess(ctx, sel, obj)
+	case model.CardNotFoundError:
+		return ec._CardNotFoundError(ctx, sel, &obj)
+	case *model.CardNotFoundError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotFoundError(ctx, sel, obj)
+	case model.CardNotDraftError:
+		return ec._CardNotDraftError(ctx, sel, &obj)
+	case *model.CardNotDraftError:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CardNotDraftError(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeCreaturePlacementRestrictionsResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -26756,7 +27035,7 @@ func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel 
 	return out
 }
 
-var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
+var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotDraftError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotDraftErrorImplementors)
@@ -26789,7 +27068,7 @@ func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
@@ -27126,6 +27405,44 @@ func (ec *executionContext) _ChangeCreatureMovementSuccess(ctx context.Context, 
 	return out
 }
 
+var changeCreaturePlacementRestrictionsSuccessImplementors = []string{"ChangeCreaturePlacementRestrictionsSuccess", "ChangeCreaturePlacementRestrictionsResult"}
+
+func (ec *executionContext) _ChangeCreaturePlacementRestrictionsSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeCreaturePlacementRestrictionsSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeCreaturePlacementRestrictionsSuccessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ChangeCreaturePlacementRestrictionsSuccess")
+		case "id":
+			out.Values[i] = ec._ChangeCreaturePlacementRestrictionsSuccess_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revision":
+			out.Values[i] = ec._ChangeCreaturePlacementRestrictionsSuccess_revision(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var changeCreatureStatsSuccessImplementors = []string{"ChangeCreatureStatsSuccess", "ChangeCreatureStatsResult"}
 
 func (ec *executionContext) _ChangeCreatureStatsSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeCreatureStatsSuccess) graphql.Marshaler {
@@ -27407,6 +27724,11 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "itemRestrictions":
 			out.Values[i] = ec._Creature_itemRestrictions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "placementRestrictions":
+			out.Values[i] = ec._Creature_placementRestrictions(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28208,7 +28530,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -29010,6 +29332,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "changeCreatureItemRestrictions":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_changeCreatureItemRestrictions(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "changeCreaturePlacementRestrictions":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_changeCreaturePlacementRestrictions(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -31344,7 +31673,7 @@ func (ec *executionContext) _RetireStarterSetSuccess(ctx context.Context, sel as
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -32393,7 +32722,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureMovementResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -33297,6 +33626,19 @@ func (ec *executionContext) marshalNChangeCreatureMovementResult2gitlabᚗcomᚋ
 		return graphql.Null
 	}
 	return ec._ChangeCreatureMovementResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNChangeCreaturePlacementRestrictionsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreaturePlacementRestrictionsInput(ctx context.Context, v any) (model.ChangeCreaturePlacementRestrictionsInput, error) {
+	res, err := ec.unmarshalInputChangeCreaturePlacementRestrictionsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChangeCreaturePlacementRestrictionsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreaturePlacementRestrictionsResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeCreaturePlacementRestrictionsResult) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ChangeCreaturePlacementRestrictionsResult!")
+		return graphql.Null
+	}
+	return ec._ChangeCreaturePlacementRestrictionsResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNChangeCreatureStatsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureStatsInput(ctx context.Context, v any) (model.ChangeCreatureStatsInput, error) {
