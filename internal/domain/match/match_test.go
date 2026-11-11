@@ -1346,6 +1346,53 @@ func TestDecide_StoppingOnAnotherTerritoryWaitsEvenWithoutACreatureThatCanBePaid
 	require.Empty(t, state.InvadeChoices())
 }
 
+// 領地のクリーチャーに通行料の倍率を持たせる
+func withTollMultiplier(t *testing.T, state match.Match, percent int) match.Match {
+	t.Helper()
+	value, err := creature.NewTollMultiplierPercent(percent)
+	require.NoError(t, err)
+	abilities, err := creature.NewAbilities([]creature.Ability{creature.NewTollMultiplierAbility(value)})
+	require.NoError(t, err)
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	for i := range state.DeployedCreatures {
+		state.DeployedCreatures[i].Base.Abilities = abilities
+	}
+	return state
+}
+
+func TestMatch_TerritoryTollAppliesTheTollMultiplierOfTheCreatureAndFloorsOnce(t *testing.T) {
+	tests := []struct {
+		name    string
+		percent int
+		want    int
+	}{
+		// 価値 100 × 60% × 150% = 90
+		{name: "one_and_a_half", percent: 150, want: 90},
+		// 100 × 60% × 133% = 79.8 → 79（60% で切り捨ててから掛けると 60 × 133% = 79.8 で同じだが、割合ごとに切り捨てない）
+		{name: "floors_at_the_end", percent: 133, want: 79},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withTollMultiplier(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), tt.percent)
+			territory, ok := state.TerritoryAt(pos(t, 1, 0))
+			require.True(t, ok)
+
+			require.Equal(t, tt.want, state.TerritoryToll(territory))
+			// 倍率は通行料だけで、価値は変えない
+			require.Equal(t, 100, state.TerritoryValue(territory))
+		})
+	}
+}
+
+func TestDecide_PayTollPaysTheMultipliedToll(t *testing.T) {
+	state := withTollMultiplier(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), 150)
+	state, _ = drawAndRoll(t, state, 1, 1)
+
+	state, _ = payToll(t, state, 1)
+
+	require.Equal(t, 600-90, state.Participants[1].Magic)
+}
+
 func TestDecide_PayTollPaysAndEndsTheTurn(t *testing.T) {
 	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
 	state, _ = drawAndRoll(t, state, 1, 1)

@@ -264,9 +264,33 @@ func (h HitPoints) Modified(delta int) HitPoints {
 type Ability struct {
 	// 防御型。侵略に出せず、クリーチャー移動もできない（守ることはできる）
 	Defensive *DefensiveAbility `json:"defensive,omitempty"`
+	// 通行料の倍率。このクリーチャーのいる領地の通行料に掛ける（core#157）
+	TollMultiplier *TollMultiplierAbility `json:"toll_multiplier,omitempty"`
 }
 
 type DefensiveAbility struct{}
+
+type TollMultiplierAbility struct {
+	Percent TollMultiplierPercent `json:"percent"`
+}
+
+func NewTollMultiplierAbility(percent TollMultiplierPercent) Ability {
+	return Ability{TollMultiplier: &TollMultiplierAbility{Percent: percent}}
+}
+
+// 通行料の倍率（百分率。150 で 1.5 倍）。1 以上。上限は持たない（決まりから導ける値が無いため）
+type TollMultiplierPercent int
+
+func NewTollMultiplierPercent(value int) (TollMultiplierPercent, error) {
+	if value < 1 {
+		return 0, ErrTollMultiplierPercentTooSmall
+	}
+	return TollMultiplierPercent(value), nil
+}
+
+func (p TollMultiplierPercent) Int() int {
+	return int(p)
+}
 
 func NewDefensiveAbility() Ability {
 	return Ability{Defensive: &DefensiveAbility{}}
@@ -274,10 +298,21 @@ func NewDefensiveAbility() Ability {
 
 // 種類の名前。同じ種類を重ねて持てないことを確かめるのに使う
 func (a Ability) kind() string {
-	if a.Defensive != nil {
+	switch {
+	case a.Defensive != nil && a.TollMultiplier == nil:
 		return "defensive"
+	case a.TollMultiplier != nil && a.Defensive == nil:
+		return "toll_multiplier"
 	}
 	return ""
+}
+
+// 種類と値が同じか（ポインタの先を比べる）
+func (a Ability) equal(other Ability) bool {
+	if a.kind() != other.kind() {
+		return false
+	}
+	return a.TollMultiplier == nil || a.TollMultiplier.Percent == other.TollMultiplier.Percent
 }
 
 func (a Ability) IsDefensive() bool {
@@ -311,9 +346,19 @@ func NewAbilities(values []Ability) (Abilities, error) {
 }
 
 func (a Abilities) Equal(other Abilities) bool {
-	return slices.EqualFunc(a, other, func(x, y Ability) bool { return x.kind() == y.kind() })
+	return slices.EqualFunc(a, other, Ability.equal)
 }
 
 func (a Abilities) IsDefensive() bool {
 	return slices.ContainsFunc(a, Ability.IsDefensive)
+}
+
+// 通行料の倍率（百分率）。持っていなければ 100
+func (a Abilities) TollPercent() int {
+	for _, ability := range a {
+		if ability.TollMultiplier != nil {
+			return ability.TollMultiplier.Percent.Int()
+		}
+	}
+	return 100
 }

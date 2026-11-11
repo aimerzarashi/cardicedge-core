@@ -288,7 +288,7 @@ func TestChangeCreatureAbilities_ChangesCreatureAfterProjected(t *testing.T) {
 
 	changed := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
 		changeCreatureAbilities(input: $input) { __typename ... on ChangeCreatureAbilitiesSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
-	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}}}}, "changeCreatureAbilities")
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "TOLL_MULTIPLIER", "percent": 150}}}}, "changeCreatureAbilities")
 	invalid := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
 		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
 	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "DEFENSIVE"}}}}, "changeCreatureAbilities")
@@ -296,9 +296,12 @@ func TestChangeCreatureAbilities_ChangesCreatureAfterProjected(t *testing.T) {
 	require.Equal(t, map[string]any{"__typename": "ChangeCreatureAbilitiesSuccess", "id": card["id"], "revision": float64(2)}, changed)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities"}}}, invalid)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
-		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind } revision } } }`, map[string]any{"id": card["id"]}, "card")
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } } revision } } }`, map[string]any{"id": card["id"]}, "card")
 		if assert.NoError(c, err) {
-			assert.Equal(c, map[string]any{"abilities": []any{map[string]any{"__typename": "CreatureDefensiveAbility", "kind": "DEFENSIVE"}}, "revision": float64(2)}, got)
+			assert.Equal(c, map[string]any{"abilities": []any{
+				map[string]any{"__typename": "CreatureDefensiveAbility", "kind": "DEFENSIVE"},
+				map[string]any{"__typename": "CreatureTollMultiplierAbility", "kind": "TOLL_MULTIPLIER", "percent": float64(150)},
+			}, "revision": float64(2)}, got)
 		}
 	})
 }

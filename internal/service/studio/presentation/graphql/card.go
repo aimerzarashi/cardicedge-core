@@ -378,6 +378,9 @@ func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata
 		if ability.Defensive != nil {
 			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
 		}
+		if ability.TollMultiplier != nil {
+			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: ability.TollMultiplier.Percent}
+		}
 	}
 	return values
 }
@@ -385,8 +388,11 @@ func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata
 func fromCreatureAbilities(abilities []command.CreatureAbility) []model.CreatureAbility {
 	values := make([]model.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		if ability.Defensive {
+		switch ability.Kind {
+		case command.CreatureAbilityDefensive:
 			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
+		case command.CreatureAbilityTollMultiplier:
+			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.Percent}
 		}
 	}
 	return values
@@ -397,7 +403,9 @@ func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.Cre
 	for i, ability := range abilities {
 		switch ability.Kind {
 		case model.CreatureAbilityKindDefensive:
-			values[i] = command.CreatureAbility{Defensive: true}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityDefensive, Percent: ability.Percent}
+		case model.CreatureAbilityKindTollMultiplier:
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityTollMultiplier, Percent: ability.Percent}
 		default:
 			return nil, fmt.Errorf("graphql: unknown creature ability kind %q", ability.Kind)
 		}

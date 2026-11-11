@@ -328,7 +328,7 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 func masterCreatureAbilities(abilities []query.CreatureAbility) []master.CreatureAbility {
 	values := make([]master.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		values[i] = master.CreatureAbility{Defensive: ability.Defensive}
+		values[i] = master.CreatureAbility{Defensive: ability.Defensive, TollMultiplierPercent: ability.TollMultiplierPercent}
 	}
 	return values
 }

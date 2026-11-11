@@ -58,16 +58,16 @@ type masterNPCAvatar struct {
 // 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
 // （攻撃力は 0 が正しい値なので、書き忘れと見分けるためにポインタで受ける）
 type masterCard struct {
-	Type                  string   `json:"type"`
-	Name                  string   `json:"name"`
-	Cost                  int      `json:"cost"`
-	Rarity                string   `json:"rarity"`
-	Elements              []string `json:"elements"`
-	Attack                *int     `json:"attack"`
-	HitPoints             *int     `json:"hit_points"`
-	ItemRestrictions      []string `json:"item_restrictions"`
-	PlacementRestrictions []string `json:"placement_restrictions"`
-	Abilities             []string `json:"abilities"`
+	Type                  string          `json:"type"`
+	Name                  string          `json:"name"`
+	Cost                  int             `json:"cost"`
+	Rarity                string          `json:"rarity"`
+	Elements              []string        `json:"elements"`
+	Attack                *int            `json:"attack"`
+	HitPoints             *int            `json:"hit_points"`
+	ItemRestrictions      []string        `json:"item_restrictions"`
+	PlacementRestrictions []string        `json:"placement_restrictions"`
+	Abilities             []masterAbility `json:"abilities"`
 	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
 	Category       string `json:"category"`
 	AttackBonus    *int   `json:"attack_bonus"`
@@ -233,8 +233,8 @@ func (c masterCard) validateCreatureSpec() error {
 		return err
 	}
 	for _, ability := range c.Abilities {
-		if ability != "defensive" {
-			return fmt.Errorf("unknown ability %q", ability)
+		if _, err := ability.command(); err != nil {
+			return err
 		}
 	}
 	if _, err := creature.NewAttack(*c.Attack); err != nil {
@@ -581,4 +581,19 @@ func (b masterBoard) layoutInput() command.BoardLayoutInput {
 		})
 	}
 	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections, Pairs: pairs}
+}
+
+// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent）
+type masterAbility struct {
+	Kind    string `json:"kind"`
+	Percent *int   `json:"percent"`
+}
+
+// 種類と値の組み合わせは studio の ChangeAbilities が確かめるので、ここでは知らない種類だけを弾く（流してから気づくより先に止めるため）
+func (a masterAbility) command() (command.CreatureAbility, error) {
+	switch a.Kind {
+	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier:
+		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent}, nil
+	}
+	return command.CreatureAbility{}, fmt.Errorf("unknown ability %q", a.Kind)
 }

@@ -748,6 +748,10 @@ func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 	values := make([]CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		values[i] = CreatureAbility{Defensive: ability.IsDefensive()}
+		if ability.TollMultiplier != nil {
+			percent := ability.TollMultiplier.Percent.Int()
+			values[i].TollMultiplierPercent = &percent
+		}
 	}
 	return values
 }

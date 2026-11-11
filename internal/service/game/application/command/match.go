@@ -285,8 +285,15 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 	values := make([]creature.Ability, 0, len(source.Abilities))
 	for _, ability := range source.Abilities {
 		var value creature.Ability
-		if ability.Defensive {
+		switch {
+		case ability.Defensive:
 			value = creature.NewDefensiveAbility()
+		case ability.TollMultiplierPercent != nil:
+			percent, err := creature.NewTollMultiplierPercent(*ability.TollMultiplierPercent)
+			if err != nil {
+				return match.CreatureSpec{}, err
+			}
+			value = creature.NewTollMultiplierAbility(percent)
 		}
 		values = append(values, value)
 	}

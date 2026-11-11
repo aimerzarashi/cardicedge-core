@@ -269,6 +269,11 @@ type ComplexityRoot struct {
 		Kind func(childComplexity int) int
 	}
 
+	CreatureTollMultiplierAbility struct {
+		Kind    func(childComplexity int) int
+		Percent func(childComplexity int) int
+	}
+
 	DeckCard struct {
 		Card  func(childComplexity int) int
 		Count func(childComplexity int) int
@@ -1752,6 +1757,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CreatureDefensiveAbility.Kind(childComplexity), true
+
+	case "CreatureTollMultiplierAbility.kind":
+		if e.ComplexityRoot.CreatureTollMultiplierAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureTollMultiplierAbility.Kind(childComplexity), true
+	case "CreatureTollMultiplierAbility.percent":
+		if e.ComplexityRoot.CreatureTollMultiplierAbility.Percent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureTollMultiplierAbility.Percent(childComplexity), true
 
 	case "DeckCard.card":
 		if e.ComplexityRoot.DeckCard.Card == nil {
@@ -8699,6 +8717,52 @@ func (ec *executionContext) _CreatureDefensiveAbility_kind(ctx context.Context, 
 }
 func (ec *executionContext) fieldContext_CreatureDefensiveAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CreatureDefensiveAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureTollMultiplierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureTollMultiplierAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureTollMultiplierAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureTollMultiplierAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureTollMultiplierAbility_percent(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureTollMultiplierAbility_percent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Percent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureTollMultiplierAbility_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureTollMultiplierAbility", field, false, false, "Int")
 }
 
 func (ec *executionContext) _DeckCard_card(ctx context.Context, field graphql.CollectedField, obj *model.DeckCard) (ret graphql.Marshaler) {
@@ -19833,7 +19897,7 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"kind"}
+	fieldsInOrder := [...]string{"kind", "percent"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -19847,6 +19911,13 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 				return it, err
 			}
 			it.Kind = data
+		case "percent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("percent"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Percent = data
 		}
 	}
 	return it, nil
@@ -23625,6 +23696,13 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.CreatureTollMultiplierAbility:
+		return ec._CreatureTollMultiplierAbility(ctx, sel, &obj)
+	case *model.CreatureTollMultiplierAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureTollMultiplierAbility(ctx, sel, obj)
 	case model.CreatureDefensiveAbility:
 		return ec._CreatureDefensiveAbility(ctx, sel, &obj)
 	case *model.CreatureDefensiveAbility:
@@ -27883,6 +27961,44 @@ func (ec *executionContext) _CreatureDefensiveAbility(ctx context.Context, sel a
 			out.Values[i] = graphql.MarshalString("CreatureDefensiveAbility")
 		case "kind":
 			out.Values[i] = ec._CreatureDefensiveAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureTollMultiplierAbilityImplementors = []string{"CreatureTollMultiplierAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureTollMultiplierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureTollMultiplierAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureTollMultiplierAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureTollMultiplierAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureTollMultiplierAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "percent":
+			out.Values[i] = ec._CreatureTollMultiplierAbility_percent(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

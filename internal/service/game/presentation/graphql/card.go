@@ -135,8 +135,11 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAbility {
 	values := make([]model.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		if ability.Defensive {
+		switch {
+		case ability.Defensive:
 			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
+		case ability.TollMultiplierPercent != nil:
+			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.TollMultiplierPercent}
 		}
 	}
 	return values

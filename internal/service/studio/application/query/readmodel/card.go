@@ -149,16 +149,24 @@ type SpellRollDiceMetadata struct {
 
 // クリーチャーの能力。domain の creature.Ability と同じ形（持っている種類の名前の下に値を置く）
 type CreatureAbilityMetadata struct {
-	Defensive *CreatureDefensiveAbilityMetadata `json:"defensive,omitempty"`
+	Defensive      *CreatureDefensiveAbilityMetadata      `json:"defensive,omitempty"`
+	TollMultiplier *CreatureTollMultiplierAbilityMetadata `json:"toll_multiplier,omitempty"`
 }
 
 type CreatureDefensiveAbilityMetadata struct{}
+
+type CreatureTollMultiplierAbilityMetadata struct {
+	Percent int `json:"percent"`
+}
 
 func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMetadata {
 	values := make([]CreatureAbilityMetadata, len(abilities))
 	for i, ability := range abilities {
 		if ability.IsDefensive() {
 			values[i].Defensive = &CreatureDefensiveAbilityMetadata{}
+		}
+		if ability.TollMultiplier != nil {
+			values[i].TollMultiplier = &CreatureTollMultiplierAbilityMetadata{Percent: ability.TollMultiplier.Percent.Int()}
 		}
 	}
 	return values

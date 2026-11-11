@@ -42,6 +42,8 @@ type CreatureCardInfo implements CardInfo {
 enum CreatureAbilityKind {
   "防御型（侵略に出せず、クリーチャー移動もできない）"
   DEFENSIVE
+  "通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）"
+  TOLL_MULTIPLIER
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -56,6 +58,14 @@ interface CreatureAbility {
 type CreatureDefensiveAbility implements CreatureAbility {
   "能力の種類（DEFENSIVE）"
   kind: CreatureAbilityKind!
+}
+
+"通行料の倍率"
+type CreatureTollMultiplierAbility implements CreatureAbility {
+  "能力の種類（TOLL_MULTIPLIER）"
+  kind: CreatureAbilityKind!
+  "倍率（百分率。150 で 1.5 倍）"
+  percent: Int!
 }
 
 "アイテム"

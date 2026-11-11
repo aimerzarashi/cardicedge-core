@@ -107,6 +107,8 @@ union ChangeCreatureStatsResult = ChangeCreatureStatsSuccess | ValidationErrors 
 enum CreatureAbilityKind {
   "防御型（侵略に出せず、クリーチャー移動もできない）"
   DEFENSIVE
+  "通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）"
+  TOLL_MULTIPLIER
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -123,10 +125,22 @@ type CreatureDefensiveAbility implements CreatureAbility {
   kind: CreatureAbilityKind!
 }
 
-"能力 1 つの入力。値の要る能力を足すときは、その値の項目を足す"
+"通行料の倍率"
+type CreatureTollMultiplierAbility implements CreatureAbility {
+  "能力の種類（TOLL_MULTIPLIER）"
+  kind: CreatureAbilityKind!
+  "倍率（百分率。150 で 1.5 倍。1 以上）"
+  percent: Int!
+}
+
+"能力 1 つの入力"
+# 種類ごとに要る値だけを入れる（通行料の倍率は percent。防御型は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
+# 値の範囲の誤りは FieldTooSmall（abilities.N.percent）
 input CreatureAbilityInput {
   "能力の種類"
   kind: CreatureAbilityKind!
+  "通行料の倍率（百分率。TOLL_MULTIPLIER だけに要る）"
+  percent: Int
 }
 
 "クリーチャーの能力を変える入力"

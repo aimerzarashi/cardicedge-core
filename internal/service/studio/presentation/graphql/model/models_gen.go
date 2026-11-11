@@ -1208,10 +1208,12 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
-// 能力 1 つの入力。値の要る能力を足すときは、その値の項目を足す
+// 能力 1 つの入力
 type CreatureAbilityInput struct {
 	// 能力の種類
 	Kind CreatureAbilityKind `json:"kind"`
+	// 通行料の倍率（百分率。TOLL_MULTIPLIER だけに要る）
+	Percent *int `json:"percent,omitempty"`
 }
 
 // 防御型
@@ -1224,6 +1226,19 @@ func (CreatureDefensiveAbility) IsCreatureAbility() {}
 
 // 能力の種類
 func (this CreatureDefensiveAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
+// 通行料の倍率
+type CreatureTollMultiplierAbility struct {
+	// 能力の種類（TOLL_MULTIPLIER）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 倍率（百分率。150 で 1.5 倍。1 以上）
+	Percent int `json:"percent"`
+}
+
+func (CreatureTollMultiplierAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureTollMultiplierAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // デッキに入れたカードと枚数
 type DeckCard struct {
@@ -3601,15 +3616,18 @@ type CreatureAbilityKind string
 const (
 	// 防御型（侵略に出せず、クリーチャー移動もできない）
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
+	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
+	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindDefensive,
+	CreatureAbilityKindTollMultiplier,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier:
 		return true
 	}
 	return false
