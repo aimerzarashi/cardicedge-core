@@ -434,6 +434,8 @@ type MatchSpellChoice {
   handIndex: Int!
   "選べる対象のプレイヤー（Match.participants の何番目か。呪いのスペルだけ中身があり、自分を含む。対象を選ばないスペルは空）"
   targets: [Int!]!
+  "選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ中身がある。自分の領地を含む。領地ができた順）"
+  targetPositions: [BoardPosition!]!
 }
 
 "プレイヤーにかかっている呪い（1 人に 1 つまで）"
@@ -464,6 +466,8 @@ input UseMatchSpellInput {
   handIndex: Int!
   "対象のプレイヤー（Match.participants の何番目か。spellChoices の targets の中から選ぶ。呪いのスペルで無ければ FieldRequired、対象を選ばないスペルに付けた・選べない対象は FieldNotFound）"
   target: Int
+  "対象のクリーチャーがいる領地の位置（spellChoices の targetPositions の中から選ぶ。クリーチャーを選ぶスペルで無ければ FieldRequired、それ以外のスペルに付けた・選べない位置は FieldNotFound）"
+  targetPosition: BoardPositionInput
 }
 
 "スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）"
@@ -1460,6 +1464,42 @@ type MatchCurseCastEvent implements MatchEvent {
   target: Int!
   "かけた呪い"
   curse: MatchCurse!
+}
+
+"スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）"
+type MatchCreatureDamagedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "対象のクリーチャーがいる領地の位置"
+  position: BoardPosition!
+  "対象のクリーチャー（MatchDeployedCreature.id）"
+  creature: Int!
+  "与えたダメージ"
+  damage: Int!
+  "残りの HP（0 なら破壊される）"
+  remainingHitPoints: Int!
+}
+
+"スペルのダメージで、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札に入る）"
+type MatchCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーがいた領地の位置"
+  position: BoardPosition!
+  "破壊されたクリーチャー（MatchDeployedCreature.id）"
+  creature: Int!
 }
 
 "自分のターンを終えて、かかっていた呪いが解けた"

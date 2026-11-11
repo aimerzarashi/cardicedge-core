@@ -170,6 +170,33 @@ func Evolve(state State, event Event) (State, error) {
 		curse := e.Curse
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[e.Target].Curse = &curse
+	case *CreatureDamagedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		if !ok || territory.Creature != e.Creature {
+			return state, ErrInvalidState
+		}
+		current.DeployedCreatures = slices.Clone(current.DeployedCreatures)
+		for i := range current.DeployedCreatures {
+			if current.DeployedCreatures[i].ID == e.Creature {
+				current.DeployedCreatures[i].HitPoints = e.RemainingHitPoints
+			}
+		}
+	case *CreatureDestroyedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		territory, ok := current.TerritoryAt(e.Position)
+		destroyed, found := current.DeployedCreature(e.Creature)
+		if !ok || !found || territory.Creature != e.Creature || destroyed.HitPoints.Int() != 0 {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[destroyed.Owner].DiscardPile = append(slices.Clone(current.Participants[destroyed.Owner].DiscardPile), destroyed.Card)
+		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
+		current.DeployedCreatures = slices.DeleteFunc(slices.Clone(current.DeployedCreatures), func(d DeployedCreature) bool { return d.ID == e.Creature })
 	case *CurseRemovedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {

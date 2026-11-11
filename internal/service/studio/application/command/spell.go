@@ -149,6 +149,12 @@ type SpellEffect struct {
 	RollDice  *SpellRollDice
 	// 対象のプレイヤーにかける呪い
 	FixedDiceCurse *SpellFixedDiceCurse
+	// 対象のクリーチャーにダメージ
+	Damage *SpellDamage
+}
+
+type SpellDamage struct {
+	Amount int
 }
 
 type SpellFixedDiceCurse struct {
@@ -170,7 +176,7 @@ type SpellRollDice struct {
 
 // 効果を変える（準備中だけ）。変えた後の効果の全体を受け取り、どの種類も無ければ効果なしにする。同じ値なら変わらず、revision も進まない。
 // 値が下限より小さいのは input.Errors（項目は effect.drawCards.count・effect.gainMagic.perLap・effect.rollDice.count・
-// effect.fixedDiceCurse.value・effect.fixedDiceCurse.turns）。
+// effect.fixedDiceCurse.value・effect.fixedDiceCurse.turns・effect.damage.amount）。
 // 種類が 2 つ以上あるのはコードの誤り（presentation 層が 1 つだけを渡す）。ほかのエラーは ChangeCost と同じ
 func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect SpellEffect) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -218,6 +224,12 @@ func newSpellEffect(effect SpellEffect) (spell.Effect, error) {
 			return spell.Effect{}, invalid
 		}
 		return spell.NewFixedDiceCurseEffect(value, turns), nil
+	case effect.Damage != nil:
+		amount, err := spell.NewDamageAmount(effect.Damage.Amount)
+		if err != nil {
+			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}
+		}
+		return spell.NewDamageEffect(amount), nil
 	default:
 		return spell.NoEffect(), nil
 	}

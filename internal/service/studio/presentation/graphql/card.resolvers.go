@@ -65,6 +65,8 @@ func (r *mutationResolver) PublishCard(ctx context.Context, input model.PublishC
 		return &model.RevisionConflictError{Message: "revision conflict"}, nil
 	case errors.Is(err, command.ErrInvalidCardStatusTransition):
 		return &model.InvalidCardStatusTransitionError{Message: "invalid card status transition"}, nil
+	case errors.Is(err, command.ErrSpellEffectRequired):
+		return &model.SpellEffectRequiredError{Message: "spell effect required"}, nil
 	case err != nil:
 		return nil, err
 	}

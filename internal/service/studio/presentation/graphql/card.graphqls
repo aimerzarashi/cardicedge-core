@@ -18,6 +18,12 @@ type InvalidCardStatusTransitionError {
   message: String!
 }
 
+"効果の無いスペルを公開しようとした（効果の無いスペルは対戦で使えないため、公開できない）"
+type SpellEffectRequiredError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
 "カード（Creature・Item・Spell）。種類は __typename で見分け、種類ごとの項目は断片（... on Creature 等）で取る"
 interface Card {
   "公開用の ID"
@@ -165,7 +171,7 @@ type PublishCardSuccess {
 }
 
 "カードを公開中にする操作の結果"
-union PublishCardResult = PublishCardSuccess | CardNotFoundError | RevisionConflictError | InvalidCardStatusTransitionError | ForbiddenError
+union PublishCardResult = PublishCardSuccess | CardNotFoundError | RevisionConflictError | InvalidCardStatusTransitionError | SpellEffectRequiredError | ForbiddenError
 
 "カードを使用不可にする入力"
 input RetireCardInput {

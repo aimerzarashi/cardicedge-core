@@ -117,6 +117,24 @@ type MatchCurseCastEvent struct {
 	Curse       MatchCurse
 }
 
+// スペルで、領地のクリーチャーにダメージを与えた（RemainingHitPoints が 0 なら続けて破壊される）
+type MatchCreatureDamagedEvent struct {
+	MatchEventMeta
+	Participant        int
+	Position           BoardPosition
+	Creature           int
+	Damage             int
+	RemainingHitPoints int
+}
+
+// スペルのダメージで、領地のクリーチャーが破壊された
+type MatchCreatureDestroyedEvent struct {
+	MatchEventMeta
+	Participant int
+	Position    BoardPosition
+	Creature    int
+}
+
 // 自分のターンを終えて、かかっていた呪いが解けた
 type MatchCurseRemovedEvent struct {
 	MatchEventMeta
@@ -613,6 +631,10 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchCurseCastEvent{meta, e.Participant.Int(), e.Target.Int(), *fromCurse(&curse)}, nil
 	case *match.CurseRemovedEvent:
 		return MatchCurseRemovedEvent{meta, e.Participant.Int()}, nil
+	case *match.CreatureDamagedEvent:
+		return MatchCreatureDamagedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int(), e.Damage, e.RemainingHitPoints.Int()}, nil
+	case *match.CreatureDestroyedEvent:
+		return MatchCreatureDestroyedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int()}, nil
 	case *match.MagicGainedEvent:
 		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic}, nil
 	case *match.DiceCountChangedEvent:

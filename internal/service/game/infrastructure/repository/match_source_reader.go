@@ -315,6 +315,9 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 			if effect.FixedDiceCurse != nil {
 				spec.Spell.FixedDiceCurse = &master.SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
 			}
+			if effect.Damage != nil {
+				spec.Spell.Damage = &master.SpellDamage{Amount: effect.Damage.Amount}
+			}
 		}
 		specs[ref] = spec
 	}

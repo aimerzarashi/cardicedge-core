@@ -22,6 +22,21 @@ func registerEachKind(t *testing.T, token, id string) map[string]map[string]any 
 	}
 }
 
+// 公開できる準備中のカードにする。効果の無いスペルは公開できないので効果を入れ、ほかの種類も 1 回変えて revision を 3 種類とも 2 にそろえる
+func makePublishable(t *testing.T, token string, registered map[string]map[string]any) {
+	t.Helper()
+	for kind, card := range registered {
+		var changed map[string]any
+		if kind == "spell" {
+			changed = changeSpellEffect(t, token, card["id"], card["revision"], map[string]any{"drawCards": map[string]any{"count": 1}})
+		} else {
+			changed = changeCardCost(t, token, card["id"], card["revision"], 20)
+		}
+		require.Equal(t, float64(2), changed["revision"])
+		card["revision"] = changed["revision"]
+	}
+}
+
 // 投影されるまで待ち、名前に id を含むカードの status と revision を、名前で引ける形で返す
 func waitCardStatuses(t *testing.T, token, id, status string, revision float64, want int) map[string]any {
 	t.Helper()
@@ -48,22 +63,23 @@ func TestPublishCard_PublishesAndRetiresCardOfAnyKind(t *testing.T) {
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
 	registered := registerEachKind(t, token, id)
+	makePublishable(t, token, registered)
 
 	for _, card := range registered {
 		published := publishCard(t, token, card["id"], card["revision"])
-		require.Equal(t, map[string]any{"__typename": "PublishCardSuccess", "id": card["id"], "revision": float64(2)}, published)
+		require.Equal(t, map[string]any{"__typename": "PublishCardSuccess", "id": card["id"], "revision": float64(3)}, published)
 	}
-	waitCardStatuses(t, token, id, "PUBLISHED", 2, 3)
+	waitCardStatuses(t, token, id, "PUBLISHED", 3, 3)
 	for _, card := range registered {
-		retired := retireCard(t, token, card["id"], float64(2))
-		require.Equal(t, map[string]any{"__typename": "RetireCardSuccess", "id": card["id"], "revision": float64(3)}, retired)
+		retired := retireCard(t, token, card["id"], float64(3))
+		require.Equal(t, map[string]any{"__typename": "RetireCardSuccess", "id": card["id"], "revision": float64(4)}, retired)
 	}
-	waitCardStatuses(t, token, id, "RETIRED", 3, 3)
+	waitCardStatuses(t, token, id, "RETIRED", 4, 3)
 	for _, card := range registered {
-		republished := publishCard(t, token, card["id"], float64(3))
-		require.Equal(t, map[string]any{"__typename": "PublishCardSuccess", "id": card["id"], "revision": float64(4)}, republished)
+		republished := publishCard(t, token, card["id"], float64(4))
+		require.Equal(t, map[string]any{"__typename": "PublishCardSuccess", "id": card["id"], "revision": float64(5)}, republished)
 	}
-	waitCardStatuses(t, token, id, "PUBLISHED", 4, 3)
+	waitCardStatuses(t, token, id, "PUBLISHED", 5, 3)
 }
 
 // 変わらない操作は成功し、revision を進めない
@@ -176,7 +192,7 @@ func TestSetPresetDeckCardCounts_ReturnsFieldUnavailableForCardsNotPublished(t *
 	added := setPresetDeckCardCounts(t, token, deck, cardCount(available, 2))
 	require.Equal(t, "SetPresetDeckCardCountsSuccess", added["__typename"])
 	current := waitPresetDeck(t, token, deck["id"], 2)
-	retiredSpell := retireCard(t, token, available, float64(2))
+	retiredSpell := retireCard(t, token, available, float64(3))
 	require.Equal(t, "RetireCardSuccess", retiredSpell["__typename"])
 	kept := setPresetDeckCardCounts(t, token, current, cardCount(available, 1))
 	require.Equal(t, "SetPresetDeckCardCountsSuccess", kept["__typename"])

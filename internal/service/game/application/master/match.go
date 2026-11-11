@@ -42,6 +42,12 @@ type SpellSpec struct {
 	RollDice  *SpellRollDice
 	// 対象のプレイヤーにかける呪い
 	FixedDiceCurse *SpellFixedDiceCurse
+	// 対象のクリーチャーにダメージ
+	Damage *SpellDamage
+}
+
+type SpellDamage struct {
+	Amount int
 }
 
 type SpellFixedDiceCurse struct {

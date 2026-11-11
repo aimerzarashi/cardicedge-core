@@ -2845,6 +2845,20 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
+// 対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）
+type SpellDamageEffect struct {
+	// ダメージ（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (SpellDamageEffect) IsSpellEffect() {}
+
+// 対象のクリーチャーにダメージの入力
+type SpellDamageEffectInput struct {
+	// ダメージ（1 以上。上限は無い）
+	Amount int `json:"amount"`
+}
+
 // カードを引く効果（山札の先頭から引く）
 type SpellDrawCardsEffect struct {
 	// 引く枚数（1 以上）
@@ -2869,7 +2883,17 @@ type SpellEffectInput struct {
 	RollDice *SpellRollDiceEffectInput `json:"rollDice,omitempty"`
 	// 次のサイコロの目を決める呪い
 	FixedDiceCurse *SpellFixedDiceCurseEffectInput `json:"fixedDiceCurse,omitempty"`
+	// 対象のクリーチャーにダメージ
+	Damage *SpellDamageEffectInput `json:"damage,omitempty"`
 }
+
+// 効果の無いスペルを公開しようとした（効果の無いスペルは対戦で使えないため、公開できない）
+type SpellEffectRequiredError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (SpellEffectRequiredError) IsPublishCardResult() {}
 
 // 次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）
 type SpellFixedDiceCurseEffect struct {

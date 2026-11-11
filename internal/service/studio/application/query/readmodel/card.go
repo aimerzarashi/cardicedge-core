@@ -120,6 +120,12 @@ type SpellEffectMetadata struct {
 	RollDice  *SpellRollDiceMetadata  `json:"roll_dice,omitempty"`
 	// 対象のプレイヤーにかける呪い
 	FixedDiceCurse *SpellFixedDiceCurseMetadata `json:"fixed_dice_curse,omitempty"`
+	// 対象のクリーチャーにダメージ
+	Damage *SpellDamageMetadata `json:"damage,omitempty"`
+}
+
+type SpellDamageMetadata struct {
+	Amount int `json:"amount"`
 }
 
 type SpellFixedDiceCurseMetadata struct {
@@ -152,6 +158,9 @@ func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
 	}
 	if effect.FixedDiceCurse != nil {
 		metadata.FixedDiceCurse = &SpellFixedDiceCurseMetadata{Value: effect.FixedDiceCurse.Value.Int(), Turns: effect.FixedDiceCurse.Turns.Int()}
+	}
+	if effect.Damage != nil {
+		metadata.Damage = &SpellDamageMetadata{Amount: effect.Damage.Amount.Int()}
 	}
 	return metadata
 }

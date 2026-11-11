@@ -483,6 +483,16 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice, FixedByCurse: e.FixedByCurse}, nil
 	case query.MatchCurseCastEvent:
 		return &model.MatchCurseCastEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Target: e.Target, Curse: fromMatchCurse(&e.Curse)}, nil
+	case query.MatchCreatureDamagedEvent:
+		return &model.MatchCreatureDamagedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints,
+		}, nil
+	case query.MatchCreatureDestroyedEvent:
+		return &model.MatchCreatureDestroyedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature,
+		}, nil
 	case query.MatchCurseRemovedEvent:
 		return &model.MatchCurseRemovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchMagicGainedEvent:
@@ -557,7 +567,7 @@ func fromMatchBattleStatSource(source query.MatchBattleStatSource) (model.MatchB
 func fromSpellChoices(choices []query.MatchSpellChoice) []*model.MatchSpellChoice {
 	converted := make([]*model.MatchSpellChoice, len(choices))
 	for i, choice := range choices {
-		converted[i] = &model.MatchSpellChoice{HandIndex: choice.HandIndex, Targets: choice.Targets}
+		converted[i] = &model.MatchSpellChoice{HandIndex: choice.HandIndex, Targets: choice.Targets, TargetPositions: fromQueryPositions(choice.TargetPositions)}
 	}
 	return converted
 }

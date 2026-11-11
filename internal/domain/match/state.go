@@ -299,6 +299,8 @@ func (m Match) InvadeChoices() []int {
 type SpellChoice struct {
 	HandIndex int
 	Targets   []ParticipantIndex
+	// 選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ。自分の領地を含む。領地ができた順）
+	TargetPositions []board.Position
 }
 
 // 今の番の人が使えるスペル（手札の順）。サイコロを振る段階で、このターンにまだ使っていないときだけ中身がある。
@@ -319,10 +321,20 @@ func (m Match) SpellChoices() []SpellChoice {
 		if !ok || spec.Spell == nil || spec.Spell.Effect.IsNone() || spec.Cost.Int() > participant.Magic {
 			continue
 		}
-		choice := SpellChoice{HandIndex: i, Targets: []ParticipantIndex{}}
-		if spec.Spell.Effect.NeedsTarget() {
+		choice := SpellChoice{HandIndex: i, Targets: []ParticipantIndex{}, TargetPositions: []board.Position{}}
+		if spec.Spell.Effect.TargetsPlayer() {
 			for target := range m.Participants {
 				choice.Targets = append(choice.Targets, ParticipantIndex(target))
+			}
+		}
+		// 自分の領地のクリーチャーも選べる（2026-11-11 オーナー）
+		if spec.Spell.Effect.TargetsCreature() {
+			for _, territory := range m.Territories {
+				choice.TargetPositions = append(choice.TargetPositions, territory.Position)
+			}
+			// 対象がいなければ使えない（使っても何も起きないため）
+			if len(choice.TargetPositions) == 0 {
+				continue
 			}
 		}
 		choices = append(choices, choice)

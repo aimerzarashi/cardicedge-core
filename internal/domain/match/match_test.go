@@ -228,6 +228,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
 		&match.CurseCastEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Curse: match.NewFixedDiceCurse(6, 1)},
 		&match.CurseRemovedEvent{EventMeta: meta, Participant: by},
+		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
@@ -2701,7 +2703,7 @@ func spellIndex(state match.Match) int {
 func TestDecide_UseSpellPaysAndDrawsAndPutsTheSpellIntoTheDiscardPile(t *testing.T) {
 	state := withPiles(t, rollingWithSpell(t), 1, refs(t, 5, 6, 7), nil)
 	handBefore := len(state.Participants[1].Hand)
-	require.Equal(t, []match.SpellChoice{{HandIndex: spellIndex(state), Targets: []match.ParticipantIndex{}}}, state.SpellChoices())
+	require.Equal(t, []match.SpellChoice{{HandIndex: spellIndex(state), Targets: []match.ParticipantIndex{}, TargetPositions: []board.Position{}}}, state.SpellChoices())
 
 	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
 
@@ -2893,7 +2895,7 @@ func TestMatch_SpellChoicesOfACurseOfferEveryParticipant(t *testing.T) {
 
 	choices := state.SpellChoices()
 
-	require.Contains(t, choices, match.SpellChoice{HandIndex: spellIndex(state), Targets: indexes(t, 0, 1)})
+	require.Contains(t, choices, match.SpellChoice{HandIndex: spellIndex(state), Targets: indexes(t, 0, 1), TargetPositions: []board.Position{}})
 }
 
 func TestDecide_CurseOnYourselfFixesThisTurnsDiceAndIsRemovedAtTheEndOfTheTurn(t *testing.T) {
@@ -2976,4 +2978,97 @@ func TestDecide_UseSpellRejectsATargetThatDoesNotFit(t *testing.T) {
 func fixedDiceCurse(value, remainingTurns int) *match.Curse {
 	curse := match.NewFixedDiceCurse(value, remainingTurns)
 	return &curse
+}
+
+// 参加者 1 の振る段階。参加者 0 の領地 (1,0)（HP 20）と参加者 1 の領地 (2,0) があり、手札の最後に 20 ダメージのスペル 406
+func rollingWithDamage(t *testing.T) match.Match {
+	t.Helper()
+	state := withTerritory(t, withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1), 1, 2, 1)
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
+	require.Equal(t, match.PhaseRolling, state.Phase)
+	return withSpellInHand(t, state, 1, 406, 50, spelltest.Damage(t, 20))
+}
+
+func useDamage(t *testing.T, state match.Match, x int) (match.Match, []match.Event) {
+	t.Helper()
+	position := pos(t, x, 0)
+	return apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state), TargetPosition: &position})
+}
+
+// 自分の領地のクリーチャーも選べる（2026-11-11 オーナー）
+func TestMatch_SpellChoicesOfDamageOfferEveryTerritory(t *testing.T) {
+	state := rollingWithDamage(t)
+
+	choices := state.SpellChoices()
+
+	require.Contains(t, choices, match.SpellChoice{HandIndex: spellIndex(state), Targets: []match.ParticipantIndex{}, TargetPositions: []board.Position{pos(t, 1, 0), pos(t, 2, 0)}})
+}
+
+func TestMatch_DamageSpellIsNotOfferedWithoutCreatures(t *testing.T) {
+	state := withSpellInHand(t, rollingWithSpell(t), 1, 406, 50, spelltest.Damage(t, 20))
+
+	for _, choice := range state.SpellChoices() {
+		require.NotEqual(t, spellIndex(state), choice.HandIndex)
+	}
+}
+
+func TestDecide_DamageSpellLowersTheHitPointsOfTheCreature(t *testing.T) {
+	state := rollingWithDamage(t)
+	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
+	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, 30)
+
+	state, events := useDamage(t, state, 1)
+
+	damaged := eventOf[*match.CreatureDamagedEvent](t, events)
+	require.Equal(t, 20, damaged.Damage)
+	require.Equal(t, creaturetest.HitPoints(t, 10), damaged.RemainingHitPoints)
+	require.Zero(t, countOf[*match.CreatureDestroyedEvent](events))
+	require.Equal(t, creaturetest.HitPoints(t, 10), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, match.PhaseRolling, state.Phase)
+}
+
+func TestDecide_DamageSpellDestroysTheCreatureAtZero(t *testing.T) {
+	state := rollingWithDamage(t)
+	state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, 1, 0), Level: 3})
+
+	state, events := useDamage(t, state, 1)
+
+	require.Equal(t, 1, countOf[*match.CreatureDestroyedEvent](events))
+	_, occupied := state.TerritoryAt(pos(t, 1, 0))
+	require.False(t, occupied)
+	require.Len(t, state.DeployedCreatures, 1)
+	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[0].DiscardPile)
+}
+
+func TestDecide_UseSpellRejectsATargetPositionThatDoesNotFit(t *testing.T) {
+	own := pos(t, 2, 0)
+	empty := pos(t, 3, 0)
+	damage := rollingWithDamage(t)
+	draw := rollingWithSpell(t)
+	tests := map[string]struct {
+		state    match.Match
+		position *board.Position
+		err      error
+	}{
+		"damage_without_position":  {state: damage, position: nil, err: match.ErrSpellTargetPositionRequired},
+		"damage_on_vacant_land":    {state: damage, position: &empty, err: match.ErrSpellTargetPositionNotAllowed},
+		"draw_cards_with_position": {state: draw, position: &own, err: match.ErrSpellTargetPositionNotAllowed},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := decideErr(t, tt.state, &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(tt.state), TargetPosition: tt.position})
+			require.ErrorIs(t, err, tt.err)
+		})
+	}
+}
+
+func TestDecide_DamageSpellCanTargetYourOwnCreature(t *testing.T) {
+	state := rollingWithDamage(t)
+
+	state, events := useDamage(t, state, 2)
+
+	require.Equal(t, pos(t, 2, 0), eventOf[*match.CreatureDamagedEvent](t, events).Position)
+	require.Equal(t, 1, countOf[*match.CreatureDestroyedEvent](events))
+	require.Equal(t, []card.Ref{cardtest.Ref(t, card.SpellEntityType, 406), cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 }

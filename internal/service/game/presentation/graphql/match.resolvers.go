@@ -194,7 +194,11 @@ func (r *mutationResolver) UseMatchSpell(ctx context.Context, input model.UseMat
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	changed, err := r.matches.UseSpell(ctx, input.ID, int64(input.Revision), input.HandIndex, input.Target)
+	var targetPosition *command.SpellTargetPosition
+	if input.TargetPosition != nil {
+		targetPosition = &command.SpellTargetPosition{X: input.TargetPosition.X, Y: input.TargetPosition.Y}
+	}
+	changed, err := r.matches.UseSpell(ctx, input.ID, int64(input.Revision), input.HandIndex, input.Target, targetPosition)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}

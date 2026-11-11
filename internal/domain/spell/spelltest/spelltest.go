@@ -51,3 +51,11 @@ func FixedDiceCurse(t testing.TB, value, turns int) spell.Effect {
 	require.NoError(t, err)
 	return spell.NewFixedDiceCurseEffect(face, curseTurns)
 }
+
+// 対象のクリーチャーにダメージの効果
+func Damage(t testing.TB, amount int) spell.Effect {
+	t.Helper()
+	value, err := spell.NewDamageAmount(amount)
+	require.NoError(t, err)
+	return spell.NewDamageEffect(value)
+}

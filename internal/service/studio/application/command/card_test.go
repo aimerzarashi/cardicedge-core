@@ -35,10 +35,14 @@ func cardKinds() []cardKind {
 			require.NoError(t, err)
 			return command.ChangedCard{ID: registered.ID, Revision: registered.Revision}
 		}},
+		// 効果の無いスペルは公開できないので、効果を入れた準備中のスペルにする
 		{name: "spell", register: func(t *testing.T, ctx context.Context) command.ChangedCard {
-			registered, err := newSpellHandler(t, ctx).Register(ctx, "カード-"+uuid.NewString())
+			spells := newSpellHandler(t, ctx)
+			registered, err := spells.Register(ctx, "カード-"+uuid.NewString())
 			require.NoError(t, err)
-			return command.ChangedCard{ID: registered.ID, Revision: registered.Revision}
+			changed, err := spells.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 1}})
+			require.NoError(t, err)
+			return changed
 		}},
 	}
 }
