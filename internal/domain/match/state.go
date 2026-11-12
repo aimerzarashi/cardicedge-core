@@ -94,13 +94,13 @@ type BattleCreature struct {
 	// 効果を当てる前の体力
 	InitialHitPoints creature.HitPoints
 	// 効果で増減した体力の合計
-	HitPointsBonus int
+	HitPointsDelta int
 }
 
 // 戦闘の後に領地に残る体力。増えた分は先に減って残りは消え、下がった分は戦闘が終わると戻るので、残る傷は増えた分を超えたダメージだけ
 func (c BattleCreature) territoryHitPoints() creature.HitPoints {
-	damage := c.InitialHitPoints.Int() + c.HitPointsBonus - c.Stats.HitPoints.Int()
-	return c.InitialHitPoints.Modified(-max(damage-max(c.HitPointsBonus, 0), 0))
+	damage := c.InitialHitPoints.Int() + c.HitPointsDelta - c.Stats.HitPoints.Int()
+	return c.InitialHitPoints.Modified(-max(damage-max(c.HitPointsDelta, 0), 0))
 }
 
 // 戦闘が始まってから終わるまでの両方のクリーチャー

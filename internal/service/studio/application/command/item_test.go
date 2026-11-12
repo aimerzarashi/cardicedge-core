@@ -149,7 +149,7 @@ func TestRegisterItem_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	itemIDByName(t, ctx, name)
 }
 
-func TestChangeItemCategoryAndStatBonuses_ChangeSpecOfDraft(t *testing.T) {
+func TestChangeItemCategoryAndStatModifiers_ChangeSpecOfDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newItemHandler(t, ctx)
 	registered, err := commands.Register(ctx, "かぶと")
@@ -157,7 +157,7 @@ func TestChangeItemCategoryAndStatBonuses_ChangeSpecOfDraft(t *testing.T) {
 
 	categorized, err := commands.ChangeCategory(ctx, registered.ID, registered.Revision, "armor")
 	require.NoError(t, err)
-	changed, err := commands.ChangeStatBonuses(ctx, categorized.ID, categorized.Revision, -5, 30)
+	changed, err := commands.ChangeStatModifiers(ctx, categorized.ID, categorized.Revision, -5, 30)
 
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision+2, changed.Revision)
@@ -174,7 +174,7 @@ func TestChangeItemCategory_RejectsUnknownValue(t *testing.T) {
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "category"}}, err)
 }
 
-func TestChangeItemStatBonuses_RejectsPublishedItem(t *testing.T) {
+func TestChangeItemStatModifiers_RejectsPublishedItem(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newItemHandler(t, ctx)
 	registered, err := commands.Register(ctx, "かぶと")
@@ -182,7 +182,7 @@ func TestChangeItemStatBonuses_RejectsPublishedItem(t *testing.T) {
 	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
 	require.NoError(t, err)
 
-	_, err = commands.ChangeStatBonuses(ctx, published.ID, published.Revision, 5, 5)
+	_, err = commands.ChangeStatModifiers(ctx, published.ID, published.Revision, 5, 5)
 
 	require.ErrorIs(t, err, command.ErrCardNotDraft)
 }

@@ -253,9 +253,9 @@ func TestCard_ItemHasItsSpecFromRegistrationAndChanges(t *testing.T) {
 	meta := item.EventMeta{EntityID: itemtest.ID(t, 1), AggregateVersion: 2, OccurredAt: at}
 
 	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: item.CategoryArmor, ChangedBy: operatortest.ID(t, 10)})
-	changed := categorized.Evolve(&item.StatBonusesChangedEvent{EventMeta: meta, AttackBonus: item.NewAttackBonus(5), HitPointsBonus: item.NewHitPointsBonus(30), ChangedBy: operatortest.ID(t, 10)})
+	changed := categorized.Evolve(&item.StatModifiersChangedEvent{EventMeta: meta, AttackModifier: item.NewAttackModifier(5), HitPointsModifier: item.NewHitPointsModifier(30), ChangedBy: operatortest.ID(t, 10)})
 
-	require.Equal(t, &readmodel.ItemMetadata{Category: "armor", AttackBonus: 5, HitPointsBonus: 30}, changed.Metadata.Item)
+	require.Equal(t, &readmodel.ItemMetadata{Category: "armor", AttackModifier: 5, HitPointsModifier: 30}, changed.Metadata.Item)
 	// 元の状態の入れ子を書き換えない
 	require.Equal(t, "weapon", registered.Metadata.Item.Category)
 }

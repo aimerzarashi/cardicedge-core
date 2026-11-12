@@ -69,9 +69,9 @@ type masterCard struct {
 	PlacementRestrictions []string        `json:"placement_restrictions"`
 	Abilities             []masterAbility `json:"abilities"`
 	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
-	Category       string `json:"category"`
-	AttackBonus    *int   `json:"attack_bonus"`
-	HitPointsBonus *int   `json:"hit_points_bonus"`
+	Category          string `json:"category"`
+	AttackModifier    *int   `json:"attack_modifier"`
+	HitPointsModifier *int   `json:"hit_points_modifier"`
 	// スペルだけが持つ。書かなければ効果なし（効果の無いスペルを公開できない決まりは、効果の種類がそろうまで効かせない。core#149）。
 	// 形は studio の read model と同じく、種類の名前の下に値を入れる（{"draw_cards":{"count":1}}）
 	Effect *masterSpellEffect `json:"effect"`
@@ -247,13 +247,13 @@ func (c masterCard) validateCreatureSpec() error {
 // アイテムは分類と増減を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
 func (c masterCard) validateItemSpec() error {
 	if c.Type != "item" {
-		if c.Category != "" || c.AttackBonus != nil || c.HitPointsBonus != nil {
-			return fmt.Errorf("%s cannot have category, attack_bonus or hit_points_bonus", c.Type)
+		if c.Category != "" || c.AttackModifier != nil || c.HitPointsModifier != nil {
+			return fmt.Errorf("%s cannot have category, attack_modifier or hit_points_modifier", c.Type)
 		}
 		return nil
 	}
-	if c.AttackBonus == nil || c.HitPointsBonus == nil {
-		return errors.New("item needs attack_bonus and hit_points_bonus")
+	if c.AttackModifier == nil || c.HitPointsModifier == nil {
+		return errors.New("item needs attack_modifier and hit_points_modifier")
 	}
 	_, err := item.NewCategory(c.Category)
 	return err

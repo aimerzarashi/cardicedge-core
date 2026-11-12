@@ -121,8 +121,8 @@ type ChangeItemCategoryResult interface {
 }
 
 // アイテムの増減を変える操作の結果（カードでない ID・アイテム以外のカードの ID は CardNotFoundError）
-type ChangeItemStatBonusesResult interface {
-	IsChangeItemStatBonusesResult()
+type ChangeItemStatModifiersResult interface {
+	IsChangeItemStatModifiersResult()
 }
 
 // スペルの効果を変える操作の結果（カードでない ID・スペル以外のカードの ID は CardNotFoundError）
@@ -792,7 +792,7 @@ func (CardNotDraftError) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (CardNotDraftError) IsChangeItemCategoryResult() {}
 
-func (CardNotDraftError) IsChangeItemStatBonusesResult() {}
+func (CardNotDraftError) IsChangeItemStatModifiersResult() {}
 
 func (CardNotDraftError) IsChangeSpellEffectResult() {}
 
@@ -824,7 +824,7 @@ func (CardNotFoundError) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (CardNotFoundError) IsChangeItemCategoryResult() {}
 
-func (CardNotFoundError) IsChangeItemStatBonusesResult() {}
+func (CardNotFoundError) IsChangeItemStatModifiersResult() {}
 
 func (CardNotFoundError) IsChangeSpellEffectResult() {}
 
@@ -1069,26 +1069,26 @@ type ChangeItemCategorySuccess struct {
 func (ChangeItemCategorySuccess) IsChangeItemCategoryResult() {}
 
 // アイテムの戦闘中の AT・HP の増減を変える入力
-type ChangeItemStatBonusesInput struct {
+type ChangeItemStatModifiersInput struct {
 	// 変えるアイテムの公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていたカードの更新の番号
 	Revision int `json:"revision"`
 	// 戦闘中に足す攻撃力（負は下げる）
-	AttackBonus int `json:"attackBonus"`
+	AttackModifier int `json:"attackModifier"`
 	// 戦闘中に足す体力（負は下げる）
-	HitPointsBonus int `json:"hitPointsBonus"`
+	HitPointsModifier int `json:"hitPointsModifier"`
 }
 
 // アイテムの戦闘中の AT・HP の増減を変えた（どちらも同じ値なら revision は進まない）
-type ChangeItemStatBonusesSuccess struct {
+type ChangeItemStatModifiersSuccess struct {
 	// 変えたアイテムの公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 操作した後の更新の番号
 	Revision int `json:"revision"`
 }
 
-func (ChangeItemStatBonusesSuccess) IsChangeItemStatBonusesResult() {}
+func (ChangeItemStatModifiersSuccess) IsChangeItemStatModifiersResult() {}
 
 // スペルの効果を変える入力
 type ChangeSpellEffectInput struct {
@@ -1646,7 +1646,7 @@ func (ForbiddenError) IsRegisterItemResult() {}
 
 func (ForbiddenError) IsChangeItemCategoryResult() {}
 
-func (ForbiddenError) IsChangeItemStatBonusesResult() {}
+func (ForbiddenError) IsChangeItemStatModifiersResult() {}
 
 func (ForbiddenError) IsNpcAvatarsResult() {}
 
@@ -1861,9 +1861,9 @@ type Item struct {
 	// 分類
 	Category ItemCategory `json:"category"`
 	// 戦闘中に足す攻撃力（負は下げる）
-	AttackBonus int `json:"attackBonus"`
+	AttackModifier int `json:"attackModifier"`
 	// 戦闘中に足す体力（負は下げる）
-	HitPointsBonus int `json:"hitPointsBonus"`
+	HitPointsModifier int `json:"hitPointsModifier"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -2729,7 +2729,7 @@ func (RevisionConflictError) IsRetireGrantDeckResult() {}
 
 func (RevisionConflictError) IsChangeItemCategoryResult() {}
 
-func (RevisionConflictError) IsChangeItemStatBonusesResult() {}
+func (RevisionConflictError) IsChangeItemStatModifiersResult() {}
 
 func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
@@ -3267,7 +3267,7 @@ func (ValidationErrors) IsRegisterItemResult() {}
 
 func (ValidationErrors) IsChangeItemCategoryResult() {}
 
-func (ValidationErrors) IsChangeItemStatBonusesResult() {}
+func (ValidationErrors) IsChangeItemStatModifiersResult() {}
 
 func (ValidationErrors) IsNpcAvatarsResult() {}
 

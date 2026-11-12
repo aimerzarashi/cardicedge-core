@@ -34,7 +34,7 @@ var Types = Catalog{
 			{ID: 1204, Name: "CostChangedEvent"},
 			{ID: 1205, Name: "RarityChangedEvent"},
 			{ID: 1206, Name: "CategoryChangedEvent"},
-			{ID: 1207, Name: "StatBonusesChangedEvent"},
+			{ID: 1207, Name: "StatModifiersChangedEvent"},
 		}},
 		{ID: 1300, Name: "spell", Events: []EventTypeDef{
 			{ID: 1301, Name: "RegisteredEvent"},

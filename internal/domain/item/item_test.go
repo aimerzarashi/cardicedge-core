@@ -108,7 +108,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, costChanged := f.decide(t, state, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
 	_, rarityChanged := f.decide(t, state, &item.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
 	_, categoryChanged := f.decide(t, state, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy})
-	_, bonusesChanged := f.decide(t, state, &item.ChangeStatBonusesCommand{AttackBonus: item.NewAttackBonus(30), HitPointsBonus: item.NewHitPointsBonus(-10), ChangedBy: f.registeredBy})
+	_, modifiersChanged := f.decide(t, state, &item.ChangeStatModifiersCommand{AttackModifier: item.NewAttackModifier(30), HitPointsModifier: item.NewHitPointsModifier(-10), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event item.Event
@@ -119,7 +119,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "cost_changed", event: costChanged[0]},
 		{name: "rarity_changed", event: rarityChanged[0]},
 		{name: "category_changed", event: categoryChanged[0]},
-		{name: "stat_bonuses_changed", event: bonusesChanged[0]},
+		{name: "stat_modifiers_changed", event: modifiersChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -353,49 +353,49 @@ func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
 	}
 }
 
-func TestDecide_RegisterGivesTheDefaultCategoryAndNoBonuses(t *testing.T) {
+func TestDecide_RegisterGivesTheDefaultCategoryAndNoModifiers(t *testing.T) {
 	state, _ := newFixture(t).register(t)
 	registered := state.(item.Item)
 
 	require.Equal(t, item.CategoryWeapon, registered.Category)
-	require.Zero(t, registered.AttackBonus.Int())
-	require.Zero(t, registered.HitPointsBonus.Int())
+	require.Zero(t, registered.AttackModifier.Int())
+	require.Zero(t, registered.HitPointsModifier.Int())
 }
 
-func TestDecide_CategoryAndStatBonusesChangeWhileDraft(t *testing.T) {
+func TestDecide_CategoryAndStatModifiersChangeWhileDraft(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
 
 	categorized, _ := f.decide(t, registered, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy})
-	state, _ := f.decide(t, categorized, &item.ChangeStatBonusesCommand{AttackBonus: item.NewAttackBonus(-10), HitPointsBonus: item.NewHitPointsBonus(30), ChangedBy: f.registeredBy})
+	state, _ := f.decide(t, categorized, &item.ChangeStatModifiersCommand{AttackModifier: item.NewAttackModifier(-10), HitPointsModifier: item.NewHitPointsModifier(30), ChangedBy: f.registeredBy})
 	changed := state.(item.Item)
 
 	require.Equal(t, item.CategoryArmor, changed.Category)
-	require.Equal(t, -10, changed.AttackBonus.Int())
-	require.Equal(t, 30, changed.HitPointsBonus.Int())
+	require.Equal(t, -10, changed.AttackModifier.Int())
+	require.Equal(t, 30, changed.HitPointsModifier.Int())
 	require.Equal(t, int64(3), changed.Version)
 }
 
-func TestDecide_CategoryAndStatBonusesEmitNothingWhenUnchanged(t *testing.T) {
+func TestDecide_CategoryAndStatModifiersEmitNothingWhenUnchanged(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
 
 	_, categoryEvents := f.decide(t, registered, &item.ChangeCategoryCommand{Category: item.DefaultCategory, ChangedBy: f.registeredBy})
-	_, bonusEvents := f.decide(t, registered, &item.ChangeStatBonusesCommand{AttackBonus: item.NewAttackBonus(0), HitPointsBonus: item.NewHitPointsBonus(0), ChangedBy: f.registeredBy})
+	_, modifierEvents := f.decide(t, registered, &item.ChangeStatModifiersCommand{AttackModifier: item.NewAttackModifier(0), HitPointsModifier: item.NewHitPointsModifier(0), ChangedBy: f.registeredBy})
 
 	require.Empty(t, categoryEvents)
-	require.Empty(t, bonusEvents)
+	require.Empty(t, modifierEvents)
 }
 
-func TestDecide_RejectsCategoryAndStatBonusesWhenNotDraft(t *testing.T) {
+func TestDecide_RejectsCategoryAndStatModifiersWhenNotDraft(t *testing.T) {
 	f := newFixture(t)
 	published := f.publishedState(t)
 
 	_, categoryErr := item.Decide(published, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy}, changedAt)
-	_, bonusErr := item.Decide(published, &item.ChangeStatBonusesCommand{AttackBonus: item.NewAttackBonus(5), ChangedBy: f.registeredBy}, changedAt)
+	_, modifierErr := item.Decide(published, &item.ChangeStatModifiersCommand{AttackModifier: item.NewAttackModifier(5), ChangedBy: f.registeredBy}, changedAt)
 
 	require.ErrorIs(t, categoryErr, card.ErrNotDraft)
-	require.ErrorIs(t, bonusErr, card.ErrNotDraft)
+	require.ErrorIs(t, modifierErr, card.ErrNotDraft)
 }
 
 func TestNewCategory_AcceptsOnlyTheKnownValues(t *testing.T) {

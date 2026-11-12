@@ -33,15 +33,15 @@ func NewItemHandler(
 
 // presentation 層にドメインの型（item.Item・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredItem struct {
-	ID             uuid.UUID
-	Name           string
-	Cost           int
-	Rarity         string
-	Category       string
-	AttackBonus    int
-	HitPointsBonus int
-	RegisteredAt   time.Time
-	UpdatedAt      time.Time
+	ID                uuid.UUID
+	Name              string
+	Cost              int
+	Rarity            string
+	Category          string
+	AttackModifier    int
+	HitPointsModifier int
+	RegisteredAt      time.Time
+	UpdatedAt         time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
 	Revision int64
 }
@@ -92,7 +92,7 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredItem{
 		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
-		Category: registered.Category.String(), AttackBonus: registered.AttackBonus.Int(), HitPointsBonus: registered.HitPointsBonus.Int(),
+		Category: registered.Category.String(), AttackModifier: registered.AttackModifier.Int(), HitPointsModifier: registered.HitPointsModifier.Int(),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -159,13 +159,13 @@ func (c *ItemHandler) ChangeCategory(ctx context.Context, id uuid.UUID, revision
 }
 
 // 戦闘中の AT・HP の増減を変える（準備中だけ）。どちらも同じ値なら変わらず、revision も進まない。ほかのエラーは ChangeCategory と同じ
-func (c *ItemHandler) ChangeStatBonuses(ctx context.Context, id uuid.UUID, revision int64, attackBonus, hitPointsBonus int) (ChangedCard, error) {
+func (c *ItemHandler) ChangeStatModifiers(ctx context.Context, id uuid.UUID, revision int64, attackModifier, hitPointsModifier int) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.change(ctx, id, revision, &item.ChangeStatBonusesCommand{
-		AttackBonus: item.NewAttackBonus(attackBonus), HitPointsBonus: item.NewHitPointsBonus(hitPointsBonus), ChangedBy: changedBy,
+	return c.change(ctx, id, revision, &item.ChangeStatModifiersCommand{
+		AttackModifier: item.NewAttackModifier(attackModifier), HitPointsModifier: item.NewHitPointsModifier(hitPointsModifier), ChangedBy: changedBy,
 	})
 }
 

@@ -940,7 +940,7 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 			changed, err = s.items.ChangeCategory(ctx, changed.ID, changed.Revision, c.Category)
 		}
 		if err == nil && c.Type == "item" {
-			changed, err = s.items.ChangeStatBonuses(ctx, changed.ID, changed.Revision, *c.AttackBonus, *c.HitPointsBonus)
+			changed, err = s.items.ChangeStatModifiers(ctx, changed.ID, changed.Revision, *c.AttackModifier, *c.HitPointsModifier)
 		}
 		// 効果はスペルだけ（書いていなければ効果なしのまま）
 		if err == nil && c.Type == "spell" {

@@ -218,7 +218,7 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		if err != nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
 		}
-		spec.Item = &match.ItemSpec{Category: category, AttackBonus: item.NewAttackBonus(source.Item.AttackBonus), HitPointsBonus: item.NewHitPointsBonus(source.Item.HitPointsBonus)}
+		spec.Item = &match.ItemSpec{Category: category, AttackModifier: item.NewAttackModifier(source.Item.AttackModifier), HitPointsModifier: item.NewHitPointsModifier(source.Item.HitPointsModifier)}
 	}
 	// クリーチャーと同じく、スペルの性能が無いのを黙って効果なしにしない
 	if ref.EntityType == card.SpellEntityType {

@@ -617,7 +617,7 @@ func applyItem(r *recorder, side BattleSide, used *card.Ref) error {
 	if spec == nil || spec.Category == item.CategoryScroll {
 		return nil
 	}
-	return modifyBattleStats(r, side, NewItemSource(*used), spec.AttackBonus.Int(), spec.HitPointsBonus.Int())
+	return modifyBattleStats(r, side, NewItemSource(*used), spec.AttackModifier.Int(), spec.HitPointsModifier.Int())
 }
 
 // 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない。ただし能力は、このイベントが発動を表すので

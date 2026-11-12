@@ -1171,9 +1171,9 @@ type ItemCardInfo struct {
 	// 分類
 	Category ItemCategory `json:"category"`
 	// 戦闘中に足す攻撃力（負は下げる）
-	AttackBonus int `json:"attackBonus"`
+	AttackModifier int `json:"attackModifier"`
 	// 戦闘中に足す体力（負は下げる）
-	HitPointsBonus int `json:"hitPointsBonus"`
+	HitPointsModifier int `json:"hitPointsModifier"`
 }
 
 func (ItemCardInfo) IsCardInfo() {}

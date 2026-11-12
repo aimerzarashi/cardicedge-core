@@ -60,12 +60,12 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&CategoryChangedEvent{EventMeta: nextMeta(item, now), Category: c.Category, ChangedBy: c.ChangedBy}}, nil
-	case *ChangeStatBonusesCommand:
+	case *ChangeStatModifiersCommand:
 		item, err := editable(state)
-		if err != nil || (item.AttackBonus == c.AttackBonus && item.HitPointsBonus == c.HitPointsBonus) {
+		if err != nil || (item.AttackModifier == c.AttackModifier && item.HitPointsModifier == c.HitPointsModifier) {
 			return nil, err
 		}
-		return []Event{&StatBonusesChangedEvent{EventMeta: nextMeta(item, now), AttackBonus: c.AttackBonus, HitPointsBonus: c.HitPointsBonus, ChangedBy: c.ChangedBy}}, nil
+		return []Event{&StatModifiersChangedEvent{EventMeta: nextMeta(item, now), AttackModifier: c.AttackModifier, HitPointsModifier: c.HitPointsModifier, ChangedBy: c.ChangedBy}}, nil
 	default:
 		return nil, ErrInvalidState
 	}

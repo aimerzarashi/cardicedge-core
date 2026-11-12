@@ -2144,14 +2144,14 @@ func battleStats(t *testing.T, attack, hitPoints int) match.BattleStats {
 }
 
 // 手札の最後に、性能を持つアイテムを足し、その手札の番号を返す
-func withBattleItem(t *testing.T, state match.Match, participant int, id int64, category item.Category, attackBonus, hitPointsBonus int) (match.Match, int) {
+func withBattleItem(t *testing.T, state match.Match, participant int, id int64, category item.Category, attackModifier, hitPointsModifier int) (match.Match, int) {
 	t.Helper()
 	state = withItemInHand(t, state, participant, id, 0)
 	ref := cardtest.Ref(t, card.ItemEntityType, id)
 	cards := slices.Clone(state.Participants[participant].Participant.Cards)
 	for i := range cards {
 		if cards[i].Card == ref {
-			cards[i].Spec.Item = &match.ItemSpec{Category: category, AttackBonus: item.NewAttackBonus(attackBonus), HitPointsBonus: item.NewHitPointsBonus(hitPointsBonus)}
+			cards[i].Spec.Item = &match.ItemSpec{Category: category, AttackModifier: item.NewAttackModifier(attackModifier), HitPointsModifier: item.NewHitPointsModifier(hitPointsModifier)}
 		}
 	}
 	state.Participants[participant].Participant.Cards = cards
@@ -2291,8 +2291,8 @@ func TestDecide_HitPointsAddedByEffectsAreReducedFirstAndTheRestDisappears(t *te
 		attack int
 		want   int
 	}{
-		{name: "damage_within_the_bonus", attack: 10, want: 40},
-		{name: "damage_beyond_the_bonus", attack: 30, want: 30},
+		{name: "damage_within_the_increase", attack: 10, want: 40},
+		{name: "damage_beyond_the_increase", attack: 30, want: 30},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2375,8 +2375,8 @@ func TestDecide_ItemsWithoutAStatChangeEmitNoModification(t *testing.T) {
 		attack   int
 		hit      int
 	}{
-		{name: "scroll_with_bonuses", category: item.CategoryScroll, attack: 30, hit: 30},
-		{name: "weapon_with_zero_bonuses", category: item.CategoryWeapon, attack: 0, hit: 0},
+		{name: "scroll_with_modifiers", category: item.CategoryScroll, attack: 30, hit: 30},
+		{name: "weapon_with_zero_modifiers", category: item.CategoryWeapon, attack: 0, hit: 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

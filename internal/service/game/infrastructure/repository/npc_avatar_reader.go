@@ -83,9 +83,9 @@ type spellEffectMetadata struct {
 }
 
 type itemMetadata struct {
-	Category       string `json:"category"`
-	AttackBonus    *int   `json:"attack_bonus"`
-	HitPointsBonus *int   `json:"hit_points_bonus"`
+	Category          string `json:"category"`
+	AttackModifier    *int   `json:"attack_modifier"`
+	HitPointsModifier *int   `json:"hit_points_modifier"`
 }
 
 type creatureMetadata struct {
@@ -281,10 +281,10 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item
-		if itemSpec == nil || itemSpec.Category == "" || itemSpec.AttackBonus == nil || itemSpec.HitPointsBonus == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category, attack_bonus or hit_points_bonus (project the cards again and publish the master)", id)
+		if itemSpec == nil || itemSpec.Category == "" || itemSpec.AttackModifier == nil || itemSpec.HitPointsModifier == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category, attack_modifier or hit_points_modifier (project the cards again and publish the master)", id)
 		}
-		card.Item = &query.ItemSpec{Category: itemSpec.Category, AttackBonus: *itemSpec.AttackBonus, HitPointsBonus: *itemSpec.HitPointsBonus}
+		card.Item = &query.ItemSpec{Category: itemSpec.Category, AttackModifier: *itemSpec.AttackModifier, HitPointsModifier: *itemSpec.HitPointsModifier}
 	}
 	if cardType == query.CardTypeSpell {
 		spellSpec := metadata.Spell
