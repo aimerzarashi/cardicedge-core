@@ -35,7 +35,7 @@ type MatchEventChanges struct {
 	Phase *MatchPhase
 	// 総魔力が変わった参加者だけ
 	TotalMagics []MatchTotalMagicChange
-	// 価値か通行料が変わった領地だけ（できた順）
+	// 価値・通行料・土地のレベル・連鎖の数のどれかが変わった領地だけ（できた順）
 	TerritoryValues []MatchTerritoryValue
 }
 
@@ -44,10 +44,17 @@ type MatchTotalMagicChange struct {
 	TotalMagic  int
 }
 
+// 価値の根拠（土地のレベル・連鎖の数）も持つ。連鎖は保存せず数える値（core#128）で、増減のイベントが無いため、
+// 再生で連鎖の増減と価値の理由を説明するにはここに持たせる（core#168）
 type MatchTerritoryValue struct {
-	Position BoardPosition
-	Value    int
-	Toll     int
+	Position   BoardPosition
+	Value      int
+	Toll       int
+	Level      int
+	ChainCount int
+	// このイベントの前の連鎖の数。同じ連鎖に入っていなかった（配置した・奪った）なら nil。
+	// 画面が前の版をたどって比べると、移動・交換でクリーチャーや位置が変わったときに取り違えるため、ここで決める
+	PreviousChainCount *int
 }
 
 func (m MatchEventMeta) Meta() MatchEventMeta { return m }
@@ -558,14 +565,43 @@ func changesBetween(previous, current match.Match) (MatchEventChanges, error) {
 	}
 	for _, territory := range current.Territories {
 		value, toll := current.TerritoryValue(territory), current.TerritoryToll(territory)
-		if old, ok := previous.TerritoryAt(territory.Position); ok && previous.TerritoryValue(old) == value && previous.TerritoryToll(old) == toll {
+		level, chainCount := current.LandLevel(territory.Position), current.TerritoryChainCount(territory)
+		var previousChainCount *int
+		if old, ok := sameTerritoryBefore(previous, current, territory); ok {
+			count := previous.TerritoryChainCount(old)
+			previousChainCount = &count
+		}
+		// 連鎖の倍率は上限で止まる（既定は 5 連鎖以上で同じ）ので、価値が変わらなくても連鎖の数の増減は届ける（core#168）
+		if old, ok := previous.TerritoryAt(territory.Position); ok && previous.TerritoryValue(old) == value && previous.TerritoryToll(old) == toll &&
+			previous.LandLevel(territory.Position) == level && previousChainCount != nil && *previousChainCount == chainCount {
 			continue
 		}
 		changes.TerritoryValues = append(changes.TerritoryValues, MatchTerritoryValue{
 			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Value: value, Toll: toll,
+			Level: level, ChainCount: chainCount, PreviousChainCount: previousChainCount,
 		})
 	}
 	return changes, nil
+}
+
+// イベントの前にその領地に当たる領地。同じクリーチャー（移動・属性の変更）を先に探し、無ければ同じ位置で同じ持ち主の領地（交換で
+// クリーチャーの ID が変わる）。どちらも無ければ、この持ち主の連鎖に新しく入った（配置した・奪った）
+func sameTerritoryBefore(previous, current match.Match, territory match.Territory) (match.Territory, bool) {
+	for _, old := range previous.Territories {
+		if old.Creature == territory.Creature {
+			return old, true
+		}
+	}
+	old, ok := previous.TerritoryAt(territory.Position)
+	if !ok {
+		return match.Territory{}, false
+	}
+	oldOwner, oldOK := previous.TerritoryOwner(old)
+	owner, currentOK := current.TerritoryOwner(territory)
+	if !oldOK || !currentOK || oldOwner != owner {
+		return match.Territory{}, false
+	}
+	return old, true
 }
 
 // 対戦を作ったときに写した性能（最初のイベント。after によらず、読んだイベントのすべてから探す）

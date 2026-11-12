@@ -924,6 +924,12 @@ type MatchTerritoryValue {
   value: Int!
   "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））"
   toll: Int!
+  "土地のレベル（価値の根拠。レベルの倍率は MatchPlayRules.landLevelMultipliers）"
+  level: Int!
+  "連鎖の数（同じ持ち主の同じ属性の土地の数。自分を含み、複の土地はいつも 1。価値の根拠で、倍率は MatchPlayRules.chainMultipliers）"
+  chainCount: Int!
+  "このイベントの前の連鎖の数（同じクリーチャーの前の領地、無ければ同じ位置で同じ持ち主の前の領地のもの）。この持ち主の連鎖に新しく入った（配置した・奪った）なら null"
+  previousChainCount: Int
 }
 
 "総魔力が変わった参加者"
@@ -944,7 +950,7 @@ type MatchEventChanges {
   phase: MatchPhase
   "総魔力が変わった参加者だけ"
   totalMagics: [MatchTotalMagicChange!]!
-  "価値か通行料が変わった領地だけ（できた順。無くなった領地は入らない）"
+  "価値・通行料・土地のレベル・連鎖の数のどれかが変わった領地だけ（できた順。無くなった領地は入らない）"
   territoryValues: [MatchTerritoryValue!]!
 }
 

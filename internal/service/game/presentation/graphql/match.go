@@ -334,6 +334,7 @@ func fromMatchEventChanges(changes query.MatchEventChanges) (*model.MatchEventCh
 	for i, territory := range changes.TerritoryValues {
 		converted.TerritoryValues[i] = &model.MatchTerritoryValue{
 			Position: &model.BoardPosition{X: territory.Position.X, Y: territory.Position.Y}, Value: territory.Value, Toll: territory.Toll,
+			Level: territory.Level, ChainCount: territory.ChainCount, PreviousChainCount: territory.PreviousChainCount,
 		}
 	}
 	return converted, nil
