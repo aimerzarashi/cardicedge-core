@@ -129,7 +129,7 @@ build-mr:
 # リリース対象のコミット（feat / fix 等）が無ければ何もしない。CHANGELOG.md は保存しない
 release:
   stage: release
-  image: node:26.13.0-bookworm
+  image: node:26.13.1-bookworm
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
