@@ -2109,7 +2109,7 @@ func TestDecide_BattleModifierActivatesAsAStatModifiedWithAnAbilitySourceInTheAb
 		"defender:ability", "defender:terrain", "defender:item",
 	}, steps)
 	modifications := statModifications(events)
-	require.Equal(t, match.NewAbilitySource(match.BattleAbilityBattleModifier, creature.NewAttackModifier(5), creature.NewHitPointsModifier(0)), modifications[0].Source)
+	require.Equal(t, match.NewBattleModifierSource(creature.NewAttackModifier(5), creature.NewHitPointsModifier(0)), modifications[0].Source)
 	require.Equal(t, 5, modifications[0].AttackDelta)
 	require.Equal(t, creaturetest.Attack(t, 15), modifications[0].Attack)
 }
@@ -2123,7 +2123,7 @@ func TestDecide_BattleModifierActivatesEvenWhenTheModifierIsZero(t *testing.T) {
 	modifications := statModifications(events)
 	require.Len(t, modifications, 1)
 	require.Equal(t, match.BattleSideDefender, modifications[0].Side)
-	require.Equal(t, match.NewAbilitySource(match.BattleAbilityBattleModifier, creature.NewAttackModifier(0), creature.NewHitPointsModifier(0)), modifications[0].Source)
+	require.Equal(t, match.NewBattleModifierSource(creature.NewAttackModifier(0), creature.NewHitPointsModifier(0)), modifications[0].Source)
 	require.Zero(t, modifications[0].AttackDelta)
 	require.Zero(t, modifications[0].HitPointsDelta)
 }
@@ -3550,4 +3550,99 @@ func TestDecide_DamageSpellCanTargetYourOwnCreature(t *testing.T) {
 	require.Equal(t, pos(t, 2, 0), eventOf[*match.CreatureDamagedEvent](t, events).Position)
 	require.Equal(t, 1, countOf[*match.CreatureDestroyedEvent](events))
 	require.Equal(t, []card.Ref{cardtest.Ref(t, card.SpellEntityType, 406), cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
+}
+
+func battleRandomStats(t *testing.T, minimum, maximum int) creature.Ability {
+	t.Helper()
+	ability, err := creature.NewBattleRandomStatsAbility(minimum, maximum)
+	require.NoError(t, err)
+	return ability
+}
+
+func defendWithRandom(t *testing.T, state match.Match, random match.Random) (match.Match, []match.Event) {
+	t.Helper()
+	return apply(t, state, random, &match.DefendCommand{By: matchtest.Index(t, 0)})
+}
+
+func TestDecide_BattleRandomStatsRollsAttackAndThenHitPointsWithinTheRange(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
+	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
+
+	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(5, 60))
+
+	modifications := statModifications(events)
+	require.Len(t, modifications, 1)
+	require.Equal(t, match.BattleSideDefender, modifications[0].Side)
+	require.Equal(t, creaturetest.Attack(t, 15), modifications[0].Attack)
+	require.Equal(t, creaturetest.HitPoints(t, 70), modifications[0].HitPoints)
+}
+
+func TestDecide_BattleRandomStatsRecordsTheDifferenceFromTheCurrentStatsAsTheDelta(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 30, 50)
+	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
+
+	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 60))
+
+	modifications := statModifications(events)
+	require.Equal(t, -20, modifications[0].AttackDelta)
+	require.Equal(t, 20, modifications[0].HitPointsDelta)
+}
+
+func TestDecide_BattleRandomStatsSourceHasTheRangeAsTheCalculationBasis(t *testing.T) {
+	state := withStrikeAbilities(t, invade(t, invadingMatch(t)), []creature.Ability{battleRandomStats(t, 10, 70)}, nil)
+
+	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 0))
+
+	modifications := statModifications(events)
+	require.Equal(t, match.BattleSideAttacker, modifications[0].Side)
+	randomStats := battleRandomStats(t, 10, 70).BattleRandomStats
+	require.Equal(t, match.NewBattleRandomStatsSource(randomStats.Minimum, randomStats.Maximum), modifications[0].Source)
+}
+
+func TestDecide_BattleRandomStatsActivatesEvenWhenTheStatsDoNotChange(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
+	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
+
+	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 30))
+
+	require.Zero(t, countOf[*match.BattleAbilityActivatedEvent](events))
+	modifications := statModifications(events)
+	require.Len(t, modifications, 1)
+	require.Zero(t, modifications[0].AttackDelta)
+	require.Zero(t, modifications[0].HitPointsDelta)
+}
+
+func TestDecide_BattleRandomStatsAndBattleModifierApplyInTheOrderOfTheAbilities(t *testing.T) {
+	tests := []struct {
+		name      string
+		abilities []creature.Ability
+		attack    int
+		hitPoints int
+	}{
+		{"modifier_then_random", append(battleModifier(t, 100, 100), battleRandomStats(t, 10, 70)), 10, 40},
+		{"random_then_modifier", append([]creature.Ability{battleRandomStats(t, 10, 70)}, battleModifier(t, 100, 100)...), 110, 140},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
+			state = withStrikeAbilities(t, state, nil, tt.abilities)
+
+			_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 30))
+
+			modifications := statModifications(events)
+			require.Len(t, modifications, 2)
+			require.Equal(t, creaturetest.Attack(t, tt.attack), modifications[1].Attack)
+			require.Equal(t, creaturetest.HitPoints(t, tt.hitPoints), modifications[1].HitPoints)
+		})
+	}
+}
+
+func TestDecide_HitPointsRolledByBattleRandomStatsAbsorbDamageAndDoNotRemainAfterTheBattle(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 20, 5, 20)
+	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
+
+	state, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 25))
+
+	require.Equal(t, creaturetest.HitPoints(t, 25), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 }

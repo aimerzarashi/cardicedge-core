@@ -277,6 +277,8 @@ type Ability struct {
 	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
 	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は CreatureSpec.battleModifier → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表し、増減が 0 でも出す）（core#163）
 	BattleModifier *BattleModifierAbility `json:"battle_modifier,omitempty"`
+	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は battleEffects の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表す）（core#169）
+	BattleRandomStats *BattleRandomStatsAbility `json:"battle_random_stats,omitempty"`
 }
 
 type DefensiveAbility struct{}
@@ -324,6 +326,29 @@ func (b HitPointsModifier) Int() int {
 	return int(b)
 }
 
+type BattleRandomStatsAbility struct {
+	Minimum BattleRandomStatsBound `json:"minimum"`
+	Maximum BattleRandomStatsBound `json:"maximum"`
+}
+
+// 最小が 1 以上なのは、引いた HP が 0 だと戦闘の始めに倒れ、能力の意味が無くなるため。AT と HP は同じ範囲から引く
+func NewBattleRandomStatsAbility(minimum, maximum int) (Ability, error) {
+	if minimum < 1 {
+		return Ability{}, ErrBattleRandomStatsMinimumTooSmall
+	}
+	if maximum < minimum {
+		return Ability{}, ErrBattleRandomStatsMaximumLessThanMinimum
+	}
+	return Ability{BattleRandomStats: &BattleRandomStatsAbility{Minimum: BattleRandomStatsBound(minimum), Maximum: BattleRandomStatsBound(maximum)}}, nil
+}
+
+// 戦闘中のランダムの範囲の端（最小・最大）。範囲の決まりは両端を比べるので、生成関数は NewBattleRandomStatsAbility に 1 つだけ置く
+type BattleRandomStatsBound int
+
+func (b BattleRandomStatsBound) Int() int {
+	return int(b)
+}
+
 type TollMultiplierAbility struct {
 	Percent TollMultiplierPercent `json:"percent"`
 }
@@ -368,6 +393,9 @@ func (a Ability) kind() string {
 	if a.BattleModifier != nil {
 		kinds = append(kinds, "battle_modifier")
 	}
+	if a.BattleRandomStats != nil {
+		kinds = append(kinds, "battle_random_stats")
+	}
 	if len(kinds) != 1 {
 		return ""
 	}
@@ -382,7 +410,10 @@ func (a Ability) equal(other Ability) bool {
 	if a.TollMultiplier != nil && a.TollMultiplier.Percent != other.TollMultiplier.Percent {
 		return false
 	}
-	return a.BattleModifier == nil || *a.BattleModifier == *other.BattleModifier
+	if a.BattleModifier != nil && *a.BattleModifier != *other.BattleModifier {
+		return false
+	}
+	return a.BattleRandomStats == nil || *a.BattleRandomStats == *other.BattleRandomStats
 }
 
 func (a Ability) IsDefensive() bool {
@@ -453,4 +484,14 @@ func (a Abilities) BattleModifier() (BattleModifierAbility, bool) {
 		}
 	}
 	return BattleModifierAbility{}, false
+}
+
+// 戦闘中のランダム。持っていなければ false
+func (a Abilities) BattleRandomStats() (BattleRandomStatsAbility, bool) {
+	for _, ability := range a {
+		if ability.BattleRandomStats != nil {
+			return *ability.BattleRandomStats, true
+		}
+	}
+	return BattleRandomStatsAbility{}, false
 }

@@ -226,7 +226,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "battle_random_stats", "minimum": 10, "maximum": 70 }]
     },
     {
       "type": "creature",

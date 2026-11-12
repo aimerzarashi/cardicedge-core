@@ -467,6 +467,60 @@ func TestAbilities_BattleModifierKeepsNegativeValuesAndIsComparedByValue(t *test
 	require.False(t, modifier(10, 20).Equal(modifier(0, 20)))
 }
 
+func TestAbilities_BattleRandomStatsIsComparedByValue(t *testing.T) {
+	randomStats := func(minimum, maximum int) creature.Abilities {
+		ability, err := creature.NewBattleRandomStatsAbility(minimum, maximum)
+		require.NoError(t, err)
+		abilities, err := creature.NewAbilities([]creature.Ability{ability})
+		require.NoError(t, err)
+		return abilities
+	}
+
+	_, found := creature.DefaultAbilities().BattleRandomStats()
+	require.False(t, found)
+	got, found := randomStats(10, 70).BattleRandomStats()
+	require.True(t, found)
+	require.Equal(t, 10, got.Minimum.Int())
+	require.Equal(t, 70, got.Maximum.Int())
+	require.True(t, randomStats(10, 70).Equal(randomStats(10, 70)))
+	require.False(t, randomStats(10, 70).Equal(randomStats(10, 80)))
+	require.False(t, randomStats(10, 70).Equal(randomStats(20, 70)))
+}
+
+func TestNewBattleRandomStatsAbility_RejectsInvalidRange(t *testing.T) {
+	tests := []struct {
+		name    string
+		minimum int
+		maximum int
+		want    error
+	}{
+		{"minimum_zero", 0, 10, creature.ErrBattleRandomStatsMinimumTooSmall},
+		{"maximum_less_than_minimum", 10, 9, creature.ErrBattleRandomStatsMaximumLessThanMinimum},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := creature.NewBattleRandomStatsAbility(tt.minimum, tt.maximum)
+
+			require.ErrorIs(t, err, tt.want)
+		})
+	}
+}
+
+func TestNewBattleRandomStatsAbility_AcceptsEqualMinimumAndMaximum(t *testing.T) {
+	_, err := creature.NewBattleRandomStatsAbility(30, 30)
+
+	require.NoError(t, err)
+}
+
+func TestNewAbilities_AllowsBattleModifierAndBattleRandomStatsTogether(t *testing.T) {
+	randomStats, err := creature.NewBattleRandomStatsAbility(10, 70)
+	require.NoError(t, err)
+
+	_, err = creature.NewAbilities([]creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(0), creature.NewHitPointsModifier(0)), randomStats})
+
+	require.NoError(t, err)
+}
+
 func TestNewAbilities_RejectsEmptyKindAndDuplicates(t *testing.T) {
 	empty, err := creature.NewAbilities(nil)
 	require.NoError(t, err)

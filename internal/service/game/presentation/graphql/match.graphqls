@@ -1329,14 +1329,32 @@ type MatchItemSource {
   hitPointsModifier: Int!
 }
 
+# 能力ごとの根拠を入れ子の型にしたのは、平らに並べると MatchItemSource の同じ名前の項目（attackModifier: Int!）と
+# null の許し方が食い違って 1 つの問い合わせで両方を読めなくなり、null にしないと持たない能力で 0 を返すことになるため
 "発動した能力（このイベントが能力の発動を表す。MatchBattleAbilityActivatedEvent は別に出ない）"
 type MatchAbilitySource {
-  "発動した能力（今は BATTLE_MODIFIER）"
+  "発動した能力（BATTLE_MODIFIER・BATTLE_RANDOM_STATS）"
   ability: CreatureAbilityKind!
-  "戦闘中の AT の増減の決まった値（下限で止まる前の値）"
+  "戦闘中の増減の根拠（BATTLE_MODIFIER のときだけ。ほかは null）"
+  battleModifier: MatchBattleModifierBasis
+  "戦闘中のランダムの根拠（BATTLE_RANDOM_STATS のときだけ。ほかは null）"
+  battleRandomStats: MatchBattleRandomStatsBasis
+}
+
+"戦闘中の増減の決まった値"
+type MatchBattleModifierBasis {
+  "AT の増減（下限で止まる前の値）"
   attackModifier: Int!
-  "戦闘中の HP の増減の決まった値（下限で止まる前の値）"
+  "HP の増減（下限で止まる前の値）"
   hitPointsModifier: Int!
+}
+
+"戦闘中のランダムの範囲（引いた値は MatchBattleStatModifiedEvent の当てた後の AT・HP）"
+type MatchBattleRandomStatsBasis {
+  "範囲の最小"
+  minimum: Int!
+  "範囲の最大"
+  maximum: Int!
 }
 
 "戦闘の AT・HP を変えた効果の出どころ"

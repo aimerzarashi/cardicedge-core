@@ -110,13 +110,14 @@ func (s BattleSide) valid() bool {
 type BattleAbility string
 
 const (
-	BattleAbilityFirstStrike    BattleAbility = "first_strike"
-	BattleAbilityLastStrike     BattleAbility = "last_strike"
-	BattleAbilityBattleModifier BattleAbility = "battle_modifier"
+	BattleAbilityFirstStrike       BattleAbility = "first_strike"
+	BattleAbilityLastStrike        BattleAbility = "last_strike"
+	BattleAbilityBattleModifier    BattleAbility = "battle_modifier"
+	BattleAbilityBattleRandomStats BattleAbility = "battle_random_stats"
 )
 
 func (a BattleAbility) valid() bool {
-	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier
+	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier || a == BattleAbilityBattleRandomStats
 }
 
 func (s BattleSide) opponent() BattleSide {
@@ -140,12 +141,16 @@ type BattleStatSource struct {
 	Ability             *AbilitySource             `json:"ability,omitempty"`
 }
 
-// 戦闘中に能力が発動して AT・HP を変えた。決まった増減は、戦闘中の増減（battle modifier）の値（AT・HP を変える能力は今これだけ。
-// 能力を足すときは、能力ごとに持つ値を分ける）。下限の 0 で止まる前の値なので、実際の増減は BattleStatModifiedEvent が持つ
+// 戦闘中に能力が発動して AT・HP を変えた。能力ごとの値は、その能力のときだけ持つ（戦闘中の増減は AttackModifier・HitPointsModifier、
+// 戦闘中のランダムは Minimum・Maximum）。能力ごとに入れ子の型を作らず 1 つの構造体にしたのは、JSON をタグだけで表せ、
+// イベントを読む側（画面向けの写し）が能力の種類で見分けるだけで済むため。増減は下限の 0 で止まる前の値で、
+// 実際の増減は BattleStatModifiedEvent が持つ。ランダムの引いた値は、当てた後の AT・HP（実際の増減と前の値）から分かるので持たない
 type AbilitySource struct {
-	Ability           BattleAbility              `json:"ability"`
-	AttackModifier    creature.AttackModifier    `json:"attack_modifier"`
-	HitPointsModifier creature.HitPointsModifier `json:"hit_points_modifier"`
+	Ability           BattleAbility                    `json:"ability"`
+	AttackModifier    *creature.AttackModifier         `json:"attack_modifier,omitempty"`
+	HitPointsModifier *creature.HitPointsModifier      `json:"hit_points_modifier,omitempty"`
+	Minimum           *creature.BattleRandomStatsBound `json:"minimum,omitempty"`
+	Maximum           *creature.BattleRandomStatsBound `json:"maximum,omitempty"`
 }
 
 // 支援効果。侵略先の隣にある、攻める側の領地の位置と、1 つあたりの AT の増加（ルールの値）。support と呼ばないのは、能力の援護と取り違えないため
@@ -180,8 +185,12 @@ func NewItemSource(ref card.Ref, attackModifier item.AttackModifier, hitPointsMo
 	return BattleStatSource{Item: &ItemSource{Card: ref, AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
 }
 
-func NewAbilitySource(ability BattleAbility, attackModifier creature.AttackModifier, hitPointsModifier creature.HitPointsModifier) BattleStatSource {
-	return BattleStatSource{Ability: &AbilitySource{Ability: ability, AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
+func NewBattleModifierSource(attackModifier creature.AttackModifier, hitPointsModifier creature.HitPointsModifier) BattleStatSource {
+	return BattleStatSource{Ability: &AbilitySource{Ability: BattleAbilityBattleModifier, AttackModifier: &attackModifier, HitPointsModifier: &hitPointsModifier}}
+}
+
+func NewBattleRandomStatsSource(minimum, maximum creature.BattleRandomStatsBound) BattleStatSource {
+	return BattleStatSource{Ability: &AbilitySource{Ability: BattleAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum}}
 }
 
 type EndReason string
@@ -303,11 +312,6 @@ func (s CreatureSpec) strikePriority() int {
 		return -1
 	}
 	return 0
-}
-
-// 戦闘中の増減（持っていなければ無し）
-func (s CreatureSpec) battleModifier() (creature.BattleModifierAbility, bool) {
-	return s.Abilities.BattleModifier()
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

@@ -249,6 +249,52 @@ func TestChangeCreatureAbilities_BattleModifierNeedsBothValuesAndOtherKindsHaveN
 	}, err)
 }
 
+func TestChangeCreatureAbilities_BattleRandomStatsNeedsBothBoundsAndOtherKindsHaveNone(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	minimum, maximum, percent, modifier := 10, 70, 150, 0
+
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum},
+		{Kind: command.CreatureAbilityBattleRandomStats, Maximum: &maximum},
+		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum, Percent: &percent},
+		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum, AttackModifier: &modifier},
+		{Kind: command.CreatureAbilityDefensive, Minimum: &minimum},
+		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &modifier, HitPointsModifier: &modifier, Maximum: &maximum},
+	})
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "abilities.0"},
+		&input.InvalidFormat{Field: "abilities.1"},
+		&input.InvalidFormat{Field: "abilities.2"},
+		&input.InvalidFormat{Field: "abilities.3"},
+		&input.InvalidFormat{Field: "abilities.4"},
+		&input.InvalidFormat{Field: "abilities.5"},
+	}, err)
+}
+
+func TestChangeCreatureAbilities_RejectsBattleRandomStatsRangeOutOfOrder(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	zero, ten, nine := 0, 10, 9
+
+	_, err = commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &zero, Maximum: &ten},
+		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &ten, Maximum: &nine},
+	})
+
+	require.Equal(t, input.Errors{
+		&input.TooSmall{Field: "abilities.0.minimum", Min: 1},
+		&input.TooSmall{Field: "abilities.1.maximum", Min: 10},
+	}, err)
+}
+
 func TestChangeCreatureAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)

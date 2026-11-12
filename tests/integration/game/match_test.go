@@ -425,7 +425,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 						... on MatchAdjacentTerritoriesSource { positions { x y } bonusPerTerritory }
 						... on MatchTerrainSource { element level bonusPerLevel }
 						... on MatchItemSource { card { id name } attackModifier hitPointsModifier }
-						... on MatchAbilitySource { ability attackModifier hitPointsModifier }
+						... on MatchAbilitySource { ability battleModifier { attackModifier hitPointsModifier } battleRandomStats { minimum maximum } }
 					}
 				}
 				... on MatchBattleAbilityActivatedEvent { side ability }
@@ -1008,14 +1008,29 @@ func requireStatDeltaMatchesSource(t *testing.T, event map[string]any) {
 		require.Equal(t, float64(len(source["positions"].([]any)))*source["bonusPerTerritory"].(float64), attackDelta)
 	case "MatchTerrainSource":
 		require.Equal(t, source["level"].(float64)*source["bonusPerLevel"].(float64), hitPointsDelta)
-	case "MatchItemSource", "MatchAbilitySource":
-		require.LessOrEqual(t, math.Abs(attackDelta), math.Abs(source["attackModifier"].(float64)))
-		require.LessOrEqual(t, math.Abs(hitPointsDelta), math.Abs(source["hitPointsModifier"].(float64)))
-		if source["attackModifier"].(float64) >= 0 {
-			require.Equal(t, source["attackModifier"], attackDelta)
+	case "MatchItemSource":
+		requireDeltaWithinModifier(t, source, attackDelta, hitPointsDelta)
+	case "MatchAbilitySource":
+		if basis, ok := source["battleModifier"].(map[string]any); ok {
+			requireDeltaWithinModifier(t, basis, attackDelta, hitPointsDelta)
 		}
-		if source["hitPointsModifier"].(float64) >= 0 {
-			require.Equal(t, source["hitPointsModifier"], hitPointsDelta)
+		if basis, ok := source["battleRandomStats"].(map[string]any); ok {
+			for _, stat := range []float64{event["attack"].(float64), event["hitPoints"].(float64)} {
+				require.GreaterOrEqual(t, stat, basis["minimum"])
+				require.LessOrEqual(t, stat, basis["maximum"])
+			}
 		}
+	}
+}
+
+func requireDeltaWithinModifier(t *testing.T, basis map[string]any, attackDelta, hitPointsDelta float64) {
+	t.Helper()
+	require.LessOrEqual(t, math.Abs(attackDelta), math.Abs(basis["attackModifier"].(float64)))
+	require.LessOrEqual(t, math.Abs(hitPointsDelta), math.Abs(basis["hitPointsModifier"].(float64)))
+	if basis["attackModifier"].(float64) >= 0 {
+		require.Equal(t, basis["attackModifier"], attackDelta)
+	}
+	if basis["hitPointsModifier"].(float64) >= 0 {
+		require.Equal(t, basis["hitPointsModifier"], hitPointsDelta)
 	}
 }

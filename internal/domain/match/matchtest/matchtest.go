@@ -83,6 +83,25 @@ func (r *RollingRandom) IntN(int) int {
 	return face - 1
 }
 
+// IntN の戻り値をそのまま順に返す乱数の元（範囲の中の位置を決めたいとき用。RollingRandom は目から 1 を引いて返す）
+type SequenceRandom struct {
+	Random
+	values []int
+}
+
+func NewSequenceRandom(values ...int) *SequenceRandom {
+	return &SequenceRandom{values: values}
+}
+
+func (r *SequenceRandom) IntN(int) int {
+	if len(r.values) == 0 {
+		panic("matchtest: no random values left")
+	}
+	value := r.values[0]
+	r.values = r.values[1:]
+	return value
+}
+
 // 最大の目を返す乱数の元
 type HighestRandom struct {
 	Random

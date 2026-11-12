@@ -765,6 +765,21 @@ func (CreatureBattleModifierAbility) IsCreatureAbility() {}
 // 能力の種類
 func (this CreatureBattleModifierAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
+// 戦闘中のランダム
+type CreatureBattleRandomStatsAbility struct {
+	// 能力の種類（BATTLE_RANDOM_STATS）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 戦闘中の AT・HP の最小
+	Minimum int `json:"minimum"`
+	// 戦闘中の AT・HP の最大
+	Maximum int `json:"maximum"`
+}
+
+func (CreatureBattleRandomStatsAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureBattleRandomStatsAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
 // クリーチャー
 type CreatureCardInfo struct {
 	// 公開用の ID
@@ -1297,12 +1312,12 @@ func (Match) IsMatchResult() {}
 
 // 発動した能力（このイベントが能力の発動を表す。MatchBattleAbilityActivatedEvent は別に出ない）
 type MatchAbilitySource struct {
-	// 発動した能力（今は BATTLE_MODIFIER）
+	// 発動した能力（BATTLE_MODIFIER・BATTLE_RANDOM_STATS）
 	Ability CreatureAbilityKind `json:"ability"`
-	// 戦闘中の AT の増減の決まった値（下限で止まる前の値）
-	AttackModifier int `json:"attackModifier"`
-	// 戦闘中の HP の増減の決まった値（下限で止まる前の値）
-	HitPointsModifier int `json:"hitPointsModifier"`
+	// 戦闘中の増減の根拠（BATTLE_MODIFIER のときだけ。ほかは null）
+	BattleModifier *MatchBattleModifierBasis `json:"battleModifier,omitempty"`
+	// 戦闘中のランダムの根拠（BATTLE_RANDOM_STATS のときだけ。ほかは null）
+	BattleRandomStats *MatchBattleRandomStatsBasis `json:"battleRandomStats,omitempty"`
 }
 
 func (MatchAbilitySource) IsMatchBattleStatSource() {}
@@ -1349,6 +1364,22 @@ func (this MatchBattleAbilityActivatedEvent) GetOccurredAt() time.Time { return 
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchBattleAbilityActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 戦闘中の増減の決まった値
+type MatchBattleModifierBasis struct {
+	// AT の増減（下限で止まる前の値）
+	AttackModifier int `json:"attackModifier"`
+	// HP の増減（下限で止まる前の値）
+	HitPointsModifier int `json:"hitPointsModifier"`
+}
+
+// 戦闘中のランダムの範囲（引いた値は MatchBattleStatModifiedEvent の当てた後の AT・HP）
+type MatchBattleRandomStatsBasis struct {
+	// 範囲の最小
+	Minimum int `json:"minimum"`
+	// 範囲の最大
+	Maximum int `json:"maximum"`
+}
 
 // 戦闘が始まった（効果を当てる前の両方の AT・HP）
 type MatchBattleStartedEvent struct {
@@ -3980,6 +4011,8 @@ const (
 	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
 	// 戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）
 	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
+	// 戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）
+	CreatureAbilityKindBattleRandomStats CreatureAbilityKind = "BATTLE_RANDOM_STATS"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3988,11 +4021,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindFirstStrike,
 	CreatureAbilityKindLastStrike,
 	CreatureAbilityKindBattleModifier,
+	CreatureAbilityKindBattleRandomStats,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats:
 		return true
 	}
 	return false
