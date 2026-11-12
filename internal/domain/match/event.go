@@ -149,6 +149,8 @@ type TerritoryInvadedEvent struct {
 	Card        card.Ref         `json:"card"`
 	Position    board.Position   `json:"position"`
 	Cost        card.Cost        `json:"cost"`
+	// 領地にいて、これから戦う守る側のクリーチャー（倒すと領地から外れ、画面が履歴で名前を出すのに状態の再計算を要らなくする）
+	DefendingCreature PlacedCreatureID `json:"defending_creature"`
 }
 
 // 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
@@ -346,6 +348,8 @@ type TerritoryInvadedByMoveEvent struct {
 	From        board.Position   `json:"from"`
 	Position    board.Position   `json:"position"`
 	Creature    PlacedCreatureID `json:"creature"`
+	// 領地にいて、これから戦う守る側のクリーチャー
+	DefendingCreature PlacedCreatureID `json:"defending_creature"`
 }
 
 // 振った目

@@ -347,10 +347,10 @@ func moveCreature(r *recorder, from, to board.Position) error {
 	if !ok {
 		return ErrInvalidState
 	}
-	if _, occupied := r.state.TerritoryAt(to); occupied {
+	if defender, occupied := r.state.TerritoryAt(to); occupied {
 		// 他人の領地へは侵略と同じ戦闘をする。アイテムを選ぶところから続ける
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: from, Position: to, Creature: territory.Creature}
+			return &TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: from, Position: to, Creature: territory.Creature, DefendingCreature: defender.Creature}
 		})
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
@@ -420,8 +420,12 @@ func invade(r *recorder, handIndex int) error {
 	participant := r.current()
 	ref := participant.Hand[handIndex]
 	cost := r.state.CardSpecs()[ref].Cost
+	defender, ok := r.state.TerritoryAt(participant.Position)
+	if !ok {
+		return ErrInvalidState
+	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: cost}
+		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: cost, DefendingCreature: defender.Creature}
 	})
 }
 

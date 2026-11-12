@@ -891,24 +891,29 @@ type ComplexityRoot struct {
 	}
 
 	MatchTerritoryInvadedByMoveEvent struct {
-		Changes     func(childComplexity int) int
-		Creature    func(childComplexity int) int
-		From        func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Position    func(childComplexity int) int
-		Revision    func(childComplexity int) int
+		Card                  func(childComplexity int) int
+		Changes               func(childComplexity int) int
+		Creature              func(childComplexity int) int
+		DefendingCreature     func(childComplexity int) int
+		DefendingCreatureCard func(childComplexity int) int
+		From                  func(childComplexity int) int
+		OccurredAt            func(childComplexity int) int
+		Participant           func(childComplexity int) int
+		Position              func(childComplexity int) int
+		Revision              func(childComplexity int) int
 	}
 
 	MatchTerritoryInvadedEvent struct {
-		Card        func(childComplexity int) int
-		Changes     func(childComplexity int) int
-		Cost        func(childComplexity int) int
-		HandIndex   func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Position    func(childComplexity int) int
-		Revision    func(childComplexity int) int
+		Card                  func(childComplexity int) int
+		Changes               func(childComplexity int) int
+		Cost                  func(childComplexity int) int
+		DefendingCreature     func(childComplexity int) int
+		DefendingCreatureCard func(childComplexity int) int
+		HandIndex             func(childComplexity int) int
+		OccurredAt            func(childComplexity int) int
+		Participant           func(childComplexity int) int
+		Position              func(childComplexity int) int
+		Revision              func(childComplexity int) int
 	}
 
 	MatchTerritoryLeveledUpEvent struct {
@@ -4351,6 +4356,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchTerritoryConqueredEvent.TerritoryHitPoints(childComplexity), true
 
+	case "MatchTerritoryInvadedByMoveEvent.card":
+		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.Card == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.Card(childComplexity), true
 	case "MatchTerritoryInvadedByMoveEvent.changes":
 		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.Changes == nil {
 			break
@@ -4363,6 +4374,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.Creature(childComplexity), true
+	case "MatchTerritoryInvadedByMoveEvent.defendingCreature":
+		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreature == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreature(childComplexity), true
+	case "MatchTerritoryInvadedByMoveEvent.defendingCreatureCard":
+		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreatureCard == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreatureCard(childComplexity), true
 	case "MatchTerritoryInvadedByMoveEvent.from":
 		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.From == nil {
 			break
@@ -4412,6 +4435,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryInvadedEvent.Cost(childComplexity), true
+	case "MatchTerritoryInvadedEvent.defendingCreature":
+		if e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreature == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreature(childComplexity), true
+	case "MatchTerritoryInvadedEvent.defendingCreatureCard":
+		if e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreatureCard == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreatureCard(childComplexity), true
 	case "MatchTerritoryInvadedEvent.handIndex":
 		if e.ComplexityRoot.MatchTerritoryInvadedEvent.HandIndex == nil {
 			break
@@ -19852,6 +19887,93 @@ func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_creatu
 	return graphql.NewScalarFieldContext("MatchTerritoryInvadedByMoveEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent_card(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedByMoveEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryInvadedByMoveEvent_card(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Card, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_card(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchTerritoryInvadedByMoveEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedByMoveEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefendingCreature, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerritoryInvadedByMoveEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedByMoveEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefendingCreatureCard, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchTerritoryInvadedByMoveEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _MatchTerritoryInvadedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20061,6 +20183,61 @@ func (ec *executionContext) _MatchTerritoryInvadedEvent_cost(ctx context.Context
 }
 func (ec *executionContext) fieldContext_MatchTerritoryInvadedEvent_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchTerritoryInvadedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryInvadedEvent_defendingCreature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryInvadedEvent_defendingCreature(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefendingCreature, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryInvadedEvent_defendingCreature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerritoryInvadedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryInvadedEvent_defendingCreatureCard(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryInvadedEvent_defendingCreatureCard(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefendingCreatureCard, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CardInfo) graphql.Marshaler {
+			return ec.marshalNCardInfo2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCardInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryInvadedEvent_defendingCreatureCard(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchTerritoryInvadedEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _MatchTerritoryLeveledUpEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryLeveledUpEvent) (ret graphql.Marshaler) {
@@ -37313,6 +37490,21 @@ func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent(ctx context.Contex
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "card":
+			out.Values[i] = ec._MatchTerritoryInvadedByMoveEvent_card(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "defendingCreature":
+			out.Values[i] = ec._MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "defendingCreatureCard":
+			out.Values[i] = ec._MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37378,6 +37570,16 @@ func (ec *executionContext) _MatchTerritoryInvadedEvent(ctx context.Context, sel
 			}
 		case "cost":
 			out.Values[i] = ec._MatchTerritoryInvadedEvent_cost(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "defendingCreature":
+			out.Values[i] = ec._MatchTerritoryInvadedEvent_defendingCreature(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "defendingCreatureCard":
+			out.Values[i] = ec._MatchTerritoryInvadedEvent_defendingCreatureCard(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

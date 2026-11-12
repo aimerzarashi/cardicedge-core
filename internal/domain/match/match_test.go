@@ -242,7 +242,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1), Magic: 80},
 		&match.MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: 600},
 		&match.CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
-		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
+		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
 		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Card: cardtest.Ref(t, card.ItemEntityType, 301), Cost: cardtest.Cost(t, 20)},
 		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
 		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.PlacedCreatureID(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
@@ -250,7 +250,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
 		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
-		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
+		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
 		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
@@ -1783,6 +1783,25 @@ func TestDecide_InvadeIsSettledAtOnceAndAsksTheAttackerForAnItem(t *testing.T) {
 	require.Equal(t, matchtest.Index(t, 1), awaiting)
 }
 
+func TestDecide_InvadeRecordsTheDefendingCreatureOfTheTerritory(t *testing.T) {
+	state := invadingMatch(t)
+
+	_, events := apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+
+	require.Equal(t, state.Territories[0].Creature, eventOf[*match.TerritoryInvadedEvent](t, events).DefendingCreature)
+}
+
+func TestDecide_MovingIntoAnotherRecordsTheDefendingCreatureOfTheTerritory(t *testing.T) {
+	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 2)
+	state = rolledTo(t, state, 1)
+	defender, ok := state.TerritoryAt(pos(t, 2, 0))
+	require.True(t, ok)
+
+	_, events := move(t, state, 1, 2)
+
+	require.Equal(t, defender.Creature, eventOf[*match.TerritoryInvadedByMoveEvent](t, events).DefendingCreature)
+}
+
 func TestDecide_AttackWithAnItemPaysItAndAsksTheOwner(t *testing.T) {
 	state := withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20)
 	itemIndex := len(state.Participants[1].Hand) - 1
@@ -3065,9 +3084,10 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		state match.Match
 		event match.Event
 	}{
-		{name: "invaded_outside_the_phase", state: defending, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost}},
-		{name: "invaded_elsewhere", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: pos(t, 2, 0), Cost: cost}},
-		{name: "invaded_with_another_card", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: otherRef, Position: position, Cost: cost}},
+		{name: "invaded_outside_the_phase", state: defending, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost, DefendingCreature: defeated}},
+		{name: "invaded_elsewhere", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: pos(t, 2, 0), Cost: cost, DefendingCreature: defeated}},
+		{name: "invaded_with_another_card", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: otherRef, Position: position, Cost: cost, DefendingCreature: defeated}},
+		{name: "invaded_with_another_defender", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost, DefendingCreature: next}},
 		{name: "item_outside_the_phase", state: invading, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
 		{name: "item_not_in_the_hand", state: armed, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: otherRef, Cost: cost}},
 		{name: "item_by_who_is_not_awaited", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},

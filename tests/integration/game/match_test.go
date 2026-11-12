@@ -408,13 +408,13 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCreaturePlacedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollMultiplierActivatedEvent { position { x y } percent toll multipliedToll }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
-				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
+				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost defendingCreature defendingCreatureCard { id name } }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
 				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
 				... on MatchLandElementChangedEvent { participant position { x y } element magic }
 				... on MatchCreatureMovedEvent { participant from { x y } to { x y } creature }
-				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature }
+				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature card { id name } defendingCreature defendingCreatureCard { id name } }
 				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleStatModifiedEvent {
@@ -921,8 +921,14 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			delete(expected, key(event["from"]))
 		case "MatchTerritoryInvadedEvent":
 			invadingCard, movingFrom = event["card"].(map[string]any)["id"], nil
+			require.Equal(t, expected[key(event["position"])].creature, event["defendingCreature"])
+			require.Equal(t, expected[key(event["position"])].card, event["defendingCreatureCard"].(map[string]any)["id"])
 		case "MatchTerritoryInvadedByMoveEvent":
 			movingFrom = event["from"]
+			require.Equal(t, expected[key(event["position"])].creature, event["defendingCreature"])
+			require.Equal(t, expected[key(event["position"])].card, event["defendingCreatureCard"].(map[string]any)["id"])
+			require.Equal(t, expected[key(event["from"])].creature, event["creature"])
+			require.Equal(t, expected[key(event["from"])].card, event["card"].(map[string]any)["id"])
 		case "MatchTerritoryConqueredEvent":
 			if movingFrom != nil {
 				// 動いたクリーチャーは同じ ID のまま移り、元の土地は空き地になる
