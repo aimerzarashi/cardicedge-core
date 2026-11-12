@@ -222,9 +222,9 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CardDrawnEvent{EventMeta: meta, Participant: by, Card: cardtest.CreatureRef(t, 101)},
 		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
 		&match.DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: refs(t, 102, 101)},
-		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
+		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by, HandCount: 7, MaxHandCards: 6},
 		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.Ref(t, card.SpellEntityType, 401), Cost: cardtest.Cost(t, 40)},
-		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 200},
+		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 600, Laps: 2, MagicPerLap: 200},
 		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
 		&match.CurseCastEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Curse: match.NewFixedDiceCurse(6, 1)},
 		&match.CurseRemovedEvent{EventMeta: meta, Participant: by},
@@ -251,7 +251,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
 		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
 		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
-		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
+		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200, BaseLandValue: 100, Multiplier: 2},
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}, 10), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
@@ -509,7 +509,10 @@ func TestDecide_EndTurnOverTheHandLimitAsksToDiscardAndEndsTheTurnAfterDiscardin
 
 	state, events := endTurn(t, state, 1)
 	require.Len(t, events, 1)
-	require.IsType(t, &match.HandLimitExceededEvent{}, events[0])
+	exceeded, ok := events[0].(*match.HandLimitExceededEvent)
+	require.True(t, ok)
+	require.Equal(t, 7, exceeded.HandCount)
+	require.Equal(t, 6, exceeded.MaxHandCards)
 	require.Equal(t, match.PhaseDiscarding, state.Phase)
 
 	state, events = apply(t, state, matchtest.NewRandom(), &match.DiscardCommand{By: matchtest.Index(t, 1), HandIndex: 1})
@@ -2660,9 +2663,9 @@ func TestMatch_ElementChangeChoicesAreOtherElementsWithinTheMagic(t *testing.T) 
 	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
 
 	require.Equal(t, []match.ElementChangeChoice{
-		{Position: pos(t, 1, 0), Element: board.ElementEarth, Magic: 200},
-		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200},
-		{Position: pos(t, 1, 0), Element: board.ElementWind, Magic: 200},
+		{Position: pos(t, 1, 0), Element: board.ElementEarth, Magic: 200, Multiplier: 2},
+		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200, Multiplier: 2},
+		{Position: pos(t, 1, 0), Element: board.ElementWind, Magic: 200, Multiplier: 2},
 	}, state.ElementChangeChoices())
 	require.Empty(t, withMagic(state, 1, 199).ElementChangeChoices())
 }
@@ -2675,6 +2678,7 @@ func TestMatch_ChangingFromMultiLandIsCheaperAndOffersAllFourElements(t *testing
 	require.Len(t, choices, 4)
 	for _, choice := range choices {
 		require.Equal(t, 100, choice.Magic)
+		require.Equal(t, 1, choice.Multiplier)
 	}
 }
 
@@ -2688,11 +2692,26 @@ func TestDecide_ChangingTheElementRecountsTheChainAndEndsTheTurn(t *testing.T) {
 	changed := eventOf[*match.LandElementChangedEvent](t, events)
 	require.Equal(t, board.ElementWater, changed.Element)
 	require.Equal(t, 200, changed.Magic)
+	require.Equal(t, 100, changed.BaseLandValue)
+	require.Equal(t, 2, changed.Multiplier)
 	require.Equal(t, 600-200, state.Participants[1].Magic)
 	require.Equal(t, 100, valueAt(t, state, 2))
 	// レベルとクリーチャーはそのまま
 	require.Equal(t, 2, state.LandLevel(pos(t, 1, 0)))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+}
+
+func TestDecide_ChangingFromMultiLandRecordsTheCheaperMultiplier(t *testing.T) {
+	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 5, 1), 5)
+
+	choice := state.ElementChangeChoices()[0]
+
+	_, events := apply(t, state, matchtest.NewRandom(), &match.ChangeLandElementCommand{By: matchtest.Index(t, 1), Position: choice.Position, Element: choice.Element})
+
+	changed := eventOf[*match.LandElementChangedEvent](t, events)
+	require.Equal(t, 100, changed.BaseLandValue)
+	require.Equal(t, 1, changed.Multiplier)
+	require.Equal(t, 100, changed.Magic)
 }
 
 func TestDecide_ChangingTheElementOnTheTerritoryOfAnotherOnlyPaysTheToll(t *testing.T) {
@@ -3060,7 +3079,7 @@ func TestMatch_ElementChangeChoicesExcludeElementsTheCreatureIsRestrictedFrom(t 
 	state := withPlacedRestrictedFrom(t, rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2), "earth", "wind")
 
 	require.Equal(t, []match.ElementChangeChoice{
-		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200},
+		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200, Multiplier: 2},
 	}, state.ElementChangeChoices())
 }
 
@@ -3287,7 +3306,10 @@ func TestDecide_GainMagicSpellGivesMagicByTheLaps(t *testing.T) {
 
 			state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
 
-			require.Equal(t, tt.want, eventOf[*match.MagicGainedEvent](t, events).Magic)
+			gained := eventOf[*match.MagicGainedEvent](t, events)
+			require.Equal(t, tt.want, gained.Magic)
+			require.Equal(t, tt.laps, gained.Laps)
+			require.Equal(t, 100, gained.MagicPerLap)
 			require.Equal(t, 600+tt.want, state.Participants[1].Magic)
 			require.Equal(t, match.PhaseRolling, state.Phase)
 		})

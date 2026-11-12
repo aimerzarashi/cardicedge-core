@@ -253,9 +253,11 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 	}
 	if effect.GainMagic != nil {
 		// 周回数はこの対戦で周回を終えた回数（2026-11-10 オーナー。culdcept-lab.com のマナ）
-		magic := (r.current().Laps + 1) * effect.GainMagic.PerLap.Int()
+		laps := r.current().Laps
+		perLap := effect.GainMagic.PerLap.Int()
+		magic := (laps + 1) * perLap
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic}
+			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic, Laps: laps, MagicPerLap: perLap}
 		})
 	}
 	if effect.RollDice != nil {
@@ -366,9 +368,9 @@ func changeLandElement(r *recorder, position board.Position, element board.Eleme
 	if index < 0 {
 		return ErrLandElementNotChangeable
 	}
-	magic := r.state.ElementChangeChoices()[index].Magic
+	choice := r.state.ElementChangeChoices()[index]
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &LandElementChangedEvent{EventMeta: meta, Participant: by, Position: position, Element: element, Magic: magic}
+		return &LandElementChangedEvent{EventMeta: meta, Participant: by, Position: position, Element: element, Magic: choice.Magic, BaseLandValue: r.state.Rules.BaseLandValue, Multiplier: choice.Multiplier}
 	}); err != nil {
 		return err
 	}
@@ -867,7 +869,7 @@ func endTurn(r *recorder) error {
 	}
 	if index, _ := r.state.CurrentParticipant(); r.state.exceedsHandLimit(index) {
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &HandLimitExceededEvent{EventMeta: meta, Participant: by}
+			return &HandLimitExceededEvent{EventMeta: meta, Participant: by, HandCount: len(r.state.Participants[index].Hand), MaxHandCards: r.state.Rules.MaxHandCards.Int()}
 		})
 	}
 	// 最後のターンを終えると呪いが解ける（残るターンがあれば TurnEndedEvent で 1 減る）

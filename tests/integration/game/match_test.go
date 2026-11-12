@@ -398,9 +398,9 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
 				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
 				... on MatchDiscardPileShuffledEvent { participant drawPileCount }
-				... on MatchHandLimitExceededEvent { participant }
+				... on MatchHandLimitExceededEvent { participant handCount maxHandCards }
 				... on MatchSpellUsedEvent { participant handIndex card { id name } cost }
-				... on MatchMagicGainedEvent { participant magic }
+				... on MatchMagicGainedEvent { participant magic laps magicPerLap }
 				... on MatchDiceCountChangedEvent { participant count }
 				... on MatchCurseCastEvent { participant target curse { remainingTurns effect { __typename ... on MatchFixedDiceCurse { value } } } }
 				... on MatchCurseRemovedEvent { participant }
@@ -413,7 +413,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
 				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
-				... on MatchLandElementChangedEvent { participant position { x y } element magic }
+				... on MatchLandElementChangedEvent { participant position { x y } element magic baseLandValue multiplier }
 				... on MatchCreatureMovedEvent { participant from { x y } to { x y } creature }
 				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature card { id name } defendingCreature defendingCreatureCard { id name } }
 				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
@@ -950,6 +950,12 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			delete(expected, key(event["position"]))
 		case "MatchBattleStatModifiedEvent":
 			requireStatDeltaMatchesSource(t, event)
+		case "MatchLandElementChangedEvent":
+			require.Equal(t, event["baseLandValue"].(float64)*event["multiplier"].(float64), event["magic"])
+		case "MatchMagicGainedEvent":
+			require.Equal(t, (event["laps"].(float64)+1)*event["magicPerLap"].(float64), event["magic"])
+		case "MatchHandLimitExceededEvent":
+			require.Greater(t, event["handCount"], event["maxHandCards"])
 		}
 	}
 	// 土地が 2 つあるボードで 10 ラウンド進めるので、誰かが配置している

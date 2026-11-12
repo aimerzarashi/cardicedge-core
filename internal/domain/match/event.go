@@ -76,6 +76,9 @@ type HandLimitExceededEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
+	// 超えた時点の手札の枚数と上限。捨てる枚数は HandCount - MaxHandCards
+	HandCount    int `json:"hand_count"`
+	MaxHandCards int `json:"max_hand_cards"`
 }
 
 // 手札から捨てたカード（手札の何番目か。0 始まり）。捨て札に入る
@@ -173,12 +176,14 @@ type SpellUsedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// スペルの効果で魔力を得た（Magic は得た魔力）
+// スペルの効果で魔力を得た（Magic は得た魔力 = (Laps + 1) × MagicPerLap。Laps は得た時点でこの対戦で周回を終えた回数）
 type MagicGainedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	Magic       int              `json:"magic"`
+	Laps        int              `json:"laps"`
+	MagicPerLap int              `json:"magic_per_lap"`
 }
 
 // スペルの効果で、このターンに振るサイコロの個数が変わった（Count 個を同時に振り、合計の分だけ進む）
@@ -320,7 +325,7 @@ type CreatureExchangedEvent struct {
 	ReturnedCard card.Ref         `json:"returned_card"`
 }
 
-// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力）。土地のレベルとクリーチャーはそのまま
+// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力 = BaseLandValue × Multiplier）。土地のレベルとクリーチャーはそのまま
 type LandElementChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -328,6 +333,9 @@ type LandElementChangedEvent struct {
 	Position    board.Position   `json:"position"`
 	Element     board.Element    `json:"element"`
 	Magic       int              `json:"magic"`
+	// 払った魔力の根拠。Multiplier は実際に掛けた倍率（複属性の土地からは安い）
+	BaseLandValue int `json:"base_land_value"`
+	Multiplier    int `json:"multiplier"`
 }
 
 // 通った自分の領地のクリーチャーを空き地へ動かした。行き先が領地になり、元の土地は空き地になる（土地のレベルはどちらも土地に残る）

@@ -1,3 +1,5 @@
 {
-  "participant": 1
+  "participant": 1,
+  "hand_count": 7,
+  "max_hand_cards": 6
 }
