@@ -32,7 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			invadeChoices
 			itemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } deployChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
+			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } placeChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -163,7 +163,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "deployMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -217,11 +217,11 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		require.NotEmpty(t, choices)
 		input["to"] = choices[0]
 		return matchRevision(t, matchOperation(t, token, "chooseMatchPath", input), "chooseMatchPath")
-	case "DEPLOYING":
-		// 配置できるものがあれば core が出す deployChoices の最初を配置し（そのままターンを終える）、無ければ配置せずにターンを終える
-		if choices := m["deployChoices"].([]any); len(choices) > 0 {
+	case "PLACING":
+		// 配置できるものがあれば core が出す placeChoices の最初を配置し（そのままターンを終える）、無ければ配置せずにターンを終える
+		if choices := m["placeChoices"].([]any); len(choices) > 0 {
 			input["handIndex"] = choices[0]
-			return matchRevision(t, matchOperation(t, token, "deployMatchCreature", input), "deployMatchCreature")
+			return matchRevision(t, matchOperation(t, token, "placeMatchCreature", input), "placeMatchCreature")
 		}
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
 	case "INVADING":
@@ -293,7 +293,7 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 		assertOperationsAreRejected(t, p.token, stranger, matchID, m)
 		next := playMatchPhase(t, p.token, matchID, m)
 		// 配置の段階は、配置しても配置しなくてもターンが終わる
-		if m["phase"] != "ENDING" && m["phase"] != "DEPLOYING" {
+		if m["phase"] != "ENDING" && m["phase"] != "PLACING" {
 			continue
 		}
 		// ターンを終えた直後は NPC の番（上限のラウンドの最後のプレイヤーなら対戦が終わっている）。番でない操作は断られ、何も変わらない。
@@ -405,7 +405,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchCurseRemovedEvent { participant }
 				... on MatchCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
 				... on MatchCreatureDestroyedEvent { participant position { x y } creature }
-				... on MatchCreatureDeployedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
+				... on MatchCreaturePlacedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollMultiplierActivatedEvent { position { x y } percent toll multipliedToll }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost }
@@ -832,7 +832,7 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 	}
 }
 
-func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
+func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	t.Parallel()
 	p := newRoomPlayer(t)
 	// 見本の部屋のボード（公開中A）には土地が無いので、土地が 2 つある公開中B を選ぶ
@@ -853,15 +853,15 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 		if m["phase"] == "ENDED" {
 			break
 		}
-		if m["phase"] == "DEPLOYING" {
+		if m["phase"] == "PLACING" {
 			// 手札の範囲の外は入力の誤りで、何も変わらない
 			hand := m["participants"].([]any)[0].(map[string]any)["hand"].([]any)
-			invalid := matchOperation(t, p.token, "deployMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 99})
+			invalid := matchOperation(t, p.token, "placeMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 99})
 			require.Equal(t, "ValidationErrors", invalid["__typename"])
 			require.Equal(t, []any{map[string]any{"__typename": "FieldOutOfRange", "field": "handIndex", "min": float64(0), "max": float64(len(hand) - 1)}}, invalid["errors"])
 		} else {
 			// 配置の段階でなければ、配置できない
-			wrong := matchOperation(t, p.token, "deployMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+			wrong := matchOperation(t, p.token, "placeMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
 			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
 		}
 		if m["phase"] != "RELINQUISHING" {
@@ -906,7 +906,7 @@ func TestMatch_DeployedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
 		event := raw.(map[string]any)
 		switch event["__typename"] {
-		case "MatchCreatureDeployedEvent":
+		case "MatchCreaturePlacedEvent":
 			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
 			// 盤面から外れたクリーチャーの ID も使い回さない
 			require.Equal(t, lastCreature+1, event["creature"])

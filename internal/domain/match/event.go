@@ -89,15 +89,15 @@ type CardDiscardedEvent struct {
 
 // 止まった空き地に、手札のクリーチャーを配置した（手札の何番目か。0 始まり）。コストの分の魔力を払い、その土地が領地になる。
 // 性能は対戦を始めたときの写しから決まるので、イベントには書き写さない
-type CreatureDeployedEvent struct {
+type CreaturePlacedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex   `json:"participant"`
-	HandIndex   int                `json:"hand_index"`
-	Card        card.Ref           `json:"card"`
-	Creature    DeployedCreatureID `json:"creature"`
-	Position    board.Position     `json:"position"`
-	Cost        card.Cost          `json:"cost"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Card        card.Ref         `json:"card"`
+	Creature    PlacedCreatureID `json:"creature"`
+	Position    board.Position   `json:"position"`
+	Cost        card.Cost        `json:"cost"`
 }
 
 // 他人の領地に止まって通行料を払った。足りなくても全額を払い、魔力は負になる（Magic は払った魔力で、持ち主が同じだけ受け取る）
@@ -125,10 +125,10 @@ type TollMultiplierActivatedEvent struct {
 type TerritoryRelinquishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex   `json:"participant"`
-	Position    board.Position     `json:"position"`
-	Creature    DeployedCreatureID `json:"creature"`
-	Magic       int                `json:"magic"`
+	Participant ParticipantIndex `json:"participant"`
+	Position    board.Position   `json:"position"`
+	Creature    PlacedCreatureID `json:"creature"`
+	Magic       int              `json:"magic"`
 }
 
 // 領地が無くなっても魔力が負のままだった。拠点からやり直す（Magic は与えられた開始時の魔力）
@@ -209,7 +209,7 @@ type CreatureDamagedEvent struct {
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
 	Position           board.Position     `json:"position"`
-	Creature           DeployedCreatureID `json:"creature"`
+	Creature           PlacedCreatureID   `json:"creature"`
 	Damage             int                `json:"damage"`
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
 }
@@ -218,9 +218,9 @@ type CreatureDamagedEvent struct {
 type CreatureDestroyedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex   `json:"participant"`
-	Position    board.Position     `json:"position"`
-	Creature    DeployedCreatureID `json:"creature"`
+	Participant ParticipantIndex `json:"participant"`
+	Position    board.Position   `json:"position"`
+	Creature    PlacedCreatureID `json:"creature"`
 }
 
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
@@ -275,8 +275,8 @@ type TerritoryConqueredEvent struct {
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
 	Position           board.Position     `json:"position"`
-	DefeatedCreature   DeployedCreatureID `json:"defeated_creature"`
-	Creature           DeployedCreatureID `json:"creature"`
+	DefeatedCreature   PlacedCreatureID   `json:"defeated_creature"`
+	Creature           PlacedCreatureID   `json:"creature"`
 	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
@@ -308,13 +308,13 @@ type TerritoryLeveledUpEvent struct {
 type CreatureExchangedEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
-	Participant  ParticipantIndex   `json:"participant"`
-	Position     board.Position     `json:"position"`
-	HandIndex    int                `json:"hand_index"`
-	Card         card.Ref           `json:"card"`
-	Creature     DeployedCreatureID `json:"creature"`
-	Cost         card.Cost          `json:"cost"`
-	ReturnedCard card.Ref           `json:"returned_card"`
+	Participant  ParticipantIndex `json:"participant"`
+	Position     board.Position   `json:"position"`
+	HandIndex    int              `json:"hand_index"`
+	Card         card.Ref         `json:"card"`
+	Creature     PlacedCreatureID `json:"creature"`
+	Cost         card.Cost        `json:"cost"`
+	ReturnedCard card.Ref         `json:"returned_card"`
 }
 
 // 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力）。土地のレベルとクリーチャーはそのまま
@@ -331,20 +331,20 @@ type LandElementChangedEvent struct {
 type CreatureMovedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex   `json:"participant"`
-	From        board.Position     `json:"from"`
-	To          board.Position     `json:"to"`
-	Creature    DeployedCreatureID `json:"creature"`
+	Participant ParticipantIndex `json:"participant"`
+	From        board.Position   `json:"from"`
+	To          board.Position   `json:"to"`
+	Creature    PlacedCreatureID `json:"creature"`
 }
 
 // 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）。Position は攻める領地
 type TerritoryInvadedByMoveEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex   `json:"participant"`
-	From        board.Position     `json:"from"`
-	Position    board.Position     `json:"position"`
-	Creature    DeployedCreatureID `json:"creature"`
+	Participant ParticipantIndex `json:"participant"`
+	From        board.Position   `json:"from"`
+	Position    board.Position   `json:"position"`
+	Creature    PlacedCreatureID `json:"creature"`
 }
 
 // 振った目
@@ -432,7 +432,7 @@ var (
 	matchEndedEventType              = domain.NewEventName("MatchEndedEvent")
 	rewardDrawnEventType             = domain.NewEventName("RewardDrawnEvent")
 	rewardsCompletedEventType        = domain.NewEventName("RewardsCompletedEvent")
-	creatureDeployedEventType        = domain.NewEventName("CreatureDeployedEvent")
+	creaturePlacedEventType          = domain.NewEventName("CreaturePlacedEvent")
 	tollPaidEventType                = domain.NewEventName("TollPaidEvent")
 	territoryRelinquishedEventType   = domain.NewEventName("TerritoryRelinquishedEvent")
 	magicDepletedEventType           = domain.NewEventName("MagicDepletedEvent")
@@ -575,11 +575,11 @@ func (*RewardsCompletedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*CreatureDeployedEvent) EventType() domain.EventName {
-	return creatureDeployedEventType
+func (*CreaturePlacedEvent) EventType() domain.EventName {
+	return creaturePlacedEventType
 }
 
-func (*CreatureDeployedEvent) SchemaVersion() int {
+func (*CreaturePlacedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -803,7 +803,7 @@ func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
 		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
-		rewardDrawnEventType, rewardsCompletedEventType, creatureDeployedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
+		rewardDrawnEventType, rewardsCompletedEventType, creaturePlacedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
@@ -849,8 +849,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &RewardDrawnEvent{EventMeta: meta}
 	case EventType(rewardsCompletedEventType):
 		event = &RewardsCompletedEvent{EventMeta: meta}
-	case EventType(creatureDeployedEventType):
-		event = &CreatureDeployedEvent{EventMeta: meta}
+	case EventType(creaturePlacedEventType):
+		event = &CreaturePlacedEvent{EventMeta: meta}
 	case EventType(tollPaidEventType):
 		event = &TollPaidEvent{EventMeta: meta}
 	case EventType(territoryRelinquishedEventType):

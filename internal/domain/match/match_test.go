@@ -228,8 +228,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
 		&match.CurseCastEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Curse: match.NewFixedDiceCurse(6, 1)},
 		&match.CurseRemovedEvent{EventMeta: meta, Participant: by},
-		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
-		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
+		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1)},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
@@ -239,20 +239,20 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.RewardDrawnEvent{EventMeta: meta, Participant: by, Pack: match.DefaultPackKey, Cards: refs(t, 301, 302)},
 		&match.RewardsCompletedEvent{EventMeta: meta},
 		&match.TollPaidEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Position: boardtest.Position(t, 1, 0), Magic: 60},
-		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1), Magic: 80},
+		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1), Magic: 80},
 		&match.MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: 600},
-		&match.CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
 		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
 		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Card: cardtest.Ref(t, card.ItemEntityType, 301), Cost: cardtest.Cost(t, 20)},
 		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
-		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
+		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.PlacedCreatureID(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
-		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 3)},
-		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 3)},
+		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
+		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
 		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
-		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.DeployedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
+		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
 		&match.BattleStartedEvent{EventMeta: meta, Attacker: battleStats(t, 30, 40), Defender: battleStats(t, 20, 35)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}), AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
 		&match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
@@ -646,7 +646,7 @@ func TestDecide_RollMovesOneTileAtATimeForTheRolledFace(t *testing.T) {
 	require.Zero(t, state.RemainingSteps)
 	require.Equal(t, pos(t, 3, 0), state.Participants[1].Position)
 	// 止まった (3,0) は空いている土地なので、配置を選ぶ段階に入る
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 	require.Equal(t, 3, countOf[*match.MovedEvent](events))
 	require.Equal(t, 1, countOf[*match.DiceRolledEvent](events))
 }
@@ -1095,12 +1095,12 @@ func TestMatch_CardSpecsReturnsSnapshotOfEveryParticipantDeck(t *testing.T) {
 }
 
 // 配置の段階まで進める。NPC（参加者 1）が先の番で、引いてから目 1 を振ると、空いている火属性の土地 (1,0) に止まる
-func deployingMatch(t *testing.T, participants ...match.Participant) match.Match {
+func placingMatch(t *testing.T, participants ...match.Participant) match.Match {
 	t.Helper()
 	cmd := startCommand(t, defaultRules(t), participants...)
 	state, _ := start(t, cmd)
 	state, _ = drawAndRoll(t, state, 1, 1)
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 	return state
 }
 
@@ -1108,48 +1108,48 @@ func TestDecide_StoppingOnVacantLandOffersTheCreaturesThatCanBePaid(t *testing.T
 	// NPC のデッキ: カード 201（コスト 10）と 299（コスト 990。開始時の魔力 600 では払えない）。山札は逆順に混ざるので、
 	// 配った 1 枚が 299、引いた 1 枚が 201
 	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
-	state := deployingMatch(t, playerParticipant(t), npc)
+	state := placingMatch(t, playerParticipant(t), npc)
 
 	require.Equal(t, refs(t, 299, 201), state.Participants[1].Hand)
-	require.Equal(t, []int{1}, state.DeployChoices())
+	require.Equal(t, []int{1}, state.PlaceChoices())
 }
 
-func TestDecide_DeployPaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
-	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+func TestDecide_PlacePaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
+	state := placingMatch(t, playerParticipant(t), npcParticipant(t))
 	handBefore := len(state.Participants[1].Hand)
 
-	state, events := apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	state, events := apply(t, state, matchtest.NewRandom(), &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
 
-	require.Equal(t, 1, countOf[*match.CreatureDeployedEvent](events))
+	require.Equal(t, 1, countOf[*match.CreaturePlacedEvent](events))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Equal(t, 600-10, state.Participants[1].Magic)
 	require.Len(t, state.Participants[1].Hand, handBefore-1)
-	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, state.Territories)
-	require.Equal(t, []match.DeployedCreature{{
-		ID: matchtest.DeployedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
+	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1)}}, state.Territories)
+	require.Equal(t, []match.PlacedCreature{{
+		ID: matchtest.PlacedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
 		Base: *creatureSpec(t, 201), HitPoints: creatureSpec(t, 201).HitPoints,
-	}}, state.DeployedCreatures)
+	}}, state.PlacedCreatures)
 	// 次の番（プレイヤー）に移っている
 	turn, _ := state.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 0), turn)
 }
 
-func TestDecide_EndTurnWhileDeployingLeavesTheLandVacant(t *testing.T) {
-	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+func TestDecide_EndTurnWhilePlacingLeavesTheLandVacant(t *testing.T) {
+	state := placingMatch(t, playerParticipant(t), npcParticipant(t))
 
 	state, events := endTurn(t, state, 1)
 
-	require.Zero(t, countOf[*match.CreatureDeployedEvent](events))
+	require.Zero(t, countOf[*match.CreaturePlacedEvent](events))
 	require.Empty(t, state.Territories)
 	require.Equal(t, 600, state.Participants[1].Magic)
 }
 
-func TestDecide_DeployRejectsCardsThatCannotBeDeployed(t *testing.T) {
+func TestDecide_PlaceRejectsCardsThatCannotBePlaced(t *testing.T) {
 	itemSpec := match.CardSpec{Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal}
 	item := match.DeckCard{Card: cardtest.Ref(t, card.ItemEntityType, 250), Quantity: cardtest.DeckQuantity(t, 1), Spec: itemSpec}
 	// 山札は逆順に混ざるので、手札は先頭から 299・250（アイテム）・201
 	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
-	state := deployingMatch(t, playerParticipant(t), npc)
+	state := placingMatch(t, playerParticipant(t), npc)
 	hand := state.Participants[1].Hand
 	require.Equal(t, cardtest.CreatureRef(t, 299), hand[0])
 	require.Equal(t, cardtest.Ref(t, card.ItemEntityType, 250), hand[1])
@@ -1159,68 +1159,68 @@ func TestDecide_DeployRejectsCardsThatCannotBeDeployed(t *testing.T) {
 		handIndex int
 		want      error
 	}{
-		{name: "cost_exceeds_magic", handIndex: 0, want: match.ErrCreatureNotDeployable},
-		{name: "not_creature", handIndex: 1, want: match.ErrCreatureNotDeployable},
+		{name: "cost_exceeds_magic", handIndex: 0, want: match.ErrCreatureNotPlaceable},
+		{name: "not_creature", handIndex: 1, want: match.ErrCreatureNotPlaceable},
 		{name: "out_of_range", handIndex: len(hand), want: match.ErrHandIndexOutOfRange},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: tt.handIndex})
+			err := decideErr(t, state, &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: tt.handIndex})
 			require.ErrorIs(t, err, tt.want)
 		})
 	}
 }
 
-func TestDecide_StoppingOnATerritoryDoesNotOfferDeploying(t *testing.T) {
-	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+func TestDecide_StoppingOnATerritoryDoesNotOfferPlacing(t *testing.T) {
+	state := placingMatch(t, playerParticipant(t), npcParticipant(t))
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
 
 	// プレイヤーも目 1 で、NPC の領地になった (1,0) に止まる
 	state, _ = drawAndRoll(t, state, 0, 1)
 
 	require.Equal(t, pos(t, 1, 0), state.Participants[0].Position)
 	require.Equal(t, match.PhaseInvading, state.Phase)
-	require.Empty(t, state.DeployChoices())
+	require.Empty(t, state.PlaceChoices())
 }
 
-func TestDecide_DeployRejectsOutsideTheDeployingPhase(t *testing.T) {
+func TestDecide_PlaceRejectsOutsideThePlacingPhase(t *testing.T) {
 	state := newMatch(t, lineBoard(t), defaultRules(t))
 
-	err := decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	err := decideErr(t, state, &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
 
 	require.ErrorIs(t, err, match.ErrPhaseNotAllowed)
 }
 
-func TestDecide_DeployedCreaturesGetConsecutiveIDs(t *testing.T) {
+func TestDecide_PlacedCreaturesGetConsecutiveIDs(t *testing.T) {
 	state := newMatch(t, ringBoard(t), defaultRules(t))
 	// 拠点からの最初の一歩は 2 方向に分かれる。NPC は (1,0) へ進んで目 2 で土地 (2,0)、プレイヤーは (0,1) へ進んで目 1 で土地 (0,1)
 	state, _ = drawAndRoll(t, state, 1, 2)
 	state, _ = choose(t, state, 1, 1, 0)
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
 	state, _ = drawAndRoll(t, state, 0, 1)
 	state, _ = choose(t, state, 0, 0, 1)
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 0), HandIndex: 0})
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.PlaceCreatureCommand{By: matchtest.Index(t, 0), HandIndex: 0})
 
 	require.Equal(t, []match.Territory{
-		{Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)},
-		{Position: pos(t, 0, 1), Creature: matchtest.DeployedCreatureID(t, 2)},
+		{Position: pos(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 1)},
+		{Position: pos(t, 0, 1), Creature: matchtest.PlacedCreatureID(t, 2)},
 	}, state.Territories)
-	require.Equal(t, matchtest.Index(t, 0), state.DeployedCreatures[1].Owner)
-	require.Equal(t, matchtest.DeployedCreatureID(t, 2), state.LastDeployedCreatureID)
+	require.Equal(t, matchtest.Index(t, 0), state.PlacedCreatures[1].Owner)
+	require.Equal(t, matchtest.PlacedCreatureID(t, 2), state.LastPlacedCreatureID)
 }
 
-func TestEvolve_RejectsDeployedEventThatDoesNotMatchTheState(t *testing.T) {
-	state := deployingMatch(t, playerParticipant(t), npcParticipant(t))
+func TestEvolve_RejectsPlacedEventThatDoesNotMatchTheState(t *testing.T) {
+	state := placingMatch(t, playerParticipant(t), npcParticipant(t))
 	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
-	valid := match.CreatureDeployedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), HandIndex: 0, Card: state.Participants[1].Hand[0], Creature: matchtest.DeployedCreatureID(t, 1), Position: pos(t, 1, 0), Cost: cardtest.Cost(t, 10)}
+	valid := match.CreaturePlacedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), HandIndex: 0, Card: state.Participants[1].Hand[0], Creature: matchtest.PlacedCreatureID(t, 1), Position: pos(t, 1, 0), Cost: cardtest.Cost(t, 10)}
 
 	tests := []struct {
 		name   string
-		mutate func(e *match.CreatureDeployedEvent)
+		mutate func(e *match.CreaturePlacedEvent)
 	}{
-		{name: "other_card", mutate: func(e *match.CreatureDeployedEvent) { e.Card = cardtest.CreatureRef(t, 999) }},
-		{name: "other_position", mutate: func(e *match.CreatureDeployedEvent) { e.Position = pos(t, 0, 0) }},
-		{name: "skipped_id", mutate: func(e *match.CreatureDeployedEvent) { e.Creature = matchtest.DeployedCreatureID(t, 2) }},
+		{name: "other_card", mutate: func(e *match.CreaturePlacedEvent) { e.Card = cardtest.CreatureRef(t, 999) }},
+		{name: "other_position", mutate: func(e *match.CreaturePlacedEvent) { e.Position = pos(t, 0, 0) }},
+		{name: "skipped_id", mutate: func(e *match.CreaturePlacedEvent) { e.Creature = matchtest.PlacedCreatureID(t, 2) }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1247,16 +1247,16 @@ func territoryBoard(t *testing.T) match.Board {
 // NPC（参加者 1）が先の番の対戦で、領地を直接置く（ここで確かめたいのは配置の後の決まりなので、配置の手順を毎回踏まない）
 func withTerritory(t *testing.T, state match.Match, owner, x, level int) match.Match {
 	t.Helper()
-	id := matchtest.DeployedCreatureID(t, state.LastDeployedCreatureID.Int()+1)
+	id := matchtest.PlacedCreatureID(t, state.LastPlacedCreatureID.Int()+1)
 	spec := creatureSpec(t, 201)
-	state.DeployedCreatures = append(slices.Clone(state.DeployedCreatures), match.DeployedCreature{
+	state.PlacedCreatures = append(slices.Clone(state.PlacedCreatures), match.PlacedCreature{
 		ID: id, Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, owner), Base: *spec, HitPoints: spec.HitPoints,
 	})
 	state.Territories = append(slices.Clone(state.Territories), match.Territory{Position: pos(t, x, 0), Creature: id})
 	if level > 1 {
 		state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, x, 0), Level: level})
 	}
-	state.LastDeployedCreatureID = id
+	state.LastPlacedCreatureID = id
 	return state
 }
 
@@ -1362,9 +1362,9 @@ func withTollMultiplier(t *testing.T, state match.Match, percent int) match.Matc
 	require.NoError(t, err)
 	abilities, err := creature.NewAbilities([]creature.Ability{creature.NewTollMultiplierAbility(value)})
 	require.NoError(t, err)
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	for i := range state.DeployedCreatures {
-		state.DeployedCreatures[i].Base.Abilities = abilities
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	for i := range state.PlacedCreatures {
+		state.PlacedCreatures[i].Base.Abilities = abilities
 	}
 	return state
 }
@@ -1463,7 +1463,7 @@ func TestDecide_PassingThroughATerritoryPaysNothing(t *testing.T) {
 	state, events := drawAndRoll(t, state, 1, 2)
 
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 }
 
 func TestDecide_StoppingOnOwnTerritoryPaysNothing(t *testing.T) {
@@ -1508,13 +1508,13 @@ func TestDecide_RelinquishingKeepsTheLandLevel(t *testing.T) {
 	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
 }
 
-func TestDecide_DeployingOnALeveledVacantLandInheritsTheLevel(t *testing.T) {
+func TestDecide_PlacingOnALeveledVacantLandInheritsTheLevel(t *testing.T) {
 	state := territoryBoardMatch(t)
 	state.LandLevels = []match.LandLevel{{Position: pos(t, 1, 0), Level: 3}}
 	state = rolledTo(t, state, 1)
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
+	state, _ = apply(t, state, matchtest.NewRandom(), &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0})
 
 	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
 	require.Equal(t, 400, valueAt(t, state, 1))
@@ -1533,8 +1533,8 @@ func TestDecide_RelinquishingRemovesTheCreatureAndFreesTheLand(t *testing.T) {
 	require.Equal(t, -50+80, state.Participants[1].Magic)
 	_, occupied := state.TerritoryAt(pos(t, 2, 0))
 	require.False(t, occupied)
-	_, deployed := state.DeployedCreature(matchtest.DeployedCreatureID(t, 2))
-	require.False(t, deployed)
+	_, placed := state.PlacedCreature(matchtest.PlacedCreatureID(t, 2))
+	require.False(t, placed)
 	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
@@ -1658,17 +1658,17 @@ func TestDecide_RoundLimitWinnerIsDecidedByTotalMagic(t *testing.T) {
 func TestEvolve_RejectsRelinquishedEventThatDoesNotMatchTheState(t *testing.T) {
 	state := indebtedMatch(t)
 	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
-	valid := match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), Position: pos(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 2), Magic: 80}
+	valid := match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), Position: pos(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 2), Magic: 80}
 
 	tests := []struct {
 		name   string
 		mutate func(e *match.TerritoryRelinquishedEvent)
 	}{
 		{name: "other_position", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Position = pos(t, 3, 0) }},
-		{name: "other_creature", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Creature = matchtest.DeployedCreatureID(t, 3) }},
+		{name: "other_creature", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Creature = matchtest.PlacedCreatureID(t, 3) }},
 		{name: "territory_of_another_owner", mutate: func(e *match.TerritoryRelinquishedEvent) {
 			e.Position = pos(t, 1, 0)
-			e.Creature = matchtest.DeployedCreatureID(t, 1)
+			e.Creature = matchtest.PlacedCreatureID(t, 1)
 		}},
 	}
 	for _, tt := range tests {
@@ -1733,9 +1733,9 @@ func withBattlers(t *testing.T, state match.Match, attackerAttack, attackerHitPo
 	invasion.Base.Attack = creaturetest.Attack(t, attackerAttack)
 	invasion.HitPoints = creaturetest.HitPoints(t, attackerHitPoints)
 	state.Invasion = &invasion
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].Base.Attack = creaturetest.Attack(t, defenderAttack)
-	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, defenderHitPoints)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Base.Attack = creaturetest.Attack(t, defenderAttack)
+	state.PlacedCreatures[0].HitPoints = creaturetest.HitPoints(t, defenderHitPoints)
 	return state
 }
 
@@ -1926,11 +1926,11 @@ func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
 	require.Nil(t, state.Invasion)
 	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: conquered.Creature}}, state.Territories)
-	require.Len(t, state.DeployedCreatures, 1)
-	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
-	require.Equal(t, cardtest.CreatureRef(t, 201), state.DeployedCreatures[0].Card)
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
-	require.Equal(t, state.LastDeployedCreatureID, conquered.Creature)
+	require.Len(t, state.PlacedCreatures, 1)
+	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
+	require.Equal(t, cardtest.CreatureRef(t, 201), state.PlacedCreatures[0].Card)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
+	require.Equal(t, state.LastPlacedCreatureID, conquered.Creature)
 	require.NotEqual(t, defeated, conquered.Creature)
 	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[0].DiscardPile)
 	require.Empty(t, state.Participants[1].DiscardPile)
@@ -1954,7 +1954,7 @@ func TestDecide_FailingToDefeatTheDefenderReturnsTheSurvivorToTheHandAndPaysTheT
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Nil(t, state.Invasion)
 	// 傷は残る
-	require.Equal(t, creaturetest.HitPoints(t, 15), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 15), state.PlacedCreatures[0].HitPoints)
 }
 
 func TestDecide_AttackerDestroyedByTheCounterattackIsNotReturnedToTheHand(t *testing.T) {
@@ -1978,8 +1978,8 @@ func withStrikeAbilities(t *testing.T, state match.Match, attacker, defender []c
 	invasion := *state.Invasion
 	invasion.Base.Abilities = attackerAbilities
 	state.Invasion = &invasion
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].Base.Abilities = defenderAbilities
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Base.Abilities = defenderAbilities
 	return state
 }
 
@@ -2041,7 +2041,7 @@ func TestDecide_DefenderWithFirstStrikeDestroysTheAttackerBeforeItStrikes(t *tes
 	require.Equal(t, match.BattleSideDefender, struck.Striker)
 	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
 	// 守る側は攻撃を受けていない
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 }
 
 func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T) {
@@ -2088,8 +2088,8 @@ func defendWithItem(t *testing.T, state match.Match, itemHandIndex int) (match.M
 
 func withDefenderElements(t *testing.T, state match.Match, elements ...string) match.Match {
 	t.Helper()
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].Base.Elements = creaturetest.Elements(t, elements...)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Base.Elements = creaturetest.Elements(t, elements...)
 	return state
 }
 
@@ -2148,7 +2148,7 @@ func TestDecide_BattleReportsEachEffectInOrderBeforeTheStrikes(t *testing.T) {
 	// 55 のダメージのうち、増えた 35 を超えた 20 だけが傷になる
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
 	require.Equal(t, creaturetest.HitPoints(t, 20), repelled.TerritoryHitPoints)
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 	require.Nil(t, state.Battle)
 }
 
@@ -2219,7 +2219,7 @@ func TestDecide_HitPointsAddedByEffectsAreReducedFirstAndTheRestDisappears(t *te
 
 			state, _ = defend(t, state)
 
-			require.Equal(t, creaturetest.HitPoints(t, tc.want), state.DeployedCreatures[0].HitPoints)
+			require.Equal(t, creaturetest.HitPoints(t, tc.want), state.PlacedCreatures[0].HitPoints)
 		})
 	}
 }
@@ -2231,7 +2231,7 @@ func TestDecide_HitPointsLoweredByAnItemComeBackAfterTheBattle(t *testing.T) {
 	state, events := defendWithItem(t, state, cursed)
 
 	require.Equal(t, creaturetest.HitPoints(t, 25), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
-	require.Equal(t, creaturetest.HitPoints(t, 35), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 35), state.PlacedCreatures[0].HitPoints)
 }
 
 func TestDecide_AttackerDestroyedByAnEffectEndsTheBattleAtThatPoint(t *testing.T) {
@@ -2265,8 +2265,8 @@ func TestDecide_DefenderDestroyedByAnEffectIsConqueredWithoutStrikes(t *testing.
 	require.Zero(t, countOf[*match.CreatureStruckEvent](events))
 	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
 	require.Equal(t, creaturetest.HitPoints(t, 20), conquered.TerritoryHitPoints)
-	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 }
 
 func TestDecide_AttackReducedToZeroDoesNotDestroyTheCreature(t *testing.T) {
@@ -2282,7 +2282,7 @@ func TestDecide_AttackReducedToZeroDoesNotDestroyTheCreature(t *testing.T) {
 	require.Equal(t, 2, countOf[*match.CreatureStruckEvent](events))
 	require.True(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
 	// AT が 0 の反撃は傷を付けない
-	require.Equal(t, creaturetest.HitPoints(t, 25), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 25), state.PlacedCreatures[0].HitPoints)
 }
 
 func TestDecide_ItemsWithoutAStatChangeEmitNoModification(t *testing.T) {
@@ -2326,7 +2326,7 @@ func levelUp(t *testing.T, state match.Match, x, level int) (match.Match, []matc
 func TestDecide_PassingOwnTerritoryOffersLevelUpsWithinTheMagic(t *testing.T) {
 	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2)
 
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 	// 手持ちの 600 では 3 まで（4 は 700 かかる）
 	require.Equal(t, []match.LevelUpChoice{
 		{Position: pos(t, 1, 0), Level: 2, Magic: 100},
@@ -2343,7 +2343,7 @@ func TestDecide_TerritoryWhereTheTurnStartedIsNotOffered(t *testing.T) {
 
 	state = rolledTo(t, state, 1)
 
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 	require.Empty(t, state.LevelUpChoices())
 }
 
@@ -2357,7 +2357,7 @@ func TestDecide_TerritoryWhereTheTurnStoppedIsOffered(t *testing.T) {
 func TestDecide_TerritoriesOfOthersAreNotOffered(t *testing.T) {
 	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 0, 1, 1), 2)
 
-	require.Equal(t, match.PhaseDeploying, state.Phase)
+	require.Equal(t, match.PhasePlacing, state.Phase)
 }
 
 func TestDecide_PassedTerritoriesAreForgottenWhenTheTurnEnds(t *testing.T) {
@@ -2375,7 +2375,7 @@ func TestDecide_TerritoryCommandsAreOfferedAlongsideTheActionOfTheStoppedTile(t 
 		face  int
 		want  match.Phase
 	}{
-		{name: "vacant_land", setup: func(_ *testing.T, state match.Match) match.Match { return state }, face: 2, want: match.PhaseDeploying},
+		{name: "vacant_land", setup: func(_ *testing.T, state match.Match) match.Match { return state }, face: 2, want: match.PhasePlacing},
 		{name: "territory_of_another", setup: func(t *testing.T, state match.Match) match.Match { return withTerritory(t, state, 0, 2, 1) }, face: 2, want: match.PhaseInvading},
 		{name: "own_territory", setup: func(_ *testing.T, state match.Match) match.Match { return state }, face: 1, want: match.PhaseTerritoryCommanding},
 	}
@@ -2414,7 +2414,7 @@ func TestDecide_LevelingUpPaysTheMagicRaisesTheValueAndEndsTheTurnOnVacantLand(t
 	require.Equal(t, 300, leveled.Magic)
 	require.Equal(t, 600-300, state.Participants[1].Magic)
 	require.Equal(t, 400, valueAt(t, state, 1))
-	require.Zero(t, countOf[*match.CreatureDeployedEvent](events))
+	require.Zero(t, countOf[*match.CreaturePlacedEvent](events))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
 
@@ -2455,9 +2455,9 @@ func TestDecide_LevelUpRejectsChoicesThatAreNotOffered(t *testing.T) {
 // 通った領地にいるクリーチャーを、手札に無いカードにして傷を付ける（手札に戻るカードを見分けるため）
 func withWoundedRare(t *testing.T, state match.Match) match.Match {
 	t.Helper()
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].Card = cardtest.CreatureRef(t, 999)
-	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, 1)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Card = cardtest.CreatureRef(t, 999)
+	state.PlacedCreatures[0].HitPoints = creaturetest.HitPoints(t, 1)
 	return state
 }
 
@@ -2482,7 +2482,7 @@ func TestDecide_ExchangeReplacesTheCreatureAndReturnsTheOldCardToTheHand(t *test
 	state = withWoundedRare(t, state)
 	state = rolledTo(t, state, 2)
 	handBefore := len(state.Participants[1].Hand)
-	replaced := state.DeployedCreatures[0].ID
+	replaced := state.PlacedCreatures[0].ID
 
 	state, events := exchange(t, state, 1, 0)
 
@@ -2493,12 +2493,12 @@ func TestDecide_ExchangeReplacesTheCreatureAndReturnsTheOldCardToTheHand(t *test
 	require.Equal(t, 600-10, state.Participants[1].Magic)
 	require.Len(t, state.Participants[1].Hand, handBefore)
 	require.Equal(t, cardtest.CreatureRef(t, 999), state.Participants[1].Hand[handBefore-1])
-	require.Len(t, state.DeployedCreatures, 1)
-	require.Equal(t, exchanged.Creature, state.DeployedCreatures[0].ID)
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.DeployedCreatures[0].HitPoints)
-	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
+	require.Len(t, state.PlacedCreatures, 1)
+	require.Equal(t, exchanged.Creature, state.PlacedCreatures[0].ID)
+	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
+	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
 	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: exchanged.Creature}}, state.Territories)
-	require.Equal(t, state.LastDeployedCreatureID, exchanged.Creature)
+	require.Equal(t, state.LastPlacedCreatureID, exchanged.Creature)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
 
@@ -2614,11 +2614,11 @@ func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints int) m
 	t.Helper()
 	territory, ok := state.TerritoryAt(pos(t, x, 0))
 	require.True(t, ok)
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	for i := range state.DeployedCreatures {
-		if state.DeployedCreatures[i].ID == territory.Creature {
-			state.DeployedCreatures[i].Base.Attack = creaturetest.Attack(t, attack)
-			state.DeployedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	for i := range state.PlacedCreatures {
+		if state.PlacedCreatures[i].ID == territory.Creature {
+			state.PlacedCreatures[i].Base.Attack = creaturetest.Attack(t, attack)
+			state.PlacedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
 		}
 	}
 	return state
@@ -2644,8 +2644,8 @@ func defensiveAbilities(t *testing.T) creature.Abilities {
 
 func TestMatch_DefensiveCreaturesCannotMove(t *testing.T) {
 	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20), 3)
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].Base.Abilities = defensiveAbilities(t)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Base.Abilities = defensiveAbilities(t)
 
 	require.Empty(t, state.MoveChoices())
 }
@@ -2667,13 +2667,13 @@ func withHandDefensive(t *testing.T, state match.Match, participant int) match.M
 	return state
 }
 
-func TestMatch_DefensiveCreaturesCannotInvadeButCanBeDeployed(t *testing.T) {
+func TestMatch_DefensiveCreaturesCannotInvadeButCanBePlaced(t *testing.T) {
 	invading := invadingMatch(t)
 	require.NotEmpty(t, invading.InvadeChoices())
 	require.Empty(t, withHandDefensive(t, invading, 1).InvadeChoices())
 
-	deploying := rolledTo(t, territoryBoardMatch(t), 2)
-	require.NotEmpty(t, withHandDefensive(t, deploying, 1).DeployChoices())
+	placing := rolledTo(t, territoryBoardMatch(t), 2)
+	require.NotEmpty(t, withHandDefensive(t, placing, 1).PlaceChoices())
 }
 
 func TestDecide_InvadingWithADefensiveCreatureIsRejected(t *testing.T) {
@@ -2693,7 +2693,7 @@ func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t
 	state := withTerritory(t, territoryBoardMatch(t), 1, 1, 3)
 	state.LandLevels = append(slices.Clone(state.LandLevels), match.LandLevel{Position: pos(t, 2, 0), Level: 2})
 	state = withCreatureAt(t, state, 1, 5, 7)
-	mover := state.DeployedCreatures[0].ID
+	mover := state.PlacedCreatures[0].ID
 	state = rolledTo(t, state, 1)
 
 	state, events := move(t, state, 1, 2)
@@ -2701,7 +2701,7 @@ func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t
 	moved := eventOf[*match.CreatureMovedEvent](t, events)
 	require.Equal(t, mover, moved.Creature)
 	require.Equal(t, []match.Territory{{Position: pos(t, 2, 0), Creature: mover}}, state.Territories)
-	require.Equal(t, creaturetest.HitPoints(t, 7), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 7), state.PlacedCreatures[0].HitPoints)
 	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
 	require.Equal(t, 2, state.LandLevel(pos(t, 2, 0)))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
@@ -2727,11 +2727,11 @@ func TestDecide_MovingIntoAnotherAndWinningMovesTheSameCreatureAndFreesTheOrigin
 	state, events := movingIntoAnother(t, 50, 20, 5, 20)
 
 	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
-	mover := state.DeployedCreatures[0].ID
+	mover := state.PlacedCreatures[0].ID
 	require.Equal(t, mover, conquered.Creature)
 	require.Equal(t, []match.Territory{{Position: pos(t, 2, 0), Creature: mover}}, state.Territories)
-	require.Len(t, state.DeployedCreatures, 1)
-	require.Equal(t, matchtest.Index(t, 1), state.DeployedCreatures[0].Owner)
+	require.Len(t, state.PlacedCreatures, 1)
+	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
 	require.Equal(t, 2, state.LandLevel(pos(t, 2, 0)))
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
@@ -2746,7 +2746,7 @@ func TestDecide_MovingIntoAnotherAndSurvivingReturnsToTheOriginWithTheWound(t *t
 	require.Equal(t, creaturetest.HitPoints(t, 15), *repelled.ReturnedHitPoints)
 	territory, ok := state.TerritoryAt(pos(t, 1, 0))
 	require.True(t, ok)
-	mover, _ := state.DeployedCreature(territory.Creature)
+	mover, _ := state.PlacedCreature(territory.Creature)
 	require.Equal(t, creaturetest.HitPoints(t, 15), mover.HitPoints)
 	require.Nil(t, state.Invasion)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
@@ -2760,7 +2760,7 @@ func TestDecide_MovingIntoAnotherAndBeingDestroyedFreesTheOrigin(t *testing.T) {
 	require.Nil(t, repelled.ReturnedHitPoints)
 	_, occupied := state.TerritoryAt(pos(t, 1, 0))
 	require.False(t, occupied)
-	require.Len(t, state.DeployedCreatures, 1)
+	require.Len(t, state.PlacedCreatures, 1)
 	require.Len(t, state.Participants[1].DiscardPile, 1)
 }
 
@@ -2830,9 +2830,9 @@ func TestMatch_ItemChoicesExcludeTheCategoriesTheFighterCannotHold(t *testing.T)
 	defenderState := func(t *testing.T, category item.Category) match.Match {
 		t.Helper()
 		state := withLastItemCategory(t, withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20), 0, category)
-		state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-		for i := range state.DeployedCreatures {
-			state.DeployedCreatures[i].Base.ItemRestrictions = restrictions
+		state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+		for i := range state.PlacedCreatures {
+			state.PlacedCreatures[i].Base.ItemRestrictions = restrictions
 		}
 		return state
 	}
@@ -2881,21 +2881,21 @@ func withHandRestrictedFrom(t *testing.T, state match.Match, participant int, el
 }
 
 // 配置済みのクリーチャーすべての性能に配置制限を入れる
-func withDeployedRestrictedFrom(t *testing.T, state match.Match, elements ...string) match.Match {
+func withPlacedRestrictedFrom(t *testing.T, state match.Match, elements ...string) match.Match {
 	t.Helper()
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	for i := range state.DeployedCreatures {
-		state.DeployedCreatures[i].Base.PlacementRestrictions = creaturetest.PlacementRestrictions(t, elements...)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	for i := range state.PlacedCreatures {
+		state.PlacedCreatures[i].Base.PlacementRestrictions = creaturetest.PlacementRestrictions(t, elements...)
 	}
 	return state
 }
 
-func TestMatch_DeployChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T) {
+func TestMatch_PlaceChoicesExcludeCreaturesRestrictedFromTheLand(t *testing.T) {
 	stoppedOnFire := rolledTo(t, territoryBoardMatch(t), 2)
 
-	require.NotEmpty(t, stoppedOnFire.DeployChoices())
-	require.Empty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "fire").DeployChoices())
-	require.NotEmpty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "water").DeployChoices())
+	require.NotEmpty(t, stoppedOnFire.PlaceChoices())
+	require.Empty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "fire").PlaceChoices())
+	require.NotEmpty(t, withHandRestrictedFrom(t, stoppedOnFire, 1, "water").PlaceChoices())
 }
 
 func TestMatch_NeutralAndMultiLandsAreNeverRestricted(t *testing.T) {
@@ -2910,7 +2910,7 @@ func TestMatch_NeutralAndMultiLandsAreNeverRestricted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := withHandRestrictedFrom(t, rolledTo(t, territoryBoardMatch(t), tt.roll), 1, "fire", "earth", "water", "wind")
 
-			require.NotEmpty(t, state.DeployChoices())
+			require.NotEmpty(t, state.PlaceChoices())
 		})
 	}
 }
@@ -2934,23 +2934,23 @@ func TestMatch_MoveChoicesExcludeLandsTheCreatureIsRestrictedFrom(t *testing.T) 
 	state := rolledTo(t, withCreatureAt(t, withTerritory(t, territoryBoardMatch(t), 1, 3, 1), 3, 5, 20), 3)
 	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}, {From: pos(t, 3, 0), To: pos(t, 4, 0)}}, state.MoveChoices())
 
-	restricted := withDeployedRestrictedFrom(t, state, "water")
+	restricted := withPlacedRestrictedFrom(t, state, "water")
 
 	require.Equal(t, []match.MoveChoice{{From: pos(t, 3, 0), To: pos(t, 2, 0)}}, restricted.MoveChoices())
 }
 
 func TestMatch_ElementChangeChoicesExcludeElementsTheCreatureIsRestrictedFrom(t *testing.T) {
-	state := withDeployedRestrictedFrom(t, rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2), "earth", "wind")
+	state := withPlacedRestrictedFrom(t, rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2), "earth", "wind")
 
 	require.Equal(t, []match.ElementChangeChoice{
 		{Position: pos(t, 1, 0), Element: board.ElementWater, Magic: 200},
 	}, state.ElementChangeChoices())
 }
 
-func TestDecide_DeployOnARestrictedLandIsRejected(t *testing.T) {
+func TestDecide_PlaceOnARestrictedLandIsRejected(t *testing.T) {
 	state := withHandRestrictedFrom(t, rolledTo(t, territoryBoardMatch(t), 2), 1, "fire")
 
-	require.ErrorIs(t, decideErr(t, state, &match.DeployCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0}), match.ErrCreatureNotDeployable)
+	require.ErrorIs(t, decideErr(t, state, &match.PlaceCreatureCommand{By: matchtest.Index(t, 1), HandIndex: 0}), match.ErrCreatureNotPlaceable)
 }
 
 func TestPhase_AwaitsOperationIsFalseWhileBattling(t *testing.T) {
@@ -2976,7 +2976,7 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 	damage := creaturetest.Attack(t, 1)
 	hitPoints := creaturetest.HitPoints(t, 1)
 	defeated := battling.Territories[0].Creature
-	next := matchtest.DeployedCreatureID(t, battling.LastDeployedCreatureID.Int()+1)
+	next := matchtest.PlacedCreatureID(t, battling.LastPlacedCreatureID.Int()+1)
 	cases := []struct {
 		name  string
 		state match.Match
@@ -3353,8 +3353,8 @@ func TestMatch_DamageSpellIsNotOfferedWithoutCreatures(t *testing.T) {
 
 func TestDecide_DamageSpellLowersTheHitPointsOfTheCreature(t *testing.T) {
 	state := rollingWithDamage(t)
-	state.DeployedCreatures = slices.Clone(state.DeployedCreatures)
-	state.DeployedCreatures[0].HitPoints = creaturetest.HitPoints(t, 30)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].HitPoints = creaturetest.HitPoints(t, 30)
 
 	state, events := useDamage(t, state, 1)
 
@@ -3362,7 +3362,7 @@ func TestDecide_DamageSpellLowersTheHitPointsOfTheCreature(t *testing.T) {
 	require.Equal(t, 20, damaged.Damage)
 	require.Equal(t, creaturetest.HitPoints(t, 10), damaged.RemainingHitPoints)
 	require.Zero(t, countOf[*match.CreatureDestroyedEvent](events))
-	require.Equal(t, creaturetest.HitPoints(t, 10), state.DeployedCreatures[0].HitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 10), state.PlacedCreatures[0].HitPoints)
 	require.Equal(t, match.PhaseRolling, state.Phase)
 }
 
@@ -3375,7 +3375,7 @@ func TestDecide_DamageSpellDestroysTheCreatureAtZero(t *testing.T) {
 	require.Equal(t, 1, countOf[*match.CreatureDestroyedEvent](events))
 	_, occupied := state.TerritoryAt(pos(t, 1, 0))
 	require.False(t, occupied)
-	require.Len(t, state.DeployedCreatures, 1)
+	require.Len(t, state.PlacedCreatures, 1)
 	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
 	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[0].DiscardPile)
 }

@@ -116,9 +116,9 @@ func RulesOf(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus
 	)
 }
 
-func DeployedCreatureID(t testing.TB, value int) match.DeployedCreatureID {
+func PlacedCreatureID(t testing.TB, value int) match.PlacedCreatureID {
 	t.Helper()
-	id, err := match.NewDeployedCreatureID(value)
+	id, err := match.NewPlacedCreatureID(value)
 	require.NoError(t, err)
 	return id
 }

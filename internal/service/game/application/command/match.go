@@ -368,9 +368,9 @@ func (c *MatchHandler) ChoosePath(ctx context.Context, id uuid.UUID, revision in
 
 // 止まった空き地に、手札のクリーチャーを配置する（配置したらターンを終える）。配置できない手札は input.Errors（NotFound・項目名 handIndex）、
 // 手札の範囲外は input.Errors（OutOfRange）
-func (c *MatchHandler) Deploy(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+func (c *MatchHandler) Place(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
-		return &match.DeployCreatureCommand{By: by, HandIndex: handIndex}, nil
+		return &match.PlaceCreatureCommand{By: by, HandIndex: handIndex}, nil
 	})
 }
 
@@ -602,7 +602,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return ErrMatchPhaseNotAllowed
 	case errors.Is(err, match.ErrHandIndexOutOfRange):
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
-	case errors.Is(err, match.ErrCreatureNotDeployable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable):
+	case errors.Is(err, match.ErrCreatureNotPlaceable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrSpellTargetRequired):
 		return input.Errors{&input.Required{Field: "target"}}
@@ -704,10 +704,10 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return nil, fmt.Errorf("match npc turn: no path choices: %w", match.ErrInvalidState)
 		}
 		return &match.ChoosePathCommand{By: by, To: choices[random.IntN(len(choices))]}, nil
-	case match.PhaseDeploying:
+	case match.PhasePlacing:
 		// 払える最初のクリーチャーを配置し、無ければ配置せずにターンを終える（2026-11-08 オーナー。考え方の部品にするのは core#117 以降）
-		if choices := current.DeployChoices(); len(choices) > 0 {
-			return &match.DeployCreatureCommand{By: by, HandIndex: choices[0]}, nil
+		if choices := current.PlaceChoices(); len(choices) > 0 {
+			return &match.PlaceCreatureCommand{By: by, HandIndex: choices[0]}, nil
 		}
 		return &match.EndTurnCommand{By: by}, nil
 	case match.PhaseTerritoryCommanding:

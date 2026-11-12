@@ -15,7 +15,7 @@ var (
 	ErrHandIndexOutOfRange = errors.New("match: hand index out of range")
 	ErrPathNotAllowed      = errors.New("match: path not allowed")
 	// 配置できない手札（クリーチャーでない・コストが払えない）
-	ErrCreatureNotDeployable = errors.New("match: creature not deployable")
+	ErrCreatureNotPlaceable = errors.New("match: creature not placeable")
 	// 侵略できない手札（クリーチャーでない・コストが払えない）
 	ErrCreatureNotInvadable = errors.New("match: creature not invadable")
 	// 出せない手札（無い・アイテムでない・コストが払えない）

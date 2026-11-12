@@ -47,8 +47,8 @@ type Reward struct {
 
 // 盤面に配置したクリーチャー 1 体（2026-11-08 オーナー。core#113）。カードを指すだけにしないのは、戦闘の傷やスペルの効果を、
 // この 1 体の今の状態として持つため。配置・侵略で奪う・交換・移動のどれから来ても同じ実体で、イベントは ID で指す
-type DeployedCreature struct {
-	ID    DeployedCreatureID
+type PlacedCreature struct {
+	ID    PlacedCreatureID
 	Card  card.Ref
 	Owner ParticipantIndex
 	// 配置したときの性能の写し（対戦を始めたときの写しから写す。この 1 体だけを変える効果がほかの同じカードに響かないように）
@@ -60,7 +60,7 @@ type DeployedCreature struct {
 // 領地。持ち主は、そこにいるクリーチャーの持ち主
 type Territory struct {
 	Position board.Position
-	Creature DeployedCreatureID
+	Creature PlacedCreatureID
 }
 
 // 土地のレベル。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても（手放しても、倒されても、動いても）土地に残り、
@@ -77,7 +77,7 @@ type Invasion struct {
 	Position board.Position
 	// 移動で侵略したときだけ持つ。元の領地の位置と、動いたクリーチャー（戦闘の間も元の領地にいる）
 	From     *board.Position
-	Creature DeployedCreatureID
+	Creature PlacedCreatureID
 	// 出したときの性能の写し
 	Base CreatureSpec
 	// 戦闘の前の体力（戦闘の中の値は Battle が持つ）
@@ -153,7 +153,7 @@ type Match struct {
 	// 戦利品を、プレイヤー全員が受け取った。終わっても段階は ended のままで、これで受け取りまで済んだことを表す
 	RewardsCompleted bool
 	// 盤面にいるクリーチャー（配置した順）
-	DeployedCreatures []DeployedCreature
+	PlacedCreatures []PlacedCreature
 	// 領地（できた順）
 	Territories []Territory
 	// レベルを上げた土地（上げた順）。無い土地はレベル 1
@@ -169,7 +169,7 @@ type Match struct {
 	// このターンに振るサイコロの個数。0 はふだんの 1 個（サイコロを複数振るスペルで変わり、ターンを終えると消える）
 	DiceCount int
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
-	LastDeployedCreatureID DeployedCreatureID
+	LastPlacedCreatureID PlacedCreatureID
 }
 
 func (Match) isMatchState() {}
@@ -270,18 +270,18 @@ func (m Match) TerritoryAt(position board.Position) (Territory, bool) {
 }
 
 // ID で指したクリーチャー
-func (m Match) DeployedCreature(id DeployedCreatureID) (DeployedCreature, bool) {
-	for _, deployed := range m.DeployedCreatures {
-		if deployed.ID == id {
-			return deployed, true
+func (m Match) PlacedCreature(id PlacedCreatureID) (PlacedCreature, bool) {
+	for _, placed := range m.PlacedCreatures {
+		if placed.ID == id {
+			return placed, true
 		}
 	}
-	return DeployedCreature{}, false
+	return PlacedCreature{}, false
 }
 
 // 今の番の人が配置できる手札の番号（手札の順）。配置の段階でだけ中身がある。クリーチャーで、コストが今の魔力以下のもの
-func (m Match) DeployChoices() []int {
-	if m.Phase != PhaseDeploying {
+func (m Match) PlaceChoices() []int {
+	if m.Phase != PhasePlacing {
 		return nil
 	}
 	return m.placeableCreaturesAtStop()
@@ -435,8 +435,8 @@ func (m Match) awaitingFighter() (CreatureSpec, bool) {
 	if !ok {
 		return CreatureSpec{}, false
 	}
-	deployed, ok := m.DeployedCreature(territory.Creature)
-	return deployed.Base, ok
+	placed, ok := m.PlacedCreature(territory.Creature)
+	return placed.Base, ok
 }
 
 // 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
@@ -471,7 +471,7 @@ type LevelUpChoice struct {
 
 // 止まった後に、領地コマンドを受け付ける段階か。止まったマスの行動と同じ選択肢に並ぶ（2026-11-09 オーナー）
 func (m Match) acceptsTerritoryCommand() bool {
-	return m.Phase == PhaseDeploying || m.Phase == PhaseInvading || m.Phase == PhaseTerritoryCommanding
+	return m.Phase == PhasePlacing || m.Phase == PhaseInvading || m.Phase == PhaseTerritoryCommanding
 }
 
 // 今の番の人が選べるレベルアップ（通った順・低いレベルの順）。止まった後の段階でだけ中身がある。手持ちの魔力で払える分だけ
@@ -538,13 +538,13 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 	for _, territory := range m.passedOwnTerritories() {
 		current := m.landElement(territory.Position)
 		magic := m.landElementChangeMagic(current)
-		deployed, ok := m.DeployedCreature(territory.Creature)
+		placed, ok := m.PlacedCreature(territory.Creature)
 		if !ok || magic > m.Participants[index].Magic {
 			continue
 		}
 		for _, element := range changeableLandElements {
 			// いるクリーチャーが活動できない属性には変えられない（core#155）
-			if element != current && deployed.Base.canBeActiveOn(element) {
+			if element != current && placed.Base.canBeActiveOn(element) {
 				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic})
 			}
 		}
@@ -588,14 +588,14 @@ func (m Match) passedOwnTerritories() []Territory {
 
 // 戦闘で攻められている領地。侵略の間は侵略の位置（移動で侵略したときは止まったマスと違う）、ほかは止まったマス
 // 戦闘で守っているクリーチャー（侵略の途中でなければ ErrInvalidState）
-func (m Match) defendingCreature() (DeployedCreature, error) {
+func (m Match) defendingCreature() (PlacedCreature, error) {
 	territory, ok := m.battleTerritory()
 	if !ok || m.Invasion == nil {
-		return DeployedCreature{}, ErrInvalidState
+		return PlacedCreature{}, ErrInvalidState
 	}
-	defending, ok := m.DeployedCreature(territory.Creature)
+	defending, ok := m.PlacedCreature(territory.Creature)
 	if !ok {
-		return DeployedCreature{}, ErrInvalidState
+		return PlacedCreature{}, ErrInvalidState
 	}
 	return defending, nil
 }
@@ -626,8 +626,8 @@ func (m Match) MoveChoices() []MoveChoice {
 	}
 	var choices []MoveChoice
 	for _, territory := range m.passedOwnTerritories() {
-		deployed, ok := m.DeployedCreature(territory.Creature)
-		if !ok || !deployed.Base.canMove() {
+		placed, ok := m.PlacedCreature(territory.Creature)
+		if !ok || !placed.Base.canMove() {
 			continue
 		}
 		var destinations []board.Position
@@ -636,7 +636,7 @@ func (m Match) MoveChoices() []MoveChoice {
 		for _, to := range slices.Compact(destinations) {
 			// 他人の領地への移動は侵略でもある（今は侵略できないクリーチャーは移動もできないが、能力ごとに分けて書く）
 			invades := !m.isVacantLand(to)
-			if m.isMoveDestination(to, index) && deployed.Base.canBeActiveOn(m.landElement(to)) && (!invades || deployed.Base.canInvade()) {
+			if m.isMoveDestination(to, index) && placed.Base.canBeActiveOn(m.landElement(to)) && (!invades || placed.Base.canInvade()) {
 				choices = append(choices, MoveChoice{From: territory.Position, To: to})
 			}
 		}
@@ -735,8 +735,8 @@ func (m Match) LandLevel(position board.Position) int {
 
 // 領地の持ち主。そこにいるクリーチャーの持ち主
 func (m Match) TerritoryOwner(territory Territory) (ParticipantIndex, bool) {
-	deployed, ok := m.DeployedCreature(territory.Creature)
-	return deployed.Owner, ok
+	placed, ok := m.PlacedCreature(territory.Creature)
+	return placed.Owner, ok
 }
 
 // 侵略先の隣にある、その参加者の領地の位置（Position.Compare の順）。隣はボードのつながりだけで数え、転送円・橋の対は数えない（2026-11-09 オーナー）
@@ -799,11 +799,11 @@ func (m Match) TerritoryToll(territory Territory) int {
 
 // いるクリーチャーの通行料の倍率。持っていなければ false
 func (m Match) tollMultiplier(territory Territory) (creature.TollMultiplierPercent, bool) {
-	deployed, ok := m.DeployedCreature(territory.Creature)
+	placed, ok := m.PlacedCreature(territory.Creature)
 	if !ok {
 		return 0, false
 	}
-	return deployed.Base.Abilities.TollMultiplier()
+	return placed.Base.Abilities.TollMultiplier()
 }
 
 // 手放したときに受け取る魔力（端数は切り捨て）
