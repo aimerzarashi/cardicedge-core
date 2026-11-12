@@ -28,16 +28,16 @@ type EventMeta = domain.EventMeta[ID]
 // 登録した人は、ほかの集約を指すため内部 ID（operator.ID の数値）で持つ。性能は登録の直後の値を明示して持つ
 // （既定の値を変えても、過去のカードの意味が変わらないため。ボードの大きさと同じ）
 type RegisteredEvent struct {
-	EventMeta      `json:"-"`
-	eventMarker    `json:"-"`
-	PublicID       uuid.UUID      `json:"public_id"`
-	Name           card.Name      `json:"name"`
-	Cost           card.Cost      `json:"cost"`
-	Rarity         card.Rarity    `json:"rarity"`
-	Category       Category       `json:"category"`
-	AttackBonus    AttackBonus    `json:"attack_bonus"`
-	HitPointsBonus HitPointsBonus `json:"hit_points_bonus"`
-	RegisteredBy   operator.ID    `json:"registered_by"`
+	EventMeta         `json:"-"`
+	eventMarker       `json:"-"`
+	PublicID          uuid.UUID         `json:"public_id"`
+	Name              card.Name         `json:"name"`
+	Cost              card.Cost         `json:"cost"`
+	Rarity            card.Rarity       `json:"rarity"`
+	Category          Category          `json:"category"`
+	AttackModifier    AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier HitPointsModifier `json:"hit_points_modifier"`
+	RegisteredBy      operator.ID       `json:"registered_by"`
 }
 
 var registeredEventType = domain.NewEventName("RegisteredEvent")
@@ -140,21 +140,21 @@ func (*CategoryChangedEvent) SchemaVersion() int {
 }
 
 // 戦闘中の AT・HP の増減を変えた（変えた後の値）
-type StatBonusesChangedEvent struct {
-	EventMeta      `json:"-"`
-	eventMarker    `json:"-"`
-	AttackBonus    AttackBonus    `json:"attack_bonus"`
-	HitPointsBonus HitPointsBonus `json:"hit_points_bonus"`
-	ChangedBy      operator.ID    `json:"changed_by"`
+type StatModifiersChangedEvent struct {
+	EventMeta         `json:"-"`
+	eventMarker       `json:"-"`
+	AttackModifier    AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier HitPointsModifier `json:"hit_points_modifier"`
+	ChangedBy         operator.ID       `json:"changed_by"`
 }
 
-var statBonusesChangedEventType = domain.NewEventName("StatBonusesChangedEvent")
+var statModifiersChangedEventType = domain.NewEventName("StatModifiersChangedEvent")
 
-func (*StatBonusesChangedEvent) EventType() domain.EventName {
-	return statBonusesChangedEventType
+func (*StatModifiersChangedEvent) EventType() domain.EventName {
+	return statModifiersChangedEventType
 }
 
-func (*StatBonusesChangedEvent) SchemaVersion() int {
+func (*StatModifiersChangedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -163,7 +163,7 @@ func Types() domain.AggregateTypes {
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			categoryChangedEventType, statBonusesChangedEventType,
+			categoryChangedEventType, statModifiersChangedEventType,
 		},
 	}
 }
@@ -189,8 +189,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &RarityChangedEvent{EventMeta: meta}
 	case EventType(categoryChangedEventType):
 		event = &CategoryChangedEvent{EventMeta: meta}
-	case EventType(statBonusesChangedEventType):
-		event = &StatBonusesChangedEvent{EventMeta: meta}
+	case EventType(statModifiersChangedEventType):
+		event = &StatModifiersChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

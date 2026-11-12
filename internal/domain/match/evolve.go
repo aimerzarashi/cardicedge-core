@@ -454,7 +454,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		modified := current.Battle.creature(e.Side)
 		modified.Stats = BattleStats{Attack: e.Attack, HitPoints: e.HitPoints}
-		modified.HitPointsBonus += e.HitPointsDelta
+		modified.HitPointsDelta += e.HitPointsDelta
 		current.Battle = current.Battle.withCreature(e.Side, modified)
 	case *TollMultiplierActivatedEvent:
 		if _, ok := current.TerritoryAt(e.Position); !ok || e.Percent < 1 {

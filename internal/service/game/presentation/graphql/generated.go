@@ -352,13 +352,13 @@ type ComplexityRoot struct {
 	}
 
 	ItemCardInfo struct {
-		AttackBonus    func(childComplexity int) int
-		Category       func(childComplexity int) int
-		Cost           func(childComplexity int) int
-		HitPointsBonus func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Name           func(childComplexity int) int
-		Rarity         func(childComplexity int) int
+		AttackModifier    func(childComplexity int) int
+		Category          func(childComplexity int) int
+		Cost              func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
+		ID                func(childComplexity int) int
+		Name              func(childComplexity int) int
+		Rarity            func(childComplexity int) int
 	}
 
 	LandTile struct {
@@ -2273,12 +2273,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.InvadeMatchTerritorySuccess.Revision(childComplexity), true
 
-	case "ItemCardInfo.attackBonus":
-		if e.ComplexityRoot.ItemCardInfo.AttackBonus == nil {
+	case "ItemCardInfo.attackModifier":
+		if e.ComplexityRoot.ItemCardInfo.AttackModifier == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ItemCardInfo.AttackBonus(childComplexity), true
+		return e.ComplexityRoot.ItemCardInfo.AttackModifier(childComplexity), true
 	case "ItemCardInfo.category":
 		if e.ComplexityRoot.ItemCardInfo.Category == nil {
 			break
@@ -2291,12 +2291,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ItemCardInfo.Cost(childComplexity), true
-	case "ItemCardInfo.hitPointsBonus":
-		if e.ComplexityRoot.ItemCardInfo.HitPointsBonus == nil {
+	case "ItemCardInfo.hitPointsModifier":
+		if e.ComplexityRoot.ItemCardInfo.HitPointsModifier == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ItemCardInfo.HitPointsBonus(childComplexity), true
+		return e.ComplexityRoot.ItemCardInfo.HitPointsModifier(childComplexity), true
 	case "ItemCardInfo.id":
 		if e.ComplexityRoot.ItemCardInfo.ID == nil {
 			break
@@ -11174,16 +11174,16 @@ func (ec *executionContext) fieldContext_ItemCardInfo_category(_ context.Context
 	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "ItemCategory")
 }
 
-func (ec *executionContext) _ItemCardInfo_attackBonus(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+func (ec *executionContext) _ItemCardInfo_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemCardInfo_attackBonus(ctx, field)
+			return ec.fieldContext_ItemCardInfo_attackModifier(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.AttackBonus, nil
+			return obj.AttackModifier, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
@@ -11193,20 +11193,20 @@ func (ec *executionContext) _ItemCardInfo_attackBonus(ctx context.Context, field
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ItemCardInfo_attackBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ItemCardInfo_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "Int")
 }
 
-func (ec *executionContext) _ItemCardInfo_hitPointsBonus(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
+func (ec *executionContext) _ItemCardInfo_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.ItemCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemCardInfo_hitPointsBonus(ctx, field)
+			return ec.fieldContext_ItemCardInfo_hitPointsModifier(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.HitPointsBonus, nil
+			return obj.HitPointsModifier, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
@@ -11216,7 +11216,7 @@ func (ec *executionContext) _ItemCardInfo_hitPointsBonus(ctx context.Context, fi
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ItemCardInfo_hitPointsBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ItemCardInfo_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ItemCardInfo", field, false, false, "Int")
 }
 
@@ -33724,13 +33724,13 @@ func (ec *executionContext) _ItemCardInfo(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "attackBonus":
-			out.Values[i] = ec._ItemCardInfo_attackBonus(ctx, field, obj)
+		case "attackModifier":
+			out.Values[i] = ec._ItemCardInfo_attackModifier(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "hitPointsBonus":
-			out.Values[i] = ec._ItemCardInfo_hitPointsBonus(ctx, field, obj)
+		case "hitPointsModifier":
+			out.Values[i] = ec._ItemCardInfo_hitPointsModifier(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

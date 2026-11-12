@@ -69,9 +69,9 @@ type SpellRollDice struct {
 
 // アイテムだけの性能（写した cards.metadata.item の値）
 type ItemSpec struct {
-	Category       string
-	AttackBonus    int
-	HitPointsBonus int
+	Category          string
+	AttackModifier    int
+	HitPointsModifier int
 }
 
 // クリーチャーだけの性能（写した cards.metadata.creature の値）

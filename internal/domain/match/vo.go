@@ -240,9 +240,9 @@ type SpellSpec struct {
 
 // アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う
 type ItemSpec struct {
-	Category       item.Category       `json:"category"`
-	AttackBonus    item.AttackBonus    `json:"attack_bonus"`
-	HitPointsBonus item.HitPointsBonus `json:"hit_points_bonus"`
+	Category          item.Category          `json:"category"`
+	AttackModifier    item.AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier item.HitPointsModifier `json:"hit_points_modifier"`
 }
 
 // クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、

@@ -229,7 +229,7 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
-	ChangeItemStatBonusesSuccess struct {
+	ChangeItemStatModifiersSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
 	}
@@ -450,17 +450,17 @@ type ComplexityRoot struct {
 	}
 
 	Item struct {
-		AttackBonus    func(childComplexity int) int
-		Category       func(childComplexity int) int
-		Cost           func(childComplexity int) int
-		HitPointsBonus func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Name           func(childComplexity int) int
-		Rarity         func(childComplexity int) int
-		RegisteredAt   func(childComplexity int) int
-		Revision       func(childComplexity int) int
-		Status         func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
+		AttackModifier    func(childComplexity int) int
+		Category          func(childComplexity int) int
+		Cost              func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
+		ID                func(childComplexity int) int
+		Name              func(childComplexity int) int
+		Rarity            func(childComplexity int) int
+		RegisteredAt      func(childComplexity int) int
+		Revision          func(childComplexity int) int
+		Status            func(childComplexity int) int
+		UpdatedAt         func(childComplexity int) int
 	}
 
 	LandTile struct {
@@ -487,7 +487,7 @@ type ComplexityRoot struct {
 		ChangeCreaturePlacementRestrictions func(childComplexity int, input model.ChangeCreaturePlacementRestrictionsInput) int
 		ChangeCreatureStats                 func(childComplexity int, input model.ChangeCreatureStatsInput) int
 		ChangeItemCategory                  func(childComplexity int, input model.ChangeItemCategoryInput) int
-		ChangeItemStatBonuses               func(childComplexity int, input model.ChangeItemStatBonusesInput) int
+		ChangeItemStatModifiers             func(childComplexity int, input model.ChangeItemStatModifiersInput) int
 		ChangeSpellEffect                   func(childComplexity int, input model.ChangeSpellEffectInput) int
 		DeleteBoard                         func(childComplexity int, input model.DeleteBoardInput) int
 		DeleteGrantDeck                     func(childComplexity int, input model.DeleteGrantDeckInput) int
@@ -986,7 +986,7 @@ type MutationResolver interface {
 	PublishGrantDeck(ctx context.Context, input model.PublishGrantDeckInput) (model.PublishGrantDeckResult, error)
 	RetireGrantDeck(ctx context.Context, input model.RetireGrantDeckInput) (model.RetireGrantDeckResult, error)
 	ChangeItemCategory(ctx context.Context, input model.ChangeItemCategoryInput) (model.ChangeItemCategoryResult, error)
-	ChangeItemStatBonuses(ctx context.Context, input model.ChangeItemStatBonusesInput) (model.ChangeItemStatBonusesResult, error)
+	ChangeItemStatModifiers(ctx context.Context, input model.ChangeItemStatModifiersInput) (model.ChangeItemStatModifiersResult, error)
 	RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error)
 	RegisterNpcAvatar(ctx context.Context, input model.RegisterNpcAvatarInput) (model.RegisterNpcAvatarResult, error)
 	RenameNpcAvatar(ctx context.Context, input model.RenameNpcAvatarInput) (model.RenameNpcAvatarResult, error)
@@ -1634,18 +1634,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ChangeItemCategorySuccess.Revision(childComplexity), true
 
-	case "ChangeItemStatBonusesSuccess.id":
-		if e.ComplexityRoot.ChangeItemStatBonusesSuccess.ID == nil {
+	case "ChangeItemStatModifiersSuccess.id":
+		if e.ComplexityRoot.ChangeItemStatModifiersSuccess.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ChangeItemStatBonusesSuccess.ID(childComplexity), true
-	case "ChangeItemStatBonusesSuccess.revision":
-		if e.ComplexityRoot.ChangeItemStatBonusesSuccess.Revision == nil {
+		return e.ComplexityRoot.ChangeItemStatModifiersSuccess.ID(childComplexity), true
+	case "ChangeItemStatModifiersSuccess.revision":
+		if e.ComplexityRoot.ChangeItemStatModifiersSuccess.Revision == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ChangeItemStatBonusesSuccess.Revision(childComplexity), true
+		return e.ComplexityRoot.ChangeItemStatModifiersSuccess.Revision(childComplexity), true
 
 	case "ChangeSpellEffectSuccess.id":
 		if e.ComplexityRoot.ChangeSpellEffectSuccess.ID == nil {
@@ -2172,12 +2172,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.InvalidStarterSetStatusTransitionError.Message(childComplexity), true
 
-	case "Item.attackBonus":
-		if e.ComplexityRoot.Item.AttackBonus == nil {
+	case "Item.attackModifier":
+		if e.ComplexityRoot.Item.AttackModifier == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Item.AttackBonus(childComplexity), true
+		return e.ComplexityRoot.Item.AttackModifier(childComplexity), true
 	case "Item.category":
 		if e.ComplexityRoot.Item.Category == nil {
 			break
@@ -2190,12 +2190,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Item.Cost(childComplexity), true
-	case "Item.hitPointsBonus":
-		if e.ComplexityRoot.Item.HitPointsBonus == nil {
+	case "Item.hitPointsModifier":
+		if e.ComplexityRoot.Item.HitPointsModifier == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Item.HitPointsBonus(childComplexity), true
+		return e.ComplexityRoot.Item.HitPointsModifier(childComplexity), true
 	case "Item.id":
 		if e.ComplexityRoot.Item.ID == nil {
 			break
@@ -2393,17 +2393,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ChangeItemCategory(childComplexity, args["input"].(model.ChangeItemCategoryInput)), true
-	case "Mutation.changeItemStatBonuses":
-		if e.ComplexityRoot.Mutation.ChangeItemStatBonuses == nil {
+	case "Mutation.changeItemStatModifiers":
+		if e.ComplexityRoot.Mutation.ChangeItemStatModifiers == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_changeItemStatBonuses_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_changeItemStatModifiers_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.ChangeItemStatBonuses(childComplexity, args["input"].(model.ChangeItemStatBonusesInput)), true
+		return e.ComplexityRoot.Mutation.ChangeItemStatModifiers(childComplexity, args["input"].(model.ChangeItemStatModifiersInput)), true
 	case "Mutation.changeSpellEffect":
 		if e.ComplexityRoot.Mutation.ChangeSpellEffect == nil {
 			break
@@ -4150,7 +4150,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChangeCreaturePlacementRestrictionsInput", ec.unmarshalInputChangeCreaturePlacementRestrictionsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureStatsInput", ec.unmarshalInputChangeCreatureStatsInput),
 			graphql.NewInputUnmarshaler("ChangeItemCategoryInput", ec.unmarshalInputChangeItemCategoryInput),
-			graphql.NewInputUnmarshaler("ChangeItemStatBonusesInput", ec.unmarshalInputChangeItemStatBonusesInput),
+			graphql.NewInputUnmarshaler("ChangeItemStatModifiersInput", ec.unmarshalInputChangeItemStatModifiersInput),
 			graphql.NewInputUnmarshaler("ChangeSpellEffectInput", ec.unmarshalInputChangeSpellEffectInput),
 			graphql.NewInputUnmarshaler("CheckBoardLayoutInput", ec.unmarshalInputCheckBoardLayoutInput),
 			graphql.NewInputUnmarshaler("CreatureAbilityInput", ec.unmarshalInputCreatureAbilityInput),
@@ -4559,10 +4559,10 @@ func (ec *executionContext) childFields_Item(ctx context.Context, field graphql.
 		return ec.fieldContext_Item_rarity(ctx, field)
 	case "category":
 		return ec.fieldContext_Item_category(ctx, field)
-	case "attackBonus":
-		return ec.fieldContext_Item_attackBonus(ctx, field)
-	case "hitPointsBonus":
-		return ec.fieldContext_Item_hitPointsBonus(ctx, field)
+	case "attackModifier":
+		return ec.fieldContext_Item_attackModifier(ctx, field)
+	case "hitPointsModifier":
+		return ec.fieldContext_Item_hitPointsModifier(ctx, field)
 	case "revision":
 		return ec.fieldContext_Item_revision(ctx, field)
 	case "registeredAt":
@@ -5007,12 +5007,12 @@ func (ec *executionContext) field_Mutation_changeItemCategory_args(ctx context.C
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_changeItemStatBonuses_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_changeItemStatModifiers_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
-		func(ctx context.Context, v any) (model.ChangeItemStatBonusesInput, error) {
-			return ec.unmarshalNChangeItemStatBonusesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesInput(ctx, v)
+		func(ctx context.Context, v any) (model.ChangeItemStatModifiersInput, error) {
+			return ec.unmarshalNChangeItemStatModifiersInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatModifiersInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -8242,13 +8242,13 @@ func (ec *executionContext) fieldContext_ChangeItemCategorySuccess_revision(_ co
 	return graphql.NewScalarFieldContext("ChangeItemCategorySuccess", field, false, false, "Int")
 }
 
-func (ec *executionContext) _ChangeItemStatBonusesSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatBonusesSuccess) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChangeItemStatModifiersSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatModifiersSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ChangeItemStatBonusesSuccess_id(ctx, field)
+			return ec.fieldContext_ChangeItemStatModifiersSuccess_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.ID, nil
@@ -8261,17 +8261,17 @@ func (ec *executionContext) _ChangeItemStatBonusesSuccess_id(ctx context.Context
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ChangeItemStatBonusesSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ChangeItemStatBonusesSuccess", field, false, false, "UUID")
+func (ec *executionContext) fieldContext_ChangeItemStatModifiersSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemStatModifiersSuccess", field, false, false, "UUID")
 }
 
-func (ec *executionContext) _ChangeItemStatBonusesSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatBonusesSuccess) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChangeItemStatModifiersSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeItemStatModifiersSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ChangeItemStatBonusesSuccess_revision(ctx, field)
+			return ec.fieldContext_ChangeItemStatModifiersSuccess_revision(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Revision, nil
@@ -8284,8 +8284,8 @@ func (ec *executionContext) _ChangeItemStatBonusesSuccess_revision(ctx context.C
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ChangeItemStatBonusesSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ChangeItemStatBonusesSuccess", field, false, false, "Int")
+func (ec *executionContext) fieldContext_ChangeItemStatModifiersSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeItemStatModifiersSuccess", field, false, false, "Int")
 }
 
 func (ec *executionContext) _ChangeSpellEffectSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeSpellEffectSuccess) (ret graphql.Marshaler) {
@@ -10338,16 +10338,16 @@ func (ec *executionContext) fieldContext_Item_category(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Item", field, false, false, "ItemCategory")
 }
 
-func (ec *executionContext) _Item_attackBonus(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Item_attackBonus(ctx, field)
+			return ec.fieldContext_Item_attackModifier(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.AttackBonus, nil
+			return obj.AttackModifier, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
@@ -10357,20 +10357,20 @@ func (ec *executionContext) _Item_attackBonus(ctx context.Context, field graphql
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Item_attackBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Item_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Item", field, false, false, "Int")
 }
 
-func (ec *executionContext) _Item_hitPointsBonus(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Item_hitPointsBonus(ctx, field)
+			return ec.fieldContext_Item_hitPointsModifier(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.HitPointsBonus, nil
+			return obj.HitPointsModifier, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
@@ -10380,7 +10380,7 @@ func (ec *executionContext) _Item_hitPointsBonus(ctx context.Context, field grap
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Item_hitPointsBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Item_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Item", field, false, false, "Int")
 }
 
@@ -11714,34 +11714,34 @@ func (ec *executionContext) fieldContext_Mutation_changeItemCategory(ctx context
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_changeItemStatBonuses(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_changeItemStatModifiers(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_changeItemStatBonuses(ctx, field)
+			return ec.fieldContext_Mutation_changeItemStatModifiers(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().ChangeItemStatBonuses(ctx, fc.Args["input"].(model.ChangeItemStatBonusesInput))
+			return ec.Resolvers.Mutation().ChangeItemStatModifiers(ctx, fc.Args["input"].(model.ChangeItemStatModifiersInput))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeItemStatBonusesResult) graphql.Marshaler {
-			return ec.marshalNChangeItemStatBonusesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesResult(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeItemStatModifiersResult) graphql.Marshaler {
+			return ec.marshalNChangeItemStatModifiersResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatModifiersResult(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Mutation_changeItemStatBonuses(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_changeItemStatModifiers(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ChangeItemStatBonusesResult does not have child fields")
+			return nil, errors.New("field of type ChangeItemStatModifiersResult does not have child fields")
 		},
 	}
 	defer func() {
@@ -11751,7 +11751,7 @@ func (ec *executionContext) fieldContext_Mutation_changeItemStatBonuses(ctx cont
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_changeItemStatBonuses_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_changeItemStatModifiers_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -19859,8 +19859,8 @@ func UnmarshalChangeItemCategoryInput(ctx context.Context, raw any) (model.Chang
 	return out, err
 }
 
-func (ec *executionContext) unmarshalInputChangeItemStatBonusesInput(ctx context.Context, obj any) (model.ChangeItemStatBonusesInput, error) {
-	var it model.ChangeItemStatBonusesInput
+func (ec *executionContext) unmarshalInputChangeItemStatModifiersInput(ctx context.Context, obj any) (model.ChangeItemStatModifiersInput, error) {
+	var it model.ChangeItemStatModifiersInput
 	if obj == nil {
 		return it, nil
 	}
@@ -19870,7 +19870,7 @@ func (ec *executionContext) unmarshalInputChangeItemStatBonusesInput(ctx context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "attackBonus", "hitPointsBonus"}
+	fieldsInOrder := [...]string{"id", "revision", "attackModifier", "hitPointsModifier"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -19891,34 +19891,34 @@ func (ec *executionContext) unmarshalInputChangeItemStatBonusesInput(ctx context
 				return it, err
 			}
 			it.Revision = data
-		case "attackBonus":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attackBonus"))
+		case "attackModifier":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attackModifier"))
 			data, err := ec.unmarshalNInt2int(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.AttackBonus = data
-		case "hitPointsBonus":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hitPointsBonus"))
+			it.AttackModifier = data
+		case "hitPointsModifier":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hitPointsModifier"))
 			data, err := ec.unmarshalNInt2int(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.HitPointsBonus = data
+			it.HitPointsModifier = data
 		}
 	}
 	return it, nil
 }
 
-// UnmarshalChangeItemStatBonusesInput unmarshals raw into the ChangeItemStatBonusesInput input type, using the
+// UnmarshalChangeItemStatModifiersInput unmarshals raw into the ChangeItemStatModifiersInput input type, using the
 // unmarshaler bound to ctx's request. Call it from a resolver to decode an input
 // object that was not passed as a field argument.
 //
 // ctx must come from a gqlgen request; outside one there is no unmarshaler to use
 // and the returned error says so.
-func UnmarshalChangeItemStatBonusesInput(ctx context.Context, raw any) (model.ChangeItemStatBonusesInput, error) {
-	var out model.ChangeItemStatBonusesInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeItemStatBonusesInput", raw, &out)
+func UnmarshalChangeItemStatModifiersInput(ctx context.Context, raw any) (model.ChangeItemStatModifiersInput, error) {
+	var out model.ChangeItemStatModifiersInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeItemStatModifiersInput", raw, &out)
 	return out, err
 }
 
@@ -23724,7 +23724,7 @@ func (ec *executionContext) _ChangeItemCategoryResult(ctx context.Context, sel a
 	}
 }
 
-func (ec *executionContext) _ChangeItemStatBonusesResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeItemStatBonusesResult) graphql.Marshaler {
+func (ec *executionContext) _ChangeItemStatModifiersResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeItemStatModifiersResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
@@ -23749,13 +23749,13 @@ func (ec *executionContext) _ChangeItemStatBonusesResult(ctx context.Context, se
 			return graphql.Null
 		}
 		return ec._ForbiddenError(ctx, sel, obj)
-	case model.ChangeItemStatBonusesSuccess:
-		return ec._ChangeItemStatBonusesSuccess(ctx, sel, &obj)
-	case *model.ChangeItemStatBonusesSuccess:
+	case model.ChangeItemStatModifiersSuccess:
+		return ec._ChangeItemStatModifiersSuccess(ctx, sel, &obj)
+	case *model.ChangeItemStatModifiersSuccess:
 		if obj == nil {
 			return graphql.Null
 		}
-		return ec._ChangeItemStatBonusesSuccess(ctx, sel, obj)
+		return ec._ChangeItemStatModifiersSuccess(ctx, sel, obj)
 	case model.CardNotFoundError:
 		return ec._CardNotFoundError(ctx, sel, &obj)
 	case *model.CardNotFoundError:
@@ -23774,7 +23774,7 @@ func (ec *executionContext) _ChangeItemStatBonusesResult(ctx context.Context, se
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
 		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeItemStatBonusesResult must implement graphql.Marshaler", obj))
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeItemStatModifiersResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -27416,7 +27416,7 @@ func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel 
 	return out
 }
 
-var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
+var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatModifiersResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotDraftError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotDraftErrorImplementors)
@@ -27449,7 +27449,7 @@ func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "ChangeSpellEffectResult"}
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemStatModifiersResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
@@ -27900,24 +27900,24 @@ func (ec *executionContext) _ChangeItemCategorySuccess(ctx context.Context, sel 
 	return out
 }
 
-var changeItemStatBonusesSuccessImplementors = []string{"ChangeItemStatBonusesSuccess", "ChangeItemStatBonusesResult"}
+var changeItemStatModifiersSuccessImplementors = []string{"ChangeItemStatModifiersSuccess", "ChangeItemStatModifiersResult"}
 
-func (ec *executionContext) _ChangeItemStatBonusesSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeItemStatBonusesSuccess) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, changeItemStatBonusesSuccessImplementors)
+func (ec *executionContext) _ChangeItemStatModifiersSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeItemStatModifiersSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeItemStatModifiersSuccessImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := graphql.NewDeferredGroup(ctx)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("ChangeItemStatBonusesSuccess")
+			out.Values[i] = graphql.MarshalString("ChangeItemStatModifiersSuccess")
 		case "id":
-			out.Values[i] = ec._ChangeItemStatBonusesSuccess_id(ctx, field, obj)
+			out.Values[i] = ec._ChangeItemStatModifiersSuccess_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "revision":
-			out.Values[i] = ec._ChangeItemStatBonusesSuccess_revision(ctx, field, obj)
+			out.Values[i] = ec._ChangeItemStatModifiersSuccess_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29091,7 +29091,7 @@ func (ec *executionContext) _FieldUnavailable(ctx context.Context, sel ast.Selec
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatModifiersResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -29640,13 +29640,13 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "attackBonus":
-			out.Values[i] = ec._Item_attackBonus(ctx, field, obj)
+		case "attackModifier":
+			out.Values[i] = ec._Item_attackModifier(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "hitPointsBonus":
-			out.Values[i] = ec._Item_hitPointsBonus(ctx, field, obj)
+		case "hitPointsModifier":
+			out.Values[i] = ec._Item_hitPointsModifier(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29967,9 +29967,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "changeItemStatBonuses":
+		case "changeItemStatModifiers":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_changeItemStatBonuses(ctx, field)
+				return ec._Mutation_changeItemStatModifiers(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -32234,7 +32234,7 @@ func (ec *executionContext) _RetireStarterSetSuccess(ctx context.Context, sel as
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemStatModifiersResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -33283,7 +33283,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatBonusesResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemStatModifiersResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -34228,17 +34228,17 @@ func (ec *executionContext) marshalNChangeItemCategoryResult2gitlabᚗcomᚋaime
 	return ec._ChangeItemCategoryResult(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChangeItemStatBonusesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesInput(ctx context.Context, v any) (model.ChangeItemStatBonusesInput, error) {
-	res, err := ec.unmarshalInputChangeItemStatBonusesInput(ctx, v)
+func (ec *executionContext) unmarshalNChangeItemStatModifiersInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatModifiersInput(ctx context.Context, v any) (model.ChangeItemStatModifiersInput, error) {
+	res, err := ec.unmarshalInputChangeItemStatModifiersInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChangeItemStatBonusesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatBonusesResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeItemStatBonusesResult) graphql.Marshaler {
+func (ec *executionContext) marshalNChangeItemStatModifiersResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeItemStatModifiersResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeItemStatModifiersResult) graphql.Marshaler {
 	if v == nil {
-		graphql.AddInvalidNullError(ctx, "ChangeItemStatBonusesResult!")
+		graphql.AddInvalidNullError(ctx, "ChangeItemStatModifiersResult!")
 		return graphql.Null
 	}
-	return ec._ChangeItemStatBonusesResult(ctx, sel, v)
+	return ec._ChangeItemStatModifiersResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNChangeSpellEffectInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeSpellEffectInput(ctx context.Context, v any) (model.ChangeSpellEffectInput, error) {

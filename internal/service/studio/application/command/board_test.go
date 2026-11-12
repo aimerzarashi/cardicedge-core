@@ -551,7 +551,7 @@ func TestChangeBoardDefaultRules_MapsViolationsToInputPaths(t *testing.T) {
 			want:  []input.Error{&input.TooSmall{Field: "startingMagic", Min: 0}},
 		},
 		{
-			name:  "negative_bonuses",
+			name:  "negative_modifiers",
 			rules: command.NewBoardDefaultRulesInput(100, 0, -1, -2, 30, 1, 6, 100),
 			want: []input.Error{
 				&input.TooSmall{Field: "lapBonus", Min: 0},

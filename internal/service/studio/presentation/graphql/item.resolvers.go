@@ -35,12 +35,12 @@ func (r *mutationResolver) ChangeItemCategory(ctx context.Context, input model.C
 	return &model.ChangeItemCategorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// ChangeItemStatBonuses is the resolver for the changeItemStatBonuses field.
-func (r *mutationResolver) ChangeItemStatBonuses(ctx context.Context, input model.ChangeItemStatBonusesInput) (model.ChangeItemStatBonusesResult, error) {
+// ChangeItemStatModifiers is the resolver for the changeItemStatModifiers field.
+func (r *mutationResolver) ChangeItemStatModifiers(ctx context.Context, input model.ChangeItemStatModifiersInput) (model.ChangeItemStatModifiersResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	changed, err := r.items.ChangeStatBonuses(ctx, input.ID, int64(input.Revision), input.AttackBonus, input.HitPointsBonus)
+	changed, err := r.items.ChangeStatModifiers(ctx, input.ID, int64(input.Revision), input.AttackModifier, input.HitPointsModifier)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
@@ -50,7 +50,7 @@ func (r *mutationResolver) ChangeItemStatBonuses(ctx context.Context, input mode
 	if err != nil {
 		return nil, err
 	}
-	return &model.ChangeItemStatBonusesSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.ChangeItemStatModifiersSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // RegisterItem is the resolver for the registerItem field.
@@ -78,7 +78,7 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	}
 	return &model.RegisterItemSuccess{Item: &model.Item{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Category: category, AttackBonus: registered.AttackBonus, HitPointsBonus: registered.HitPointsBonus,
+		Category: category, AttackModifier: registered.AttackModifier, HitPointsModifier: registered.HitPointsModifier,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

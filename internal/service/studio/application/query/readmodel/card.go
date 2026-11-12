@@ -105,9 +105,9 @@ type CreatureMetadata struct {
 
 // アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
 type ItemMetadata struct {
-	Category       string `json:"category"`
-	AttackBonus    int    `json:"attack_bonus"`
-	HitPointsBonus int    `json:"hit_points_bonus"`
+	Category          string `json:"category"`
+	AttackModifier    int    `json:"attack_modifier"`
+	HitPointsModifier int    `json:"hit_points_modifier"`
 }
 
 // スペルだけの性能
@@ -239,7 +239,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Item:         &ItemMetadata{Category: e.Category.String(), AttackBonus: e.AttackBonus.Int(), HitPointsBonus: e.HitPointsBonus.Int()},
+			Item:         &ItemMetadata{Category: e.Category.String(), AttackModifier: e.AttackModifier.Int(), HitPointsModifier: e.HitPointsModifier.Int()},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -319,10 +319,10 @@ func (state Card) Evolve(event any) Card {
 		changed.Category = e.Category.String()
 		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
-	case *item.StatBonusesChangedEvent:
+	case *item.StatModifiersChangedEvent:
 		changed := *state.Metadata.Item
-		changed.AttackBonus = e.AttackBonus.Int()
-		changed.HitPointsBonus = e.HitPointsBonus.Int()
+		changed.AttackModifier = e.AttackModifier.Int()
+		changed.HitPointsModifier = e.HitPointsModifier.Int()
 		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *spell.RarityChangedEvent:

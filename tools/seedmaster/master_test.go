@@ -320,8 +320,8 @@ func TestLoadMaster_RejectsInvalidItemSpec(t *testing.T) {
 	}{
 		{name: "missing_category", card: func(c *masterCard) { c.Category = "" }},
 		{name: "unknown_category", card: func(c *masterCard) { c.Category = "shield" }},
-		{name: "missing_attack_bonus", card: func(c *masterCard) { c.AttackBonus = nil }},
-		{name: "missing_hit_points_bonus", card: func(c *masterCard) { c.HitPointsBonus = nil }},
+		{name: "missing_attack_modifier", card: func(c *masterCard) { c.AttackModifier = nil }},
+		{name: "missing_hit_points_modifier", card: func(c *masterCard) { c.HitPointsModifier = nil }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

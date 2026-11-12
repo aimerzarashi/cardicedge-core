@@ -270,8 +270,8 @@
       "cost": 15,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 30,
-      "hit_points_bonus": 0
+      "attack_modifier": 30,
+      "hit_points_modifier": 0
     },
     {
       "type": "item",
@@ -279,8 +279,8 @@
       "cost": 35,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 45,
-      "hit_points_bonus": 0
+      "attack_modifier": 45,
+      "hit_points_modifier": 0
     },
     {
       "type": "item",
@@ -288,8 +288,8 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 25,
-      "hit_points_bonus": 0
+      "attack_modifier": 25,
+      "hit_points_modifier": 0
     },
     {
       "type": "item",
@@ -297,8 +297,8 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 25,
-      "hit_points_bonus": 0
+      "attack_modifier": 25,
+      "hit_points_modifier": 0
     },
     {
       "type": "item",
@@ -306,8 +306,8 @@
       "cost": 15,
       "rarity": "normal",
       "category": "armor",
-      "attack_bonus": 0,
-      "hit_points_bonus": 25
+      "attack_modifier": 0,
+      "hit_points_modifier": 25
     },
     {
       "type": "item",
@@ -315,8 +315,8 @@
       "cost": 35,
       "rarity": "normal",
       "category": "armor",
-      "attack_bonus": 0,
-      "hit_points_bonus": 45
+      "attack_modifier": 0,
+      "hit_points_modifier": 45
     },
     {
       "type": "item",
@@ -324,8 +324,8 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 25,
-      "hit_points_bonus": 0
+      "attack_modifier": 25,
+      "hit_points_modifier": 0
     },
     {
       "type": "item",
@@ -333,8 +333,8 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_bonus": 25,
-      "hit_points_bonus": 0
+      "attack_modifier": 25,
+      "hit_points_modifier": 0
     },
     {
       "type": "spell",

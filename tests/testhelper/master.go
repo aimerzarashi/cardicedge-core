@@ -361,7 +361,7 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 			cardMetadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 25, HitPoints: 45, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"earth", "wind"}, Abilities: []readmodel.CreatureAbilityMetadata{{Defensive: &readmodel.CreatureDefensiveAbilityMetadata{}}}}
 		}
 		if c.cardType == readmodel.CardTypeItem {
-			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", AttackBonus: 5, HitPointsBonus: 15}
+			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", AttackModifier: 5, HitPointsModifier: 15}
 		}
 		if c.cardType == readmodel.CardTypeSpell {
 			effect := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 2}}

@@ -52,23 +52,23 @@ func (c Category) String() string {
 }
 
 // 戦闘中に足す攻撃力。下げるアイテムも作れるよう、負も認める（確かめることが無いので、生成関数は誤りを返さない）
-type AttackBonus int
+type AttackModifier int
 
-func NewAttackBonus(value int) AttackBonus {
-	return AttackBonus(value)
+func NewAttackModifier(value int) AttackModifier {
+	return AttackModifier(value)
 }
 
-func (b AttackBonus) Int() int {
+func (b AttackModifier) Int() int {
 	return int(b)
 }
 
-// 戦闘中に足す体力。負も認める理由は AttackBonus と同じ
-type HitPointsBonus int
+// 戦闘中に足す体力。負も認める理由は AttackModifier と同じ
+type HitPointsModifier int
 
-func NewHitPointsBonus(value int) HitPointsBonus {
-	return HitPointsBonus(value)
+func NewHitPointsModifier(value int) HitPointsModifier {
+	return HitPointsModifier(value)
 }
 
-func (b HitPointsBonus) Int() int {
+func (b HitPointsModifier) Int() int {
 	return int(b)
 }

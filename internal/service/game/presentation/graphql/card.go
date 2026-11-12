@@ -50,7 +50,7 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		if err != nil {
 			return nil, err
 		}
-		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, AttackBonus: item.AttackBonus, HitPointsBonus: item.HitPointsBonus}, nil
+		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, AttackModifier: item.AttackModifier, HitPointsModifier: item.HitPointsModifier}, nil
 	case query.CardTypeSpell:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
 		if spell == nil {

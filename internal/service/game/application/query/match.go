@@ -715,7 +715,7 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	}
 	found.Item = nil
 	if spec.Item != nil {
-		found.Item = &ItemSpec{Category: spec.Item.Category.String(), AttackBonus: spec.Item.AttackBonus.Int(), HitPointsBonus: spec.Item.HitPointsBonus.Int()}
+		found.Item = &ItemSpec{Category: spec.Item.Category.String(), AttackModifier: spec.Item.AttackModifier.Int(), HitPointsModifier: spec.Item.HitPointsModifier.Int()}
 	}
 	found.Spell = nil
 	if spec.Spell != nil {

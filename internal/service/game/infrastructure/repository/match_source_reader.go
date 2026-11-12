@@ -299,7 +299,7 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions, Abilities: masterCreatureAbilities(row.card.Creature.Abilities)}
 		}
 		if row.card.Item != nil {
-			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, AttackBonus: row.card.Item.AttackBonus, HitPointsBonus: row.card.Item.HitPointsBonus}
+			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, AttackModifier: row.card.Item.AttackModifier, HitPointsModifier: row.card.Item.HitPointsModifier}
 		}
 		if row.card.Spell != nil {
 			spec.Spell = &master.SpellSpec{}
