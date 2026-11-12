@@ -288,7 +288,7 @@ func TestChangeCreatureAbilities_ChangesCreatureAfterProjected(t *testing.T) {
 
 	changed := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
 		changeCreatureAbilities(input: $input) { __typename ... on ChangeCreatureAbilitiesSuccess { id revision } ... on ValidationErrors { errors { __typename field } } }
-	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "TOLL_MULTIPLIER", "percent": 150}, {"kind": "FIRST_STRIKE"}}}}, "changeCreatureAbilities")
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "TOLL_MULTIPLIER", "percent": 150}, {"kind": "FIRST_STRIKE"}, {"kind": "BATTLE_MODIFIER", "attackModifier": -10, "hitPointsModifier": 20}}}}, "changeCreatureAbilities")
 	conflicted := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
 		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
 	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "FIRST_STRIKE"}, {"kind": "LAST_STRIKE"}}}}, "changeCreatureAbilities")
@@ -296,16 +296,22 @@ func TestChangeCreatureAbilities_ChangesCreatureAfterProjected(t *testing.T) {
 		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
 	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "DEFENSIVE"}, {"kind": "DEFENSIVE"}}}}, "changeCreatureAbilities")
 
+	mismatched := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
+		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "BATTLE_MODIFIER", "attackModifier": 5}}}}, "changeCreatureAbilities")
+
 	require.Equal(t, map[string]any{"__typename": "ChangeCreatureAbilitiesSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities.0"}}}, mismatched)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities"}}}, invalid)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities"}}}, conflicted)
 	testhelper.Eventually(t, func(c *assert.CollectT) {
-		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } } revision } } }`, map[string]any{"id": card["id"]}, "card")
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } ... on CreatureBattleModifierAbility { attackModifier hitPointsModifier } } revision } } }`, map[string]any{"id": card["id"]}, "card")
 		if assert.NoError(c, err) {
 			assert.Equal(c, map[string]any{"abilities": []any{
 				map[string]any{"__typename": "CreatureDefensiveAbility", "kind": "DEFENSIVE"},
 				map[string]any{"__typename": "CreatureTollMultiplierAbility", "kind": "TOLL_MULTIPLIER", "percent": float64(150)},
 				map[string]any{"__typename": "CreatureFirstStrikeAbility", "kind": "FIRST_STRIKE"},
+				map[string]any{"__typename": "CreatureBattleModifierAbility", "kind": "BATTLE_MODIFIER", "attackModifier": float64(-10), "hitPointsModifier": float64(20)},
 			}, "revision": float64(2)}, got)
 		}
 	})

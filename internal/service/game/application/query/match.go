@@ -752,6 +752,9 @@ func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 			percent := ability.TollMultiplier.Percent.Int()
 			values[i].TollMultiplierPercent = &percent
 		}
+		if ability.BattleModifier != nil {
+			values[i].BattleModifier = &CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
+		}
 	}
 	return values
 }

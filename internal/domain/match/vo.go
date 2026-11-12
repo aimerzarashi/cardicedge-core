@@ -110,12 +110,13 @@ func (s BattleSide) valid() bool {
 type BattleAbility string
 
 const (
-	BattleAbilityFirstStrike BattleAbility = "first_strike"
-	BattleAbilityLastStrike  BattleAbility = "last_strike"
+	BattleAbilityFirstStrike    BattleAbility = "first_strike"
+	BattleAbilityLastStrike     BattleAbility = "last_strike"
+	BattleAbilityBattleModifier BattleAbility = "battle_modifier"
 )
 
 func (a BattleAbility) valid() bool {
-	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike
+	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier
 }
 
 func (s BattleSide) opponent() BattleSide {
@@ -131,11 +132,17 @@ type BattleStats struct {
 	HitPoints creature.HitPoints `json:"hit_points"`
 }
 
-// 戦闘の AT・HP を変えた効果の出どころ。種類ごとに 1 つだけ持つ（2026-11-09 オーナー。クリーチャーの能力・呪いは作るときに種類を足す）
+// 戦闘の AT・HP を変えた効果の出どころ。種類ごとに 1 つだけ持つ（2026-11-09 オーナー。呪いは作るときに種類を足す）
 type BattleStatSource struct {
 	AdjacentTerritories *AdjacentTerritoriesSource `json:"adjacent_territories,omitempty"`
 	Terrain             *TerrainSource             `json:"terrain,omitempty"`
 	Item                *ItemSource                `json:"item,omitempty"`
+	Ability             *AbilitySource             `json:"ability,omitempty"`
+}
+
+// 戦闘中に能力が発動して AT・HP を変えた。どの能力かだけを持つ（増減の値は BattleStatModifiedEvent が持つ）
+type AbilitySource struct {
+	Ability BattleAbility `json:"ability"`
 }
 
 // 支援。侵略先の隣にある、攻める側の領地の位置。support と呼ばないのは、能力の援護と取り違えないため
@@ -164,6 +171,10 @@ func NewTerrainSource(element board.Element, level int) BattleStatSource {
 
 func NewItemSource(ref card.Ref) BattleStatSource {
 	return BattleStatSource{Item: &ItemSource{Card: ref}}
+}
+
+func NewAbilitySource(ability BattleAbility) BattleStatSource {
+	return BattleStatSource{Ability: &AbilitySource{Ability: ability}}
 }
 
 type EndReason string
@@ -285,6 +296,11 @@ func (s CreatureSpec) strikePriority() int {
 		return -1
 	}
 	return 0
+}
+
+// 戦闘中の増減（持っていなければ無し）
+func (s CreatureSpec) battleModifier() (creature.BattleModifierAbility, bool) {
+	return s.Abilities.BattleModifier()
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

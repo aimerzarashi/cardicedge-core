@@ -289,11 +289,14 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 		modified(17, match.BattleSideAttacker, match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 1, 0)}), 10, 0),
 		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101)), 25, 0),
 		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2), 0, 20),
+		modified(20, match.BattleSideDefender, match.NewAbilitySource(match.BattleAbilityBattleModifier), 0, 5),
 	))
 	dragon := placedDragon(f.cardID)
 	adjacent := query.MatchBattleStatSource{AdjacentTerritories: []query.BoardPosition{query.NewBoardPosition(1, 0)}}
 	usedItem := query.MatchBattleStatSource{Item: &dragon}
 	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2}}
+
+	ability := query.MatchBattleStatSource{Ability: &query.MatchAbilitySource{Ability: query.MatchBattleAbilityBattleModifier}}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
 
@@ -302,6 +305,7 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: adjacent, AttackDelta: 10, Attack: 20, HitPoints: 20},
 		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: usedItem, AttackDelta: 25, Attack: 35, HitPoints: 20},
 		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(19, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: terrain, HitPointsDelta: 20, Attack: 10, HitPoints: 40},
+		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(20, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: ability, HitPointsDelta: 5, Attack: 10, HitPoints: 25},
 	}, events)
 }
 

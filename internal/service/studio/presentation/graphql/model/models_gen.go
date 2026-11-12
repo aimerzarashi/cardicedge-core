@@ -1214,7 +1214,26 @@ type CreatureAbilityInput struct {
 	Kind CreatureAbilityKind `json:"kind"`
 	// 通行料の倍率（百分率。TOLL_MULTIPLIER だけに要る）
 	Percent *int `json:"percent,omitempty"`
+	// 戦闘中の AT の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）
+	AttackModifier *int `json:"attackModifier,omitempty"`
+	// 戦闘中の HP の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）
+	HitPointsModifier *int `json:"hitPointsModifier,omitempty"`
 }
+
+// 戦闘中の増減
+type CreatureBattleModifierAbility struct {
+	// 能力の種類（BATTLE_MODIFIER）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 戦闘中の AT の増減（負も 0 もある）
+	AttackModifier int `json:"attackModifier"`
+	// 戦闘中の HP の増減（負も 0 もある）
+	HitPointsModifier int `json:"hitPointsModifier"`
+}
+
+func (CreatureBattleModifierAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureBattleModifierAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // 防御型
 type CreatureDefensiveAbility struct {
@@ -3644,6 +3663,8 @@ const (
 	CreatureAbilityKindFirstStrike CreatureAbilityKind = "FIRST_STRIKE"
 	// 後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）
 	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
+	// 戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）
+	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3651,11 +3672,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindTollMultiplier,
 	CreatureAbilityKindFirstStrike,
 	CreatureAbilityKindLastStrike,
+	CreatureAbilityKindBattleModifier,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier:
 		return true
 	}
 	return false

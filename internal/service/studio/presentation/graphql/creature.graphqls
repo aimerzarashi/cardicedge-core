@@ -113,6 +113,8 @@ enum CreatureAbilityKind {
   FIRST_STRIKE
   "後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）"
   LAST_STRIKE
+  "戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）"
+  BATTLE_MODIFIER
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -149,14 +151,28 @@ type CreatureLastStrikeAbility implements CreatureAbility {
   kind: CreatureAbilityKind!
 }
 
+"戦闘中の増減"
+type CreatureBattleModifierAbility implements CreatureAbility {
+  "能力の種類（BATTLE_MODIFIER）"
+  kind: CreatureAbilityKind!
+  "戦闘中の AT の増減（負も 0 もある）"
+  attackModifier: Int!
+  "戦闘中の HP の増減（負も 0 もある）"
+  hitPointsModifier: Int!
+}
+
 "能力 1 つの入力"
-# 種類ごとに要る値だけを入れる（通行料の倍率は percent。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
+# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
 # 値の範囲の誤りは FieldTooSmall（abilities.N.percent）
 input CreatureAbilityInput {
   "能力の種類"
   kind: CreatureAbilityKind!
   "通行料の倍率（百分率。TOLL_MULTIPLIER だけに要る）"
   percent: Int
+  "戦闘中の AT の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）"
+  attackModifier: Int
+  "戦闘中の HP の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）"
+  hitPointsModifier: Int
 }
 
 "クリーチャーの能力を変える入力"

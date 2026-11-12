@@ -537,14 +537,35 @@ func startBattle(r *recorder) error {
 }
 
 // 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は 呪い → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
-// 呪い・能力は作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
+// 呪いは作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
 func battleEffects() []func(*recorder) error {
 	return []func(*recorder) error{
+		func(r *recorder) error { return applyBattleModifier(r, BattleSideAttacker) },
 		applyAdjacentTerritories,
 		func(r *recorder) error { return applyItem(r, BattleSideAttacker, r.state.Invasion.AttackerItem) },
+		func(r *recorder) error { return applyBattleModifier(r, BattleSideDefender) },
 		applyTerrain,
 		func(r *recorder) error { return applyItem(r, BattleSideDefender, r.state.Invasion.DefenderItem) },
 	}
+}
+
+func applyBattleModifier(r *recorder, side BattleSide) error {
+	if r.state.Invasion == nil {
+		return ErrInvalidState
+	}
+	spec := r.state.Invasion.Base
+	if side == BattleSideDefender {
+		defending, err := r.state.defendingCreature()
+		if err != nil {
+			return err
+		}
+		spec = defending.Base
+	}
+	modifier, ok := spec.battleModifier()
+	if !ok {
+		return nil
+	}
+	return modifyBattleStats(r, side, NewAbilitySource(BattleAbilityBattleModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
 }
 
 func applyAdjacentTerritories(r *recorder) error {
@@ -599,12 +620,14 @@ func applyItem(r *recorder, side BattleSide, used *card.Ref) error {
 	return modifyBattleStats(r, side, NewItemSource(*used), spec.AttackBonus.Int(), spec.HitPointsBonus.Int())
 }
 
-// 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない
+// 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない。ただし能力は、このイベントが発動を表すので
+// （BattleAbilityActivatedEvent を別に出すと、再生で 1 つの発動が 2 行に割れるため。2026-11-12 オーナー）、
+// 持っていれば効き目が無くても出す決まり（2026-11-11 オーナー）に合わせて増減が 0 でも作る
 func modifyBattleStats(r *recorder, side BattleSide, source BattleStatSource, attackDelta, hitPointsDelta int) error {
 	before := r.state.Battle.creature(side).Stats
 	attack, hitPoints := before.Attack.Modified(attackDelta), before.HitPoints.Modified(hitPointsDelta)
 	actualAttack, actualHitPoints := attack.Int()-before.Attack.Int(), hitPoints.Int()-before.HitPoints.Int()
-	if actualAttack == 0 && actualHitPoints == 0 {
+	if actualAttack == 0 && actualHitPoints == 0 && source.Ability == nil {
 		return nil
 	}
 	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {

@@ -1297,10 +1297,16 @@ type MatchItemSource {
   card: CardInfo!
 }
 
-"戦闘の AT・HP を変えた効果の出どころ"
-union MatchBattleStatSource = MatchAdjacentTerritoriesSource | MatchTerrainSource | MatchItemSource
+"発動した能力（このイベントが能力の発動を表す。MatchBattleAbilityActivatedEvent は別に出ない）"
+type MatchAbilitySource {
+  "発動した能力（今は BATTLE_MODIFIER）"
+  ability: CreatureAbilityKind!
+}
 
-"効果 1 つが戦闘の AT・HP を変えた"
+"戦闘の AT・HP を変えた効果の出どころ"
+union MatchBattleStatSource = MatchAdjacentTerritoriesSource | MatchTerrainSource | MatchItemSource | MatchAbilitySource
+
+"効果 1 つが戦闘の AT・HP を変えた（出どころが能力のときは、持っていれば増減が 0 でも出る）"
 type MatchBattleStatModifiedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1332,7 +1338,7 @@ type MatchBattleAbilityActivatedEvent implements MatchEvent {
   changes: MatchEventChanges!
   "能力を持つクリーチャーの側"
   side: MatchBattleSide!
-  "発動した能力（今は FIRST_STRIKE・LAST_STRIKE）"
+  "発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE）"
   ability: CreatureAbilityKind!
 }
 

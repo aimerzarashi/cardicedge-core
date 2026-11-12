@@ -583,17 +583,19 @@ func (b masterBoard) layoutInput() command.BoardLayoutInput {
 	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections, Pairs: pairs}
 }
 
-// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent）
+// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent、戦闘中の増減は attack_modifier・hit_points_modifier）
 type masterAbility struct {
-	Kind    string `json:"kind"`
-	Percent *int   `json:"percent"`
+	Kind              string `json:"kind"`
+	Percent           *int   `json:"percent"`
+	AttackModifier    *int   `json:"attack_modifier"`
+	HitPointsModifier *int   `json:"hit_points_modifier"`
 }
 
 // 種類と値の組み合わせは studio の ChangeAbilities が確かめるので、ここでは知らない種類だけを弾く（流してから気づくより先に止めるため）
 func (a masterAbility) command() (command.CreatureAbility, error) {
 	switch a.Kind {
-	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike:
-		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent}, nil
+	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike, command.CreatureAbilityBattleModifier:
+		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent, AttackModifier: a.AttackModifier, HitPointsModifier: a.HitPointsModifier}, nil
 	}
 	return command.CreatureAbility{}, fmt.Errorf("unknown ability %q", a.Kind)
 }

@@ -329,6 +329,9 @@ func masterCreatureAbilities(abilities []query.CreatureAbility) []master.Creatur
 	values := make([]master.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		values[i] = master.CreatureAbility{Defensive: ability.Defensive, TollMultiplierPercent: ability.TollMultiplierPercent, FirstStrike: ability.FirstStrike, LastStrike: ability.LastStrike}
+		if ability.BattleModifier != nil {
+			values[i].BattleModifier = &master.CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
+		}
 	}
 	return values
 }

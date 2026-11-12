@@ -424,6 +424,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 						... on MatchAdjacentTerritoriesSource { positions { x y } }
 						... on MatchTerrainSource { element level }
 						... on MatchItemSource { card { id name } }
+						... on MatchAbilitySource { ability }
 					}
 				}
 				... on MatchBattleAbilityActivatedEvent { side ability }
