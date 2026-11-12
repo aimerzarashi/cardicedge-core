@@ -277,20 +277,20 @@ func matchDeckCard(t *testing.T, id int64, quantity int, cost int) match.DeckCar
 }
 
 // 配置できる手札（コスト 10 のカード 1）と、配置できない手札（コスト 990 のカード 2）の番号
-func handIndexes(t *testing.T, current match.Match) (deployable, notDeployable int) {
+func handIndexes(t *testing.T, current match.Match) (placeable, notPlaceable int) {
 	t.Helper()
-	deployable, notDeployable = -1, -1
+	placeable, notPlaceable = -1, -1
 	for i, ref := range current.Participants[0].Hand {
 		switch ref {
 		case cardtest.CreatureRef(t, 1):
-			deployable = i
+			placeable = i
 		case cardtest.CreatureRef(t, 2):
-			notDeployable = i
+			notPlaceable = i
 		}
 	}
-	require.NotEqual(t, -1, deployable)
-	require.NotEqual(t, -1, notDeployable)
-	return deployable, notDeployable
+	require.NotEqual(t, -1, placeable)
+	require.NotEqual(t, -1, notPlaceable)
+	return placeable, notPlaceable
 }
 
 func (f matchTurnFixture) load(t *testing.T) match.Match {
@@ -334,13 +334,13 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	require.NoError(t, err)
 	// 止まった (2,0) は空いている土地
 	stopped := f.load(t)
-	require.Equal(t, match.PhaseDeploying, stopped.Phase)
-	deployable, _ := handIndexes(t, stopped)
+	require.Equal(t, match.PhasePlacing, stopped.Phase)
+	placeable, _ := handIndexes(t, stopped)
 
-	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
+	_, err = f.handler.Place(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
 	next := f.load(t)
-	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.DeployedCreatureID(t, 1)}}, next.Territories)
+	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 1)}}, next.Territories)
 	require.Equal(t, 600-10, next.Participants[0].Magic)
 	// 配置したらターンが終わり、NPC の番になる
 	require.Equal(t, match.PhaseRolling, next.Phase)
@@ -348,7 +348,7 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	require.Equal(t, matchtest.Index(t, 1), current)
 }
 
-func TestMatchHandler_EndTurnWhileDeployingLeavesTheLandVacant(t *testing.T) {
+func TestMatchHandler_EndTurnWhilePlacingLeavesTheLandVacant(t *testing.T) {
 	f := newMatchTurnFixture(t, orderedRandom{})
 	rolled := f.playUntilChoosingPath(t)
 	changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
@@ -457,27 +457,27 @@ func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 		require.Equal(t, input.Errors{&input.NotFound{Field: "to"}}, invalid)
 		require.Equal(t, match.PhaseChoosingPath, f.load(t).Phase)
 	})
-	t.Run("creature_not_deployable", func(t *testing.T) {
+	t.Run("creature_not_placeable", func(t *testing.T) {
 		f := newMatchTurnFixture(t, orderedRandom{})
 		rolled := f.playUntilChoosingPath(t)
 		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
 		require.NoError(t, err)
-		_, notDeployable := handIndexes(t, f.load(t))
+		_, notPlaceable := handIndexes(t, f.load(t))
 
-		_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, notDeployable)
+		_, err = f.handler.Place(f.player, f.publicID, changed.Revision, notPlaceable)
 
 		invalid, ok := input.AsErrors(err)
 		require.True(t, ok)
 		require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
 		require.Empty(t, f.load(t).Territories)
 	})
-	t.Run("deploy_hand_index_out_of_range", func(t *testing.T) {
+	t.Run("place_hand_index_out_of_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, orderedRandom{})
 		rolled := f.playUntilChoosingPath(t)
 		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
 		require.NoError(t, err)
 
-		_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, 99)
+		_, err = f.handler.Place(f.player, f.publicID, changed.Revision, 99)
 
 		invalid, ok := input.AsErrors(err)
 		require.True(t, ok)
@@ -506,14 +506,14 @@ func TestMatchNPCTurn_PlaysOneOperationPerPhaseOfTheNPCTurn(t *testing.T) {
 	chosen := f.load(t)
 	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目。止まった (1,1) は空いている土地
 	require.Equal(t, boardtest.Position(t, 1, 1), chosen.Participants[1].Position)
-	require.Equal(t, match.PhaseDeploying, chosen.Phase)
+	require.Equal(t, match.PhasePlacing, chosen.Phase)
 
 	// 払える最初のクリーチャーを配置し、そのままターンを終える
 	require.NoError(t, f.npc.Play(f.ctx, f.id, chosen.Version))
 	ended := f.load(t)
 	require.Len(t, ended.Territories, 1)
 	require.Equal(t, boardtest.Position(t, 1, 1), ended.Territories[0].Position)
-	require.Equal(t, matchtest.Index(t, 1), ended.DeployedCreatures[0].Owner)
+	require.Equal(t, matchtest.Index(t, 1), ended.PlacedCreatures[0].Owner)
 	require.Equal(t, match.PhaseDrawing, ended.Phase)
 	current, _ := ended.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 0), current)
@@ -602,9 +602,9 @@ func (f matchTurnFixture) playUntilPlayerStopsOnTheTerritoryOfTheNPC(t *testing.
 func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEnds(t *testing.T) {
 	f := newMatchTurnFixture(t, matchtest.NewRandom())
 	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
-	deployable, _ := handIndexes(t, f.load(t))
+	placeable, _ := handIndexes(t, f.load(t))
 
-	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable)
+	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
 	require.Equal(t, match.PhaseAttacking, f.load(t).Phase)
 	changed, err = f.handler.Attack(f.player, f.publicID, changed.Revision, nil)
@@ -619,7 +619,7 @@ func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEn
 	requireTurnOf(t, ended, 1)
 	require.Nil(t, ended.Invasion)
 	require.Equal(t, 600-10-60, ended.Participants[0].Magic)
-	require.Equal(t, 10, ended.DeployedCreatures[0].HitPoints.Int())
+	require.Equal(t, 10, ended.PlacedCreatures[0].HitPoints.Int())
 }
 
 // ターンの終わりに手札が上限を超えて捨てる段階に入っていれば、先頭から捨ててターンを終える
@@ -656,12 +656,12 @@ func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
 func TestMatchHandler_ReportsInvasionInputThatCannotBeUsed(t *testing.T) {
 	f := newMatchTurnFixture(t, matchtest.NewRandom())
 	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
-	deployable, notPayable := handIndexes(t, f.load(t))
+	placeable, notPayable := handIndexes(t, f.load(t))
 	creatureAsItem := 0
 
 	_, outOfRange := f.handler.Invade(f.player, f.publicID, changed.Revision, 99)
 	_, notInvadable := f.handler.Invade(f.player, f.publicID, changed.Revision, notPayable)
-	invaded, err := f.handler.Invade(f.player, f.publicID, changed.Revision, deployable)
+	invaded, err := f.handler.Invade(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
 	_, notUsable := f.handler.Attack(f.player, f.publicID, invaded.Revision, &creatureAsItem)
 
@@ -676,8 +676,8 @@ func (f matchTurnFixture) playUntilNPCStopsOnTheTerritoryOfThePlayer(t *testing.
 	changed := f.playUntilChoosingPath(t)
 	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
 	require.NoError(t, err)
-	deployable, _ := handIndexes(t, f.load(t))
-	_, err = f.handler.Deploy(f.player, f.publicID, changed.Revision, deployable)
+	placeable, _ := handIndexes(t, f.load(t))
+	_, err = f.handler.Place(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
 	for range 2 {
 		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))

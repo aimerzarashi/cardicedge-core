@@ -54,7 +54,7 @@ type CardResult interface {
 	IsCardResult()
 }
 
-// changeMatchLandElement の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+// changeMatchLandElement の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
 type ChangeMatchLandElementResult interface {
 	IsChangeMatchLandElementResult()
 }
@@ -128,11 +128,6 @@ type DefendMatchTerritoryResult interface {
 	IsDefendMatchTerritoryResult()
 }
 
-// deployMatchCreature の結果（DEPLOYING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
-type DeployMatchCreatureResult interface {
-	IsDeployMatchCreatureResult()
-}
-
 // discardMatchCard の結果（DISCARDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type DiscardMatchCardResult interface {
 	IsDiscardMatchCardResult()
@@ -143,12 +138,12 @@ type DrawMatchCardResult interface {
 	IsDrawMatchCardResult()
 }
 
-// endMatchTurn の結果（ENDING と DEPLOYING の段階の（DEPLOYING では配置しないことになる）、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+// endMatchTurn の結果（ENDING と PLACING の段階の（PLACING では配置しないことになる）、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type EndMatchTurnResult interface {
 	IsEndMatchTurnResult()
 }
 
-// exchangeMatchCreature の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+// exchangeMatchCreature の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
 type ExchangeMatchCreatureResult interface {
 	IsExchangeMatchCreatureResult()
 }
@@ -170,7 +165,7 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
-// levelUpMatchTerritory の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+// levelUpMatchTerritory の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type LevelUpMatchTerritoryResult interface {
 	IsLevelUpMatchTerritoryResult()
 }
@@ -217,7 +212,7 @@ type MeResult interface {
 	IsMeResult()
 }
 
-// moveMatchCreature の結果（DEPLOYING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
+// moveMatchCreature の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）
 type MoveMatchCreatureResult interface {
 	IsMoveMatchCreatureResult()
 }
@@ -235,6 +230,11 @@ type NpcAvatarResult interface {
 // payMatchToll の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type PayMatchTollResult interface {
 	IsPayMatchTollResult()
+}
+
+// placeMatchCreature の結果（PLACING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type PlaceMatchCreatureResult interface {
+	IsPlaceMatchCreatureResult()
 }
 
 // publishRoom の結果（公開前だけ。作った人だけ。席の並びが決まっていなければ RoomSeatsNotDecidedError。対戦ルールと席の選択は、決まっていなくても公開できる）
@@ -937,26 +937,6 @@ type DefendMatchTerritorySuccess struct {
 
 func (DefendMatchTerritorySuccess) IsDefendMatchTerritoryResult() {}
 
-// 止まった空き地にクリーチャーを配置する入力
-type DeployMatchCreatureInput struct {
-	// 対戦の公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 画面が見ていた対戦の revision
-	Revision int `json:"revision"`
-	// 配置する手札の番号（0 始まり。Match.deployChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で配置できないものは FieldNotFound）
-	HandIndex int `json:"handIndex"`
-}
-
-// クリーチャーを配置した（そのままターンを終える。成功したら対戦の revision が進む）
-type DeployMatchCreatureSuccess struct {
-	// 対戦の公開用の ID
-	ID uuid.UUID `json:"id"`
-	// 操作した後の対戦の revision
-	Revision int `json:"revision"`
-}
-
-func (DeployMatchCreatureSuccess) IsDeployMatchCreatureResult() {}
-
 // 手札を 1 枚捨てる入力
 type DiscardMatchCardInput struct {
 	// 対戦の公開用の ID
@@ -1266,8 +1246,8 @@ type Match struct {
 	PathChoices []*BoardPosition `json:"pathChoices"`
 	// 今の番の人が使えるスペル（手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）
 	SpellChoices []*MatchSpellChoice `json:"spellChoices"`
-	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。DEPLOYING のときだけ中身がある。DEPLOYING でも配置できるものが無ければ空）
-	DeployChoices []int `json:"deployChoices"`
+	// 今の番の人が配置できる手札の番号（0 始まり。手札の順。PLACING のときだけ中身がある。PLACING でも配置できるものが無ければ空）
+	PlaceChoices []int `json:"placeChoices"`
 	// 今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）
 	InvadeChoices []int `json:"invadeChoices"`
 	// 操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）
@@ -1276,13 +1256,13 @@ type Match struct {
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
 	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）
 	LandLevels []*MatchLandLevel `json:"landLevels"`
-	// 今の番の人が選べるレベルアップ（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
+	// 今の番の人が選べるレベルアップ（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）
 	LevelUpChoices []*MatchLevelUpChoice `json:"levelUpChoices"`
-	// 今の番の人が選べるクリーチャーの交換（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
+	// 今の番の人が選べるクリーチャーの交換（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）
 	ExchangeChoices []*MatchExchangeChoice `json:"exchangeChoices"`
-	// 今の番の人が選べる土地の属性の変更（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ）
+	// 今の番の人が選べる土地の属性の変更（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ）
 	ElementChangeChoices []*MatchElementChangeChoice `json:"elementChangeChoices"`
-	// 今の番の人が選べるクリーチャーの移動（DEPLOYING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。ちょうど移動の歩数だけ進んで届く空き地か他人の領地）
+	// 今の番の人が選べるクリーチャーの移動（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。ちょうど移動の歩数だけ進んで届く空き地か他人の領地）
 	MoveChoices []*MatchMoveChoice `json:"moveChoices"`
 	// 侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）
 	Invasion *MatchInvasion `json:"invasion,omitempty"`
@@ -1534,7 +1514,7 @@ type MatchCreatureDamagedEvent struct {
 	Participant int `json:"participant"`
 	// 対象のクリーチャーがいる領地の位置
 	Position *BoardPosition `json:"position"`
-	// 対象のクリーチャー（MatchDeployedCreature.id）
+	// 対象のクリーチャー（MatchPlacedCreature.id）
 	Creature int `json:"creature"`
 	// 与えたダメージ
 	Damage int `json:"damage"`
@@ -1553,39 +1533,6 @@ func (this MatchCreatureDamagedEvent) GetOccurredAt() time.Time { return this.Oc
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureDamagedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）
-type MatchCreatureDeployedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 配置した参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 配置した手札の番号（0 始まり）
-	HandIndex int `json:"handIndex"`
-	// 配置したカード（性能は対戦を始めたときの写し）
-	Card CardInfo `json:"card"`
-	// 配置したクリーチャーの ID（Match.territories の creature.id と同じ番号）
-	Creature int `json:"creature"`
-	// 配置した位置（領地になった）
-	Position *BoardPosition `json:"position"`
-	// 払った魔力
-	Cost int `json:"cost"`
-}
-
-func (MatchCreatureDeployedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchCreatureDeployedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchCreatureDeployedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchCreatureDeployedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // スペルのダメージで、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札に入る）
 type MatchCreatureDestroyedEvent struct {
 	// 対戦の版
@@ -1598,7 +1545,7 @@ type MatchCreatureDestroyedEvent struct {
 	Participant int `json:"participant"`
 	// 破壊されたクリーチャーがいた領地の位置
 	Position *BoardPosition `json:"position"`
-	// 破壊されたクリーチャー（MatchDeployedCreature.id）
+	// 破壊されたクリーチャー（MatchPlacedCreature.id）
 	Creature int `json:"creature"`
 }
 
@@ -1676,6 +1623,39 @@ func (this MatchCreatureMovedEvent) GetOccurredAt() time.Time { return this.Occu
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureMovedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）
+type MatchCreaturePlacedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 配置した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 配置した手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 配置したカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 配置したクリーチャーの ID（Match.territories の creature.id と同じ番号）
+	Creature int `json:"creature"`
+	// 配置した位置（領地になった）
+	Position *BoardPosition `json:"position"`
+	// 払った魔力
+	Cost int `json:"cost"`
+}
+
+func (MatchCreaturePlacedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreaturePlacedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreaturePlacedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreaturePlacedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘の攻撃が 1 回当たった
 type MatchCreatureStruckEvent struct {
@@ -1782,16 +1762,6 @@ func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.Occu
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchDecksShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
-// 盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）
-type MatchDeployedCreature struct {
-	// 配置したクリーチャーの ID（対戦の中の通し番号。1 始まり。移動・交換しても変わらない）
-	ID int `json:"id"`
-	// 元のカード（性能は配置したときの写し）
-	Card *CreatureCardInfo `json:"card"`
-	// 今の体力
-	HitPoints int `json:"hitPoints"`
-}
 
 // スペルの効果で、このターンに振るサイコロの個数が変わった（count 個を同時に振り、合計の分だけ進む）
 type MatchDiceCountChangedEvent struct {
@@ -2269,7 +2239,7 @@ func (MatchNotFoundError) IsRollMatchDiceResult() {}
 
 func (MatchNotFoundError) IsChooseMatchPathResult() {}
 
-func (MatchNotFoundError) IsDeployMatchCreatureResult() {}
+func (MatchNotFoundError) IsPlaceMatchCreatureResult() {}
 
 func (MatchNotFoundError) IsUseMatchSpellResult() {}
 
@@ -2313,7 +2283,7 @@ func (MatchNotYourTurnError) IsRollMatchDiceResult() {}
 
 func (MatchNotYourTurnError) IsChooseMatchPathResult() {}
 
-func (MatchNotYourTurnError) IsDeployMatchCreatureResult() {}
+func (MatchNotYourTurnError) IsPlaceMatchCreatureResult() {}
 
 func (MatchNotYourTurnError) IsUseMatchSpellResult() {}
 
@@ -2393,7 +2363,7 @@ func (MatchPhaseNotAllowedError) IsRollMatchDiceResult() {}
 
 func (MatchPhaseNotAllowedError) IsChooseMatchPathResult() {}
 
-func (MatchPhaseNotAllowedError) IsDeployMatchCreatureResult() {}
+func (MatchPhaseNotAllowedError) IsPlaceMatchCreatureResult() {}
 
 func (MatchPhaseNotAllowedError) IsUseMatchSpellResult() {}
 
@@ -2418,6 +2388,16 @@ func (MatchPhaseNotAllowedError) IsExchangeMatchCreatureResult() {}
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
 func (MatchPhaseNotAllowedError) IsChooseMatchRewardPackResult() {}
+
+// 盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）
+type MatchPlacedCreature struct {
+	// 配置したクリーチャーの ID（対戦の中の通し番号。1 始まり。移動・交換しても変わらない）
+	ID int `json:"id"`
+	// 元のカード（性能は配置したときの写し）
+	Card *CreatureCardInfo `json:"card"`
+	// 今の体力
+	HitPoints int `json:"hitPoints"`
+}
 
 // 対戦のルール。始めた時点の写し（部屋の対戦ルールの 8 つの値と、全体のルール MatchRules の手札の決まり）。
 // 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
@@ -2597,7 +2577,7 @@ type MatchTerritory struct {
 	// 持ち主の参加者（Match.participants の何番目か）
 	Owner int `json:"owner"`
 	// そこにいるクリーチャー
-	Creature *MatchDeployedCreature `json:"creature"`
+	Creature *MatchPlacedCreature `json:"creature"`
 	// 土地のレベル（1 始まり）
 	Level int `json:"level"`
 	// 土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
@@ -2974,6 +2954,26 @@ type PayMatchTollSuccess struct {
 
 func (PayMatchTollSuccess) IsPayMatchTollResult() {}
 
+// 止まった空き地にクリーチャーを配置する入力
+type PlaceMatchCreatureInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 配置する手札の番号（0 始まり。Match.placeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で配置できないものは FieldNotFound）
+	HandIndex int `json:"handIndex"`
+}
+
+// クリーチャーを配置した（そのままターンを終える。成功したら対戦の revision が進む）
+type PlaceMatchCreatureSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (PlaceMatchCreatureSuccess) IsPlaceMatchCreatureResult() {}
+
 // プレイヤー。JWT の (iss, sub) に 1 人だけ紐づく
 type Player struct {
 	// プレイヤーの公開用の ID
@@ -3024,7 +3024,7 @@ func (PlayerNotRegisteredError) IsRollMatchDiceResult() {}
 
 func (PlayerNotRegisteredError) IsChooseMatchPathResult() {}
 
-func (PlayerNotRegisteredError) IsDeployMatchCreatureResult() {}
+func (PlayerNotRegisteredError) IsPlaceMatchCreatureResult() {}
 
 func (PlayerNotRegisteredError) IsUseMatchSpellResult() {}
 
@@ -3214,7 +3214,7 @@ func (RevisionConflictError) IsRollMatchDiceResult() {}
 
 func (RevisionConflictError) IsChooseMatchPathResult() {}
 
-func (RevisionConflictError) IsDeployMatchCreatureResult() {}
+func (RevisionConflictError) IsPlaceMatchCreatureResult() {}
 
 func (RevisionConflictError) IsUseMatchSpellResult() {}
 
@@ -3657,7 +3657,7 @@ func (ValidationErrors) IsDiscardMatchCardResult() {}
 
 func (ValidationErrors) IsChooseMatchPathResult() {}
 
-func (ValidationErrors) IsDeployMatchCreatureResult() {}
+func (ValidationErrors) IsPlaceMatchCreatureResult() {}
 
 func (ValidationErrors) IsUseMatchSpellResult() {}
 
@@ -4281,9 +4281,9 @@ const (
 	MatchPhaseRolling MatchPhase = "ROLLING"
 	// 分かれ道で行き先を選ぶ段階（chooseMatchPath）
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
-	// 空いている土地に止まった後の段階。クリーチャーを配置する（deployMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
-	MatchPhaseDeploying MatchPhase = "DEPLOYING"
-	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchTerritory・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは DEPLOYING・INVADING の中で領地コマンドを選ぶ
+	// 空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
+	MatchPhasePlacing MatchPhase = "PLACING"
+	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchTerritory・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ
 	MatchPhaseTerritoryCommanding MatchPhase = "TERRITORY_COMMANDING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"
@@ -4304,7 +4304,7 @@ var AllMatchPhase = []MatchPhase{
 	MatchPhaseDiscarding,
 	MatchPhaseRolling,
 	MatchPhaseChoosingPath,
-	MatchPhaseDeploying,
+	MatchPhasePlacing,
 	MatchPhaseTerritoryCommanding,
 	MatchPhaseInvading,
 	MatchPhaseAttacking,
@@ -4316,7 +4316,7 @@ var AllMatchPhase = []MatchPhase{
 
 func (e MatchPhase) IsValid() bool {
 	switch e {
-	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhaseDeploying, MatchPhaseTerritoryCommanding, MatchPhaseInvading, MatchPhaseAttacking, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
+	case MatchPhaseDrawing, MatchPhaseDiscarding, MatchPhaseRolling, MatchPhaseChoosingPath, MatchPhasePlacing, MatchPhaseTerritoryCommanding, MatchPhaseInvading, MatchPhaseAttacking, MatchPhaseDefending, MatchPhaseRelinquishing, MatchPhaseEnding, MatchPhaseEnded:
 		return true
 	}
 	return false

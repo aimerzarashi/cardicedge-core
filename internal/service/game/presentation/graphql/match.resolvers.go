@@ -81,22 +81,22 @@ func (r *mutationResolver) ChooseMatchPath(ctx context.Context, input model.Choo
 	return &model.ChooseMatchPathSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// DeployMatchCreature is the resolver for the deployMatchCreature field.
-func (r *mutationResolver) DeployMatchCreature(ctx context.Context, input model.DeployMatchCreatureInput) (model.DeployMatchCreatureResult, error) {
+// PlaceMatchCreature is the resolver for the placeMatchCreature field.
+func (r *mutationResolver) PlaceMatchCreature(ctx context.Context, input model.PlaceMatchCreatureInput) (model.PlaceMatchCreatureResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	changed, err := r.matches.Deploy(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	changed, err := r.matches.Place(ctx, input.ID, int64(input.Revision), input.HandIndex)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
-	if result, ok := matchError(err).(model.DeployMatchCreatureResult); ok {
+	if result, ok := matchError(err).(model.PlaceMatchCreatureResult); ok {
 		return result, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &model.DeployMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.PlaceMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // RelinquishMatchTerritory is the resolver for the relinquishMatchTerritory field.

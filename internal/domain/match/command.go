@@ -48,13 +48,13 @@ type ChoosePathCommand struct {
 func (*ChoosePathCommand) isMatchCommand() {}
 
 // 止まった空き地に、手札のクリーチャーを配置する。配置したらそのままターンを終える。配置しないときは EndTurnCommand
-type DeployCreatureCommand struct {
+type PlaceCreatureCommand struct {
 	By ParticipantIndex
 	// 手札の何番目か（0 始まり）
 	HandIndex int
 }
 
-func (*DeployCreatureCommand) isMatchCommand() {}
+func (*PlaceCreatureCommand) isMatchCommand() {}
 
 // サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで。2026-11-10 オーナー。core#149）。コストを払い、効果を当て、スペルは捨て札に入る
 type UseSpellCommand struct {

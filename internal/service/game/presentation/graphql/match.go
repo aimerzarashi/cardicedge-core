@@ -100,11 +100,11 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		}
 		creatureCard, ok := card.(*model.CreatureCardInfo)
 		if !ok {
-			return nil, fmt.Errorf("graphql: deployed creature %d is not a creature card", territory.Creature.ID)
+			return nil, fmt.Errorf("graphql: placed creature %d is not a creature card", territory.Creature.ID)
 		}
 		territories[i] = &model.MatchTerritory{
 			Position: &model.BoardPosition{X: territory.Position.X, Y: territory.Position.Y}, Owner: territory.Owner,
-			Creature: &model.MatchDeployedCreature{ID: territory.Creature.ID, Card: creatureCard, HitPoints: territory.Creature.HitPoints},
+			Creature: &model.MatchPlacedCreature{ID: territory.Creature.ID, Card: creatureCard, HitPoints: territory.Creature.HitPoints},
 			Level:    territory.Level, Value: territory.Value, Toll: territory.Toll, RelinquishMagic: territory.RelinquishMagic,
 		}
 	}
@@ -126,7 +126,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
-		SpellChoices: fromSpellChoices(match.SpellChoices), DeployChoices: match.DeployChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
+		SpellChoices: fromSpellChoices(match.SpellChoices), PlaceChoices: match.PlaceChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 		LandLevels: fromQueryLandLevels(match.LandLevels), MoveChoices: fromQueryMoveChoices(match.MoveChoices), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 		ElementChangeChoices: elementChangeChoices,
@@ -229,8 +229,8 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseRolling, nil
 	case query.MatchPhaseChoosingPath:
 		return model.MatchPhaseChoosingPath, nil
-	case query.MatchPhaseDeploying:
-		return model.MatchPhaseDeploying, nil
+	case query.MatchPhasePlacing:
+		return model.MatchPhasePlacing, nil
 	case query.MatchPhaseInvading:
 		return model.MatchPhaseInvading, nil
 	case query.MatchPhaseAttacking:
@@ -369,12 +369,12 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchCardDiscardedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card}, nil
-	case query.MatchCreatureDeployedEvent:
+	case query.MatchCreaturePlacedEvent:
 		card, err := fromMatchCard(e.Card)
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchCreatureDeployedEvent{
+		return &model.MatchCreaturePlacedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card,
 			Creature: e.Creature, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Cost: e.Cost,
 		}, nil

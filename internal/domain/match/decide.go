@@ -30,16 +30,16 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseRolling, now, func(r *recorder) error { return roll(r, random) })
 	case *ChoosePathCommand:
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
-	case *DeployCreatureCommand:
-		return playTurn(state, c.By, PhaseDeploying, now, func(r *recorder) error { return deploy(r, c.HandIndex) })
+	case *PlaceCreatureCommand:
+		return playTurn(state, c.By, PhasePlacing, now, func(r *recorder) error { return place(r, c.HandIndex) })
 	case *LevelUpTerritoryCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhaseDeploying, PhaseInvading)
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhasePlacing, PhaseInvading)
 	case *MoveCreatureCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return moveCreature(r, c.From, c.To) }, PhaseDeploying, PhaseInvading)
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return moveCreature(r, c.From, c.To) }, PhasePlacing, PhaseInvading)
 	case *ChangeLandElementCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return changeLandElement(r, c.Position, c.Element) }, PhaseDeploying, PhaseInvading)
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return changeLandElement(r, c.Position, c.Element) }, PhasePlacing, PhaseInvading)
 	case *ExchangeCreatureCommand:
-		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) }, PhaseDeploying, PhaseInvading)
+		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return exchange(r, c.Position, c.HandIndex) }, PhasePlacing, PhaseInvading)
 	case *InvadeCommand:
 		return playTurn(state, c.By, PhaseInvading, now, func(r *recorder) error { return invade(r, c.HandIndex) })
 	case *AttackCommand:
@@ -52,7 +52,7 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
 		// 配置の段階でターンを終えるのが「配置しない」、領地コマンドの段階でターンを終えるのが「何もしない」（専用の操作を作らない。2026-11-08・11-09 オーナー）
-		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhaseDeploying, PhaseTerritoryCommanding)
+		return playTurn(state, c.By, PhaseEnding, now, endTurn, PhasePlacing, PhaseTerritoryCommanding)
 	case *ChooseRewardPackCommand:
 		return chooseRewardPack(state, c, now, random)
 	default:
@@ -280,7 +280,7 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 // 今の HP から引き、0 になれば破壊する（2026-11-10 オーナー。減った HP の戻り方は core#114）
 func damageCreature(r *recorder, position board.Position, damage int) error {
 	territory, _ := r.state.TerritoryAt(position)
-	target, _ := r.state.DeployedCreature(territory.Creature)
+	target, _ := r.state.PlacedCreature(territory.Creature)
 	remaining := target.HitPoints.Modified(-damage)
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Creature: target.ID, Damage: damage, RemainingHitPoints: remaining}
@@ -296,19 +296,19 @@ func damageCreature(r *recorder, position board.Position, damage int) error {
 }
 
 // 配置して、そのままターンを終える
-func deploy(r *recorder, handIndex int) error {
-	if !slices.Contains(r.state.DeployChoices(), handIndex) {
+func place(r *recorder, handIndex int) error {
+	if !slices.Contains(r.state.PlaceChoices(), handIndex) {
 		if handIndex < 0 || handIndex >= len(r.current().Hand) {
 			return ErrHandIndexOutOfRange
 		}
-		return ErrCreatureNotDeployable
+		return ErrCreatureNotPlaceable
 	}
 	participant := r.current()
 	ref := participant.Hand[handIndex]
 	spec := r.state.CardSpecs()[ref]
-	id := r.state.LastDeployedCreatureID + 1
+	id := r.state.LastPlacedCreatureID + 1
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureDeployedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Creature: id, Position: participant.Position, Cost: spec.Cost}
+		return &CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Creature: id, Position: participant.Position, Cost: spec.Cost}
 	}); err != nil {
 		return err
 	}
@@ -383,13 +383,13 @@ func exchange(r *recorder, position board.Position, handIndex int) error {
 	if !ok {
 		return ErrInvalidState
 	}
-	replaced, ok := r.state.DeployedCreature(territory.Creature)
+	replaced, ok := r.state.PlacedCreature(territory.Creature)
 	if !ok {
 		return ErrInvalidState
 	}
 	ref := r.current().Hand[handIndex]
 	cost := r.state.CardSpecs()[ref].Cost
-	id := r.state.LastDeployedCreatureID + 1
+	id := r.state.LastPlacedCreatureID + 1
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: position, HandIndex: handIndex, Card: ref, Creature: id, Cost: cost, ReturnedCard: replaced.Card}
 	}); err != nil {
@@ -522,7 +522,7 @@ func startBattle(r *recorder) error {
 	if !ok || r.state.Invasion == nil {
 		return ErrInvalidState
 	}
-	defending, ok := r.state.DeployedCreature(territory.Creature)
+	defending, ok := r.state.PlacedCreature(territory.Creature)
 	if !ok {
 		return ErrInvalidState
 	}
@@ -567,7 +567,7 @@ func applyTerrain(r *recorder) error {
 	if !ok {
 		return ErrInvalidState
 	}
-	defending, ok := r.state.DeployedCreature(territory.Creature)
+	defending, ok := r.state.PlacedCreature(territory.Creature)
 	if !ok {
 		return ErrInvalidState
 	}
@@ -634,7 +634,7 @@ func conquer(r *recorder) error {
 		return ErrInvalidState
 	}
 	moved := r.state.Invasion.From != nil
-	id := r.state.LastDeployedCreatureID + 1
+	id := r.state.LastPlacedCreatureID + 1
 	if moved {
 		id = r.state.Invasion.Creature
 	}

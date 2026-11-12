@@ -120,7 +120,7 @@ func dragonCard(t *testing.T) []match.DeckCard {
 }
 
 // 対戦で写した性能のドラゴン
-func deployedDragon(id uuid.UUID) query.MatchCard {
+func placedDragon(id uuid.UUID) query.MatchCard {
 	return query.MatchCard{
 		ID: id, Name: "ドラゴン", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal",
 		Creature: &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 20, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []query.CreatureAbility{}},
@@ -144,14 +144,14 @@ func sampleEvents(t *testing.T) []match.Event {
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 6), Participant: by, Value: 2},
 		&match.MovedEvent{EventMeta: eventMeta(t, 7), Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.MovedEvent{EventMeta: eventMeta(t, 8), Participant: by, To: boardtest.Position(t, 2, 0)},
-		&match.CreatureDeployedEvent{EventMeta: eventMeta(t, 9), Participant: by, Card: dragon, Creature: matchtest.DeployedCreatureID(t, 1), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 9), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 1), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10)},
 		&match.MatchEndedEvent{EventMeta: eventMeta(t, 10), Winners: []match.ParticipantIndex{by}, Ranks: []int{2, 1}, Reason: match.EndReasonRoundLimit},
 	}
 }
 
 func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.T) {
 	f := newEventsFixture(t, sampleEvents(t))
-	dragon := deployedDragon(f.cardID)
+	dragon := placedDragon(f.cardID)
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 4)
 
@@ -160,8 +160,8 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 		query.MatchCardDrawnEvent{MatchEventMeta: metaAt(5, changesOf(phaseOf(query.MatchPhaseRolling), nil)), Participant: 1, Card: dragon},
 		query.MatchDiceRolledEvent{MatchEventMeta: metaAt(6, changesOf(nil, nil)), Participant: 1, Value: 2, Dice: []int{}},
 		query.MatchMovedEvent{MatchEventMeta: metaAt(7, changesOf(nil, nil)), Participant: 1, To: query.NewBoardPosition(1, 0)},
-		query.MatchMovedEvent{MatchEventMeta: metaAt(8, changesOf(phaseOf(query.MatchPhaseDeploying), nil)), Participant: 1, To: query.NewBoardPosition(2, 0)},
-		query.MatchCreatureDeployedEvent{
+		query.MatchMovedEvent{MatchEventMeta: metaAt(8, changesOf(phaseOf(query.MatchPhasePlacing), nil)), Participant: 1, To: query.NewBoardPosition(2, 0)},
+		query.MatchCreaturePlacedEvent{
 			MatchEventMeta: metaAt(9, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(1, 690)}, territoryValue(2, 100, 60))),
 			Participant:    1, Card: dragon, Creature: 1, Position: query.NewBoardPosition(2, 0), Cost: 10,
 		},
@@ -193,7 +193,7 @@ func TestMatchEventsHandler_ChangesIncludeEarlierTerritoriesWhoseChainGrew(t *te
 		&match.TurnEndedEvent{EventMeta: eventMeta(t, 11), Participant: matchtest.Index(t, 0)},
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 12), Participant: by, Value: 1},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: by, To: boardtest.Position(t, 3, 0)},
-		&match.CreatureDeployedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.DeployedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
@@ -216,7 +216,7 @@ func TestMatchEventsHandler_ChangesLeaveOutTerritoriesThatDidNotChange(t *testin
 		&match.TurnEndedEvent{EventMeta: eventMeta(t, 11), Participant: matchtest.Index(t, 0)},
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 12), Participant: by, Value: 1},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: by, To: boardtest.Position(t, 3, 0)},
-		&match.CreatureDeployedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.DeployedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
 	))
 
 	found, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
@@ -290,7 +290,7 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101)), 25, 0),
 		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2), 0, 20),
 	))
-	dragon := deployedDragon(f.cardID)
+	dragon := placedDragon(f.cardID)
 	adjacent := query.MatchBattleStatSource{AdjacentTerritories: []query.BoardPosition{query.NewBoardPosition(1, 0)}}
 	usedItem := query.MatchBattleStatSource{Item: &dragon}
 	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2}}
@@ -344,7 +344,7 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 18), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
 		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 19), Participant: player, Position: boardtest.Position(t, 2, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 10)},
 	))
-	dragon := deployedDragon(f.cardID)
+	dragon := placedDragon(f.cardID)
 	stats := query.MatchBattleStats{Attack: 10, HitPoints: 20}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
@@ -369,7 +369,7 @@ func TestMatchEventsHandler_ConqueringMovesTheTotalMagicOfBothParticipants(t *te
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 1)},
-		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 18), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.DeployedCreatureID(t, 1), Creature: matchtest.DeployedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
+		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 18), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.PlacedCreatureID(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 17)

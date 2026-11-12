@@ -68,7 +68,7 @@ const (
 	PhaseRolling      Phase = "rolling"
 	PhaseChoosingPath Phase = "choosing_path"
 	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
-	PhaseDeploying Phase = "deploying"
+	PhasePlacing Phase = "placing"
 	// 止まったマスに行動が無く、通った自分の領地があるとき、領地コマンドを実行するか何もしないかを選ぶ段階。
 	// 行動があるマス（配置・侵略の段階）でも領地コマンドは受け付けるので、これは行動が無いマスのためだけの段階
 	PhaseTerritoryCommanding Phase = "territory_commanding"
@@ -288,16 +288,16 @@ func (s CreatureSpec) strikePriority() int {
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため
-type DeployedCreatureID int
+type PlacedCreatureID int
 
-func NewDeployedCreatureID(value int) (DeployedCreatureID, error) {
+func NewPlacedCreatureID(value int) (PlacedCreatureID, error) {
 	if value <= 0 {
-		return 0, errors.New("deployed creature id must be positive")
+		return 0, errors.New("placed creature id must be positive")
 	}
-	return DeployedCreatureID(value), nil
+	return PlacedCreatureID(value), nil
 }
 
-func (id DeployedCreatureID) Int() int {
+func (id PlacedCreatureID) Int() int {
 	return int(id)
 }
 

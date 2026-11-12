@@ -223,7 +223,7 @@ type MatchMagicDepletedEvent struct {
 }
 
 // 止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）。Creature は配置したクリーチャーの ID（Match.territories と同じ番号）
-type MatchCreatureDeployedEvent struct {
+type MatchCreaturePlacedEvent struct {
 	MatchEventMeta
 	Participant int
 	// 手札の何番目か（0 始まり）
@@ -554,7 +554,7 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
-		case *match.CreatureDeployedEvent:
+		case *match.CreaturePlacedEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
@@ -693,9 +693,9 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchTerritoryRelinquishedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int(), e.Magic}, nil
 	case *match.MagicDepletedEvent:
 		return MatchMagicDepletedEvent{meta, e.Participant.Int(), e.Magic}, nil
-	case *match.CreatureDeployedEvent:
+	case *match.CreaturePlacedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
-		return MatchCreatureDeployedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), position, e.Cost.Int()}, nil
+		return MatchCreaturePlacedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), position, e.Cost.Int()}, nil
 	case *match.TerritoryInvadedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchTerritoryInvadedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], position, e.Cost.Int()}, nil

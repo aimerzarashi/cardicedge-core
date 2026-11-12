@@ -91,7 +91,7 @@ type Matches interface {
 	Discard(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
 	Roll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
-	Deploy(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	Place(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
 	Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
 	UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int, targetPosition *command.SpellTargetPosition) (command.ChangedMatch, error)
 	Attack(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (command.ChangedMatch, error)
