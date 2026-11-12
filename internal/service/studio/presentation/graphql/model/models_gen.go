@@ -3636,7 +3636,7 @@ func (e CardType) MarshalJSON() ([]byte, error) {
 type CreatureAbilityKind string
 
 const (
-	// 防御型（侵略に出せず、クリーチャー移動もできない）
+	// 防御型（侵略できない。移動できない。守ることはできる）
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
 	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
 	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"

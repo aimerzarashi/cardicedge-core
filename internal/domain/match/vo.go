@@ -245,14 +245,24 @@ type CreatureSpec struct {
 	Abilities             creature.Abilities             `json:"abilities"`
 }
 
-// 持てない分類のアイテムか。性能の無いアイテムは分類が無いので制限に当たらない
-func (s CreatureSpec) forbidsItem(candidate CardSpec) bool {
-	return candidate.Item != nil && s.ItemRestrictions.Forbids(candidate.Item.Category.String())
+// アイテム制限。性能の無いアイテムは分類が無いので制限に当たらない
+func (s CreatureSpec) canUseItem(candidate CardSpec) bool {
+	return candidate.Item == nil || !s.ItemRestrictions.Forbids(candidate.Item.Category.String())
 }
 
-// その属性の土地に入れないか
-func (s CreatureSpec) forbidsLand(element board.Element) bool {
-	return s.PlacementRestrictions.Forbids(element.String())
+// 配置制限。配置・侵略・交換・移動の行き先と、土地の属性の変更の後の属性のどれにも、この 1 つで答える
+func (s CreatureSpec) canBeActiveOn(element board.Element) bool {
+	return !s.PlacementRestrictions.Forbids(element.String())
+}
+
+// 防御型（手札からの侵略にも、移動して侵略にも効く）
+func (s CreatureSpec) canInvade() bool {
+	return !s.Abilities.IsDefensive()
+}
+
+// 防御型（空き地への移動にも効く）
+func (s CreatureSpec) canMove() bool {
+	return !s.Abilities.IsDefensive()
 }
 
 // 攻撃の順に効く能力（先制か後手。持っていなければ無し）
