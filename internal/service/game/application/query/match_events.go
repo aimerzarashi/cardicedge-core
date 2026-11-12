@@ -87,7 +87,9 @@ type MatchDiscardPileShuffledEvent struct {
 // ターンを終えるときに、手札が上限を超えていた。上限まで捨ててからターンを終える
 type MatchHandLimitExceededEvent struct {
 	MatchEventMeta
-	Participant int
+	Participant  int
+	HandCount    int
+	MaxHandCards int
 }
 
 type MatchCardDiscardedEvent struct {
@@ -146,6 +148,8 @@ type MatchMagicGainedEvent struct {
 	MatchEventMeta
 	Participant int
 	Magic       int
+	Laps        int
+	MagicPerLap int
 }
 
 // スペルの効果で、このターンに振るサイコロの個数が変わった
@@ -428,6 +432,9 @@ type MatchLandElementChangedEvent struct {
 	Position    BoardPosition
 	Element     BoardTileElement
 	Magic       int
+	// 払った魔力の根拠（Magic = BaseLandValue × Multiplier）
+	BaseLandValue int
+	Multiplier    int
 }
 
 // 領地のクリーチャーを手札のクリーチャーと入れ替えた
@@ -690,7 +697,7 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, pla
 	case *match.DiscardPileShuffledEvent:
 		return MatchDiscardPileShuffledEvent{meta, e.Participant.Int(), len(e.DrawPile)}, nil
 	case *match.HandLimitExceededEvent:
-		return MatchHandLimitExceededEvent{meta, e.Participant.Int()}, nil
+		return MatchHandLimitExceededEvent{meta, e.Participant.Int(), e.HandCount, e.MaxHandCards}, nil
 	case *match.CardDiscardedEvent:
 		return MatchCardDiscardedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)]}, nil
 	case *match.DiceRolledEvent:
@@ -709,7 +716,7 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, pla
 	case *match.CreatureDestroyedEvent:
 		return MatchCreatureDestroyedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int()}, nil
 	case *match.MagicGainedEvent:
-		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic}, nil
+		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic, e.Laps, e.MagicPerLap}, nil
 	case *match.DiceCountChangedEvent:
 		return MatchDiceCountChangedEvent{meta, e.Participant.Int(), e.Count}, nil
 	case *match.MovedEvent:
@@ -765,7 +772,7 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, pla
 		if err != nil {
 			return nil, err
 		}
-		return MatchLandElementChangedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), element, e.Magic}, nil
+		return MatchLandElementChangedEvent{meta, e.Participant.Int(), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), element, e.Magic, e.BaseLandValue, e.Multiplier}, nil
 	case *match.CreatureExchangedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), position, e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), e.Cost.Int(), cards[domain.NewEntityRef(e.ReturnedCard.EntityType, e.ReturnedCard.ID)]}, nil

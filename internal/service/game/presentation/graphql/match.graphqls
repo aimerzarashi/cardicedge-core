@@ -1043,6 +1043,10 @@ type MatchHandLimitExceededEvent implements MatchEvent {
   changes: MatchEventChanges!
   "手札が上限を超えた参加者（Match.participants の何番目か）"
   participant: Int!
+  "上限を超えた時点の手札の枚数（捨てる枚数は handCount - maxHandCards）"
+  handCount: Int!
+  "手札の上限の枚数"
+  maxHandCards: Int!
 }
 
 "手札を 1 枚捨てた（捨て札に入る）"
@@ -1237,8 +1241,12 @@ type MatchLandElementChangedEvent implements MatchEvent {
   position: BoardPosition!
   "変えた後の属性"
   element: BoardTileElement!
-  "払った魔力"
+  "払った魔力（baseLandValue × multiplier）"
   magic: Int!
+  "払った魔力の根拠の、土地の基本の値"
+  baseLandValue: Int!
+  "払った魔力の根拠の、実際に掛けた倍率（複属性の土地からは安い倍率）"
+  multiplier: Int!
 }
 
 "領地のクリーチャーを手札のクリーチャーと入れ替えた"
@@ -1584,8 +1592,12 @@ type MatchMagicGainedEvent implements MatchEvent {
   changes: MatchEventChanges!
   "得た参加者（Match.participants の何番目か）"
   participant: Int!
-  "得た魔力"
+  "得た魔力（(laps + 1) × magicPerLap）"
   magic: Int!
+  "得た時点でこの対戦で周回を終えた回数"
+  laps: Int!
+  "スペルの 1 周回あたりの魔力"
+  magicPerLap: Int!
 }
 
 "スペルの効果で、このターンに振るサイコロの個数が変わった（count 個を同時に振り、合計の分だけ進む）"

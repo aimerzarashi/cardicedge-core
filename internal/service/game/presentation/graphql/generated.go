@@ -645,10 +645,12 @@ type ComplexityRoot struct {
 	}
 
 	MatchHandLimitExceededEvent struct {
-		Changes     func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Revision    func(childComplexity int) int
+		Changes      func(childComplexity int) int
+		HandCount    func(childComplexity int) int
+		MaxHandCards func(childComplexity int) int
+		OccurredAt   func(childComplexity int) int
+		Participant  func(childComplexity int) int
+		Revision     func(childComplexity int) int
 	}
 
 	MatchHandsDealtEvent struct {
@@ -701,13 +703,15 @@ type ComplexityRoot struct {
 	}
 
 	MatchLandElementChangedEvent struct {
-		Changes     func(childComplexity int) int
-		Element     func(childComplexity int) int
-		Magic       func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Position    func(childComplexity int) int
-		Revision    func(childComplexity int) int
+		BaseLandValue func(childComplexity int) int
+		Changes       func(childComplexity int) int
+		Element       func(childComplexity int) int
+		Magic         func(childComplexity int) int
+		Multiplier    func(childComplexity int) int
+		OccurredAt    func(childComplexity int) int
+		Participant   func(childComplexity int) int
+		Position      func(childComplexity int) int
+		Revision      func(childComplexity int) int
 	}
 
 	MatchLandLevel struct {
@@ -739,7 +743,9 @@ type ComplexityRoot struct {
 
 	MatchMagicGainedEvent struct {
 		Changes     func(childComplexity int) int
+		Laps        func(childComplexity int) int
 		Magic       func(childComplexity int) int
+		MagicPerLap func(childComplexity int) int
 		OccurredAt  func(childComplexity int) int
 		Participant func(childComplexity int) int
 		Revision    func(childComplexity int) int
@@ -3453,6 +3459,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchHandLimitExceededEvent.Changes(childComplexity), true
+	case "MatchHandLimitExceededEvent.handCount":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.HandCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.HandCount(childComplexity), true
+	case "MatchHandLimitExceededEvent.maxHandCards":
+		if e.ComplexityRoot.MatchHandLimitExceededEvent.MaxHandCards == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchHandLimitExceededEvent.MaxHandCards(childComplexity), true
 	case "MatchHandLimitExceededEvent.occurredAt":
 		if e.ComplexityRoot.MatchHandLimitExceededEvent.OccurredAt == nil {
 			break
@@ -3664,6 +3682,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchItemUsedEvent.Revision(childComplexity), true
 
+	case "MatchLandElementChangedEvent.baseLandValue":
+		if e.ComplexityRoot.MatchLandElementChangedEvent.BaseLandValue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLandElementChangedEvent.BaseLandValue(childComplexity), true
 	case "MatchLandElementChangedEvent.changes":
 		if e.ComplexityRoot.MatchLandElementChangedEvent.Changes == nil {
 			break
@@ -3682,6 +3706,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchLandElementChangedEvent.Magic(childComplexity), true
+	case "MatchLandElementChangedEvent.multiplier":
+		if e.ComplexityRoot.MatchLandElementChangedEvent.Multiplier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLandElementChangedEvent.Multiplier(childComplexity), true
 	case "MatchLandElementChangedEvent.occurredAt":
 		if e.ComplexityRoot.MatchLandElementChangedEvent.OccurredAt == nil {
 			break
@@ -3807,12 +3837,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchMagicGainedEvent.Changes(childComplexity), true
+	case "MatchMagicGainedEvent.laps":
+		if e.ComplexityRoot.MatchMagicGainedEvent.Laps == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.Laps(childComplexity), true
 	case "MatchMagicGainedEvent.magic":
 		if e.ComplexityRoot.MatchMagicGainedEvent.Magic == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchMagicGainedEvent.Magic(childComplexity), true
+	case "MatchMagicGainedEvent.magicPerLap":
+		if e.ComplexityRoot.MatchMagicGainedEvent.MagicPerLap == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchMagicGainedEvent.MagicPerLap(childComplexity), true
 	case "MatchMagicGainedEvent.occurredAt":
 		if e.ComplexityRoot.MatchMagicGainedEvent.OccurredAt == nil {
 			break
@@ -16092,6 +16134,52 @@ func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_participant
 	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchHandLimitExceededEvent_handCount(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_handCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HandCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_handCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchHandLimitExceededEvent_maxHandCards(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandLimitExceededEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchHandLimitExceededEvent_maxHandCards(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxHandCards, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchHandLimitExceededEvent_maxHandCards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchHandLimitExceededEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchHandsDealtEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchHandsDealtEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -17083,6 +17171,52 @@ func (ec *executionContext) fieldContext_MatchLandElementChangedEvent_magic(_ co
 	return graphql.NewScalarFieldContext("MatchLandElementChangedEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchLandElementChangedEvent_baseLandValue(ctx context.Context, field graphql.CollectedField, obj *model.MatchLandElementChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLandElementChangedEvent_baseLandValue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BaseLandValue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLandElementChangedEvent_baseLandValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLandElementChangedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchLandElementChangedEvent_multiplier(ctx context.Context, field graphql.CollectedField, obj *model.MatchLandElementChangedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLandElementChangedEvent_multiplier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Multiplier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLandElementChangedEvent_multiplier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLandElementChangedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchLandLevel_position(ctx context.Context, field graphql.CollectedField, obj *model.MatchLandLevel) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -17585,6 +17719,52 @@ func (ec *executionContext) _MatchMagicGainedEvent_magic(ctx context.Context, fi
 	)
 }
 func (ec *executionContext) fieldContext_MatchMagicGainedEvent_magic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_laps(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_laps(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Laps, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_laps(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchMagicGainedEvent_magicPerLap(ctx context.Context, field graphql.CollectedField, obj *model.MatchMagicGainedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchMagicGainedEvent_magicPerLap(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MagicPerLap, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchMagicGainedEvent_magicPerLap(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchMagicGainedEvent", field, false, false, "Int")
 }
 
@@ -35996,6 +36176,16 @@ func (ec *executionContext) _MatchHandLimitExceededEvent(ctx context.Context, se
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "handCount":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_handCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxHandCards":
+			out.Values[i] = ec._MatchHandLimitExceededEvent_maxHandCards(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36382,6 +36572,16 @@ func (ec *executionContext) _MatchLandElementChangedEvent(ctx context.Context, s
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "baseLandValue":
+			out.Values[i] = ec._MatchLandElementChangedEvent_baseLandValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "multiplier":
+			out.Values[i] = ec._MatchLandElementChangedEvent_multiplier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36619,6 +36819,16 @@ func (ec *executionContext) _MatchMagicGainedEvent(ctx context.Context, sel ast.
 			}
 		case "magic":
 			out.Values[i] = ec._MatchMagicGainedEvent_magic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "laps":
+			out.Values[i] = ec._MatchMagicGainedEvent_laps(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "magicPerLap":
+			out.Values[i] = ec._MatchMagicGainedEvent_magicPerLap(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

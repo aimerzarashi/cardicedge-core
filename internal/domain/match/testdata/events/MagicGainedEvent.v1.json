@@ -1,4 +1,6 @@
 {
   "participant": 1,
-  "magic": 200
+  "magic": 600,
+  "laps": 2,
+  "magic_per_lap": 200
 }

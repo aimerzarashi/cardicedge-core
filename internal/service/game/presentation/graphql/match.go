@@ -364,7 +364,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchDiscardPileShuffledEvent:
 		return &model.MatchDiscardPileShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, DrawPileCount: e.DrawPileCount}, nil
 	case query.MatchHandLimitExceededEvent:
-		return &model.MatchHandLimitExceededEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
+		return &model.MatchHandLimitExceededEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandCount: e.HandCount, MaxHandCards: e.MaxHandCards}, nil
 	case query.MatchCardDiscardedEvent:
 		card, err := fromMatchCard(e.Card)
 		if err != nil {
@@ -438,7 +438,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		}
 		return &model.MatchLandElementChangedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
-			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Element: element, Magic: e.Magic,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Element: element, Magic: e.Magic, BaseLandValue: e.BaseLandValue, Multiplier: e.Multiplier,
 		}, nil
 	case query.MatchCreatureExchangedEvent:
 		card, err := fromMatchCard(e.Card)
@@ -537,7 +537,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchCurseRemovedEvent:
 		return &model.MatchCurseRemovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchMagicGainedEvent:
-		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
+		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic, Laps: e.Laps, MagicPerLap: e.MagicPerLap}, nil
 	case query.MatchDiceCountChangedEvent:
 		return &model.MatchDiceCountChangedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Count: e.Count}, nil
 	case query.MatchMovedEvent:

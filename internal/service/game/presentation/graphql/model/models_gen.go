@@ -1956,6 +1956,10 @@ type MatchHandLimitExceededEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 手札が上限を超えた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
+	// 上限を超えた時点の手札の枚数（捨てる枚数は handCount - maxHandCards）
+	HandCount int `json:"handCount"`
+	// 手札の上限の枚数
+	MaxHandCards int `json:"maxHandCards"`
 }
 
 func (MatchHandLimitExceededEvent) IsMatchEvent() {}
@@ -2115,8 +2119,12 @@ type MatchLandElementChangedEvent struct {
 	Position *BoardPosition `json:"position"`
 	// 変えた後の属性
 	Element BoardTileElement `json:"element"`
-	// 払った魔力
+	// 払った魔力（baseLandValue × multiplier）
 	Magic int `json:"magic"`
+	// 払った魔力の根拠の、土地の基本の値
+	BaseLandValue int `json:"baseLandValue"`
+	// 払った魔力の根拠の、実際に掛けた倍率（複属性の土地からは安い倍率）
+	Multiplier int `json:"multiplier"`
 }
 
 func (MatchLandElementChangedEvent) IsMatchEvent() {}
@@ -2208,8 +2216,12 @@ type MatchMagicGainedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 得た参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
-	// 得た魔力
+	// 得た魔力（(laps + 1) × magicPerLap）
 	Magic int `json:"magic"`
+	// 得た時点でこの対戦で周回を終えた回数
+	Laps int `json:"laps"`
+	// スペルの 1 周回あたりの魔力
+	MagicPerLap int `json:"magicPerLap"`
 }
 
 func (MatchMagicGainedEvent) IsMatchEvent() {}

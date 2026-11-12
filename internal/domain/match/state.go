@@ -521,8 +521,10 @@ type ElementChangeChoice struct {
 	Position board.Position
 	// 変えた後の属性
 	Element board.Element
-	// 払う魔力
+	// 払う魔力（基本の値 × Multiplier）
 	Magic int
+	// 掛けた倍率。複属性の土地からは安い倍率になる。イベントに根拠として残すため選択肢にも持つ
+	Multiplier int
 }
 
 // 変えられる先の属性。無属性・複属性へは変えられない（2026-11-10 オーナー）
@@ -537,7 +539,8 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 	var choices []ElementChangeChoice
 	for _, territory := range m.passedOwnTerritories() {
 		current := m.landElement(territory.Position)
-		magic := m.landElementChangeMagic(current)
+		multiplier := m.landElementChangeMultiplier(current)
+		magic := m.Rules.BaseLandValue * multiplier
 		placed, ok := m.PlacedCreature(territory.Creature)
 		if !ok || magic > m.Participants[index].Magic {
 			continue
@@ -545,19 +548,19 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 		for _, element := range changeableLandElements {
 			// いるクリーチャーが活動できない属性には変えられない（core#155）
 			if element != current && placed.Base.canBeActiveOn(element) {
-				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic})
+				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic, Multiplier: multiplier})
 			}
 		}
 	}
 	return choices
 }
 
-// 基本の値 × 倍率。複属性の土地からは安い倍率（2026-11-10 オーナー）
-func (m Match) landElementChangeMagic(current board.Element) int {
+// 払う魔力は基本の値 × この倍率。複属性の土地からは安い倍率（2026-11-10 オーナー）
+func (m Match) landElementChangeMultiplier(current board.Element) int {
 	if current == board.ElementMulti {
-		return m.Rules.BaseLandValue * m.Rules.MultiLandElementChangeMultiplier.Int()
+		return m.Rules.MultiLandElementChangeMultiplier.Int()
 	}
-	return m.Rules.BaseLandValue * m.Rules.LandElementChangeMultiplier.Int()
+	return m.Rules.LandElementChangeMultiplier.Int()
 }
 
 // 基本の値 × 倍率の差。連鎖の倍率は掛けないので、飛ばして上げた額は途中の額の合計になる（2026-11-08 オーナー）
