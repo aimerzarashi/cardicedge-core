@@ -121,7 +121,9 @@ func (a Attack) Modified(delta int) Attack {
 	return Attack(max(int(a)+delta, 0))
 }
 
-// クリーチャーの配置制限の集合。置けない土地の属性を 0〜4 個（火・地・水・風。無は土地の属性としてあるが制限の値に無いので持てない。
+// 配置制限。クリーチャーは、制限の属性のマスでは活動できない（配置・侵略・交換・移動で入れず、いる土地の属性をその属性に変えられない）。
+// match の判定は CreatureSpec.canBeActiveOn。
+// 配置制限の集合。活動できない土地の属性を 0〜4 個（火・地・水・風。無は土地の属性としてあるが制限の値に無いので持てない。
 // 重複なし）。並びは火・地・水・風に固定する。Elements と違って空を許し、無を持たない（決まりが別なので型を分ける）。
 // 制限が無いときも nil でなく空にする（理由は ItemRestrictions と同じ）
 type PlacementRestrictions []Element
@@ -186,7 +188,8 @@ func (r ItemRestriction) String() string {
 	return string(r)
 }
 
-// クリーチャーのアイテム制限の集合。0〜3 個（重複なし）。並びは武器・防具・巻物に固定する。値の比較は Equal
+// アイテム制限。クリーチャーは、制限の分類のアイテムを使えない。match の判定は CreatureSpec.canUseItem。
+// アイテム制限の集合。0〜3 個（重複なし）。並びは武器・防具・巻物に固定する。値の比較は Equal
 // （スライスなので == は使えない）。制限が無いときも nil でなく空にする（JSON を null でなく [] にし、読む側が項目の欠けと見分けるため）
 type ItemRestrictions []ItemRestriction
 
@@ -260,15 +263,17 @@ func (h HitPoints) Modified(delta int) HitPoints {
 	return HitPoints(max(int(h)+delta, 0))
 }
 
-// クリーチャーの能力 1 つ。種類ごとの値のどれか 1 つだけを持つ（spell.Effect と同じ形。種類ごとに型を分ける。2026-11-10 オーナー）
+// クリーチャーの能力 1 つ。種類ごとの値のどれか 1 つだけを持つ（spell.Effect と同じ形。種類ごとに型を分ける。2026-11-10 オーナー）。
+// 項目のコメントが能力の一覧で、用語・定義（クリーチャーが主語）・match 側の判定や発動の名前を書く。判定の名前は使う場面の言葉で
+// なく能力の名前から決める（場面の言葉はほかの場面に合わず、英語の単語もぶれるため。2026-11-12 オーナー。core#160）
 type Ability struct {
-	// 防御型。侵略に出せず、クリーチャー移動もできない（守ることはできる）
+	// 防御型。侵略できない。移動できない（守ることはできる）。match の判定は CreatureSpec.canInvade・canMove
 	Defensive *DefensiveAbility `json:"defensive,omitempty"`
-	// 通行料の倍率。このクリーチャーのいる領地の通行料に掛ける（core#157）
+	// 通行料の倍率。いる領地の通行料を払うときに倍率を掛ける。match の発動は tollMultiplier → TollMultiplierActivatedEvent（core#157・core#159）
 	TollMultiplier *TollMultiplierAbility `json:"toll_multiplier,omitempty"`
-	// 先制。戦闘で、先制の無い相手より先に攻撃する（core#158）
+	// 先制。戦闘で、先制の無い相手より先に攻撃する。match の判定は CreatureSpec.strikePriority、発動は BattleAbilityActivatedEvent（core#158）
 	FirstStrike *FirstStrikeAbility `json:"first_strike,omitempty"`
-	// 後手。戦闘で、後手の無い相手より後に攻撃する（core#158）
+	// 後手。戦闘で、後手の無い相手より後に攻撃する。match の判定・発動は先制と同じ（core#158）
 	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
 }
 

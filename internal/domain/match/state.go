@@ -287,7 +287,7 @@ func (m Match) DeployChoices() []int {
 	return m.placeableCreaturesAtStop()
 }
 
-// 今の番の人が侵略に出せる手札の番号（手札の順）。侵略を選ぶ段階でだけ中身がある。決まりは配置と同じで、これから変わりうるので関数は分ける
+// 今の番の人が侵略に出せる手札の番号（手札の順）。侵略を選ぶ段階でだけ中身がある。配置と同じ決まりに、侵略できないクリーチャーを外す決まりを足したもの
 func (m Match) InvadeChoices() []int {
 	if m.Phase != PhaseInvading {
 		return nil
@@ -300,8 +300,7 @@ func (m Match) InvadeChoices() []int {
 	specs := m.CardSpecs()
 	var choices []int
 	for _, handIndex := range m.placeableCreaturesAtStop() {
-		// 防御型は侵略に出せない（2026-11-11 オーナー。core#156）
-		if !specs[hand[handIndex]].Creature.Abilities.IsDefensive() {
+		if specs[hand[handIndex]].Creature.canInvade() {
 			choices = append(choices, handIndex)
 		}
 	}
@@ -364,7 +363,7 @@ func (m Match) placeableCreaturesAtStop() []int {
 	return m.creaturesPlaceableOn(m.Participants[index].Position)
 }
 
-// その土地に入れる、魔力の足りる手札（配置制限の属性の土地には入れない。2026-11-11 オーナー。core#155）
+// その土地で活動できる、魔力の足りる手札（core#155）
 func (m Match) creaturesPlaceableOn(position board.Position) []int {
 	index, ok := m.CurrentParticipant()
 	if !ok || int(index) >= len(m.Participants) {
@@ -375,7 +374,7 @@ func (m Match) creaturesPlaceableOn(position board.Position) []int {
 	specs := m.CardSpecs()
 	var choices []int
 	for _, handIndex := range m.payableCreatures() {
-		if !specs[hand[handIndex]].Creature.forbidsLand(element) {
+		if specs[hand[handIndex]].Creature.canBeActiveOn(element) {
 			choices = append(choices, handIndex)
 		}
 	}
@@ -417,7 +416,7 @@ func (m Match) ItemChoices() []int {
 	var choices []int
 	for i, ref := range participant.Hand {
 		spec, ok := specs[ref]
-		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic && !fighter.forbidsItem(spec) {
+		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic && fighter.canUseItem(spec) {
 			choices = append(choices, i)
 		}
 	}
@@ -544,8 +543,8 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 			continue
 		}
 		for _, element := range changeableLandElements {
-			// いるクリーチャーの配置制限の属性には変えられない（2026-11-11 オーナー。core#155）
-			if element != current && !deployed.Base.forbidsLand(element) {
+			// いるクリーチャーが活動できない属性には変えられない（core#155）
+			if element != current && deployed.Base.canBeActiveOn(element) {
 				choices = append(choices, ElementChangeChoice{Position: territory.Position, Element: element, Magic: magic})
 			}
 		}
@@ -628,14 +627,16 @@ func (m Match) MoveChoices() []MoveChoice {
 	var choices []MoveChoice
 	for _, territory := range m.passedOwnTerritories() {
 		deployed, ok := m.DeployedCreature(territory.Creature)
-		if !ok || deployed.Base.Abilities.IsDefensive() {
+		if !ok || !deployed.Base.canMove() {
 			continue
 		}
 		var destinations []board.Position
 		m.walk(territory.Position, nil, creatureMoveSteps, &destinations)
 		slices.SortFunc(destinations, board.Position.Compare)
 		for _, to := range slices.Compact(destinations) {
-			if m.isMoveDestination(to, index) && !deployed.Base.forbidsLand(m.landElement(to)) {
+			// 他人の領地への移動は侵略でもある（今は侵略できないクリーチャーは移動もできないが、能力ごとに分けて書く）
+			invades := !m.isVacantLand(to)
+			if m.isMoveDestination(to, index) && deployed.Base.canBeActiveOn(m.landElement(to)) && (!invades || deployed.Base.canInvade()) {
 				choices = append(choices, MoveChoice{From: territory.Position, To: to})
 			}
 		}
