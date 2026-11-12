@@ -140,41 +140,48 @@ type BattleStatSource struct {
 	Ability             *AbilitySource             `json:"ability,omitempty"`
 }
 
-// 戦闘中に能力が発動して AT・HP を変えた。どの能力かだけを持つ（増減の値は BattleStatModifiedEvent が持つ）
+// 戦闘中に能力が発動して AT・HP を変えた。決まった増減は、戦闘中の増減（battle modifier）の値（AT・HP を変える能力は今これだけ。
+// 能力を足すときは、能力ごとに持つ値を分ける）。下限の 0 で止まる前の値なので、実際の増減は BattleStatModifiedEvent が持つ
 type AbilitySource struct {
-	Ability BattleAbility `json:"ability"`
+	Ability           BattleAbility              `json:"ability"`
+	AttackModifier    creature.AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier creature.HitPointsModifier `json:"hit_points_modifier"`
 }
 
-// 支援。侵略先の隣にある、攻める側の領地の位置。support と呼ばないのは、能力の援護と取り違えないため
+// 支援効果。侵略先の隣にある、攻める側の領地の位置と、1 つあたりの AT の増加（ルールの値）。support と呼ばないのは、能力の援護と取り違えないため
 type AdjacentTerritoriesSource struct {
-	Positions []board.Position `json:"positions"`
+	Positions         []board.Position `json:"positions"`
+	BonusPerTerritory int              `json:"bonus_per_territory"`
 }
 
-// 地形効果。効いた土地の属性とレベル
+// 地形効果。効いた土地の属性とレベルと、レベル 1 つあたりの HP の増加（ルールの値）
 type TerrainSource struct {
-	Element board.Element `json:"element"`
-	Level   int           `json:"level"`
+	Element       board.Element `json:"element"`
+	Level         int           `json:"level"`
+	BonusPerLevel int           `json:"bonus_per_level"`
 }
 
-// 戦闘に出したアイテム
+// 戦闘に出したアイテムと、その決まった増減（下限の 0 で止まる前の値）
 type ItemSource struct {
-	Card card.Ref `json:"card"`
+	Card              card.Ref               `json:"card"`
+	AttackModifier    item.AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier item.HitPointsModifier `json:"hit_points_modifier"`
 }
 
-func NewAdjacentTerritoriesSource(positions []board.Position) BattleStatSource {
-	return BattleStatSource{AdjacentTerritories: &AdjacentTerritoriesSource{Positions: positions}}
+func NewAdjacentTerritoriesSource(positions []board.Position, bonusPerTerritory int) BattleStatSource {
+	return BattleStatSource{AdjacentTerritories: &AdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: bonusPerTerritory}}
 }
 
-func NewTerrainSource(element board.Element, level int) BattleStatSource {
-	return BattleStatSource{Terrain: &TerrainSource{Element: element, Level: level}}
+func NewTerrainSource(element board.Element, level, bonusPerLevel int) BattleStatSource {
+	return BattleStatSource{Terrain: &TerrainSource{Element: element, Level: level, BonusPerLevel: bonusPerLevel}}
 }
 
-func NewItemSource(ref card.Ref) BattleStatSource {
-	return BattleStatSource{Item: &ItemSource{Card: ref}}
+func NewItemSource(ref card.Ref, attackModifier item.AttackModifier, hitPointsModifier item.HitPointsModifier) BattleStatSource {
+	return BattleStatSource{Item: &ItemSource{Card: ref, AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
 }
 
-func NewAbilitySource(ability BattleAbility) BattleStatSource {
-	return BattleStatSource{Ability: &AbilitySource{Ability: ability}}
+func NewAbilitySource(ability BattleAbility, attackModifier creature.AttackModifier, hitPointsModifier creature.HitPointsModifier) BattleStatSource {
+	return BattleStatSource{Ability: &AbilitySource{Ability: ability, AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
 }
 
 type EndReason string

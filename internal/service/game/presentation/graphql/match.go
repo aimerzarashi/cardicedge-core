@@ -589,25 +589,25 @@ func fromMatchBattleStatSource(source query.MatchBattleStatSource) (model.MatchB
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchTerrainSource{Element: element, Level: source.Terrain.Level}, nil
+		return &model.MatchTerrainSource{Element: element, Level: source.Terrain.Level, BonusPerLevel: source.Terrain.BonusPerLevel}, nil
 	case source.Item != nil:
-		card, err := fromMatchCard(*source.Item)
+		card, err := fromMatchCard(source.Item.Card)
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchItemSource{Card: card}, nil
+		return &model.MatchItemSource{Card: card, AttackModifier: source.Item.AttackModifier, HitPointsModifier: source.Item.HitPointsModifier}, nil
 	case source.Ability != nil:
 		ability, err := fromMatchBattleAbility(source.Ability.Ability)
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchAbilitySource{Ability: ability}, nil
+		return &model.MatchAbilitySource{Ability: ability, AttackModifier: source.Ability.AttackModifier, HitPointsModifier: source.Ability.HitPointsModifier}, nil
 	default:
-		positions := make([]*model.BoardPosition, len(source.AdjacentTerritories))
-		for i, position := range source.AdjacentTerritories {
+		positions := make([]*model.BoardPosition, len(source.AdjacentTerritories.Positions))
+		for i, position := range source.AdjacentTerritories.Positions {
 			positions[i] = &model.BoardPosition{X: position.X, Y: position.Y}
 		}
-		return &model.MatchAdjacentTerritoriesSource{Positions: positions}, nil
+		return &model.MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: source.AdjacentTerritories.BonusPerTerritory}, nil
 	}
 }
 

@@ -569,7 +569,7 @@ func applyBattleModifier(r *recorder, side BattleSide) error {
 	if !ok {
 		return nil
 	}
-	return modifyBattleStats(r, side, NewAbilitySource(BattleAbilityBattleModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+	return modifyBattleStats(r, side, NewAbilitySource(BattleAbilityBattleModifier, modifier.AttackModifier, modifier.HitPointsModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
 }
 
 func applyAdjacentTerritories(r *recorder) error {
@@ -584,7 +584,7 @@ func applyAdjacentTerritories(r *recorder) error {
 	positions := slices.DeleteFunc(r.state.adjacentTerritoriesOf(r.state.Invasion.Position, attacker), func(position board.Position) bool {
 		return r.state.Invasion.From != nil && position == *r.state.Invasion.From
 	})
-	return modifyBattleStats(r, BattleSideAttacker, NewAdjacentTerritoriesSource(positions), len(positions)*r.state.Rules.AdjacentTerritoryBonus.Int(), 0)
+	return modifyBattleStats(r, BattleSideAttacker, NewAdjacentTerritoriesSource(positions, r.state.Rules.AdjacentTerritoryBonus.Int()), len(positions)*r.state.Rules.AdjacentTerritoryBonus.Int(), 0)
 }
 
 func applyTerrain(r *recorder) error {
@@ -601,7 +601,7 @@ func applyTerrain(r *recorder) error {
 		return nil
 	}
 	level := r.state.LandLevel(territory.Position)
-	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, level), 0, level*r.state.Rules.TerrainBonusPerLevel.Int())
+	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, level, r.state.Rules.TerrainBonusPerLevel.Int()), 0, level*r.state.Rules.TerrainBonusPerLevel.Int())
 }
 
 // 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）
@@ -621,7 +621,7 @@ func applyItem(r *recorder, side BattleSide, used *card.Ref) error {
 	if spec == nil || spec.Category == item.CategoryScroll {
 		return nil
 	}
-	return modifyBattleStats(r, side, NewItemSource(*used), spec.AttackModifier.Int(), spec.HitPointsModifier.Int())
+	return modifyBattleStats(r, side, NewItemSource(*used, spec.AttackModifier, spec.HitPointsModifier), spec.AttackModifier.Int(), spec.HitPointsModifier.Int())
 }
 
 // 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない。ただし能力は、このイベントが発動を表すので
