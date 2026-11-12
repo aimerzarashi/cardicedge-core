@@ -269,7 +269,7 @@ func invadingEvents(t *testing.T) []match.Event {
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 11), Participant: player, Value: 2},
 		&match.MovedEvent{EventMeta: eventMeta(t, 12), Participant: player, To: boardtest.Position(t, 1, 0)},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: player, To: boardtest.Position(t, 2, 0)},
-		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 14), Participant: player, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10)},
+		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 14), Participant: player, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
 		&match.ItemSkippedEvent{EventMeta: eventMeta(t, 15), Participant: player},
 	)
 }
@@ -357,7 +357,7 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 	require.Equal(t, []query.MatchEvent{
 		query.MatchTerritoryInvadedEvent{
 			MatchEventMeta: metaAt(14, changesOf(phaseOf(query.MatchPhaseAttacking), []query.MatchTotalMagicChange{total(0, 590)})),
-			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10,
+			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10, DefendingCreature: 1, DefendingCreatureCard: dragon,
 		},
 		query.MatchItemSkippedEvent{MatchEventMeta: metaAt(15, changesOf(phaseOf(query.MatchPhaseDefending), nil)), Participant: 0},
 		query.MatchBattleStartedEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Attacker: stats, Defender: stats},

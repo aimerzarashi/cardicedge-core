@@ -2658,6 +2658,12 @@ type MatchTerritoryInvadedByMoveEvent struct {
 	Position *BoardPosition `json:"position"`
 	// 動いたクリーチャーの ID
 	Creature int `json:"creature"`
+	// 動いたクリーチャーのカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）
+	DefendingCreature int `json:"defendingCreature"`
+	// 守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
+	DefendingCreatureCard CardInfo `json:"defendingCreatureCard"`
 }
 
 func (MatchTerritoryInvadedByMoveEvent) IsMatchEvent() {}
@@ -2689,6 +2695,10 @@ type MatchTerritoryInvadedEvent struct {
 	Position *BoardPosition `json:"position"`
 	// 払った魔力
 	Cost int `json:"cost"`
+	// 領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）
+	DefendingCreature int `json:"defendingCreature"`
+	// 守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
+	DefendingCreatureCard CardInfo `json:"defendingCreatureCard"`
 }
 
 func (MatchTerritoryInvadedEvent) IsMatchEvent() {}

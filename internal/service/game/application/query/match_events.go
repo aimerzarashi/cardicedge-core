@@ -244,6 +244,9 @@ type MatchTerritoryInvadedEvent struct {
 	Card      MatchCard
 	Position  BoardPosition
 	Cost      int
+	// 領地にいて、これから戦う守る側のクリーチャーとそのカード
+	DefendingCreature     int
+	DefendingCreatureCard MatchCard
 }
 
 // サイコロを振る前に、手札のスペルを使った。Cost は払った魔力。効果は続くイベント（引いたカード等）
@@ -394,7 +397,12 @@ type MatchTerritoryInvadedByMoveEvent struct {
 	Participant int
 	From        BoardPosition
 	Position    BoardPosition
-	Creature    int
+	// 動いたクリーチャーとそのカード
+	Creature int
+	Card     MatchCard
+	// 領地にいて、これから戦う守る側のクリーチャーとそのカード
+	DefendingCreature     int
+	DefendingCreatureCard MatchCard
 }
 
 // 通った自分の領地の土地の属性を変えた
@@ -459,17 +467,17 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 			events = append(events, event)
 		}
 	}
-	cards, err := q.cardsOf(ctx, events, snapshotSpecs(loaded))
+	changes, placedCards, err := changesByRevision(loaded, after)
 	if err != nil {
 		return nil, err
 	}
-	changes, err := changesByRevision(loaded, after)
+	cards, err := q.cardsOf(ctx, events, snapshotSpecs(loaded), placedCards)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]MatchEvent, 0, len(events))
 	for _, event := range events {
-		converted, err := fromMatchEvent(event, cards, changes[event.GetMeta().AggregateVersion])
+		converted, err := fromMatchEvent(event, cards, placedCards, changes[event.GetMeta().AggregateVersion])
 		if err != nil {
 			return nil, err
 		}
@@ -479,30 +487,35 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 }
 
 // イベントを始めから順に当てて、after より後の版ごとに変わった値を作る。after より前も当てるのは、途中からでは状態が作れないため。
-// payload に持たせないのは、計算で出せる値を保存しないため
-func changesByRevision(loaded []match.Event, after int64) (map[int64]MatchEventChanges, error) {
+// payload に持たせないのは、計算で出せる値を保存しないため。
+// 配置したクリーチャーの ID から元のカードも返す。倒されて盤面から外れたクリーチャーも、外れる前の状態から引けるようにするため
+func changesByRevision(loaded []match.Event, after int64) (map[int64]MatchEventChanges, map[match.PlacedCreatureID]card.Ref, error) {
 	changes := make(map[int64]MatchEventChanges, len(loaded))
+	placedCards := map[match.PlacedCreatureID]card.Ref{}
 	var state match.State = match.InitialState()
 	var previous match.Match
 	for _, event := range loaded {
 		next, err := match.Evolve(state, event)
 		if err != nil {
-			return nil, fmt.Errorf("query: evolve match event %d: %w", event.GetMeta().AggregateVersion, err)
+			return nil, nil, fmt.Errorf("query: evolve match event %d: %w", event.GetMeta().AggregateVersion, err)
 		}
 		current, ok := next.(match.Match)
 		if !ok {
-			return nil, fmt.Errorf("query: unexpected match state: %T", next)
+			return nil, nil, fmt.Errorf("query: unexpected match state: %T", next)
 		}
 		if current.Version > after {
 			changed, err := changesBetween(previous, current)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			changes[current.Version] = changed
 		}
+		for _, placed := range current.PlacedCreatures {
+			placedCards[placed.ID] = placed.Card
+		}
 		state, previous = next, current
 	}
-	return changes, nil
+	return changes, placedCards, nil
 }
 
 func changesBetween(previous, current match.Match) (MatchEventChanges, error) {
@@ -548,7 +561,7 @@ func snapshotSpecs(loaded []match.Event) map[card.Ref]match.CardSpec {
 }
 
 // イベントが述べたカードの名前と種類を、1 回でまとめて引く。対戦の中のカードの性能は写し、戦利品は写した cards の性能
-func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec) (map[domain.EntityRef]MatchCard, error) {
+func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec, placedCards map[match.PlacedCreatureID]card.Ref) (map[domain.EntityRef]MatchCard, error) {
 	var refs []domain.EntityRef
 	inDeck := map[domain.EntityRef]match.CardSpec{}
 	for _, event := range events {
@@ -572,9 +585,17 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 				inDeck[ref] = specs[exchanged]
 			}
 		case *match.TerritoryInvadedEvent:
-			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
-			refs = append(refs, ref)
-			inDeck[ref] = specs[e.Card]
+			for _, invaded := range []card.Ref{e.Card, placedCards[e.DefendingCreature]} {
+				ref := domain.NewEntityRef(invaded.EntityType, invaded.ID)
+				refs = append(refs, ref)
+				inDeck[ref] = specs[invaded]
+			}
+		case *match.TerritoryInvadedByMoveEvent:
+			for _, creatureCard := range []card.Ref{placedCards[e.Creature], placedCards[e.DefendingCreature]} {
+				ref := domain.NewEntityRef(creatureCard.EntityType, creatureCard.ID)
+				refs = append(refs, ref)
+				inDeck[ref] = specs[creatureCard]
+			}
 		case *match.ItemUsedEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
 			refs = append(refs, ref)
@@ -632,7 +653,12 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 	return cards, nil
 }
 
-func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, changes MatchEventChanges) (MatchEvent, error) {
+func cardOfPlacedCreature(id match.PlacedCreatureID, cards map[domain.EntityRef]MatchCard, placedCards map[match.PlacedCreatureID]card.Ref) MatchCard {
+	ref := placedCards[id]
+	return cards[domain.NewEntityRef(ref.EntityType, ref.ID)]
+}
+
+func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, placedCards map[match.PlacedCreatureID]card.Ref, changes MatchEventChanges) (MatchEvent, error) {
 	meta := MatchEventMeta{Revision: event.GetMeta().AggregateVersion, OccurredAt: event.GetMeta().OccurredAt, Changes: changes}
 	switch e := event.(type) {
 	case *match.CreatedEvent:
@@ -705,7 +731,7 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 		return MatchCreaturePlacedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), position, e.Cost.Int()}, nil
 	case *match.TerritoryInvadedEvent:
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
-		return MatchTerritoryInvadedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], position, e.Cost.Int()}, nil
+		return MatchTerritoryInvadedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], position, e.Cost.Int(), e.DefendingCreature.Int(), cardOfPlacedCreature(e.DefendingCreature, cards, placedCards)}, nil
 	case *match.SpellUsedEvent:
 		return MatchSpellUsedEvent{meta, e.Participant.Int(), e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Cost.Int()}, nil
 	case *match.ItemUsedEvent:
@@ -717,7 +743,7 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, cha
 	case *match.CreatureMovedEvent:
 		return MatchCreatureMovedEvent{meta, e.Participant.Int(), NewBoardPosition(e.From.X.Int(), e.From.Y.Int()), NewBoardPosition(e.To.X.Int(), e.To.Y.Int()), e.Creature.Int()}, nil
 	case *match.TerritoryInvadedByMoveEvent:
-		return MatchTerritoryInvadedByMoveEvent{meta, e.Participant.Int(), NewBoardPosition(e.From.X.Int(), e.From.Y.Int()), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int()}, nil
+		return MatchTerritoryInvadedByMoveEvent{meta, e.Participant.Int(), NewBoardPosition(e.From.X.Int(), e.From.Y.Int()), NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int()), e.Creature.Int(), cardOfPlacedCreature(e.Creature, cards, placedCards), e.DefendingCreature.Int(), cardOfPlacedCreature(e.DefendingCreature, cards, placedCards)}, nil
 	case *match.LandElementChangedEvent:
 		element, err := NewBoardTileElement(e.Element.String())
 		if err != nil {

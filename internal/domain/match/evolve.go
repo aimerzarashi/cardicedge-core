@@ -329,7 +329,7 @@ func Evolve(state State, event Event) (State, error) {
 		if !ok || !found || !occupied || from.Creature != e.Creature || !current.acceptsTerritoryCommand() || placed.Owner != index {
 			return state, ErrInvalidState
 		}
-		if owner, ok := current.TerritoryOwner(target); !ok || owner == index {
+		if owner, ok := current.TerritoryOwner(target); !ok || owner == index || target.Creature != e.DefendingCreature {
 			return state, ErrInvalidState
 		}
 		origin := e.From
@@ -403,7 +403,7 @@ func Evolve(state State, event Event) (State, error) {
 			owner, occupied = current.TerritoryOwner(territory)
 		}
 		switch {
-		case current.Phase != PhaseInvading, e.Position != participant.Position, !occupied, owner == index,
+		case current.Phase != PhaseInvading, e.Position != participant.Position, !occupied, owner == index, territory.Creature != e.DefendingCreature,
 			e.HandIndex < 0, e.HandIndex >= len(participant.Hand), participant.Hand[e.HandIndex] != e.Card,
 			!ok, spec.Creature == nil:
 			return state, ErrInvalidState
