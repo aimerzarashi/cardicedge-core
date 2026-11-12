@@ -223,6 +223,32 @@ func TestChangeCreatureAbilities_RejectsMismatchedValuesAndTooSmallPercent(t *te
 	}, err)
 }
 
+func TestChangeCreatureAbilities_BattleModifierNeedsBothValuesAndOtherKindsHaveNone(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	negative, zero, percent := -10, 0, 150
+
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative, HitPointsModifier: &zero}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative},
+		{Kind: command.CreatureAbilityBattleModifier, HitPointsModifier: &zero},
+		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative, HitPointsModifier: &zero, Percent: &percent},
+		{Kind: command.CreatureAbilityDefensive, AttackModifier: &negative},
+		{Kind: command.CreatureAbilityTollMultiplier, Percent: &percent, HitPointsModifier: &zero},
+	})
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "abilities.0"},
+		&input.InvalidFormat{Field: "abilities.1"},
+		&input.InvalidFormat{Field: "abilities.2"},
+		&input.InvalidFormat{Field: "abilities.3"},
+		&input.InvalidFormat{Field: "abilities.4"},
+	}, err)
+}
+
 func TestChangeCreatureAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)

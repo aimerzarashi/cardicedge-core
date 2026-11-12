@@ -275,6 +275,8 @@ type Ability struct {
 	FirstStrike *FirstStrikeAbility `json:"first_strike,omitempty"`
 	// 後手。戦闘で、後手の無い相手より後に攻撃する。match の判定・発動は先制と同じ（core#158）
 	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
+	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は CreatureSpec.battleModifier → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表し、増減が 0 でも出す）（core#163）
+	BattleModifier *BattleModifierAbility `json:"battle_modifier,omitempty"`
 }
 
 type DefensiveAbility struct{}
@@ -289,6 +291,37 @@ func NewFirstStrikeAbility() Ability {
 
 func NewLastStrikeAbility() Ability {
 	return Ability{LastStrike: &LastStrikeAbility{}}
+}
+
+type BattleModifierAbility struct {
+	AttackModifier    AttackModifier    `json:"attack_modifier"`
+	HitPointsModifier HitPointsModifier `json:"hit_points_modifier"`
+}
+
+func NewBattleModifierAbility(attackModifier AttackModifier, hitPointsModifier HitPointsModifier) Ability {
+	return Ability{BattleModifier: &BattleModifierAbility{AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
+}
+
+// 戦闘中の AT の増減。負も 0 も認める（アイテムの増減と同じ。範囲の決まりが無いため生成関数は確かめない）
+type AttackModifier int
+
+func NewAttackModifier(value int) AttackModifier {
+	return AttackModifier(value)
+}
+
+func (b AttackModifier) Int() int {
+	return int(b)
+}
+
+// 戦闘中の HP の増減。AT の増減と同じ
+type HitPointsModifier int
+
+func NewHitPointsModifier(value int) HitPointsModifier {
+	return HitPointsModifier(value)
+}
+
+func (b HitPointsModifier) Int() int {
+	return int(b)
 }
 
 type TollMultiplierAbility struct {
@@ -332,6 +365,9 @@ func (a Ability) kind() string {
 	if a.LastStrike != nil {
 		kinds = append(kinds, "last_strike")
 	}
+	if a.BattleModifier != nil {
+		kinds = append(kinds, "battle_modifier")
+	}
 	if len(kinds) != 1 {
 		return ""
 	}
@@ -343,7 +379,10 @@ func (a Ability) equal(other Ability) bool {
 	if a.kind() != other.kind() {
 		return false
 	}
-	return a.TollMultiplier == nil || a.TollMultiplier.Percent == other.TollMultiplier.Percent
+	if a.TollMultiplier != nil && a.TollMultiplier.Percent != other.TollMultiplier.Percent {
+		return false
+	}
+	return a.BattleModifier == nil || *a.BattleModifier == *other.BattleModifier
 }
 
 func (a Ability) IsDefensive() bool {
@@ -404,4 +443,14 @@ func (a Abilities) TollMultiplier() (TollMultiplierPercent, bool) {
 		}
 	}
 	return 0, false
+}
+
+// 戦闘中の増減。持っていなければ false
+func (a Abilities) BattleModifier() (BattleModifierAbility, bool) {
+	for _, ability := range a {
+		if ability.BattleModifier != nil {
+			return *ability.BattleModifier, true
+		}
+	}
+	return BattleModifierAbility{}, false
 }

@@ -102,4 +102,12 @@ type CreatureAbility struct {
 	TollMultiplierPercent *int
 	FirstStrike           bool
 	LastStrike            bool
+	// 戦闘中の増減。持っていなければ nil
+	BattleModifier *CreatureBattleModifier
+}
+
+// 戦闘中の AT・HP の増減（負も 0 もある）
+type CreatureBattleModifier struct {
+	AttackModifier    int
+	HitPointsModifier int
 }

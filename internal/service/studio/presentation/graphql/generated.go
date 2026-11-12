@@ -265,6 +265,12 @@ type ComplexityRoot struct {
 		UpdatedAt             func(childComplexity int) int
 	}
 
+	CreatureBattleModifierAbility struct {
+		AttackModifier    func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
+		Kind              func(childComplexity int) int
+	}
+
 	CreatureDefensiveAbility struct {
 		Kind func(childComplexity int) int
 	}
@@ -1758,6 +1764,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.UpdatedAt(childComplexity), true
+
+	case "CreatureBattleModifierAbility.attackModifier":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier(childComplexity), true
+	case "CreatureBattleModifierAbility.hitPointsModifier":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier(childComplexity), true
+	case "CreatureBattleModifierAbility.kind":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.Kind(childComplexity), true
 
 	case "CreatureDefensiveAbility.kind":
 		if e.ComplexityRoot.CreatureDefensiveAbility.Kind == nil {
@@ -8716,6 +8741,75 @@ func (ec *executionContext) _Creature_updatedAt(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_Creature_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Creature", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _CreatureBattleModifierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureBattleModifierAbility_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_attackModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureBattleModifierAbility_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_hitPointsModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
 }
 
 func (ec *executionContext) _CreatureDefensiveAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureDefensiveAbility) (ret graphql.Marshaler) {
@@ -19965,7 +20059,7 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"kind", "percent"}
+	fieldsInOrder := [...]string{"kind", "percent", "attackModifier", "hitPointsModifier"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -19986,6 +20080,20 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 				return it, err
 			}
 			it.Percent = data
+		case "attackModifier":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attackModifier"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AttackModifier = data
+		case "hitPointsModifier":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hitPointsModifier"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.HitPointsModifier = data
 		}
 	}
 	return it, nil
@@ -23792,6 +23900,13 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureDefensiveAbility(ctx, sel, obj)
+	case model.CreatureBattleModifierAbility:
+		return ec._CreatureBattleModifierAbility(ctx, sel, &obj)
+	case *model.CreatureBattleModifierAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureBattleModifierAbility(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -28010,6 +28125,49 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Creature_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureBattleModifierAbilityImplementors = []string{"CreatureBattleModifierAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureBattleModifierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureBattleModifierAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureBattleModifierAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureBattleModifierAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureBattleModifierAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attackModifier":
+			out.Values[i] = ec._CreatureBattleModifierAbility_attackModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsModifier":
+			out.Values[i] = ec._CreatureBattleModifierAbility_hitPointsModifier(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

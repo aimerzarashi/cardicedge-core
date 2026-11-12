@@ -153,6 +153,7 @@ type CreatureAbilityMetadata struct {
 	TollMultiplier *CreatureTollMultiplierAbilityMetadata `json:"toll_multiplier,omitempty"`
 	FirstStrike    *CreatureFirstStrikeAbilityMetadata    `json:"first_strike,omitempty"`
 	LastStrike     *CreatureLastStrikeAbilityMetadata     `json:"last_strike,omitempty"`
+	BattleModifier *CreatureBattleModifierAbilityMetadata `json:"battle_modifier,omitempty"`
 }
 
 type CreatureDefensiveAbilityMetadata struct{}
@@ -160,6 +161,11 @@ type CreatureDefensiveAbilityMetadata struct{}
 type CreatureFirstStrikeAbilityMetadata struct{}
 
 type CreatureLastStrikeAbilityMetadata struct{}
+
+type CreatureBattleModifierAbilityMetadata struct {
+	AttackModifier    int `json:"attack_modifier"`
+	HitPointsModifier int `json:"hit_points_modifier"`
+}
 
 type CreatureTollMultiplierAbilityMetadata struct {
 	Percent int `json:"percent"`
@@ -179,6 +185,9 @@ func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMe
 		}
 		if ability.LastStrike != nil {
 			values[i].LastStrike = &CreatureLastStrikeAbilityMetadata{}
+		}
+		if ability.BattleModifier != nil {
+			values[i].BattleModifier = &CreatureBattleModifierAbilityMetadata{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
 		}
 	}
 	return values

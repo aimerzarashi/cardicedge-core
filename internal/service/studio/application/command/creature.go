@@ -296,19 +296,27 @@ const (
 	CreatureAbilityTollMultiplier = "toll_multiplier"
 	CreatureAbilityFirstStrike    = "first_strike"
 	CreatureAbilityLastStrike     = "last_strike"
+	CreatureAbilityBattleModifier = "battle_modifier"
 )
 
-// クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent）
+// クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent、戦闘中の増減は AttackModifier・HitPointsModifier）
 type CreatureAbility struct {
-	Kind    string
-	Percent *int
+	Kind              string
+	Percent           *int
+	AttackModifier    *int
+	HitPointsModifier *int
 }
 
 var errCreatureAbilityShape = errors.New("command: creature ability kind and values do not match")
 
 // 種類と値の組み合わせが合わないものは errCreatureAbilityShape、値の範囲の誤りは domain の誤り
 func (a CreatureAbility) domain() (creature.Ability, error) {
+	noModifier := a.AttackModifier == nil && a.HitPointsModifier == nil
 	switch {
+	case a.Kind == CreatureAbilityBattleModifier && a.Percent == nil && a.AttackModifier != nil && a.HitPointsModifier != nil:
+		return creature.NewBattleModifierAbility(creature.NewAttackModifier(*a.AttackModifier), creature.NewHitPointsModifier(*a.HitPointsModifier)), nil
+	case !noModifier:
+		return creature.Ability{}, errCreatureAbilityShape
 	case a.Kind == CreatureAbilityDefensive && a.Percent == nil:
 		return creature.NewDefensiveAbility(), nil
 	case a.Kind == CreatureAbilityTollMultiplier && a.Percent != nil:
@@ -334,6 +342,9 @@ func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		case ability.TollMultiplier != nil:
 			percent := ability.TollMultiplier.Percent.Int()
 			values[i] = CreatureAbility{Kind: CreatureAbilityTollMultiplier, Percent: &percent}
+		case ability.BattleModifier != nil:
+			attackModifier, hitPointsModifier := ability.BattleModifier.AttackModifier.Int(), ability.BattleModifier.HitPointsModifier.Int()
+			values[i] = CreatureAbility{Kind: CreatureAbilityBattleModifier, AttackModifier: &attackModifier, HitPointsModifier: &hitPointsModifier}
 		case ability.FirstStrike != nil:
 			values[i] = CreatureAbility{Kind: CreatureAbilityFirstStrike}
 		case ability.LastStrike != nil:

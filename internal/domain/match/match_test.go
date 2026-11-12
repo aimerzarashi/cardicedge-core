@@ -2044,6 +2044,89 @@ func TestDecide_DefenderWithFirstStrikeDestroysTheAttackerBeforeItStrikes(t *tes
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 }
 
+func battleModifier(t *testing.T, attack, hitPoints int) []creature.Ability {
+	t.Helper()
+	return []creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints))}
+}
+
+func TestDecide_BattleModifierActivatesAsAStatModifiedWithAnAbilitySourceInTheAbilitySlot(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 2, 2)
+	state = withTerritory(t, state, 1, 1, 1)
+	state = withTerritory(t, state, 1, 3, 1)
+	state, _ = drawAndRoll(t, state, 1, 2)
+	state, weapon := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryWeapon, 25, 0)
+	state = attackWithItem(t, state, weapon)
+	state = withDefenderElements(t, withBattlers(t, state, 10, 40, 20, 40), "fire")
+	state = withStrikeAbilities(t, state, battleModifier(t, 5, 0), battleModifier(t, 0, 30))
+	state, armor := withBattleItem(t, state, 0, 302, item.CategoryArmor, 0, 15)
+
+	_, events := defendWithItem(t, state, armor)
+
+	var steps []string
+	for _, event := range events {
+		switch e := event.(type) {
+		case *match.BattleAbilityActivatedEvent:
+			steps = append(steps, string(e.Side)+":activated:"+string(e.Ability))
+		case *match.BattleStatModifiedEvent:
+			name := "other"
+			switch {
+			case e.Source.Ability != nil:
+				name = "ability"
+			case e.Source.AdjacentTerritories != nil:
+				name = "adjacent"
+			case e.Source.Terrain != nil:
+				name = "terrain"
+			case e.Source.Item != nil:
+				name = "item"
+			}
+			steps = append(steps, string(e.Side)+":"+name)
+		}
+	}
+	require.Equal(t, []string{
+		"attacker:ability", "attacker:adjacent", "attacker:item",
+		"defender:ability", "defender:terrain", "defender:item",
+	}, steps)
+	modifications := statModifications(events)
+	require.Equal(t, match.NewAbilitySource(match.BattleAbilityBattleModifier), modifications[0].Source)
+	require.Equal(t, 5, modifications[0].AttackDelta)
+	require.Equal(t, creaturetest.Attack(t, 15), modifications[0].Attack)
+}
+
+func TestDecide_BattleModifierActivatesEvenWhenTheModifierIsZero(t *testing.T) {
+	state := withStrikeAbilities(t, invade(t, invadingMatch(t)), nil, battleModifier(t, 0, 0))
+
+	_, events := defend(t, state)
+
+	require.Zero(t, countOf[*match.BattleAbilityActivatedEvent](events))
+	modifications := statModifications(events)
+	require.Len(t, modifications, 1)
+	require.Equal(t, match.BattleSideDefender, modifications[0].Side)
+	require.Equal(t, match.NewAbilitySource(match.BattleAbilityBattleModifier), modifications[0].Source)
+	require.Zero(t, modifications[0].AttackDelta)
+	require.Zero(t, modifications[0].HitPointsDelta)
+}
+
+func TestDecide_HitPointsAddedByBattleModifierAbsorbDamageAndDoNotRemainAfterTheBattle(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 30, 20, 5, 40)
+	state = withStrikeAbilities(t, state, nil, battleModifier(t, 0, 20))
+
+	state, events := defend(t, state)
+
+	require.Equal(t, creaturetest.HitPoints(t, 30), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
+	require.Equal(t, creaturetest.HitPoints(t, 30), state.PlacedCreatures[0].HitPoints)
+}
+
+func TestDecide_BattleModifierThatLowersHitPointsToZeroEndsTheBattleAtThatPoint(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 20, 5, 30)
+	state = withStrikeAbilities(t, state, nil, battleModifier(t, 0, -99))
+
+	state, events := defend(t, state)
+
+	require.Zero(t, countOf[*match.CreatureStruckEvent](events))
+	require.NotNil(t, eventOf[*match.TerritoryConqueredEvent](t, events))
+	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
+}
+
 func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T) {
 	state := withMagic(invadingMatch(t), 1, 10)
 	state = invade(t, state)

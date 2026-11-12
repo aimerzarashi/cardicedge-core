@@ -447,6 +447,26 @@ func TestAbilities_TollMultiplierChangesTheTollPercentAndIsComparedByValue(t *te
 	require.ErrorIs(t, err, creature.ErrTollMultiplierPercentTooSmall)
 }
 
+func TestAbilities_BattleModifierKeepsNegativeValuesAndIsComparedByValue(t *testing.T) {
+	modifier := func(attack, hitPoints int) creature.Abilities {
+		abilities, err := creature.NewAbilities([]creature.Ability{
+			creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints)),
+		})
+		require.NoError(t, err)
+		return abilities
+	}
+
+	_, found := creature.DefaultAbilities().BattleModifier()
+	require.False(t, found)
+	got, found := modifier(-10, 20).BattleModifier()
+	require.True(t, found)
+	require.Equal(t, -10, got.AttackModifier.Int())
+	require.Equal(t, 20, got.HitPointsModifier.Int())
+	require.True(t, modifier(0, 0).Equal(modifier(0, 0)))
+	require.False(t, modifier(0, 20).Equal(modifier(0, 30)))
+	require.False(t, modifier(10, 20).Equal(modifier(0, 20)))
+}
+
 func TestNewAbilities_RejectsEmptyKindAndDuplicates(t *testing.T) {
 	empty, err := creature.NewAbilities(nil)
 	require.NoError(t, err)

@@ -325,8 +325,12 @@ type creatureAbilityMetadata struct {
 	TollMultiplier *struct {
 		Percent int `json:"percent"`
 	} `json:"toll_multiplier"`
-	FirstStrike *struct{} `json:"first_strike"`
-	LastStrike  *struct{} `json:"last_strike"`
+	FirstStrike    *struct{} `json:"first_strike"`
+	LastStrike     *struct{} `json:"last_strike"`
+	BattleModifier *struct {
+		AttackModifier    int `json:"attack_modifier"`
+		HitPointsModifier int `json:"hit_points_modifier"`
+	} `json:"battle_modifier"`
 }
 
 func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
@@ -335,6 +339,9 @@ func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.Creatur
 		values[i] = query.CreatureAbility{Defensive: ability.Defensive != nil, FirstStrike: ability.FirstStrike != nil, LastStrike: ability.LastStrike != nil}
 		if ability.TollMultiplier != nil {
 			values[i].TollMultiplierPercent = &ability.TollMultiplier.Percent
+		}
+		if ability.BattleModifier != nil {
+			values[i].BattleModifier = &query.CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
 		}
 	}
 	return values

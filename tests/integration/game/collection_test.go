@@ -223,7 +223,7 @@ func TestCard_ReturnsPlayerNotRegisteredForUnregisteredPlayer(t *testing.T) {
 const creatureCardQuery = `query ($id: UUID!) {
 	card(id: $id) {
 		__typename
-		... on CreatureCardInfo { id name elements attack hitPoints itemRestrictions placementRestrictions abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } } }
+		... on CreatureCardInfo { id name elements attack hitPoints itemRestrictions placementRestrictions abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } ... on CreatureBattleModifierAbility { attackModifier hitPointsModifier } } }
 	}
 }`
 

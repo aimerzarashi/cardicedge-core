@@ -298,6 +298,12 @@ type MatchBattleStatSource struct {
 	AdjacentTerritories []BoardPosition
 	Terrain             *MatchTerrainSource
 	Item                *MatchCard
+	Ability             *MatchAbilitySource
+}
+
+// 戦闘中に発動した能力
+type MatchAbilitySource struct {
+	Ability MatchBattleAbility
 }
 
 // 地形効果が効いた土地の属性とレベル
@@ -328,8 +334,9 @@ type MatchBattleAbilityActivatedEvent struct {
 type MatchBattleAbility string
 
 const (
-	MatchBattleAbilityFirstStrike MatchBattleAbility = "first_strike"
-	MatchBattleAbilityLastStrike  MatchBattleAbility = "last_strike"
+	MatchBattleAbilityFirstStrike    MatchBattleAbility = "first_strike"
+	MatchBattleAbilityLastStrike     MatchBattleAbility = "last_strike"
+	MatchBattleAbilityBattleModifier MatchBattleAbility = "battle_modifier"
 )
 
 // 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
@@ -785,6 +792,12 @@ func fromBattleStatSource(source match.BattleStatSource, cards map[domain.Entity
 	case source.Item != nil:
 		used := cards[domain.NewEntityRef(source.Item.Card.EntityType, source.Item.Card.ID)]
 		return MatchBattleStatSource{Item: &used}, nil
+	case source.Ability != nil:
+		ability, err := fromBattleAbility(source.Ability.Ability)
+		if err != nil {
+			return MatchBattleStatSource{}, err
+		}
+		return MatchBattleStatSource{Ability: &MatchAbilitySource{Ability: ability}}, nil
 	default:
 		return MatchBattleStatSource{}, fmt.Errorf("query: battle stat source has no kind")
 	}
@@ -807,6 +820,8 @@ func fromBattleAbility(ability match.BattleAbility) (MatchBattleAbility, error) 
 		return MatchBattleAbilityFirstStrike, nil
 	case match.BattleAbilityLastStrike:
 		return MatchBattleAbilityLastStrike, nil
+	case match.BattleAbilityBattleModifier:
+		return MatchBattleAbilityBattleModifier, nil
 	default:
 		return "", fmt.Errorf("query: unknown battle ability: %q", ability)
 	}

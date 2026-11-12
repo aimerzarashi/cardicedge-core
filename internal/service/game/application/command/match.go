@@ -294,6 +294,8 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 				return match.CreatureSpec{}, err
 			}
 			value = creature.NewTollMultiplierAbility(percent)
+		case ability.BattleModifier != nil:
+			value = creature.NewBattleModifierAbility(creature.NewAttackModifier(ability.BattleModifier.AttackModifier), creature.NewHitPointsModifier(ability.BattleModifier.HitPointsModifier))
 		case ability.FirstStrike:
 			value = creature.NewFirstStrikeAbility()
 		case ability.LastStrike:

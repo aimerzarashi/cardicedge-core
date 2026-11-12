@@ -267,6 +267,8 @@ func fromMatchBattleAbility(ability query.MatchBattleAbility) (model.CreatureAbi
 		return model.CreatureAbilityKindFirstStrike, nil
 	case query.MatchBattleAbilityLastStrike:
 		return model.CreatureAbilityKindLastStrike, nil
+	case query.MatchBattleAbilityBattleModifier:
+		return model.CreatureAbilityKindBattleModifier, nil
 	default:
 		return "", fmt.Errorf("graphql: unknown match battle ability: %q", ability)
 	}
@@ -581,6 +583,12 @@ func fromMatchBattleStatSource(source query.MatchBattleStatSource) (model.MatchB
 			return nil, err
 		}
 		return &model.MatchItemSource{Card: card}, nil
+	case source.Ability != nil:
+		ability, err := fromMatchBattleAbility(source.Ability.Ability)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchAbilitySource{Ability: ability}, nil
 	default:
 		positions := make([]*model.BoardPosition, len(source.AdjacentTerritories))
 		for i, position := range source.AdjacentTerritories {

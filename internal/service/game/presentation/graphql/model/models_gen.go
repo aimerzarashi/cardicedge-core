@@ -750,6 +750,21 @@ type CreateRoomSuccess struct {
 
 func (CreateRoomSuccess) IsCreateRoomResult() {}
 
+// 戦闘中の増減
+type CreatureBattleModifierAbility struct {
+	// 能力の種類（BATTLE_MODIFIER）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 戦闘中の AT の増減（負も 0 もある）
+	AttackModifier int `json:"attackModifier"`
+	// 戦闘中の HP の増減（負も 0 もある）
+	HitPointsModifier int `json:"hitPointsModifier"`
+}
+
+func (CreatureBattleModifierAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureBattleModifierAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
 // クリーチャー
 type CreatureCardInfo struct {
 	// 公開用の ID
@@ -1280,6 +1295,14 @@ type Match struct {
 
 func (Match) IsMatchResult() {}
 
+// 発動した能力（このイベントが能力の発動を表す。MatchBattleAbilityActivatedEvent は別に出ない）
+type MatchAbilitySource struct {
+	// 発動した能力（今は BATTLE_MODIFIER）
+	Ability CreatureAbilityKind `json:"ability"`
+}
+
+func (MatchAbilitySource) IsMatchBattleStatSource() {}
+
 // 支援（侵略先の隣にある、攻める側の領地）
 type MatchAdjacentTerritoriesSource struct {
 	// 隣の領地の位置
@@ -1306,7 +1329,7 @@ type MatchBattleAbilityActivatedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 能力を持つクリーチャーの側
 	Side MatchBattleSide `json:"side"`
-	// 発動した能力（今は FIRST_STRIKE・LAST_STRIKE）
+	// 発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE）
 	Ability CreatureAbilityKind `json:"ability"`
 }
 
@@ -1346,7 +1369,7 @@ func (this MatchBattleStartedEvent) GetOccurredAt() time.Time { return this.Occu
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchBattleStartedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 効果 1 つが戦闘の AT・HP を変えた
+// 効果 1 つが戦闘の AT・HP を変えた（出どころが能力のときは、持っていれば増減が 0 でも出る）
 type MatchBattleStatModifiedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -3915,6 +3938,8 @@ const (
 	CreatureAbilityKindFirstStrike CreatureAbilityKind = "FIRST_STRIKE"
 	// 後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）
 	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
+	// 戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）
+	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3922,11 +3947,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindTollMultiplier,
 	CreatureAbilityKindFirstStrike,
 	CreatureAbilityKindLastStrike,
+	CreatureAbilityKindBattleModifier,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier:
 		return true
 	}
 	return false

@@ -210,6 +210,12 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
+	CreatureBattleModifierAbility struct {
+		AttackModifier    func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
+		Kind              func(childComplexity int) int
+	}
+
 	CreatureCardInfo struct {
 		Abilities             func(childComplexity int) int
 		Attack                func(childComplexity int) int
@@ -395,6 +401,10 @@ type ComplexityRoot struct {
 		Rules                func(childComplexity int) int
 		SpellChoices         func(childComplexity int) int
 		Territories          func(childComplexity int) int
+	}
+
+	MatchAbilitySource struct {
+		Ability func(childComplexity int) int
 	}
 
 	MatchAdjacentTerritoriesSource struct {
@@ -1876,6 +1886,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CreateRoomSuccess.Revision(childComplexity), true
 
+	case "CreatureBattleModifierAbility.attackModifier":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier(childComplexity), true
+	case "CreatureBattleModifierAbility.hitPointsModifier":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier(childComplexity), true
+	case "CreatureBattleModifierAbility.kind":
+		if e.ComplexityRoot.CreatureBattleModifierAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleModifierAbility.Kind(childComplexity), true
+
 	case "CreatureCardInfo.abilities":
 		if e.ComplexityRoot.CreatureCardInfo.Abilities == nil {
 			break
@@ -2487,6 +2516,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.Territories(childComplexity), true
+
+	case "MatchAbilitySource.ability":
+		if e.ComplexityRoot.MatchAbilitySource.Ability == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAbilitySource.Ability(childComplexity), true
 
 	case "MatchAdjacentTerritoriesSource.positions":
 		if e.ComplexityRoot.MatchAdjacentTerritoriesSource.Positions == nil {
@@ -9598,6 +9634,75 @@ func (ec *executionContext) fieldContext_CreateRoomSuccess_revision(_ context.Co
 	return graphql.NewScalarFieldContext("CreateRoomSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _CreatureBattleModifierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureBattleModifierAbility_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_attackModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureBattleModifierAbility_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleModifierAbility_hitPointsModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
+}
+
 func (ec *executionContext) _CreatureCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12007,6 +12112,29 @@ func (ec *executionContext) _Match_number(ctx context.Context, field graphql.Col
 }
 func (ec *executionContext) fieldContext_Match_number(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Match", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchAbilitySource_ability(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAbilitySource_ability(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ability, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAbilitySource_ability(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "CreatureAbilityKind")
 }
 
 func (ec *executionContext) _MatchAdjacentTerritoriesSource_positions(ctx context.Context, field graphql.CollectedField, obj *model.MatchAdjacentTerritoriesSource) (ret graphql.Marshaler) {
@@ -29341,6 +29469,13 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureDefensiveAbility(ctx, sel, obj)
+	case model.CreatureBattleModifierAbility:
+		return ec._CreatureBattleModifierAbility(ctx, sel, &obj)
+	case *model.CreatureBattleModifierAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureBattleModifierAbility(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -30049,6 +30184,13 @@ func (ec *executionContext) _MatchBattleStatSource(ctx context.Context, sel ast.
 			return graphql.Null
 		}
 		return ec._MatchAdjacentTerritoriesSource(ctx, sel, obj)
+	case model.MatchAbilitySource:
+		return ec._MatchAbilitySource(ctx, sel, &obj)
+	case *model.MatchAbilitySource:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._MatchAbilitySource(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -32490,6 +32632,49 @@ func (ec *executionContext) _CreateRoomSuccess(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var creatureBattleModifierAbilityImplementors = []string{"CreatureBattleModifierAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureBattleModifierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureBattleModifierAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureBattleModifierAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureBattleModifierAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureBattleModifierAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attackModifier":
+			out.Values[i] = ec._CreatureBattleModifierAbility_attackModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsModifier":
+			out.Values[i] = ec._CreatureBattleModifierAbility_hitPointsModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var creatureCardInfoImplementors = []string{"CreatureCardInfo", "CardInfo", "CardResult"}
 
 func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureCardInfo) graphql.Marshaler {
@@ -33796,6 +33981,39 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 		case "number":
 			out.Values[i] = ec._Match_number(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchAbilitySourceImplementors = []string{"MatchAbilitySource", "MatchBattleStatSource"}
+
+func (ec *executionContext) _MatchAbilitySource(ctx context.Context, sel ast.SelectionSet, obj *model.MatchAbilitySource) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchAbilitySourceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchAbilitySource")
+		case "ability":
+			out.Values[i] = ec._MatchAbilitySource_ability(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:

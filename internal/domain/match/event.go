@@ -252,7 +252,8 @@ type BattleStatModifiedEvent struct {
 }
 
 // 戦闘で能力が発動した（Side の側のクリーチャーの Ability）。効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出す
-// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。状態は変えない
+// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。状態は変えない。
+// AT・HP を変える能力（戦闘中の増減）は出さず、出どころが能力の BattleStatModifiedEvent が発動を表す（2026-11-12 オーナー。core#163）
 type BattleAbilityActivatedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
