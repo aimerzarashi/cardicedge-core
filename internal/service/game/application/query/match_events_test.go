@@ -65,8 +65,14 @@ func changesOf(phase *query.MatchPhase, totals []query.MatchTotalMagicChange, va
 	return query.MatchEventChanges{Phase: phase, TotalMagics: totals, TerritoryValues: values}
 }
 
-func territoryValue(x, value, toll int) query.MatchTerritoryValue {
-	return query.MatchTerritoryValue{Position: query.NewBoardPosition(x, 0), Value: value, Toll: toll}
+// 土地のレベルはどれも 1（上げる操作をしない）。前の連鎖の数は無し（この持ち主の連鎖に新しく入った領地）
+func territoryValue(x, value, toll, chainCount int) query.MatchTerritoryValue {
+	return query.MatchTerritoryValue{Position: query.NewBoardPosition(x, 0), Value: value, Toll: toll, Level: 1, ChainCount: chainCount}
+}
+
+func withPreviousChainCount(value query.MatchTerritoryValue, previous int) query.MatchTerritoryValue {
+	value.PreviousChainCount = &previous
+	return value
 }
 
 func eventMeta(t *testing.T, version int64) match.EventMeta {
@@ -163,7 +169,7 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 		query.MatchMovedEvent{MatchEventMeta: metaAt(7, changesOf(nil, nil)), Participant: 1, To: query.NewBoardPosition(1, 0)},
 		query.MatchMovedEvent{MatchEventMeta: metaAt(8, changesOf(phaseOf(query.MatchPhasePlacing), nil)), Participant: 1, To: query.NewBoardPosition(2, 0)},
 		query.MatchCreaturePlacedEvent{
-			MatchEventMeta: metaAt(9, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(1, 690)}, territoryValue(2, 100, 60))),
+			MatchEventMeta: metaAt(9, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(1, 690)}, territoryValue(2, 100, 60, 1))),
 			Participant:    1, Card: dragon, Creature: 1, Position: query.NewBoardPosition(2, 0), Cost: 10,
 		},
 		query.MatchEndedEvent{MatchEventMeta: metaAt(10, changesOf(phaseOf(query.MatchPhaseEnded), nil)), Winners: []int{1}, Ranks: []int{2, 1}, Reason: query.MatchEndReasonRoundLimit},
@@ -201,7 +207,7 @@ func TestMatchEventsHandler_ChangesIncludeEarlierTerritoriesWhoseChainGrew(t *te
 
 	require.NoError(t, err)
 	require.Len(t, events, 1)
-	require.Equal(t, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(1, 880)}, territoryValue(2, 150, 90), territoryValue(3, 150, 90)), events[0].Meta().Changes)
+	require.Equal(t, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(1, 880)}, withPreviousChainCount(territoryValue(2, 150, 90, 2), 1), territoryValue(3, 150, 90, 2)), events[0].Meta().Changes)
 }
 
 // 別の属性の領地ができても、連鎖が変わらない領地は入らない
@@ -224,7 +230,7 @@ func TestMatchEventsHandler_ChangesLeaveOutTerritoriesThatDidNotChange(t *testin
 
 	require.NoError(t, err)
 	require.Len(t, found, 1)
-	require.Equal(t, []query.MatchTerritoryValue{territoryValue(3, 100, 60)}, found[0].Meta().Changes.TerritoryValues)
+	require.Equal(t, []query.MatchTerritoryValue{territoryValue(3, 100, 60, 1)}, found[0].Meta().Changes.TerritoryValues)
 }
 
 func TestMatchEventsHandler_ReturnsNothingWhenTheViewerIsUpToDate(t *testing.T) {
@@ -369,7 +375,7 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 }
 
 // 持ち主が変わると両方の総魔力が動く。土地の価値と通行料は変わらないので入らない
-func TestMatchEventsHandler_ConqueringMovesTheTotalMagicOfBothParticipants(t *testing.T) {
+func TestMatchEventsHandler_ConqueringMovesTheTotalMagicAndTheTerritoryIntoTheConquerorsChain(t *testing.T) {
 	player := matchtest.Index(t, 0)
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
@@ -382,7 +388,8 @@ func TestMatchEventsHandler_ConqueringMovesTheTotalMagicOfBothParticipants(t *te
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
 		query.MatchTerritoryConqueredEvent{
-			MatchEventMeta: metaAt(18, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)})),
+			// 奪った領地は価値が同じでも、奪った側の連鎖に新しく入るので入る（前の連鎖の数は無し）
+			MatchEventMeta: metaAt(18, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)}, territoryValue(2, 100, 60, 1))),
 			Participant:    0, Position: query.NewBoardPosition(2, 0), DefeatedCreature: 1, Creature: 2, TerritoryHitPoints: 20,
 		},
 	}, events)

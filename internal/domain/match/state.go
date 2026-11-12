@@ -775,7 +775,7 @@ func (m Match) landElement(position board.Position) board.Element {
 
 // 同じ持ち主の、同じ属性の土地の数（自分を含む）。保存せず、そのたびに数える（領地が増減するたびに持ち主の全部の領地を書き直さないため）。
 // 複は連鎖しない（2026-11-08 オーナー）
-func (m Match) chainCount(territory Territory) int {
+func (m Match) TerritoryChainCount(territory Territory) int {
 	element := m.landElement(territory.Position)
 	owner, ok := m.TerritoryOwner(territory)
 	if !ok || element == board.ElementMulti {
@@ -792,7 +792,7 @@ func (m Match) chainCount(territory Territory) int {
 
 // 土地の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
 func (m Match) TerritoryValue(territory Territory) int {
-	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)) * m.Rules.chainMultiplier(m.chainCount(territory)) / 100
+	return m.Rules.BaseLandValue * m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)) * m.Rules.chainMultiplier(m.TerritoryChainCount(territory)) / 100
 }
 
 // 盤面の通行料。価値 × 通行料の割合（端数は切り捨て）。いるクリーチャーの通行料の倍率は掛けない（払うときに発動する。core#159）

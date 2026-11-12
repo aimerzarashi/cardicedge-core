@@ -949,9 +949,12 @@ type ComplexityRoot struct {
 	}
 
 	MatchTerritoryValue struct {
-		Position func(childComplexity int) int
-		Toll     func(childComplexity int) int
-		Value    func(childComplexity int) int
+		ChainCount         func(childComplexity int) int
+		Level              func(childComplexity int) int
+		Position           func(childComplexity int) int
+		PreviousChainCount func(childComplexity int) int
+		Toll               func(childComplexity int) int
+		Value              func(childComplexity int) int
 	}
 
 	MatchTollMultiplierActivatedEvent struct {
@@ -4648,12 +4651,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchTerritoryRelinquishedEvent.Revision(childComplexity), true
 
+	case "MatchTerritoryValue.chainCount":
+		if e.ComplexityRoot.MatchTerritoryValue.ChainCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryValue.ChainCount(childComplexity), true
+	case "MatchTerritoryValue.level":
+		if e.ComplexityRoot.MatchTerritoryValue.Level == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryValue.Level(childComplexity), true
 	case "MatchTerritoryValue.position":
 		if e.ComplexityRoot.MatchTerritoryValue.Position == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchTerritoryValue.Position(childComplexity), true
+	case "MatchTerritoryValue.previousChainCount":
+		if e.ComplexityRoot.MatchTerritoryValue.PreviousChainCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerritoryValue.PreviousChainCount(childComplexity), true
 	case "MatchTerritoryValue.toll":
 		if e.ComplexityRoot.MatchTerritoryValue.Toll == nil {
 			break
@@ -6738,6 +6759,12 @@ func (ec *executionContext) childFields_MatchTerritoryValue(ctx context.Context,
 		return ec.fieldContext_MatchTerritoryValue_value(ctx, field)
 	case "toll":
 		return ec.fieldContext_MatchTerritoryValue_toll(ctx, field)
+	case "level":
+		return ec.fieldContext_MatchTerritoryValue_level(ctx, field)
+	case "chainCount":
+		return ec.fieldContext_MatchTerritoryValue_chainCount(ctx, field)
+	case "previousChainCount":
+		return ec.fieldContext_MatchTerritoryValue_previousChainCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchTerritoryValue", field.Name)
 }
@@ -21033,6 +21060,75 @@ func (ec *executionContext) _MatchTerritoryValue_toll(ctx context.Context, field
 	)
 }
 func (ec *executionContext) fieldContext_MatchTerritoryValue_toll(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerritoryValue", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryValue_level(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryValue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryValue_level(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Level, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryValue_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerritoryValue", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryValue_chainCount(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryValue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryValue_chainCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ChainCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryValue_chainCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerritoryValue", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerritoryValue_previousChainCount(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryValue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerritoryValue_previousChainCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PreviousChainCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerritoryValue_previousChainCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchTerritoryValue", field, false, false, "Int")
 }
 
@@ -38170,6 +38266,21 @@ func (ec *executionContext) _MatchTerritoryValue(ctx context.Context, sel ast.Se
 		case "toll":
 			out.Values[i] = ec._MatchTerritoryValue_toll(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "level":
+			out.Values[i] = ec._MatchTerritoryValue_level(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "chainCount":
+			out.Values[i] = ec._MatchTerritoryValue_chainCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "previousChainCount":
+			out.Values[i] = ec._MatchTerritoryValue_previousChainCount(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:

@@ -392,7 +392,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 		... on MatchEventList {
 			events {
 				__typename revision occurredAt
-				changes { phase totalMagics { participant totalMagic } territoryValues { position { x y } value toll } }
+				changes { phase totalMagics { participant totalMagic } territoryValues { position { x y } value toll level chainCount } }
 				... on MatchTurnOrderDecidedEvent { order }
 				... on MatchHandsDealtEvent { cards }
 				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
@@ -831,6 +831,8 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 		found := values[key(territory["position"])]
 		require.Equal(t, territory["value"], found["value"])
 		require.Equal(t, territory["toll"], found["toll"])
+		require.Equal(t, territory["level"], found["level"])
+		require.GreaterOrEqual(t, found["chainCount"], float64(1))
 	}
 }
 
