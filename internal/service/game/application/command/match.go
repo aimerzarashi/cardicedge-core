@@ -296,6 +296,12 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 			value = creature.NewTollMultiplierAbility(percent)
 		case ability.BattleModifier != nil:
 			value = creature.NewBattleModifierAbility(creature.NewAttackModifier(ability.BattleModifier.AttackModifier), creature.NewHitPointsModifier(ability.BattleModifier.HitPointsModifier))
+		case ability.BattleRandomStats != nil:
+			randomStats, err := creature.NewBattleRandomStatsAbility(ability.BattleRandomStats.Minimum, ability.BattleRandomStats.Maximum)
+			if err != nil {
+				return match.CreatureSpec{}, err
+			}
+			value = randomStats
 		case ability.FirstStrike:
 			value = creature.NewFirstStrikeAbility()
 		case ability.LastStrike:

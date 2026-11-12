@@ -115,6 +115,8 @@ enum CreatureAbilityKind {
   LAST_STRIKE
   "戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）"
   BATTLE_MODIFIER
+  "戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）"
+  BATTLE_RANDOM_STATS
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -161,9 +163,19 @@ type CreatureBattleModifierAbility implements CreatureAbility {
   hitPointsModifier: Int!
 }
 
+"戦闘中のランダム"
+type CreatureBattleRandomStatsAbility implements CreatureAbility {
+  "能力の種類（BATTLE_RANDOM_STATS）"
+  kind: CreatureAbilityKind!
+  "戦闘中の AT・HP の最小（1 以上）"
+  minimum: Int!
+  "戦闘中の AT・HP の最大（最小以上）"
+  maximum: Int!
+}
+
 "能力 1 つの入力"
-# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
-# 値の範囲の誤りは FieldTooSmall（abilities.N.percent）
+# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier、戦闘中のランダムは minimum・maximum。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
+# 値の範囲の誤りは FieldTooSmall（abilities.N.percent・abilities.N.minimum。最大が最小より小さいのは、最大は最小と等しくてよいので FieldNotGreaterThan でなく、最小を下限にした FieldTooSmall の abilities.N.maximum）
 input CreatureAbilityInput {
   "能力の種類"
   kind: CreatureAbilityKind!
@@ -173,6 +185,10 @@ input CreatureAbilityInput {
   attackModifier: Int
   "戦闘中の HP の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）"
   hitPointsModifier: Int
+  "戦闘中の AT・HP の最小（1 以上。BATTLE_RANDOM_STATS だけに要る）"
+  minimum: Int
+  "戦闘中の AT・HP の最大（最小以上。BATTLE_RANDOM_STATS だけに要る）"
+  maximum: Int
 }
 
 "クリーチャーの能力を変える入力"

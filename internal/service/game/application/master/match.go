@@ -100,6 +100,14 @@ type CreatureAbility struct {
 	LastStrike            bool
 	// 戦闘中の増減。持っていなければ nil
 	BattleModifier *CreatureBattleModifier
+	// 戦闘中のランダム。持っていなければ nil
+	BattleRandomStats *CreatureBattleRandomStats
+}
+
+// 戦闘中の AT・HP の範囲（引く値の最小と最大）
+type CreatureBattleRandomStats struct {
+	Minimum int
+	Maximum int
 }
 
 // 戦闘中の AT・HP の増減（負も 0 もある）

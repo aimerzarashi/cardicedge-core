@@ -149,11 +149,12 @@ type SpellRollDiceMetadata struct {
 
 // クリーチャーの能力。domain の creature.Ability と同じ形（持っている種類の名前の下に値を置く）
 type CreatureAbilityMetadata struct {
-	Defensive      *CreatureDefensiveAbilityMetadata      `json:"defensive,omitempty"`
-	TollMultiplier *CreatureTollMultiplierAbilityMetadata `json:"toll_multiplier,omitempty"`
-	FirstStrike    *CreatureFirstStrikeAbilityMetadata    `json:"first_strike,omitempty"`
-	LastStrike     *CreatureLastStrikeAbilityMetadata     `json:"last_strike,omitempty"`
-	BattleModifier *CreatureBattleModifierAbilityMetadata `json:"battle_modifier,omitempty"`
+	Defensive         *CreatureDefensiveAbilityMetadata         `json:"defensive,omitempty"`
+	TollMultiplier    *CreatureTollMultiplierAbilityMetadata    `json:"toll_multiplier,omitempty"`
+	FirstStrike       *CreatureFirstStrikeAbilityMetadata       `json:"first_strike,omitempty"`
+	LastStrike        *CreatureLastStrikeAbilityMetadata        `json:"last_strike,omitempty"`
+	BattleModifier    *CreatureBattleModifierAbilityMetadata    `json:"battle_modifier,omitempty"`
+	BattleRandomStats *CreatureBattleRandomStatsAbilityMetadata `json:"battle_random_stats,omitempty"`
 }
 
 type CreatureDefensiveAbilityMetadata struct{}
@@ -165,6 +166,11 @@ type CreatureLastStrikeAbilityMetadata struct{}
 type CreatureBattleModifierAbilityMetadata struct {
 	AttackModifier    int `json:"attack_modifier"`
 	HitPointsModifier int `json:"hit_points_modifier"`
+}
+
+type CreatureBattleRandomStatsAbilityMetadata struct {
+	Minimum int `json:"minimum"`
+	Maximum int `json:"maximum"`
 }
 
 type CreatureTollMultiplierAbilityMetadata struct {
@@ -188,6 +194,9 @@ func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMe
 		}
 		if ability.BattleModifier != nil {
 			values[i].BattleModifier = &CreatureBattleModifierAbilityMetadata{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
+		}
+		if ability.BattleRandomStats != nil {
+			values[i].BattleRandomStats = &CreatureBattleRandomStatsAbilityMetadata{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
 		}
 	}
 	return values

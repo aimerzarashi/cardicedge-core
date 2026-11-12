@@ -47,7 +47,7 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 	case *PayTollCommand:
 		return playTurn(state, c.By, PhaseInvading, now, payToll)
 	case *DefendCommand:
-		return playTurn(state, c.By, PhaseDefending, now, func(r *recorder) error { return defend(r, c.By, c.ItemHandIndex) })
+		return playTurn(state, c.By, PhaseDefending, now, func(r *recorder) error { return defend(r, c.By, c.ItemHandIndex, random) })
 	case *RelinquishTerritoryCommand:
 		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
@@ -448,20 +448,20 @@ func chooseItem(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
 	})
 }
 
-func defend(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
+func defend(r *recorder, by ParticipantIndex, itemHandIndex *int, random Random) error {
 	if err := chooseItem(r, by, itemHandIndex); err != nil {
 		return err
 	}
-	return battle(r)
+	return battle(r, random)
 }
 
 // 効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
 // どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）
-func battle(r *recorder) error {
+func battle(r *recorder, random Random) error {
 	if err := startBattle(r); err != nil {
 		return err
 	}
-	for _, apply := range battleEffects() {
+	for _, apply := range battleEffects(random) {
 		if err := apply(r); err != nil {
 			return err
 		}
@@ -544,18 +544,20 @@ func startBattle(r *recorder) error {
 
 // 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は 呪い → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
 // 呪いは作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
-func battleEffects() []func(*recorder) error {
+func battleEffects(random Random) []func(*recorder) error {
 	return []func(*recorder) error{
-		func(r *recorder) error { return applyBattleModifier(r, BattleSideAttacker) },
+		func(r *recorder) error { return applyBattleAbilities(r, BattleSideAttacker, random) },
 		applyAdjacentTerritories,
 		func(r *recorder) error { return applyItem(r, BattleSideAttacker, r.state.Invasion.AttackerItem) },
-		func(r *recorder) error { return applyBattleModifier(r, BattleSideDefender) },
+		func(r *recorder) error { return applyBattleAbilities(r, BattleSideDefender, random) },
 		applyTerrain,
 		func(r *recorder) error { return applyItem(r, BattleSideDefender, r.state.Invasion.DefenderItem) },
 	}
 }
 
-func applyBattleModifier(r *recorder, side BattleSide) error {
+// 能力の位置。持っている能力を並びの順に、AT・HP を変える能力だけ当てる（先制・後手は攻撃の前に別に発動する）。
+// 種類ごとに決まった順にしないのは、能力の並びが入力のまま残る決まり（core#127）で、効果を当てる順になりうるため
+func applyBattleAbilities(r *recorder, side BattleSide, random Random) error {
 	if r.state.Invasion == nil {
 		return ErrInvalidState
 	}
@@ -567,11 +569,33 @@ func applyBattleModifier(r *recorder, side BattleSide) error {
 		}
 		spec = defending.Base
 	}
-	modifier, ok := spec.battleModifier()
-	if !ok {
-		return nil
+	for _, ability := range spec.Abilities {
+		var err error
+		switch {
+		case ability.BattleModifier != nil:
+			modifier := *ability.BattleModifier
+			err = modifyBattleStats(r, side, NewBattleModifierSource(modifier.AttackModifier, modifier.HitPointsModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+		case ability.BattleRandomStats != nil:
+			err = applyBattleRandomStats(r, side, *ability.BattleRandomStats, random)
+		}
+		if err != nil {
+			return err
+		}
+		if r.state.Battle.decided() {
+			return nil
+		}
 	}
-	return modifyBattleStats(r, side, NewAbilitySource(BattleAbilityBattleModifier, modifier.AttackModifier, modifier.HitPointsModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+	return nil
+}
+
+// AT → HP の順に引く（乱数の元を使う順を決めて、再生と同じ値になるようにするため）。増減は引いた値と今の値の差で、
+// 増減が 0 でも発動を表すので出す
+func applyBattleRandomStats(r *recorder, side BattleSide, randomStats creature.BattleRandomStatsAbility, random Random) error {
+	minimum, maximum := randomStats.Minimum.Int(), randomStats.Maximum.Int()
+	attack := minimum + random.IntN(maximum-minimum+1)
+	hitPoints := minimum + random.IntN(maximum-minimum+1)
+	before := r.state.Battle.creature(side).Stats
+	return modifyBattleStats(r, side, NewBattleRandomStatsSource(randomStats.Minimum, randomStats.Maximum), attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
 }
 
 func applyAdjacentTerritories(r *recorder) error {

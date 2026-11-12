@@ -755,6 +755,9 @@ func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		if ability.BattleModifier != nil {
 			values[i].BattleModifier = &CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
 		}
+		if ability.BattleRandomStats != nil {
+			values[i].BattleRandomStats = &CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
+		}
 	}
 	return values
 }

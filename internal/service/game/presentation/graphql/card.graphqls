@@ -50,6 +50,8 @@ enum CreatureAbilityKind {
   LAST_STRIKE
   "戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）"
   BATTLE_MODIFIER
+  "戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）"
+  BATTLE_RANDOM_STATS
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -94,6 +96,16 @@ type CreatureBattleModifierAbility implements CreatureAbility {
   attackModifier: Int!
   "戦闘中の HP の増減（負も 0 もある）"
   hitPointsModifier: Int!
+}
+
+"戦闘中のランダム"
+type CreatureBattleRandomStatsAbility implements CreatureAbility {
+  "能力の種類（BATTLE_RANDOM_STATS）"
+  kind: CreatureAbilityKind!
+  "戦闘中の AT・HP の最小"
+  minimum: Int!
+  "戦闘中の AT・HP の最大"
+  maximum: Int!
 }
 
 "アイテム"

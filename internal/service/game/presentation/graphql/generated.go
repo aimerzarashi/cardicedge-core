@@ -216,6 +216,12 @@ type ComplexityRoot struct {
 		Kind              func(childComplexity int) int
 	}
 
+	CreatureBattleRandomStatsAbility struct {
+		Kind    func(childComplexity int) int
+		Maximum func(childComplexity int) int
+		Minimum func(childComplexity int) int
+	}
+
 	CreatureCardInfo struct {
 		Abilities             func(childComplexity int) int
 		Attack                func(childComplexity int) int
@@ -405,8 +411,8 @@ type ComplexityRoot struct {
 
 	MatchAbilitySource struct {
 		Ability           func(childComplexity int) int
-		AttackModifier    func(childComplexity int) int
-		HitPointsModifier func(childComplexity int) int
+		BattleModifier    func(childComplexity int) int
+		BattleRandomStats func(childComplexity int) int
 	}
 
 	MatchAdjacentTerritoriesSource struct {
@@ -425,6 +431,16 @@ type ComplexityRoot struct {
 		OccurredAt func(childComplexity int) int
 		Revision   func(childComplexity int) int
 		Side       func(childComplexity int) int
+	}
+
+	MatchBattleModifierBasis struct {
+		AttackModifier    func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
+	}
+
+	MatchBattleRandomStatsBasis struct {
+		Maximum func(childComplexity int) int
+		Minimum func(childComplexity int) int
 	}
 
 	MatchBattleStartedEvent struct {
@@ -1925,6 +1941,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CreatureBattleModifierAbility.Kind(childComplexity), true
 
+	case "CreatureBattleRandomStatsAbility.kind":
+		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Kind(childComplexity), true
+	case "CreatureBattleRandomStatsAbility.maximum":
+		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Maximum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Maximum(childComplexity), true
+	case "CreatureBattleRandomStatsAbility.minimum":
+		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Minimum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Minimum(childComplexity), true
+
 	case "CreatureCardInfo.abilities":
 		if e.ComplexityRoot.CreatureCardInfo.Abilities == nil {
 			break
@@ -2543,18 +2578,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchAbilitySource.Ability(childComplexity), true
-	case "MatchAbilitySource.attackModifier":
-		if e.ComplexityRoot.MatchAbilitySource.AttackModifier == nil {
+	case "MatchAbilitySource.battleModifier":
+		if e.ComplexityRoot.MatchAbilitySource.BattleModifier == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchAbilitySource.AttackModifier(childComplexity), true
-	case "MatchAbilitySource.hitPointsModifier":
-		if e.ComplexityRoot.MatchAbilitySource.HitPointsModifier == nil {
+		return e.ComplexityRoot.MatchAbilitySource.BattleModifier(childComplexity), true
+	case "MatchAbilitySource.battleRandomStats":
+		if e.ComplexityRoot.MatchAbilitySource.BattleRandomStats == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchAbilitySource.HitPointsModifier(childComplexity), true
+		return e.ComplexityRoot.MatchAbilitySource.BattleRandomStats(childComplexity), true
 
 	case "MatchAdjacentTerritoriesSource.bonusPerTerritory":
 		if e.ComplexityRoot.MatchAdjacentTerritoriesSource.BonusPerTerritory == nil {
@@ -2612,6 +2647,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchBattleAbilityActivatedEvent.Side(childComplexity), true
+
+	case "MatchBattleModifierBasis.attackModifier":
+		if e.ComplexityRoot.MatchBattleModifierBasis.AttackModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleModifierBasis.AttackModifier(childComplexity), true
+	case "MatchBattleModifierBasis.hitPointsModifier":
+		if e.ComplexityRoot.MatchBattleModifierBasis.HitPointsModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleModifierBasis.HitPointsModifier(childComplexity), true
+
+	case "MatchBattleRandomStatsBasis.maximum":
+		if e.ComplexityRoot.MatchBattleRandomStatsBasis.Maximum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleRandomStatsBasis.Maximum(childComplexity), true
+	case "MatchBattleRandomStatsBasis.minimum":
+		if e.ComplexityRoot.MatchBattleRandomStatsBasis.Minimum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchBattleRandomStatsBasis.Minimum(childComplexity), true
 
 	case "MatchBattleStartedEvent.attacker":
 		if e.ComplexityRoot.MatchBattleStartedEvent.Attacker == nil {
@@ -6487,6 +6548,26 @@ func (ec *executionContext) childFields_MatchAvatar(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type MatchAvatar", field.Name)
 }
 
+func (ec *executionContext) childFields_MatchBattleModifierBasis(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "attackModifier":
+		return ec.fieldContext_MatchBattleModifierBasis_attackModifier(ctx, field)
+	case "hitPointsModifier":
+		return ec.fieldContext_MatchBattleModifierBasis_hitPointsModifier(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchBattleModifierBasis", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchBattleRandomStatsBasis(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "minimum":
+		return ec.fieldContext_MatchBattleRandomStatsBasis_minimum(ctx, field)
+	case "maximum":
+		return ec.fieldContext_MatchBattleRandomStatsBasis_maximum(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchBattleRandomStatsBasis", field.Name)
+}
+
 func (ec *executionContext) childFields_MatchBattleStats(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "attack":
@@ -9849,6 +9930,75 @@ func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_hitPoints
 	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
 }
 
+func (ec *executionContext) _CreatureBattleRandomStatsAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleRandomStatsAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureBattleRandomStatsAbility_minimum(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleRandomStatsAbility_minimum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Minimum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_minimum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "Int")
+}
+
+func (ec *executionContext) _CreatureBattleRandomStatsAbility_maximum(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureBattleRandomStatsAbility_maximum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Maximum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_maximum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "Int")
+}
+
 func (ec *executionContext) _CreatureCardInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.CreatureCardInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12283,50 +12433,68 @@ func (ec *executionContext) fieldContext_MatchAbilitySource_ability(_ context.Co
 	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "CreatureAbilityKind")
 }
 
-func (ec *executionContext) _MatchAbilitySource_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchAbilitySource_battleModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchAbilitySource_attackModifier(ctx, field)
+			return ec.fieldContext_MatchAbilitySource_battleModifier(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.AttackModifier, nil
+			return obj.BattleModifier, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchBattleModifierBasis) graphql.Marshaler {
+			return ec.marshalOMatchBattleModifierBasis2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchBattleModifierBasis(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchAbilitySource_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "Int")
+func (ec *executionContext) fieldContext_MatchAbilitySource_battleModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchAbilitySource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchBattleModifierBasis(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
-func (ec *executionContext) _MatchAbilitySource_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchAbilitySource_battleRandomStats(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchAbilitySource_hitPointsModifier(ctx, field)
+			return ec.fieldContext_MatchAbilitySource_battleRandomStats(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.HitPointsModifier, nil
+			return obj.BattleRandomStats, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.MatchBattleRandomStatsBasis) graphql.Marshaler {
+			return ec.marshalOMatchBattleRandomStatsBasis2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchBattleRandomStatsBasis(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchAbilitySource_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "Int")
+func (ec *executionContext) fieldContext_MatchAbilitySource_battleRandomStats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchAbilitySource",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchBattleRandomStatsBasis(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _MatchAdjacentTerritoriesSource_positions(ctx context.Context, field graphql.CollectedField, obj *model.MatchAdjacentTerritoriesSource) (ret graphql.Marshaler) {
@@ -12552,6 +12720,98 @@ func (ec *executionContext) _MatchBattleAbilityActivatedEvent_ability(ctx contex
 }
 func (ec *executionContext) fieldContext_MatchBattleAbilityActivatedEvent_ability(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchBattleAbilityActivatedEvent", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _MatchBattleModifierBasis_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleModifierBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleModifierBasis_attackModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleModifierBasis_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleModifierBasis", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchBattleModifierBasis_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleModifierBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleModifierBasis_hitPointsModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleModifierBasis_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleModifierBasis", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchBattleRandomStatsBasis_minimum(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleRandomStatsBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleRandomStatsBasis_minimum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Minimum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleRandomStatsBasis_minimum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleRandomStatsBasis", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchBattleRandomStatsBasis_maximum(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleRandomStatsBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchBattleRandomStatsBasis_maximum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Maximum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchBattleRandomStatsBasis_maximum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchBattleRandomStatsBasis", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchBattleStartedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchBattleStartedEvent) (ret graphql.Marshaler) {
@@ -30102,6 +30362,13 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureDefensiveAbility(ctx, sel, obj)
+	case model.CreatureBattleRandomStatsAbility:
+		return ec._CreatureBattleRandomStatsAbility(ctx, sel, &obj)
+	case *model.CreatureBattleRandomStatsAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureBattleRandomStatsAbility(ctx, sel, obj)
 	case model.CreatureBattleModifierAbility:
 		return ec._CreatureBattleModifierAbility(ctx, sel, &obj)
 	case *model.CreatureBattleModifierAbility:
@@ -33308,6 +33575,49 @@ func (ec *executionContext) _CreatureBattleModifierAbility(ctx context.Context, 
 	return out
 }
 
+var creatureBattleRandomStatsAbilityImplementors = []string{"CreatureBattleRandomStatsAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureBattleRandomStatsAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureBattleRandomStatsAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureBattleRandomStatsAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureBattleRandomStatsAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureBattleRandomStatsAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "minimum":
+			out.Values[i] = ec._CreatureBattleRandomStatsAbility_minimum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maximum":
+			out.Values[i] = ec._CreatureBattleRandomStatsAbility_maximum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var creatureCardInfoImplementors = []string{"CreatureCardInfo", "CardInfo", "CardResult"}
 
 func (ec *executionContext) _CreatureCardInfo(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureCardInfo) graphql.Marshaler {
@@ -34649,14 +34959,14 @@ func (ec *executionContext) _MatchAbilitySource(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "attackModifier":
-			out.Values[i] = ec._MatchAbilitySource_attackModifier(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+		case "battleModifier":
+			out.Values[i] = ec._MatchAbilitySource_battleModifier(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "hitPointsModifier":
-			out.Values[i] = ec._MatchAbilitySource_hitPointsModifier(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+		case "battleRandomStats":
+			out.Values[i] = ec._MatchAbilitySource_battleRandomStats(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -34785,6 +35095,82 @@ func (ec *executionContext) _MatchBattleAbilityActivatedEvent(ctx context.Contex
 			}
 		case "ability":
 			out.Values[i] = ec._MatchBattleAbilityActivatedEvent_ability(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchBattleModifierBasisImplementors = []string{"MatchBattleModifierBasis"}
+
+func (ec *executionContext) _MatchBattleModifierBasis(ctx context.Context, sel ast.SelectionSet, obj *model.MatchBattleModifierBasis) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchBattleModifierBasisImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchBattleModifierBasis")
+		case "attackModifier":
+			out.Values[i] = ec._MatchBattleModifierBasis_attackModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsModifier":
+			out.Values[i] = ec._MatchBattleModifierBasis_hitPointsModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var matchBattleRandomStatsBasisImplementors = []string{"MatchBattleRandomStatsBasis"}
+
+func (ec *executionContext) _MatchBattleRandomStatsBasis(ctx context.Context, sel ast.SelectionSet, obj *model.MatchBattleRandomStatsBasis) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchBattleRandomStatsBasisImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchBattleRandomStatsBasis")
+		case "minimum":
+			out.Values[i] = ec._MatchBattleRandomStatsBasis_minimum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maximum":
+			out.Values[i] = ec._MatchBattleRandomStatsBasis_maximum(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -43253,6 +43639,20 @@ func (ec *executionContext) marshalOMatch2ᚖgitlabᚗcomᚋaimerzarashiᚋdieca
 		return graphql.Null
 	}
 	return ec._Match(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOMatchBattleModifierBasis2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchBattleModifierBasis(ctx context.Context, sel ast.SelectionSet, v *model.MatchBattleModifierBasis) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._MatchBattleModifierBasis(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOMatchBattleRandomStatsBasis2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchBattleRandomStatsBasis(ctx context.Context, sel ast.SelectionSet, v *model.MatchBattleRandomStatsBasis) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._MatchBattleRandomStatsBasis(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOMatchCurse2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchCurse(ctx context.Context, sel ast.SelectionSet, v *model.MatchCurse) graphql.Marshaler {

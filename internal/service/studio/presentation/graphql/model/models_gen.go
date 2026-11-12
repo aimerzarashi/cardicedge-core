@@ -1218,6 +1218,10 @@ type CreatureAbilityInput struct {
 	AttackModifier *int `json:"attackModifier,omitempty"`
 	// 戦闘中の HP の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）
 	HitPointsModifier *int `json:"hitPointsModifier,omitempty"`
+	// 戦闘中の AT・HP の最小（1 以上。BATTLE_RANDOM_STATS だけに要る）
+	Minimum *int `json:"minimum,omitempty"`
+	// 戦闘中の AT・HP の最大（最小以上。BATTLE_RANDOM_STATS だけに要る）
+	Maximum *int `json:"maximum,omitempty"`
 }
 
 // 戦闘中の増減
@@ -1234,6 +1238,21 @@ func (CreatureBattleModifierAbility) IsCreatureAbility() {}
 
 // 能力の種類
 func (this CreatureBattleModifierAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
+// 戦闘中のランダム
+type CreatureBattleRandomStatsAbility struct {
+	// 能力の種類（BATTLE_RANDOM_STATS）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 戦闘中の AT・HP の最小（1 以上）
+	Minimum int `json:"minimum"`
+	// 戦闘中の AT・HP の最大（最小以上）
+	Maximum int `json:"maximum"`
+}
+
+func (CreatureBattleRandomStatsAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureBattleRandomStatsAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // 防御型
 type CreatureDefensiveAbility struct {
@@ -3665,6 +3684,8 @@ const (
 	CreatureAbilityKindLastStrike CreatureAbilityKind = "LAST_STRIKE"
 	// 戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）
 	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
+	// 戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）
+	CreatureAbilityKindBattleRandomStats CreatureAbilityKind = "BATTLE_RANDOM_STATS"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3673,11 +3694,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindFirstStrike,
 	CreatureAbilityKindLastStrike,
 	CreatureAbilityKindBattleModifier,
+	CreatureAbilityKindBattleRandomStats,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats:
 		return true
 	}
 	return false

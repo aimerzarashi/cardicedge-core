@@ -142,6 +142,8 @@ func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAb
 			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.TollMultiplierPercent}
 		case ability.BattleModifier != nil:
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
+		case ability.BattleRandomStats != nil:
+			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
 		case ability.FirstStrike:
 			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
 		case ability.LastStrike:

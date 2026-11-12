@@ -387,6 +387,9 @@ func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata
 		if ability.LastStrike != nil {
 			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
 		}
+		if ability.BattleRandomStats != nil {
+			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
+		}
 		if ability.BattleModifier != nil {
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
 		}
@@ -408,6 +411,8 @@ func fromCreatureAbilities(abilities []command.CreatureAbility) []model.Creature
 			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
 		case command.CreatureAbilityBattleModifier:
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: *ability.AttackModifier, HitPointsModifier: *ability.HitPointsModifier}
+		case command.CreatureAbilityBattleRandomStats:
+			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: *ability.Minimum, Maximum: *ability.Maximum}
 		}
 	}
 	return values
@@ -418,15 +423,17 @@ func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.Cre
 	for i, ability := range abilities {
 		switch ability.Kind {
 		case model.CreatureAbilityKindDefensive:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityDefensive, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityDefensive, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
 		case model.CreatureAbilityKindTollMultiplier:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityTollMultiplier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityTollMultiplier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
 		case model.CreatureAbilityKindFirstStrike:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityFirstStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityFirstStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
 		case model.CreatureAbilityKindLastStrike:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityLastStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityLastStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
 		case model.CreatureAbilityKindBattleModifier:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityBattleModifier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier}
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityBattleModifier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
+		case model.CreatureAbilityKindBattleRandomStats:
+			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityBattleRandomStats, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
 		default:
 			return nil, fmt.Errorf("graphql: unknown creature ability kind %q", ability.Kind)
 		}

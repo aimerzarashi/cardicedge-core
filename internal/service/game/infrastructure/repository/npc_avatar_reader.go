@@ -331,6 +331,10 @@ type creatureAbilityMetadata struct {
 		AttackModifier    int `json:"attack_modifier"`
 		HitPointsModifier int `json:"hit_points_modifier"`
 	} `json:"battle_modifier"`
+	BattleRandomStats *struct {
+		Minimum int `json:"minimum"`
+		Maximum int `json:"maximum"`
+	} `json:"battle_random_stats"`
 }
 
 func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
@@ -342,6 +346,9 @@ func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.Creatur
 		}
 		if ability.BattleModifier != nil {
 			values[i].BattleModifier = &query.CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
+		}
+		if ability.BattleRandomStats != nil {
+			values[i].BattleRandomStats = &query.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
 		}
 	}
 	return values

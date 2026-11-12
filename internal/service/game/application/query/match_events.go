@@ -328,11 +328,26 @@ type MatchItemSource struct {
 	HitPointsModifier int
 }
 
-// 戦闘中に発動した能力と、その決まった増減（下限で止まる前の値）
+// 戦闘中に発動した能力と、その計算の根拠。増減は戦闘中の増減のときの決まった値（下限で止まる前の値。ほかの能力は 0）、
+// 範囲は戦闘中のランダムのときだけ持つ（ほかは nil）。増減を nil にしないのは、同じ名前の MatchItemSource の項目（非 null）と
+// 型が食い違うと、画面が 1 つの問い合わせで両方を読めなくなるため
+// 能力ごとの根拠は、その能力のときだけ持つ（ほかは nil）
 type MatchAbilitySource struct {
 	Ability           MatchBattleAbility
+	BattleModifier    *MatchBattleModifierBasis
+	BattleRandomStats *MatchBattleRandomStatsBasis
+}
+
+// 戦闘中の増減の決まった値（下限で止まる前の値）
+type MatchBattleModifierBasis struct {
 	AttackModifier    int
 	HitPointsModifier int
+}
+
+// 戦闘中のランダムの範囲（引いた値は増減のイベントの当てた後の値）
+type MatchBattleRandomStatsBasis struct {
+	Minimum int
+	Maximum int
 }
 
 // 地形効果が効いた土地の属性とレベルと、レベル 1 つあたりの HP の増加
@@ -364,9 +379,10 @@ type MatchBattleAbilityActivatedEvent struct {
 type MatchBattleAbility string
 
 const (
-	MatchBattleAbilityFirstStrike    MatchBattleAbility = "first_strike"
-	MatchBattleAbilityLastStrike     MatchBattleAbility = "last_strike"
-	MatchBattleAbilityBattleModifier MatchBattleAbility = "battle_modifier"
+	MatchBattleAbilityFirstStrike       MatchBattleAbility = "first_strike"
+	MatchBattleAbilityLastStrike        MatchBattleAbility = "last_strike"
+	MatchBattleAbilityBattleModifier    MatchBattleAbility = "battle_modifier"
+	MatchBattleAbilityBattleRandomStats MatchBattleAbility = "battle_random_stats"
 )
 
 // 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
@@ -882,7 +898,14 @@ func fromBattleStatSource(source match.BattleStatSource, cards map[domain.Entity
 		if err != nil {
 			return MatchBattleStatSource{}, err
 		}
-		return MatchBattleStatSource{Ability: &MatchAbilitySource{Ability: ability, AttackModifier: source.Ability.AttackModifier.Int(), HitPointsModifier: source.Ability.HitPointsModifier.Int()}}, nil
+		converted := &MatchAbilitySource{Ability: ability}
+		if source.Ability.AttackModifier != nil && source.Ability.HitPointsModifier != nil {
+			converted.BattleModifier = &MatchBattleModifierBasis{AttackModifier: source.Ability.AttackModifier.Int(), HitPointsModifier: source.Ability.HitPointsModifier.Int()}
+		}
+		if source.Ability.Minimum != nil && source.Ability.Maximum != nil {
+			converted.BattleRandomStats = &MatchBattleRandomStatsBasis{Minimum: source.Ability.Minimum.Int(), Maximum: source.Ability.Maximum.Int()}
+		}
+		return MatchBattleStatSource{Ability: converted}, nil
 	default:
 		return MatchBattleStatSource{}, fmt.Errorf("query: battle stat source has no kind")
 	}
@@ -907,6 +930,8 @@ func fromBattleAbility(ability match.BattleAbility) (MatchBattleAbility, error) 
 		return MatchBattleAbilityLastStrike, nil
 	case match.BattleAbilityBattleModifier:
 		return MatchBattleAbilityBattleModifier, nil
+	case match.BattleAbilityBattleRandomStats:
+		return MatchBattleAbilityBattleRandomStats, nil
 	default:
 		return "", fmt.Errorf("query: unknown battle ability: %q", ability)
 	}
