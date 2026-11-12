@@ -3909,7 +3909,7 @@ type CreatureAbilityKind string
 const (
 	// 防御型（侵略できない。移動できない。守ることはできる）
 	CreatureAbilityKindDefensive CreatureAbilityKind = "DEFENSIVE"
-	// 通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）
+	// 通行料の倍率（いる領地の通行料を払うときに倍率を掛ける）
 	CreatureAbilityKindTollMultiplier CreatureAbilityKind = "TOLL_MULTIPLIER"
 	// 先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）
 	CreatureAbilityKindFirstStrike CreatureAbilityKind = "FIRST_STRIKE"

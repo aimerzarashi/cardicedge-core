@@ -107,7 +107,7 @@ union ChangeCreatureStatsResult = ChangeCreatureStatsSuccess | ValidationErrors 
 enum CreatureAbilityKind {
   "防御型（侵略できない。移動できない。守ることはできる）"
   DEFENSIVE
-  "通行料の倍率（このクリーチャーのいる領地の通行料に掛ける）"
+  "通行料の倍率（いる領地の通行料を払うときに倍率を掛ける）"
   TOLL_MULTIPLIER
   "先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）"
   FIRST_STRIKE
