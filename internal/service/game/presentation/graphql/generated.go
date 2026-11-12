@@ -404,11 +404,14 @@ type ComplexityRoot struct {
 	}
 
 	MatchAbilitySource struct {
-		Ability func(childComplexity int) int
+		Ability           func(childComplexity int) int
+		AttackModifier    func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
 	}
 
 	MatchAdjacentTerritoriesSource struct {
-		Positions func(childComplexity int) int
+		BonusPerTerritory func(childComplexity int) int
+		Positions         func(childComplexity int) int
 	}
 
 	MatchAvatar struct {
@@ -682,7 +685,9 @@ type ComplexityRoot struct {
 	}
 
 	MatchItemSource struct {
-		Card func(childComplexity int) int
+		AttackModifier    func(childComplexity int) int
+		Card              func(childComplexity int) int
+		HitPointsModifier func(childComplexity int) int
 	}
 
 	MatchItemUsedEvent struct {
@@ -865,8 +870,9 @@ type ComplexityRoot struct {
 	}
 
 	MatchTerrainSource struct {
-		Element func(childComplexity int) int
-		Level   func(childComplexity int) int
+		BonusPerLevel func(childComplexity int) int
+		Element       func(childComplexity int) int
+		Level         func(childComplexity int) int
 	}
 
 	MatchTerritory struct {
@@ -2528,7 +2534,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchAbilitySource.Ability(childComplexity), true
+	case "MatchAbilitySource.attackModifier":
+		if e.ComplexityRoot.MatchAbilitySource.AttackModifier == nil {
+			break
+		}
 
+		return e.ComplexityRoot.MatchAbilitySource.AttackModifier(childComplexity), true
+	case "MatchAbilitySource.hitPointsModifier":
+		if e.ComplexityRoot.MatchAbilitySource.HitPointsModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAbilitySource.HitPointsModifier(childComplexity), true
+
+	case "MatchAdjacentTerritoriesSource.bonusPerTerritory":
+		if e.ComplexityRoot.MatchAdjacentTerritoriesSource.BonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAdjacentTerritoriesSource.BonusPerTerritory(childComplexity), true
 	case "MatchAdjacentTerritoriesSource.positions":
 		if e.ComplexityRoot.MatchAdjacentTerritoriesSource.Positions == nil {
 			break
@@ -3578,12 +3602,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchItemSkippedEvent.Revision(childComplexity), true
 
+	case "MatchItemSource.attackModifier":
+		if e.ComplexityRoot.MatchItemSource.AttackModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchItemSource.AttackModifier(childComplexity), true
 	case "MatchItemSource.card":
 		if e.ComplexityRoot.MatchItemSource.Card == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchItemSource.Card(childComplexity), true
+	case "MatchItemSource.hitPointsModifier":
+		if e.ComplexityRoot.MatchItemSource.HitPointsModifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchItemSource.HitPointsModifier(childComplexity), true
 
 	case "MatchItemUsedEvent.card":
 		if e.ComplexityRoot.MatchItemUsedEvent.Card == nil {
@@ -4251,6 +4287,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchSpellUsedEvent.Revision(childComplexity), true
 
+	case "MatchTerrainSource.bonusPerLevel":
+		if e.ComplexityRoot.MatchTerrainSource.BonusPerLevel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchTerrainSource.BonusPerLevel(childComplexity), true
 	case "MatchTerrainSource.element":
 		if e.ComplexityRoot.MatchTerrainSource.Element == nil {
 			break
@@ -12172,6 +12214,52 @@ func (ec *executionContext) fieldContext_MatchAbilitySource_ability(_ context.Co
 	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "CreatureAbilityKind")
 }
 
+func (ec *executionContext) _MatchAbilitySource_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAbilitySource_attackModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAbilitySource_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchAbilitySource_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchAbilitySource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAbilitySource_hitPointsModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAbilitySource_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAbilitySource", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchAdjacentTerritoriesSource_positions(ctx context.Context, field graphql.CollectedField, obj *model.MatchAdjacentTerritoriesSource) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12202,6 +12290,29 @@ func (ec *executionContext) fieldContext_MatchAdjacentTerritoriesSource_position
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _MatchAdjacentTerritoriesSource_bonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.MatchAdjacentTerritoriesSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAdjacentTerritoriesSource_bonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAdjacentTerritoriesSource_bonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAdjacentTerritoriesSource", field, false, false, "Int")
 }
 
 func (ec *executionContext) _MatchAvatar_id(ctx context.Context, field graphql.CollectedField, obj *model.MatchAvatar) (ret graphql.Marshaler) {
@@ -16568,6 +16679,52 @@ func (ec *executionContext) fieldContext_MatchItemSource_card(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _MatchItemSource_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchItemSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchItemSource_attackModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AttackModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchItemSource_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchItemSource", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchItemSource_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.MatchItemSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchItemSource_hitPointsModifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HitPointsModifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchItemSource_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchItemSource", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchItemUsedEvent_revision(ctx context.Context, field graphql.CollectedField, obj *model.MatchItemUsedEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -19315,6 +19472,29 @@ func (ec *executionContext) _MatchTerrainSource_level(ctx context.Context, field
 	)
 }
 func (ec *executionContext) fieldContext_MatchTerrainSource_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchTerrainSource", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchTerrainSource_bonusPerLevel(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerrainSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchTerrainSource_bonusPerLevel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BonusPerLevel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchTerrainSource_bonusPerLevel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchTerrainSource", field, false, false, "Int")
 }
 
@@ -34193,6 +34373,16 @@ func (ec *executionContext) _MatchAbilitySource(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "attackModifier":
+			out.Values[i] = ec._MatchAbilitySource_attackModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsModifier":
+			out.Values[i] = ec._MatchAbilitySource_hitPointsModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -34223,6 +34413,11 @@ func (ec *executionContext) _MatchAdjacentTerritoriesSource(ctx context.Context,
 			out.Values[i] = graphql.MarshalString("MatchAdjacentTerritoriesSource")
 		case "positions":
 			out.Values[i] = ec._MatchAdjacentTerritoriesSource_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bonusPerTerritory":
+			out.Values[i] = ec._MatchAdjacentTerritoriesSource_bonusPerTerritory(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -36051,6 +36246,16 @@ func (ec *executionContext) _MatchItemSource(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "attackModifier":
+			out.Values[i] = ec._MatchItemSource_attackModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hitPointsModifier":
+			out.Values[i] = ec._MatchItemSource_hitPointsModifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37293,6 +37498,11 @@ func (ec *executionContext) _MatchTerrainSource(ctx context.Context, sel ast.Sel
 			}
 		case "level":
 			out.Values[i] = ec._MatchTerrainSource_level(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bonusPerLevel":
+			out.Values[i] = ec._MatchTerrainSource_bonusPerLevel(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

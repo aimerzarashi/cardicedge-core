@@ -298,21 +298,37 @@ type MatchBattleStartedEvent struct {
 
 // 戦闘の AT・HP を変えた効果の出どころ。どれか 1 つだけ持つ
 type MatchBattleStatSource struct {
-	AdjacentTerritories []BoardPosition
+	AdjacentTerritories *MatchAdjacentTerritoriesSource
 	Terrain             *MatchTerrainSource
-	Item                *MatchCard
+	Item                *MatchItemSource
 	Ability             *MatchAbilitySource
 }
 
-// 戦闘中に発動した能力
-type MatchAbilitySource struct {
-	Ability MatchBattleAbility
+// 支援効果。侵略先の隣にある攻める側の領地の位置と、1 つあたりの AT の増加
+type MatchAdjacentTerritoriesSource struct {
+	Positions         []BoardPosition
+	BonusPerTerritory int
 }
 
-// 地形効果が効いた土地の属性とレベル
+// 戦闘に出したアイテムと、その決まった増減（下限で止まる前の値）
+type MatchItemSource struct {
+	Card              MatchCard
+	AttackModifier    int
+	HitPointsModifier int
+}
+
+// 戦闘中に発動した能力と、その決まった増減（下限で止まる前の値）
+type MatchAbilitySource struct {
+	Ability           MatchBattleAbility
+	AttackModifier    int
+	HitPointsModifier int
+}
+
+// 地形効果が効いた土地の属性とレベルと、レベル 1 つあたりの HP の増加
 type MatchTerrainSource struct {
-	Element BoardTileElement
-	Level   int
+	Element       BoardTileElement
+	Level         int
+	BonusPerLevel int
 }
 
 // 効果 1 つが戦闘の AT・HP を変えた。Attack・HitPoints は当てた後の値
@@ -808,22 +824,22 @@ func fromBattleStatSource(source match.BattleStatSource, cards map[domain.Entity
 		for i, position := range source.AdjacentTerritories.Positions {
 			positions[i] = NewBoardPosition(position.X.Int(), position.Y.Int())
 		}
-		return MatchBattleStatSource{AdjacentTerritories: positions}, nil
+		return MatchBattleStatSource{AdjacentTerritories: &MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: source.AdjacentTerritories.BonusPerTerritory}}, nil
 	case source.Terrain != nil:
 		element, err := NewBoardTileElement(source.Terrain.Element.String())
 		if err != nil {
 			return MatchBattleStatSource{}, err
 		}
-		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: source.Terrain.Level}}, nil
+		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: source.Terrain.Level, BonusPerLevel: source.Terrain.BonusPerLevel}}, nil
 	case source.Item != nil:
 		used := cards[domain.NewEntityRef(source.Item.Card.EntityType, source.Item.Card.ID)]
-		return MatchBattleStatSource{Item: &used}, nil
+		return MatchBattleStatSource{Item: &MatchItemSource{Card: used, AttackModifier: source.Item.AttackModifier.Int(), HitPointsModifier: source.Item.HitPointsModifier.Int()}}, nil
 	case source.Ability != nil:
 		ability, err := fromBattleAbility(source.Ability.Ability)
 		if err != nil {
 			return MatchBattleStatSource{}, err
 		}
-		return MatchBattleStatSource{Ability: &MatchAbilitySource{Ability: ability}}, nil
+		return MatchBattleStatSource{Ability: &MatchAbilitySource{Ability: ability, AttackModifier: source.Ability.AttackModifier.Int(), HitPointsModifier: source.Ability.HitPointsModifier.Int()}}, nil
 	default:
 		return MatchBattleStatSource{}, fmt.Errorf("query: battle stat source has no kind")
 	}

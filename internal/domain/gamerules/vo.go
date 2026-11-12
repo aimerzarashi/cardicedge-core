@@ -76,7 +76,7 @@ type Match struct {
 	RelinquishPercentage RelinquishPercentage `json:"relinquish_percentage"`
 	// 地形効果で、土地のレベル 1 あたりに守る側の HP へ足す値
 	TerrainBonusPerLevel TerrainBonusPerLevel `json:"terrain_bonus_per_level"`
-	// 支援で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
+	// 支援効果で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
 	AdjacentTerritoryBonus AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
 	// 土地の属性を変える費用の、基本の値に掛ける倍率
 	LandElementChangeMultiplier LandElementChangeMultiplier `json:"land_element_change_multiplier"`
@@ -253,7 +253,7 @@ func (t TerrainBonusPerLevel) Int() int {
 	return int(t)
 }
 
-// 支援の、隣の領地 1 つあたりの AT。1 以上
+// 支援効果の、隣の領地 1 つあたりの AT。1 以上
 type AdjacentTerritoryBonus int
 
 func NewAdjacentTerritoryBonus(value int) (AdjacentTerritoryBonus, error) {

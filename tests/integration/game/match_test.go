@@ -3,6 +3,7 @@ package game_test
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -421,10 +422,10 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 					side attackDelta hitPointsDelta attack hitPoints
 					source {
 						__typename
-						... on MatchAdjacentTerritoriesSource { positions { x y } }
-						... on MatchTerrainSource { element level }
-						... on MatchItemSource { card { id name } }
-						... on MatchAbilitySource { ability }
+						... on MatchAdjacentTerritoriesSource { positions { x y } bonusPerTerritory }
+						... on MatchTerrainSource { element level bonusPerLevel }
+						... on MatchItemSource { card { id name } attackModifier hitPointsModifier }
+						... on MatchAbilitySource { ability attackModifier hitPointsModifier }
 					}
 				}
 				... on MatchBattleAbilityActivatedEvent { side ability }
@@ -947,6 +948,8 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			movingFrom = nil
 		case "MatchTerritoryRelinquishedEvent":
 			delete(expected, key(event["position"]))
+		case "MatchBattleStatModifiedEvent":
+			requireStatDeltaMatchesSource(t, event)
 		}
 	}
 	// 土地が 2 つあるボードで 10 ラウンド進めるので、誰かが配置している
@@ -985,4 +988,26 @@ func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
 	require.Empty(t, m["invadeChoices"])
 	require.Empty(t, m["itemChoices"])
 	require.Nil(t, m["invasion"])
+}
+
+// 増減が出どころの根拠から説明できる（下限の 0 で止まったときは、根拠の値より小さくなる）
+func requireStatDeltaMatchesSource(t *testing.T, event map[string]any) {
+	t.Helper()
+	source := event["source"].(map[string]any)
+	attackDelta, hitPointsDelta := event["attackDelta"].(float64), event["hitPointsDelta"].(float64)
+	switch source["__typename"] {
+	case "MatchAdjacentTerritoriesSource":
+		require.Equal(t, float64(len(source["positions"].([]any)))*source["bonusPerTerritory"].(float64), attackDelta)
+	case "MatchTerrainSource":
+		require.Equal(t, source["level"].(float64)*source["bonusPerLevel"].(float64), hitPointsDelta)
+	case "MatchItemSource", "MatchAbilitySource":
+		require.LessOrEqual(t, math.Abs(attackDelta), math.Abs(source["attackModifier"].(float64)))
+		require.LessOrEqual(t, math.Abs(hitPointsDelta), math.Abs(source["hitPointsModifier"].(float64)))
+		if source["attackModifier"].(float64) >= 0 {
+			require.Equal(t, source["attackModifier"], attackDelta)
+		}
+		if source["hitPointsModifier"].(float64) >= 0 {
+			require.Equal(t, source["hitPointsModifier"], hitPointsDelta)
+		}
+	}
 }

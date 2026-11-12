@@ -1299,14 +1299,20 @@ func (Match) IsMatchResult() {}
 type MatchAbilitySource struct {
 	// 発動した能力（今は BATTLE_MODIFIER）
 	Ability CreatureAbilityKind `json:"ability"`
+	// 戦闘中の AT の増減の決まった値（下限で止まる前の値）
+	AttackModifier int `json:"attackModifier"`
+	// 戦闘中の HP の増減の決まった値（下限で止まる前の値）
+	HitPointsModifier int `json:"hitPointsModifier"`
 }
 
 func (MatchAbilitySource) IsMatchBattleStatSource() {}
 
-// 支援（侵略先の隣にある、攻める側の領地）
+// 支援効果（侵略先の隣にある、攻める側の領地）
 type MatchAdjacentTerritoriesSource struct {
 	// 隣の領地の位置
 	Positions []*BoardPosition `json:"positions"`
+	// 隣の領地 1 つあたりの AT の増加
+	BonusPerTerritory int `json:"bonusPerTerritory"`
 }
 
 func (MatchAdjacentTerritoriesSource) IsMatchBattleStatSource() {}
@@ -2058,6 +2064,10 @@ func (this MatchItemSkippedEvent) GetChanges() *MatchEventChanges { return this.
 type MatchItemSource struct {
 	// アイテムのカード（性能は対戦を始めたときの写し）
 	Card CardInfo `json:"card"`
+	// アイテムの決まった AT の増減（下限で止まる前の値）
+	AttackModifier int `json:"attackModifier"`
+	// アイテムの決まった HP の増減（下限で止まる前の値）
+	HitPointsModifier int `json:"hitPointsModifier"`
 }
 
 func (MatchItemSource) IsMatchBattleStatSource() {}
@@ -2589,6 +2599,8 @@ type MatchTerrainSource struct {
 	Element BoardTileElement `json:"element"`
 	// 土地のレベル
 	Level int `json:"level"`
+	// レベル 1 つあたりの HP の増加
+	BonusPerLevel int `json:"bonusPerLevel"`
 }
 
 func (MatchTerrainSource) IsMatchBattleStatSource() {}

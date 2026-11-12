@@ -17,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
@@ -286,17 +287,17 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 	}
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
-		modified(17, match.BattleSideAttacker, match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 1, 0)}), 10, 0),
-		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101)), 25, 0),
-		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2), 0, 20),
-		modified(20, match.BattleSideDefender, match.NewAbilitySource(match.BattleAbilityBattleModifier), 0, 5),
+		modified(17, match.BattleSideAttacker, match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 1, 0)}, 10), 10, 0),
+		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101), item.NewAttackModifier(25), item.NewHitPointsModifier(0)), 25, 0),
+		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2, 10), 0, 20),
+		modified(20, match.BattleSideDefender, match.NewAbilitySource(match.BattleAbilityBattleModifier, creature.NewAttackModifier(0), creature.NewHitPointsModifier(5)), 0, 5),
 	))
 	dragon := placedDragon(f.cardID)
-	adjacent := query.MatchBattleStatSource{AdjacentTerritories: []query.BoardPosition{query.NewBoardPosition(1, 0)}}
-	usedItem := query.MatchBattleStatSource{Item: &dragon}
-	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2}}
+	adjacent := query.MatchBattleStatSource{AdjacentTerritories: &query.MatchAdjacentTerritoriesSource{Positions: []query.BoardPosition{query.NewBoardPosition(1, 0)}, BonusPerTerritory: 10}}
+	usedItem := query.MatchBattleStatSource{Item: &query.MatchItemSource{Card: dragon, AttackModifier: 25}}
+	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2, BonusPerLevel: 10}}
 
-	ability := query.MatchBattleStatSource{Ability: &query.MatchAbilitySource{Ability: query.MatchBattleAbilityBattleModifier}}
+	ability := query.MatchBattleStatSource{Ability: &query.MatchAbilitySource{Ability: query.MatchBattleAbilityBattleModifier, HitPointsModifier: 5}}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
 
