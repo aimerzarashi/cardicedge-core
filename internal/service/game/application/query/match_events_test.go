@@ -147,11 +147,11 @@ func sampleEvents(t *testing.T) []match.Event {
 		&match.TurnOrderDecidedEvent{EventMeta: eventMeta(t, 2), Order: []match.ParticipantIndex{by, matchtest.Index(t, 0)}},
 		&match.DecksShuffledEvent{EventMeta: eventMeta(t, 3), DrawPiles: [][]card.Ref{{dragon, dragon, dragon}, {dragon, dragon, dragon}}},
 		&match.HandsDealtEvent{EventMeta: eventMeta(t, 4), Cards: 1},
-		&match.CardDrawnEvent{EventMeta: eventMeta(t, 5), Participant: by, Card: dragon},
+		&match.CardDrawnEvent{EventMeta: eventMeta(t, 5), Participant: by},
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 6), Participant: by, Value: 2},
 		&match.MovedEvent{EventMeta: eventMeta(t, 7), Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.MovedEvent{EventMeta: eventMeta(t, 8), Participant: by, To: boardtest.Position(t, 2, 0)},
-		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 9), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 1), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 9), Participant: by, Creature: matchtest.PlacedCreatureID(t, 1), Cost: cardtest.Cost(t, 10)},
 		&match.MatchEndedEvent{EventMeta: eventMeta(t, 10), Winners: []match.ParticipantIndex{by}, Ranks: []int{2, 1}, Reason: match.EndReasonRoundLimit},
 	}
 }
@@ -194,13 +194,12 @@ func TestMatchEventsHandler_ShowsTheStartWithoutTheDeckOrder(t *testing.T) {
 // 配置で連鎖が増えると、前からある領地の価値と通行料も、その版の変わった値に入る
 func TestMatchEventsHandler_ChangesIncludeEarlierTerritoriesWhoseChainGrew(t *testing.T) {
 	by := matchtest.Index(t, 1)
-	dragon := cardtest.CreatureRef(t, 101)
 	f := newEventsFixture(t, append(sampleEvents(t)[:9],
 		&match.TurnEndedEvent{EventMeta: eventMeta(t, 10), Participant: by},
 		&match.TurnEndedEvent{EventMeta: eventMeta(t, 11), Participant: matchtest.Index(t, 0)},
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 12), Participant: by, Value: 1},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: by, To: boardtest.Position(t, 3, 0)},
-		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Creature: matchtest.PlacedCreatureID(t, 2), Cost: cardtest.Cost(t, 10)},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
@@ -213,7 +212,6 @@ func TestMatchEventsHandler_ChangesIncludeEarlierTerritoriesWhoseChainGrew(t *te
 // 別の属性の領地ができても、連鎖が変わらない領地は入らない
 func TestMatchEventsHandler_ChangesLeaveOutTerritoriesThatDidNotChange(t *testing.T) {
 	by := matchtest.Index(t, 1)
-	dragon := cardtest.CreatureRef(t, 101)
 	events := sampleEvents(t)[:9]
 	lined := lineBoard(t)
 	lined.Tiles[3] = boardtest.Tile(t, 3, 0, "land", "water")
@@ -223,7 +221,7 @@ func TestMatchEventsHandler_ChangesLeaveOutTerritoriesThatDidNotChange(t *testin
 		&match.TurnEndedEvent{EventMeta: eventMeta(t, 11), Participant: matchtest.Index(t, 0)},
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 12), Participant: by, Value: 1},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: by, To: boardtest.Position(t, 3, 0)},
-		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Card: dragon, Creature: matchtest.PlacedCreatureID(t, 2), Position: boardtest.Position(t, 3, 0), Cost: cardtest.Cost(t, 10)},
+		&match.CreaturePlacedEvent{EventMeta: eventMeta(t, 14), Participant: by, Creature: matchtest.PlacedCreatureID(t, 2), Cost: cardtest.Cost(t, 10)},
 	))
 
 	found, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 13)
@@ -276,7 +274,7 @@ func invadingEvents(t *testing.T) []match.Event {
 		&match.DiceRolledEvent{EventMeta: eventMeta(t, 11), Participant: player, Value: 2},
 		&match.MovedEvent{EventMeta: eventMeta(t, 12), Participant: player, To: boardtest.Position(t, 1, 0)},
 		&match.MovedEvent{EventMeta: eventMeta(t, 13), Participant: player, To: boardtest.Position(t, 2, 0)},
-		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 14), Participant: player, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 2, 0), Cost: cardtest.Cost(t, 10), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
+		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 14), Participant: player, Cost: cardtest.Cost(t, 10)},
 		&match.ItemSkippedEvent{EventMeta: eventMeta(t, 15), Participant: player},
 	)
 }
@@ -382,8 +380,15 @@ func TestMatchEventsHandler_ReturnsTheActivatedBattleAbilities(t *testing.T) {
 func TestMatchEventsHandler_ReturnsTheActivatedTollMultiplier(t *testing.T) {
 	percent, err := creature.NewTollMultiplierPercent(150)
 	require.NoError(t, err)
-	f := newEventsFixture(t, append(invadingEvents(t),
-		&match.TollMultiplierActivatedEvent{EventMeta: eventMeta(t, 16), Position: boardtest.Position(t, 2, 0), Percent: percent, Toll: 60, MultipliedToll: 90},
+	abilities, err := creature.NewAbilities([]creature.Ability{creature.NewTollMultiplierAbility(percent)})
+	require.NoError(t, err)
+	loaded := invadingEvents(t)
+	// 両方の参加者が同じカード 101 を持つので、どちらの写しにも倍率を持たせる
+	for _, participant := range loaded[0].(*match.CreatedEvent).Participants {
+		participant.Cards[0].Spec.Creature.Abilities = abilities
+	}
+	f := newEventsFixture(t, append(loaded,
+		&match.TollMultiplierActivatedEvent{EventMeta: eventMeta(t, 16)},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 15)
@@ -400,7 +405,7 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 		battleStarted(t, 16),
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 18), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
-		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 19), Participant: player, Position: boardtest.Position(t, 2, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.InvasionRepelledEvent{EventMeta: eventMeta(t, 19), Participant: player, TerritoryHitPoints: creaturetest.HitPoints(t, 10)},
 	))
 	dragon := placedDragon(f.cardID)
 	stats := query.MatchBattleStats{Attack: 10, HitPoints: 20}
@@ -411,7 +416,7 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 	require.Equal(t, []query.MatchEvent{
 		query.MatchTerritoryInvadedEvent{
 			MatchEventMeta: metaAt(14, changesOf(phaseOf(query.MatchPhaseAttacking), []query.MatchTotalMagicChange{total(0, 590)})),
-			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10, DefendingCreature: 1, DefendingCreatureCard: dragon,
+			Participant:    0, Card: dragon, Position: query.NewBoardPosition(2, 0), Cost: 10, DefendingCreatureCard: dragon,
 		},
 		query.MatchItemSkippedEvent{MatchEventMeta: metaAt(15, changesOf(phaseOf(query.MatchPhaseDefending), nil)), Participant: 0},
 		query.MatchBattleStartedEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Attacker: stats, Defender: stats},
@@ -427,7 +432,7 @@ func TestMatchEventsHandler_ConqueringMovesTheTotalMagicAndTheTerritoryIntoTheCo
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 17), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 1)},
-		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 18), Participant: player, Position: boardtest.Position(t, 2, 0), DefeatedCreature: matchtest.PlacedCreatureID(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
+		&match.TerritoryConqueredEvent{EventMeta: eventMeta(t, 18), Participant: player, Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 17)
@@ -437,7 +442,7 @@ func TestMatchEventsHandler_ConqueringMovesTheTotalMagicAndTheTerritoryIntoTheCo
 		query.MatchTerritoryConqueredEvent{
 			// 奪った領地は価値が同じでも、奪った側の連鎖に新しく入るので入る（前の連鎖の数は無し）
 			MatchEventMeta: metaAt(18, changesOf(phaseOf(query.MatchPhaseEnding), []query.MatchTotalMagicChange{total(0, 690), total(1, 590)}, territoryValue(2, 100, 60, 1))),
-			Participant:    0, Position: query.NewBoardPosition(2, 0), DefeatedCreature: 1, Creature: 2, TerritoryHitPoints: 20,
+			Participant:    0, Position: query.NewBoardPosition(2, 0), Creature: 2, TerritoryHitPoints: 20,
 		},
 	}, events)
 }

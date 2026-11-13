@@ -1111,9 +1111,7 @@ type MatchTerritoryInvadedEvent implements MatchEvent {
   position: BoardPosition!
   "払った魔力"
   cost: Int!
-  "領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）"
-  defendingCreature: Int!
-  "守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
+  "領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
   defendingCreatureCard: CardInfo!
 }
 
@@ -1227,9 +1225,7 @@ type MatchTerritoryInvadedByMoveEvent implements MatchEvent {
   creature: Int!
   "動いたクリーチャーのカード（性能は対戦を始めたときの写し）"
   card: CardInfo!
-  "領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）"
-  defendingCreature: Int!
-  "守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
+  "領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
   defendingCreatureCard: CardInfo!
 }
 
@@ -1424,8 +1420,6 @@ type MatchTerritoryConqueredEvent implements MatchEvent {
   participant: Int!
   "奪った領地の位置"
   position: BoardPosition!
-  "倒されて盤面から外れたクリーチャーの ID"
-  defeatedCreature: Int!
   "領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）"
   creature: Int!
   "領地に入ったクリーチャーの体力"

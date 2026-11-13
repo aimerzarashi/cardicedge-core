@@ -149,9 +149,8 @@ func draw(r *recorder, random Random) error {
 			return err
 		}
 	}
-	pile := r.current().DrawPile
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CardDrawnEvent{EventMeta: meta, Participant: by, Card: pile[0]}
+		return &CardDrawnEvent{EventMeta: meta, Participant: by}
 	})
 }
 
@@ -162,7 +161,7 @@ func discard(r *recorder, handIndex int) error {
 		return ErrHandIndexOutOfRange
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: hand[handIndex]}
+		return &CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex}
 	}); err != nil {
 		return err
 	}
@@ -237,7 +236,7 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 	used := r.current().Hand[handIndex]
 	spec := r.state.CardSpecs()[used]
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: used, Cost: spec.Cost}
+		return &SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Cost: spec.Cost}
 	}); err != nil {
 		return err
 	}
@@ -257,7 +256,7 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 		perLap := effect.GainMagic.PerLap.Int()
 		magic := (laps + 1) * perLap
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic, Laps: laps, MagicPerLap: perLap}
+			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic}
 		})
 	}
 	if effect.RollDice != nil {
@@ -285,7 +284,7 @@ func damageCreature(r *recorder, position board.Position, damage int) error {
 	target, _ := r.state.PlacedCreature(territory.Creature)
 	remaining := target.HitPoints.Modified(-damage)
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Creature: target.ID, Damage: damage, RemainingHitPoints: remaining}
+		return &CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Damage: damage, RemainingHitPoints: remaining}
 	}); err != nil {
 		return err
 	}
@@ -293,7 +292,7 @@ func damageCreature(r *recorder, position board.Position, damage int) error {
 		return nil
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: position, Creature: target.ID}
+		return &CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: position}
 	})
 }
 
@@ -310,7 +309,7 @@ func place(r *recorder, handIndex int) error {
 	spec := r.state.CardSpecs()[ref]
 	id := r.state.LastPlacedCreatureID + 1
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Creature: id, Position: participant.Position, Cost: spec.Cost}
+		return &CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Creature: id, Cost: spec.Cost}
 	}); err != nil {
 		return err
 	}
@@ -345,18 +344,14 @@ func moveCreature(r *recorder, from, to board.Position) error {
 	if !slices.Contains(r.state.MoveChoices(), MoveChoice{From: from, To: to}) {
 		return ErrCreatureNotMovable
 	}
-	territory, ok := r.state.TerritoryAt(from)
-	if !ok {
-		return ErrInvalidState
-	}
-	if defender, occupied := r.state.TerritoryAt(to); occupied {
+	if _, occupied := r.state.TerritoryAt(to); occupied {
 		// 他人の領地へは侵略と同じ戦闘をする。アイテムを選ぶところから続ける
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: from, Position: to, Creature: territory.Creature, DefendingCreature: defender.Creature}
+			return &TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: from, Position: to}
 		})
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureMovedEvent{EventMeta: meta, Participant: by, From: from, To: to, Creature: territory.Creature}
+		return &CreatureMovedEvent{EventMeta: meta, Participant: by, From: from, To: to}
 	}); err != nil {
 		return err
 	}
@@ -370,7 +365,7 @@ func changeLandElement(r *recorder, position board.Position, element board.Eleme
 	}
 	choice := r.state.ElementChangeChoices()[index]
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &LandElementChangedEvent{EventMeta: meta, Participant: by, Position: position, Element: element, Magic: choice.Magic, BaseLandValue: r.state.Rules.BaseLandValue, Multiplier: choice.Multiplier}
+		return &LandElementChangedEvent{EventMeta: meta, Participant: by, Position: position, Element: element, Magic: choice.Magic}
 	}); err != nil {
 		return err
 	}
@@ -381,19 +376,11 @@ func exchange(r *recorder, position board.Position, handIndex int) error {
 	if !slices.ContainsFunc(r.state.ExchangeChoices(), func(choice ExchangeChoice) bool { return choice.Position == position && choice.HandIndex == handIndex }) {
 		return ErrCreatureNotExchangeable
 	}
-	territory, ok := r.state.TerritoryAt(position)
-	if !ok {
-		return ErrInvalidState
-	}
-	replaced, ok := r.state.PlacedCreature(territory.Creature)
-	if !ok {
-		return ErrInvalidState
-	}
 	ref := r.current().Hand[handIndex]
 	cost := r.state.CardSpecs()[ref].Cost
 	id := r.state.LastPlacedCreatureID + 1
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: position, HandIndex: handIndex, Card: ref, Creature: id, Cost: cost, ReturnedCard: replaced.Card}
+		return &CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: position, HandIndex: handIndex, Creature: id, Cost: cost}
 	}); err != nil {
 		return err
 	}
@@ -422,12 +409,8 @@ func invade(r *recorder, handIndex int) error {
 	participant := r.current()
 	ref := participant.Hand[handIndex]
 	cost := r.state.CardSpecs()[ref].Cost
-	defender, ok := r.state.TerritoryAt(participant.Position)
-	if !ok {
-		return ErrInvalidState
-	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Card: ref, Position: participant.Position, Cost: cost, DefendingCreature: defender.Creature}
+		return &TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Cost: cost}
 	})
 }
 
@@ -444,7 +427,7 @@ func chooseItem(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
 	ref := r.state.Participants[by].Hand[*itemHandIndex]
 	cost := r.state.CardSpecs()[ref].Cost
 	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-		return &ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: *itemHandIndex, Card: ref, Cost: cost}
+		return &ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: *itemHandIndex, Cost: cost}
 	})
 }
 
@@ -707,7 +690,7 @@ func settleBattle(r *recorder) error {
 
 // 奪ったら、配置と同じくそのままターンを終える
 func conquer(r *recorder) error {
-	territory, ok := r.state.battleTerritory()
+	_, ok := r.state.battleTerritory()
 	if !ok || r.state.Invasion == nil {
 		return ErrInvalidState
 	}
@@ -718,7 +701,7 @@ func conquer(r *recorder) error {
 	}
 	hitPoints := r.state.Battle.Attacker.territoryHitPoints()
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: territory.Position, DefeatedCreature: territory.Creature, Creature: id, TerritoryHitPoints: hitPoints}
+		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: id, TerritoryHitPoints: hitPoints}
 	}); err != nil {
 		return err
 	}
@@ -735,11 +718,11 @@ func repel(r *recorder) error {
 	invasion := *r.state.Invasion
 	survived := r.state.Battle.Attacker.Stats.HitPoints.Int() > 0
 	hitPoints := r.state.Battle.Defender.territoryHitPoints()
-	repelled := &InvasionRepelledEvent{Participant: 0, Position: invasion.Position, Card: invasion.Card, ReturnedToHand: survived && invasion.From == nil, TerritoryHitPoints: hitPoints}
+	repelled := &InvasionRepelledEvent{Participant: 0, TerritoryHitPoints: hitPoints}
 	if survived && invasion.From != nil {
 		// 移動で侵略して生き残ったクリーチャーは、元の領地に戻る（傷は残る）
-		from, returnedHitPoints := *invasion.From, r.state.Battle.Attacker.territoryHitPoints()
-		repelled.ReturnedTo, repelled.ReturnedHitPoints = &from, &returnedHitPoints
+		returnedHitPoints := r.state.Battle.Attacker.territoryHitPoints()
+		repelled.ReturnedHitPoints = &returnedHitPoints
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		event := *repelled
@@ -760,8 +743,7 @@ func payToll(r *recorder) error {
 	if !ok {
 		return ErrInvalidState
 	}
-	owner, ok := r.state.TerritoryOwner(territory)
-	if !ok {
+	if _, ok := r.state.TerritoryOwner(territory); !ok {
 		return ErrInvalidState
 	}
 	toll := r.state.TerritoryToll(territory)
@@ -770,14 +752,14 @@ func payToll(r *recorder) error {
 	if percent, ok := r.state.tollMultiplier(territory); ok {
 		multiplied := toll * percent.Int() / 100
 		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-			return &TollMultiplierActivatedEvent{EventMeta: meta, Position: territory.Position, Percent: percent, Toll: toll, MultipliedToll: multiplied}
+			return &TollMultiplierActivatedEvent{EventMeta: meta}
 		}); err != nil {
 			return err
 		}
 		toll = multiplied
 	}
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TollPaidEvent{EventMeta: meta, Participant: by, Owner: owner, Position: territory.Position, Magic: toll}
+		return &TollPaidEvent{EventMeta: meta, Participant: by, Magic: toll}
 	}); err != nil {
 		return err
 	}
@@ -808,7 +790,7 @@ func relinquish(r *recorder, position board.Position) error {
 	territory, _ := r.state.TerritoryAt(position)
 	magic := r.state.TerritoryRelinquishMagic(territory)
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: position, Creature: territory.Creature, Magic: magic}
+		return &TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: position, Magic: magic}
 	}); err != nil {
 		return err
 	}
@@ -833,7 +815,7 @@ func step(r *recorder, to board.Position) error {
 				return nil
 			}
 			return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-				return &CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: to, Magic: rules.CheckpointBonus}
+				return &CheckpointPassedEvent{EventMeta: meta, Participant: by, Magic: rules.CheckpointBonus}
 			})
 		case board.TileKindBase:
 			return enterBase(r)
@@ -918,7 +900,7 @@ func endTurn(r *recorder) error {
 	}
 	if index, _ := r.state.CurrentParticipant(); r.state.exceedsHandLimit(index) {
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &HandLimitExceededEvent{EventMeta: meta, Participant: by, HandCount: len(r.state.Participants[index].Hand), MaxHandCards: r.state.Rules.MaxHandCards.Int()}
+			return &HandLimitExceededEvent{EventMeta: meta, Participant: by}
 		})
 	}
 	// 最後のターンを終えると呪いが解ける（残るターンがあれば TurnEndedEvent で 1 減る）

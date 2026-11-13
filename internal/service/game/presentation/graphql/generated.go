@@ -910,7 +910,6 @@ type ComplexityRoot struct {
 	MatchTerritoryConqueredEvent struct {
 		Changes            func(childComplexity int) int
 		Creature           func(childComplexity int) int
-		DefeatedCreature   func(childComplexity int) int
 		OccurredAt         func(childComplexity int) int
 		Participant        func(childComplexity int) int
 		Position           func(childComplexity int) int
@@ -922,7 +921,6 @@ type ComplexityRoot struct {
 		Card                  func(childComplexity int) int
 		Changes               func(childComplexity int) int
 		Creature              func(childComplexity int) int
-		DefendingCreature     func(childComplexity int) int
 		DefendingCreatureCard func(childComplexity int) int
 		From                  func(childComplexity int) int
 		OccurredAt            func(childComplexity int) int
@@ -935,7 +933,6 @@ type ComplexityRoot struct {
 		Card                  func(childComplexity int) int
 		Changes               func(childComplexity int) int
 		Cost                  func(childComplexity int) int
-		DefendingCreature     func(childComplexity int) int
 		DefendingCreatureCard func(childComplexity int) int
 		HandIndex             func(childComplexity int) int
 		OccurredAt            func(childComplexity int) int
@@ -4467,12 +4464,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryConqueredEvent.Creature(childComplexity), true
-	case "MatchTerritoryConqueredEvent.defeatedCreature":
-		if e.ComplexityRoot.MatchTerritoryConqueredEvent.DefeatedCreature == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryConqueredEvent.DefeatedCreature(childComplexity), true
 	case "MatchTerritoryConqueredEvent.occurredAt":
 		if e.ComplexityRoot.MatchTerritoryConqueredEvent.OccurredAt == nil {
 			break
@@ -4522,12 +4513,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.Creature(childComplexity), true
-	case "MatchTerritoryInvadedByMoveEvent.defendingCreature":
-		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreature == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreature(childComplexity), true
 	case "MatchTerritoryInvadedByMoveEvent.defendingCreatureCard":
 		if e.ComplexityRoot.MatchTerritoryInvadedByMoveEvent.DefendingCreatureCard == nil {
 			break
@@ -4583,12 +4568,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchTerritoryInvadedEvent.Cost(childComplexity), true
-	case "MatchTerritoryInvadedEvent.defendingCreature":
-		if e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreature == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreature(childComplexity), true
 	case "MatchTerritoryInvadedEvent.defendingCreatureCard":
 		if e.ComplexityRoot.MatchTerritoryInvadedEvent.DefendingCreatureCard == nil {
 			break
@@ -20277,29 +20256,6 @@ func (ec *executionContext) fieldContext_MatchTerritoryConqueredEvent_position(_
 	return fc, nil
 }
 
-func (ec *executionContext) _MatchTerritoryConqueredEvent_defeatedCreature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryConqueredEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryConqueredEvent_defeatedCreature(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DefeatedCreature, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryConqueredEvent_defeatedCreature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryConqueredEvent", field, false, false, "Int")
-}
-
 func (ec *executionContext) _MatchTerritoryConqueredEvent_creature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryConqueredEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20566,29 +20522,6 @@ func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_card(_
 	return fc, nil
 }
 
-func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedByMoveEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DefendingCreature, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryInvadedByMoveEvent_defendingCreature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryInvadedByMoveEvent", field, false, false, "Int")
-}
-
 func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedByMoveEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20829,29 +20762,6 @@ func (ec *executionContext) _MatchTerritoryInvadedEvent_cost(ctx context.Context
 	)
 }
 func (ec *executionContext) fieldContext_MatchTerritoryInvadedEvent_cost(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchTerritoryInvadedEvent", field, false, false, "Int")
-}
-
-func (ec *executionContext) _MatchTerritoryInvadedEvent_defendingCreature(ctx context.Context, field graphql.CollectedField, obj *model.MatchTerritoryInvadedEvent) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTerritoryInvadedEvent_defendingCreature(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DefendingCreature, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTerritoryInvadedEvent_defendingCreature(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchTerritoryInvadedEvent", field, false, false, "Int")
 }
 
@@ -38314,11 +38224,6 @@ func (ec *executionContext) _MatchTerritoryConqueredEvent(ctx context.Context, s
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "defeatedCreature":
-			out.Values[i] = ec._MatchTerritoryConqueredEvent_defeatedCreature(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "creature":
 			out.Values[i] = ec._MatchTerritoryConqueredEvent_creature(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38397,11 +38302,6 @@ func (ec *executionContext) _MatchTerritoryInvadedByMoveEvent(ctx context.Contex
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "defendingCreature":
-			out.Values[i] = ec._MatchTerritoryInvadedByMoveEvent_defendingCreature(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "defendingCreatureCard":
 			out.Values[i] = ec._MatchTerritoryInvadedByMoveEvent_defendingCreatureCard(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38472,11 +38372,6 @@ func (ec *executionContext) _MatchTerritoryInvadedEvent(ctx context.Context, sel
 			}
 		case "cost":
 			out.Values[i] = ec._MatchTerritoryInvadedEvent_cost(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "defendingCreature":
-			out.Values[i] = ec._MatchTerritoryInvadedEvent_defendingCreature(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
