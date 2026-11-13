@@ -23,7 +23,7 @@ func DrawCards(t testing.TB, count int) spell.Effect {
 	t.Helper()
 	drawCount, err := spell.NewDrawCount(count)
 	require.NoError(t, err)
-	return spell.NewDrawCardsEffect(drawCount)
+	return spell.NewDrawCardsSpellEffect(drawCount)
 }
 
 // 魔力を得る効果
@@ -31,25 +31,30 @@ func GainMagic(t testing.TB, perLap int) spell.Effect {
 	t.Helper()
 	value, err := spell.NewMagicPerLap(perLap)
 	require.NoError(t, err)
-	return spell.NewGainMagicEffect(value)
+	return spell.NewGainMagicSpellEffect(value)
 }
 
 // サイコロを複数振る効果
-func RollDice(t testing.TB, count int) spell.Effect {
+func MultipleDice(t testing.TB, count, turns int) spell.Effect {
 	t.Helper()
 	value, err := spell.NewDiceCount(count)
 	require.NoError(t, err)
-	return spell.NewRollDiceEffect(value)
+	return spell.NewMultipleDiceSpellEffect(value, effectTurns(t, turns))
 }
 
-// 次のサイコロの目を決める呪いの効果
-func FixedDiceCurse(t testing.TB, value, turns int) spell.Effect {
+// サイコロの目を固定する効果
+func FixedDice(t testing.TB, value, turns int) spell.Effect {
 	t.Helper()
 	face, err := spell.NewDiceFace(value)
 	require.NoError(t, err)
-	curseTurns, err := spell.NewCurseTurns(turns)
+	return spell.NewFixedDiceSpellEffect(face, effectTurns(t, turns))
+}
+
+func effectTurns(t testing.TB, turns int) spell.EffectTurns {
+	t.Helper()
+	value, err := spell.NewEffectTurns(turns)
 	require.NoError(t, err)
-	return spell.NewFixedDiceCurseEffect(face, curseTurns)
+	return value
 }
 
 // 対象のクリーチャーにダメージの効果
@@ -57,5 +62,5 @@ func Damage(t testing.TB, amount int) spell.Effect {
 	t.Helper()
 	value, err := spell.NewDamageAmount(amount)
 	require.NoError(t, err)
-	return spell.NewDamageEffect(value)
+	return spell.NewDamageSpellEffect(value)
 }

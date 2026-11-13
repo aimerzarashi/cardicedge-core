@@ -68,24 +68,18 @@ type MatchSpellChoice struct {
 	TargetPositions []BoardPosition
 }
 
-// プレイヤーにかかっている呪い。効き方は種類ごとの値のどれか 1 つ（今は次のサイコロの目だけ）
-type MatchCurse struct {
-	// 次のサイコロの目（目を決める呪いのときだけ）
-	FixedDice *int
-	// 解けるまでのターン数
+// 参加者に続いているスペルの効果。Effect は使ったスペルの効果（カードの効果と同じ形）
+type MatchLastingSpellEffect struct {
+	Effect SpellEffect
+	// 終わるまでのターン数
 	RemainingTurns int
 }
 
-func fromCurse(curse *match.Curse) *MatchCurse {
-	if curse == nil {
+func fromLastingSpellEffect(lasting *match.LastingSpellEffect) *MatchLastingSpellEffect {
+	if lasting == nil {
 		return nil
 	}
-	converted := &MatchCurse{RemainingTurns: curse.Expiry.RemainingTurns}
-	if curse.FixedDice != nil {
-		value := curse.FixedDice.Value
-		converted.FixedDice = &value
-	}
-	return converted
+	return &MatchLastingSpellEffect{Effect: fromSpellEffect(lasting.Effect), RemainingTurns: lasting.RemainingTurns}
 }
 
 // 手札のカード 1 枚。名前と種類は写した cards から引く
@@ -148,8 +142,8 @@ type MatchParticipant struct {
 	TurnOrder   int
 	// 拠点を出てから印を付けたチェックポイントの位置
 	PassedCheckpoints []BoardPosition
-	// かかっている呪い（無ければ nil）
-	Curse *MatchCurse
+	// 続いているスペルの効果（無ければ nil）
+	LastingSpellEffect *MatchLastingSpellEffect
 	// 戦利品を受け取ったか（プレイヤーだけ。NPC は受け取らないので、いつも false）
 	RewardReceived bool
 	// 受け取った戦利品のカード（受け取るまでは空）
@@ -368,8 +362,8 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			Position:   BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
 			TotalMagic: totals[i],
 			Magic:      participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
-			PassedCheckpoints: fromBoardPositions(participant.PassedCheckpoints),
-			Curse:             fromCurse(participant.Curse),
+			PassedCheckpoints:  fromBoardPositions(participant.PassedCheckpoints),
+			LastingSpellEffect: fromLastingSpellEffect(participant.LastingSpellEffect),
 		}
 		switch {
 		case participant.Participant.Player != nil:
@@ -732,11 +726,11 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 	if effect.GainMagic != nil {
 		converted.GainMagic = &SpellGainMagic{PerLap: effect.GainMagic.PerLap.Int()}
 	}
-	if effect.RollDice != nil {
-		converted.RollDice = &SpellRollDice{Count: effect.RollDice.Count.Int()}
+	if effect.MultipleDice != nil {
+		converted.MultipleDice = &SpellMultipleDice{Count: effect.MultipleDice.Count.Int(), Turns: effect.MultipleDice.Turns.Int()}
 	}
-	if effect.FixedDiceCurse != nil {
-		converted.FixedDiceCurse = &SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value.Int(), Turns: effect.FixedDiceCurse.Turns.Int()}
+	if effect.FixedDice != nil {
+		converted.FixedDice = &SpellFixedDice{Value: effect.FixedDice.Value.Int(), Turns: effect.FixedDice.Turns.Int()}
 	}
 	if effect.Damage != nil {
 		converted.Damage = &SpellDamage{Amount: effect.Damage.Amount.Int()}

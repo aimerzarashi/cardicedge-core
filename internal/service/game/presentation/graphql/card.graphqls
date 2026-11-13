@@ -150,38 +150,41 @@ type SpellCardInfo implements CardInfo {
   effect: SpellEffect
 }
 
-# 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする
-"スペルの効果（種類は __typename で見分ける）"
-union SpellEffect = SpellDrawCardsEffect | SpellGainMagicEffect | SpellRollDiceEffect | SpellFixedDiceCurseEffect | SpellDamageEffect
+# 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする。
+# 型の名前は XxxSpellEffect にそろえる（2026-11-13 オーナー。core#173）
+"スペルの効果（種類は __typename で見分ける。スペルは使ったときに発動する）"
+union SpellEffect = DrawCardsSpellEffect | GainMagicSpellEffect | MultipleDiceSpellEffect | FixedDiceSpellEffect | DamageSpellEffect
 
 "カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）"
-type SpellDrawCardsEffect {
+type DrawCardsSpellEffect {
   "引く枚数（1 以上）"
   count: Int!
 }
 
 "魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）"
-type SpellGainMagicEffect {
+type GainMagicSpellEffect {
   "周回数 1 つあたりの魔力（1 以上）"
   perLap: Int!
 }
 
-"サイコロを複数振る効果（使った人は、そのターンのサイコロを count 個同時に振り、合計の分だけ進む）"
-type SpellRollDiceEffect {
+"サイコロを複数振る効果（対象のプレイヤーが振るとき、count 個を同時に振り、合計の分だけ進む。turns ターン効き続ける）"
+type MultipleDiceSpellEffect {
   "振るサイコロの個数（2 以上）"
   count: Int!
+  "効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）"
+  turns: Int!
 }
 
-"次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）"
-type SpellFixedDiceCurseEffect {
-  "決める目（1 以上）"
+"サイコロの目を固定する効果（対象のプレイヤーが振るとき、目は value になる。turns ターン効き続ける）"
+type FixedDiceSpellEffect {
+  "固定する目（1 以上）"
   value: Int!
-  "解けるまでのターン数（1 以上。かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）"
+  "効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）"
   turns: Int!
 }
 
 "対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）"
-type SpellDamageEffect {
+type DamageSpellEffect {
   "ダメージ（1 以上）"
   amount: Int!
 }

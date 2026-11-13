@@ -23,6 +23,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 )
 
@@ -173,6 +174,26 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 			Participant:    1, Card: dragon, Creature: 1, Position: query.NewBoardPosition(2, 0), Cost: 10,
 		},
 		query.MatchEndedEvent{MatchEventMeta: metaAt(10, changesOf(phaseOf(query.MatchPhaseEnded), nil)), Winners: []int{1}, Ranks: []int{2, 1}, Reason: query.MatchEndReasonRoundLimit},
+	}, events)
+}
+
+// 振るときに効いたスペルの効果は、イベントに持たず、振る直前の状態から作る（core#173）
+func TestMatchEventsHandler_DiceRolledShowsTheLastingSpellEffectBeforeTheRoll(t *testing.T) {
+	by := matchtest.Index(t, 1)
+	started := match.LastingSpellEffect{Effect: spelltest.FixedDice(t, 6, 1), RemainingTurns: 1}
+	f := newEventsFixture(t, append(sampleEvents(t)[:5],
+		&match.SpellEffectStartedEvent{EventMeta: eventMeta(t, 6), Participant: by, Target: by, Effect: started},
+		&match.DiceRolledEvent{EventMeta: eventMeta(t, 7), Participant: by, Value: 6},
+	))
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 5)
+
+	require.NoError(t, err)
+	effect := query.SpellEffect{FixedDice: &query.SpellFixedDice{Value: 6, Turns: 1}}
+	lasting := query.MatchLastingSpellEffect{Effect: effect, RemainingTurns: 1}
+	require.Equal(t, []query.MatchEvent{
+		query.MatchSpellEffectStartedEvent{MatchEventMeta: metaAt(6, changesOf(phaseOf(query.MatchPhaseRolling), nil)), Participant: 1, Target: 1, Effect: lasting},
+		query.MatchDiceRolledEvent{MatchEventMeta: metaAt(7, changesOf(nil, nil)), Participant: 1, Value: 6, Dice: []int{}, SpellEffect: &effect},
 	}, events)
 }
 

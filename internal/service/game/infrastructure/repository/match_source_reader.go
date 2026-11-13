@@ -310,11 +310,11 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 			if effect.GainMagic != nil {
 				spec.Spell.GainMagic = &master.SpellGainMagic{PerLap: effect.GainMagic.PerLap}
 			}
-			if effect.RollDice != nil {
-				spec.Spell.RollDice = &master.SpellRollDice{Count: effect.RollDice.Count}
+			if effect.MultipleDice != nil {
+				spec.Spell.MultipleDice = &master.SpellMultipleDice{Count: effect.MultipleDice.Count, Turns: effect.MultipleDice.Turns}
 			}
-			if effect.FixedDiceCurse != nil {
-				spec.Spell.FixedDiceCurse = &master.SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
+			if effect.FixedDice != nil {
+				spec.Spell.FixedDice = &master.SpellFixedDice{Value: effect.FixedDice.Value, Turns: effect.FixedDice.Turns}
 			}
 			if effect.Damage != nil {
 				spec.Spell.Damage = &master.SpellDamage{Amount: effect.Damage.Amount}

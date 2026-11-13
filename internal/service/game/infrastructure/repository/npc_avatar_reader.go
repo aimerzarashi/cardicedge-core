@@ -70,13 +70,14 @@ type spellEffectMetadata struct {
 	GainMagic *struct {
 		PerLap int `json:"per_lap"`
 	} `json:"gain_magic"`
-	RollDice *struct {
+	MultipleDice *struct {
 		Count int `json:"count"`
-	} `json:"roll_dice"`
-	FixedDiceCurse *struct {
+		Turns int `json:"turns"`
+	} `json:"multiple_dice"`
+	FixedDice *struct {
 		Value int `json:"value"`
 		Turns int `json:"turns"`
-	} `json:"fixed_dice_curse"`
+	} `json:"fixed_dice"`
 	Damage *struct {
 		Amount int `json:"amount"`
 	} `json:"damage"`
@@ -298,11 +299,11 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 		if spellSpec.Effect.GainMagic != nil {
 			effect.GainMagic = &query.SpellGainMagic{PerLap: spellSpec.Effect.GainMagic.PerLap}
 		}
-		if spellSpec.Effect.RollDice != nil {
-			effect.RollDice = &query.SpellRollDice{Count: spellSpec.Effect.RollDice.Count}
+		if spellSpec.Effect.MultipleDice != nil {
+			effect.MultipleDice = &query.SpellMultipleDice{Count: spellSpec.Effect.MultipleDice.Count, Turns: spellSpec.Effect.MultipleDice.Turns}
 		}
-		if curse := spellSpec.Effect.FixedDiceCurse; curse != nil {
-			effect.FixedDiceCurse = &query.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
+		if fixed := spellSpec.Effect.FixedDice; fixed != nil {
+			effect.FixedDice = &query.SpellFixedDice{Value: fixed.Value, Turns: fixed.Turns}
 		}
 		if damage := spellSpec.Effect.Damage; damage != nil {
 			effect.Damage = &query.SpellDamage{Amount: damage.Amount}

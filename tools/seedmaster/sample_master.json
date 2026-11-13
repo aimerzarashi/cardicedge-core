@@ -342,7 +342,7 @@
       "cost": 30,
       "rarity": "normal",
       "effect": {
-        "fixed_dice_curse": {
+        "fixed_dice": {
           "value": 1,
           "turns": 1
         }
@@ -354,7 +354,7 @@
       "cost": 50,
       "rarity": "normal",
       "effect": {
-        "fixed_dice_curse": {
+        "fixed_dice": {
           "value": 6,
           "turns": 1
         }
@@ -366,8 +366,9 @@
       "cost": 50,
       "rarity": "strange",
       "effect": {
-        "roll_dice": {
-          "count": 2
+        "multiple_dice": {
+          "count": 2,
+          "turns": 1
         }
       }
     },

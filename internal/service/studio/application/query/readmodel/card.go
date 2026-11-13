@@ -117,20 +117,18 @@ type SpellMetadata struct {
 
 // スペルの効果。domain の spell.Effect と同じ形（持っている種類の名前の下に値を入れ、効果なしは {}）。種類ごとの型を分けるのも同じ（2026-11-10 オーナー）
 type SpellEffectMetadata struct {
-	DrawCards *SpellDrawCardsMetadata `json:"draw_cards,omitempty"`
-	GainMagic *SpellGainMagicMetadata `json:"gain_magic,omitempty"`
-	RollDice  *SpellRollDiceMetadata  `json:"roll_dice,omitempty"`
-	// 対象のプレイヤーにかける呪い
-	FixedDiceCurse *SpellFixedDiceCurseMetadata `json:"fixed_dice_curse,omitempty"`
-	// 対象のクリーチャーにダメージ
-	Damage *SpellDamageMetadata `json:"damage,omitempty"`
+	DrawCards    *SpellDrawCardsMetadata    `json:"draw_cards,omitempty"`
+	GainMagic    *SpellGainMagicMetadata    `json:"gain_magic,omitempty"`
+	MultipleDice *SpellMultipleDiceMetadata `json:"multiple_dice,omitempty"`
+	FixedDice    *SpellFixedDiceMetadata    `json:"fixed_dice,omitempty"`
+	Damage       *SpellDamageMetadata       `json:"damage,omitempty"`
 }
 
 type SpellDamageMetadata struct {
 	Amount int `json:"amount"`
 }
 
-type SpellFixedDiceCurseMetadata struct {
+type SpellFixedDiceMetadata struct {
 	Value int `json:"value"`
 	Turns int `json:"turns"`
 }
@@ -143,8 +141,9 @@ type SpellGainMagicMetadata struct {
 	PerLap int `json:"per_lap"`
 }
 
-type SpellRollDiceMetadata struct {
+type SpellMultipleDiceMetadata struct {
 	Count int `json:"count"`
+	Turns int `json:"turns"`
 }
 
 // クリーチャーの能力。domain の creature.Ability と同じ形（持っている種類の名前の下に値を置く）
@@ -210,11 +209,11 @@ func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
 	if effect.GainMagic != nil {
 		metadata.GainMagic = &SpellGainMagicMetadata{PerLap: effect.GainMagic.PerLap.Int()}
 	}
-	if effect.RollDice != nil {
-		metadata.RollDice = &SpellRollDiceMetadata{Count: effect.RollDice.Count.Int()}
+	if effect.MultipleDice != nil {
+		metadata.MultipleDice = &SpellMultipleDiceMetadata{Count: effect.MultipleDice.Count.Int(), Turns: effect.MultipleDice.Turns.Int()}
 	}
-	if effect.FixedDiceCurse != nil {
-		metadata.FixedDiceCurse = &SpellFixedDiceCurseMetadata{Value: effect.FixedDiceCurse.Value.Int(), Turns: effect.FixedDiceCurse.Turns.Int()}
+	if effect.FixedDice != nil {
+		metadata.FixedDice = &SpellFixedDiceMetadata{Value: effect.FixedDice.Value.Int(), Turns: effect.FixedDice.Turns.Int()}
 	}
 	if effect.Damage != nil {
 		metadata.Damage = &SpellDamageMetadata{Amount: effect.Damage.Amount.Int()}

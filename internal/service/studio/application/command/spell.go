@@ -144,20 +144,18 @@ func (c *SpellHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision 
 
 // スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の spell.Effect と同じ形）
 type SpellEffect struct {
-	DrawCards *SpellDrawCards
-	GainMagic *SpellGainMagic
-	RollDice  *SpellRollDice
-	// 対象のプレイヤーにかける呪い
-	FixedDiceCurse *SpellFixedDiceCurse
-	// 対象のクリーチャーにダメージ
-	Damage *SpellDamage
+	DrawCards    *SpellDrawCards
+	GainMagic    *SpellGainMagic
+	MultipleDice *SpellMultipleDice
+	FixedDice    *SpellFixedDice
+	Damage       *SpellDamage
 }
 
 type SpellDamage struct {
 	Amount int
 }
 
-type SpellFixedDiceCurse struct {
+type SpellFixedDice struct {
 	Value int
 	Turns int
 }
@@ -170,13 +168,14 @@ type SpellGainMagic struct {
 	PerLap int
 }
 
-type SpellRollDice struct {
+type SpellMultipleDice struct {
 	Count int
+	Turns int
 }
 
 // 効果を変える（準備中だけ）。変えた後の効果の全体を受け取り、どの種類も無ければ効果なしにする。同じ値なら変わらず、revision も進まない。
-// 値が下限より小さいのは input.Errors（項目は effect.drawCards.count・effect.gainMagic.perLap・effect.rollDice.count・
-// effect.fixedDiceCurse.value・effect.fixedDiceCurse.turns・effect.damage.amount）。
+// 値が下限より小さいのは input.Errors（項目は effect.drawCards.count・effect.gainMagic.perLap・effect.multipleDice.count・
+// effect.multipleDice.turns・effect.fixedDice.value・effect.fixedDice.turns・effect.damage.amount）。
 // 種類が 2 つ以上あるのはコードの誤り（presentation 層が 1 つだけを渡す）。ほかのエラーは ChangeCost と同じ
 func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect SpellEffect) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
@@ -197,39 +196,47 @@ func newSpellEffect(effect SpellEffect) (spell.Effect, error) {
 		if err != nil {
 			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
 		}
-		return spell.NewDrawCardsEffect(count), nil
+		return spell.NewDrawCardsSpellEffect(count), nil
 	case effect.GainMagic != nil:
 		perLap, err := spell.NewMagicPerLap(effect.GainMagic.PerLap)
 		if err != nil {
 			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}
 		}
-		return spell.NewGainMagicEffect(perLap), nil
-	case effect.RollDice != nil:
-		count, err := spell.NewDiceCount(effect.RollDice.Count)
-		if err != nil {
-			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.rollDice.count", Min: 2}}
-		}
-		return spell.NewRollDiceEffect(count), nil
-	case effect.FixedDiceCurse != nil:
+		return spell.NewGainMagicSpellEffect(perLap), nil
+	case effect.MultipleDice != nil:
 		invalid := input.Errors{}
-		value, valueErr := spell.NewDiceFace(effect.FixedDiceCurse.Value)
-		if valueErr != nil {
-			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDiceCurse.value", Min: 1})
+		count, countErr := spell.NewDiceCount(effect.MultipleDice.Count)
+		if countErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.count", Min: 2})
 		}
-		turns, turnsErr := spell.NewCurseTurns(effect.FixedDiceCurse.Turns)
+		turns, turnsErr := spell.NewEffectTurns(effect.MultipleDice.Turns)
 		if turnsErr != nil {
-			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDiceCurse.turns", Min: 1})
+			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.turns", Min: 1})
 		}
 		if len(invalid) > 0 {
 			return spell.Effect{}, invalid
 		}
-		return spell.NewFixedDiceCurseEffect(value, turns), nil
+		return spell.NewMultipleDiceSpellEffect(count, turns), nil
+	case effect.FixedDice != nil:
+		invalid := input.Errors{}
+		value, valueErr := spell.NewDiceFace(effect.FixedDice.Value)
+		if valueErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.value", Min: 1})
+		}
+		turns, turnsErr := spell.NewEffectTurns(effect.FixedDice.Turns)
+		if turnsErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.turns", Min: 1})
+		}
+		if len(invalid) > 0 {
+			return spell.Effect{}, invalid
+		}
+		return spell.NewFixedDiceSpellEffect(value, turns), nil
 	case effect.Damage != nil:
 		amount, err := spell.NewDamageAmount(effect.Damage.Amount)
 		if err != nil {
 			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}
 		}
-		return spell.NewDamageEffect(amount), nil
+		return spell.NewDamageSpellEffect(amount), nil
 	default:
 		return spell.NoEffect(), nil
 	}

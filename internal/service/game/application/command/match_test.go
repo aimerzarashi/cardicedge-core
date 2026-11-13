@@ -762,15 +762,15 @@ func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
 	require.Empty(t, used.SpellChoices())
 }
 
-// 次の目を決める呪い
-func curseDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
+// 対象のプレイヤーを選ぶ、サイコロの目を固定するスペル
+func fixedDiceDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
 	t.Helper()
-	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.FixedDiceCurse(t, 6, 1)}}
+	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.FixedDice(t, 6, 1)}}
 	return match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
 }
 
-func TestMatchHandler_UseSpellReportsTheTargetOfACurse(t *testing.T) {
-	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), curseDeckCard(t, 6, 3))
+func TestMatchHandler_UseSpellReportsTheTargetPlayer(t *testing.T) {
+	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), fixedDiceDeckCard(t, 6, 3))
 	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
 	require.NoError(t, err)
 	choice := f.load(t).SpellChoices()[0]
@@ -784,7 +784,7 @@ func TestMatchHandler_UseSpellReportsTheTargetOfACurse(t *testing.T) {
 	require.Equal(t, input.Errors{&input.Required{Field: "target"}}, missing)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "target"}}, notFound)
 	require.NoError(t, err)
-	require.NotNil(t, f.load(t).Participants[1].Curse)
+	require.NotNil(t, f.load(t).Participants[1].LastingSpellEffect)
 }
 
 func TestMatchHandler_UseSpellReportsTheTargetPositionOfDamage(t *testing.T) {

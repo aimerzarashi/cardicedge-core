@@ -417,7 +417,7 @@ type SetStarterSetUnlockNpcAvatarsResult interface {
 	IsSetStarterSetUnlockNpcAvatarsResult()
 }
 
-// スペルの効果（種類は __typename で見分ける）
+// スペルの効果（種類は __typename で見分ける。スペルは使ったときに発動する）
 type SpellEffect interface {
 	IsSpellEffect()
 }
@@ -1300,6 +1300,20 @@ func (CreatureTollMultiplierAbility) IsCreatureAbility() {}
 // 能力の種類
 func (this CreatureTollMultiplierAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
+// 対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）
+type DamageSpellEffect struct {
+	// ダメージ（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (DamageSpellEffect) IsSpellEffect() {}
+
+// 対象のクリーチャーにダメージの入力
+type DamageSpellEffectInput struct {
+	// ダメージ（1 以上。上限は無い）
+	Amount int `json:"amount"`
+}
+
 // デッキに入れたカードと枚数
 type DeckCard struct {
 	// カード
@@ -1411,6 +1425,20 @@ type DeleteStarterSetSuccess struct {
 }
 
 func (DeleteStarterSetSuccess) IsDeleteStarterSetResult() {}
+
+// カードを引く効果（山札の先頭から引く）
+type DrawCardsSpellEffect struct {
+	// 引く枚数（1 以上）
+	Count int `json:"count"`
+}
+
+func (DrawCardsSpellEffect) IsSpellEffect() {}
+
+// カードを引く効果の入力
+type DrawCardsSpellEffectInput struct {
+	// 引く枚数（1 以上。上限は無い）
+	Count int `json:"count"`
+}
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
 type FieldDuplicated struct {
@@ -1591,6 +1619,24 @@ func (FieldUnavailable) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldUnavailable) GetField() string { return this.Field }
 
+// サイコロの目を固定する効果（対象のプレイヤーが振るとき、目は value になる。turns ターン効き続ける）
+type FixedDiceSpellEffect struct {
+	// 固定する目（1 以上）
+	Value int `json:"value"`
+	// 効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）
+	Turns int `json:"turns"`
+}
+
+func (FixedDiceSpellEffect) IsSpellEffect() {}
+
+// サイコロの目を固定する効果の入力
+type FixedDiceSpellEffectInput struct {
+	// 固定する目（1 以上）
+	Value int `json:"value"`
+	// 効き続けるターン数（1 以上）
+	Turns int `json:"turns"`
+}
+
 // 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
 type ForbiddenError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1738,6 +1784,20 @@ func (ForbiddenError) IsPublishStarterSetResult() {}
 func (ForbiddenError) IsRetireStarterSetResult() {}
 
 func (ForbiddenError) IsStudioRulesResult() {}
+
+// 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
+type GainMagicSpellEffect struct {
+	// 周回数 1 つあたりの魔力（1 以上）
+	PerLap int `json:"perLap"`
+}
+
+func (GainMagicSpellEffect) IsSpellEffect() {}
+
+// 魔力を得る効果の入力
+type GainMagicSpellEffectInput struct {
+	// 周回数 1 つあたりの魔力（1 以上。上限は無い）
+	PerLap int `json:"perLap"`
+}
 
 // ゲーム全体のルール
 type GameRules struct {
@@ -1957,6 +2017,24 @@ type MatchRules struct {
 	MaxHandCards int `json:"maxHandCards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
+}
+
+// サイコロを複数振る効果（対象のプレイヤーが振るとき、count 個を同時に振り、合計の分だけ進む。turns ターン効き続ける）
+type MultipleDiceSpellEffect struct {
+	// 振るサイコロの個数（2 以上）
+	Count int `json:"count"`
+	// 効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）
+	Turns int `json:"turns"`
+}
+
+func (MultipleDiceSpellEffect) IsSpellEffect() {}
+
+// サイコロを複数振る効果の入力
+type MultipleDiceSpellEffectInput struct {
+	// 振るサイコロの個数（2 以上。上限は無い）
+	Count int `json:"count"`
+	// 効き続けるターン数（1 以上）
+	Turns int `json:"turns"`
 }
 
 type Mutation struct {
@@ -3014,46 +3092,18 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
-// 対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）
-type SpellDamageEffect struct {
-	// ダメージ（1 以上）
-	Amount int `json:"amount"`
-}
-
-func (SpellDamageEffect) IsSpellEffect() {}
-
-// 対象のクリーチャーにダメージの入力
-type SpellDamageEffectInput struct {
-	// ダメージ（1 以上。上限は無い）
-	Amount int `json:"amount"`
-}
-
-// カードを引く効果（山札の先頭から引く）
-type SpellDrawCardsEffect struct {
-	// 引く枚数（1 以上）
-	Count int `json:"count"`
-}
-
-func (SpellDrawCardsEffect) IsSpellEffect() {}
-
-// カードを引く効果の入力
-type SpellDrawCardsEffectInput struct {
-	// 引く枚数（1 以上。上限は無い）
-	Count int `json:"count"`
-}
-
 // スペルの効果の入力（種類のどれか 1 つだけ）
 type SpellEffectInput struct {
 	// カードを引く
-	DrawCards *SpellDrawCardsEffectInput `json:"drawCards,omitempty"`
+	DrawCards *DrawCardsSpellEffectInput `json:"drawCards,omitempty"`
 	// 魔力を得る
-	GainMagic *SpellGainMagicEffectInput `json:"gainMagic,omitempty"`
+	GainMagic *GainMagicSpellEffectInput `json:"gainMagic,omitempty"`
 	// サイコロを複数振る
-	RollDice *SpellRollDiceEffectInput `json:"rollDice,omitempty"`
-	// 次のサイコロの目を決める呪い
-	FixedDiceCurse *SpellFixedDiceCurseEffectInput `json:"fixedDiceCurse,omitempty"`
+	MultipleDice *MultipleDiceSpellEffectInput `json:"multipleDice,omitempty"`
+	// サイコロの目を固定する
+	FixedDice *FixedDiceSpellEffectInput `json:"fixedDice,omitempty"`
 	// 対象のクリーチャーにダメージ
-	Damage *SpellDamageEffectInput `json:"damage,omitempty"`
+	Damage *DamageSpellEffectInput `json:"damage,omitempty"`
 }
 
 // 効果の無いスペルを公開しようとした（効果の無いスペルは対戦で使えないため、公開できない）
@@ -3063,52 +3113,6 @@ type SpellEffectRequiredError struct {
 }
 
 func (SpellEffectRequiredError) IsPublishCardResult() {}
-
-// 次のサイコロの目を決める呪い（対象のプレイヤーが次に振ると、目は value になる。turns ターンで解ける）
-type SpellFixedDiceCurseEffect struct {
-	// 決める目（1 以上）
-	Value int `json:"value"`
-	// 解けるまでのターン数（1 以上。かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける）
-	Turns int `json:"turns"`
-}
-
-func (SpellFixedDiceCurseEffect) IsSpellEffect() {}
-
-// 次のサイコロの目を決める呪いの入力
-type SpellFixedDiceCurseEffectInput struct {
-	// 決める目（1 以上）
-	Value int `json:"value"`
-	// 解けるまでのターン数（1 以上）
-	Turns int `json:"turns"`
-}
-
-// 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
-type SpellGainMagicEffect struct {
-	// 周回数 1 つあたりの魔力（1 以上）
-	PerLap int `json:"perLap"`
-}
-
-func (SpellGainMagicEffect) IsSpellEffect() {}
-
-// 魔力を得る効果の入力
-type SpellGainMagicEffectInput struct {
-	// 周回数 1 つあたりの魔力（1 以上。上限は無い）
-	PerLap int `json:"perLap"`
-}
-
-// サイコロを複数振る効果（使った人は、そのターンのサイコロを count 個同時に振り、合計の分だけ進む）
-type SpellRollDiceEffect struct {
-	// 振るサイコロの個数（2 以上）
-	Count int `json:"count"`
-}
-
-func (SpellRollDiceEffect) IsSpellEffect() {}
-
-// サイコロを複数振る効果の入力
-type SpellRollDiceEffectInput struct {
-	// 振るサイコロの個数（2 以上。上限は無い）
-	Count int `json:"count"`
-}
 
 // スターターセットの一覧の 1 ページ（名前の順）
 type StarterSetConnection struct {

@@ -84,13 +84,14 @@ type masterSpellEffect struct {
 	GainMagic *struct {
 		PerLap int `json:"per_lap"`
 	} `json:"gain_magic"`
-	RollDice *struct {
+	MultipleDice *struct {
 		Count int `json:"count"`
-	} `json:"roll_dice"`
-	FixedDiceCurse *struct {
+		Turns int `json:"turns"`
+	} `json:"multiple_dice"`
+	FixedDice *struct {
 		Value int `json:"value"`
 		Turns int `json:"turns"`
-	} `json:"fixed_dice_curse"`
+	} `json:"fixed_dice"`
 	Damage *struct {
 		Amount int `json:"amount"`
 	} `json:"damage"`
@@ -114,14 +115,16 @@ func (c masterCard) validateSpellSpec() error {
 		kinds++
 		_, err = spell.NewMagicPerLap(c.Effect.GainMagic.PerLap)
 	}
-	if c.Effect.RollDice != nil {
+	if multiple := c.Effect.MultipleDice; multiple != nil {
 		kinds++
-		_, err = spell.NewDiceCount(c.Effect.RollDice.Count)
+		if _, err = spell.NewDiceCount(multiple.Count); err == nil {
+			_, err = spell.NewEffectTurns(multiple.Turns)
+		}
 	}
-	if curse := c.Effect.FixedDiceCurse; curse != nil {
+	if fixed := c.Effect.FixedDice; fixed != nil {
 		kinds++
-		if _, err = spell.NewDiceFace(curse.Value); err == nil {
-			_, err = spell.NewCurseTurns(curse.Turns)
+		if _, err = spell.NewDiceFace(fixed.Value); err == nil {
+			_, err = spell.NewEffectTurns(fixed.Turns)
 		}
 	}
 	if c.Effect.Damage != nil {
@@ -146,11 +149,11 @@ func (c masterCard) spellEffect() command.SpellEffect {
 	if c.Effect.GainMagic != nil {
 		effect.GainMagic = &command.SpellGainMagic{PerLap: c.Effect.GainMagic.PerLap}
 	}
-	if c.Effect.RollDice != nil {
-		effect.RollDice = &command.SpellRollDice{Count: c.Effect.RollDice.Count}
+	if multiple := c.Effect.MultipleDice; multiple != nil {
+		effect.MultipleDice = &command.SpellMultipleDice{Count: multiple.Count, Turns: multiple.Turns}
 	}
-	if curse := c.Effect.FixedDiceCurse; curse != nil {
-		effect.FixedDiceCurse = &command.SpellFixedDiceCurse{Value: curse.Value, Turns: curse.Turns}
+	if fixed := c.Effect.FixedDice; fixed != nil {
+		effect.FixedDice = &command.SpellFixedDice{Value: fixed.Value, Turns: fixed.Turns}
 	}
 	if c.Effect.Damage != nil {
 		effect.Damage = &command.SpellDamage{Amount: c.Effect.Damage.Amount}

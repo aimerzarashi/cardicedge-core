@@ -165,25 +165,17 @@ type MagicGainedEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// スペルの効果で、このターンに振るサイコロの個数が変わった（Count 個を同時に振り、合計の分だけ進む）
-type DiceCountChangedEvent struct {
+// スペルを使い、対象のプレイヤーにターンをまたいで効き続ける効果がかかった（Participant は使った人。続いていた効果は上書きする）
+type SpellEffectStartedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Participant ParticipantIndex `json:"participant"`
-	Count       int              `json:"count"`
+	Participant ParticipantIndex   `json:"participant"`
+	Target      ParticipantIndex   `json:"target"`
+	Effect      LastingSpellEffect `json:"effect"`
 }
 
-// スペルで、対象のプレイヤーに呪いをかけた（Participant は使った人。かかっていた呪いは上書きする）
-type CurseCastEvent struct {
-	EventMeta   `json:"-"`
-	eventMarker `json:"-"`
-	Participant ParticipantIndex `json:"participant"`
-	Target      ParticipantIndex `json:"target"`
-	Curse       Curse            `json:"curse"`
-}
-
-// 自分のターンを終えて、かかっていた呪いが解けた
-type CurseRemovedEvent struct {
+// 自分のターンを終えて、続いていたスペルの効果が終わった
+type SpellEffectEndedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
@@ -357,9 +349,8 @@ type DiceRolledEvent struct {
 	// 出た目の合計（進む歩数）
 	Value int `json:"value"`
 	// 複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が Value）。1 個のときは持たない
+	// （目を固定する効果で決まったかは、直前の状態の続いているスペルの効果から引けるので持たない。core#173）
 	Dice []int `json:"dice,omitempty"`
-	// 呪いで目が決まった（サイコロは 1 個で、目は呪いの値）
-	FixedByCurse bool `json:"fixed_by_curse,omitempty"`
 }
 
 // 1 歩進んで入ったマス
@@ -456,9 +447,8 @@ var (
 	handLimitExceededEventType       = domain.NewEventName("HandLimitExceededEvent")
 	spellUsedEventType               = domain.NewEventName("SpellUsedEvent")
 	magicGainedEventType             = domain.NewEventName("MagicGainedEvent")
-	diceCountChangedEventType        = domain.NewEventName("DiceCountChangedEvent")
-	curseCastEventType               = domain.NewEventName("CurseCastEvent")
-	curseRemovedEventType            = domain.NewEventName("CurseRemovedEvent")
+	spellEffectStartedEventType      = domain.NewEventName("SpellEffectStartedEvent")
+	spellEffectEndedEventType        = domain.NewEventName("SpellEffectEndedEvent")
 	creatureDamagedEventType         = domain.NewEventName("CreatureDamagedEvent")
 	creatureDestroyedEventType       = domain.NewEventName("CreatureDestroyedEvent")
 )
@@ -760,27 +750,19 @@ func (*MagicGainedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*DiceCountChangedEvent) EventType() domain.EventName {
-	return diceCountChangedEventType
+func (*SpellEffectStartedEvent) EventType() domain.EventName {
+	return spellEffectStartedEventType
 }
 
-func (*DiceCountChangedEvent) SchemaVersion() int {
+func (*SpellEffectStartedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*CurseCastEvent) EventType() domain.EventName {
-	return curseCastEventType
+func (*SpellEffectEndedEvent) EventType() domain.EventName {
+	return spellEffectEndedEventType
 }
 
-func (*CurseCastEvent) SchemaVersion() int {
-	return 1
-}
-
-func (*CurseRemovedEvent) EventType() domain.EventName {
-	return curseRemovedEventType
-}
-
-func (*CurseRemovedEvent) SchemaVersion() int {
+func (*SpellEffectEndedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -808,7 +790,7 @@ func Types() domain.AggregateTypes {
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
-		spellUsedEventType, magicGainedEventType, diceCountChangedEventType, curseCastEventType, curseRemovedEventType,
+		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
 		creatureDamagedEventType, creatureDestroyedEventType, battleAbilityActivatedEventType, tollMultiplierActivatedEventType,
 	}}
 }
@@ -896,12 +878,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &SpellUsedEvent{EventMeta: meta}
 	case EventType(magicGainedEventType):
 		event = &MagicGainedEvent{EventMeta: meta}
-	case EventType(diceCountChangedEventType):
-		event = &DiceCountChangedEvent{EventMeta: meta}
-	case EventType(curseCastEventType):
-		event = &CurseCastEvent{EventMeta: meta}
-	case EventType(curseRemovedEventType):
-		event = &CurseRemovedEvent{EventMeta: meta}
+	case EventType(spellEffectStartedEventType):
+		event = &SpellEffectStartedEvent{EventMeta: meta}
+	case EventType(spellEffectEndedEventType):
+		event = &SpellEffectEndedEvent{EventMeta: meta}
 	case EventType(creatureDamagedEventType):
 		event = &CreatureDamagedEvent{EventMeta: meta}
 	case EventType(creatureDestroyedEventType):

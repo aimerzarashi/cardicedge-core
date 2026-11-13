@@ -66,15 +66,15 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 func fromSpellEffect(effect query.SpellEffect) model.SpellEffect {
 	switch {
 	case effect.DrawCards != nil:
-		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+		return &model.DrawCardsSpellEffect{Count: effect.DrawCards.Count}
 	case effect.GainMagic != nil:
-		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
-	case effect.RollDice != nil:
-		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
-	case effect.FixedDiceCurse != nil:
-		return &model.SpellFixedDiceCurseEffect{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
+		return &model.GainMagicSpellEffect{PerLap: effect.GainMagic.PerLap}
+	case effect.MultipleDice != nil:
+		return &model.MultipleDiceSpellEffect{Count: effect.MultipleDice.Count, Turns: effect.MultipleDice.Turns}
+	case effect.FixedDice != nil:
+		return &model.FixedDiceSpellEffect{Value: effect.FixedDice.Value, Turns: effect.FixedDice.Turns}
 	case effect.Damage != nil:
-		return &model.SpellDamageEffect{Amount: effect.Damage.Amount}
+		return &model.DamageSpellEffect{Amount: effect.Damage.Amount}
 	default:
 		return nil
 	}
