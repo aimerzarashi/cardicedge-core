@@ -117,6 +117,8 @@ enum CreatureAbilityKind {
   BATTLE_MODIFIER
   "戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）"
   BATTLE_RANDOM_STATS
+  "攻撃無効（戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる）"
+  ATTACK_IMMUNITY
 }
 
 # 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
@@ -173,9 +175,17 @@ type CreatureBattleRandomStatsAbility implements CreatureAbility {
   maximum: Int!
 }
 
+"攻撃無効"
+type CreatureAttackImmunityAbility implements CreatureAbility {
+  "能力の種類（ATTACK_IMMUNITY）"
+  kind: CreatureAbilityKind!
+  "攻撃してきたときに無効にする相手の属性（火・地・水・風から 1 つ以上。無は選べない）"
+  elements: [CreatureElement!]!
+}
+
 "能力 1 つの入力"
-# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier、戦闘中のランダムは minimum・maximum。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
-# 値の範囲の誤りは FieldTooSmall（abilities.N.percent・abilities.N.minimum。最大が最小より小さいのは、最大は最小と等しくてよいので FieldNotGreaterThan でなく、最小を下限にした FieldTooSmall の abilities.N.maximum）
+# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier、戦闘中のランダムは minimum・maximum、攻撃無効は elements。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
+# 値の範囲の誤りは FieldTooSmall（abilities.N.percent・abilities.N.minimum。最大が最小より小さいのは、最大は最小と等しくてよいので FieldNotGreaterThan でなく、最小を下限にした FieldTooSmall の abilities.N.maximum）。攻撃無効の属性の誤り（空・重複・無）は FieldInvalidFormat（abilities.N.elements）
 input CreatureAbilityInput {
   "能力の種類"
   kind: CreatureAbilityKind!
@@ -189,6 +199,8 @@ input CreatureAbilityInput {
   minimum: Int
   "戦闘中の AT・HP の最大（最小以上。BATTLE_RANDOM_STATS だけに要る）"
   maximum: Int
+  "攻撃無効が効く相手の属性（火・地・水・風から 1 つ以上。ATTACK_IMMUNITY だけに要る）"
+  elements: [CreatureElement!]
 }
 
 "クリーチャーの能力を変える入力"

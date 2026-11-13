@@ -398,6 +398,27 @@ func TestMatchEventsHandler_ReturnsTheActivatedBattleAbilities(t *testing.T) {
 	}, events)
 }
 
+// 攻撃の値は、攻撃した側の直前の戦闘中の AT（増減の後）。攻撃無効で受けた量が 0 でも、攻撃の値はそのまま
+func TestMatchEventsHandler_StruckShowsTheAttackOfTheStrikerBeforeTheStrike(t *testing.T) {
+	item := match.BattleStatSource{Effect: match.BattleEffectItem}
+	f := newEventsFixture(t, append(invadingEvents(t),
+		battleStarted(t, 16),
+		&match.BattleStatModifiedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Source: item, AttackDelta: 30, Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 20)},
+		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityAttackImmunity},
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 19), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 0), RemainingHitPoints: creaturetest.HitPoints(t, 20)},
+		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 20), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+	))
+
+	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 17)
+
+	require.NoError(t, err)
+	require.Equal(t, []query.MatchEvent{
+		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityAttackImmunity},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(19, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Attack: 40, Damage: 0, RemainingHitPoints: 20},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(20, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Attack: 10, Damage: 10, RemainingHitPoints: 10},
+	}, events)
+}
+
 func TestMatchEventsHandler_ReturnsTheActivatedTollMultiplier(t *testing.T) {
 	percent, err := creature.NewTollMultiplierPercent(150)
 	require.NoError(t, err)
@@ -441,8 +462,8 @@ func TestMatchEventsHandler_ReturnsAFailedInvasionWithTheChangesItMade(t *testin
 		},
 		query.MatchItemSkippedEvent{MatchEventMeta: metaAt(15, changesOf(phaseOf(query.MatchPhaseDefending), nil)), Participant: 0},
 		query.MatchBattleStartedEvent{MatchEventMeta: metaAt(16, changesOf(nil, nil)), Attacker: stats, Defender: stats},
-		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Damage: 10, RemainingHitPoints: 10},
-		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Damage: 10, RemainingHitPoints: 10},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Attack: 10, Damage: 10, RemainingHitPoints: 10},
+		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Attack: 10, Damage: 10, RemainingHitPoints: 10},
 		query.MatchInvasionRepelledEvent{MatchEventMeta: metaAt(19, changesOf(phaseOf(query.MatchPhaseEnding), nil)), Participant: 0, Position: query.NewBoardPosition(2, 0), Card: dragon, ReturnedToHand: true, TerritoryHitPoints: 10},
 	}, events)
 }

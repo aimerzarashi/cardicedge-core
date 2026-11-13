@@ -215,7 +215,7 @@ func (c *CreatureHandler) ChangeItemRestrictions(ctx context.Context, id uuid.UU
 }
 
 // 能力を変える（準備中だけ）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせの誤り・値の範囲・重複・先制と後手の同時の指定は input.Errors
-// （項目は abilities.N・abilities.N.percent・abilities.N.minimum・abilities.N.maximum・abilities）。ほかのエラーは ChangeElements と同じ
+// （項目は abilities.N・abilities.N.percent・abilities.N.minimum・abilities.N.maximum・abilities.N.elements・abilities）。ほかのエラーは ChangeElements と同じ
 func (c *CreatureHandler) ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []CreatureAbility) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
@@ -233,6 +233,8 @@ func (c *CreatureHandler) ChangeAbilities(ctx context.Context, id uuid.UUID, rev
 		case errors.Is(err, creature.ErrBattleRandomStatsMaximumLessThanMinimum):
 			// 最大は最小と等しくてよいので、「より大きい」の NotGreaterThan でなく、最小を下限にした TooSmall で返す
 			invalid = append(invalid, &input.TooSmall{Field: fmt.Sprintf("abilities.%d.maximum", i), Min: *ability.Minimum})
+		case errors.Is(err, errCreatureAbilityElements):
+			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("abilities.%d.elements", i)})
 		case err != nil:
 			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("abilities.%d", i)})
 		}
@@ -303,9 +305,11 @@ const (
 	CreatureAbilityLastStrike        = "last_strike"
 	CreatureAbilityBattleModifier    = "battle_modifier"
 	CreatureAbilityBattleRandomStats = "battle_random_stats"
+	CreatureAbilityAttackImmunity    = "attack_immunity"
 )
 
-// クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent、戦闘中の増減は AttackModifier・HitPointsModifier、戦闘中のランダムは Minimum・Maximum）
+// クリーチャーの能力の入力と出力。種類と、種類に要る値（通行料の倍率は Percent、戦闘中の増減は AttackModifier・HitPointsModifier、戦闘中のランダムは Minimum・Maximum、
+// 攻撃無効は Elements）
 type CreatureAbility struct {
 	Kind              string
 	Percent           *int
@@ -313,14 +317,24 @@ type CreatureAbility struct {
 	HitPointsModifier *int
 	Minimum           *int
 	Maximum           *int
+	Elements          []string
 }
 
-var errCreatureAbilityShape = errors.New("command: creature ability kind and values do not match")
+var (
+	errCreatureAbilityShape    = errors.New("command: creature ability kind and values do not match")
+	errCreatureAbilityElements = errors.New("command: creature ability elements are invalid")
+)
 
 // 種類と値の組み合わせが合わないものは errCreatureAbilityShape、値の範囲の誤りは domain の誤り
 func (a CreatureAbility) domain() (creature.Ability, error) {
 	noModifier := a.AttackModifier == nil && a.HitPointsModifier == nil
 	noRange := a.Minimum == nil && a.Maximum == nil
+	if a.Elements != nil {
+		if a.Kind != CreatureAbilityAttackImmunity || a.Percent != nil || !noModifier || !noRange {
+			return creature.Ability{}, errCreatureAbilityShape
+		}
+		return attackImmunity(a.Elements)
+	}
 	switch {
 	case a.Kind == CreatureAbilityBattleModifier && a.Percent == nil && noRange && a.AttackModifier != nil && a.HitPointsModifier != nil:
 		return creature.NewBattleModifierAbility(creature.NewAttackModifier(*a.AttackModifier), creature.NewHitPointsModifier(*a.HitPointsModifier)), nil
@@ -344,6 +358,19 @@ func (a CreatureAbility) domain() (creature.Ability, error) {
 	return creature.Ability{}, errCreatureAbilityShape
 }
 
+// 属性の誤り（空・知らない属性・重複・無）は、どれも abilities.N.elements の 1 つの誤りにする
+func attackImmunity(values []string) (creature.Ability, error) {
+	elements, err := creature.NewElements(values)
+	if err != nil {
+		return creature.Ability{}, errCreatureAbilityElements
+	}
+	ability, err := creature.NewAttackImmunityAbility(elements)
+	if err != nil {
+		return creature.Ability{}, errCreatureAbilityElements
+	}
+	return ability, nil
+}
+
 func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
 	values := make([]CreatureAbility, len(abilities))
 	for i, ability := range abilities {
@@ -359,6 +386,8 @@ func creatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		case ability.BattleRandomStats != nil:
 			minimum, maximum := ability.BattleRandomStats.Minimum.Int(), ability.BattleRandomStats.Maximum.Int()
 			values[i] = CreatureAbility{Kind: CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum}
+		case ability.AttackImmunity != nil:
+			values[i] = CreatureAbility{Kind: CreatureAbilityAttackImmunity, Elements: ability.AttackImmunity.Elements.Strings()}
 		case ability.FirstStrike != nil:
 			values[i] = CreatureAbility{Kind: CreatureAbilityFirstStrike}
 		case ability.LastStrike != nil:

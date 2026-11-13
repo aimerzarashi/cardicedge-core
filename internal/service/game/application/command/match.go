@@ -306,6 +306,16 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 				return match.CreatureSpec{}, err
 			}
 			value = randomStats
+		case ability.AttackImmunityElements != nil:
+			immunityElements, err := creature.NewElements(ability.AttackImmunityElements)
+			if err != nil {
+				return match.CreatureSpec{}, err
+			}
+			immunity, err := creature.NewAttackImmunityAbility(immunityElements)
+			if err != nil {
+				return match.CreatureSpec{}, err
+			}
+			value = immunity
 		case ability.FirstStrike:
 			value = creature.NewFirstStrikeAbility()
 		case ability.LastStrike:

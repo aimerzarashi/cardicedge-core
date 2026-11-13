@@ -265,6 +265,11 @@ type ComplexityRoot struct {
 		UpdatedAt             func(childComplexity int) int
 	}
 
+	CreatureAttackImmunityAbility struct {
+		Elements func(childComplexity int) int
+		Kind     func(childComplexity int) int
+	}
+
 	CreatureBattleModifierAbility struct {
 		AttackModifier    func(childComplexity int) int
 		HitPointsModifier func(childComplexity int) int
@@ -1771,6 +1776,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.UpdatedAt(childComplexity), true
+
+	case "CreatureAttackImmunityAbility.elements":
+		if e.ComplexityRoot.CreatureAttackImmunityAbility.Elements == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureAttackImmunityAbility.Elements(childComplexity), true
+	case "CreatureAttackImmunityAbility.kind":
+		if e.ComplexityRoot.CreatureAttackImmunityAbility.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CreatureAttackImmunityAbility.Kind(childComplexity), true
 
 	case "CreatureBattleModifierAbility.attackModifier":
 		if e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier == nil {
@@ -8773,6 +8791,52 @@ func (ec *executionContext) _Creature_updatedAt(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_Creature_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Creature", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _CreatureAttackImmunityAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureAttackImmunityAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureAttackImmunityAbility_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
+			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureAttackImmunityAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureAttackImmunityAbility", field, false, false, "CreatureAbilityKind")
+}
+
+func (ec *executionContext) _CreatureAttackImmunityAbility_elements(ctx context.Context, field graphql.CollectedField, obj *model.CreatureAttackImmunityAbility) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CreatureAttackImmunityAbility_elements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Elements, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CreatureAttackImmunityAbility_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CreatureAttackImmunityAbility", field, false, false, "CreatureElement")
 }
 
 func (ec *executionContext) _CreatureBattleModifierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
@@ -20183,7 +20247,7 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"kind", "percent", "attackModifier", "hitPointsModifier", "minimum", "maximum"}
+	fieldsInOrder := [...]string{"kind", "percent", "attackModifier", "hitPointsModifier", "minimum", "maximum", "elements"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -20232,6 +20296,13 @@ func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Conte
 				return it, err
 			}
 			it.Maximum = data
+		case "elements":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("elements"))
+			data, err := ec.unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Elements = data
 		}
 	}
 	return it, nil
@@ -24059,6 +24130,13 @@ func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.Select
 			return graphql.Null
 		}
 		return ec._CreatureBattleModifierAbility(ctx, sel, obj)
+	case model.CreatureAttackImmunityAbility:
+		return ec._CreatureAttackImmunityAbility(ctx, sel, &obj)
+	case *model.CreatureAttackImmunityAbility:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._CreatureAttackImmunityAbility(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -28277,6 +28355,44 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Creature_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var creatureAttackImmunityAbilityImplementors = []string{"CreatureAttackImmunityAbility", "CreatureAbility"}
+
+func (ec *executionContext) _CreatureAttackImmunityAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureAttackImmunityAbility) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, creatureAttackImmunityAbilityImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CreatureAttackImmunityAbility")
+		case "kind":
+			out.Values[i] = ec._CreatureAttackImmunityAbility_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "elements":
+			out.Values[i] = ec._CreatureAttackImmunityAbility_elements(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -35967,6 +36083,42 @@ func (ec *executionContext) marshalOCardType2ᚕgitlabᚗcomᚋaimerzarashiᚋdi
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
 		return ec.marshalNCardType2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCardType(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx context.Context, v any) ([]model.CreatureElement, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.CreatureElement, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {

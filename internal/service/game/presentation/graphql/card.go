@@ -37,9 +37,13 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		if err != nil {
 			return nil, err
 		}
+		abilities, err := fromCreatureAbilities(creature.Abilities)
+		if err != nil {
+			return nil, err
+		}
 		return &model.CreatureCardInfo{
 			ID: id, Name: name, Cost: cost, Rarity: converted,
-			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilities(creature.Abilities),
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities,
 		}, nil
 	case query.CardTypeItem:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
@@ -132,7 +136,7 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 	return elements, nil
 }
 
-func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAbility {
+func fromCreatureAbilities(abilities []query.CreatureAbility) ([]model.CreatureAbility, error) {
 	values := make([]model.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		switch {
@@ -144,11 +148,17 @@ func fromCreatureAbilities(abilities []query.CreatureAbility) []model.CreatureAb
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
 		case ability.BattleRandomStats != nil:
 			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
+		case ability.AttackImmunityElements != nil:
+			elements, err := fromElements(ability.AttackImmunityElements)
+			if err != nil {
+				return nil, err
+			}
+			values[i] = &model.CreatureAttackImmunityAbility{Kind: model.CreatureAbilityKindAttackImmunity, Elements: elements}
 		case ability.FirstStrike:
 			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
 		case ability.LastStrike:
 			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
 		}
 	}
-	return values
+	return values, nil
 }

@@ -512,6 +512,40 @@ func TestNewBattleRandomStatsAbility_AcceptsEqualMinimumAndMaximum(t *testing.T)
 	require.NoError(t, err)
 }
 
+func TestAbilities_AttackImmunityIsComparedByElements(t *testing.T) {
+	immunity := func(elements ...string) creature.Abilities {
+		abilities, err := creature.NewAbilities([]creature.Ability{creaturetest.AttackImmunity(t, elements...)})
+		require.NoError(t, err)
+		return abilities
+	}
+
+	_, found := creature.DefaultAbilities().AttackImmunity()
+	require.False(t, found)
+	got, found := immunity("earth", "fire").AttackImmunity()
+	require.True(t, found)
+	require.Equal(t, creaturetest.Elements(t, "fire", "earth"), got.Elements)
+	require.True(t, immunity("fire", "earth").Equal(immunity("earth", "fire")))
+	require.False(t, immunity("fire").Equal(immunity("fire", "earth")))
+}
+
+func TestNewAttackImmunityAbility_RejectsNeutral(t *testing.T) {
+	_, err := creature.NewAttackImmunityAbility(creaturetest.Elements(t, "neutral"))
+
+	require.ErrorIs(t, err, creature.ErrAttackImmunityNeutral)
+}
+
+func TestNewAttackImmunityAbility_RejectsEmptyElements(t *testing.T) {
+	_, err := creature.NewAttackImmunityAbility(nil)
+
+	require.ErrorIs(t, err, creature.ErrElementsEmpty)
+}
+
+func TestElements_OverlapsWhenAnyElementMatches(t *testing.T) {
+	require.True(t, creaturetest.Elements(t, "fire", "earth").Overlaps(creaturetest.Elements(t, "earth", "water")))
+	require.False(t, creaturetest.Elements(t, "fire", "earth").Overlaps(creaturetest.Elements(t, "water")))
+	require.False(t, creaturetest.Elements(t, "fire").Overlaps(creaturetest.Elements(t, "neutral")))
+}
+
 func TestNewAbilities_AllowsBattleModifierAndBattleRandomStatsTogether(t *testing.T) {
 	randomStats, err := creature.NewBattleRandomStatsAbility(10, 70)
 	require.NoError(t, err)

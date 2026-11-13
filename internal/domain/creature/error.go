@@ -23,5 +23,6 @@ var (
 	ErrAbilitiesConflicted                     = errors.New("creature: first strike and last strike cannot be combined")
 	ErrBattleRandomStatsMinimumTooSmall        = errors.New("creature: battle random stats minimum is less than 1")
 	ErrBattleRandomStatsMaximumLessThanMinimum = errors.New("creature: battle random stats maximum is less than minimum")
+	ErrAttackImmunityNeutral                   = errors.New("creature: attack immunity has neutral element")
 	ErrTollMultiplierPercentTooSmall           = errors.New("creature: toll multiplier percent is less than 1")
 )

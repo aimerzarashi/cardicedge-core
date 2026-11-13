@@ -745,6 +745,19 @@ type CreateRoomSuccess struct {
 
 func (CreateRoomSuccess) IsCreateRoomResult() {}
 
+// 攻撃無効
+type CreatureAttackImmunityAbility struct {
+	// 能力の種類（ATTACK_IMMUNITY）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 攻撃してきたときに無効にする相手の属性（火・地・水・風から 1 つ以上）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (CreatureAttackImmunityAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureAttackImmunityAbility) GetKind() CreatureAbilityKind { return this.Kind }
+
 // 戦闘中の増減
 type CreatureBattleModifierAbility struct {
 	// 能力の種類（BATTLE_MODIFIER）
@@ -1369,7 +1382,7 @@ type MatchAvatar struct {
 	Name string `json:"name"`
 }
 
-// 戦闘で能力が発動した（効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る）
+// 戦闘で能力が発動した（先制・後手は、効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る。攻撃無効は、攻撃してきたクリーチャーの属性が合ったときだけ、その攻撃の前に出る）
 type MatchBattleAbilityActivatedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -1379,7 +1392,7 @@ type MatchBattleAbilityActivatedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 能力を持つクリーチャーの側
 	Side MatchBattleSide `json:"side"`
-	// 発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE）
+	// 発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE・ATTACK_IMMUNITY）
 	Ability CreatureAbilityKind `json:"ability"`
 }
 
@@ -1756,7 +1769,9 @@ type MatchCreatureStruckEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 攻撃した側
 	Striker MatchBattleSide `json:"striker"`
-	// 与えた量
+	// 攻撃した側の、そのときの戦闘中の AT
+	Attack int `json:"attack"`
+	// 受けた側が受けた量（攻撃無効が発動したら 0）
 	Damage int `json:"damage"`
 	// 受けた側の、効果で増えた分も含む残りの体力（0 なら倒れた）
 	RemainingHitPoints int `json:"remainingHitPoints"`
@@ -3971,6 +3986,8 @@ const (
 	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
 	// 戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）
 	CreatureAbilityKindBattleRandomStats CreatureAbilityKind = "BATTLE_RANDOM_STATS"
+	// 攻撃無効（戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる）
+	CreatureAbilityKindAttackImmunity CreatureAbilityKind = "ATTACK_IMMUNITY"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3980,11 +3997,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindLastStrike,
 	CreatureAbilityKindBattleModifier,
 	CreatureAbilityKindBattleRandomStats,
+	CreatureAbilityKindAttackImmunity,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats, CreatureAbilityKindAttackImmunity:
 		return true
 	}
 	return false

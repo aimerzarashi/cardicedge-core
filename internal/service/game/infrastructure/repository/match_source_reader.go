@@ -335,6 +335,7 @@ func masterCreatureAbilities(abilities []query.CreatureAbility) []master.Creatur
 		if ability.BattleRandomStats != nil {
 			values[i].BattleRandomStats = &master.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
 		}
+		values[i].AttackImmunityElements = ability.AttackImmunityElements
 	}
 	return values
 }

@@ -271,6 +271,8 @@ func fromMatchBattleAbility(ability query.MatchBattleAbility) (model.CreatureAbi
 		return model.CreatureAbilityKindBattleModifier, nil
 	case query.MatchBattleAbilityBattleRandomStats:
 		return model.CreatureAbilityKindBattleRandomStats, nil
+	case query.MatchBattleAbilityAttackImmunity:
+		return model.CreatureAbilityKindAttackImmunity, nil
 	default:
 		return "", fmt.Errorf("graphql: unknown match battle ability: %q", ability)
 	}
@@ -486,7 +488,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchCreatureStruckEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Striker: striker, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints}, nil
+		return &model.MatchCreatureStruckEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Striker: striker, Attack: e.Attack, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints}, nil
 	case query.MatchTerritoryConqueredEvent:
 		return &model.MatchTerritoryConqueredEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,

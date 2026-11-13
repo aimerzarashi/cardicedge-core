@@ -131,9 +131,13 @@ func toCard(card query.Card) (model.Card, error) {
 		if err != nil {
 			return nil, err
 		}
+		abilities, err := fromCreatureAbilitiesMetadata(card.Creature.Abilities)
+		if err != nil {
+			return nil, err
+		}
 		return &model.Creature{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity,
-			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilitiesMetadata(card.Creature.Abilities), Revision: revision,
+			Elements: elements, Attack: card.Creature.Attack, HitPoints: card.Creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities, Revision: revision,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeItem:
@@ -372,7 +376,7 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 	return elements, nil
 }
 
-func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata) []model.CreatureAbility {
+func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata) ([]model.CreatureAbility, error) {
 	values := make([]model.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		if ability.Defensive != nil {
@@ -393,11 +397,18 @@ func fromCreatureAbilitiesMetadata(abilities []readmodel.CreatureAbilityMetadata
 		if ability.BattleModifier != nil {
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
 		}
+		if ability.AttackImmunity != nil {
+			elements, err := fromElements(ability.AttackImmunity.Elements)
+			if err != nil {
+				return nil, err
+			}
+			values[i] = &model.CreatureAttackImmunityAbility{Kind: model.CreatureAbilityKindAttackImmunity, Elements: elements}
+		}
 	}
-	return values
+	return values, nil
 }
 
-func fromCreatureAbilities(abilities []command.CreatureAbility) []model.CreatureAbility {
+func fromCreatureAbilities(abilities []command.CreatureAbility) ([]model.CreatureAbility, error) {
 	values := make([]model.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
 		switch ability.Kind {
@@ -413,30 +424,44 @@ func fromCreatureAbilities(abilities []command.CreatureAbility) []model.Creature
 			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: *ability.AttackModifier, HitPointsModifier: *ability.HitPointsModifier}
 		case command.CreatureAbilityBattleRandomStats:
 			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: *ability.Minimum, Maximum: *ability.Maximum}
+		case command.CreatureAbilityAttackImmunity:
+			elements, err := fromElements(ability.Elements)
+			if err != nil {
+				return nil, err
+			}
+			values[i] = &model.CreatureAttackImmunityAbility{Kind: model.CreatureAbilityKindAttackImmunity, Elements: elements}
 		}
 	}
-	return values
+	return values, nil
 }
 
+var creatureAbilityKinds = map[model.CreatureAbilityKind]string{
+	model.CreatureAbilityKindDefensive:         command.CreatureAbilityDefensive,
+	model.CreatureAbilityKindTollMultiplier:    command.CreatureAbilityTollMultiplier,
+	model.CreatureAbilityKindFirstStrike:       command.CreatureAbilityFirstStrike,
+	model.CreatureAbilityKindLastStrike:        command.CreatureAbilityLastStrike,
+	model.CreatureAbilityKindBattleModifier:    command.CreatureAbilityBattleModifier,
+	model.CreatureAbilityKindBattleRandomStats: command.CreatureAbilityBattleRandomStats,
+	model.CreatureAbilityKindAttackImmunity:    command.CreatureAbilityAttackImmunity,
+}
+
+// 値はどの種類でもそのまま渡し、種類と値の組み合わせは command が確かめる
 func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.CreatureAbility, error) {
 	values := make([]command.CreatureAbility, len(abilities))
 	for i, ability := range abilities {
-		switch ability.Kind {
-		case model.CreatureAbilityKindDefensive:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityDefensive, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		case model.CreatureAbilityKindTollMultiplier:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityTollMultiplier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		case model.CreatureAbilityKindFirstStrike:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityFirstStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		case model.CreatureAbilityKindLastStrike:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityLastStrike, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		case model.CreatureAbilityKindBattleModifier:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityBattleModifier, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		case model.CreatureAbilityKindBattleRandomStats:
-			values[i] = command.CreatureAbility{Kind: command.CreatureAbilityBattleRandomStats, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum}
-		default:
+		kind, ok := creatureAbilityKinds[ability.Kind]
+		if !ok {
 			return nil, fmt.Errorf("graphql: unknown creature ability kind %q", ability.Kind)
 		}
+		var elements []string
+		if ability.Elements != nil {
+			converted, err := toElements(ability.Elements)
+			if err != nil {
+				return nil, err
+			}
+			elements = converted
+		}
+		values[i] = command.CreatureAbility{Kind: kind, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum, Elements: elements}
 	}
 	return values, nil
 }

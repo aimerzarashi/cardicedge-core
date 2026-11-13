@@ -344,6 +344,32 @@ func TestChangeCreatureAbilities_ChangesBattleRandomStatsAfterProjected(t *testi
 	})
 }
 
+func TestChangeCreatureAbilities_ChangesAttackImmunityAfterProjected(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	card := registerCreature(t, token, "ジャイアントアメーバ-"+testhelper.UniqueID(t))["creature"].(map[string]any)
+
+	changed := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
+		changeCreatureAbilities(input: $input) { __typename ... on ChangeCreatureAbilitiesSuccess { id revision } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "abilities": []map[string]any{{"kind": "ATTACK_IMMUNITY", "elements": []string{"EARTH", "FIRE"}}}}}, "changeCreatureAbilities")
+	neutral := client.Data(t, token, `mutation ($input: ChangeCreatureAbilitiesInput!) {
+		changeCreatureAbilities(input: $input) { __typename ... on ValidationErrors { errors { __typename field } } }
+	}`, map[string]any{"input": map[string]any{"id": card["id"], "revision": changed["revision"], "abilities": []map[string]any{{"kind": "ATTACK_IMMUNITY", "elements": []string{"NEUTRAL"}}}}}, "changeCreatureAbilities")
+
+	require.Equal(t, map[string]any{"__typename": "ChangeCreatureAbilitiesSuccess", "id": card["id"], "revision": float64(2)}, changed)
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldInvalidFormat", "field": "abilities.0.elements"},
+	}}, neutral)
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		got, err := client.TryData(t.Context(), token, `query ($id: UUID!) { card(id: $id) { ... on Creature { abilities { __typename kind ... on CreatureAttackImmunityAbility { elements } } revision } } }`, map[string]any{"id": card["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"abilities": []any{
+				map[string]any{"__typename": "CreatureAttackImmunityAbility", "kind": "ATTACK_IMMUNITY", "elements": []any{"FIRE", "EARTH"}},
+			}, "revision": float64(2)}, got)
+		}
+	})
+}
+
 // 登録した直後の性能は、登録の結果にも出る
 func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
 	t.Parallel()

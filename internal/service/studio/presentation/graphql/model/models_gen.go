@@ -1222,7 +1222,22 @@ type CreatureAbilityInput struct {
 	Minimum *int `json:"minimum,omitempty"`
 	// 戦闘中の AT・HP の最大（最小以上。BATTLE_RANDOM_STATS だけに要る）
 	Maximum *int `json:"maximum,omitempty"`
+	// 攻撃無効が効く相手の属性（火・地・水・風から 1 つ以上。ATTACK_IMMUNITY だけに要る）
+	Elements []CreatureElement `json:"elements,omitempty"`
 }
+
+// 攻撃無効
+type CreatureAttackImmunityAbility struct {
+	// 能力の種類（ATTACK_IMMUNITY）
+	Kind CreatureAbilityKind `json:"kind"`
+	// 攻撃してきたときに無効にする相手の属性（火・地・水・風から 1 つ以上。無は選べない）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (CreatureAttackImmunityAbility) IsCreatureAbility() {}
+
+// 能力の種類
+func (this CreatureAttackImmunityAbility) GetKind() CreatureAbilityKind { return this.Kind }
 
 // 戦闘中の増減
 type CreatureBattleModifierAbility struct {
@@ -3690,6 +3705,8 @@ const (
 	CreatureAbilityKindBattleModifier CreatureAbilityKind = "BATTLE_MODIFIER"
 	// 戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）
 	CreatureAbilityKindBattleRandomStats CreatureAbilityKind = "BATTLE_RANDOM_STATS"
+	// 攻撃無効（戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる）
+	CreatureAbilityKindAttackImmunity CreatureAbilityKind = "ATTACK_IMMUNITY"
 )
 
 var AllCreatureAbilityKind = []CreatureAbilityKind{
@@ -3699,11 +3716,12 @@ var AllCreatureAbilityKind = []CreatureAbilityKind{
 	CreatureAbilityKindLastStrike,
 	CreatureAbilityKindBattleModifier,
 	CreatureAbilityKindBattleRandomStats,
+	CreatureAbilityKindAttackImmunity,
 }
 
 func (e CreatureAbilityKind) IsValid() bool {
 	switch e {
-	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats:
+	case CreatureAbilityKindDefensive, CreatureAbilityKindTollMultiplier, CreatureAbilityKindFirstStrike, CreatureAbilityKindLastStrike, CreatureAbilityKindBattleModifier, CreatureAbilityKindBattleRandomStats, CreatureAbilityKindAttackImmunity:
 		return true
 	}
 	return false

@@ -190,7 +190,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "abilities": [{ "kind": "attack_immunity", "elements": ["fire", "earth"] }]
     },
     {
       "type": "creature",

@@ -336,6 +336,9 @@ type creatureAbilityMetadata struct {
 		Minimum int `json:"minimum"`
 		Maximum int `json:"maximum"`
 	} `json:"battle_random_stats"`
+	AttackImmunity *struct {
+		Elements []string `json:"elements"`
+	} `json:"attack_immunity"`
 }
 
 func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
@@ -350,6 +353,9 @@ func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.Creatur
 		}
 		if ability.BattleRandomStats != nil {
 			values[i].BattleRandomStats = &query.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
+		}
+		if ability.AttackImmunity != nil {
+			values[i].AttackImmunityElements = ability.AttackImmunity.Elements
 		}
 	}
 	return values

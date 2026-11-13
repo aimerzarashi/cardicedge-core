@@ -687,9 +687,18 @@ func (b *battleResolver) strikeOrder() []BattleSide {
 	return []BattleSide{BattleSideAttacker, BattleSideDefender}
 }
 
+// 攻撃無効は相手の AT を下げるのではなく受けるダメージを 0 にするので、発動を攻撃の前に別のイベントで出す
+// （攻撃のイベントに埋めると、ダメージが 0 になった理由がイベントの並びに出ないため。2026-11-13 オーナー。core#174）
 func (b *battleResolver) strike(striker BattleSide) error {
+	receiver := striker.opponent()
 	damage := b.battle.creature(striker).Stats.Attack
-	remaining := b.battle.creature(striker.opponent()).Stats.HitPoints.Damaged(damage)
+	if b.input.combatant(receiver).Spec.isImmuneToAttackFrom(b.input.combatant(striker).Spec) {
+		if err := b.emit(&BattleAbilityActivatedEvent{Side: receiver, Ability: BattleAbilityAttackImmunity}); err != nil {
+			return err
+		}
+		damage = 0
+	}
+	remaining := b.battle.creature(receiver).Stats.HitPoints.Damaged(damage)
 	return b.emit(&CreatureStruckEvent{Striker: striker, Damage: damage, RemainingHitPoints: remaining})
 }
 
