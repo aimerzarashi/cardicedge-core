@@ -133,64 +133,70 @@ type BattleStats struct {
 	HitPoints creature.HitPoints `json:"hit_points"`
 }
 
-// 戦闘の AT・HP を変えた効果の出どころ。種類ごとに 1 つだけ持つ（2026-11-09 オーナー。呪いは作るときに種類を足す）
+// 戦闘の入力。戦闘はこの入力と乱数の元だけで出来事の並びを決める（resolveBattle）。BattleStartedEvent がまるごと持ち、
+// 続く出来事の根拠（支援効果の隣の領地・地形効果の土地・アイテムや能力の増減）は、ここから読む（2026-11-13 オーナー。core#171）
+type BattleInput struct {
+	Attacker BattleCombatant `json:"attacker"`
+	Defender BattleCombatant `json:"defender"`
+	Land     BattleLand      `json:"land"`
+	// 支援効果に数える、侵略先の隣にある攻める側の領地。移動で侵略したときの元の領地は入らない（2026-11-10 オーナー）
+	AdjacentTerritories []board.Position `json:"adjacent_territories"`
+	Rules               BattleRules      `json:"rules"`
+}
+
+// 戦闘に出たクリーチャー。性能は戦闘で使わない項目も含めてまるごと持つ（2026-11-13 オーナー）
+type BattleCombatant struct {
+	Card card.Ref     `json:"card"`
+	Spec CreatureSpec `json:"spec"`
+	// 戦闘の前の HP（守る側は領地での傷が残った値）
+	HitPoints creature.HitPoints `json:"hit_points"`
+	// 出したアイテム。出さなければ nil。効かないアイテム（巻物）も、選んだ入力として持つ（2026-11-13 オーナー）
+	Item *BattleItem `json:"item,omitempty"`
+}
+
+type BattleItem struct {
+	Card card.Ref `json:"card"`
+	Spec ItemSpec `json:"spec"`
+}
+
+// 戦う土地（地形効果の根拠）
+type BattleLand struct {
+	Element board.Element `json:"element"`
+	Level   int           `json:"level"`
+}
+
+// 戦闘で使うルールの値
+type BattleRules struct {
+	AdjacentTerritoryBonus gamerules.AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
+}
+
+func (i BattleInput) combatant(side BattleSide) BattleCombatant {
+	if side == BattleSideAttacker {
+		return i.Attacker
+	}
+	return i.Defender
+}
+
+// 戦闘の AT・HP を変えた効果の種類（呪いは作るときに足す）
+type BattleEffect string
+
+const (
+	BattleEffectAdjacentTerritories BattleEffect = "adjacent_territories"
+	BattleEffectTerrain             BattleEffect = "terrain"
+	BattleEffectItem                BattleEffect = "item"
+	BattleEffectAbility             BattleEffect = "ability"
+)
+
+func (e BattleEffect) valid() bool {
+	return e == BattleEffectAdjacentTerritories || e == BattleEffectTerrain || e == BattleEffectItem || e == BattleEffectAbility
+}
+
+// 戦闘の AT・HP を変えた効果の出どころ。種類だけを持ち、根拠の値は戦闘の入力から読む（入力に一度だけ残し、出来事ごとに写さないため。
+// core#171）。能力のときだけ、どの能力か（同じ種類の能力は 1 つまで）
 type BattleStatSource struct {
-	AdjacentTerritories *AdjacentTerritoriesSource `json:"adjacent_territories,omitempty"`
-	Terrain             *TerrainSource             `json:"terrain,omitempty"`
-	Item                *ItemSource                `json:"item,omitempty"`
-	Ability             *AbilitySource             `json:"ability,omitempty"`
-}
-
-// 戦闘中に能力が発動して AT・HP を変えた。能力ごとの値は、その能力のときだけ持つ（戦闘中の増減は AttackModifier・HitPointsModifier、
-// 戦闘中のランダムは Minimum・Maximum）。能力ごとに入れ子の型を作らず 1 つの構造体にしたのは、JSON をタグだけで表せ、
-// イベントを読む側（画面向けの写し）が能力の種類で見分けるだけで済むため。増減は下限の 0 で止まる前の値で、
-// 実際の増減は BattleStatModifiedEvent が持つ。ランダムの引いた値は、当てた後の AT・HP（実際の増減と前の値）から分かるので持たない
-type AbilitySource struct {
-	Ability           BattleAbility                    `json:"ability"`
-	AttackModifier    *creature.AttackModifier         `json:"attack_modifier,omitempty"`
-	HitPointsModifier *creature.HitPointsModifier      `json:"hit_points_modifier,omitempty"`
-	Minimum           *creature.BattleRandomStatsBound `json:"minimum,omitempty"`
-	Maximum           *creature.BattleRandomStatsBound `json:"maximum,omitempty"`
-}
-
-// 支援効果。侵略先の隣にある、攻める側の領地の位置と、1 つあたりの AT の増加（ルールの値）。support と呼ばないのは、能力の援護と取り違えないため
-type AdjacentTerritoriesSource struct {
-	Positions         []board.Position `json:"positions"`
-	BonusPerTerritory int              `json:"bonus_per_territory"`
-}
-
-// 地形効果。効いた土地の属性とレベルと、レベル 1 つあたりの HP の増加（ルールの値）
-type TerrainSource struct {
-	Element       board.Element `json:"element"`
-	Level         int           `json:"level"`
-	BonusPerLevel int           `json:"bonus_per_level"`
-}
-
-// 戦闘に出したアイテムと、その決まった増減（下限の 0 で止まる前の値）
-type ItemSource struct {
-	Card              card.Ref               `json:"card"`
-	AttackModifier    item.AttackModifier    `json:"attack_modifier"`
-	HitPointsModifier item.HitPointsModifier `json:"hit_points_modifier"`
-}
-
-func NewAdjacentTerritoriesSource(positions []board.Position, bonusPerTerritory int) BattleStatSource {
-	return BattleStatSource{AdjacentTerritories: &AdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: bonusPerTerritory}}
-}
-
-func NewTerrainSource(element board.Element, level, bonusPerLevel int) BattleStatSource {
-	return BattleStatSource{Terrain: &TerrainSource{Element: element, Level: level, BonusPerLevel: bonusPerLevel}}
-}
-
-func NewItemSource(ref card.Ref, attackModifier item.AttackModifier, hitPointsModifier item.HitPointsModifier) BattleStatSource {
-	return BattleStatSource{Item: &ItemSource{Card: ref, AttackModifier: attackModifier, HitPointsModifier: hitPointsModifier}}
-}
-
-func NewBattleModifierSource(attackModifier creature.AttackModifier, hitPointsModifier creature.HitPointsModifier) BattleStatSource {
-	return BattleStatSource{Ability: &AbilitySource{Ability: BattleAbilityBattleModifier, AttackModifier: &attackModifier, HitPointsModifier: &hitPointsModifier}}
-}
-
-func NewBattleRandomStatsSource(minimum, maximum creature.BattleRandomStatsBound) BattleStatSource {
-	return BattleStatSource{Ability: &AbilitySource{Ability: BattleAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum}}
+	Effect  BattleEffect  `json:"effect"`
+	Ability BattleAbility `json:"ability,omitempty"`
 }
 
 type EndReason string
