@@ -361,7 +361,7 @@ type MatchBattleStatModifiedEvent struct {
 	HitPoints      int
 }
 
-// 戦闘で能力が発動した（効き目が無くても、持っていれば出る）
+// 戦闘で能力が発動した（先制・後手は効き目が無くても持っていれば出る。攻撃無効は属性が合ったときだけ出る）
 type MatchBattleAbilityActivatedEvent struct {
 	MatchEventMeta
 	Side    MatchBattleSide
@@ -376,12 +376,15 @@ const (
 	MatchBattleAbilityLastStrike        MatchBattleAbility = "last_strike"
 	MatchBattleAbilityBattleModifier    MatchBattleAbility = "battle_modifier"
 	MatchBattleAbilityBattleRandomStats MatchBattleAbility = "battle_random_stats"
+	MatchBattleAbilityAttackImmunity    MatchBattleAbility = "attack_immunity"
 )
 
-// 戦闘の攻撃が 1 回当たった。RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
+// 戦闘の攻撃が 1 回当たった。Attack は攻撃した側のそのときの戦闘中の AT、Damage は受けた側が受けた量（攻撃無効なら 0）。
+// RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
 type MatchCreatureStruckEvent struct {
 	MatchEventMeta
 	Striker            MatchBattleSide
+	Attack             int
 	Damage             int
 	RemainingHitPoints int
 }
@@ -953,7 +956,15 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		if err != nil {
 			return nil, err
 		}
-		return MatchCreatureStruckEvent{meta, striker, e.Damage.Int(), e.RemainingHitPoints.Int()}, nil
+		// 攻撃の値はイベントに持たせず、直前の状態の戦闘中の AT から作る（Evolve が使わず、直前の状態から引けるため。core#174）
+		if previous.Battle == nil {
+			return nil, fmt.Errorf("query: creature struck event %d without battle", e.AggregateVersion)
+		}
+		attack := previous.Battle.Attacker.Stats.Attack
+		if e.Striker == match.BattleSideDefender {
+			attack = previous.Battle.Defender.Stats.Attack
+		}
+		return MatchCreatureStruckEvent{meta, striker, attack.Int(), e.Damage.Int(), e.RemainingHitPoints.Int()}, nil
 	case *match.TerritoryConqueredEvent:
 		if previous.Invasion == nil {
 			return nil, fmt.Errorf("query: conquered event %d without invasion", e.AggregateVersion)
@@ -1048,6 +1059,8 @@ func fromBattleAbility(ability match.BattleAbility) (MatchBattleAbility, error) 
 		return MatchBattleAbilityBattleModifier, nil
 	case match.BattleAbilityBattleRandomStats:
 		return MatchBattleAbilityBattleRandomStats, nil
+	case match.BattleAbilityAttackImmunity:
+		return MatchBattleAbilityAttackImmunity, nil
 	default:
 		return "", fmt.Errorf("query: unknown battle ability: %q", ability)
 	}

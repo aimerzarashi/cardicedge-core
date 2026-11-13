@@ -1368,7 +1368,7 @@ type MatchBattleStatModifiedEvent implements MatchEvent {
   hitPoints: Int!
 }
 
-"戦闘で能力が発動した（効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る）"
+"戦闘で能力が発動した（先制・後手は、効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る。攻撃無効は、攻撃してきたクリーチャーの属性が合ったときだけ、その攻撃の前に出る）"
 type MatchBattleAbilityActivatedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1378,7 +1378,7 @@ type MatchBattleAbilityActivatedEvent implements MatchEvent {
   changes: MatchEventChanges!
   "能力を持つクリーチャーの側"
   side: MatchBattleSide!
-  "発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE）"
+  "発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE・ATTACK_IMMUNITY）"
   ability: CreatureAbilityKind!
 }
 
@@ -1392,7 +1392,9 @@ type MatchCreatureStruckEvent implements MatchEvent {
   changes: MatchEventChanges!
   "攻撃した側"
   striker: MatchBattleSide!
-  "与えた量"
+  "攻撃した側の、そのときの戦闘中の AT"
+  attack: Int!
+  "受けた側が受けた量（攻撃無効が発動したら 0）"
   damage: Int!
   "受けた側の、効果で増えた分も含む残りの体力（0 なら倒れた）"
   remainingHitPoints: Int!

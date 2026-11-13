@@ -52,3 +52,10 @@ func HitPoints(t testing.TB, value int) creature.HitPoints {
 	require.NoError(t, err)
 	return hitPoints
 }
+
+func AttackImmunity(t testing.TB, elements ...string) creature.Ability {
+	t.Helper()
+	ability, err := creature.NewAttackImmunityAbility(Elements(t, elements...))
+	require.NoError(t, err)
+	return ability
+}

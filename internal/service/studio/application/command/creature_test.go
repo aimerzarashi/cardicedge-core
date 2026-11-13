@@ -295,6 +295,49 @@ func TestChangeCreatureAbilities_RejectsBattleRandomStatsRangeOutOfOrder(t *test
 	}, err)
 }
 
+func TestChangeCreatureAbilities_AttackImmunityNeedsElementsAndOtherKindsHaveNone(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+	percent := 150
+
+	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"earth", "fire"}}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityAttackImmunity},
+		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"fire"}, Percent: &percent},
+		{Kind: command.CreatureAbilityDefensive, Elements: []string{"fire"}},
+	})
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "abilities.0"},
+		&input.InvalidFormat{Field: "abilities.1"},
+		&input.InvalidFormat{Field: "abilities.2"},
+	}, err)
+}
+
+func TestChangeCreatureAbilities_RejectsInvalidAttackImmunityElements(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newCreatureHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ドラゴン")
+	require.NoError(t, err)
+
+	_, err = commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{
+		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{}},
+		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"neutral"}},
+		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"fire", "fire"}},
+		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"light"}},
+	})
+
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "abilities.0.elements"},
+		&input.InvalidFormat{Field: "abilities.1.elements"},
+		&input.InvalidFormat{Field: "abilities.2.elements"},
+		&input.InvalidFormat{Field: "abilities.3.elements"},
+	}, err)
+}
+
 func TestChangeCreatureAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)

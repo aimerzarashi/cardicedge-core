@@ -101,6 +101,8 @@ type CreatureAbility struct {
 	BattleModifier *CreatureBattleModifier
 	// 戦闘中のランダム。持っていなければ nil
 	BattleRandomStats *CreatureBattleRandomStats
+	// 攻撃無効が効く相手の属性。持っていなければ nil
+	AttackImmunityElements []string
 }
 
 // 戦闘中の AT・HP の範囲（引く値の最小と最大）

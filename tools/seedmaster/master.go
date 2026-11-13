@@ -586,21 +586,22 @@ func (b masterBoard) layoutInput() command.BoardLayoutInput {
 	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections, Pairs: pairs}
 }
 
-// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent、戦闘中の増減は attack_modifier・hit_points_modifier、戦闘中のランダムは minimum・maximum）
+// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent、戦闘中の増減は attack_modifier・hit_points_modifier、戦闘中のランダムは minimum・maximum、攻撃無効は elements）
 type masterAbility struct {
-	Kind              string `json:"kind"`
-	Percent           *int   `json:"percent"`
-	AttackModifier    *int   `json:"attack_modifier"`
-	HitPointsModifier *int   `json:"hit_points_modifier"`
-	Minimum           *int   `json:"minimum"`
-	Maximum           *int   `json:"maximum"`
+	Kind              string   `json:"kind"`
+	Percent           *int     `json:"percent"`
+	AttackModifier    *int     `json:"attack_modifier"`
+	HitPointsModifier *int     `json:"hit_points_modifier"`
+	Minimum           *int     `json:"minimum"`
+	Maximum           *int     `json:"maximum"`
+	Elements          []string `json:"elements"`
 }
 
 // 種類と値の組み合わせは studio の ChangeAbilities が確かめるので、ここでは知らない種類だけを弾く（流してから気づくより先に止めるため）
 func (a masterAbility) command() (command.CreatureAbility, error) {
 	switch a.Kind {
-	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike, command.CreatureAbilityBattleModifier, command.CreatureAbilityBattleRandomStats:
-		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent, AttackModifier: a.AttackModifier, HitPointsModifier: a.HitPointsModifier, Minimum: a.Minimum, Maximum: a.Maximum}, nil
+	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike, command.CreatureAbilityBattleModifier, command.CreatureAbilityBattleRandomStats, command.CreatureAbilityAttackImmunity:
+		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent, AttackModifier: a.AttackModifier, HitPointsModifier: a.HitPointsModifier, Minimum: a.Minimum, Maximum: a.Maximum, Elements: a.Elements}, nil
 	}
 	return command.CreatureAbility{}, fmt.Errorf("unknown ability %q", a.Kind)
 }

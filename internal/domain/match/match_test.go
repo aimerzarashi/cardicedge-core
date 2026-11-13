@@ -1990,6 +1990,7 @@ func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
 		return creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints))
 	}
 	random := battleRandomStats(t, 10, 70)
+	immunity := creaturetest.AttackImmunity(t, "fire", "earth")
 	cases := []struct {
 		name  string
 		input *matchtest.BattleInputBuilder
@@ -2064,6 +2065,18 @@ func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
 			want: []string{"attacker activates last_strike", "defender activates first_strike", "defender strikes 10 → 30", "attacker strikes 10 → 30"}},
 		{name: "first_strike_destroys_the_attacker_before_it_strikes", input: matchtest.Battle(t).Stats(attacker, 50, 10).Abilities(defender, first),
 			want: []string{"defender activates first_strike", "defender strikes 10 → 0"}},
+		{name: "attack_immunity_against_a_matching_element", input: matchtest.Battle(t).Elements(attacker, "fire").Abilities(defender, immunity),
+			want: []string{"defender activates attack_immunity", "attacker strikes 0 → 40", "defender strikes 10 → 30"}},
+		{name: "attack_immunity_against_one_of_the_elements", input: matchtest.Battle(t).Elements(attacker, "earth", "water").Abilities(defender, immunity),
+			want: []string{"defender activates attack_immunity", "attacker strikes 0 → 40", "defender strikes 10 → 30"}},
+		{name: "attack_immunity_against_another_element", input: matchtest.Battle(t).Elements(attacker, "water").Abilities(defender, immunity),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "attack_immunity_against_neutral", input: matchtest.Battle(t).Elements(attacker, "neutral").Abilities(defender, immunity),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "attack_immunity_of_the_attacker", input: matchtest.Battle(t).Elements(defender, "earth").Abilities(attacker, immunity),
+			want: []string{"attacker strikes 10 → 30", "attacker activates attack_immunity", "defender strikes 0 → 40"}},
+		{name: "attack_immunity_nullifies_raised_attack", input: matchtest.Battle(t).Elements(attacker, "fire").Item(attacker, item.CategoryWeapon, 30, 0).Abilities(defender, immunity),
+			want: []string{"attacker item AT+30 HP+0 → 40/40", "defender activates attack_immunity", "attacker strikes 0 → 40", "defender strikes 10 → 30"}},
 		{name: "battle_modifier_activates_even_when_zero", input: matchtest.Battle(t).Abilities(defender, modifier(0, 0)),
 			want: []string{"defender ability:battle_modifier AT+0 HP+0 → 10/40", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
 		{name: "battle_modifier_lowering_hit_points_to_zero_ends_the_battle", input: matchtest.Battle(t).Abilities(defender, modifier(0, -99)),

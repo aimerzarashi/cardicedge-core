@@ -99,6 +99,11 @@ func (e Elements) Equal(other Elements) bool {
 	return slices.Equal(e, other)
 }
 
+// どれか 1 つでも同じ属性があるか（属性で効くものは、どれか 1 つでも合えば効く。2026-11-07 オーナー）
+func (e Elements) Overlaps(other Elements) bool {
+	return slices.ContainsFunc(e, func(element Element) bool { return slices.Contains(other, element) })
+}
+
 // 攻撃力（AT）。0 以上（0 のカードがある）。上限は持たない（決まりから導ける値が無いため）
 type Attack int
 
@@ -279,6 +284,8 @@ type Ability struct {
 	BattleModifier *BattleModifierAbility `json:"battle_modifier,omitempty"`
 	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は ResolveBattle の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表す）（core#169）
 	BattleRandomStats *BattleRandomStatsAbility `json:"battle_random_stats,omitempty"`
+	// 攻撃無効。戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる。match の判定は CreatureSpec.isImmuneToAttackFrom、発動は攻撃を受ける直前の BattleAbilityActivatedEvent（属性が合わなければ出さない）（core#174）
+	AttackImmunity *AttackImmunityAbility `json:"attack_immunity,omitempty"`
 }
 
 type DefensiveAbility struct{}
@@ -342,6 +349,21 @@ func NewBattleRandomStatsAbility(minimum, maximum int) (Ability, error) {
 	return Ability{BattleRandomStats: &BattleRandomStatsAbility{Minimum: BattleRandomStatsBound(minimum), Maximum: BattleRandomStatsBound(maximum)}}, nil
 }
 
+// 攻撃無効が効く相手の属性。火・地・水・風から 1 つ以上（2026-11-13。無は選べない）
+type AttackImmunityAbility struct {
+	Elements Elements `json:"elements"`
+}
+
+func NewAttackImmunityAbility(elements Elements) (Ability, error) {
+	if len(elements) == 0 {
+		return Ability{}, ErrElementsEmpty
+	}
+	if slices.Contains(elements, ElementNeutral) {
+		return Ability{}, ErrAttackImmunityNeutral
+	}
+	return Ability{AttackImmunity: &AttackImmunityAbility{Elements: slices.Clone(elements)}}, nil
+}
+
 // 戦闘中のランダムの範囲の端（最小・最大）。範囲の決まりは両端を比べるので、生成関数は NewBattleRandomStatsAbility に 1 つだけ置く
 type BattleRandomStatsBound int
 
@@ -396,6 +418,9 @@ func (a Ability) kind() string {
 	if a.BattleRandomStats != nil {
 		kinds = append(kinds, "battle_random_stats")
 	}
+	if a.AttackImmunity != nil {
+		kinds = append(kinds, "attack_immunity")
+	}
 	if len(kinds) != 1 {
 		return ""
 	}
@@ -413,7 +438,10 @@ func (a Ability) equal(other Ability) bool {
 	if a.BattleModifier != nil && *a.BattleModifier != *other.BattleModifier {
 		return false
 	}
-	return a.BattleRandomStats == nil || *a.BattleRandomStats == *other.BattleRandomStats
+	if a.BattleRandomStats != nil && *a.BattleRandomStats != *other.BattleRandomStats {
+		return false
+	}
+	return a.AttackImmunity == nil || a.AttackImmunity.Elements.Equal(other.AttackImmunity.Elements)
 }
 
 func (a Ability) IsDefensive() bool {
@@ -494,4 +522,14 @@ func (a Abilities) BattleRandomStats() (BattleRandomStatsAbility, bool) {
 		}
 	}
 	return BattleRandomStatsAbility{}, false
+}
+
+// 攻撃無効。持っていなければ false
+func (a Abilities) AttackImmunity() (AttackImmunityAbility, bool) {
+	for _, ability := range a {
+		if ability.AttackImmunity != nil {
+			return *ability.AttackImmunity, true
+		}
+	}
+	return AttackImmunityAbility{}, false
 }

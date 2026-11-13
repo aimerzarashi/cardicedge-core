@@ -114,10 +114,11 @@ const (
 	BattleAbilityLastStrike        BattleAbility = "last_strike"
 	BattleAbilityBattleModifier    BattleAbility = "battle_modifier"
 	BattleAbilityBattleRandomStats BattleAbility = "battle_random_stats"
+	BattleAbilityAttackImmunity    BattleAbility = "attack_immunity"
 )
 
 func (a BattleAbility) valid() bool {
-	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier || a == BattleAbilityBattleRandomStats
+	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier || a == BattleAbilityBattleRandomStats || a == BattleAbilityAttackImmunity
 }
 
 func (s BattleSide) opponent() BattleSide {
@@ -293,6 +294,12 @@ func (s CreatureSpec) strikeAbility() (BattleAbility, bool) {
 		return BattleAbilityLastStrike, true
 	}
 	return "", false
+}
+
+// 攻撃無効（攻撃してきたクリーチャーの属性のどれかが合えば効く）
+func (s CreatureSpec) isImmuneToAttackFrom(striker CreatureSpec) bool {
+	immunity, ok := s.Abilities.AttackImmunity()
+	return ok && immunity.Elements.Overlaps(striker.Elements)
 }
 
 // 攻撃する順の強さ（大きい方が先）。先制と後手は同時に持てない（creature.NewAbilities が守る）

@@ -228,8 +228,9 @@ type BattleStatModifiedEvent struct {
 	HitPoints      creature.HitPoints `json:"hit_points"`
 }
 
-// 戦闘で能力が発動した（Side の側のクリーチャーの Ability）。効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出す
-// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。状態は変えない。
+// 戦闘で能力が発動した（Side の側のクリーチャーの Ability）。先制・後手は、効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出す
+// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。条件つきの能力（攻撃無効）は、条件が合ったときだけ出す。
+// 状態は変えない（攻撃無効で 0 になったダメージは、続く CreatureStruckEvent が持つ）。
 // AT・HP を変える能力（戦闘中の増減）は出さず、出どころが能力の BattleStatModifiedEvent が発動を表す（2026-11-12 オーナー。core#163）
 type BattleAbilityActivatedEvent struct {
 	EventMeta   `json:"-"`

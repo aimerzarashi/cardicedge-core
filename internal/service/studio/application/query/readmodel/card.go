@@ -154,6 +154,7 @@ type CreatureAbilityMetadata struct {
 	LastStrike        *CreatureLastStrikeAbilityMetadata        `json:"last_strike,omitempty"`
 	BattleModifier    *CreatureBattleModifierAbilityMetadata    `json:"battle_modifier,omitempty"`
 	BattleRandomStats *CreatureBattleRandomStatsAbilityMetadata `json:"battle_random_stats,omitempty"`
+	AttackImmunity    *CreatureAttackImmunityAbilityMetadata    `json:"attack_immunity,omitempty"`
 }
 
 type CreatureDefensiveAbilityMetadata struct{}
@@ -170,6 +171,11 @@ type CreatureBattleModifierAbilityMetadata struct {
 type CreatureBattleRandomStatsAbilityMetadata struct {
 	Minimum int `json:"minimum"`
 	Maximum int `json:"maximum"`
+}
+
+// 属性はクリーチャーの属性と同じ名前（火・地・水・風の順）
+type CreatureAttackImmunityAbilityMetadata struct {
+	Elements []string `json:"elements"`
 }
 
 type CreatureTollMultiplierAbilityMetadata struct {
@@ -196,6 +202,9 @@ func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMe
 		}
 		if ability.BattleRandomStats != nil {
 			values[i].BattleRandomStats = &CreatureBattleRandomStatsAbilityMetadata{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
+		}
+		if ability.AttackImmunity != nil {
+			values[i].AttackImmunity = &CreatureAttackImmunityAbilityMetadata{Elements: ability.AttackImmunity.Elements.Strings()}
 		}
 	}
 	return values

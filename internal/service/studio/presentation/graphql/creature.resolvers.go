@@ -150,9 +150,13 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	if err != nil {
 		return nil, err
 	}
+	abilities, err := fromCreatureAbilities(registered.Abilities)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: fromCreatureAbilities(registered.Abilities),
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

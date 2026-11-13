@@ -752,6 +752,9 @@ func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		if ability.BattleRandomStats != nil {
 			values[i].BattleRandomStats = &CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
 		}
+		if ability.AttackImmunity != nil {
+			values[i].AttackImmunityElements = ability.AttackImmunity.Elements.Strings()
+		}
 	}
 	return values
 }

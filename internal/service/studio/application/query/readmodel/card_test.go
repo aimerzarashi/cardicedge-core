@@ -237,6 +237,10 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	require.NoError(t, err)
 	randomStatsChanged := creature.AbilitiesChangedEvent{Abilities: randomStats, ChangedBy: operatortest.ID(t, 21)}
 	require.Equal(t, []readmodel.CreatureAbilityMetadata{{BattleRandomStats: &readmodel.CreatureBattleRandomStatsAbilityMetadata{Minimum: 10, Maximum: 70}}}, afterAbilities.Evolve(&randomStatsChanged).Metadata.Creature.Abilities)
+	immunity, err := creature.NewAbilities([]creature.Ability{creaturetest.AttackImmunity(t, "fire", "earth")})
+	require.NoError(t, err)
+	immunityChanged := creature.AbilitiesChangedEvent{Abilities: immunity, ChangedBy: operatortest.ID(t, 22)}
+	require.Equal(t, []readmodel.CreatureAbilityMetadata{{AttackImmunity: &readmodel.CreatureAttackImmunityAbilityMetadata{Elements: []string{"fire", "earth"}}}}, afterAbilities.Evolve(&immunityChanged).Metadata.Creature.Abilities)
 	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
 	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, registeredState.Metadata.Creature)
 }
