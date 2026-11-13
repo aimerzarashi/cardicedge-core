@@ -34,7 +34,7 @@ const cardQuery = `query ($id: UUID!) {
 	card(id: $id) {
 		__typename
 		... on CardInfo { id name cost rarity }
-		... on SpellCardInfo { effect { __typename ... on SpellDrawCardsEffect { count } } }
+		... on SpellCardInfo { effect { __typename ... on DrawCardsSpellEffect { count } } }
 		... on CardNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
 	}
@@ -194,7 +194,7 @@ func TestCard_ReturnsTheEffectOfASpell(t *testing.T) {
 
 	result := client.Data(t, token, cardQuery, map[string]any{"id": master.NPCAvatars.Spell}, "card")
 
-	require.Equal(t, map[string]any{"__typename": "SpellDrawCardsEffect", "count": float64(2)}, result["effect"])
+	require.Equal(t, map[string]any{"__typename": "DrawCardsSpellEffect", "count": float64(2)}, result["effect"])
 }
 
 // 無い ID も、カードでない ID（登録済みのプレイヤーの ID）も、見つからない扱い

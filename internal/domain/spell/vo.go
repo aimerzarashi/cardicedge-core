@@ -27,15 +27,15 @@ func NewID(value int64) (ID, error) {
 }
 
 // スペルの効果。種類ごとの型のどれか 1 つだけを持ち、効果の無いスペルはどれも持たない（2026-11-10 オーナー。種類ごとに型を分ける）。
-// 種類は、対戦で使う場面を作るスライスごとに足す（core#116）。JSON はタグだけで、持っている種類の名前の下に値を入れる（{"draw_cards":{"count":1}}。無ければ {}）
+// 種類は、対戦で使う場面を作るスライスごとに足す（core#116）。JSON はタグだけで、持っている種類の名前の下に値を入れる（{"draw_cards":{"count":1}}。無ければ {}）。
+// スペルは使ったときに発動する。ターンをまたいで効き続ける効果（サイコロを複数振る・サイコロの目を固定する）も、使ったときに対象にかかる。
+// 「呪い」という言葉は使わない（2026-11-13 オーナー。core#173）
 type Effect struct {
-	DrawCards *DrawCardsEffect `json:"draw_cards,omitempty"`
-	GainMagic *GainMagicEffect `json:"gain_magic,omitempty"`
-	RollDice  *RollDiceEffect  `json:"roll_dice,omitempty"`
-	// 対象のプレイヤーにかける呪い（core#151）
-	FixedDiceCurse *FixedDiceCurseEffect `json:"fixed_dice_curse,omitempty"`
-	// 対象のクリーチャーにダメージ（core#152）
-	Damage *DamageEffect `json:"damage,omitempty"`
+	DrawCards    *DrawCardsSpellEffect    `json:"draw_cards,omitempty"`
+	GainMagic    *GainMagicSpellEffect    `json:"gain_magic,omitempty"`
+	MultipleDice *MultipleDiceSpellEffect `json:"multiple_dice,omitempty"`
+	FixedDice    *FixedDiceSpellEffect    `json:"fixed_dice,omitempty"`
+	Damage       *DamageSpellEffect       `json:"damage,omitempty"`
 }
 
 // 効果なし（登録の直後の値）
@@ -44,12 +44,12 @@ func NoEffect() Effect {
 }
 
 func (e Effect) IsNone() bool {
-	return e.DrawCards == nil && e.GainMagic == nil && e.RollDice == nil && e.FixedDiceCurse == nil && e.Damage == nil
+	return e.DrawCards == nil && e.GainMagic == nil && e.MultipleDice == nil && e.FixedDice == nil && e.Damage == nil
 }
 
-// 対象のプレイヤーを選ぶ効果か（呪い）
+// 対象のプレイヤー（自分を含む全員）を選ぶ効果か
 func (e Effect) TargetsPlayer() bool {
-	return e.FixedDiceCurse != nil
+	return e.MultipleDice != nil || e.FixedDice != nil
 }
 
 // 対象のクリーチャー（自分の領地を含む、盤面の領地のクリーチャー。2026-11-11 オーナー）を選ぶ効果か
@@ -59,8 +59,8 @@ func (e Effect) TargetsCreature() bool {
 
 // 中身で比べる（種類ごとの値をポインタで持つため == では比べられない）
 func (e Effect) Equal(other Effect) bool {
-	return equalPointee(e.DrawCards, other.DrawCards) && equalPointee(e.GainMagic, other.GainMagic) && equalPointee(e.RollDice, other.RollDice) &&
-		equalPointee(e.FixedDiceCurse, other.FixedDiceCurse) && equalPointee(e.Damage, other.Damage)
+	return equalPointee(e.DrawCards, other.DrawCards) && equalPointee(e.GainMagic, other.GainMagic) && equalPointee(e.MultipleDice, other.MultipleDice) &&
+		equalPointee(e.FixedDice, other.FixedDice) && equalPointee(e.Damage, other.Damage)
 }
 
 func equalPointee[T comparable](a, b *T) bool {
@@ -71,12 +71,12 @@ func equalPointee[T comparable](a, b *T) bool {
 }
 
 // カードを引く（ホープ）。山札の先頭から Count 枚引く
-type DrawCardsEffect struct {
+type DrawCardsSpellEffect struct {
 	Count DrawCount `json:"count"`
 }
 
-func NewDrawCardsEffect(count DrawCount) Effect {
-	return Effect{DrawCards: &DrawCardsEffect{Count: count}}
+func NewDrawCardsSpellEffect(count DrawCount) Effect {
+	return Effect{DrawCards: &DrawCardsSpellEffect{Count: count}}
 }
 
 // 引く枚数。1 以上（0 枚引く効果は効果なしと同じため）。上限は持たない
@@ -94,12 +94,12 @@ func (c DrawCount) Int() int {
 }
 
 // 魔力を得る（マナ）。使った人が（周回数 + 1）× PerLap の魔力を得る（周回数はこの対戦で周回を終えた回数。2026-11-10 オーナー）
-type GainMagicEffect struct {
+type GainMagicSpellEffect struct {
 	PerLap MagicPerLap `json:"per_lap"`
 }
 
-func NewGainMagicEffect(perLap MagicPerLap) Effect {
-	return Effect{GainMagic: &GainMagicEffect{PerLap: perLap}}
+func NewGainMagicSpellEffect(perLap MagicPerLap) Effect {
+	return Effect{GainMagic: &GainMagicSpellEffect{PerLap: perLap}}
 }
 
 // 周回数 1 つあたりの魔力。1 以上（0 は効果なしと同じため）。上限は持たない
@@ -116,13 +116,14 @@ func (m MagicPerLap) Int() int {
 	return int(m)
 }
 
-// サイコロを複数振る（フライ）。使った人は、このターンのサイコロを Count 個同時に振り、合計の分だけ進む（2026-11-10 オーナー）
-type RollDiceEffect struct {
-	Count DiceCount `json:"count"`
+// サイコロを複数振る（フライ）。対象のプレイヤーが振るとき、Count 個を同時に振り、合計の分だけ進む。Turns は効き続けるターン数（2026-11-13 オーナー。core#173）
+type MultipleDiceSpellEffect struct {
+	Count DiceCount   `json:"count"`
+	Turns EffectTurns `json:"turns"`
 }
 
-func NewRollDiceEffect(count DiceCount) Effect {
-	return Effect{RollDice: &RollDiceEffect{Count: count}}
+func NewMultipleDiceSpellEffect(count DiceCount, turns EffectTurns) Effect {
+	return Effect{MultipleDice: &MultipleDiceSpellEffect{Count: count, Turns: turns}}
 }
 
 // 振るサイコロの個数。2 以上（1 個はふだんと同じで、効果なしと変わらないため）。上限は持たない
@@ -139,18 +140,18 @@ func (c DiceCount) Int() int {
 	return int(c)
 }
 
-// 次のサイコロの目を決める呪い（ホーリーワード）。対象のプレイヤーが次に振ると、目は Value になる。Turns は解けるまでのターン数
-// （かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける。解ける条件は今はターン数だけで、ほかの条件は要るときに足す。2026-11-10 オーナー）
-type FixedDiceCurseEffect struct {
-	Value DiceFace   `json:"value"`
-	Turns CurseTurns `json:"turns"`
+// サイコロの目を固定する（ホーリーワード）。対象のプレイヤーが振るとき、目は Value になる。Turns は効き続けるターン数
+// （かかった人が自分のターンを終えるたびに 1 減り、0 で終わる。終わる条件は今はターン数だけで、ほかの条件は要るときに足す。2026-11-10 オーナー）
+type FixedDiceSpellEffect struct {
+	Value DiceFace    `json:"value"`
+	Turns EffectTurns `json:"turns"`
 }
 
-func NewFixedDiceCurseEffect(value DiceFace, turns CurseTurns) Effect {
-	return Effect{FixedDiceCurse: &FixedDiceCurseEffect{Value: value, Turns: turns}}
+func NewFixedDiceSpellEffect(value DiceFace, turns EffectTurns) Effect {
+	return Effect{FixedDice: &FixedDiceSpellEffect{Value: value, Turns: turns}}
 }
 
-// 呪いで決めるサイコロの目。1 以上（ボードのサイコロの目の範囲は確かめない。範囲はボードごとに違い、マスタの値は対戦の外で決まるため）
+// 固定するサイコロの目。1 以上（ボードのサイコロの目の範囲は確かめない。範囲はボードごとに違い、マスタの値は対戦の外で決まるため）
 type DiceFace int
 
 func NewDiceFace(value int) (DiceFace, error) {
@@ -164,27 +165,27 @@ func (f DiceFace) Int() int {
 	return int(f)
 }
 
-// 呪いが解けるまでのターン数。1 以上
-type CurseTurns int
+// ターンをまたいで効き続ける効果のターン数。1 以上
+type EffectTurns int
 
-func NewCurseTurns(value int) (CurseTurns, error) {
+func NewEffectTurns(value int) (EffectTurns, error) {
 	if value < 1 {
-		return 0, ErrCurseTurnsTooSmall
+		return 0, ErrEffectTurnsTooSmall
 	}
-	return CurseTurns(value), nil
+	return EffectTurns(value), nil
 }
 
-func (t CurseTurns) Int() int {
+func (t EffectTurns) Int() int {
 	return int(t)
 }
 
 // 対象のクリーチャーにダメージ（マジックボルト。自分のクリーチャーにも使える）。今の HP から Amount を引き、0 になれば破壊する（2026-11-10 オーナー）
-type DamageEffect struct {
+type DamageSpellEffect struct {
 	Amount DamageAmount `json:"amount"`
 }
 
-func NewDamageEffect(amount DamageAmount) Effect {
-	return Effect{Damage: &DamageEffect{Amount: amount}}
+func NewDamageSpellEffect(amount DamageAmount) Effect {
+	return Effect{Damage: &DamageSpellEffect{Amount: amount}}
 }
 
 // ダメージの値。1 以上（0 は効果なしと同じため）。上限は持たない

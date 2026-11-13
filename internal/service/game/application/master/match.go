@@ -37,20 +37,18 @@ type CardSpec struct {
 
 // スペルだけの性能（写した cards.metadata.spell の値）。効果は種類ごとの値のどれか 1 つで、どれも無ければ効果なし
 type SpellSpec struct {
-	DrawCards *SpellDrawCards
-	GainMagic *SpellGainMagic
-	RollDice  *SpellRollDice
-	// 対象のプレイヤーにかける呪い
-	FixedDiceCurse *SpellFixedDiceCurse
-	// 対象のクリーチャーにダメージ
-	Damage *SpellDamage
+	DrawCards    *SpellDrawCards
+	GainMagic    *SpellGainMagic
+	MultipleDice *SpellMultipleDice
+	FixedDice    *SpellFixedDice
+	Damage       *SpellDamage
 }
 
 type SpellDamage struct {
 	Amount int
 }
 
-type SpellFixedDiceCurse struct {
+type SpellFixedDice struct {
 	Value int
 	Turns int
 }
@@ -63,8 +61,9 @@ type SpellGainMagic struct {
 	PerLap int
 }
 
-type SpellRollDice struct {
+type SpellMultipleDice struct {
 	Count int
+	Turns int
 }
 
 // アイテムだけの性能（写した cards.metadata.item の値）

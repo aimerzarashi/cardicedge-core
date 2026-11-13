@@ -83,8 +83,8 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 			Position:   &model.BoardPosition{X: participant.Position.X, Y: participant.Position.Y},
 			TotalMagic: participant.TotalMagic,
 			Magic:      participant.Magic, Hand: hand, DrawPileCount: participant.DrawPileCount, DiscardPile: discardPile, TurnOrder: participant.TurnOrder,
-			PassedCheckpoints: fromQueryPositions(participant.PassedCheckpoints),
-			Curse:             fromMatchCurse(participant.Curse),
+			PassedCheckpoints:  fromQueryPositions(participant.PassedCheckpoints),
+			LastingSpellEffect: fromMatchLastingSpellEffect(participant.LastingSpellEffect),
 		}
 	}
 	rules := match.Rules
@@ -524,9 +524,9 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchMagicDepletedEvent:
 		return &model.MatchMagicDepletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
 	case query.MatchDiceRolledEvent:
-		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice, FixedByCurse: e.FixedByCurse}, nil
-	case query.MatchCurseCastEvent:
-		return &model.MatchCurseCastEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Target: e.Target, Curse: fromMatchCurse(&e.Curse)}, nil
+		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice, SpellEffect: fromRollingSpellEffect(e.SpellEffect)}, nil
+	case query.MatchSpellEffectStartedEvent:
+		return &model.MatchSpellEffectStartedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Target: e.Target, Effect: fromMatchLastingSpellEffect(&e.Effect)}, nil
 	case query.MatchCreatureDamagedEvent:
 		return &model.MatchCreatureDamagedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
@@ -537,12 +537,10 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature,
 		}, nil
-	case query.MatchCurseRemovedEvent:
-		return &model.MatchCurseRemovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
+	case query.MatchSpellEffectEndedEvent:
+		return &model.MatchSpellEffectEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchMagicGainedEvent:
 		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic, Laps: e.Laps, MagicPerLap: e.MagicPerLap}, nil
-	case query.MatchDiceCountChangedEvent:
-		return &model.MatchDiceCountChangedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Count: e.Count}, nil
 	case query.MatchMovedEvent:
 		return &model.MatchMovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}}, nil
 	case query.MatchCheckpointPassedEvent:
@@ -629,14 +627,16 @@ func fromSpellChoices(choices []query.MatchSpellChoice) []*model.MatchSpellChoic
 	return converted
 }
 
-// 呪いの効き方は種類ごとの型にする（無ければ null）
-func fromMatchCurse(curse *query.MatchCurse) *model.MatchCurse {
-	if curse == nil {
+func fromMatchLastingSpellEffect(lasting *query.MatchLastingSpellEffect) *model.MatchLastingSpellEffect {
+	if lasting == nil {
 		return nil
 	}
-	converted := &model.MatchCurse{RemainingTurns: curse.RemainingTurns}
-	if curse.FixedDice != nil {
-		converted.Effect = &model.MatchFixedDiceCurse{Value: *curse.FixedDice}
+	return &model.MatchLastingSpellEffect{Effect: fromSpellEffect(lasting.Effect), RemainingTurns: lasting.RemainingTurns}
+}
+
+func fromRollingSpellEffect(effect *query.SpellEffect) model.SpellEffect {
+	if effect == nil {
+		return nil
 	}
-	return converted
+	return fromSpellEffect(*effect)
 }

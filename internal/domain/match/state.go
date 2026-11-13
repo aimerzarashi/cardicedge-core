@@ -33,8 +33,8 @@ type ParticipantState struct {
 	PassedCheckpoints []board.Position
 	// この対戦で周回を終えた回数（魔力を得るスペルが使う）
 	Laps int
-	// かかっている呪い（1 つまで。新しくかけると上書きする）。無ければ nil
-	Curse *Curse
+	// 続いているスペルの効果（1 つまで。新しく使うと上書きする）。無ければ nil
+	LastingSpellEffect *LastingSpellEffect
 	// 受け取った戦利品。終わった後にパックを選ぶまでは nil（NPC は受け取らない）
 	Reward *Reward
 }
@@ -166,8 +166,6 @@ type Match struct {
 	PassedPositions []board.Position
 	// このターンにスペルを使ったか（1 ターンに 1 枚まで。ターンを終えると消える）
 	SpellUsed bool
-	// このターンに振るサイコロの個数。0 はふだんの 1 個（サイコロを複数振るスペルで変わり、ターンを終えると消える）
-	DiceCount int
 	// 最後に振った配置したクリーチャーの ID。盤面から外れたクリーチャーの ID を使い回さないため、数を数え直さずにここで持つ
 	LastPlacedCreatureID PlacedCreatureID
 }
@@ -316,7 +314,7 @@ type SpellChoice struct {
 }
 
 // 今の番の人が使えるスペル（手札の順）。サイコロを振る段階で、このターンにまだ使っていないときだけ中身がある。
-// 効果の無いスペルは使えない（2026-11-10 オーナー）。呪いは自分を含めて誰にでもかけられる
+// 効果の無いスペルは使えない（2026-11-10 オーナー）。対象のプレイヤーは自分を含めて誰でも選べる
 func (m Match) SpellChoices() []SpellChoice {
 	if m.Phase != PhaseRolling || m.SpellUsed {
 		return nil

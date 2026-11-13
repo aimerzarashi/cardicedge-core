@@ -115,16 +115,16 @@ type MatchDiceRolledEvent struct {
 	Value int
 	// 複数のサイコロを同時に振ったときの 1 個ずつの目（1 個のときは空）
 	Dice []int
-	// 呪いで目が決まった
-	FixedByCurse bool
+	// 振った人に続いていたスペルの効果（振り方を決めたもの。無ければ nil）。直前の状態から作る（core#173）
+	SpellEffect *SpellEffect
 }
 
-// スペルで、対象のプレイヤーに呪いをかけた
-type MatchCurseCastEvent struct {
+// スペルを使い、対象のプレイヤーにターンをまたいで効き続ける効果がかかった
+type MatchSpellEffectStartedEvent struct {
 	MatchEventMeta
 	Participant int
 	Target      int
-	Curse       MatchCurse
+	Effect      MatchLastingSpellEffect
 }
 
 // スペルで、領地のクリーチャーにダメージを与えた（RemainingHitPoints が 0 なら続けて破壊される）
@@ -145,8 +145,8 @@ type MatchCreatureDestroyedEvent struct {
 	Creature    int
 }
 
-// 自分のターンを終えて、かかっていた呪いが解けた
-type MatchCurseRemovedEvent struct {
+// 自分のターンを終えて、続いていたスペルの効果が終わった
+type MatchSpellEffectEndedEvent struct {
 	MatchEventMeta
 	Participant int
 }
@@ -158,13 +158,6 @@ type MatchMagicGainedEvent struct {
 	Magic       int
 	Laps        int
 	MagicPerLap int
-}
-
-// スペルの効果で、このターンに振るサイコロの個数が変わった
-type MatchDiceCountChangedEvent struct {
-	MatchEventMeta
-	Participant int
-	Count       int
 }
 
 type MatchMovedEvent struct {
@@ -776,6 +769,15 @@ func currentPosition(previous match.Match) board.Position {
 	return positionOf(previous, index)
 }
 
+// 振った人に続いていたスペルの効果（振るときに効く）
+func rollingSpellEffect(previous match.Match, participant match.ParticipantIndex) *SpellEffect {
+	if int(participant) >= len(previous.Participants) || previous.Participants[participant].LastingSpellEffect == nil {
+		return nil
+	}
+	effect := fromSpellEffect(previous.Participants[participant].LastingSpellEffect.Effect)
+	return &effect
+}
+
 // 魔力を得たスペルの根拠（周回を終えた回数と 1 周あたり）。使ったスペルは直前に捨て札の最後に入っている
 func magicGainedBasis(previous match.Match, participant match.ParticipantIndex) (int, int) {
 	if int(participant) >= len(previous.Participants) {
@@ -838,12 +840,12 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		if dice == nil {
 			dice = []int{}
 		}
-		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value, dice, e.FixedByCurse}, nil
-	case *match.CurseCastEvent:
-		curse := e.Curse
-		return MatchCurseCastEvent{meta, e.Participant.Int(), e.Target.Int(), *fromCurse(&curse)}, nil
-	case *match.CurseRemovedEvent:
-		return MatchCurseRemovedEvent{meta, e.Participant.Int()}, nil
+		return MatchDiceRolledEvent{meta, e.Participant.Int(), e.Value, dice, rollingSpellEffect(previous, e.Participant)}, nil
+	case *match.SpellEffectStartedEvent:
+		lasting := e.Effect
+		return MatchSpellEffectStartedEvent{meta, e.Participant.Int(), e.Target.Int(), *fromLastingSpellEffect(&lasting)}, nil
+	case *match.SpellEffectEndedEvent:
+		return MatchSpellEffectEndedEvent{meta, e.Participant.Int()}, nil
 	case *match.CreatureDamagedEvent:
 		return MatchCreatureDamagedEvent{meta, e.Participant.Int(), boardPosition(e.Position), creatureAt(previous, e.Position).ID.Int(), e.Damage, e.RemainingHitPoints.Int()}, nil
 	case *match.CreatureDestroyedEvent:
@@ -851,8 +853,6 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 	case *match.MagicGainedEvent:
 		laps, perLap := magicGainedBasis(previous, e.Participant)
 		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic, laps, perLap}, nil
-	case *match.DiceCountChangedEvent:
-		return MatchDiceCountChangedEvent{meta, e.Participant.Int(), e.Count}, nil
 	case *match.MovedEvent:
 		return MatchMovedEvent{meta, e.Participant.Int(), boardPosition(e.To)}, nil
 	case *match.CheckpointPassedEvent:

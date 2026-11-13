@@ -178,7 +178,7 @@ func (i BattleInput) combatant(side BattleSide) BattleCombatant {
 	return i.Defender
 }
 
-// 戦闘の AT・HP を変えた効果の種類（呪いは作るときに足す）
+// 戦闘の AT・HP を変えた効果の種類（スペルの効果は作るときに足す）
 type BattleEffect string
 
 const (
@@ -234,25 +234,11 @@ type CardSpec struct {
 	Spell *SpellSpec `json:"spell,omitempty"`
 }
 
-// プレイヤーにかかっている呪い。効き方は種類ごとの値のどれか 1 つ、解ける条件は Expiry（今はターン数だけ。2026-11-10 オーナー）
-type Curse struct {
-	FixedDice *FixedDiceCurse `json:"fixed_dice,omitempty"`
-	Expiry    CurseExpiry     `json:"expiry"`
-}
-
-// 次のサイコロの目を決める呪い（remainingTurns ターンで解ける）
-func NewFixedDiceCurse(value, remainingTurns int) Curse {
-	return Curse{FixedDice: &FixedDiceCurse{Value: value}, Expiry: CurseExpiry{RemainingTurns: remainingTurns}}
-}
-
-// 次のサイコロの目を決める（ホーリーワード）
-type FixedDiceCurse struct {
-	Value int `json:"value"`
-}
-
-// 呪いが解ける条件。RemainingTurns は、かけられた人が自分のターンを終えるたびに 1 減り、0 で解ける
-type CurseExpiry struct {
-	RemainingTurns int `json:"remaining_turns"`
+// 参加者に続いているスペルの効果（ターンをまたいで効き続けるもの。サイコロを複数振る・サイコロの目を固定する）。
+// Effect は使ったスペルの効果の写し、RemainingTurns は残りのターン数で、かかった人が自分のターンを終えるたびに 1 減り、0 で終わる（2026-11-13 オーナー。core#173）
+type LastingSpellEffect struct {
+	Effect         spell.Effect `json:"effect"`
+	RemainingTurns int          `json:"remaining_turns"`
 }
 
 // スペルの性能の写し。値の型は CreatureSpec と同じ理由で spell パッケージのものをそのまま使う

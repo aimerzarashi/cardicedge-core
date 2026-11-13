@@ -227,9 +227,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
 		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Cost: cardtest.Cost(t, 40)},
 		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 600},
-		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
-		&match.CurseCastEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Curse: match.NewFixedDiceCurse(6, 1)},
-		&match.CurseRemovedEvent{EventMeta: meta, Participant: by},
+		&match.SpellEffectStartedEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Effect: *lasting(spelltest.FixedDice(t, 6, 1), 1)},
+		&match.SpellEffectEndedEvent{EventMeta: meta, Participant: by},
 		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
 		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0)},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
@@ -3184,20 +3183,21 @@ func TestEvolve_LapCompletedCountsTheLaps(t *testing.T) {
 	require.Equal(t, 1, evolved.(match.Match).Participants[1].Laps)
 }
 
-func TestDecide_RollDiceSpellRollsTheDiceTogetherAndMovesByTheTotal(t *testing.T) {
-	state := withSpellInHand(t, rollingWithSpell(t), 1, 403, 50, spelltest.RollDice(t, 2))
-	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
-	require.Equal(t, 2, eventOf[*match.DiceCountChangedEvent](t, events).Count)
+func TestDecide_MultipleDiceOnYourselfRollsTheDiceTogetherAndEndsAtTheEndOfTheTurn(t *testing.T) {
+	state, events := useSpellOn(t, rollingWithLastingSpell(t, spelltest.MultipleDice(t, 2, 1)), 1)
+	require.Equal(t, matchtest.Index(t, 1), eventOf[*match.SpellEffectStartedEvent](t, events).Target)
+	require.Equal(t, lasting(spelltest.MultipleDice(t, 2, 1), 1), state.Participants[1].LastingSpellEffect)
 	require.Equal(t, match.PhaseRolling, state.Phase)
 
 	state, events = apply(t, state, matchtest.NewRollingRandom(1, 2), &match.RollCommand{By: matchtest.Index(t, 1)})
-
 	rolled := eventOf[*match.DiceRolledEvent](t, events)
 	require.Equal(t, []int{1, 2}, rolled.Dice)
 	require.Equal(t, 3, rolled.Value)
 	require.Equal(t, 3, state.Dice)
-	state, _ = endTurn(t, state, 1)
-	require.Zero(t, state.DiceCount)
+
+	state, events = endTurn(t, state, 1)
+	require.Equal(t, 1, countOf[*match.SpellEffectEndedEvent](events))
+	require.Nil(t, state.Participants[1].LastingSpellEffect)
 }
 
 func TestDecide_RollWithOneDieLeavesTheDiceOut(t *testing.T) {
@@ -3216,94 +3216,106 @@ func TestEvolve_RejectsDiceThatDoNotAddUpToTheValue(t *testing.T) {
 	require.ErrorIs(t, err, match.ErrInvalidState)
 }
 
-// 参加者 1 の振る段階に、次の目を 6 にする呪い（1 ターン）のスペル 404 を手札に足す
-func rollingWithCurse(t *testing.T) match.Match {
+// 参加者 1 の振る段階に、ターンをまたいで効き続ける効果のスペル 404 を手札に足す
+func rollingWithLastingSpell(t *testing.T, effect spell.Effect) match.Match {
 	t.Helper()
-	return withSpellInHand(t, rollingWithSpell(t), 1, 404, 50, spelltest.FixedDiceCurse(t, 6, 1))
+	return withSpellInHand(t, rollingWithSpell(t), 1, 404, 50, effect)
 }
 
-func useCurse(t *testing.T, state match.Match, target int) (match.Match, []match.Event) {
+func useSpellOn(t *testing.T, state match.Match, target int) (match.Match, []match.Event) {
 	t.Helper()
 	targetIndex := matchtest.Index(t, target)
 	return apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state), Target: &targetIndex})
 }
 
-func TestMatch_SpellChoicesOfACurseOfferEveryParticipant(t *testing.T) {
-	state := rollingWithCurse(t)
-
-	choices := state.SpellChoices()
-
-	require.Contains(t, choices, match.SpellChoice{HandIndex: spellIndex(state), Targets: indexes(t, 0, 1), TargetPositions: []board.Position{}})
+func lasting(effect spell.Effect, remainingTurns int) *match.LastingSpellEffect {
+	return &match.LastingSpellEffect{Effect: effect, RemainingTurns: remainingTurns}
 }
 
-func TestDecide_CurseOnYourselfFixesThisTurnsDiceAndIsRemovedAtTheEndOfTheTurn(t *testing.T) {
-	state, events := useCurse(t, rollingWithCurse(t), 1)
-	cast := eventOf[*match.CurseCastEvent](t, events)
-	require.Equal(t, matchtest.Index(t, 1), cast.Target)
-	require.Equal(t, fixedDiceCurse(6, 1), state.Participants[1].Curse)
+func TestMatch_SpellChoicesOfALastingEffectOfferEveryParticipant(t *testing.T) {
+	tests := map[string]spell.Effect{
+		"multiple_dice": spelltest.MultipleDice(t, 2, 1),
+		"fixed_dice":    spelltest.FixedDice(t, 6, 1),
+	}
+	for name, effect := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := rollingWithLastingSpell(t, effect)
+
+			choices := state.SpellChoices()
+
+			require.Contains(t, choices, match.SpellChoice{HandIndex: spellIndex(state), Targets: indexes(t, 0, 1), TargetPositions: []board.Position{}})
+		})
+	}
+}
+
+func TestDecide_FixedDiceOnYourselfFixesThisTurnsDiceAndEndsAtTheEndOfTheTurn(t *testing.T) {
+	state, events := useSpellOn(t, rollingWithLastingSpell(t, spelltest.FixedDice(t, 6, 1)), 1)
+	require.Equal(t, matchtest.Index(t, 1), eventOf[*match.SpellEffectStartedEvent](t, events).Target)
+	require.Equal(t, lasting(spelltest.FixedDice(t, 6, 1), 1), state.Participants[1].LastingSpellEffect)
 
 	state, events = apply(t, state, matchtest.NewRollingRandom(2), &match.RollCommand{By: matchtest.Index(t, 1)})
 	rolled := eventOf[*match.DiceRolledEvent](t, events)
-	require.True(t, rolled.FixedByCurse)
+	require.Nil(t, rolled.Dice)
+	require.Equal(t, 6, rolled.Value)
 	require.Equal(t, 6, state.Dice)
 
 	state, events = endTurn(t, state, 1)
-	require.Equal(t, 1, countOf[*match.CurseRemovedEvent](events))
-	require.Nil(t, state.Participants[1].Curse)
+	require.Equal(t, 1, countOf[*match.SpellEffectEndedEvent](events))
+	require.Nil(t, state.Participants[1].LastingSpellEffect)
 }
 
-func TestDecide_CurseOnAnotherFixesTheirNextDice(t *testing.T) {
-	state, _ := useCurse(t, rollingWithCurse(t), 0)
+func TestDecide_LastingEffectOnAnotherAppliesToTheirNextRoll(t *testing.T) {
+	state, _ := useSpellOn(t, rollingWithLastingSpell(t, spelltest.FixedDice(t, 6, 1)), 0)
 	state, _ = drawAndRoll(t, state, 1, 2)
 	state, events := endTurn(t, state, 1)
-	// かけた人のターンの終わりには、かけられた人の呪いは減らない
-	require.Zero(t, countOf[*match.CurseRemovedEvent](events))
-	require.Equal(t, 1, state.Participants[0].Curse.Expiry.RemainingTurns)
+	// 使った人のターンの終わりには、対象の人の効果は減らない
+	require.Zero(t, countOf[*match.SpellEffectEndedEvent](events))
+	require.Equal(t, 1, state.Participants[0].LastingSpellEffect.RemainingTurns)
 
 	state, events = drawAndRoll(t, state, 0, 3)
 
-	require.True(t, eventOf[*match.DiceRolledEvent](t, events).FixedByCurse)
+	require.Equal(t, 6, eventOf[*match.DiceRolledEvent](t, events).Value)
 	require.Equal(t, 6, state.Dice)
 }
 
-func TestDecide_CurseOverRollingTwoDiceRollsOneDie(t *testing.T) {
-	state := withSpellInHand(t, rollingWithCurse(t), 1, 403, 50, spelltest.RollDice(t, 2))
+// 1 人に 1 つまでなので、目を固定する効果がかかっていても、複数振る効果を使えば複数振る（2026-11-13 オーナー。core#173）
+func TestDecide_NewLastingEffectOverwritesTheOldOne(t *testing.T) {
+	state := rollingWithLastingSpell(t, spelltest.MultipleDice(t, 2, 1))
 	state.Participants = slices.Clone(state.Participants)
-	state.Participants[1].Curse = fixedDiceCurse(1, 1)
-	state, _ = apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
+	state.Participants[1].LastingSpellEffect = lasting(spelltest.FixedDice(t, 1, 3), 3)
+	state, _ = useSpellOn(t, state, 1)
+	require.Equal(t, lasting(spelltest.MultipleDice(t, 2, 1), 1), state.Participants[1].LastingSpellEffect)
 
 	state, events := apply(t, state, matchtest.NewRollingRandom(5, 5), &match.RollCommand{By: matchtest.Index(t, 1)})
 
 	rolled := eventOf[*match.DiceRolledEvent](t, events)
-	require.Nil(t, rolled.Dice)
-	require.Equal(t, 1, rolled.Value)
-	require.Equal(t, 1, state.Dice)
+	require.Equal(t, []int{5, 5}, rolled.Dice)
+	require.Equal(t, 10, state.Dice)
 }
 
-func TestDecide_CurseLastingTwoTurnsLosesOneTurnAtEachEnd(t *testing.T) {
-	state := withSpellInHand(t, rollingWithSpell(t), 1, 405, 50, spelltest.FixedDiceCurse(t, 6, 2))
-	state, _ = useCurse(t, state, 1)
+func TestDecide_LastingEffectOfTwoTurnsLosesOneTurnAtEachEnd(t *testing.T) {
+	state, _ := useSpellOn(t, rollingWithLastingSpell(t, spelltest.FixedDice(t, 6, 2)), 1)
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.RollCommand{By: matchtest.Index(t, 1)})
 
 	state, events := endTurn(t, state, 1)
 
-	require.Zero(t, countOf[*match.CurseRemovedEvent](events))
-	require.Equal(t, 1, state.Participants[1].Curse.Expiry.RemainingTurns)
+	require.Zero(t, countOf[*match.SpellEffectEndedEvent](events))
+	require.Equal(t, 1, state.Participants[1].LastingSpellEffect.RemainingTurns)
 }
 
 func TestDecide_UseSpellRejectsATargetThatDoesNotFit(t *testing.T) {
 	outside := matchtest.Index(t, 5)
 	zero := matchtest.Index(t, 0)
-	curse := rollingWithCurse(t)
+	lastingSpell := rollingWithLastingSpell(t, spelltest.FixedDice(t, 6, 1))
 	draw := rollingWithSpell(t)
 	tests := map[string]struct {
 		state  match.Match
 		target *match.ParticipantIndex
 		err    error
 	}{
-		"curse_without_target":   {state: curse, target: nil, err: match.ErrSpellTargetRequired},
-		"curse_outside_target":   {state: curse, target: &outside, err: match.ErrSpellTargetNotAllowed},
-		"draw_cards_with_target": {state: draw, target: &zero, err: match.ErrSpellTargetNotAllowed},
+		"lasting_effect_without_target": {state: lastingSpell, target: nil, err: match.ErrSpellTargetRequired},
+		"lasting_effect_outside_target": {state: lastingSpell, target: &outside, err: match.ErrSpellTargetNotAllowed},
+		"draw_cards_with_target":        {state: draw, target: &zero, err: match.ErrSpellTargetNotAllowed},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -3311,11 +3323,6 @@ func TestDecide_UseSpellRejectsATargetThatDoesNotFit(t *testing.T) {
 			require.ErrorIs(t, err, tt.err)
 		})
 	}
-}
-
-func fixedDiceCurse(value, remainingTurns int) *match.Curse {
-	curse := match.NewFixedDiceCurse(value, remainingTurns)
-	return &curse
 }
 
 // 参加者 1 の振る段階。参加者 0 の領地 (1,0)（HP 20）と参加者 1 の領地 (2,0) があり、手札の最後に 20 ダメージのスペル 406

@@ -197,15 +197,15 @@ type cardChangeResult interface {
 func fromSpellEffect(effect readmodel.SpellEffectMetadata) model.SpellEffect {
 	switch {
 	case effect.DrawCards != nil:
-		return &model.SpellDrawCardsEffect{Count: effect.DrawCards.Count}
+		return &model.DrawCardsSpellEffect{Count: effect.DrawCards.Count}
 	case effect.GainMagic != nil:
-		return &model.SpellGainMagicEffect{PerLap: effect.GainMagic.PerLap}
-	case effect.RollDice != nil:
-		return &model.SpellRollDiceEffect{Count: effect.RollDice.Count}
-	case effect.FixedDiceCurse != nil:
-		return &model.SpellFixedDiceCurseEffect{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
+		return &model.GainMagicSpellEffect{PerLap: effect.GainMagic.PerLap}
+	case effect.MultipleDice != nil:
+		return &model.MultipleDiceSpellEffect{Count: effect.MultipleDice.Count, Turns: effect.MultipleDice.Turns}
+	case effect.FixedDice != nil:
+		return &model.FixedDiceSpellEffect{Value: effect.FixedDice.Value, Turns: effect.FixedDice.Turns}
 	case effect.Damage != nil:
-		return &model.SpellDamageEffect{Amount: effect.Damage.Amount}
+		return &model.DamageSpellEffect{Amount: effect.Damage.Amount}
 	default:
 		return nil
 	}
@@ -227,12 +227,12 @@ func toSpellEffect(effect *model.SpellEffectInput) (command.SpellEffect, bool) {
 		converted.GainMagic = &command.SpellGainMagic{PerLap: effect.GainMagic.PerLap}
 		kinds++
 	}
-	if effect.RollDice != nil {
-		converted.RollDice = &command.SpellRollDice{Count: effect.RollDice.Count}
+	if effect.MultipleDice != nil {
+		converted.MultipleDice = &command.SpellMultipleDice{Count: effect.MultipleDice.Count, Turns: effect.MultipleDice.Turns}
 		kinds++
 	}
-	if effect.FixedDiceCurse != nil {
-		converted.FixedDiceCurse = &command.SpellFixedDiceCurse{Value: effect.FixedDiceCurse.Value, Turns: effect.FixedDiceCurse.Turns}
+	if effect.FixedDice != nil {
+		converted.FixedDice = &command.SpellFixedDice{Value: effect.FixedDice.Value, Turns: effect.FixedDice.Turns}
 		kinds++
 	}
 	if effect.Damage != nil {

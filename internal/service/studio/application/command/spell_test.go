@@ -231,30 +231,33 @@ func TestChangeSpellEffect_ChangesToEachKindAndRejectsTooSmallValues(t *testing.
 
 	gained, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 100}})
 	require.NoError(t, err)
-	rolled, err := commands.ChangeEffect(ctx, gained.ID, gained.Revision, command.SpellEffect{RollDice: &command.SpellRollDice{Count: 2}})
+	rolled, err := commands.ChangeEffect(ctx, gained.ID, gained.Revision, command.SpellEffect{MultipleDice: &command.SpellMultipleDice{Count: 2, Turns: 1}})
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision+2, rolled.Revision)
 
 	_, perLapErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 0}})
-	_, diceErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{RollDice: &command.SpellRollDice{Count: 1}})
+	_, diceErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{MultipleDice: &command.SpellMultipleDice{Count: 1, Turns: 0}})
 	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}, perLapErr)
-	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.rollDice.count", Min: 2}}, diceErr)
+	require.Equal(t, input.Errors{
+		&input.TooSmall{Field: "effect.multipleDice.count", Min: 2},
+		&input.TooSmall{Field: "effect.multipleDice.turns", Min: 1},
+	}, diceErr)
 }
 
-func TestChangeSpellEffect_ChangesToAFixedDiceCurseAndRejectsTooSmallValuesTogether(t *testing.T) {
+func TestChangeSpellEffect_ChangesToFixedDiceAndRejectsTooSmallValuesTogether(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newSpellHandler(t, ctx)
 	registered, err := commands.Register(ctx, "ホーリーワード6")
 	require.NoError(t, err)
 
-	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{FixedDiceCurse: &command.SpellFixedDiceCurse{Value: 6, Turns: 1}})
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{FixedDice: &command.SpellFixedDice{Value: 6, Turns: 1}})
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision+1, changed.Revision)
 
-	_, err = commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{FixedDiceCurse: &command.SpellFixedDiceCurse{Value: 0, Turns: 0}})
+	_, err = commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{FixedDice: &command.SpellFixedDice{Value: 0, Turns: 0}})
 	require.Equal(t, input.Errors{
-		&input.TooSmall{Field: "effect.fixedDiceCurse.value", Min: 1},
-		&input.TooSmall{Field: "effect.fixedDiceCurse.turns", Min: 1},
+		&input.TooSmall{Field: "effect.fixedDice.value", Min: 1},
+		&input.TooSmall{Field: "effect.fixedDice.turns", Min: 1},
 	}, err)
 }
 

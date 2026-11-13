@@ -239,23 +239,27 @@ func newSpellEffect(source *master.SpellSpec) (spell.Effect, error) {
 	switch {
 	case source.DrawCards != nil:
 		count, err := spell.NewDrawCount(source.DrawCards.Count)
-		return spell.NewDrawCardsEffect(count), err
+		return spell.NewDrawCardsSpellEffect(count), err
 	case source.GainMagic != nil:
 		perLap, err := spell.NewMagicPerLap(source.GainMagic.PerLap)
-		return spell.NewGainMagicEffect(perLap), err
-	case source.RollDice != nil:
-		count, err := spell.NewDiceCount(source.RollDice.Count)
-		return spell.NewRollDiceEffect(count), err
-	case source.FixedDiceCurse != nil:
-		value, err := spell.NewDiceFace(source.FixedDiceCurse.Value)
+		return spell.NewGainMagicSpellEffect(perLap), err
+	case source.MultipleDice != nil:
+		count, err := spell.NewDiceCount(source.MultipleDice.Count)
 		if err != nil {
 			return spell.Effect{}, err
 		}
-		turns, err := spell.NewCurseTurns(source.FixedDiceCurse.Turns)
-		return spell.NewFixedDiceCurseEffect(value, turns), err
+		turns, err := spell.NewEffectTurns(source.MultipleDice.Turns)
+		return spell.NewMultipleDiceSpellEffect(count, turns), err
+	case source.FixedDice != nil:
+		value, err := spell.NewDiceFace(source.FixedDice.Value)
+		if err != nil {
+			return spell.Effect{}, err
+		}
+		turns, err := spell.NewEffectTurns(source.FixedDice.Turns)
+		return spell.NewFixedDiceSpellEffect(value, turns), err
 	case source.Damage != nil:
 		amount, err := spell.NewDamageAmount(source.Damage.Amount)
-		return spell.NewDamageEffect(amount), err
+		return spell.NewDamageSpellEffect(amount), err
 	default:
 		return spell.NoEffect(), nil
 	}
@@ -396,7 +400,7 @@ type SpellTargetPosition struct {
 	X, Y int
 }
 
-// 呪いのスペルは target（参加者の番号）が要り、無ければ input.Errors（Required・項目名 target）、選べない対象は input.Errors（NotFound・target）
+// 対象のプレイヤーを選ぶスペルは target（参加者の番号）が要り、無ければ input.Errors（Required・項目名 target）、選べない対象は input.Errors（NotFound・target）
 // クリーチャーを選ぶスペルは targetPosition（対象の領地の位置）が要り、無ければ input.Errors（Required・targetPosition）、選べない位置は
 // input.Errors（NotFound・targetPosition。位置が負の値でも同じ）
 func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int, targetPosition *SpellTargetPosition) (ChangedMatch, error) {

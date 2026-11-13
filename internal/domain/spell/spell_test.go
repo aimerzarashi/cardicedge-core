@@ -379,8 +379,8 @@ func TestEffect_EqualComparesTheContents(t *testing.T) {
 	require.False(t, spelltest.DrawCards(t, 1).Equal(spell.NoEffect()))
 	require.True(t, spell.NoEffect().Equal(spell.NoEffect()))
 	require.True(t, spelltest.GainMagic(t, 100).Equal(spelltest.GainMagic(t, 100)))
-	require.False(t, spelltest.GainMagic(t, 100).Equal(spelltest.RollDice(t, 2)))
-	require.False(t, spelltest.RollDice(t, 2).Equal(spelltest.RollDice(t, 3)))
+	require.False(t, spelltest.GainMagic(t, 100).Equal(spelltest.MultipleDice(t, 2, 1)))
+	require.False(t, spelltest.MultipleDice(t, 2, 1).Equal(spelltest.MultipleDice(t, 3, 1)))
 }
 
 func TestNewMagicPerLapAndDiceCount_RejectTooSmall(t *testing.T) {

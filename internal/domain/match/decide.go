@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 // 中で time.Now や乱数を呼ばず受け取るのは、テストで時刻・並びを固定するため。混ぜた並びはイベントに残し、Evolve は乱数に左右されない
@@ -171,22 +172,27 @@ func discard(r *recorder, handIndex int) error {
 	return endTurn(r)
 }
 
-// このターンのサイコロの個数だけ同時に振り、合計の分だけ進む（1 個ずつ目の範囲で振る。2026-11-10 オーナー）
+// サイコロを振り、出た目の合計の分だけ進む。続いているスペルの効果があれば、それに従って振る（目を固定する・複数を同時に振る。1 個ずつ目の範囲で振る。2026-11-10 オーナー）
 func roll(r *recorder, random Random) error {
-	// 目を決める呪いは、サイコロを複数振るスペルより優先する（サイコロ 1 個で、その目だけ進む。2026-11-10 オーナー）
-	if curse := r.current().Curse; curse != nil && curse.FixedDice != nil {
-		value := curse.FixedDice.Value
-		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value, FixedByCurse: true}
-		}); err != nil {
-			return err
+	count := 1
+	if lasting := r.current().LastingSpellEffect; lasting != nil {
+		switch effect := lasting.Effect; {
+		case effect.FixedDice != nil:
+			value := effect.FixedDice.Value.Int()
+			if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+				return &DiceRolledEvent{EventMeta: meta, Participant: by, Value: value}
+			}); err != nil {
+				return err
+			}
+			return advance(r)
+		case effect.MultipleDice != nil:
+			count = effect.MultipleDice.Count.Int()
 		}
-		return advance(r)
 	}
 	rules := r.state.Rules
 	var dice []int
 	value := 0
-	for range max(r.state.DiceCount, 1) {
+	for range count {
 		face := rules.DiceMin + random.IntN(rules.DiceMax-rules.DiceMin+1)
 		dice = append(dice, face)
 		value += face
@@ -200,6 +206,17 @@ func roll(r *recorder, random Random) error {
 		return err
 	}
 	return advance(r)
+}
+
+// ターンをまたいで効き続ける効果ならそのターン数
+func lastingTurns(effect spell.Effect) (int, bool) {
+	switch {
+	case effect.MultipleDice != nil:
+		return effect.MultipleDice.Turns.Int(), true
+	case effect.FixedDice != nil:
+		return effect.FixedDice.Turns.Int(), true
+	}
+	return 0, false
 }
 
 func choosePath(r *recorder, to board.Position) error {
@@ -244,10 +261,10 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 	if effect.Damage != nil {
 		return damageCreature(r, *targetPosition, effect.Damage.Amount.Int())
 	}
-	if effect.FixedDiceCurse != nil {
-		curse := NewFixedDiceCurse(effect.FixedDiceCurse.Value.Int(), effect.FixedDiceCurse.Turns.Int())
+	if turns, ok := lastingTurns(effect); ok {
+		lasting := LastingSpellEffect{Effect: effect, RemainingTurns: turns}
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &CurseCastEvent{EventMeta: meta, Participant: by, Target: *target, Curse: curse}
+			return &SpellEffectStartedEvent{EventMeta: meta, Participant: by, Target: *target, Effect: lasting}
 		})
 	}
 	if effect.GainMagic != nil {
@@ -257,11 +274,6 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 		magic := (laps + 1) * perLap
 		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &MagicGainedEvent{EventMeta: meta, Participant: by, Magic: magic}
-		})
-	}
-	if effect.RollDice != nil {
-		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: effect.RollDice.Count.Int()}
 		})
 	}
 	if effect.DrawCards != nil {
@@ -565,8 +577,8 @@ func (b *battleResolver) emit(event battleEvent) error {
 	return nil
 }
 
-// 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は 呪い → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
-// 呪いは作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
+// 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は スペルの効果 → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
+// スペルの効果は作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
 func (b *battleResolver) effects(random Random) []func() error {
 	return []func() error{
 		func() error { return b.applyAbilities(BattleSideAttacker, random) },
@@ -903,10 +915,10 @@ func endTurn(r *recorder) error {
 			return &HandLimitExceededEvent{EventMeta: meta, Participant: by}
 		})
 	}
-	// 最後のターンを終えると呪いが解ける（残るターンがあれば TurnEndedEvent で 1 減る）
-	if curse := r.current().Curse; curse != nil && curse.Expiry.RemainingTurns <= 1 {
+	// 最後のターンを終えると続いていたスペルの効果が終わる（残るターンがあれば TurnEndedEvent で 1 減る）
+	if lasting := r.current().LastingSpellEffect; lasting != nil && lasting.RemainingTurns <= 1 {
 		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &CurseRemovedEvent{EventMeta: meta, Participant: by}
+			return &SpellEffectEndedEvent{EventMeta: meta, Participant: by}
 		}); err != nil {
 			return err
 		}

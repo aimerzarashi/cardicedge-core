@@ -160,16 +160,16 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Magic += e.Magic
-	case *CurseCastEvent:
+	case *SpellEffectStartedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
 		}
-		if e.Target < 0 || int(e.Target) >= len(current.Participants) || e.Curse.Expiry.RemainingTurns < 1 {
+		if e.Target < 0 || int(e.Target) >= len(current.Participants) || e.Effect.RemainingTurns < 1 {
 			return state, ErrInvalidState
 		}
-		curse := e.Curse
+		lasting := e.Effect
 		current.Participants = slices.Clone(current.Participants)
-		current.Participants[e.Target].Curse = &curse
+		current.Participants[e.Target].LastingSpellEffect = &lasting
 	case *CreatureDamagedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
@@ -197,24 +197,16 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[destroyed.Owner].DiscardPile = append(slices.Clone(current.Participants[destroyed.Owner].DiscardPile), destroyed.Card)
 		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
 		current.PlacedCreatures = slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == destroyed.ID })
-	case *CurseRemovedEvent:
+	case *SpellEffectEndedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
 		}
-		if current.Participants[index].Curse == nil {
+		if current.Participants[index].LastingSpellEffect == nil {
 			return state, ErrInvalidState
 		}
 		current.Participants = slices.Clone(current.Participants)
-		current.Participants[index].Curse = nil
-	case *DiceCountChangedEvent:
-		if _, err := current.actor(e.Participant); err != nil {
-			return state, err
-		}
-		if current.Phase != PhaseRolling || e.Count < 2 {
-			return state, ErrInvalidState
-		}
-		current.DiceCount = e.Count
+		current.Participants[index].LastingSpellEffect = nil
 	case *CreaturePlacedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -573,12 +565,12 @@ func Evolve(state State, event Event) (State, error) {
 		if err != nil {
 			return state, err
 		}
-		// 解けるのは CurseRemovedEvent。残るターンがあれば 1 減らす
-		if curse := current.Participants[index].Curse; curse != nil {
-			remaining := *curse
-			remaining.Expiry.RemainingTurns--
+		// 終わるのは SpellEffectEndedEvent。残るターンがあれば 1 減らす
+		if lasting := current.Participants[index].LastingSpellEffect; lasting != nil {
+			remaining := *lasting
+			remaining.RemainingTurns--
 			current.Participants = slices.Clone(current.Participants)
-			current.Participants[index].Curse = &remaining
+			current.Participants[index].LastingSpellEffect = &remaining
 		}
 		if current.Turn+1 < len(current.TurnOrder) {
 			current.Turn++
@@ -590,7 +582,6 @@ func Evolve(state State, event Event) (State, error) {
 		current.Dice = 0
 		current.PassedPositions = nil
 		current.SpellUsed = false
-		current.DiceCount = 0
 		current.Phase = current.turnStartPhase()
 	case *MatchEndedEvent:
 		current.Result = &Result{Winners: e.Winners, Ranks: e.Ranks, Reason: e.Reason}
