@@ -5,9 +5,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
 
@@ -140,4 +146,99 @@ func PlacedCreatureID(t testing.TB, value int) match.PlacedCreatureID {
 	id, err := match.NewPlacedCreatureID(value)
 	require.NoError(t, err)
 	return id
+}
+
+// 戦闘の入力を組み立てる道具。素の入力（攻める側はカード 101・守る側は 201 で、どちらも無属性・AT 10・HP 40、
+// アイテム・能力・隣の領地なし、土地は火のレベル 1、支援効果と地形効果はゲーム全体の既定の値）から、違うところだけを変える
+type BattleInputBuilder struct {
+	t     testing.TB
+	input match.BattleInput
+}
+
+func Battle(t testing.TB) *BattleInputBuilder {
+	t.Helper()
+	combatant := func(id int64) match.BattleCombatant {
+		spec := match.CreatureSpec{
+			Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 40),
+			ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
+		}
+		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: spec, HitPoints: creaturetest.HitPoints(t, 40)}
+	}
+	land := match.BattleLand{Element: board.ElementFire, Level: 1}
+	rules := match.BattleRules{AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus, TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel}
+	input := match.BattleInput{Attacker: combatant(101), Defender: combatant(201), Land: land, AdjacentTerritories: []board.Position{}, Rules: rules}
+	return &BattleInputBuilder{t: t, input: input}
+}
+
+func (b *BattleInputBuilder) combatant(side match.BattleSide) *match.BattleCombatant {
+	if side == match.BattleSideAttacker {
+		return &b.input.Attacker
+	}
+	return &b.input.Defender
+}
+
+// AT は性能の値、HP は戦闘の前の値
+func (b *BattleInputBuilder) Stats(side match.BattleSide, attack, hitPoints int) *BattleInputBuilder {
+	b.t.Helper()
+	combatant := b.combatant(side)
+	combatant.Spec.Attack = creaturetest.Attack(b.t, attack)
+	combatant.HitPoints = creaturetest.HitPoints(b.t, hitPoints)
+	return b
+}
+
+func (b *BattleInputBuilder) Elements(side match.BattleSide, values ...string) *BattleInputBuilder {
+	b.t.Helper()
+	b.combatant(side).Spec.Elements = creaturetest.Elements(b.t, values...)
+	return b
+}
+
+func (b *BattleInputBuilder) Abilities(side match.BattleSide, abilities ...creature.Ability) *BattleInputBuilder {
+	b.t.Helper()
+	values, err := creature.NewAbilities(abilities)
+	require.NoError(b.t, err)
+	b.combatant(side).Spec.Abilities = values
+	return b
+}
+
+// 出したアイテム（攻める側はカード 301、守る側は 302）
+func (b *BattleInputBuilder) Item(side match.BattleSide, category item.Category, attackModifier, hitPointsModifier int) *BattleInputBuilder {
+	b.t.Helper()
+	id := int64(301)
+	if side == match.BattleSideDefender {
+		id = 302
+	}
+	spec := match.ItemSpec{Category: category, AttackModifier: item.NewAttackModifier(attackModifier), HitPointsModifier: item.NewHitPointsModifier(hitPointsModifier)}
+	b.combatant(side).Item = &match.BattleItem{Card: cardtest.Ref(b.t, card.ItemEntityType, id), Spec: spec}
+	return b
+}
+
+func (b *BattleInputBuilder) Land(element board.Element, level int) *BattleInputBuilder {
+	b.input.Land.Element, b.input.Land.Level = element, level
+	return b
+}
+
+// 支援効果に数える隣の領地の数（位置は (0, 0) から x の順）
+func (b *BattleInputBuilder) AdjacentTerritories(count int) *BattleInputBuilder {
+	b.t.Helper()
+	positions := make([]board.Position, count)
+	for i := range positions {
+		positions[i] = boardtest.Position(b.t, i, 0)
+	}
+	b.input.AdjacentTerritories = positions
+	return b
+}
+
+// 支援効果の 1 つあたりと、地形効果のレベルあたりの値
+func (b *BattleInputBuilder) Rules(adjacentTerritoryBonus, terrainBonusPerLevel int) *BattleInputBuilder {
+	b.t.Helper()
+	adjacent, err := gamerules.NewAdjacentTerritoryBonus(adjacentTerritoryBonus)
+	require.NoError(b.t, err)
+	terrain, err := gamerules.NewTerrainBonusPerLevel(terrainBonusPerLevel)
+	require.NoError(b.t, err)
+	b.input.Rules.AdjacentTerritoryBonus, b.input.Rules.TerrainBonusPerLevel = adjacent, terrain
+	return b
+}
+
+func (b *BattleInputBuilder) Input() match.BattleInput {
+	return b.input
 }

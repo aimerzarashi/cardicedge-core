@@ -133,7 +133,7 @@ type BattleStats struct {
 	HitPoints creature.HitPoints `json:"hit_points"`
 }
 
-// 戦闘の入力。戦闘はこの入力と乱数の元だけで出来事の並びを決める（resolveBattle）。BattleStartedEvent がまるごと持ち、
+// 戦闘の入力。戦闘はこの入力と乱数の元だけで出来事の並びを決める（ResolveBattle）。BattleStartedEvent がまるごと持ち、
 // 続く出来事の根拠（支援効果の隣の領地・地形効果の土地・アイテムや能力の増減）は、ここから読む（2026-11-13 オーナー。core#171）
 type BattleInput struct {
 	Attacker BattleCombatant `json:"attacker"`

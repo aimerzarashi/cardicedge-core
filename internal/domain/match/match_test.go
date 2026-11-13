@@ -2,6 +2,7 @@ package match_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1938,12 +1939,6 @@ func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn
 
 	state, events := defend(t, state)
 
-	// 倒した相手は反撃しない
-	require.Equal(t, 1, countOf[*match.CreatureStruckEvent](events))
-	struck := eventOf[*match.CreatureStruckEvent](t, events)
-	require.Equal(t, match.BattleSideAttacker, struck.Striker)
-	require.Equal(t, creaturetest.Attack(t, 30), struck.Damage)
-	require.Zero(t, struck.RemainingHitPoints.Int())
 	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
 	require.Equal(t, defeated, conquered.DefeatedCreature)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
@@ -1967,7 +1962,6 @@ func TestDecide_FailingToDefeatTheDefenderReturnsTheSurvivorToTheHandAndPaysTheT
 	state, events := defend(t, state)
 
 	// 攻撃 5・体力 20 どうしなので、どちらも倒れない
-	require.Equal(t, 2, countOf[*match.CreatureStruckEvent](events))
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
 	require.True(t, repelled.ReturnedToHand)
 	require.Equal(t, cardtest.CreatureRef(t, 201), repelled.Card)
@@ -2007,65 +2001,144 @@ func withStrikeAbilities(t *testing.T, state match.Match, attacker, defender []c
 	return state
 }
 
-func TestDecide_StrikeOrderFollowsFirstStrikeAndLastStrike(t *testing.T) {
-	first := []creature.Ability{creature.NewFirstStrikeAbility()}
-	last := []creature.Ability{creature.NewLastStrikeAbility()}
-	attackerFirst := []match.BattleSide{match.BattleSideAttacker, match.BattleSideDefender}
-	defenderFirst := []match.BattleSide{match.BattleSideDefender, match.BattleSideAttacker}
-	tests := []struct {
-		name     string
-		attacker []creature.Ability
-		defender []creature.Ability
-		want     []match.BattleSide
-		// 発動した能力（側と種類。攻める側 → 守る側の順）
-		activated []string
-	}{
-		{name: "neither", want: attackerFirst},
-		{name: "defender_first_strike", defender: first, want: defenderFirst, activated: []string{"defender:first_strike"}},
-		{name: "attacker_first_strike", attacker: first, want: attackerFirst, activated: []string{"attacker:first_strike"}},
-		{name: "both_first_strike", attacker: first, defender: first, want: attackerFirst, activated: []string{"attacker:first_strike", "defender:first_strike"}},
-		{name: "attacker_last_strike", attacker: last, want: defenderFirst, activated: []string{"attacker:last_strike"}},
-		{name: "defender_last_strike", defender: last, want: attackerFirst, activated: []string{"defender:last_strike"}},
-		{name: "both_last_strike", attacker: last, defender: last, want: attackerFirst, activated: []string{"attacker:last_strike", "defender:last_strike"}},
-		{name: "attacker_last_strike_against_first_strike", attacker: last, defender: first, want: defenderFirst, activated: []string{"attacker:last_strike", "defender:first_strike"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 攻撃 5・体力 20 どうしなので、どちらも倒れず 2 回とも攻撃する
-			state := withStrikeAbilities(t, invade(t, invadingMatch(t)), tt.attacker, tt.defender)
-
-			_, events := defend(t, state)
-
-			var strikers []match.BattleSide
-			var activated []string
-			for _, event := range events {
-				switch e := event.(type) {
-				case *match.CreatureStruckEvent:
-					strikers = append(strikers, e.Striker)
-				case *match.BattleAbilityActivatedEvent:
-					// 発動は攻撃の前にそろう
-					require.Empty(t, strikers)
-					activated = append(activated, string(e.Side)+":"+string(e.Ability))
-				}
+// 戦闘の出来事を 1 行ずつの文字列に縮める（期待する並びをそのまま表に書けるように）。戦闘の開始は入力そのものなので除く。
+// 効果は「側 出どころ AT の増減 HP の増減 → 当てた後の AT/HP」、発動は「側 activates 能力」、攻撃は「攻撃した側 strikes ダメージ → 受けた側の残りの HP」
+func battleLines(events []match.Event) []string {
+	var lines []string
+	for _, event := range events {
+		switch e := event.(type) {
+		case *match.BattleStatModifiedEvent:
+			source := string(e.Source.Effect)
+			if e.Source.Ability != "" {
+				source += ":" + string(e.Source.Ability)
 			}
-			require.Equal(t, tt.want, strikers)
-			require.Equal(t, tt.activated, activated)
-		})
+			lines = append(lines, fmt.Sprintf("%s %s AT%+d HP%+d → %d/%d", e.Side, source, e.AttackDelta, e.HitPointsDelta, e.Attack.Int(), e.HitPoints.Int()))
+		case *match.BattleAbilityActivatedEvent:
+			lines = append(lines, fmt.Sprintf("%s activates %s", e.Side, e.Ability))
+		case *match.CreatureStruckEvent:
+			lines = append(lines, fmt.Sprintf("%s strikes %d → %d", e.Striker, e.Damage.Int(), e.RemainingHitPoints.Int()))
+		}
 	}
+	return lines
 }
 
-func TestDecide_DefenderWithFirstStrikeDestroysTheAttackerBeforeItStrikes(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 50, 10, 10, 20)
-	state = withStrikeAbilities(t, state, nil, []creature.Ability{creature.NewFirstStrikeAbility()})
+// 戦闘の決まり（効果の順・効き方・下限・途中の決着・攻撃の順・能力）は、入力と出来事の並びの表で確かめる。
+// 能力やルールを足したら、ここに行を足す（core#172）
+func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
+	attacker, defender := match.BattleSideAttacker, match.BattleSideDefender
+	first, last := creature.NewFirstStrikeAbility(), creature.NewLastStrikeAbility()
+	modifier := func(attack, hitPoints int) creature.Ability {
+		return creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints))
+	}
+	random := battleRandomStats(t, 10, 70)
+	cases := []struct {
+		name  string
+		input *matchtest.BattleInputBuilder
+		// 乱数の元が返す値（IntN の戻り値）。無ければ 0 を返す
+		random []int
+		want   []string
+	}{
+		{name: "both_survive", input: matchtest.Battle(t),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "defeated_defender_does_not_strike_back", input: matchtest.Battle(t).Stats(attacker, 30, 20).Stats(defender, 50, 30),
+			want: []string{"attacker strikes 30 → 0"}},
+		{name: "effects_of_the_attacker_then_the_defender_before_the_strikes",
+			input: matchtest.Battle(t).Stats(attacker, 10, 40).Stats(defender, 20, 40).Elements(defender, "fire").Land(board.ElementFire, 2).AdjacentTerritories(2).
+				Item(attacker, item.CategoryWeapon, 25, 0).Item(defender, item.CategoryArmor, 0, 15),
+			want: []string{
+				"attacker adjacent_territories AT+20 HP+0 → 30/40", "attacker item AT+25 HP+0 → 55/40",
+				"defender terrain AT+0 HP+20 → 20/60", "defender item AT+0 HP+15 → 20/75",
+				"attacker strikes 55 → 20", "defender strikes 20 → 20",
+			}},
+		{name: "abilities_come_first_on_each_side",
+			input: matchtest.Battle(t).Stats(attacker, 10, 40).Stats(defender, 20, 40).Elements(defender, "fire").Land(board.ElementFire, 2).AdjacentTerritories(2).
+				Item(attacker, item.CategoryWeapon, 25, 0).Item(defender, item.CategoryArmor, 0, 15).Abilities(attacker, modifier(5, 0)).Abilities(defender, modifier(0, 30)),
+			want: []string{
+				"attacker ability:battle_modifier AT+5 HP+0 → 15/40", "attacker adjacent_territories AT+20 HP+0 → 35/40", "attacker item AT+25 HP+0 → 60/40",
+				"defender ability:battle_modifier AT+0 HP+30 → 20/70", "defender terrain AT+0 HP+20 → 20/90", "defender item AT+0 HP+15 → 20/105",
+				"attacker strikes 60 → 45", "defender strikes 20 → 20",
+			}},
+		{name: "terrain_with_the_same_element", input: matchtest.Battle(t).Elements(defender, "fire").Land(board.ElementFire, 1),
+			want: []string{"defender terrain AT+0 HP+10 → 10/50", "attacker strikes 10 → 40", "defender strikes 10 → 30"}},
+		{name: "terrain_with_one_of_the_elements", input: matchtest.Battle(t).Elements(defender, "fire", "water").Land(board.ElementFire, 1),
+			want: []string{"defender terrain AT+0 HP+10 → 10/50", "attacker strikes 10 → 40", "defender strikes 10 → 30"}},
+		{name: "terrain_with_another_element", input: matchtest.Battle(t).Elements(defender, "water").Land(board.ElementFire, 1),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "terrain_of_a_multi_land_with_an_element", input: matchtest.Battle(t).Elements(defender, "water").Land(board.ElementMulti, 1),
+			want: []string{"defender terrain AT+0 HP+10 → 10/50", "attacker strikes 10 → 40", "defender strikes 10 → 30"}},
+		{name: "terrain_of_a_multi_land_with_neutral", input: matchtest.Battle(t).Elements(defender, "neutral").Land(board.ElementMulti, 1),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "terrain_of_a_neutral_land_with_neutral", input: matchtest.Battle(t).Elements(defender, "neutral").Land(board.ElementNeutral, 1),
+			want: []string{"defender terrain AT+0 HP+10 → 10/50", "attacker strikes 10 → 40", "defender strikes 10 → 30"}},
+		{name: "counterattack_destroys_the_attacker", input: matchtest.Battle(t).Stats(attacker, 10, 10),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 0"}},
+		{name: "item_changes_both_attack_and_hit_points", input: matchtest.Battle(t).Item(attacker, item.CategoryWeapon, 10, 20),
+			want: []string{"attacker item AT+10 HP+20 → 20/60", "attacker strikes 20 → 20", "defender strikes 10 → 50"}},
+		{name: "bonuses_follow_the_values_of_the_rules", input: matchtest.Battle(t).Elements(defender, "fire").Land(board.ElementFire, 2).AdjacentTerritories(2).Rules(15, 5),
+			want: []string{"attacker adjacent_territories AT+30 HP+0 → 40/40", "defender terrain AT+0 HP+10 → 10/50", "attacker strikes 40 → 10", "defender strikes 10 → 30"}},
+		{name: "scroll_has_no_effect", input: matchtest.Battle(t).Item(attacker, item.CategoryScroll, 30, 30),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "item_without_a_change_emits_nothing", input: matchtest.Battle(t).Item(attacker, item.CategoryWeapon, 0, 0),
+			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "attacker_destroyed_by_an_effect_ends_the_battle", input: matchtest.Battle(t).Stats(attacker, 50, 20).Item(attacker, item.CategoryArmor, 0, -99),
+			want: []string{"attacker item AT+0 HP-20 → 50/0"}},
+		// 守る側の能力は当たらず、乱数も引かない（引けば乱数の元が尽きて落ちる）
+		{name: "effects_after_the_attacker_is_destroyed_are_skipped", input: matchtest.Battle(t).Item(attacker, item.CategoryArmor, 0, -99).Abilities(defender, random),
+			want: []string{"attacker item AT+0 HP-40 → 10/0"}},
+		{name: "defender_destroyed_by_an_effect_ends_the_battle", input: matchtest.Battle(t).Item(defender, item.CategoryArmor, 0, -99),
+			want: []string{"defender item AT+0 HP-40 → 10/0"}},
+		{name: "attack_reduced_to_zero_does_not_destroy", input: matchtest.Battle(t).Item(defender, item.CategoryWeapon, -50, 0),
+			want: []string{"defender item AT-10 HP+0 → 0/40", "attacker strikes 10 → 30", "defender strikes 0 → 40"}},
+		{name: "defender_first_strike", input: matchtest.Battle(t).Abilities(defender, first),
+			want: []string{"defender activates first_strike", "defender strikes 10 → 30", "attacker strikes 10 → 30"}},
+		{name: "attacker_first_strike", input: matchtest.Battle(t).Abilities(attacker, first),
+			want: []string{"attacker activates first_strike", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "both_first_strike", input: matchtest.Battle(t).Abilities(attacker, first).Abilities(defender, first),
+			want: []string{"attacker activates first_strike", "defender activates first_strike", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "attacker_last_strike", input: matchtest.Battle(t).Abilities(attacker, last),
+			want: []string{"attacker activates last_strike", "defender strikes 10 → 30", "attacker strikes 10 → 30"}},
+		{name: "defender_last_strike", input: matchtest.Battle(t).Abilities(defender, last),
+			want: []string{"defender activates last_strike", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "both_last_strike", input: matchtest.Battle(t).Abilities(attacker, last).Abilities(defender, last),
+			want: []string{"attacker activates last_strike", "defender activates last_strike", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "attacker_last_strike_against_first_strike", input: matchtest.Battle(t).Abilities(attacker, last).Abilities(defender, first),
+			want: []string{"attacker activates last_strike", "defender activates first_strike", "defender strikes 10 → 30", "attacker strikes 10 → 30"}},
+		{name: "first_strike_destroys_the_attacker_before_it_strikes", input: matchtest.Battle(t).Stats(attacker, 50, 10).Abilities(defender, first),
+			want: []string{"defender activates first_strike", "defender strikes 10 → 0"}},
+		{name: "battle_modifier_activates_even_when_zero", input: matchtest.Battle(t).Abilities(defender, modifier(0, 0)),
+			want: []string{"defender ability:battle_modifier AT+0 HP+0 → 10/40", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "battle_modifier_lowering_hit_points_to_zero_ends_the_battle", input: matchtest.Battle(t).Abilities(defender, modifier(0, -99)),
+			want: []string{"defender ability:battle_modifier AT+0 HP-40 → 10/0"}},
+		{name: "battle_random_stats_rolls_attack_then_hit_points", input: matchtest.Battle(t).Abilities(defender, random), random: []int{5, 60},
+			want: []string{"defender ability:battle_random_stats AT+5 HP+30 → 15/70", "attacker strikes 10 → 60", "defender strikes 15 → 25"}},
+		{name: "battle_random_stats_records_the_difference_as_the_delta", input: matchtest.Battle(t).Stats(defender, 30, 50).Abilities(defender, random), random: []int{0, 60},
+			want: []string{"defender ability:battle_random_stats AT-20 HP+20 → 10/70", "attacker strikes 10 → 60", "defender strikes 10 → 30"}},
+		{name: "battle_random_stats_of_the_attacker", input: matchtest.Battle(t).Abilities(attacker, random), random: []int{0, 0},
+			want: []string{"attacker ability:battle_random_stats AT+0 HP-30 → 10/10", "attacker strikes 10 → 30", "defender strikes 10 → 0"}},
+		{name: "battle_random_stats_activates_even_when_unchanged", input: matchtest.Battle(t).Abilities(defender, random), random: []int{0, 30},
+			want: []string{"defender ability:battle_random_stats AT+0 HP+0 → 10/40", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		{name: "battle_modifier_then_random_stats", input: matchtest.Battle(t).Abilities(defender, modifier(100, 100), random), random: []int{0, 30},
+			want: []string{
+				"defender ability:battle_modifier AT+100 HP+100 → 110/140", "defender ability:battle_random_stats AT-100 HP-100 → 10/40",
+				"attacker strikes 10 → 30", "defender strikes 10 → 30",
+			}},
+		{name: "battle_random_stats_then_battle_modifier", input: matchtest.Battle(t).Abilities(defender, random, modifier(100, 100)), random: []int{0, 30},
+			want: []string{
+				"defender ability:battle_random_stats AT+0 HP+0 → 10/40", "defender ability:battle_modifier AT+100 HP+100 → 110/140",
+				"attacker strikes 10 → 130", "defender strikes 110 → 0",
+			}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := tc.input.Input()
 
-	state, events := defend(t, state)
+			events, err := match.ResolveBattle(input, matchtest.NewSequenceRandom(tc.random...))
 
-	struck := eventOf[*match.CreatureStruckEvent](t, events)
-	require.Equal(t, 1, countOf[*match.CreatureStruckEvent](events))
-	require.Equal(t, match.BattleSideDefender, struck.Striker)
-	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
-	// 守る側は攻撃を受けていない
-	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
+			require.NoError(t, err)
+			require.Equal(t, &match.BattleStartedEvent{Input: input}, events[0])
+			require.Equal(t, tc.want, battleLines(events))
+		})
+	}
 }
 
 func battleModifier(t *testing.T, attack, hitPoints int) []creature.Ability {
@@ -2073,71 +2146,14 @@ func battleModifier(t *testing.T, attack, hitPoints int) []creature.Ability {
 	return []creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints))}
 }
 
-func TestDecide_BattleModifierActivatesAsAStatModifiedWithAnAbilitySourceInTheAbilitySlot(t *testing.T) {
-	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 2, 2)
-	state = withTerritory(t, state, 1, 1, 1)
-	state = withTerritory(t, state, 1, 3, 1)
-	state, _ = drawAndRoll(t, state, 1, 2)
-	state, weapon := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryWeapon, 25, 0)
-	state = attackWithItem(t, state, weapon)
-	state = withDefenderElements(t, withBattlers(t, state, 10, 40, 20, 40), "fire")
-	state = withStrikeAbilities(t, state, battleModifier(t, 5, 0), battleModifier(t, 0, 30))
-	state, armor := withBattleItem(t, state, 0, 302, item.CategoryArmor, 0, 15)
-
-	_, events := defendWithItem(t, state, armor)
-
-	var steps []string
-	for _, event := range events {
-		switch e := event.(type) {
-		case *match.BattleAbilityActivatedEvent:
-			steps = append(steps, string(e.Side)+":activated:"+string(e.Ability))
-		case *match.BattleStatModifiedEvent:
-			steps = append(steps, string(e.Side)+":"+string(e.Source.Effect))
-		}
-	}
-	require.Equal(t, []string{
-		"attacker:ability", "attacker:adjacent_territories", "attacker:item",
-		"defender:ability", "defender:terrain", "defender:item",
-	}, steps)
-	modifications := statModifications(events)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleModifier}, modifications[0].Source)
-	require.Equal(t, 5, modifications[0].AttackDelta)
-	require.Equal(t, creaturetest.Attack(t, 15), modifications[0].Attack)
-}
-
-func TestDecide_BattleModifierActivatesEvenWhenTheModifierIsZero(t *testing.T) {
-	state := withStrikeAbilities(t, invade(t, invadingMatch(t)), nil, battleModifier(t, 0, 0))
-
-	_, events := defend(t, state)
-
-	require.Zero(t, countOf[*match.BattleAbilityActivatedEvent](events))
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, match.BattleSideDefender, modifications[0].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleModifier}, modifications[0].Source)
-	require.Zero(t, modifications[0].AttackDelta)
-	require.Zero(t, modifications[0].HitPointsDelta)
-}
-
 func TestDecide_HitPointsAddedByBattleModifierAbsorbDamageAndDoNotRemainAfterTheBattle(t *testing.T) {
 	state := withBattlers(t, invade(t, invadingMatch(t)), 30, 20, 5, 40)
 	state = withStrikeAbilities(t, state, nil, battleModifier(t, 0, 20))
 
-	state, events := defend(t, state)
+	state, _ = defend(t, state)
 
-	require.Equal(t, creaturetest.HitPoints(t, 30), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
+	// HP 40 + 20 に 30 のダメージ。増えた 20 を超えた 10 だけが傷になる
 	require.Equal(t, creaturetest.HitPoints(t, 30), state.PlacedCreatures[0].HitPoints)
-}
-
-func TestDecide_BattleModifierThatLowersHitPointsToZeroEndsTheBattleAtThatPoint(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 20, 5, 30)
-	state = withStrikeAbilities(t, state, nil, battleModifier(t, 0, -99))
-
-	state, events := defend(t, state)
-
-	require.Zero(t, countOf[*match.CreatureStruckEvent](events))
-	require.NotNil(t, eventOf[*match.TerritoryConqueredEvent](t, events))
-	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
 }
 
 func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T) {
@@ -2222,17 +2238,8 @@ func withDefenderElements(t *testing.T, state match.Match, elements ...string) m
 	return state
 }
 
-func statModifications(events []match.Event) []*match.BattleStatModifiedEvent {
-	var modifications []*match.BattleStatModifiedEvent
-	for _, event := range events {
-		if modified, ok := event.(*match.BattleStatModifiedEvent); ok {
-			modifications = append(modifications, modified)
-		}
-	}
-	return modifications
-}
-
-func TestDecide_BattleReportsEachEffectInOrderBeforeTheStrikes(t *testing.T) {
+// 戦闘の入力は、戦闘が始まる時点の状態から集める（決まりそのものは TestResolveBattle_ProducesTheEventsFromTheInput）
+func TestDecide_BattleStartsWithTheInputGatheredFromTheState(t *testing.T) {
 	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 2, 2)
 	state = withTerritory(t, state, 1, 1, 1)
 	state = withTerritory(t, state, 1, 3, 1)
@@ -2257,33 +2264,7 @@ func TestDecide_BattleReportsEachEffectInOrderBeforeTheStrikes(t *testing.T) {
 	require.Equal(t, []board.Position{pos(t, 1, 0), pos(t, 3, 0)}, input.AdjacentTerritories)
 	require.Equal(t, 10, input.Rules.AdjacentTerritoryBonus.Int())
 	require.Equal(t, 10, input.Rules.TerrainBonusPerLevel.Int())
-	modifications := statModifications(events)
-	require.Len(t, modifications, 4)
-
-	require.Equal(t, match.BattleSideAttacker, modifications[0].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectAdjacentTerritories}, modifications[0].Source)
-	require.Equal(t, 20, modifications[0].AttackDelta)
-	require.Equal(t, creaturetest.Attack(t, 30), modifications[0].Attack)
-
-	require.Equal(t, match.BattleSideAttacker, modifications[1].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectItem}, modifications[1].Source)
-	require.Equal(t, 25, modifications[1].AttackDelta)
-	require.Equal(t, creaturetest.Attack(t, 55), modifications[1].Attack)
-
-	require.Equal(t, match.BattleSideDefender, modifications[2].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectTerrain}, modifications[2].Source)
-	require.Equal(t, 20, modifications[2].HitPointsDelta)
-	require.Equal(t, creaturetest.HitPoints(t, 60), modifications[2].HitPoints)
-
-	require.Equal(t, match.BattleSideDefender, modifications[3].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectItem}, modifications[3].Source)
-	require.Equal(t, 15, modifications[3].HitPointsDelta)
-	require.Equal(t, creaturetest.HitPoints(t, 75), modifications[3].HitPoints)
-
-	struck := eventOf[*match.CreatureStruckEvent](t, events)
-	require.Equal(t, creaturetest.Attack(t, 55), struck.Damage)
-	require.Equal(t, creaturetest.HitPoints(t, 20), struck.RemainingHitPoints)
-	// 55 のダメージのうち、増えた 35 を超えた 20 だけが傷になる
+	// 支援効果 +20・武器 +25 の AT 55 で、地形効果 +20・防具 +15 の HP 75 を攻撃し、55 のダメージのうち、増えた 35 を超えた 20 だけが傷になる
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
 	require.Equal(t, creaturetest.HitPoints(t, 20), repelled.TerritoryHitPoints)
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
@@ -2302,43 +2283,6 @@ func TestDecide_AdjacentTerritoriesCountOnlyConnectedTerritoriesOfTheAttacker(t 
 	_, events := defend(t, state)
 
 	require.Equal(t, []board.Position{pos(t, 3, 0)}, eventOf[*match.BattleStartedEvent](t, events).Input.AdjacentTerritories)
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectAdjacentTerritories}, modifications[0].Source)
-	require.Equal(t, 10, modifications[0].AttackDelta)
-}
-
-func TestDecide_TerrainAddsHitPointsWhenTheElementsMatch(t *testing.T) {
-	cases := []struct {
-		name     string
-		x        int
-		elements []string
-		want     int
-	}{
-		{name: "same_element", x: 1, elements: []string{"fire"}, want: 10},
-		{name: "one_of_the_elements", x: 1, elements: []string{"fire", "water"}, want: 10},
-		{name: "other_element", x: 1, elements: []string{"water"}, want: 0},
-		{name: "multi_land_with_an_element", x: 5, elements: []string{"water"}, want: 10},
-		{name: "multi_land_with_neutral", x: 5, elements: []string{"neutral"}, want: 0},
-		{name: "neutral_land_with_neutral", x: 6, elements: []string{"neutral"}, want: 10},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, tc.x, 1)
-			state, _ = drawAndRoll(t, state, 1, tc.x)
-			state = withDefenderElements(t, invade(t, state), tc.elements...)
-
-			_, events := defend(t, state)
-
-			modifications := statModifications(events)
-			if tc.want == 0 {
-				require.Empty(t, modifications)
-				return
-			}
-			require.Len(t, modifications, 1)
-			require.Equal(t, tc.want, modifications[0].HitPointsDelta)
-		})
-	}
 }
 
 func TestDecide_HitPointsAddedByEffectsAreReducedFirstAndTheRestDisappears(t *testing.T) {
@@ -2367,29 +2311,13 @@ func TestDecide_HitPointsLoweredByAnItemComeBackAfterTheBattle(t *testing.T) {
 	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 20, 5, 40)
 	state, cursed := withBattleItem(t, state, 0, 302, item.CategoryArmor, 0, -10)
 
-	state, events := defendWithItem(t, state, cursed)
+	state, _ = defendWithItem(t, state, cursed)
 
-	require.Equal(t, creaturetest.HitPoints(t, 25), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
+	// HP 40 - 10 に 5 のダメージ。下がった 10 は戦闘の後で戻る
 	require.Equal(t, creaturetest.HitPoints(t, 35), state.PlacedCreatures[0].HitPoints)
 }
 
-func TestDecide_BattleInputKeepsTheItemModifierWhenTheHitPointsStopAtZero(t *testing.T) {
-	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
-	state, _ = drawAndRoll(t, state, 1, 1)
-	state, cursed := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryArmor, 0, -99)
-	state = attackWithItem(t, state, cursed)
-	state = withDefenderElements(t, withBattlers(t, state, 50, 30, 5, 30), "fire")
-
-	_, events := defend(t, state)
-
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, -30, modifications[0].HitPointsDelta)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectItem}, modifications[0].Source)
-	require.Equal(t, item.NewHitPointsModifier(-99), eventOf[*match.BattleStartedEvent](t, events).Input.Attacker.Item.Spec.HitPointsModifier)
-}
-
-func TestDecide_AttackerDestroyedByAnEffectEndsTheBattleAtThatPoint(t *testing.T) {
+func TestDecide_AttackerDestroyedByAnEffectGoesToTheDiscardPileAndPaysTheToll(t *testing.T) {
 	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
 	state, _ = drawAndRoll(t, state, 1, 1)
 	state, cursed := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryArmor, 0, -99)
@@ -2399,11 +2327,6 @@ func TestDecide_AttackerDestroyedByAnEffectEndsTheBattleAtThatPoint(t *testing.T
 
 	state, events := defend(t, state)
 
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, -20, modifications[0].HitPointsDelta)
-	require.Zero(t, modifications[0].HitPoints.Int())
-	require.Zero(t, countOf[*match.CreatureStruckEvent](events))
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
 	require.False(t, repelled.ReturnedToHand)
 	require.Equal(t, creaturetest.HitPoints(t, 30), repelled.TerritoryHitPoints)
@@ -2411,54 +2334,16 @@ func TestDecide_AttackerDestroyedByAnEffectEndsTheBattleAtThatPoint(t *testing.T
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
 }
 
-func TestDecide_DefenderDestroyedByAnEffectIsConqueredWithoutStrikes(t *testing.T) {
+func TestDecide_DefenderDestroyedByAnEffectIsConquered(t *testing.T) {
 	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 20, 50, 30)
 	state, cursed := withBattleItem(t, state, 0, 302, item.CategoryArmor, 0, -99)
 
 	state, events := defendWithItem(t, state, cursed)
 
-	require.Zero(t, countOf[*match.CreatureStruckEvent](events))
 	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
 	require.Equal(t, creaturetest.HitPoints(t, 20), conquered.TerritoryHitPoints)
 	require.Equal(t, matchtest.Index(t, 1), state.PlacedCreatures[0].Owner)
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
-}
-
-func TestDecide_AttackReducedToZeroDoesNotDestroyTheCreature(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 20, 5, 30)
-	state, cursed := withBattleItem(t, state, 0, 302, item.CategoryWeapon, -50, 0)
-
-	state, events := defendWithItem(t, state, cursed)
-
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, -5, modifications[0].AttackDelta)
-	require.Zero(t, modifications[0].Attack.Int())
-	require.Equal(t, 2, countOf[*match.CreatureStruckEvent](events))
-	require.True(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
-	// AT が 0 の反撃は傷を付けない
-	require.Equal(t, creaturetest.HitPoints(t, 25), state.PlacedCreatures[0].HitPoints)
-}
-
-func TestDecide_ItemsWithoutAStatChangeEmitNoModification(t *testing.T) {
-	cases := []struct {
-		name     string
-		category item.Category
-		attack   int
-		hit      int
-	}{
-		{name: "scroll_with_modifiers", category: item.CategoryScroll, attack: 30, hit: 30},
-		{name: "weapon_with_zero_modifiers", category: item.CategoryWeapon, attack: 0, hit: 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			state, used := withBattleItem(t, invade(t, invadingMatch(t)), 0, 302, tc.category, tc.attack, tc.hit)
-
-			_, events := defendWithItem(t, state, used)
-
-			require.Empty(t, statModifications(events))
-		})
-	}
 }
 
 // NPC（参加者 1）が先の番で、face の目だけ進んで止まった対戦
@@ -3597,84 +3482,12 @@ func defendWithRandom(t *testing.T, state match.Match, random match.Random) (mat
 	return apply(t, state, random, &match.DefendCommand{By: matchtest.Index(t, 0)})
 }
 
-func TestDecide_BattleRandomStatsRollsAttackAndThenHitPointsWithinTheRange(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
-	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
-
-	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(5, 60))
-
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Equal(t, match.BattleSideDefender, modifications[0].Side)
-	require.Equal(t, creaturetest.Attack(t, 15), modifications[0].Attack)
-	require.Equal(t, creaturetest.HitPoints(t, 70), modifications[0].HitPoints)
-}
-
-func TestDecide_BattleRandomStatsRecordsTheDifferenceFromTheCurrentStatsAsTheDelta(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 30, 50)
-	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
-
-	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 60))
-
-	modifications := statModifications(events)
-	require.Equal(t, -20, modifications[0].AttackDelta)
-	require.Equal(t, 20, modifications[0].HitPointsDelta)
-}
-
-func TestDecide_BattleRandomStatsSourceNamesTheAbility(t *testing.T) {
-	state := withStrikeAbilities(t, invade(t, invadingMatch(t)), []creature.Ability{battleRandomStats(t, 10, 70)}, nil)
-
-	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 0))
-
-	modifications := statModifications(events)
-	require.Equal(t, match.BattleSideAttacker, modifications[0].Side)
-	require.Equal(t, match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleRandomStats}, modifications[0].Source)
-}
-
-func TestDecide_BattleRandomStatsActivatesEvenWhenTheStatsDoNotChange(t *testing.T) {
-	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
-	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
-
-	_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 30))
-
-	require.Zero(t, countOf[*match.BattleAbilityActivatedEvent](events))
-	modifications := statModifications(events)
-	require.Len(t, modifications, 1)
-	require.Zero(t, modifications[0].AttackDelta)
-	require.Zero(t, modifications[0].HitPointsDelta)
-}
-
-func TestDecide_BattleRandomStatsAndBattleModifierApplyInTheOrderOfTheAbilities(t *testing.T) {
-	tests := []struct {
-		name      string
-		abilities []creature.Ability
-		attack    int
-		hitPoints int
-	}{
-		{"modifier_then_random", append(battleModifier(t, 100, 100), battleRandomStats(t, 10, 70)), 10, 40},
-		{"random_then_modifier", append([]creature.Ability{battleRandomStats(t, 10, 70)}, battleModifier(t, 100, 100)...), 110, 140},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
-			state = withStrikeAbilities(t, state, nil, tt.abilities)
-
-			_, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 30))
-
-			modifications := statModifications(events)
-			require.Len(t, modifications, 2)
-			require.Equal(t, creaturetest.Attack(t, tt.attack), modifications[1].Attack)
-			require.Equal(t, creaturetest.HitPoints(t, tt.hitPoints), modifications[1].HitPoints)
-		})
-	}
-}
-
 func TestDecide_HitPointsRolledByBattleRandomStatsAbsorbDamageAndDoNotRemainAfterTheBattle(t *testing.T) {
 	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 20, 5, 20)
 	state = withStrikeAbilities(t, state, nil, []creature.Ability{battleRandomStats(t, 10, 70)})
 
-	state, events := defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 25))
+	state, _ = defendWithRandom(t, state, matchtest.NewSequenceRandom(0, 25))
 
-	require.Equal(t, creaturetest.HitPoints(t, 25), eventOf[*match.CreatureStruckEvent](t, events).RemainingHitPoints)
+	// 引いた HP 35 に 10 のダメージ。戦闘の後は戦闘の前の 20 に戻る
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
 }
