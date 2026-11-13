@@ -394,7 +394,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		}
 		return &model.MatchTerritoryInvadedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card,
-			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Cost: e.Cost, DefendingCreature: e.DefendingCreature, DefendingCreatureCard: defenderCard,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Cost: e.Cost, DefendingCreatureCard: defenderCard,
 		}, nil
 	case query.MatchSpellUsedEvent:
 		card, err := fromMatchCard(e.Card)
@@ -432,7 +432,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchTerritoryInvadedByMoveEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			From: &model.BoardPosition{X: e.From.X, Y: e.From.Y}, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y},
-			Creature: e.Creature, Card: movedCard, DefendingCreature: e.DefendingCreature, DefendingCreatureCard: defenderCard,
+			Creature: e.Creature, Card: movedCard, DefendingCreatureCard: defenderCard,
 		}, nil
 	case query.MatchLandElementChangedEvent:
 		element, err := fromBoardTileElement(e.Element)
@@ -490,7 +490,7 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 	case query.MatchTerritoryConqueredEvent:
 		return &model.MatchTerritoryConqueredEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
-			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, DefeatedCreature: e.DefeatedCreature, Creature: e.Creature, TerritoryHitPoints: e.TerritoryHitPoints,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, TerritoryHitPoints: e.TerritoryHitPoints,
 		}, nil
 	case query.MatchInvasionRepelledEvent:
 		card, err := fromMatchCard(e.Card)

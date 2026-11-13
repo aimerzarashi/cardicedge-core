@@ -221,44 +221,44 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.TurnOrderDecidedEvent{EventMeta: meta, Order: indexes(t, 1, 0)},
 		&match.DecksShuffledEvent{EventMeta: meta, DrawPiles: [][]card.Ref{refs(t, 102, 101, 101), refs(t, 201, 201, 201)}},
 		&match.HandsDealtEvent{EventMeta: meta, Cards: 5},
-		&match.CardDrawnEvent{EventMeta: meta, Participant: by, Card: cardtest.CreatureRef(t, 101)},
-		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.CreatureRef(t, 101)},
+		&match.CardDrawnEvent{EventMeta: meta, Participant: by},
+		&match.CardDiscardedEvent{EventMeta: meta, Participant: by, HandIndex: 1},
 		&match.DiscardPileShuffledEvent{EventMeta: meta, Participant: by, DrawPile: refs(t, 102, 101)},
-		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by, HandCount: 7, MaxHandCards: 6},
-		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Card: cardtest.Ref(t, card.SpellEntityType, 401), Cost: cardtest.Cost(t, 40)},
-		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 600, Laps: 2, MagicPerLap: 200},
+		&match.HandLimitExceededEvent{EventMeta: meta, Participant: by},
+		&match.SpellUsedEvent{EventMeta: meta, Participant: by, HandIndex: 1, Cost: cardtest.Cost(t, 40)},
+		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 600},
 		&match.DiceCountChangedEvent{EventMeta: meta, Participant: by, Count: 2},
 		&match.CurseCastEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Curse: match.NewFixedDiceCurse(6, 1)},
 		&match.CurseRemovedEvent{EventMeta: meta, Participant: by},
-		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
-		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1)},
+		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0)},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.MovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
-		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Checkpoint: boardtest.Position(t, 1, 0), Magic: 100},
+		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Magic: 100},
 		&match.LapCompletedEvent{EventMeta: meta, Participant: by, Magic: 300},
 		&match.TurnEndedEvent{EventMeta: meta, Participant: by},
 		&match.MatchEndedEvent{EventMeta: meta, Winners: indexes(t, 0, 1), Ranks: []int{1, 1}, Reason: match.EndReasonRoundLimit},
 		&match.RewardDrawnEvent{EventMeta: meta, Participant: by, Pack: match.DefaultPackKey, Cards: refs(t, 301, 302)},
 		&match.RewardsCompletedEvent{EventMeta: meta},
-		&match.TollPaidEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Position: boardtest.Position(t, 1, 0), Magic: 60},
-		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1), Magic: 80},
+		&match.TollPaidEvent{EventMeta: meta, Participant: by, Magic: 60},
+		&match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Magic: 80},
 		&match.MagicDepletedEvent{EventMeta: meta, Participant: by, Magic: 600},
-		&match.CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 1), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10)},
-		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Card: cardtest.CreatureRef(t, 101), Position: boardtest.Position(t, 1, 0), Cost: cardtest.Cost(t, 10), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
-		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Card: cardtest.Ref(t, card.ItemEntityType, 301), Cost: cardtest.Cost(t, 20)},
+		&match.CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Creature: matchtest.PlacedCreatureID(t, 1), Cost: cardtest.Cost(t, 10)},
+		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Cost: cardtest.Cost(t, 10)},
+		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Cost: cardtest.Cost(t, 20)},
 		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
-		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), DefeatedCreature: matchtest.PlacedCreatureID(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
-		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Card: cardtest.CreatureRef(t, 101), ReturnedToHand: true, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
+		&match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
+		&match.InvasionRepelledEvent{EventMeta: meta, Participant: by, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
 		&match.ItemSkippedEvent{EventMeta: meta, Participant: by},
 		&match.TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Level: 3, Magic: 300},
-		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3)},
-		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 3), DefendingCreature: matchtest.PlacedCreatureID(t, 1)},
-		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200, BaseLandValue: 100, Multiplier: 2},
-		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Card: cardtest.CreatureRef(t, 101), Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10), ReturnedCard: cardtest.CreatureRef(t, 102)},
+		&match.CreatureMovedEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), To: boardtest.Position(t, 2, 0)},
+		&match.TerritoryInvadedByMoveEvent{EventMeta: meta, Participant: by, From: boardtest.Position(t, 1, 0), Position: boardtest.Position(t, 2, 0)},
+		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
+		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10)},
 		&match.BattleStartedEvent{EventMeta: meta, Input: goldenBattleInput(t)},
 		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: adjacentTerritoriesSource, AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
 		&match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
-		&match.TollMultiplierActivatedEvent{EventMeta: meta, Position: boardtest.Position(t, 1, 0), Percent: tollMultiplierPercent(t, 150), Toll: 60, MultipliedToll: 90},
+		&match.TollMultiplierActivatedEvent{EventMeta: meta},
 	}
 	for _, event := range events {
 		t.Run(event.EventType().String(), func(t *testing.T) {
@@ -479,7 +479,7 @@ func TestDecide_DrawFromAnEmptyDrawPileShufflesTheDiscardPileIntoIt(t *testing.T
 	require.Len(t, events, 2)
 	shuffled := eventOf[*match.DiscardPileShuffledEvent](t, events)
 	require.ElementsMatch(t, refs(t, 5, 6, 7), shuffled.DrawPile)
-	require.Equal(t, shuffled.DrawPile[0], eventOf[*match.CardDrawnEvent](t, events).Card)
+	require.Equal(t, shuffled.DrawPile[:1], state.Participants[1].Hand[len(state.Participants[1].Hand)-1:])
 	require.Empty(t, state.Participants[1].DiscardPile)
 	require.Equal(t, shuffled.DrawPile[1:], state.Participants[1].DrawPile)
 	require.Equal(t, match.PhaseRolling, state.Phase)
@@ -511,16 +511,13 @@ func TestDecide_EndTurnOverTheHandLimitAsksToDiscardAndEndsTheTurnAfterDiscardin
 
 	state, events := endTurn(t, state, 1)
 	require.Len(t, events, 1)
-	exceeded, ok := events[0].(*match.HandLimitExceededEvent)
-	require.True(t, ok)
-	require.Equal(t, 7, exceeded.HandCount)
-	require.Equal(t, 6, exceeded.MaxHandCards)
+	require.IsType(t, &match.HandLimitExceededEvent{}, events[0])
 	require.Equal(t, match.PhaseDiscarding, state.Phase)
 
 	state, events = apply(t, state, matchtest.NewRandom(), &match.DiscardCommand{By: matchtest.Index(t, 1), HandIndex: 1})
 
 	require.Len(t, events, 2)
-	require.Equal(t, refs(t, 2)[0], events[0].(*match.CardDiscardedEvent).Card)
+	require.Equal(t, 1, events[0].(*match.CardDiscardedEvent).HandIndex)
 	require.IsType(t, &match.TurnEndedEvent{}, events[1])
 	require.Equal(t, refs(t, 1, 3, 4, 5, 6, 7), state.Participants[1].Hand)
 	require.Equal(t, refs(t, 2), state.Participants[1].DiscardPile)
@@ -588,10 +585,10 @@ func withPiles(t *testing.T, state match.Match, participant int, drawPile, disca
 	return state
 }
 
-func TestEvolve_RejectsDrawnCardThatIsNotTheTopOfTheDrawPile(t *testing.T) {
-	state := newMatch(t, lineBoard(t), defaultRules(t))
+func TestEvolve_RejectsDrawnCardFromAnEmptyDrawPile(t *testing.T) {
+	state := withPiles(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, nil, nil)
 
-	_, err := match.Evolve(state, &match.CardDrawnEvent{Participant: matchtest.Index(t, 1), Card: refs(t, 999)[0]})
+	_, err := match.Evolve(state, &match.CardDrawnEvent{Participant: matchtest.Index(t, 1)})
 
 	require.ErrorIs(t, err, match.ErrInvalidState)
 }
@@ -600,11 +597,11 @@ func TestEvolve_RejectsEventOfParticipantWhoseTurnItIsNot(t *testing.T) {
 	state := newMatch(t, lineBoard(t), defaultRules(t))
 	other := matchtest.Index(t, 0)
 	tests := map[string]match.Event{
-		"card_drawn":        &match.CardDrawnEvent{Participant: other, Card: state.Participants[1].DrawPile[0]},
-		"card_discarded":    &match.CardDiscardedEvent{Participant: other, HandIndex: 0, Card: state.Participants[1].Hand[0]},
+		"card_drawn":        &match.CardDrawnEvent{Participant: other},
+		"card_discarded":    &match.CardDiscardedEvent{Participant: other, HandIndex: 0},
 		"dice_rolled":       &match.DiceRolledEvent{Participant: other, Value: 1},
 		"moved":             &match.MovedEvent{Participant: other, To: pos(t, 1, 0)},
-		"checkpoint_passed": &match.CheckpointPassedEvent{Participant: other, Checkpoint: pos(t, 1, 0), Magic: 100},
+		"checkpoint_passed": &match.CheckpointPassedEvent{Participant: other, Magic: 100},
 		"lap_completed":     &match.LapCompletedEvent{Participant: other, Magic: 300},
 		"turn_ended":        &match.TurnEndedEvent{Participant: other},
 	}
@@ -1217,14 +1214,13 @@ func TestDecide_PlacedCreaturesGetConsecutiveIDs(t *testing.T) {
 func TestEvolve_RejectsPlacedEventThatDoesNotMatchTheState(t *testing.T) {
 	state := placingMatch(t, playerParticipant(t), npcParticipant(t))
 	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
-	valid := match.CreaturePlacedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), HandIndex: 0, Card: state.Participants[1].Hand[0], Creature: matchtest.PlacedCreatureID(t, 1), Position: pos(t, 1, 0), Cost: cardtest.Cost(t, 10)}
+	valid := match.CreaturePlacedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), HandIndex: 0, Creature: matchtest.PlacedCreatureID(t, 1), Cost: cardtest.Cost(t, 10)}
 
 	tests := []struct {
 		name   string
 		mutate func(e *match.CreaturePlacedEvent)
 	}{
-		{name: "other_card", mutate: func(e *match.CreaturePlacedEvent) { e.Card = cardtest.CreatureRef(t, 999) }},
-		{name: "other_position", mutate: func(e *match.CreaturePlacedEvent) { e.Position = pos(t, 0, 0) }},
+		{name: "hand_index_out_of_range", mutate: func(e *match.CreaturePlacedEvent) { e.HandIndex = 99 }},
 		{name: "skipped_id", mutate: func(e *match.CreaturePlacedEvent) { e.Creature = matchtest.PlacedCreatureID(t, 2) }},
 	}
 	for _, tt := range tests {
@@ -1354,13 +1350,6 @@ func TestDecide_StoppingOnAnotherTerritoryWaitsEvenWithoutACreatureThatCanBePaid
 }
 
 // 領地のクリーチャーに通行料の倍率を持たせる
-func tollMultiplierPercent(t *testing.T, percent int) creature.TollMultiplierPercent {
-	t.Helper()
-	value, err := creature.NewTollMultiplierPercent(percent)
-	require.NoError(t, err)
-	return value
-}
-
 func withTollMultiplier(t *testing.T, state match.Match, percent int) match.Match {
 	t.Helper()
 	value, err := creature.NewTollMultiplierPercent(percent)
@@ -1404,11 +1393,7 @@ func TestDecide_PayTollActivatesTheTollMultiplierBeforePaying(t *testing.T) {
 
 			state, events := payToll(t, state, 1)
 
-			activated := eventOf[*match.TollMultiplierActivatedEvent](t, events)
-			require.Equal(t, pos(t, 1, 0), activated.Position)
-			require.Equal(t, tt.percent, activated.Percent.Int())
-			require.Equal(t, 60, activated.Toll)
-			require.Equal(t, tt.want, activated.MultipliedToll)
+			require.Equal(t, 1, countOf[*match.TollMultiplierActivatedEvent](events))
 			require.Equal(t, tt.want, eventOf[*match.TollPaidEvent](t, events).Magic)
 			require.Less(t, slices.IndexFunc(events, isEvent[*match.TollMultiplierActivatedEvent]), slices.IndexFunc(events, isEvent[*match.TollPaidEvent]))
 			require.Equal(t, 600-tt.want, state.Participants[1].Magic)
@@ -1431,7 +1416,8 @@ func TestDecide_FailedInvasionActivatesTheTollMultiplierOfTheDefender(t *testing
 
 	state, events := defend(t, state)
 
-	require.Equal(t, 90, eventOf[*match.TollMultiplierActivatedEvent](t, events).MultipliedToll)
+	require.Equal(t, 1, countOf[*match.TollMultiplierActivatedEvent](events))
+	require.Equal(t, 90, eventOf[*match.TollPaidEvent](t, events).Magic)
 	require.Equal(t, 600-10-90, state.Participants[1].Magic)
 }
 
@@ -1663,18 +1649,14 @@ func TestDecide_RoundLimitWinnerIsDecidedByTotalMagic(t *testing.T) {
 func TestEvolve_RejectsRelinquishedEventThatDoesNotMatchTheState(t *testing.T) {
 	state := indebtedMatch(t)
 	meta := match.EventMeta{EntityID: state.ID, AggregateVersion: state.Version + 1, OccurredAt: startedAt}
-	valid := match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), Position: pos(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 2), Magic: 80}
+	valid := match.TerritoryRelinquishedEvent{EventMeta: meta, Participant: matchtest.Index(t, 1), Position: pos(t, 2, 0), Magic: 80}
 
 	tests := []struct {
 		name   string
 		mutate func(e *match.TerritoryRelinquishedEvent)
 	}{
 		{name: "other_position", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Position = pos(t, 3, 0) }},
-		{name: "other_creature", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Creature = matchtest.PlacedCreatureID(t, 3) }},
-		{name: "territory_of_another_owner", mutate: func(e *match.TerritoryRelinquishedEvent) {
-			e.Position = pos(t, 1, 0)
-			e.Creature = matchtest.PlacedCreatureID(t, 1)
-		}},
+		{name: "territory_of_another_owner", mutate: func(e *match.TerritoryRelinquishedEvent) { e.Position = pos(t, 1, 0) }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1789,25 +1771,6 @@ func TestDecide_InvadeIsSettledAtOnceAndAsksTheAttackerForAnItem(t *testing.T) {
 	require.Equal(t, matchtest.Index(t, 1), awaiting)
 }
 
-func TestDecide_InvadeRecordsTheDefendingCreatureOfTheTerritory(t *testing.T) {
-	state := invadingMatch(t)
-
-	_, events := apply(t, state, matchtest.NewRandom(), &match.InvadeCommand{By: matchtest.Index(t, 1), HandIndex: 0})
-
-	require.Equal(t, state.Territories[0].Creature, eventOf[*match.TerritoryInvadedEvent](t, events).DefendingCreature)
-}
-
-func TestDecide_MovingIntoAnotherRecordsTheDefendingCreatureOfTheTerritory(t *testing.T) {
-	state := withTerritory(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 0, 2, 2)
-	state = rolledTo(t, state, 1)
-	defender, ok := state.TerritoryAt(pos(t, 2, 0))
-	require.True(t, ok)
-
-	_, events := move(t, state, 1, 2)
-
-	require.Equal(t, defender.Creature, eventOf[*match.TerritoryInvadedByMoveEvent](t, events).DefendingCreature)
-}
-
 func TestDecide_AttackWithAnItemPaysItAndAsksTheOwner(t *testing.T) {
 	state := withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20)
 	itemIndex := len(state.Participants[1].Hand) - 1
@@ -1818,7 +1781,7 @@ func TestDecide_AttackWithAnItemPaysItAndAsksTheOwner(t *testing.T) {
 	require.Equal(t, itemIndex, used.HandIndex)
 	require.Equal(t, matchtest.Index(t, 1), used.Participant)
 	require.Equal(t, 600-10-20, state.Participants[1].Magic)
-	require.NotContains(t, state.Participants[1].Hand, used.Card)
+	require.NotContains(t, state.Participants[1].Hand, cardtest.Ref(t, card.ItemEntityType, 301))
 	require.Equal(t, match.PhaseDefending, state.Phase)
 	awaiting, _ := state.AwaitingParticipant()
 	require.Equal(t, matchtest.Index(t, 0), awaiting)
@@ -1940,7 +1903,6 @@ func TestDecide_DefeatingTheDefenderConquersTheLandKeepingItsLevelAndEndsTheTurn
 	state, events := defend(t, state)
 
 	conquered := eventOf[*match.TerritoryConqueredEvent](t, events)
-	require.Equal(t, defeated, conquered.DefeatedCreature)
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 	require.Zero(t, countOf[*match.TollPaidEvent](events))
 	require.Nil(t, state.Invasion)
@@ -1962,9 +1924,7 @@ func TestDecide_FailingToDefeatTheDefenderReturnsTheSurvivorToTheHandAndPaysTheT
 	state, events := defend(t, state)
 
 	// 攻撃 5・体力 20 どうしなので、どちらも倒れない
-	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
-	require.True(t, repelled.ReturnedToHand)
-	require.Equal(t, cardtest.CreatureRef(t, 201), repelled.Card)
+	require.NotNil(t, eventOf[*match.InvasionRepelledEvent](t, events))
 	require.Len(t, state.Participants[1].Hand, handBefore+1)
 	require.Equal(t, cardtest.CreatureRef(t, 201), state.Participants[1].Hand[handBefore])
 	require.Equal(t, 600-10-60, state.Participants[1].Magic)
@@ -1981,7 +1941,7 @@ func TestDecide_AttackerDestroyedByTheCounterattackIsNotReturnedToTheHand(t *tes
 
 	state, events := defend(t, state)
 
-	require.False(t, eventOf[*match.InvasionRepelledEvent](t, events).ReturnedToHand)
+	require.NotNil(t, eventOf[*match.InvasionRepelledEvent](t, events))
 	require.Len(t, state.Participants[1].Hand, handBefore)
 	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
@@ -2328,7 +2288,6 @@ func TestDecide_AttackerDestroyedByAnEffectGoesToTheDiscardPileAndPaysTheToll(t 
 	state, events := defend(t, state)
 
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
-	require.False(t, repelled.ReturnedToHand)
 	require.Equal(t, creaturetest.HitPoints(t, 30), repelled.TerritoryHitPoints)
 	require.Len(t, state.Participants[1].Hand, handBefore)
 	require.Equal(t, 1, countOf[*match.TollPaidEvent](events))
@@ -2527,8 +2486,7 @@ func TestDecide_ExchangeReplacesTheCreatureAndReturnsTheOldCardToTheHand(t *test
 	state, events := exchange(t, state, 1, 0)
 
 	exchanged := eventOf[*match.CreatureExchangedEvent](t, events)
-	require.Equal(t, cardtest.CreatureRef(t, 201), exchanged.Card)
-	require.Equal(t, cardtest.CreatureRef(t, 999), exchanged.ReturnedCard)
+	require.Equal(t, cardtest.CreatureRef(t, 201), state.PlacedCreatures[len(state.PlacedCreatures)-1].Card)
 	require.NotEqual(t, replaced, exchanged.Creature)
 	require.Equal(t, 600-10, state.Participants[1].Magic)
 	require.Len(t, state.Participants[1].Hand, handBefore)
@@ -2612,8 +2570,6 @@ func TestDecide_ChangingTheElementRecountsTheChainAndEndsTheTurn(t *testing.T) {
 	changed := eventOf[*match.LandElementChangedEvent](t, events)
 	require.Equal(t, board.ElementWater, changed.Element)
 	require.Equal(t, 200, changed.Magic)
-	require.Equal(t, 100, changed.BaseLandValue)
-	require.Equal(t, 2, changed.Multiplier)
 	require.Equal(t, 600-200, state.Participants[1].Magic)
 	require.Equal(t, 100, valueAt(t, state, 2))
 	// レベルとクリーチャーはそのまま
@@ -2621,17 +2577,15 @@ func TestDecide_ChangingTheElementRecountsTheChainAndEndsTheTurn(t *testing.T) {
 	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
 }
 
-func TestDecide_ChangingFromMultiLandRecordsTheCheaperMultiplier(t *testing.T) {
+func TestDecide_ChangingFromMultiLandPaysTheCheaperMultiplier(t *testing.T) {
 	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 5, 1), 5)
 
 	choice := state.ElementChangeChoices()[0]
 
 	_, events := apply(t, state, matchtest.NewRandom(), &match.ChangeLandElementCommand{By: matchtest.Index(t, 1), Position: choice.Position, Element: choice.Element})
 
-	changed := eventOf[*match.LandElementChangedEvent](t, events)
-	require.Equal(t, 100, changed.BaseLandValue)
-	require.Equal(t, 1, changed.Multiplier)
-	require.Equal(t, 100, changed.Magic)
+	// 基本の値 100 × 複属性の土地からの倍率 1
+	require.Equal(t, 100, eventOf[*match.LandElementChangedEvent](t, events).Magic)
 }
 
 func TestDecide_ChangingTheElementOnTheTerritoryOfAnotherOnlyPaysTheToll(t *testing.T) {
@@ -2754,8 +2708,7 @@ func TestDecide_MovingToVacantLandKeepsTheCreatureAndLeavesTheLevelsOnTheLands(t
 
 	state, events := move(t, state, 1, 2)
 
-	moved := eventOf[*match.CreatureMovedEvent](t, events)
-	require.Equal(t, mover, moved.Creature)
+	require.Equal(t, 1, countOf[*match.CreatureMovedEvent](events))
 	require.Equal(t, []match.Territory{{Position: pos(t, 2, 0), Creature: mover}}, state.Territories)
 	require.Equal(t, creaturetest.HitPoints(t, 7), state.PlacedCreatures[0].HitPoints)
 	require.Equal(t, 3, state.LandLevel(pos(t, 1, 0)))
@@ -2797,8 +2750,6 @@ func TestDecide_MovingIntoAnotherAndSurvivingReturnsToTheOriginWithTheWound(t *t
 	state, events := movingIntoAnother(t, 5, 20, 5, 20)
 
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
-	require.False(t, repelled.ReturnedToHand)
-	require.Equal(t, pos(t, 1, 0), *repelled.ReturnedTo)
 	require.Equal(t, creaturetest.HitPoints(t, 15), *repelled.ReturnedHitPoints)
 	territory, ok := state.TerritoryAt(pos(t, 1, 0))
 	require.True(t, ok)
@@ -2812,7 +2763,6 @@ func TestDecide_MovingIntoAnotherAndBeingDestroyedFreesTheOrigin(t *testing.T) {
 	state, events := movingIntoAnother(t, 5, 5, 10, 20)
 
 	repelled := eventOf[*match.InvasionRepelledEvent](t, events)
-	require.Nil(t, repelled.ReturnedTo)
 	require.Nil(t, repelled.ReturnedHitPoints)
 	_, occupied := state.TerritoryAt(pos(t, 1, 0))
 	require.False(t, occupied)
@@ -3023,9 +2973,6 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 	started, err := match.Evolve(defending, &match.BattleStartedEvent{EventMeta: meta, Input: battleInput(t, 5, 20, 5, 20)})
 	require.NoError(t, err)
 	battling := started.(match.Match)
-	position := pos(t, 1, 0)
-	creatureRef := cardtest.CreatureRef(t, 201)
-	otherRef := cardtest.CreatureRef(t, 999)
 	cost := cardtest.Cost(t, 10)
 	damage := creaturetest.Attack(t, 1)
 	hitPoints := creaturetest.HitPoints(t, 1)
@@ -3036,27 +2983,23 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		state match.Match
 		event match.Event
 	}{
-		{name: "invaded_outside_the_phase", state: defending, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost, DefendingCreature: defeated}},
-		{name: "invaded_elsewhere", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: pos(t, 2, 0), Cost: cost, DefendingCreature: defeated}},
-		{name: "invaded_with_another_card", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: otherRef, Position: position, Cost: cost, DefendingCreature: defeated}},
-		{name: "invaded_with_another_defender", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Position: position, Cost: cost, DefendingCreature: next}},
-		{name: "item_outside_the_phase", state: invading, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
-		{name: "item_not_in_the_hand", state: armed, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: otherRef, Cost: cost}},
-		{name: "item_by_who_is_not_awaited", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Card: creatureRef, Cost: cost}},
+		{name: "invaded_outside_the_phase", state: defending, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, Cost: cost}},
+		{name: "invaded_with_a_hand_index_out_of_range", state: invading, event: &match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 99, Cost: cost}},
+		{name: "item_outside_the_phase", state: invading, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Cost: cost}},
+		{name: "item_not_in_the_hand", state: armed, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 99, Cost: cost}},
+		{name: "item_by_who_is_not_awaited", state: defending, event: &match.ItemUsedEvent{EventMeta: meta, Participant: by, Cost: cost}},
 		{name: "skipped_outside_the_phase", state: invading, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "skipped_by_who_is_not_awaited", state: defending, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "battle_started_outside_the_phase", state: invading, event: &match.BattleStartedEvent{EventMeta: meta, Input: battleInput(t, 5, 20, 5, 20)}},
 		{name: "stat_modified_before_the_battle", state: defending, event: &match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Attack: damage, HitPoints: hitPoints}},
-		{name: "toll_multiplier_without_territory", state: invading, event: &match.TollMultiplierActivatedEvent{EventMeta: meta, Position: pos(t, 2, 0), Percent: tollMultiplierPercent(t, 150), Toll: 60, MultipliedToll: 90}},
+		{name: "toll_multiplier_without_territory", state: invading, event: &match.TollMultiplierActivatedEvent{EventMeta: meta}},
 		{name: "ability_activated_before_the_battle", state: defending, event: &match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityFirstStrike}},
 		{name: "struck_before_the_battle", state: defending, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
-		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: next}},
-		{name: "conquered_another_creature", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: next, Creature: next}},
-		{name: "conquered_with_a_used_id", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Position: position, DefeatedCreature: defeated, Creature: defeated}},
-		{name: "repelled_before_the_battle", state: defending, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: creatureRef, ReturnedToHand: true}},
-		{name: "repelled_with_another_card", state: battling, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: otherRef, ReturnedToHand: true}},
-		{name: "repelled_says_dead_while_alive", state: battling, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, Position: position, Card: creatureRef, ReturnedToHand: false}},
+		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: next}},
+		{name: "conquered_with_a_used_id", state: battling, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: defeated}},
+		{name: "repelled_before_the_battle", state: defending, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by}},
+		{name: "repelled_returning_to_an_origin_without_moving", state: battling, event: &match.InvasionRepelledEvent{EventMeta: meta, Participant: by, ReturnedHitPoints: &hitPoints}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -3102,8 +3045,8 @@ func TestDecide_UseSpellPaysAndDrawsAndPutsTheSpellIntoTheDiscardPile(t *testing
 	state, events := apply(t, state, matchtest.NewRandom(), &match.UseSpellCommand{By: matchtest.Index(t, 1), HandIndex: spellIndex(state)})
 
 	used := eventOf[*match.SpellUsedEvent](t, events)
-	require.Equal(t, cardtest.Ref(t, card.SpellEntityType, 401), used.Card)
 	require.Equal(t, cardtest.Cost(t, 40), used.Cost)
+	require.Contains(t, state.Participants[1].DiscardPile, cardtest.Ref(t, card.SpellEntityType, 401))
 	require.Equal(t, 2, countOf[*match.CardDrawnEvent](events))
 	require.Len(t, state.Participants[1].Hand, handBefore-1+2)
 	require.Equal(t, refs(t, 7), state.Participants[1].DrawPile)
@@ -3226,8 +3169,6 @@ func TestDecide_GainMagicSpellGivesMagicByTheLaps(t *testing.T) {
 
 			gained := eventOf[*match.MagicGainedEvent](t, events)
 			require.Equal(t, tt.want, gained.Magic)
-			require.Equal(t, tt.laps, gained.Laps)
-			require.Equal(t, 100, gained.MagicPerLap)
 			require.Equal(t, 600+tt.want, state.Participants[1].Magic)
 			require.Equal(t, match.PhaseRolling, state.Phase)
 		})

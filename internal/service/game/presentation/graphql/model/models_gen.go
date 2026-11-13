@@ -2678,8 +2678,6 @@ type MatchTerritoryConqueredEvent struct {
 	Participant int `json:"participant"`
 	// 奪った領地の位置
 	Position *BoardPosition `json:"position"`
-	// 倒されて盤面から外れたクリーチャーの ID
-	DefeatedCreature int `json:"defeatedCreature"`
 	// 領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）
 	Creature int `json:"creature"`
 	// 領地に入ったクリーチャーの体力
@@ -2715,9 +2713,7 @@ type MatchTerritoryInvadedByMoveEvent struct {
 	Creature int `json:"creature"`
 	// 動いたクリーチャーのカード（性能は対戦を始めたときの写し）
 	Card CardInfo `json:"card"`
-	// 領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）
-	DefendingCreature int `json:"defendingCreature"`
-	// 守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
+	// 領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
 	DefendingCreatureCard CardInfo `json:"defendingCreatureCard"`
 }
 
@@ -2750,9 +2746,7 @@ type MatchTerritoryInvadedEvent struct {
 	Position *BoardPosition `json:"position"`
 	// 払った魔力
 	Cost int `json:"cost"`
-	// 領地にいて、これから戦う守る側のクリーチャーの ID（Match.territories の creature.id と同じ番号）
-	DefendingCreature int `json:"defendingCreature"`
-	// 守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
+	// 領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）
 	DefendingCreatureCard CardInfo `json:"defendingCreatureCard"`
 }
 

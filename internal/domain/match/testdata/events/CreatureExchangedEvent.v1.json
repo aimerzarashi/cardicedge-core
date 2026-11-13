@@ -1,1 +1,1 @@
-{"participant":1,"position":{"x":1,"y":0},"hand_index":0,"card":{"entity_type":"creature","id":101},"creature":3,"cost":10,"returned_card":{"entity_type":"creature","id":102}}
+{"participant":1,"position":{"x":1,"y":0},"hand_index":0,"creature":3,"cost":10}

@@ -55,12 +55,11 @@ type HandsDealtEvent struct {
 	Cards       int `json:"cards"`
 }
 
-// 引いたカード。山札の先頭と同じはず（読み直しで食い違えば不整合）
+// 山札の先頭を 1 枚引いた。どのカードかは山札の並び（混ぜたイベント）から決まるので持たない（core#171）
 type CardDrawnEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
-	Card        card.Ref         `json:"card"`
 }
 
 // 山札が空のまま引くときに、捨て札を混ぜて山札にした（新しい山札の並び。先頭から引く）。並びは見せないが、読み直しても同じ状態にするため残す
@@ -76,52 +75,41 @@ type HandLimitExceededEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
-	// 超えた時点の手札の枚数と上限。捨てる枚数は HandCount - MaxHandCards
-	HandCount    int `json:"hand_count"`
-	MaxHandCards int `json:"max_hand_cards"`
 }
 
-// 手札から捨てたカード（手札の何番目か。0 始まり）。捨て札に入る
+// 手札の何番目か（0 始まり）を捨てた。捨て札に入る。カードは手札の番号から決まるので持たない
 type CardDiscardedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	HandIndex   int              `json:"hand_index"`
-	Card        card.Ref         `json:"card"`
 }
 
 // 止まった空き地に、手札のクリーチャーを配置した（手札の何番目か。0 始まり）。コストの分の魔力を払い、その土地が領地になる。
-// 性能は対戦を始めたときの写しから決まるので、イベントには書き写さない
+// カード・位置・性能は、手札の番号・今いるマス・対戦を始めたときの写しから決まるので持たない
 type CreaturePlacedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	HandIndex   int              `json:"hand_index"`
-	Card        card.Ref         `json:"card"`
 	Creature    PlacedCreatureID `json:"creature"`
-	Position    board.Position   `json:"position"`
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 他人の領地に止まって通行料を払った。足りなくても全額を払い、魔力は負になる（Magic は払った魔力で、持ち主が同じだけ受け取る）
+// 他人の領地に止まって通行料を払った。足りなくても全額を払い、魔力は負になる（Magic は払った魔力で、今いるマスの領地の持ち主が同じだけ受け取る）
 type TollPaidEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
-	Owner       ParticipantIndex `json:"owner"`
-	Position    board.Position   `json:"position"`
 	Magic       int              `json:"magic"`
 }
 
-// 通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した。Toll は盤面の通行料、MultipliedToll は倍率を掛けて切り捨てた額で、
-// 続く TollPaidEvent がこの額を払う。倍率を持っていれば、効き目が無くても（100%）出す（2026-11-11 オーナー。core#159）。状態は変えない
+// 通行料を払う直前に、今いるマスの領地のクリーチャーの通行料の倍率が発動した。倍率を掛けて切り捨てた額は、続く TollPaidEvent が払う。
+// 倍率を持っていれば、効き目が無くても（100%）出す（2026-11-11 オーナー。core#159）。状態は変えない。
+// 発動したことだけを持つ（位置・倍率・盤面の通行料は直前の状態から、掛けた額は続く払ったイベントから決まる。2026-11-13 オーナー。core#171）
 type TollMultiplierActivatedEvent struct {
-	EventMeta      `json:"-"`
-	eventMarker    `json:"-"`
-	Position       board.Position                 `json:"position"`
-	Percent        creature.TollMultiplierPercent `json:"percent"`
-	Toll           int                            `json:"toll"`
-	MultipliedToll int                            `json:"multiplied_toll"`
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
 }
 
 // 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れて持ち主の捨て札に入り、土地は空く（レベルは土地に残る。core#146）
@@ -130,7 +118,6 @@ type TerritoryRelinquishedEvent struct {
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	Position    board.Position   `json:"position"`
-	Creature    PlacedCreatureID `json:"creature"`
 	Magic       int              `json:"magic"`
 }
 
@@ -143,17 +130,13 @@ type MagicDepletedEvent struct {
 }
 
 // 止まった他人の領地を、手札のクリーチャーで侵略した（手札の何番目か。0 始まり）。コストの分の魔力を払う。
-// 性能は対戦を始めたときの写しから決まるので、イベントには書き写さない
+// カード・位置・守るクリーチャーは、手札の番号・今いるマス・その領地から決まるので持たない
 type TerritoryInvadedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	HandIndex   int              `json:"hand_index"`
-	Card        card.Ref         `json:"card"`
-	Position    board.Position   `json:"position"`
 	Cost        card.Cost        `json:"cost"`
-	// 領地にいて、これから戦う守る側のクリーチャー（倒すと領地から外れ、画面が履歴で名前を出すのに状態の再計算を要らなくする）
-	DefendingCreature PlacedCreatureID `json:"defending_creature"`
 }
 
 // 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
@@ -162,7 +145,6 @@ type ItemUsedEvent struct {
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	HandIndex   int              `json:"hand_index"`
-	Card        card.Ref         `json:"card"`
 	Cost        card.Cost        `json:"cost"`
 }
 
@@ -172,18 +154,15 @@ type SpellUsedEvent struct {
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	HandIndex   int              `json:"hand_index"`
-	Card        card.Ref         `json:"card"`
 	Cost        card.Cost        `json:"cost"`
 }
 
-// スペルの効果で魔力を得た（Magic は得た魔力 = (Laps + 1) × MagicPerLap。Laps は得た時点でこの対戦で周回を終えた回数）
+// スペルの効果で魔力を得た（Magic は得た魔力 = (周回を終えた回数 + 1) × スペルの 1 周あたり。根拠は直前の状態と写しから決まるので持たない）
 type MagicGainedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	Magic       int              `json:"magic"`
-	Laps        int              `json:"laps"`
-	MagicPerLap int              `json:"magic_per_lap"`
 }
 
 // スペルの効果で、このターンに振るサイコロの個数が変わった（Count 個を同時に振り、合計の分だけ進む）
@@ -210,24 +189,22 @@ type CurseRemovedEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 }
 
-// スペルで、領地のクリーチャーにダメージを与えた（Participant は使った人。RemainingHitPoints は残りの HP で、0 なら続けて破壊される）
+// スペルで、Position の領地のクリーチャーにダメージを与えた（Participant は使った人。RemainingHitPoints は残りの HP で、0 なら続けて破壊される）
 type CreatureDamagedEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
 	Position           board.Position     `json:"position"`
-	Creature           PlacedCreatureID   `json:"creature"`
 	Damage             int                `json:"damage"`
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
 }
 
-// スペルのダメージで HP が 0 になり、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札）
+// スペルのダメージで HP が 0 になり、Position の領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札）
 type CreatureDestroyedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
 	Position    board.Position   `json:"position"`
-	Creature    PlacedCreatureID `json:"creature"`
 }
 
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
@@ -304,28 +281,22 @@ func (e CreatureStruckEvent) withMeta(meta EventMeta) Event {
 	return &e
 }
 
-// 守る側のクリーチャーを倒して土地を奪った。倒したクリーチャーは持ち主の捨て札に入り、土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID、TerritoryHitPoints はその体力
+// 守る側のクリーチャーを倒して、侵略した土地を奪った。倒したクリーチャーは持ち主の捨て札に入り、土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの ID（手札から侵略したときは新しい ID）、TerritoryHitPoints はその体力
 type TerritoryConqueredEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
-	Position           board.Position     `json:"position"`
-	DefeatedCreature   PlacedCreatureID   `json:"defeated_creature"`
 	Creature           PlacedCreatureID   `json:"creature"`
 	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
-// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる。続けて通行料を払う。TerritoryHitPoints は領地のクリーチャーに残る体力
+// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り（移動で侵略したときは元の領地に戻り）、倒れていれば捨て札になる（どれになるかは戦闘の結果から決まるので持たない）。続けて通行料を払う。TerritoryHitPoints は領地のクリーチャーに残る体力
 type InvasionRepelledEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
-	Position           board.Position     `json:"position"`
-	Card               card.Ref           `json:"card"`
-	ReturnedToHand     bool               `json:"returned_to_hand"`
 	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
-	// 移動で侵略して生き残ったときだけ持つ。戻った元の領地の位置と、戻ったクリーチャーの体力（倒れたときは無く、元の土地は空き地になる）
-	ReturnedTo        *board.Position     `json:"returned_to,omitempty"`
+	// 移動で侵略して生き残ったときだけ持つ。元の領地に戻ったクリーチャーの体力（戻る位置は侵略の元の領地から決まる）
 	ReturnedHitPoints *creature.HitPoints `json:"returned_hit_points,omitempty"`
 }
 
@@ -339,20 +310,18 @@ type TerritoryLeveledUpEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// 通った自分の領地のクリーチャーを手札のクリーチャーと入れ替えた。Creature は領地に入ったクリーチャーの新しい ID で、体力はカードの値。ReturnedCard は手札の最後に戻ったカード。Cost は払った魔力
+// 通った自分の領地のクリーチャーを手札のクリーチャーと入れ替えた。Creature は領地に入ったクリーチャーの新しい ID で、体力はカードの値。元のクリーチャーのカードは手札の最後に戻る。Cost は払った魔力
 type CreatureExchangedEvent struct {
-	EventMeta    `json:"-"`
-	eventMarker  `json:"-"`
-	Participant  ParticipantIndex `json:"participant"`
-	Position     board.Position   `json:"position"`
-	HandIndex    int              `json:"hand_index"`
-	Card         card.Ref         `json:"card"`
-	Creature     PlacedCreatureID `json:"creature"`
-	Cost         card.Cost        `json:"cost"`
-	ReturnedCard card.Ref         `json:"returned_card"`
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Position    board.Position   `json:"position"`
+	HandIndex   int              `json:"hand_index"`
+	Creature    PlacedCreatureID `json:"creature"`
+	Cost        card.Cost        `json:"cost"`
 }
 
-// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力 = BaseLandValue × Multiplier）。土地のレベルとクリーチャーはそのまま
+// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力 = 土地の基本の値 × 変える前の属性で決まる倍率）。土地のレベルとクリーチャーはそのまま
 type LandElementChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -360,9 +329,6 @@ type LandElementChangedEvent struct {
 	Position    board.Position   `json:"position"`
 	Element     board.Element    `json:"element"`
 	Magic       int              `json:"magic"`
-	// 払った魔力の根拠。Multiplier は実際に掛けた倍率（複属性の土地からは安い）
-	BaseLandValue int `json:"base_land_value"`
-	Multiplier    int `json:"multiplier"`
 }
 
 // 通った自分の領地のクリーチャーを空き地へ動かした。行き先が領地になり、元の土地は空き地になる（土地のレベルはどちらも土地に残る）
@@ -372,7 +338,6 @@ type CreatureMovedEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 	From        board.Position   `json:"from"`
 	To          board.Position   `json:"to"`
-	Creature    PlacedCreatureID `json:"creature"`
 }
 
 // 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）。Position は攻める領地
@@ -382,9 +347,6 @@ type TerritoryInvadedByMoveEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 	From        board.Position   `json:"from"`
 	Position    board.Position   `json:"position"`
-	Creature    PlacedCreatureID `json:"creature"`
-	// 領地にいて、これから戦う守る側のクリーチャー
-	DefendingCreature PlacedCreatureID `json:"defending_creature"`
 }
 
 // 振った目
@@ -408,12 +370,11 @@ type MovedEvent struct {
 	To          board.Position   `json:"to"`
 }
 
-// まだ印の無いチェックポイントに入って印を付け、魔力が増えた（Magic は足した量）
+// 今いるマスの、まだ印の無いチェックポイントに印を付け、魔力が増えた（Magic は足した量）
 type CheckpointPassedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
-	Checkpoint  board.Position   `json:"checkpoint"`
 	Magic       int              `json:"magic"`
 }
 

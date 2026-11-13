@@ -523,7 +523,7 @@ type ElementChangeChoice struct {
 	Element board.Element
 	// 払う魔力（基本の値 × Multiplier）
 	Magic int
-	// 掛けた倍率。複属性の土地からは安い倍率になる。イベントに根拠として残すため選択肢にも持つ
+	// 掛けた倍率。複属性の土地からは安い倍率になる。イベントは持たないので、画面向けの写し（query）が直前の状態の選択肢から根拠を引く
 	Multiplier int
 }
 
