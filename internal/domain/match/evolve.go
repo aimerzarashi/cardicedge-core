@@ -443,34 +443,25 @@ func Evolve(state State, event Event) (State, error) {
 		if current.Phase != PhaseDefending || current.Invasion == nil {
 			return state, ErrInvalidState
 		}
-		current.Battle = &Battle{
-			Attacker: BattleCreature{Stats: e.Attacker, InitialHitPoints: e.Attacker.HitPoints},
-			Defender: BattleCreature{Stats: e.Defender, InitialHitPoints: e.Defender.HitPoints},
+		battle, err := evolveBattle(nil, e)
+		if err != nil {
+			return state, err
 		}
+		current.Battle = battle
 		current.Phase = PhaseBattling
-	case *BattleStatModifiedEvent:
-		if current.Phase != PhaseBattling || current.Battle == nil || !e.Side.valid() {
+	case *BattleStatModifiedEvent, *BattleAbilityActivatedEvent, *CreatureStruckEvent:
+		if current.Phase != PhaseBattling {
 			return state, ErrInvalidState
 		}
-		modified := current.Battle.creature(e.Side)
-		modified.Stats = BattleStats{Attack: e.Attack, HitPoints: e.HitPoints}
-		modified.HitPointsDelta += e.HitPointsDelta
-		current.Battle = current.Battle.withCreature(e.Side, modified)
+		battle, err := evolveBattle(current.Battle, e)
+		if err != nil {
+			return state, err
+		}
+		current.Battle = battle
 	case *TollMultiplierActivatedEvent:
 		if _, ok := current.TerritoryAt(e.Position); !ok || e.Percent < 1 {
 			return state, ErrInvalidState
 		}
-	case *BattleAbilityActivatedEvent:
-		if current.Phase != PhaseBattling || current.Battle == nil || !e.Side.valid() || !e.Ability.valid() {
-			return state, ErrInvalidState
-		}
-	case *CreatureStruckEvent:
-		if current.Phase != PhaseBattling || current.Battle == nil || !e.Striker.valid() {
-			return state, ErrInvalidState
-		}
-		struck := current.Battle.creature(e.Striker.opponent())
-		struck.Stats.HitPoints = e.RemainingHitPoints
-		current.Battle = current.Battle.withCreature(e.Striker.opponent(), struck)
 	case *TerritoryConqueredEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -746,4 +737,38 @@ func (m Match) stopActionPhase() Phase {
 		}
 	}
 	return PhaseEnding
+}
+
+// 戦闘の出来事を戦闘の中の値に当てる。Evolve と resolveBattle が同じ 1 か所で値を進めるため（戦闘を入力と乱数の元だけで決めても、
+// 保存した後に当て直した値とずれないように。core#171）
+func evolveBattle(battle *Battle, event Event) (*Battle, error) {
+	switch e := event.(type) {
+	case *BattleStartedEvent:
+		attacker, defender := e.Input.Attacker, e.Input.Defender
+		return &Battle{
+			Attacker: BattleCreature{Stats: BattleStats{Attack: attacker.Spec.Attack, HitPoints: attacker.HitPoints}, InitialHitPoints: attacker.HitPoints},
+			Defender: BattleCreature{Stats: BattleStats{Attack: defender.Spec.Attack, HitPoints: defender.HitPoints}, InitialHitPoints: defender.HitPoints},
+		}, nil
+	case *BattleStatModifiedEvent:
+		if battle == nil || !e.Side.valid() || !e.Source.Effect.valid() {
+			return nil, ErrInvalidState
+		}
+		modified := battle.creature(e.Side)
+		modified.Stats = BattleStats{Attack: e.Attack, HitPoints: e.HitPoints}
+		modified.HitPointsDelta += e.HitPointsDelta
+		return battle.withCreature(e.Side, modified), nil
+	case *BattleAbilityActivatedEvent:
+		if battle == nil || !e.Side.valid() || !e.Ability.valid() {
+			return nil, ErrInvalidState
+		}
+		return battle, nil
+	case *CreatureStruckEvent:
+		if battle == nil || !e.Striker.valid() {
+			return nil, ErrInvalidState
+		}
+		struck := battle.creature(e.Striker.opponent())
+		struck.Stats.HitPoints = e.RemainingHitPoints
+		return battle.withCreature(e.Striker.opponent(), struck), nil
+	}
+	return nil, ErrInvalidState
 }

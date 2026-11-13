@@ -237,16 +237,17 @@ type ItemSkippedEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 }
 
-// 戦闘が始まった。効果を当てる前の両方の AT・HP で、計算の経過の始まり
+// 戦闘が始まった。戦闘の入力（状況と、両方が選んだアイテム）をすべて持ち、続く戦闘の出来事はこの入力と乱数の元から決まる。
+// 効果を当てる前の AT・HP は、両方のクリーチャーの性能の AT と戦闘の前の HP（core#171）
 type BattleStartedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Attacker    BattleStats `json:"attacker"`
-	Defender    BattleStats `json:"defender"`
+	Input       BattleInput `json:"input"`
 }
 
 // 効果 1 つが戦闘の AT・HP を変えた。量の増減は効果の種類によらずこのイベントで表し、何の効果かは Source が持つ。
-// Delta は下限（0）で止まった後の実際の増減で、Attack・HitPoints は当てた後の値（画面が計算せずに再生するため）
+// Delta は下限（0）で止まった後の実際の増減で、Attack・HitPoints は当てた後の値（画面が計算せずに再生するため）。
+// 戦闘中のランダムの引いた値は、当てた後の Attack・HitPoints（決まった出力なので、入力でなくここに残る）
 type BattleStatModifiedEvent struct {
 	EventMeta      `json:"-"`
 	eventMarker    `json:"-"`
@@ -275,6 +276,32 @@ type CreatureStruckEvent struct {
 	Striker            BattleSide         `json:"striker"`
 	Damage             creature.Attack    `json:"damage"`
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
+}
+
+// 戦闘の出来事。resolveBattle が版より先に作り、recorder が版を入れる（戦闘を状態から切り離して、入力と乱数の元だけで決めるため）
+type battleEvent interface {
+	Event
+	withMeta(meta EventMeta) Event
+}
+
+func (e BattleStartedEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
+}
+
+func (e BattleStatModifiedEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
+}
+
+func (e BattleAbilityActivatedEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
+}
+
+func (e CreatureStruckEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
 }
 
 // 守る側のクリーチャーを倒して土地を奪った。倒したクリーチャーは持ち主の捨て札に入り、土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの新しい ID、TerritoryHitPoints はその体力

@@ -517,13 +517,14 @@ func (q *MatchEventsHandler) ListAfter(ctx context.Context, playerID uuid.UUID, 
 	if err != nil {
 		return nil, err
 	}
-	cards, err := q.cardsOf(ctx, events, snapshotSpecs(loaded), placedCards)
+	inputs := battleInputsByRevision(loaded)
+	cards, err := q.cardsOf(ctx, events, snapshotSpecs(loaded), placedCards, inputs)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]MatchEvent, 0, len(events))
 	for _, event := range events {
-		converted, err := fromMatchEvent(event, cards, placedCards, changes[event.GetMeta().AggregateVersion])
+		converted, err := fromMatchEvent(event, cards, placedCards, inputs, changes[event.GetMeta().AggregateVersion])
 		if err != nil {
 			return nil, err
 		}
@@ -620,6 +621,22 @@ func sameTerritoryBefore(previous, current match.Match, territory match.Territor
 	return old, true
 }
 
+// 戦闘の出来事の版ごとの、その戦闘の入力（直前の BattleStartedEvent）。after によらず読んだイベントのすべてから探す。
+// 効果の根拠は入力にだけあり、出来事は種類しか持たないため（core#171）
+func battleInputsByRevision(loaded []match.Event) map[int64]match.BattleInput {
+	inputs := map[int64]match.BattleInput{}
+	var current match.BattleInput
+	for _, event := range loaded {
+		switch e := event.(type) {
+		case *match.BattleStartedEvent:
+			current = e.Input
+		case *match.BattleStatModifiedEvent:
+			inputs[e.AggregateVersion] = current
+		}
+	}
+	return inputs
+}
+
 // 対戦を作ったときに写した性能（最初のイベント。after によらず、読んだイベントのすべてから探す）
 func snapshotSpecs(loaded []match.Event) map[card.Ref]match.CardSpec {
 	specs := map[card.Ref]match.CardSpec{}
@@ -636,7 +653,7 @@ func snapshotSpecs(loaded []match.Event) map[card.Ref]match.CardSpec {
 }
 
 // イベントが述べたカードの名前と種類を、1 回でまとめて引く。対戦の中のカードの性能は写し、戦利品は写した cards の性能
-func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec, placedCards map[match.PlacedCreatureID]card.Ref) (map[domain.EntityRef]MatchCard, error) {
+func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, specs map[card.Ref]match.CardSpec, placedCards map[match.PlacedCreatureID]card.Ref, battleInputs map[int64]match.BattleInput) (map[domain.EntityRef]MatchCard, error) {
 	var refs []domain.EntityRef
 	inDeck := map[domain.EntityRef]match.CardSpec{}
 	for _, event := range events {
@@ -680,10 +697,11 @@ func (q *MatchEventsHandler) cardsOf(ctx context.Context, events []match.Event, 
 			refs = append(refs, ref)
 			inDeck[ref] = specs[e.Card]
 		case *match.BattleStatModifiedEvent:
-			if e.Source.Item != nil {
-				ref := domain.NewEntityRef(e.Source.Item.Card.EntityType, e.Source.Item.Card.ID)
+			// 戦闘の開始が after より前でも引けるように、出来事の版から入力を引く
+			if used := battleCombatant(battleInputs[e.AggregateVersion], e.Side).Item; e.Source.Effect == match.BattleEffectItem && used != nil {
+				ref := domain.NewEntityRef(used.Card.EntityType, used.Card.ID)
 				refs = append(refs, ref)
-				inDeck[ref] = specs[e.Source.Item.Card]
+				inDeck[ref] = specs[used.Card]
 			}
 		case *match.InvasionRepelledEvent:
 			ref := domain.NewEntityRef(e.Card.EntityType, e.Card.ID)
@@ -733,7 +751,7 @@ func cardOfPlacedCreature(id match.PlacedCreatureID, cards map[domain.EntityRef]
 	return cards[domain.NewEntityRef(ref.EntityType, ref.ID)]
 }
 
-func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, placedCards map[match.PlacedCreatureID]card.Ref, changes MatchEventChanges) (MatchEvent, error) {
+func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, placedCards map[match.PlacedCreatureID]card.Ref, battleInputs map[int64]match.BattleInput, changes MatchEventChanges) (MatchEvent, error) {
 	meta := MatchEventMeta{Revision: event.GetMeta().AggregateVersion, OccurredAt: event.GetMeta().OccurredAt, Changes: changes}
 	switch e := event.(type) {
 	case *match.CreatedEvent:
@@ -829,13 +847,18 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, pla
 		position := NewBoardPosition(e.Position.X.Int(), e.Position.Y.Int())
 		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), position, e.HandIndex, cards[domain.NewEntityRef(e.Card.EntityType, e.Card.ID)], e.Creature.Int(), e.Cost.Int(), cards[domain.NewEntityRef(e.ReturnedCard.EntityType, e.ReturnedCard.ID)]}, nil
 	case *match.BattleStartedEvent:
-		return MatchBattleStartedEvent{meta, fromBattleStats(e.Attacker), fromBattleStats(e.Defender)}, nil
+		attacker, defender := e.Input.Attacker, e.Input.Defender
+		return MatchBattleStartedEvent{meta, MatchBattleStats{attacker.Spec.Attack.Int(), attacker.HitPoints.Int()}, MatchBattleStats{defender.Spec.Attack.Int(), defender.HitPoints.Int()}}, nil
 	case *match.BattleStatModifiedEvent:
 		side, err := fromBattleSide(e.Side)
 		if err != nil {
 			return nil, err
 		}
-		source, err := fromBattleStatSource(e.Source, cards)
+		input, ok := battleInputs[e.AggregateVersion]
+		if !ok {
+			return nil, fmt.Errorf("query: battle stat modified event %d has no battle started event", e.AggregateVersion)
+		}
+		source, err := fromBattleStatSource(e.Source, e.Side, input, cards)
 		if err != nil {
 			return nil, err
 		}
@@ -872,42 +895,52 @@ func fromMatchEvent(event match.Event, cards map[domain.EntityRef]MatchCard, pla
 	}
 }
 
-func fromBattleStats(stats match.BattleStats) MatchBattleStats {
-	return MatchBattleStats{Attack: stats.Attack.Int(), HitPoints: stats.HitPoints.Int()}
+func battleCombatant(input match.BattleInput, side match.BattleSide) match.BattleCombatant {
+	if side == match.BattleSideDefender {
+		return input.Defender
+	}
+	return input.Attacker
 }
 
-func fromBattleStatSource(source match.BattleStatSource, cards map[domain.EntityRef]MatchCard) (MatchBattleStatSource, error) {
-	switch {
-	case source.AdjacentTerritories != nil:
-		positions := make([]BoardPosition, len(source.AdjacentTerritories.Positions))
-		for i, position := range source.AdjacentTerritories.Positions {
+// 出どころの種類に、根拠の値を戦闘の入力から添える（戦闘の決まりを計算し直さず、入力から引くだけ）
+func fromBattleStatSource(source match.BattleStatSource, side match.BattleSide, input match.BattleInput, cards map[domain.EntityRef]MatchCard) (MatchBattleStatSource, error) {
+	combatant := battleCombatant(input, side)
+	switch source.Effect {
+	case match.BattleEffectAdjacentTerritories:
+		positions := make([]BoardPosition, len(input.AdjacentTerritories))
+		for i, position := range input.AdjacentTerritories {
 			positions[i] = NewBoardPosition(position.X.Int(), position.Y.Int())
 		}
-		return MatchBattleStatSource{AdjacentTerritories: &MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: source.AdjacentTerritories.BonusPerTerritory}}, nil
-	case source.Terrain != nil:
-		element, err := NewBoardTileElement(source.Terrain.Element.String())
+		return MatchBattleStatSource{AdjacentTerritories: &MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: input.Rules.AdjacentTerritoryBonus.Int()}}, nil
+	case match.BattleEffectTerrain:
+		element, err := NewBoardTileElement(input.Land.Element.String())
 		if err != nil {
 			return MatchBattleStatSource{}, err
 		}
-		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: source.Terrain.Level, BonusPerLevel: source.Terrain.BonusPerLevel}}, nil
-	case source.Item != nil:
-		used := cards[domain.NewEntityRef(source.Item.Card.EntityType, source.Item.Card.ID)]
-		return MatchBattleStatSource{Item: &MatchItemSource{Card: used, AttackModifier: source.Item.AttackModifier.Int(), HitPointsModifier: source.Item.HitPointsModifier.Int()}}, nil
-	case source.Ability != nil:
-		ability, err := fromBattleAbility(source.Ability.Ability)
+		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: input.Land.Level, BonusPerLevel: input.Rules.TerrainBonusPerLevel.Int()}}, nil
+	case match.BattleEffectItem:
+		if combatant.Item == nil {
+			return MatchBattleStatSource{}, fmt.Errorf("query: item effect without item on %s", side)
+		}
+		used := cards[domain.NewEntityRef(combatant.Item.Card.EntityType, combatant.Item.Card.ID)]
+		return MatchBattleStatSource{Item: &MatchItemSource{Card: used, AttackModifier: combatant.Item.Spec.AttackModifier.Int(), HitPointsModifier: combatant.Item.Spec.HitPointsModifier.Int()}}, nil
+	case match.BattleEffectAbility:
+		ability, err := fromBattleAbility(source.Ability)
 		if err != nil {
 			return MatchBattleStatSource{}, err
 		}
 		converted := &MatchAbilitySource{Ability: ability}
-		if source.Ability.AttackModifier != nil && source.Ability.HitPointsModifier != nil {
-			converted.BattleModifier = &MatchBattleModifierBasis{AttackModifier: source.Ability.AttackModifier.Int(), HitPointsModifier: source.Ability.HitPointsModifier.Int()}
-		}
-		if source.Ability.Minimum != nil && source.Ability.Maximum != nil {
-			converted.BattleRandomStats = &MatchBattleRandomStatsBasis{Minimum: source.Ability.Minimum.Int(), Maximum: source.Ability.Maximum.Int()}
+		for _, owned := range combatant.Spec.Abilities {
+			switch {
+			case source.Ability == match.BattleAbilityBattleModifier && owned.BattleModifier != nil:
+				converted.BattleModifier = &MatchBattleModifierBasis{AttackModifier: owned.BattleModifier.AttackModifier.Int(), HitPointsModifier: owned.BattleModifier.HitPointsModifier.Int()}
+			case source.Ability == match.BattleAbilityBattleRandomStats && owned.BattleRandomStats != nil:
+				converted.BattleRandomStats = &MatchBattleRandomStatsBasis{Minimum: owned.BattleRandomStats.Minimum.Int(), Maximum: owned.BattleRandomStats.Maximum.Int()}
+			}
 		}
 		return MatchBattleStatSource{Ability: converted}, nil
 	default:
-		return MatchBattleStatSource{}, fmt.Errorf("query: battle stat source has no kind")
+		return MatchBattleStatSource{}, fmt.Errorf("query: unknown battle stat source: %q", source.Effect)
 	}
 }
 

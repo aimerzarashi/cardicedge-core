@@ -275,9 +275,9 @@ type Ability struct {
 	FirstStrike *FirstStrikeAbility `json:"first_strike,omitempty"`
 	// 後手。戦闘で、後手の無い相手より後に攻撃する。match の判定・発動は先制と同じ（core#158）
 	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
-	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は CreatureSpec.battleModifier → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表し、増減が 0 でも出す）（core#163）
+	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は resolveBattle の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表し、増減が 0 でも出す）（core#163）
 	BattleModifier *BattleModifierAbility `json:"battle_modifier,omitempty"`
-	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は battleEffects の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表す）（core#169）
+	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は resolveBattle の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表す）（core#169）
 	BattleRandomStats *BattleRandomStatsAbility `json:"battle_random_stats,omitempty"`
 }
 

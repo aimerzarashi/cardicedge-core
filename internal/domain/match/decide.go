@@ -455,133 +455,148 @@ func defend(r *recorder, by ParticipantIndex, itemHandIndex *int, random Random)
 	return battle(r, random)
 }
 
-// 効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
-// どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）
+// 状態から戦闘の入力を組み立て、戦闘を入力と乱数の元だけで決め（resolveBattle）、出来事を順に残してから結果（奪う・退ける）に進む
 func battle(r *recorder, random Random) error {
-	if err := startBattle(r); err != nil {
-		return err
-	}
-	for _, apply := range battleEffects(random) {
-		if err := apply(r); err != nil {
-			return err
-		}
-		if r.state.Battle.decided() {
-			return settleBattle(r)
-		}
-	}
-	if err := activateStrikeAbilities(r); err != nil {
-		return err
-	}
-	order, err := strikeOrder(r.state)
+	input, err := r.state.battleInput()
 	if err != nil {
 		return err
 	}
-	for _, striker := range order {
-		if err := strike(r, striker); err != nil {
+	events, err := resolveBattle(input, random)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event { return event.withMeta(meta) }); err != nil {
 			return err
-		}
-		if r.state.Battle.decided() {
-			break
 		}
 	}
 	return settleBattle(r)
 }
 
-// 攻撃の順に効く能力（先制・後手）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
-func activateStrikeAbilities(r *recorder) error {
-	defending, err := r.state.defendingCreature()
+// 戦闘の入力。状況（領地・隣の領地・土地・ルール）と、侵略に出したクリーチャーと両方が選んだアイテムを、戦闘が始まる時点の状態から集める
+func (m Match) battleInput() (BattleInput, error) {
+	attacker, ok := m.CurrentParticipant()
+	if !ok || m.Invasion == nil {
+		return BattleInput{}, ErrInvalidState
+	}
+	territory, ok := m.battleTerritory()
+	if !ok {
+		return BattleInput{}, ErrInvalidState
+	}
+	defending, ok := m.PlacedCreature(territory.Creature)
+	if !ok {
+		return BattleInput{}, ErrInvalidState
+	}
+	invasion := *m.Invasion
+	attackerItem, err := m.battleItem(invasion.AttackerItem)
+	if err != nil {
+		return BattleInput{}, err
+	}
+	defenderItem, err := m.battleItem(invasion.DefenderItem)
+	if err != nil {
+		return BattleInput{}, err
+	}
+	// 移動で侵略したときは、動いたクリーチャーがもういない元の領地を数えない（2026-11-10 オーナー）
+	adjacent := slices.DeleteFunc(m.adjacentTerritoriesOf(invasion.Position, attacker), func(position board.Position) bool {
+		return invasion.From != nil && position == *invasion.From
+	})
+	return BattleInput{
+		Attacker:            BattleCombatant{Card: invasion.Card, Spec: invasion.Base, HitPoints: invasion.HitPoints, Item: attackerItem},
+		Defender:            BattleCombatant{Card: defending.Card, Spec: defending.Base, HitPoints: defending.HitPoints, Item: defenderItem},
+		Land:                BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
+		AdjacentTerritories: adjacent,
+		Rules:               BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
+	}, nil
+}
+
+func (m Match) battleItem(used *card.Ref) (*BattleItem, error) {
+	if used == nil {
+		return nil, nil
+	}
+	spec := m.CardSpecs()[*used].Item
+	if spec == nil {
+		return nil, ErrInvalidState
+	}
+	return &BattleItem{Card: *used, Spec: *spec}, nil
+}
+
+// 戦闘を、入力と乱数の元だけで決める。効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
+// どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）。
+// 状態を見ないのは、戦闘を「意思決定と状況を入力にして出来事の並びを出す独立した処理」にし、入力と出力だけで確かめられるようにするため
+// （2026-11-13 オーナー。core#171）
+func resolveBattle(input BattleInput, random Random) ([]battleEvent, error) {
+	b := &battleResolver{input: input}
+	if err := b.emit(&BattleStartedEvent{Input: input}); err != nil {
+		return nil, err
+	}
+	for _, apply := range b.effects(random) {
+		if err := apply(); err != nil {
+			return nil, err
+		}
+		if b.battle.decided() {
+			return b.events, nil
+		}
+	}
+	if err := b.activateStrikeAbilities(); err != nil {
+		return nil, err
+	}
+	for _, striker := range b.strikeOrder() {
+		if err := b.strike(striker); err != nil {
+			return nil, err
+		}
+		if b.battle.decided() {
+			break
+		}
+	}
+	return b.events, nil
+}
+
+// 戦闘を決める間の値。出した出来事を evolveBattle で当てて、今の AT・HP を進める（Evolve と同じ決まりで進めるため）
+type battleResolver struct {
+	input  BattleInput
+	battle *Battle
+	events []battleEvent
+}
+
+func (b *battleResolver) emit(event battleEvent) error {
+	next, err := evolveBattle(b.battle, event)
 	if err != nil {
 		return err
 	}
-	sides := []struct {
-		side BattleSide
-		spec CreatureSpec
-	}{{BattleSideAttacker, r.state.Invasion.Base}, {BattleSideDefender, defending.Base}}
-	for _, s := range sides {
-		ability, ok := s.spec.strikeAbility()
-		if !ok {
-			continue
-		}
-		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-			return &BattleAbilityActivatedEvent{EventMeta: meta, Side: s.side, Ability: ability}
-		}); err != nil {
-			return err
-		}
-	}
+	b.battle = next
+	b.events = append(b.events, event)
 	return nil
-}
-
-// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）
-func strikeOrder(state Match) ([]BattleSide, error) {
-	defending, err := state.defendingCreature()
-	if err != nil {
-		return nil, err
-	}
-	if defending.Base.strikePriority() > state.Invasion.Base.strikePriority() {
-		return []BattleSide{BattleSideDefender, BattleSideAttacker}, nil
-	}
-	return []BattleSide{BattleSideAttacker, BattleSideDefender}, nil
-}
-
-func startBattle(r *recorder) error {
-	territory, ok := r.state.battleTerritory()
-	if !ok || r.state.Invasion == nil {
-		return ErrInvalidState
-	}
-	defending, ok := r.state.PlacedCreature(territory.Creature)
-	if !ok {
-		return ErrInvalidState
-	}
-	invasion := *r.state.Invasion
-	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-		return &BattleStartedEvent{
-			EventMeta: meta,
-			Attacker:  BattleStats{Attack: invasion.Base.Attack, HitPoints: invasion.HitPoints},
-			Defender:  BattleStats{Attack: defending.Base.Attack, HitPoints: defending.HitPoints},
-		}
-	})
 }
 
 // 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は 呪い → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
 // 呪いは作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
-func battleEffects(random Random) []func(*recorder) error {
-	return []func(*recorder) error{
-		func(r *recorder) error { return applyBattleAbilities(r, BattleSideAttacker, random) },
-		applyAdjacentTerritories,
-		func(r *recorder) error { return applyItem(r, BattleSideAttacker, r.state.Invasion.AttackerItem) },
-		func(r *recorder) error { return applyBattleAbilities(r, BattleSideDefender, random) },
-		applyTerrain,
-		func(r *recorder) error { return applyItem(r, BattleSideDefender, r.state.Invasion.DefenderItem) },
+func (b *battleResolver) effects(random Random) []func() error {
+	return []func() error{
+		func() error { return b.applyAbilities(BattleSideAttacker, random) },
+		b.applyAdjacentTerritories,
+		func() error { return b.applyItem(BattleSideAttacker) },
+		func() error { return b.applyAbilities(BattleSideDefender, random) },
+		b.applyTerrain,
+		func() error { return b.applyItem(BattleSideDefender) },
 	}
 }
 
 // 能力の位置。持っている能力を並びの順に、AT・HP を変える能力だけ当てる（先制・後手は攻撃の前に別に発動する）。
 // 種類ごとに決まった順にしないのは、能力の並びが入力のまま残る決まり（core#127）で、効果を当てる順になりうるため
-func applyBattleAbilities(r *recorder, side BattleSide, random Random) error {
-	if r.state.Invasion == nil {
-		return ErrInvalidState
-	}
-	spec := r.state.Invasion.Base
-	if side == BattleSideDefender {
-		defending, err := r.state.defendingCreature()
-		if err != nil {
-			return err
-		}
-		spec = defending.Base
-	}
-	for _, ability := range spec.Abilities {
+func (b *battleResolver) applyAbilities(side BattleSide, random Random) error {
+	for _, ability := range b.input.combatant(side).Spec.Abilities {
 		var err error
 		switch {
 		case ability.BattleModifier != nil:
 			modifier := *ability.BattleModifier
-			err = modifyBattleStats(r, side, NewBattleModifierSource(modifier.AttackModifier, modifier.HitPointsModifier), modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+			err = b.modifyStats(side, BattleStatSource{Effect: BattleEffectAbility, Ability: BattleAbilityBattleModifier}, modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
 		case ability.BattleRandomStats != nil:
-			err = applyBattleRandomStats(r, side, *ability.BattleRandomStats, random)
+			err = b.applyRandomStats(side, *ability.BattleRandomStats, random)
 		}
 		if err != nil {
 			return err
 		}
-		if r.state.Battle.decided() {
+		if b.battle.decided() {
 			return nil
 		}
 	}
@@ -590,44 +605,25 @@ func applyBattleAbilities(r *recorder, side BattleSide, random Random) error {
 
 // AT → HP の順に引く（乱数の元を使う順を決めて、再生と同じ値になるようにするため）。増減は引いた値と今の値の差で、
 // 増減が 0 でも発動を表すので出す
-func applyBattleRandomStats(r *recorder, side BattleSide, randomStats creature.BattleRandomStatsAbility, random Random) error {
+func (b *battleResolver) applyRandomStats(side BattleSide, randomStats creature.BattleRandomStatsAbility, random Random) error {
 	minimum, maximum := randomStats.Minimum.Int(), randomStats.Maximum.Int()
 	attack := minimum + random.IntN(maximum-minimum+1)
 	hitPoints := minimum + random.IntN(maximum-minimum+1)
-	before := r.state.Battle.creature(side).Stats
-	return modifyBattleStats(r, side, NewBattleRandomStatsSource(randomStats.Minimum, randomStats.Maximum), attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
+	before := b.battle.creature(side).Stats
+	return b.modifyStats(side, BattleStatSource{Effect: BattleEffectAbility, Ability: BattleAbilityBattleRandomStats}, attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
 }
 
-func applyAdjacentTerritories(r *recorder) error {
-	attacker, ok := r.state.CurrentParticipant()
-	if !ok {
-		return ErrInvalidState
-	}
-	if r.state.Invasion == nil {
-		return ErrInvalidState
-	}
-	// 移動で侵略したときは、動いたクリーチャーがもういない元の領地を数えない（2026-11-10 オーナー）
-	positions := slices.DeleteFunc(r.state.adjacentTerritoriesOf(r.state.Invasion.Position, attacker), func(position board.Position) bool {
-		return r.state.Invasion.From != nil && position == *r.state.Invasion.From
-	})
-	return modifyBattleStats(r, BattleSideAttacker, NewAdjacentTerritoriesSource(positions, r.state.Rules.AdjacentTerritoryBonus.Int()), len(positions)*r.state.Rules.AdjacentTerritoryBonus.Int(), 0)
+func (b *battleResolver) applyAdjacentTerritories() error {
+	bonus := len(b.input.AdjacentTerritories) * b.input.Rules.AdjacentTerritoryBonus.Int()
+	return b.modifyStats(BattleSideAttacker, BattleStatSource{Effect: BattleEffectAdjacentTerritories}, bonus, 0)
 }
 
-func applyTerrain(r *recorder) error {
-	territory, ok := r.state.battleTerritory()
-	if !ok {
-		return ErrInvalidState
-	}
-	defending, ok := r.state.PlacedCreature(territory.Creature)
-	if !ok {
-		return ErrInvalidState
-	}
-	element := r.state.landElement(territory.Position)
-	if !terrainMatches(element, defending.Base.Elements) {
+func (b *battleResolver) applyTerrain() error {
+	if !terrainMatches(b.input.Land.Element, b.input.Defender.Spec.Elements) {
 		return nil
 	}
-	level := r.state.LandLevel(territory.Position)
-	return modifyBattleStats(r, BattleSideDefender, NewTerrainSource(element, level, r.state.Rules.TerrainBonusPerLevel.Int()), 0, level*r.state.Rules.TerrainBonusPerLevel.Int())
+	bonus := b.input.Land.Level * b.input.Rules.TerrainBonusPerLevel.Int()
+	return b.modifyStats(BattleSideDefender, BattleStatSource{Effect: BattleEffectTerrain}, 0, bonus)
 }
 
 // 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）
@@ -639,38 +635,53 @@ func terrainMatches(land board.Element, elements creature.Elements) bool {
 }
 
 // 巻物は分類だけで、増減を持っていても効果は無い（2026-11-09 オーナー）
-func applyItem(r *recorder, side BattleSide, used *card.Ref) error {
-	if used == nil {
+func (b *battleResolver) applyItem(side BattleSide) error {
+	used := b.input.combatant(side).Item
+	if used == nil || used.Spec.Category == item.CategoryScroll {
 		return nil
 	}
-	spec := r.state.CardSpecs()[*used].Item
-	if spec == nil || spec.Category == item.CategoryScroll {
-		return nil
-	}
-	return modifyBattleStats(r, side, NewItemSource(*used, spec.AttackModifier, spec.HitPointsModifier), spec.AttackModifier.Int(), spec.HitPointsModifier.Int())
+	return b.modifyStats(side, BattleStatSource{Effect: BattleEffectItem}, used.Spec.AttackModifier.Int(), used.Spec.HitPointsModifier.Int())
 }
 
 // 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない。ただし能力は、このイベントが発動を表すので
 // （BattleAbilityActivatedEvent を別に出すと、再生で 1 つの発動が 2 行に割れるため。2026-11-12 オーナー）、
 // 持っていれば効き目が無くても出す決まり（2026-11-11 オーナー）に合わせて増減が 0 でも作る
-func modifyBattleStats(r *recorder, side BattleSide, source BattleStatSource, attackDelta, hitPointsDelta int) error {
-	before := r.state.Battle.creature(side).Stats
+func (b *battleResolver) modifyStats(side BattleSide, source BattleStatSource, attackDelta, hitPointsDelta int) error {
+	before := b.battle.creature(side).Stats
 	attack, hitPoints := before.Attack.Modified(attackDelta), before.HitPoints.Modified(hitPointsDelta)
 	actualAttack, actualHitPoints := attack.Int()-before.Attack.Int(), hitPoints.Int()-before.HitPoints.Int()
-	if actualAttack == 0 && actualHitPoints == 0 && source.Ability == nil {
+	if actualAttack == 0 && actualHitPoints == 0 && source.Effect != BattleEffectAbility {
 		return nil
 	}
-	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-		return &BattleStatModifiedEvent{EventMeta: meta, Side: side, Source: source, AttackDelta: actualAttack, HitPointsDelta: actualHitPoints, Attack: attack, HitPoints: hitPoints}
-	})
+	return b.emit(&BattleStatModifiedEvent{Side: side, Source: source, AttackDelta: actualAttack, HitPointsDelta: actualHitPoints, Attack: attack, HitPoints: hitPoints})
 }
 
-func strike(r *recorder, striker BattleSide) error {
-	damage := r.state.Battle.creature(striker).Stats.Attack
-	remaining := r.state.Battle.creature(striker.opponent()).Stats.HitPoints.Damaged(damage)
-	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-		return &CreatureStruckEvent{EventMeta: meta, Striker: striker, Damage: damage, RemainingHitPoints: remaining}
-	})
+// 攻撃の順に効く能力（先制・後手）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
+func (b *battleResolver) activateStrikeAbilities() error {
+	for _, side := range []BattleSide{BattleSideAttacker, BattleSideDefender} {
+		ability, ok := b.input.combatant(side).Spec.strikeAbility()
+		if !ok {
+			continue
+		}
+		if err := b.emit(&BattleAbilityActivatedEvent{Side: side, Ability: ability}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）
+func (b *battleResolver) strikeOrder() []BattleSide {
+	if b.input.Defender.Spec.strikePriority() > b.input.Attacker.Spec.strikePriority() {
+		return []BattleSide{BattleSideDefender, BattleSideAttacker}
+	}
+	return []BattleSide{BattleSideAttacker, BattleSideDefender}
+}
+
+func (b *battleResolver) strike(striker BattleSide) error {
+	damage := b.battle.creature(striker).Stats.Attack
+	remaining := b.battle.creature(striker.opponent()).Stats.HitPoints.Damaged(damage)
+	return b.emit(&CreatureStruckEvent{Striker: striker, Damage: damage, RemainingHitPoints: remaining})
 }
 
 func settleBattle(r *recorder) error {

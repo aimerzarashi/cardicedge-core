@@ -281,22 +281,48 @@ func invadingEvents(t *testing.T) []match.Event {
 	)
 }
 
-func battleStarted(t *testing.T, revision int64) *match.BattleStartedEvent {
+// 両方がカード 101（AT 10・戦闘の前の HP 20）で、アイテムも能力も無い戦闘の入力
+func battleInput(t *testing.T) match.BattleInput {
 	t.Helper()
-	stats := match.BattleStats{Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20)}
-	return &match.BattleStartedEvent{EventMeta: eventMeta(t, revision), Attacker: stats, Defender: stats}
+	spec := match.CreatureSpec{
+		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 30),
+		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
+	}
+	combatant := match.BattleCombatant{Card: cardtest.CreatureRef(t, 101), Spec: spec, HitPoints: creaturetest.HitPoints(t, 20)}
+	land := match.BattleLand{Element: board.ElementFire, Level: 1}
+	return match.BattleInput{Attacker: combatant, Defender: combatant, Land: land, AdjacentTerritories: []board.Position{}}
 }
 
-func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
+func battleStarted(t *testing.T, revision int64) *match.BattleStartedEvent {
+	t.Helper()
+	return battleStartedWith(t, revision, battleInput(t))
+}
+
+func battleStartedWith(t *testing.T, revision int64, input match.BattleInput) *match.BattleStartedEvent {
+	t.Helper()
+	return &match.BattleStartedEvent{EventMeta: eventMeta(t, revision), Input: input}
+}
+
+// 出来事は効果の種類だけを持ち、根拠の値は戦闘の開始の入力から添える（core#171）
+func TestMatchEventsHandler_ReturnsTheBasisOfEachBattleEffectFromTheBattleInput(t *testing.T) {
 	modified := func(revision int64, side match.BattleSide, source match.BattleStatSource, attack, hitPoints int) *match.BattleStatModifiedEvent {
 		return &match.BattleStatModifiedEvent{EventMeta: eventMeta(t, revision), Side: side, Source: source, AttackDelta: attack, HitPointsDelta: hitPoints, Attack: creaturetest.Attack(t, 10+attack), HitPoints: creaturetest.HitPoints(t, 20+hitPoints)}
 	}
+	input := battleInput(t)
+	// アイテムの名前は写しのあるカードで引く（この見本の写しはクリーチャー 101 だけ）
+	weapon := match.ItemSpec{Category: item.CategoryWeapon, AttackModifier: item.NewAttackModifier(25), HitPointsModifier: item.NewHitPointsModifier(0)}
+	input.Attacker.Item = &match.BattleItem{Card: cardtest.CreatureRef(t, 101), Spec: weapon}
+	input.Defender.Spec.Abilities = []creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(0), creature.NewHitPointsModifier(5))}
+	input.Land = match.BattleLand{Element: board.ElementFire, Level: 2}
+	input.AdjacentTerritories = []board.Position{boardtest.Position(t, 1, 0)}
+	rules := matchtest.Rules(t, 1, 6, 5)
+	input.Rules = match.BattleRules{AdjacentTerritoryBonus: rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: rules.TerrainBonusPerLevel}
 	f := newEventsFixture(t, append(invadingEvents(t),
-		battleStarted(t, 16),
-		modified(17, match.BattleSideAttacker, match.NewAdjacentTerritoriesSource([]board.Position{boardtest.Position(t, 1, 0)}, 10), 10, 0),
-		modified(18, match.BattleSideAttacker, match.NewItemSource(cardtest.CreatureRef(t, 101), item.NewAttackModifier(25), item.NewHitPointsModifier(0)), 25, 0),
-		modified(19, match.BattleSideDefender, match.NewTerrainSource(board.ElementFire, 2, 10), 0, 20),
-		modified(20, match.BattleSideDefender, match.NewBattleModifierSource(creature.NewAttackModifier(0), creature.NewHitPointsModifier(5)), 0, 5),
+		battleStartedWith(t, 16, input),
+		modified(17, match.BattleSideAttacker, match.BattleStatSource{Effect: match.BattleEffectAdjacentTerritories}, 10, 0),
+		modified(18, match.BattleSideAttacker, match.BattleStatSource{Effect: match.BattleEffectItem}, 25, 0),
+		modified(19, match.BattleSideDefender, match.BattleStatSource{Effect: match.BattleEffectTerrain}, 0, 20),
+		modified(20, match.BattleSideDefender, match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleModifier}, 0, 5),
 	))
 	dragon := placedDragon(f.cardID)
 	adjacent := query.MatchBattleStatSource{AdjacentTerritories: &query.MatchAdjacentTerritoriesSource{Positions: []query.BoardPosition{query.NewBoardPosition(1, 0)}, BonusPerTerritory: 10}}
@@ -316,12 +342,14 @@ func TestMatchEventsHandler_ReturnsTheSourceOfEachBattleEffect(t *testing.T) {
 	}, events)
 }
 
-func TestMatchEventsHandler_ReturnsTheRangeOfBattleRandomStatsAsTheSource(t *testing.T) {
+func TestMatchEventsHandler_ReturnsTheRangeOfBattleRandomStatsFromTheBattleInput(t *testing.T) {
 	randomStats, err := creature.NewBattleRandomStatsAbility(10, 70)
 	require.NoError(t, err)
-	source := match.NewBattleRandomStatsSource(randomStats.BattleRandomStats.Minimum, randomStats.BattleRandomStats.Maximum)
+	input := battleInput(t)
+	input.Defender.Spec.Abilities = []creature.Ability{randomStats}
+	source := match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleRandomStats}
 	f := newEventsFixture(t, append(invadingEvents(t),
-		battleStarted(t, 16),
+		battleStartedWith(t, 16, input),
 		&match.BattleStatModifiedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideDefender, Source: source, AttackDelta: 40, HitPointsDelta: -10, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 10)},
 	))
 	minimum, maximum := 10, 70
