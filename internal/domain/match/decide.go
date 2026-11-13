@@ -523,7 +523,21 @@ func (m Match) battleItem(used *card.Ref) (*BattleItem, error) {
 // 戦闘を、入力と乱数の元だけで決める。効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
 // どこかで体力が 0 になれば、その時点で戦闘は終わる（残りの効果も攻撃も無い。2026-11-09 オーナー）。
 // 状態を見ないのは、戦闘を「意思決定と状況を入力にして出来事の並びを出す独立した処理」にし、入力と出力だけで確かめられるようにするため
-// （2026-11-13 オーナー。core#171）
+// （2026-11-13 オーナー。core#171）。外に出すのは、決まりを入力と出来事の並びの表で確かめるため（core#172）と、
+// NPC の考え方で侵略・アイテムを見積もるときに同じ決まりを使えるようにするため。返す出来事は版を持たない
+func ResolveBattle(input BattleInput, random Random) ([]Event, error) {
+	resolved, err := resolveBattle(input, random)
+	if err != nil {
+		return nil, err
+	}
+	events := make([]Event, len(resolved))
+	for i, event := range resolved {
+		events[i] = event
+	}
+	return events, nil
+}
+
+// 版を入れる前の出来事（recorder が withMeta で版を入れる）
 func resolveBattle(input BattleInput, random Random) ([]battleEvent, error) {
 	b := &battleResolver{input: input}
 	if err := b.emit(&BattleStartedEvent{Input: input}); err != nil {
