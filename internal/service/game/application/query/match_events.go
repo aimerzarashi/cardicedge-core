@@ -300,35 +300,53 @@ type MatchBattleStartedEvent struct {
 	Defender MatchBattleStats
 }
 
-// 戦闘の AT・HP を変えた効果の出どころ。どれか 1 つだけ持つ
-type MatchBattleStatSource struct {
-	AdjacentTerritories *MatchAdjacentTerritoriesSource
-	Terrain             *MatchTerrainSource
-	Item                *MatchItemSource
-	Ability             *MatchAbilitySource
+// 戦闘の AT・HP の増減（下限で止まった後の実際の量）と当てた後の値。当てた後の値はイベントに無く、直前の状態の戦闘の中の値に
+// 増減を当てて作る（画面が計算せずに再生するため）
+type MatchBattleStatChange struct {
+	AttackDelta    int
+	HitPointsDelta int
+	Attack         int
+	HitPoints      int
 }
 
-// 支援効果。侵略先の隣にある攻める側の領地の位置と、1 つあたりの AT の増加
-type MatchAdjacentTerritoriesSource struct {
+// 攻める側に支援効果が発動した。根拠（隣の領地の位置と 1 つあたりの AT の増加）は戦闘の入力から添える
+type MatchBattleSupportEffectActivatedEvent struct {
+	MatchEventMeta
+	Side              MatchBattleSide
 	Positions         []BoardPosition
 	BonusPerTerritory int
+	Change            MatchBattleStatChange
 }
 
-// 戦闘に出したアイテムと、その決まった増減（下限で止まる前の値）
-type MatchItemSource struct {
+// 守る側に地形効果が発動した。根拠（土地の属性・レベルと 1 レベルあたりの HP の増加）は戦闘の入力から添える
+type MatchBattleTerrainEffectActivatedEvent struct {
+	MatchEventMeta
+	Side          MatchBattleSide
+	Element       BoardTileElement
+	Level         int
+	BonusPerLevel int
+	Change        MatchBattleStatChange
+}
+
+// クリーチャーの能力が発動した。AT・HP を変える能力だけ Change を持ち、能力ごとの根拠はその能力のときだけ持つ（ほかは nil）
+type MatchBattleCreatureAbilityActivatedEvent struct {
+	MatchEventMeta
+	Side              MatchBattleSide
+	Ability           MatchBattleAbility
+	Change            *MatchBattleStatChange
+	BattleModifier    *MatchBattleModifierBasis
+	BattleRandomStats *MatchBattleRandomStatsBasis
+}
+
+// アイテムの能力が発動した。アイテムのカードと決まった増減（下限で止まる前の値）を戦闘の入力から添える
+type MatchBattleItemAbilityActivatedEvent struct {
+	MatchEventMeta
+	Side              MatchBattleSide
+	Ability           MatchBattleAbility
 	Card              MatchCard
 	AttackModifier    int
 	HitPointsModifier int
-}
-
-// 戦闘中に発動した能力と、その計算の根拠。増減は戦闘中の増減のときの決まった値（下限で止まる前の値。ほかの能力は 0）、
-// 範囲は戦闘中のランダムのときだけ持つ（ほかは nil）。増減を nil にしないのは、同じ名前の MatchItemSource の項目（非 null）と
-// 型が食い違うと、画面が 1 つの問い合わせで両方を読めなくなるため
-// 能力ごとの根拠は、その能力のときだけ持つ（ほかは nil）
-type MatchAbilitySource struct {
-	Ability           MatchBattleAbility
-	BattleModifier    *MatchBattleModifierBasis
-	BattleRandomStats *MatchBattleRandomStatsBasis
+	Change            *MatchBattleStatChange
 }
 
 // 戦闘中の増減の決まった値（下限で止まる前の値）
@@ -337,35 +355,10 @@ type MatchBattleModifierBasis struct {
 	HitPointsModifier int
 }
 
-// 戦闘中のランダムの範囲（引いた値は増減のイベントの当てた後の値）
+// 戦闘中のランダムの範囲（引いた値は Change の当てた後の値）
 type MatchBattleRandomStatsBasis struct {
 	Minimum int
 	Maximum int
-}
-
-// 地形効果が効いた土地の属性とレベルと、レベル 1 つあたりの HP の増加
-type MatchTerrainSource struct {
-	Element       BoardTileElement
-	Level         int
-	BonusPerLevel int
-}
-
-// 効果 1 つが戦闘の AT・HP を変えた。Attack・HitPoints は当てた後の値
-type MatchBattleStatModifiedEvent struct {
-	MatchEventMeta
-	Side           MatchBattleSide
-	Source         MatchBattleStatSource
-	AttackDelta    int
-	HitPointsDelta int
-	Attack         int
-	HitPoints      int
-}
-
-// 戦闘で能力が発動した（先制・後手は効き目が無くても持っていれば出る。攻撃無効は属性が合ったときだけ出る）
-type MatchBattleAbilityActivatedEvent struct {
-	MatchEventMeta
-	Side    MatchBattleSide
-	Ability MatchBattleAbility
 }
 
 // 戦闘で発動する能力の種類
@@ -623,8 +616,8 @@ func battleInputsByRevision(loaded []match.Event) map[int64]match.BattleInput {
 		switch e := event.(type) {
 		case *match.BattleStartedEvent:
 			current = e.Input
-		case *match.BattleStatModifiedEvent:
-			inputs[e.AggregateVersion] = current
+		case *match.BattleSupportEffectActivatedEvent, *match.BattleTerrainEffectActivatedEvent, *match.BattleCreatureAbilityActivatedEvent, *match.BattleItemAbilityActivatedEvent:
+			inputs[event.GetMeta().AggregateVersion] = current
 		}
 	}
 	return inputs
@@ -719,9 +712,9 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		if previous.Invasion != nil {
 			return []card.Ref{previous.Invasion.Card}
 		}
-	case *match.BattleStatModifiedEvent:
+	case *match.BattleItemAbilityActivatedEvent:
 		// 戦闘の開始が after より前でも引けるように、出来事の版から入力を引く
-		if used := battleCombatant(input, e.Side).Item; e.Source.Effect == match.BattleEffectItem && used != nil {
+		if used := battleCombatant(input, e.Side).Item; used != nil {
 			return []card.Ref{used.Card}
 		}
 	}
@@ -926,22 +919,34 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchCreatureExchangedEvent{meta, e.Participant.Int(), boardPosition(e.Position), e.HandIndex, exchanged, e.Creature.Int(), e.Cost.Int(), returned}, nil
 	case *match.BattleStartedEvent:
 		attacker, defender := e.Input.Attacker, e.Input.Defender
-		return MatchBattleStartedEvent{meta, MatchBattleStats{attacker.Spec.Attack.Int(), attacker.HitPoints.Int()}, MatchBattleStats{defender.Spec.Attack.Int(), defender.HitPoints.Int()}}, nil
-	case *match.BattleStatModifiedEvent:
-		side, err := fromBattleSide(e.Side)
-		if err != nil {
-			return nil, err
-		}
+		return MatchBattleStartedEvent{meta, MatchBattleStats{attacker.Attack.Int(), attacker.HitPoints.Int()}, MatchBattleStats{defender.Attack.Int(), defender.HitPoints.Int()}}, nil
+	case *match.BattleSupportEffectActivatedEvent:
 		input, ok := battleInputs[e.AggregateVersion]
-		if !ok {
-			return nil, fmt.Errorf("query: battle stat modified event %d has no battle started event", e.AggregateVersion)
+		if !ok || previous.Battle == nil {
+			return nil, fmt.Errorf("query: support effect event %d without battle", e.AggregateVersion)
 		}
-		source, err := fromBattleStatSource(e.Source, e.Side, input, cards)
+		positions := make([]BoardPosition, len(input.AdjacentTerritories))
+		for i, position := range input.AdjacentTerritories {
+			positions[i] = boardPosition(position)
+		}
+		change := statChange(previous.Battle.Attacker, match.BattleStatChange{AttackDelta: e.AttackDelta})
+		return MatchBattleSupportEffectActivatedEvent{meta, MatchBattleSideAttacker, positions, input.Rules.AdjacentTerritoryBonus.Int(), change}, nil
+	case *match.BattleTerrainEffectActivatedEvent:
+		input, ok := battleInputs[e.AggregateVersion]
+		if !ok || previous.Battle == nil {
+			return nil, fmt.Errorf("query: terrain effect event %d without battle", e.AggregateVersion)
+		}
+		element, err := NewBoardTileElement(input.Land.Element.String())
 		if err != nil {
 			return nil, err
 		}
-		return MatchBattleStatModifiedEvent{meta, side, source, e.AttackDelta, e.HitPointsDelta, e.Attack.Int(), e.HitPoints.Int()}, nil
-	case *match.BattleAbilityActivatedEvent:
+		change := statChange(previous.Battle.Defender, match.BattleStatChange{HitPointsDelta: e.HitPointsDelta})
+		return MatchBattleTerrainEffectActivatedEvent{meta, MatchBattleSideDefender, element, input.Land.Level, input.Rules.TerrainBonusPerLevel.Int(), change}, nil
+	case *match.BattleCreatureAbilityActivatedEvent:
+		input, ok := battleInputs[e.AggregateVersion]
+		if !ok || previous.Battle == nil {
+			return nil, fmt.Errorf("query: creature ability event %d without battle", e.AggregateVersion)
+		}
 		side, err := fromBattleSide(e.Side)
 		if err != nil {
 			return nil, err
@@ -950,7 +955,46 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		if err != nil {
 			return nil, err
 		}
-		return MatchBattleAbilityActivatedEvent{meta, side, ability}, nil
+		converted := MatchBattleCreatureAbilityActivatedEvent{MatchEventMeta: meta, Side: side, Ability: ability}
+		if e.Change != nil {
+			change := statChange(previous.Battle.Creature(e.Side), *e.Change)
+			converted.Change = &change
+		}
+		for _, owned := range battleCombatant(input, e.Side).Spec.Abilities {
+			switch {
+			case e.Ability == match.BattleAbilityBattleModifier && owned.BattleModifier != nil:
+				converted.BattleModifier = &MatchBattleModifierBasis{AttackModifier: owned.BattleModifier.AttackModifier.Int(), HitPointsModifier: owned.BattleModifier.HitPointsModifier.Int()}
+			case e.Ability == match.BattleAbilityBattleRandomStats && owned.BattleRandomStats != nil:
+				converted.BattleRandomStats = &MatchBattleRandomStatsBasis{Minimum: owned.BattleRandomStats.Minimum.Int(), Maximum: owned.BattleRandomStats.Maximum.Int()}
+			}
+		}
+		return converted, nil
+	case *match.BattleItemAbilityActivatedEvent:
+		input, ok := battleInputs[e.AggregateVersion]
+		if !ok || previous.Battle == nil {
+			return nil, fmt.Errorf("query: item ability event %d without battle", e.AggregateVersion)
+		}
+		side, err := fromBattleSide(e.Side)
+		if err != nil {
+			return nil, err
+		}
+		ability, err := fromBattleAbility(e.Ability)
+		if err != nil {
+			return nil, err
+		}
+		used := battleCombatant(input, e.Side).Item
+		if used == nil {
+			return nil, fmt.Errorf("query: item ability event %d without item on %s", e.AggregateVersion, e.Side)
+		}
+		converted := MatchBattleItemAbilityActivatedEvent{
+			MatchEventMeta: meta, Side: side, Ability: ability, Card: cardOf(used.Card, cards),
+			AttackModifier: used.Spec.AttackModifier.Int(), HitPointsModifier: used.Spec.HitPointsModifier.Int(),
+		}
+		if e.Change != nil {
+			change := statChange(previous.Battle.Creature(e.Side), *e.Change)
+			converted.Change = &change
+		}
+		return converted, nil
 	case *match.CreatureStruckEvent:
 		striker, err := fromBattleSide(e.Striker)
 		if err != nil {
@@ -960,9 +1004,9 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		if previous.Battle == nil {
 			return nil, fmt.Errorf("query: creature struck event %d without battle", e.AggregateVersion)
 		}
-		attack := previous.Battle.Attacker.Stats.Attack
+		attack := previous.Battle.Attacker.Stats().Attack
 		if e.Striker == match.BattleSideDefender {
-			attack = previous.Battle.Defender.Stats.Attack
+			attack = previous.Battle.Defender.Stats().Attack
 		}
 		return MatchCreatureStruckEvent{meta, striker, attack.Int(), e.Damage.Int(), e.RemainingHitPoints.Int()}, nil
 	case *match.TerritoryConqueredEvent:
@@ -976,7 +1020,7 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 			return nil, fmt.Errorf("query: repelled event %d without battle", e.AggregateVersion)
 		}
 		// 生き残れば、手札から侵略したときは手札に、移動で侵略したときは元の領地に戻る（Evolve と同じ決まり）
-		survived := battle.Attacker.Stats.HitPoints.Int() > 0
+		survived := battle.Attacker.Stats().HitPoints.Int() > 0
 		var returnedTo *BoardPosition
 		var returnedHitPoints *int
 		if survived && invasion.From != nil && e.ReturnedHitPoints != nil {
@@ -996,45 +1040,12 @@ func battleCombatant(input match.BattleInput, side match.BattleSide) match.Battl
 	return input.Attacker
 }
 
-// 出どころの種類に、根拠の値を戦闘の入力から添える（戦闘の決まりを計算し直さず、入力から引くだけ）
-func fromBattleStatSource(source match.BattleStatSource, side match.BattleSide, input match.BattleInput, cards map[domain.EntityRef]MatchCard) (MatchBattleStatSource, error) {
-	combatant := battleCombatant(input, side)
-	switch source.Effect {
-	case match.BattleEffectAdjacentTerritories:
-		positions := make([]BoardPosition, len(input.AdjacentTerritories))
-		for i, position := range input.AdjacentTerritories {
-			positions[i] = NewBoardPosition(position.X.Int(), position.Y.Int())
-		}
-		return MatchBattleStatSource{AdjacentTerritories: &MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: input.Rules.AdjacentTerritoryBonus.Int()}}, nil
-	case match.BattleEffectTerrain:
-		element, err := NewBoardTileElement(input.Land.Element.String())
-		if err != nil {
-			return MatchBattleStatSource{}, err
-		}
-		return MatchBattleStatSource{Terrain: &MatchTerrainSource{Element: element, Level: input.Land.Level, BonusPerLevel: input.Rules.TerrainBonusPerLevel.Int()}}, nil
-	case match.BattleEffectItem:
-		if combatant.Item == nil {
-			return MatchBattleStatSource{}, fmt.Errorf("query: item effect without item on %s", side)
-		}
-		used := cards[domain.NewEntityRef(combatant.Item.Card.EntityType, combatant.Item.Card.ID)]
-		return MatchBattleStatSource{Item: &MatchItemSource{Card: used, AttackModifier: combatant.Item.Spec.AttackModifier.Int(), HitPointsModifier: combatant.Item.Spec.HitPointsModifier.Int()}}, nil
-	case match.BattleEffectAbility:
-		ability, err := fromBattleAbility(source.Ability)
-		if err != nil {
-			return MatchBattleStatSource{}, err
-		}
-		converted := &MatchAbilitySource{Ability: ability}
-		for _, owned := range combatant.Spec.Abilities {
-			switch {
-			case source.Ability == match.BattleAbilityBattleModifier && owned.BattleModifier != nil:
-				converted.BattleModifier = &MatchBattleModifierBasis{AttackModifier: owned.BattleModifier.AttackModifier.Int(), HitPointsModifier: owned.BattleModifier.HitPointsModifier.Int()}
-			case source.Ability == match.BattleAbilityBattleRandomStats && owned.BattleRandomStats != nil:
-				converted.BattleRandomStats = &MatchBattleRandomStatsBasis{Minimum: owned.BattleRandomStats.Minimum.Int(), Maximum: owned.BattleRandomStats.Maximum.Int()}
-			}
-		}
-		return MatchBattleStatSource{Ability: converted}, nil
-	default:
-		return MatchBattleStatSource{}, fmt.Errorf("query: unknown battle stat source: %q", source.Effect)
+// 直前の戦闘の中の値に増減を当てた後の値を添える（下限は増減が既に止まった後の量なので、足すだけで合う）
+func statChange(before match.BattleCreature, change match.BattleStatChange) MatchBattleStatChange {
+	stats := before.Stats()
+	return MatchBattleStatChange{
+		AttackDelta: change.AttackDelta, HitPointsDelta: change.HitPointsDelta,
+		Attack: stats.Attack.Int() + change.AttackDelta, HitPoints: stats.HitPoints.Int() + change.HitPointsDelta,
 	}
 }
 

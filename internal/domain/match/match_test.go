@@ -215,7 +215,6 @@ func TestMatch_HasPlayerIsTheParticipatingPlayersOnly(t *testing.T) {
 func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	meta := match.EventMeta{EntityID: matchtest.ID(t, 40), AggregateVersion: 2, OccurredAt: startedAt}
 	by := matchtest.Index(t, 1)
-	adjacentTerritoriesSource := match.BattleStatSource{Effect: match.BattleEffectAdjacentTerritories}
 	events := []match.Event{
 		&match.CreatedEvent{EventMeta: meta, Participants: []match.Participant{playerParticipant(t), npcParticipant(t)}, Board: twoTileBoard(t), Rules: matchtest.Rules(t, 1, 6, 5)},
 		&match.TurnOrderDecidedEvent{EventMeta: meta, Order: indexes(t, 1, 0)},
@@ -255,8 +254,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.LandElementChangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Element: board.ElementWater, Magic: 200},
 		&match.CreatureExchangedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), HandIndex: 0, Creature: matchtest.PlacedCreatureID(t, 3), Cost: cardtest.Cost(t, 10)},
 		&match.BattleStartedEvent{EventMeta: meta, Input: goldenBattleInput(t)},
-		&match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Source: adjacentTerritoriesSource, AttackDelta: 20, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 40)},
-		&match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
+		&match.BattleSupportEffectActivatedEvent{EventMeta: meta, AttackDelta: 20},
+		&match.BattleTerrainEffectActivatedEvent{EventMeta: meta, HitPointsDelta: 10},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideDefender, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{HitPointsDelta: 20}},
+		&match.BattleItemAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{AttackDelta: 20}},
 		&match.TollMultiplierActivatedEvent{EventMeta: meta},
 	}
 	for _, event := range events {
@@ -1128,7 +1129,7 @@ func TestDecide_PlacePaysTheCostMakesTheTerritoryAndEndsTheTurn(t *testing.T) {
 	require.Equal(t, []match.Territory{{Position: pos(t, 1, 0), Creature: matchtest.PlacedCreatureID(t, 1)}}, state.Territories)
 	require.Equal(t, []match.PlacedCreature{{
 		ID: matchtest.PlacedCreatureID(t, 1), Card: cardtest.CreatureRef(t, 201), Owner: matchtest.Index(t, 1),
-		Base: *creatureSpec(t, 201), HitPoints: creatureSpec(t, 201).HitPoints,
+		Base: *creatureSpec(t, 201), Attack: creatureSpec(t, 201).Attack, HitPoints: creatureSpec(t, 201).HitPoints,
 	}}, state.PlacedCreatures)
 	// 次の番（プレイヤー）に移っている
 	turn, _ := state.CurrentParticipant()
@@ -1718,10 +1719,12 @@ func withBattlers(t *testing.T, state match.Match, attackerAttack, attackerHitPo
 	require.NotNil(t, state.Invasion)
 	invasion := *state.Invasion
 	invasion.Base.Attack = creaturetest.Attack(t, attackerAttack)
+	invasion.Attack = invasion.Base.Attack
 	invasion.HitPoints = creaturetest.HitPoints(t, attackerHitPoints)
 	state.Invasion = &invasion
 	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
 	state.PlacedCreatures[0].Base.Attack = creaturetest.Attack(t, defenderAttack)
+	state.PlacedCreatures[0].Attack = state.PlacedCreatures[0].Base.Attack
 	state.PlacedCreatures[0].HitPoints = creaturetest.HitPoints(t, defenderHitPoints)
 	return state
 }
@@ -1962,19 +1965,40 @@ func withStrikeAbilities(t *testing.T, state match.Match, attacker, defender []c
 
 // 戦闘の出来事を 1 行ずつの文字列に縮める（期待する並びをそのまま表に書けるように）。戦闘の開始は入力そのものなので除く。
 // 効果は「側 出どころ AT の増減 HP の増減 → 当てた後の AT/HP」、発動は「側 activates 能力」、攻撃は「攻撃した側 strikes ダメージ → 受けた側の残りの HP」
+// 戦闘の出来事を 1 行ずつにする。発動のイベントは当てた後の値を持たないので、入力の戦闘の前の値から増減を足して添える
 func battleLines(events []match.Event) []string {
 	var lines []string
+	stats := map[match.BattleSide][2]int{}
+	modified := func(side match.BattleSide, source string, change match.BattleStatChange) string {
+		current := stats[side]
+		current = [2]int{max(current[0]+change.AttackDelta, 0), max(current[1]+change.HitPointsDelta, 0)}
+		stats[side] = current
+		return fmt.Sprintf("%s %s AT%+d HP%+d → %d/%d", side, source, change.AttackDelta, change.HitPointsDelta, current[0], current[1])
+	}
 	for _, event := range events {
 		switch e := event.(type) {
-		case *match.BattleStatModifiedEvent:
-			source := string(e.Source.Effect)
-			if e.Source.Ability != "" {
-				source += ":" + string(e.Source.Ability)
+		case *match.BattleStartedEvent:
+			stats[match.BattleSideAttacker] = [2]int{e.Input.Attacker.Attack.Int(), e.Input.Attacker.HitPoints.Int()}
+			stats[match.BattleSideDefender] = [2]int{e.Input.Defender.Attack.Int(), e.Input.Defender.HitPoints.Int()}
+		case *match.BattleSupportEffectActivatedEvent:
+			lines = append(lines, modified(match.BattleSideAttacker, "adjacent_territories", match.BattleStatChange{AttackDelta: e.AttackDelta}))
+		case *match.BattleTerrainEffectActivatedEvent:
+			lines = append(lines, modified(match.BattleSideDefender, "terrain", match.BattleStatChange{HitPointsDelta: e.HitPointsDelta}))
+		case *match.BattleItemAbilityActivatedEvent:
+			lines = append(lines, modified(e.Side, "item", *e.Change))
+		case *match.BattleCreatureAbilityActivatedEvent:
+			if e.Change != nil {
+				lines = append(lines, modified(e.Side, "ability:"+string(e.Ability), *e.Change))
+			} else {
+				lines = append(lines, fmt.Sprintf("%s activates %s", e.Side, e.Ability))
 			}
-			lines = append(lines, fmt.Sprintf("%s %s AT%+d HP%+d → %d/%d", e.Side, source, e.AttackDelta, e.HitPointsDelta, e.Attack.Int(), e.HitPoints.Int()))
-		case *match.BattleAbilityActivatedEvent:
-			lines = append(lines, fmt.Sprintf("%s activates %s", e.Side, e.Ability))
 		case *match.CreatureStruckEvent:
+			receiver := match.BattleSideDefender
+			if e.Striker == match.BattleSideDefender {
+				receiver = match.BattleSideAttacker
+			}
+			current := stats[receiver]
+			stats[receiver] = [2]int{current[0], e.RemainingHitPoints.Int()}
 			lines = append(lines, fmt.Sprintf("%s strikes %d → %d", e.Striker, e.Damage.Int(), e.RemainingHitPoints.Int()))
 		}
 	}
@@ -2038,8 +2062,9 @@ func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
 			want: []string{"attacker adjacent_territories AT+30 HP+0 → 40/40", "defender terrain AT+0 HP+10 → 10/50", "attacker strikes 40 → 10", "defender strikes 10 → 30"}},
 		{name: "scroll_has_no_effect", input: matchtest.Battle(t).Item(attacker, item.CategoryScroll, 30, 30),
 			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
-		{name: "item_without_a_change_emits_nothing", input: matchtest.Battle(t).Item(attacker, item.CategoryWeapon, 0, 0),
-			want: []string{"attacker strikes 10 → 30", "defender strikes 10 → 30"}},
+		// アイテムの増減は能力「戦闘中の増減」として、能力と同じく増減が 0 でも発動する（core#175）
+		{name: "item_without_a_change_activates", input: matchtest.Battle(t).Item(attacker, item.CategoryWeapon, 0, 0),
+			want: []string{"attacker item AT+0 HP+0 → 10/40", "attacker strikes 10 → 30", "defender strikes 10 → 30"}},
 		{name: "attacker_destroyed_by_an_effect_ends_the_battle", input: matchtest.Battle(t).Stats(attacker, 50, 20).Item(attacker, item.CategoryArmor, 0, -99),
 			want: []string{"attacker item AT+0 HP-20 → 50/0"}},
 		// 守る側の能力は当たらず、乱数も引かない（引けば乱数の元が尽きて落ちる）
@@ -2113,6 +2138,35 @@ func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
 	}
 }
 
+// 発動で得た状態は戦闘の中の値に入り、攻撃の順と攻撃のダメージはその値で決まる（入力の性能を見直さない。core#175）
+func TestEvolve_ActivatedBattleAbilitiesGiveTheirStateToTheBattle(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 10, 40, 10, 40)
+	invasion := *state.Invasion
+	invasion.Base.Elements = creaturetest.Elements(t, "fire")
+	state.Invasion = &invasion
+	immunity := creaturetest.AttackImmunity(t, "fire")
+	state = withStrikeAbilities(t, state, []creature.Ability{creature.NewLastStrikeAbility()}, []creature.Ability{immunity})
+	events, err := match.Decide(state, &match.DefendCommand{By: matchtest.Index(t, 0)}, startedAt, matchtest.NewRandom())
+	require.NoError(t, err)
+
+	var next match.State = state
+	var activated []match.Battle
+	for _, event := range events {
+		next, err = match.Evolve(next, event)
+		require.NoError(t, err)
+		if _, ok := event.(*match.BattleCreatureAbilityActivatedEvent); ok {
+			activated = append(activated, *next.(match.Match).Battle)
+		}
+	}
+
+	require.Len(t, activated, 2)
+	require.Equal(t, -1, activated[0].Attacker.StrikePriority)
+	require.Equal(t, 100, activated[0].Defender.ReceivedDamagePercent)
+	require.Equal(t, 0, activated[1].Defender.ReceivedDamagePercent)
+	// 後手の攻める側は後に攻撃し、守る側の攻撃無効で受けた量は 0
+	require.Equal(t, []string{"attacker activates last_strike", "defender strikes 10 → 30", "defender activates attack_immunity", "attacker strikes 0 → 40"}, battleLines(events))
+}
+
 func battleModifier(t *testing.T, attack, hitPoints int) []creature.Ability {
 	t.Helper()
 	return []creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(attack), creature.NewHitPointsModifier(hitPoints))}
@@ -2156,7 +2210,7 @@ func battleInput(t *testing.T, attack, hitPoints, defenderAttack, defenderHitPoi
 	combatant := func(id int64, attack, hitPoints int) match.BattleCombatant {
 		spec := creatureSpec(t, id)
 		spec.Attack = creaturetest.Attack(t, attack)
-		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: *spec, HitPoints: creaturetest.HitPoints(t, hitPoints)}
+		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: *spec, Attack: spec.Attack, HitPoints: creaturetest.HitPoints(t, hitPoints)}
 	}
 	rules := matchtest.Rules(t, 1, 6, 5)
 	land := match.BattleLand{Element: board.ElementFire, Level: 1}
@@ -2208,6 +2262,53 @@ func withDefenderElements(t *testing.T, state match.Match, elements ...string) m
 	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
 	state.PlacedCreatures[0].Base.Elements = creaturetest.Elements(t, elements...)
 	return state
+}
+
+func TestDecide_BattleInputRecordsNoAdjacentTerritoriesAsAnEmptyList(t *testing.T) {
+	_, events := defend(t, invade(t, invadingMatch(t)))
+
+	started := eventOf[*match.BattleStartedEvent](t, events)
+	payload, err := json.Marshal(started)
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"adjacent_territories":[]`)
+}
+
+// 戦闘の状態は層に分けて持つ。増減は出どころごとに、受けたダメージは別に残り、今の AT・HP は層から計算する（core#175）
+func TestEvolve_BattleCreatureKeepsEachLayer(t *testing.T) {
+	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 2, 2)
+	state = withTerritory(t, state, 1, 1, 1)
+	state = withTerritory(t, state, 1, 3, 1)
+	state, _ = drawAndRoll(t, state, 1, 2)
+	state, weapon := withBattleItem(t, attacking(t, state), 1, 301, item.CategoryWeapon, 25, 0)
+	state = attackWithItem(t, state, weapon)
+	state = withDefenderElements(t, withBattlers(t, state, 10, 40, 20, 40), "fire")
+	state, armor := withBattleItem(t, state, 0, 302, item.CategoryArmor, 0, 15)
+	events, err := match.Decide(state, &match.DefendCommand{By: matchtest.Index(t, 0), ItemHandIndex: &armor}, startedAt, matchtest.NewRandom())
+	require.NoError(t, err)
+
+	var next match.State = state
+	var battle match.Battle
+	for _, event := range events {
+		next, err = match.Evolve(next, event)
+		require.NoError(t, err)
+		if current := next.(match.Match).Battle; current != nil {
+			battle = *current
+		}
+	}
+
+	attacker, defender := battle.Attacker, battle.Defender
+	support := match.BattleModifierSource{Kind: match.BattleModifierSourceSupportEffect}
+	terrain := match.BattleModifierSource{Kind: match.BattleModifierSourceTerrainEffect}
+	usedItem := match.BattleModifierSource{Kind: match.BattleModifierSourceItemAbility, Ability: match.BattleAbilityBattleModifier}
+	require.Equal(t, []match.BattleStatModifier{{Source: support, AttackDelta: 20}, {Source: usedItem, AttackDelta: 25}}, attacker.Modifiers)
+	require.Equal(t, []match.BattleStatModifier{{Source: terrain, HitPointsDelta: 20}, {Source: usedItem, HitPointsDelta: 15}}, defender.Modifiers)
+	// 支援効果 +20・武器 +25 の AT 55 で、地形効果 +20・防具 +15 の HP 75 を攻撃した。守る側の反撃 20 を攻める側が受けた
+	require.Equal(t, creaturetest.Attack(t, 20), defender.Base.Attack)
+	require.Equal(t, creaturetest.HitPoints(t, 40), defender.InitialHitPoints)
+	require.Equal(t, 55, defender.Damage)
+	require.Equal(t, match.BattleStats{Attack: creaturetest.Attack(t, 20), HitPoints: creaturetest.HitPoints(t, 20)}, defender.Stats())
+	require.Equal(t, 20, attacker.Damage)
+	require.Equal(t, match.BattleStats{Attack: creaturetest.Attack(t, 55), HitPoints: creaturetest.HitPoints(t, 20)}, attacker.Stats())
 }
 
 // 戦闘の入力は、戦闘が始まる時点の状態から集める（決まりそのものは TestResolveBattle_ProducesTheEventsFromTheInput）
@@ -2640,6 +2741,7 @@ func withCreatureAt(t *testing.T, state match.Match, x, attack, hitPoints int) m
 	for i := range state.PlacedCreatures {
 		if state.PlacedCreatures[i].ID == territory.Creature {
 			state.PlacedCreatures[i].Base.Attack = creaturetest.Attack(t, attack)
+			state.PlacedCreatures[i].Attack = state.PlacedCreatures[i].Base.Attack
 			state.PlacedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
 		}
 	}
@@ -3003,9 +3105,11 @@ func TestEvolve_RejectsInvasionEventsThatDoNotMatchTheState(t *testing.T) {
 		{name: "skipped_outside_the_phase", state: invading, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "skipped_by_who_is_not_awaited", state: defending, event: &match.ItemSkippedEvent{EventMeta: meta, Participant: by}},
 		{name: "battle_started_outside_the_phase", state: invading, event: &match.BattleStartedEvent{EventMeta: meta, Input: battleInput(t, 5, 20, 5, 20)}},
-		{name: "stat_modified_before_the_battle", state: defending, event: &match.BattleStatModifiedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Attack: damage, HitPoints: hitPoints}},
+		{name: "support_effect_before_the_battle", state: defending, event: &match.BattleSupportEffectActivatedEvent{EventMeta: meta, AttackDelta: 10}},
+		{name: "terrain_effect_before_the_battle", state: defending, event: &match.BattleTerrainEffectActivatedEvent{EventMeta: meta, HitPointsDelta: 10}},
+		{name: "item_ability_before_the_battle", state: defending, event: &match.BattleItemAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{}}},
 		{name: "toll_multiplier_without_territory", state: invading, event: &match.TollMultiplierActivatedEvent{EventMeta: meta}},
-		{name: "ability_activated_before_the_battle", state: defending, event: &match.BattleAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityFirstStrike}},
+		{name: "creature_ability_before_the_battle", state: defending, event: &match.BattleCreatureAbilityActivatedEvent{EventMeta: meta, Side: match.BattleSideAttacker, Ability: match.BattleAbilityFirstStrike}},
 		{name: "struck_before_the_battle", state: defending, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "struck_without_invasion", state: invading, event: &match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: damage, RemainingHitPoints: hitPoints}},
 		{name: "conquered_before_the_battle", state: defending, event: &match.TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: next}},

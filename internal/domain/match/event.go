@@ -139,7 +139,7 @@ type TerritoryInvadedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleStatModifiedEvent になる
+// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleItemAbilityActivatedEvent になる
 type ItemUsedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -214,29 +214,45 @@ type BattleStartedEvent struct {
 	Input       BattleInput `json:"input"`
 }
 
-// 効果 1 つが戦闘の AT・HP を変えた。量の増減は効果の種類によらずこのイベントで表し、何の効果かは Source が持つ。
-// Delta は下限（0）で止まった後の実際の増減で、Attack・HitPoints は当てた後の値（画面が計算せずに再生するため）。
-// 戦闘中のランダムの引いた値は、当てた後の Attack・HitPoints（決まった出力なので、入力でなくここに残る）
-type BattleStatModifiedEvent struct {
-	EventMeta      `json:"-"`
-	eventMarker    `json:"-"`
-	Side           BattleSide         `json:"side"`
-	Source         BattleStatSource   `json:"source"`
-	AttackDelta    int                `json:"attack_delta"`
-	HitPointsDelta int                `json:"hit_points_delta"`
-	Attack         creature.Attack    `json:"attack"`
-	HitPoints      creature.HitPoints `json:"hit_points"`
-}
+// 戦闘の発動のイベントは、出どころ（支援効果・地形効果・クリーチャーの能力・アイテムの能力）ごとに種類を分ける。1 つにまとめると、
+// 名前がドメインの言葉にならず、出どころごとに要る根拠が違う payload を 1 つの形で持つことになり、足すときにほかへ響くため
+// （2026-11-14 オーナー。core#175）。どれも、得た増減は下限で止まった後の実際の量だけを持つ。当てた後の AT・HP と根拠の値
+// （隣の領地・土地・能力やアイテムの値）は持たない（当てた後の値は戦闘の中の値の層から計算でき、根拠は戦闘の入力にあるため。core#171）。
+// スペルの効果（守る側のクリーチャーにつく）の発動は、戦闘に効くスペルを作るときに足す
 
-// 戦闘で能力が発動した（Side の側のクリーチャーの Ability）。先制・後手は、効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出す
-// （2026-11-11 オーナー。再生で「なぜその順か」を説明できるようにするため。core#158）。条件つきの能力（攻撃無効）は、条件が合ったときだけ出す。
-// 状態は変えない（攻撃無効で 0 になったダメージは、続く CreatureStruckEvent が持つ）。
-// AT・HP を変える能力（戦闘中の増減）は出さず、出どころが能力の BattleStatModifiedEvent が発動を表す（2026-11-12 オーナー。core#163）
-type BattleAbilityActivatedEvent struct {
+// 攻める側に支援効果が発動した（隣の自分の領地の数 × ルールの値だけ AT が増える）。隣の領地が無ければ発動しない
+type BattleSupportEffectActivatedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Side        BattleSide    `json:"side"`
-	Ability     BattleAbility `json:"ability"`
+	AttackDelta int `json:"attack_delta"`
+}
+
+// 守る側に地形効果が発動した（土地の属性がクリーチャーの属性と合えば、レベル × ルールの値だけ HP が増える）。合わなければ発動しない
+type BattleTerrainEffectActivatedEvent struct {
+	EventMeta      `json:"-"`
+	eventMarker    `json:"-"`
+	HitPointsDelta int `json:"hit_points_delta"`
+}
+
+// Side の側のクリーチャーの能力が発動した。AT・HP を変える能力（戦闘中の増減・戦闘中のランダム）は Change を持ち、増減が 0 でも出す。
+// 得た状態（先制・後手の攻撃の順、攻撃無効）は能力の種類から決まるので書かない。先制・後手は、効き目が無いとき（両方が先制で打ち消し
+// 合う等）も持っていれば出す（2026-11-11 オーナー。core#158）。攻撃無効は、攻撃してきたクリーチャーの属性が合ったときだけ出す
+type BattleCreatureAbilityActivatedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Side        BattleSide        `json:"side"`
+	Ability     BattleAbility     `json:"ability"`
+	Change      *BattleStatChange `json:"change,omitempty"`
+}
+
+// Side の側が出したアイテムの能力が発動した。今のアイテムの AT・HP の増減は、能力「戦闘中の増減」として出す（増減が 0 でも出す。
+// 巻物は効かないので出さない。2026-11-09 オーナー）
+type BattleItemAbilityActivatedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Side        BattleSide        `json:"side"`
+	Ability     BattleAbility     `json:"ability"`
+	Change      *BattleStatChange `json:"change,omitempty"`
 }
 
 // 戦闘の攻撃が 1 回当たった（Striker が攻撃した側。RemainingHitPoints は受けた側の、効果で増えた分も含む戦闘の中の残りの体力で、0 なら倒れた）
@@ -259,12 +275,22 @@ func (e BattleStartedEvent) withMeta(meta EventMeta) Event {
 	return &e
 }
 
-func (e BattleStatModifiedEvent) withMeta(meta EventMeta) Event {
+func (e BattleSupportEffectActivatedEvent) withMeta(meta EventMeta) Event {
 	e.EventMeta = meta
 	return &e
 }
 
-func (e BattleAbilityActivatedEvent) withMeta(meta EventMeta) Event {
+func (e BattleTerrainEffectActivatedEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
+}
+
+func (e BattleItemAbilityActivatedEvent) withMeta(meta EventMeta) Event {
+	e.EventMeta = meta
+	return &e
+}
+
+func (e BattleCreatureAbilityActivatedEvent) withMeta(meta EventMeta) Event {
 	e.EventMeta = meta
 	return &e
 }
@@ -411,47 +437,49 @@ type RewardsCompletedEvent struct {
 }
 
 var (
-	createdEventType                 = domain.NewEventName("CreatedEvent")
-	turnOrderDecidedEventType        = domain.NewEventName("TurnOrderDecidedEvent")
-	decksShuffledEventType           = domain.NewEventName("DecksShuffledEvent")
-	handsDealtEventType              = domain.NewEventName("HandsDealtEvent")
-	cardDrawnEventType               = domain.NewEventName("CardDrawnEvent")
-	cardDiscardedEventType           = domain.NewEventName("CardDiscardedEvent")
-	diceRolledEventType              = domain.NewEventName("DiceRolledEvent")
-	movedEventType                   = domain.NewEventName("MovedEvent")
-	checkpointPassedEventType        = domain.NewEventName("CheckpointPassedEvent")
-	lapCompletedEventType            = domain.NewEventName("LapCompletedEvent")
-	turnEndedEventType               = domain.NewEventName("TurnEndedEvent")
-	matchEndedEventType              = domain.NewEventName("MatchEndedEvent")
-	rewardDrawnEventType             = domain.NewEventName("RewardDrawnEvent")
-	rewardsCompletedEventType        = domain.NewEventName("RewardsCompletedEvent")
-	creaturePlacedEventType          = domain.NewEventName("CreaturePlacedEvent")
-	tollPaidEventType                = domain.NewEventName("TollPaidEvent")
-	territoryRelinquishedEventType   = domain.NewEventName("TerritoryRelinquishedEvent")
-	magicDepletedEventType           = domain.NewEventName("MagicDepletedEvent")
-	territoryInvadedEventType        = domain.NewEventName("TerritoryInvadedEvent")
-	itemUsedEventType                = domain.NewEventName("ItemUsedEvent")
-	creatureStruckEventType          = domain.NewEventName("CreatureStruckEvent")
-	territoryConqueredEventType      = domain.NewEventName("TerritoryConqueredEvent")
-	invasionRepelledEventType        = domain.NewEventName("InvasionRepelledEvent")
-	itemSkippedEventType             = domain.NewEventName("ItemSkippedEvent")
-	battleStartedEventType           = domain.NewEventName("BattleStartedEvent")
-	battleStatModifiedEventType      = domain.NewEventName("BattleStatModifiedEvent")
-	battleAbilityActivatedEventType  = domain.NewEventName("BattleAbilityActivatedEvent")
-	tollMultiplierActivatedEventType = domain.NewEventName("TollMultiplierActivatedEvent")
-	territoryLeveledUpEventType      = domain.NewEventName("TerritoryLeveledUpEvent")
-	creatureExchangedEventType       = domain.NewEventName("CreatureExchangedEvent")
-	landElementChangedEventType      = domain.NewEventName("LandElementChangedEvent")
-	creatureMovedEventType           = domain.NewEventName("CreatureMovedEvent")
-	territoryInvadedByMoveEventType  = domain.NewEventName("TerritoryInvadedByMoveEvent")
-	discardPileShuffledEventType     = domain.NewEventName("DiscardPileShuffledEvent")
-	handLimitExceededEventType       = domain.NewEventName("HandLimitExceededEvent")
-	spellUsedEventType               = domain.NewEventName("SpellUsedEvent")
-	magicGainedEventType             = domain.NewEventName("MagicGainedEvent")
-	spellEffectStartedEventType      = domain.NewEventName("SpellEffectStartedEvent")
-	spellEffectEndedEventType        = domain.NewEventName("SpellEffectEndedEvent")
-	creatureDamagedEventType         = domain.NewEventName("CreatureDamagedEvent")
-	creatureDestroyedEventType       = domain.NewEventName("CreatureDestroyedEvent")
+	createdEventType                        = domain.NewEventName("CreatedEvent")
+	turnOrderDecidedEventType               = domain.NewEventName("TurnOrderDecidedEvent")
+	decksShuffledEventType                  = domain.NewEventName("DecksShuffledEvent")
+	handsDealtEventType                     = domain.NewEventName("HandsDealtEvent")
+	cardDrawnEventType                      = domain.NewEventName("CardDrawnEvent")
+	cardDiscardedEventType                  = domain.NewEventName("CardDiscardedEvent")
+	diceRolledEventType                     = domain.NewEventName("DiceRolledEvent")
+	movedEventType                          = domain.NewEventName("MovedEvent")
+	checkpointPassedEventType               = domain.NewEventName("CheckpointPassedEvent")
+	lapCompletedEventType                   = domain.NewEventName("LapCompletedEvent")
+	turnEndedEventType                      = domain.NewEventName("TurnEndedEvent")
+	matchEndedEventType                     = domain.NewEventName("MatchEndedEvent")
+	rewardDrawnEventType                    = domain.NewEventName("RewardDrawnEvent")
+	rewardsCompletedEventType               = domain.NewEventName("RewardsCompletedEvent")
+	creaturePlacedEventType                 = domain.NewEventName("CreaturePlacedEvent")
+	tollPaidEventType                       = domain.NewEventName("TollPaidEvent")
+	territoryRelinquishedEventType          = domain.NewEventName("TerritoryRelinquishedEvent")
+	magicDepletedEventType                  = domain.NewEventName("MagicDepletedEvent")
+	territoryInvadedEventType               = domain.NewEventName("TerritoryInvadedEvent")
+	itemUsedEventType                       = domain.NewEventName("ItemUsedEvent")
+	creatureStruckEventType                 = domain.NewEventName("CreatureStruckEvent")
+	territoryConqueredEventType             = domain.NewEventName("TerritoryConqueredEvent")
+	invasionRepelledEventType               = domain.NewEventName("InvasionRepelledEvent")
+	itemSkippedEventType                    = domain.NewEventName("ItemSkippedEvent")
+	battleStartedEventType                  = domain.NewEventName("BattleStartedEvent")
+	battleSupportEffectActivatedEventType   = domain.NewEventName("BattleSupportEffectActivatedEvent")
+	battleTerrainEffectActivatedEventType   = domain.NewEventName("BattleTerrainEffectActivatedEvent")
+	battleCreatureAbilityActivatedEventType = domain.NewEventName("BattleCreatureAbilityActivatedEvent")
+	battleItemAbilityActivatedEventType     = domain.NewEventName("BattleItemAbilityActivatedEvent")
+	tollMultiplierActivatedEventType        = domain.NewEventName("TollMultiplierActivatedEvent")
+	territoryLeveledUpEventType             = domain.NewEventName("TerritoryLeveledUpEvent")
+	creatureExchangedEventType              = domain.NewEventName("CreatureExchangedEvent")
+	landElementChangedEventType             = domain.NewEventName("LandElementChangedEvent")
+	creatureMovedEventType                  = domain.NewEventName("CreatureMovedEvent")
+	territoryInvadedByMoveEventType         = domain.NewEventName("TerritoryInvadedByMoveEvent")
+	discardPileShuffledEventType            = domain.NewEventName("DiscardPileShuffledEvent")
+	handLimitExceededEventType              = domain.NewEventName("HandLimitExceededEvent")
+	spellUsedEventType                      = domain.NewEventName("SpellUsedEvent")
+	magicGainedEventType                    = domain.NewEventName("MagicGainedEvent")
+	spellEffectStartedEventType             = domain.NewEventName("SpellEffectStartedEvent")
+	spellEffectEndedEventType               = domain.NewEventName("SpellEffectEndedEvent")
+	creatureDamagedEventType                = domain.NewEventName("CreatureDamagedEvent")
+	creatureDestroyedEventType              = domain.NewEventName("CreatureDestroyedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -655,19 +683,35 @@ func (*BattleStartedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*BattleStatModifiedEvent) EventType() domain.EventName {
-	return battleStatModifiedEventType
+func (*BattleSupportEffectActivatedEvent) EventType() domain.EventName {
+	return battleSupportEffectActivatedEventType
 }
 
-func (*BattleStatModifiedEvent) SchemaVersion() int {
+func (*BattleSupportEffectActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*BattleAbilityActivatedEvent) EventType() domain.EventName {
-	return battleAbilityActivatedEventType
+func (*BattleTerrainEffectActivatedEvent) EventType() domain.EventName {
+	return battleTerrainEffectActivatedEventType
 }
 
-func (*BattleAbilityActivatedEvent) SchemaVersion() int {
+func (*BattleTerrainEffectActivatedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*BattleCreatureAbilityActivatedEvent) EventType() domain.EventName {
+	return battleCreatureAbilityActivatedEventType
+}
+
+func (*BattleCreatureAbilityActivatedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*BattleItemAbilityActivatedEvent) EventType() domain.EventName {
+	return battleItemAbilityActivatedEventType
+}
+
+func (*BattleItemAbilityActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -789,10 +833,11 @@ func Types() domain.AggregateTypes {
 		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
 		rewardDrawnEventType, rewardsCompletedEventType, creaturePlacedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
-		battleStartedEventType, battleStatModifiedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
+		battleStartedEventType, battleSupportEffectActivatedEventType, battleTerrainEffectActivatedEventType,
+		battleCreatureAbilityActivatedEventType, battleItemAbilityActivatedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
-		creatureDamagedEventType, creatureDestroyedEventType, battleAbilityActivatedEventType, tollMultiplierActivatedEventType,
+		creatureDamagedEventType, creatureDestroyedEventType, tollMultiplierActivatedEventType,
 	}}
 }
 
@@ -855,10 +900,14 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ItemSkippedEvent{EventMeta: meta}
 	case EventType(battleStartedEventType):
 		event = &BattleStartedEvent{EventMeta: meta}
-	case EventType(battleStatModifiedEventType):
-		event = &BattleStatModifiedEvent{EventMeta: meta}
-	case EventType(battleAbilityActivatedEventType):
-		event = &BattleAbilityActivatedEvent{EventMeta: meta}
+	case EventType(battleSupportEffectActivatedEventType):
+		event = &BattleSupportEffectActivatedEvent{EventMeta: meta}
+	case EventType(battleTerrainEffectActivatedEventType):
+		event = &BattleTerrainEffectActivatedEvent{EventMeta: meta}
+	case EventType(battleCreatureAbilityActivatedEventType):
+		event = &BattleCreatureAbilityActivatedEvent{EventMeta: meta}
+	case EventType(battleItemAbilityActivatedEventType):
+		event = &BattleItemAbilityActivatedEvent{EventMeta: meta}
 	case EventType(tollMultiplierActivatedEventType):
 		event = &TollMultiplierActivatedEvent{EventMeta: meta}
 	case EventType(territoryLeveledUpEventType):

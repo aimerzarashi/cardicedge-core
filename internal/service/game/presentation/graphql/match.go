@@ -460,20 +460,33 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		}, nil
 	case query.MatchBattleStartedEvent:
 		return &model.MatchBattleStartedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Attacker: fromMatchBattleStats(e.Attacker), Defender: fromMatchBattleStats(e.Defender)}, nil
-	case query.MatchBattleStatModifiedEvent:
+	case query.MatchBattleSupportEffectActivatedEvent:
 		side, err := fromMatchBattleSide(e.Side)
 		if err != nil {
 			return nil, err
 		}
-		source, err := fromMatchBattleStatSource(e.Source)
+		positions := make([]*model.BoardPosition, len(e.Positions))
+		for i, position := range e.Positions {
+			positions[i] = &model.BoardPosition{X: position.X, Y: position.Y}
+		}
+		return &model.MatchBattleSupportEffectActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Positions: positions,
+			BonusPerTerritory: e.BonusPerTerritory, Change: fromMatchBattleStatChange(&e.Change),
+		}, nil
+	case query.MatchBattleTerrainEffectActivatedEvent:
+		side, err := fromMatchBattleSide(e.Side)
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchBattleStatModifiedEvent{
-			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Source: source,
-			AttackDelta: e.AttackDelta, HitPointsDelta: e.HitPointsDelta, Attack: e.Attack, HitPoints: e.HitPoints,
+		element, err := fromBoardTileElement(e.Element)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchBattleTerrainEffectActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Element: element, Level: e.Level,
+			BonusPerLevel: e.BonusPerLevel, Change: fromMatchBattleStatChange(&e.Change),
 		}, nil
-	case query.MatchBattleAbilityActivatedEvent:
+	case query.MatchBattleCreatureAbilityActivatedEvent:
 		side, err := fromMatchBattleSide(e.Side)
 		if err != nil {
 			return nil, err
@@ -482,7 +495,31 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &model.MatchBattleAbilityActivatedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Ability: ability}, nil
+		converted := &model.MatchBattleCreatureAbilityActivatedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Ability: ability, Change: fromMatchBattleStatChange(e.Change)}
+		if basis := e.BattleModifier; basis != nil {
+			converted.BattleModifier = &model.MatchBattleModifierBasis{AttackModifier: basis.AttackModifier, HitPointsModifier: basis.HitPointsModifier}
+		}
+		if basis := e.BattleRandomStats; basis != nil {
+			converted.BattleRandomStats = &model.MatchBattleRandomStatsBasis{Minimum: basis.Minimum, Maximum: basis.Maximum}
+		}
+		return converted, nil
+	case query.MatchBattleItemAbilityActivatedEvent:
+		side, err := fromMatchBattleSide(e.Side)
+		if err != nil {
+			return nil, err
+		}
+		ability, err := fromMatchBattleAbility(e.Ability)
+		if err != nil {
+			return nil, err
+		}
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchBattleItemAbilityActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Ability: ability, Card: card,
+			AttackModifier: e.AttackModifier, HitPointsModifier: e.HitPointsModifier, Change: fromMatchBattleStatChange(e.Change),
+		}, nil
 	case query.MatchCreatureStruckEvent:
 		striker, err := fromMatchBattleSide(e.Striker)
 		if err != nil {
@@ -585,40 +622,11 @@ func fromMatchBattleStats(stats query.MatchBattleStats) *model.MatchBattleStats 
 	return &model.MatchBattleStats{Attack: stats.Attack, HitPoints: stats.HitPoints}
 }
 
-func fromMatchBattleStatSource(source query.MatchBattleStatSource) (model.MatchBattleStatSource, error) {
-	switch {
-	case source.Terrain != nil:
-		element, err := fromBoardTileElement(source.Terrain.Element)
-		if err != nil {
-			return nil, err
-		}
-		return &model.MatchTerrainSource{Element: element, Level: source.Terrain.Level, BonusPerLevel: source.Terrain.BonusPerLevel}, nil
-	case source.Item != nil:
-		card, err := fromMatchCard(source.Item.Card)
-		if err != nil {
-			return nil, err
-		}
-		return &model.MatchItemSource{Card: card, AttackModifier: source.Item.AttackModifier, HitPointsModifier: source.Item.HitPointsModifier}, nil
-	case source.Ability != nil:
-		ability, err := fromMatchBattleAbility(source.Ability.Ability)
-		if err != nil {
-			return nil, err
-		}
-		converted := &model.MatchAbilitySource{Ability: ability}
-		if basis := source.Ability.BattleModifier; basis != nil {
-			converted.BattleModifier = &model.MatchBattleModifierBasis{AttackModifier: basis.AttackModifier, HitPointsModifier: basis.HitPointsModifier}
-		}
-		if basis := source.Ability.BattleRandomStats; basis != nil {
-			converted.BattleRandomStats = &model.MatchBattleRandomStatsBasis{Minimum: basis.Minimum, Maximum: basis.Maximum}
-		}
-		return converted, nil
-	default:
-		positions := make([]*model.BoardPosition, len(source.AdjacentTerritories.Positions))
-		for i, position := range source.AdjacentTerritories.Positions {
-			positions[i] = &model.BoardPosition{X: position.X, Y: position.Y}
-		}
-		return &model.MatchAdjacentTerritoriesSource{Positions: positions, BonusPerTerritory: source.AdjacentTerritories.BonusPerTerritory}, nil
+func fromMatchBattleStatChange(change *query.MatchBattleStatChange) *model.MatchBattleStatChange {
+	if change == nil {
+		return nil
 	}
+	return &model.MatchBattleStatChange{AttackDelta: change.AttackDelta, HitPointsDelta: change.HitPointsDelta, Attack: change.Attack, HitPoints: change.HitPoints}
 }
 
 func fromSpellChoices(choices []query.MatchSpellChoice) []*model.MatchSpellChoice {
