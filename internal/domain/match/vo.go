@@ -117,10 +117,6 @@ const (
 	BattleAbilityAttackImmunity    BattleAbility = "attack_immunity"
 )
 
-func (a BattleAbility) valid() bool {
-	return a == BattleAbilityFirstStrike || a == BattleAbilityLastStrike || a == BattleAbilityBattleModifier || a == BattleAbilityBattleRandomStats || a == BattleAbilityAttackImmunity
-}
-
 func (s BattleSide) opponent() BattleSide {
 	if s == BattleSideAttacker {
 		return BattleSideDefender
@@ -135,7 +131,7 @@ type BattleStats struct {
 }
 
 // 戦闘の入力。戦闘はこの入力と乱数の元だけで出来事の並びを決める（ResolveBattle）。BattleStartedEvent がまるごと持ち、
-// 続く出来事の根拠（支援効果の隣の領地・地形効果の土地・アイテムや能力の増減）は、ここから読む（2026-11-13 オーナー。core#171）
+// 続く出来事の根拠（支援効果の隣の領地・地形効果の土地・アイテムや能力の値）は、ここから読む（2026-11-13 オーナー。core#171）
 type BattleInput struct {
 	Attacker BattleCombatant `json:"attacker"`
 	Defender BattleCombatant `json:"defender"`
@@ -149,6 +145,8 @@ type BattleInput struct {
 type BattleCombatant struct {
 	Card card.Ref     `json:"card"`
 	Spec CreatureSpec `json:"spec"`
+	// 戦闘の前の AT（領地のクリーチャーは、ボード上の効果で増減した今の値。今は増減する効果が無いので性能の AT と同じ）
+	Attack creature.Attack `json:"attack"`
 	// 戦闘の前の HP（守る側は領地での傷が残った値）
 	HitPoints creature.HitPoints `json:"hit_points"`
 	// 出したアイテム。出さなければ nil。効かないアイテム（巻物）も、選んだ入力として持つ（2026-11-13 オーナー）
@@ -179,25 +177,26 @@ func (i BattleInput) combatant(side BattleSide) BattleCombatant {
 	return i.Defender
 }
 
-// 戦闘の AT・HP を変えた効果の種類（スペルの効果は作るときに足す）
-type BattleEffect string
-
-const (
-	BattleEffectAdjacentTerritories BattleEffect = "adjacent_territories"
-	BattleEffectTerrain             BattleEffect = "terrain"
-	BattleEffectItem                BattleEffect = "item"
-	BattleEffectAbility             BattleEffect = "ability"
-)
-
-func (e BattleEffect) valid() bool {
-	return e == BattleEffectAdjacentTerritories || e == BattleEffectTerrain || e == BattleEffectItem || e == BattleEffectAbility
+// 戦闘の AT・HP の増減（下限で止まった後の実際の量）。AT・HP を変える能力の発動のイベントが持つ
+type BattleStatChange struct {
+	AttackDelta    int `json:"attack_delta"`
+	HitPointsDelta int `json:"hit_points_delta"`
 }
 
-// 戦闘の AT・HP を変えた効果の出どころ。種類だけを持ち、根拠の値は戦闘の入力から読む（入力に一度だけ残し、出来事ごとに写さないため。
-// core#171）。能力のときだけ、どの能力か（同じ種類の能力は 1 つまで）
-type BattleStatSource struct {
-	Effect  BattleEffect  `json:"effect"`
-	Ability BattleAbility `json:"ability,omitempty"`
+// 戦闘の中の値の層で、増減がどの発動のものか。発動のイベントの種類から決まるので、イベントには書かない
+type BattleModifierSourceKind string
+
+const (
+	BattleModifierSourceSupportEffect   BattleModifierSourceKind = "support_effect"
+	BattleModifierSourceTerrainEffect   BattleModifierSourceKind = "terrain_effect"
+	BattleModifierSourceCreatureAbility BattleModifierSourceKind = "creature_ability"
+	BattleModifierSourceItemAbility     BattleModifierSourceKind = "item_ability"
+)
+
+// 増減の出どころ。能力のときだけ、どの能力か
+type BattleModifierSource struct {
+	Kind    BattleModifierSourceKind
+	Ability BattleAbility
 }
 
 type EndReason string
@@ -300,17 +299,6 @@ func (s CreatureSpec) strikeAbility() (BattleAbility, bool) {
 func (s CreatureSpec) isImmuneToAttackFrom(striker CreatureSpec) bool {
 	immunity, ok := s.Abilities.AttackImmunity()
 	return ok && immunity.Elements.Overlaps(striker.Elements)
-}
-
-// 攻撃する順の強さ（大きい方が先）。先制と後手は同時に持てない（creature.NewAbilities が守る）
-func (s CreatureSpec) strikePriority() int {
-	switch {
-	case s.Abilities.HasFirstStrike():
-		return 1
-	case s.Abilities.HasLastStrike():
-		return -1
-	}
-	return 0
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

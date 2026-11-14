@@ -3,12 +3,14 @@
     "attacker": {
       "card": {"entity_type": "creature", "id": 101},
       "spec": {"elements": ["neutral"], "attack": 30, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": []},
+      "attack": 30,
       "hit_points": 40,
       "item": {"card": {"entity_type": "item", "id": 301}, "spec": {"category": "weapon", "attack_modifier": 20, "hit_points_modifier": 0}}
     },
     "defender": {
       "card": {"entity_type": "creature", "id": 201},
       "spec": {"elements": ["neutral"], "attack": 20, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": [{"battle_modifier": {"attack_modifier": 0, "hit_points_modifier": 20}}]},
+      "attack": 20,
       "hit_points": 35,
       "item": {"card": {"entity_type": "item", "id": 302}, "spec": {"category": "scroll", "attack_modifier": 0, "hit_points_modifier": 0}}
     },

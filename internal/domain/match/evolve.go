@@ -224,7 +224,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
 		current.Participants[index].Magic -= e.Cost.Int()
 		current.PlacedCreatures = append(slices.Clone(current.PlacedCreatures), PlacedCreature{
-			ID: e.Creature, Card: placed, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints,
+			ID: e.Creature, Card: placed, Owner: index, Base: *spec.Creature, Attack: spec.Creature.Attack, HitPoints: spec.Creature.HitPoints,
 		})
 		current.Territories = append(slices.Clone(current.Territories), Territory{Position: participant.Position, Creature: e.Creature})
 		current.LastPlacedCreatureID = e.Creature
@@ -325,7 +325,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		origin := e.From
-		current.Invasion = &Invasion{Card: placed.Card, Base: placed.Base, HitPoints: placed.HitPoints, Position: e.Position, From: &origin, Creature: placed.ID}
+		current.Invasion = &Invasion{Card: placed.Card, Base: placed.Base, Attack: placed.Attack, HitPoints: placed.HitPoints, Position: e.Position, From: &origin, Creature: placed.ID}
 		current.Phase = PhaseAttacking
 	case *LandElementChangedEvent:
 		index, err := current.actor(e.Participant)
@@ -372,7 +372,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Magic -= e.Cost.Int()
 		current.PlacedCreatures = append(
 			slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == replaced.ID }),
-			PlacedCreature{ID: e.Creature, Card: exchanged, Owner: index, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints},
+			PlacedCreature{ID: e.Creature, Card: exchanged, Owner: index, Base: *spec.Creature, Attack: spec.Creature.Attack, HitPoints: spec.Creature.HitPoints},
 		)
 		current.Territories = slices.Clone(current.Territories)
 		for i := range current.Territories {
@@ -402,7 +402,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[index].Hand = slices.Delete(slices.Clone(participant.Hand), e.HandIndex, e.HandIndex+1)
 		current.Participants[index].Magic -= e.Cost.Int()
-		current.Invasion = &Invasion{Card: invading, Base: *spec.Creature, HitPoints: spec.Creature.HitPoints, Position: participant.Position}
+		current.Invasion = &Invasion{Card: invading, Base: *spec.Creature, Attack: spec.Creature.Attack, HitPoints: spec.Creature.HitPoints, Position: participant.Position}
 		current.Phase = PhaseAttacking
 	case *ItemUsedEvent:
 		if !current.awaitsItemChoiceOf(e.Participant) {
@@ -440,7 +440,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Battle = battle
 		current.Phase = PhaseBattling
-	case *BattleStatModifiedEvent, *BattleAbilityActivatedEvent, *CreatureStruckEvent:
+	case *BattleSupportEffectActivatedEvent, *BattleTerrainEffectActivatedEvent, *BattleCreatureAbilityActivatedEvent, *BattleItemAbilityActivatedEvent, *CreatureStruckEvent:
 		if current.Phase != PhaseBattling {
 			return state, ErrInvalidState
 		}
@@ -503,7 +503,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.PlacedCreatures = append(
 			slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == defeated.ID }),
-			PlacedCreature{ID: e.Creature, Card: invasion.Card, Owner: index, Base: invasion.Base, HitPoints: e.TerritoryHitPoints},
+			PlacedCreature{ID: e.Creature, Card: invasion.Card, Owner: index, Base: invasion.Base, Attack: invasion.Attack, HitPoints: e.TerritoryHitPoints},
 		)
 		current.Territories = slices.Clone(current.Territories)
 		for i := range current.Territories {
@@ -525,7 +525,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		territory, ok := current.TerritoryAt(current.Invasion.Position)
-		survived := current.Battle.Attacker.Stats.HitPoints.Int() > 0
+		survived := current.Battle.Attacker.Stats().HitPoints.Int() > 0
 		moved := current.Invasion.From != nil
 		if !ok || (e.ReturnedHitPoints != nil) != (survived && moved) {
 			return state, ErrInvalidState
@@ -741,28 +741,58 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 	case *BattleStartedEvent:
 		attacker, defender := e.Input.Attacker, e.Input.Defender
 		return &Battle{
-			Attacker: BattleCreature{Stats: BattleStats{Attack: attacker.Spec.Attack, HitPoints: attacker.HitPoints}, InitialHitPoints: attacker.HitPoints},
-			Defender: BattleCreature{Stats: BattleStats{Attack: defender.Spec.Attack, HitPoints: defender.HitPoints}, InitialHitPoints: defender.HitPoints},
+			Attacker: BattleCreature{Base: BattleStats{Attack: attacker.Spec.Attack, HitPoints: attacker.Spec.HitPoints}, InitialAttack: attacker.Attack, InitialHitPoints: attacker.HitPoints, ReceivedDamagePercent: 100},
+			Defender: BattleCreature{Base: BattleStats{Attack: defender.Spec.Attack, HitPoints: defender.Spec.HitPoints}, InitialAttack: defender.Attack, InitialHitPoints: defender.HitPoints, ReceivedDamagePercent: 100},
 		}, nil
-	case *BattleStatModifiedEvent:
-		if battle == nil || !e.Side.valid() || !e.Source.Effect.valid() {
+	case *BattleSupportEffectActivatedEvent:
+		if battle == nil {
 			return nil, ErrInvalidState
 		}
-		modified := battle.creature(e.Side)
-		modified.Stats = BattleStats{Attack: e.Attack, HitPoints: e.HitPoints}
-		modified.HitPointsDelta += e.HitPointsDelta
-		return battle.withCreature(e.Side, modified), nil
-	case *BattleAbilityActivatedEvent:
-		if battle == nil || !e.Side.valid() || !e.Ability.valid() {
+		return battle.withModifier(BattleSideAttacker, BattleModifierSource{Kind: BattleModifierSourceSupportEffect}, BattleStatChange{AttackDelta: e.AttackDelta}), nil
+	case *BattleTerrainEffectActivatedEvent:
+		if battle == nil {
 			return nil, ErrInvalidState
 		}
-		return battle, nil
+		return battle.withModifier(BattleSideDefender, BattleModifierSource{Kind: BattleModifierSourceTerrainEffect}, BattleStatChange{HitPointsDelta: e.HitPointsDelta}), nil
+	case *BattleItemAbilityActivatedEvent:
+		if battle == nil || !e.Side.valid() || e.Ability != BattleAbilityBattleModifier || e.Change == nil {
+			return nil, ErrInvalidState
+		}
+		return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceItemAbility, Ability: e.Ability}, *e.Change), nil
+	// 発動で得た状態を戦闘の中の値に持たせ、後の攻撃の順とダメージはこの値だけで決める（入力の性能を見直すと、
+	// イベントの並びだけでは「なぜその順か」「なぜ 0 か」が決まらないため。2026-11-14 オーナー。core#175）
+	case *BattleCreatureAbilityActivatedEvent:
+		if battle == nil || !e.Side.valid() {
+			return nil, ErrInvalidState
+		}
+		switch e.Ability {
+		case BattleAbilityBattleModifier, BattleAbilityBattleRandomStats:
+			if e.Change == nil {
+				return nil, ErrInvalidState
+			}
+			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceCreatureAbility, Ability: e.Ability}, *e.Change), nil
+		}
+		if e.Change != nil {
+			return nil, ErrInvalidState
+		}
+		activated := battle.Creature(e.Side)
+		switch e.Ability {
+		case BattleAbilityFirstStrike:
+			activated.StrikePriority = 1
+		case BattleAbilityLastStrike:
+			activated.StrikePriority = -1
+		case BattleAbilityAttackImmunity:
+			activated.ReceivedDamagePercent = min(activated.ReceivedDamagePercent, 0)
+		default:
+			return nil, ErrInvalidState
+		}
+		return battle.withCreature(e.Side, activated), nil
 	case *CreatureStruckEvent:
 		if battle == nil || !e.Striker.valid() {
 			return nil, ErrInvalidState
 		}
-		struck := battle.creature(e.Striker.opponent())
-		struck.Stats.HitPoints = e.RemainingHitPoints
+		struck := battle.Creature(e.Striker.opponent())
+		struck.Damage += struck.Stats().HitPoints.Int() - e.RemainingHitPoints.Int()
 		return battle.withCreature(e.Striker.opponent(), struck), nil
 	}
 	return nil, ErrInvalidState

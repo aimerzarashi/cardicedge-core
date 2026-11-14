@@ -276,15 +276,15 @@ type Ability struct {
 	Defensive *DefensiveAbility `json:"defensive,omitempty"`
 	// 通行料の倍率。いる領地の通行料を払うときに倍率を掛ける。match の発動は tollMultiplier → TollMultiplierActivatedEvent（core#157・core#159）
 	TollMultiplier *TollMultiplierAbility `json:"toll_multiplier,omitempty"`
-	// 先制。戦闘で、先制の無い相手より先に攻撃する。match の判定は CreatureSpec.strikePriority、発動は BattleAbilityActivatedEvent（core#158）
+	// 先制。戦闘で、先制の無い相手より先に攻撃する。match の発動は BattleCreatureAbilityActivatedEvent で、得た攻撃の順の強さを戦闘の中の値に持つ（core#158・core#175）
 	FirstStrike *FirstStrikeAbility `json:"first_strike,omitempty"`
 	// 後手。戦闘で、後手の無い相手より後に攻撃する。match の判定・発動は先制と同じ（core#158）
 	LastStrike *LastStrikeAbility `json:"last_strike,omitempty"`
-	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は ResolveBattle の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表し、増減が 0 でも出す）（core#163）
+	// 戦闘中の増減。戦闘中、AT・HP が決まった値だけ増減する（負の値もある）。match の発動は ResolveBattle の能力の位置（持っている能力の並びの順）の BattleCreatureAbilityActivatedEvent（増減を持ち、増減が 0 でも出す）（core#163・core#175）
 	BattleModifier *BattleModifierAbility `json:"battle_modifier,omitempty"`
-	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は ResolveBattle の能力の位置（持っている能力の並びの順） → BattleStatModifiedEvent（出どころは能力。このイベントが発動を表す）（core#169）
+	// 戦闘中のランダム。戦闘中、AT・HP が最小〜最大のランダムな値になる（別々に引く。1 刻み）。match の発動は ResolveBattle の能力の位置（持っている能力の並びの順）の BattleCreatureAbilityActivatedEvent（引いた値と今の値の差を増減に持つ）（core#169・core#175）
 	BattleRandomStats *BattleRandomStatsAbility `json:"battle_random_stats,omitempty"`
-	// 攻撃無効。戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる。match の判定は CreatureSpec.isImmuneToAttackFrom、発動は攻撃を受ける直前の BattleAbilityActivatedEvent（属性が合わなければ出さない）（core#174）
+	// 攻撃無効。戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる。match の判定は CreatureSpec.isImmuneToAttackFrom、発動は攻撃を受ける直前の BattleCreatureAbilityActivatedEvent（属性が合わなければ出さない）（core#174）
 	AttackImmunity *AttackImmunityAbility `json:"attack_immunity,omitempty"`
 }
 

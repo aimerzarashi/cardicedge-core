@@ -307,7 +307,7 @@ func battleInput(t *testing.T) match.BattleInput {
 		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 30),
 		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 	}
-	combatant := match.BattleCombatant{Card: cardtest.CreatureRef(t, 101), Spec: spec, HitPoints: creaturetest.HitPoints(t, 20)}
+	combatant := match.BattleCombatant{Card: cardtest.CreatureRef(t, 101), Spec: spec, Attack: spec.Attack, HitPoints: creaturetest.HitPoints(t, 20)}
 	land := match.BattleLand{Element: board.ElementFire, Level: 1}
 	return match.BattleInput{Attacker: combatant, Defender: combatant, Land: land, AdjacentTerritories: []board.Position{}}
 }
@@ -322,11 +322,8 @@ func battleStartedWith(t *testing.T, revision int64, input match.BattleInput) *m
 	return &match.BattleStartedEvent{EventMeta: eventMeta(t, revision), Input: input}
 }
 
-// 出来事は効果の種類だけを持ち、根拠の値は戦闘の開始の入力から添える（core#171）
-func TestMatchEventsHandler_ReturnsTheBasisOfEachBattleEffectFromTheBattleInput(t *testing.T) {
-	modified := func(revision int64, side match.BattleSide, source match.BattleStatSource, attack, hitPoints int) *match.BattleStatModifiedEvent {
-		return &match.BattleStatModifiedEvent{EventMeta: eventMeta(t, revision), Side: side, Source: source, AttackDelta: attack, HitPointsDelta: hitPoints, Attack: creaturetest.Attack(t, 10+attack), HitPoints: creaturetest.HitPoints(t, 20+hitPoints)}
-	}
+// 発動のイベントは増減だけを持ち、根拠の値は戦闘の開始の入力から、当てた後の値は直前の戦闘の中の値から添える（core#171・core#175）
+func TestMatchEventsHandler_ReturnsTheBasisAndTheStatsAfterEachActivation(t *testing.T) {
 	input := battleInput(t)
 	// アイテムの名前は写しのあるカードで引く（この見本の写しはクリーチャー 101 だけ）
 	weapon := match.ItemSpec{Category: item.CategoryWeapon, AttackModifier: item.NewAttackModifier(25), HitPointsModifier: item.NewHitPointsModifier(0)}
@@ -338,26 +335,35 @@ func TestMatchEventsHandler_ReturnsTheBasisOfEachBattleEffectFromTheBattleInput(
 	input.Rules = match.BattleRules{AdjacentTerritoryBonus: rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: rules.TerrainBonusPerLevel}
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStartedWith(t, 16, input),
-		modified(17, match.BattleSideAttacker, match.BattleStatSource{Effect: match.BattleEffectAdjacentTerritories}, 10, 0),
-		modified(18, match.BattleSideAttacker, match.BattleStatSource{Effect: match.BattleEffectItem}, 25, 0),
-		modified(19, match.BattleSideDefender, match.BattleStatSource{Effect: match.BattleEffectTerrain}, 0, 20),
-		modified(20, match.BattleSideDefender, match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleModifier}, 0, 5),
+		&match.BattleSupportEffectActivatedEvent{EventMeta: eventMeta(t, 17), AttackDelta: 10},
+		&match.BattleItemAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideAttacker, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{AttackDelta: 25}},
+		&match.BattleTerrainEffectActivatedEvent{EventMeta: eventMeta(t, 19), HitPointsDelta: 20},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: eventMeta(t, 20), Side: match.BattleSideDefender, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{HitPointsDelta: 5}},
 	))
 	dragon := placedDragon(f.cardID)
-	adjacent := query.MatchBattleStatSource{AdjacentTerritories: &query.MatchAdjacentTerritoriesSource{Positions: []query.BoardPosition{query.NewBoardPosition(1, 0)}, BonusPerTerritory: 10}}
-	usedItem := query.MatchBattleStatSource{Item: &query.MatchItemSource{Card: dragon, AttackModifier: 25}}
-	terrain := query.MatchBattleStatSource{Terrain: &query.MatchTerrainSource{Element: query.BoardTileElementFire, Level: 2, BonusPerLevel: 10}}
-
-	ability := query.MatchBattleStatSource{Ability: &query.MatchAbilitySource{Ability: query.MatchBattleAbilityBattleModifier, BattleModifier: &query.MatchBattleModifierBasis{HitPointsModifier: 5}}}
+	supported := query.MatchBattleStatChange{AttackDelta: 10, Attack: 20, HitPoints: 20}
+	terrain := query.MatchBattleStatChange{HitPointsDelta: 20, Attack: 10, HitPoints: 40}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
 
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
-		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: adjacent, AttackDelta: 10, Attack: 20, HitPoints: 20},
-		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Source: usedItem, AttackDelta: 25, Attack: 35, HitPoints: 20},
-		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(19, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: terrain, HitPointsDelta: 20, Attack: 10, HitPoints: 40},
-		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(20, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: ability, HitPointsDelta: 5, Attack: 10, HitPoints: 25},
+		query.MatchBattleSupportEffectActivatedEvent{
+			MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Positions: []query.BoardPosition{query.NewBoardPosition(1, 0)}, BonusPerTerritory: 10,
+			Change: supported,
+		},
+		query.MatchBattleItemAbilityActivatedEvent{
+			MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Ability: query.MatchBattleAbilityBattleModifier, Card: dragon, AttackModifier: 25,
+			Change: &query.MatchBattleStatChange{AttackDelta: 25, Attack: 45, HitPoints: 20},
+		},
+		query.MatchBattleTerrainEffectActivatedEvent{
+			MatchEventMeta: metaAt(19, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Element: query.BoardTileElementFire, Level: 2, BonusPerLevel: 10,
+			Change: terrain,
+		},
+		query.MatchBattleCreatureAbilityActivatedEvent{
+			MatchEventMeta: metaAt(20, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityBattleModifier,
+			Change: &query.MatchBattleStatChange{HitPointsDelta: 5, Attack: 10, HitPoints: 45}, BattleModifier: &query.MatchBattleModifierBasis{HitPointsModifier: 5},
+		},
 	}, events)
 }
 
@@ -366,45 +372,44 @@ func TestMatchEventsHandler_ReturnsTheRangeOfBattleRandomStatsFromTheBattleInput
 	require.NoError(t, err)
 	input := battleInput(t)
 	input.Defender.Spec.Abilities = []creature.Ability{randomStats}
-	source := match.BattleStatSource{Effect: match.BattleEffectAbility, Ability: match.BattleAbilityBattleRandomStats}
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStartedWith(t, 16, input),
-		&match.BattleStatModifiedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideDefender, Source: source, AttackDelta: 40, HitPointsDelta: -10, Attack: creaturetest.Attack(t, 50), HitPoints: creaturetest.HitPoints(t, 10)},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideDefender, Ability: match.BattleAbilityBattleRandomStats, Change: &match.BattleStatChange{AttackDelta: 40, HitPointsDelta: -10}},
 	))
-	minimum, maximum := 10, 70
-	want := query.MatchBattleStatSource{Ability: &query.MatchAbilitySource{Ability: query.MatchBattleAbilityBattleRandomStats, BattleRandomStats: &query.MatchBattleRandomStatsBasis{Minimum: minimum, Maximum: maximum}}}
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
 
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
-		query.MatchBattleStatModifiedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Source: want, AttackDelta: 40, HitPointsDelta: -10, Attack: 50, HitPoints: 10},
+		query.MatchBattleCreatureAbilityActivatedEvent{
+			MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityBattleRandomStats,
+			Change: &query.MatchBattleStatChange{AttackDelta: 40, HitPointsDelta: -10, Attack: 50, HitPoints: 10}, BattleRandomStats: &query.MatchBattleRandomStatsBasis{Minimum: 10, Maximum: 70},
+		},
 	}, events)
 }
 
 func TestMatchEventsHandler_ReturnsTheActivatedBattleAbilities(t *testing.T) {
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
-		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Ability: match.BattleAbilityLastStrike},
-		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Ability: match.BattleAbilityLastStrike},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityFirstStrike},
 	))
 
 	events, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 16)
 
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
-		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Ability: query.MatchBattleAbilityLastStrike},
-		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityFirstStrike},
+		query.MatchBattleCreatureAbilityActivatedEvent{MatchEventMeta: metaAt(17, changesOf(nil, nil)), Side: query.MatchBattleSideAttacker, Ability: query.MatchBattleAbilityLastStrike},
+		query.MatchBattleCreatureAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityFirstStrike},
 	}, events)
 }
 
 // 攻撃の値は、攻撃した側の直前の戦闘中の AT（増減の後）。攻撃無効で受けた量が 0 でも、攻撃の値はそのまま
 func TestMatchEventsHandler_StruckShowsTheAttackOfTheStrikerBeforeTheStrike(t *testing.T) {
-	item := match.BattleStatSource{Effect: match.BattleEffectItem}
 	f := newEventsFixture(t, append(invadingEvents(t),
 		battleStarted(t, 16),
-		&match.BattleStatModifiedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Source: item, AttackDelta: 30, Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 20)},
-		&match.BattleAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityAttackImmunity},
+		&match.BattleItemAbilityActivatedEvent{EventMeta: eventMeta(t, 17), Side: match.BattleSideAttacker, Ability: match.BattleAbilityBattleModifier, Change: &match.BattleStatChange{AttackDelta: 30}},
+		&match.BattleCreatureAbilityActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideDefender, Ability: match.BattleAbilityAttackImmunity},
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 19), Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 0), RemainingHitPoints: creaturetest.HitPoints(t, 20)},
 		&match.CreatureStruckEvent{EventMeta: eventMeta(t, 20), Striker: match.BattleSideDefender, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 10)},
 	))
@@ -413,7 +418,7 @@ func TestMatchEventsHandler_StruckShowsTheAttackOfTheStrikerBeforeTheStrike(t *t
 
 	require.NoError(t, err)
 	require.Equal(t, []query.MatchEvent{
-		query.MatchBattleAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityAttackImmunity},
+		query.MatchBattleCreatureAbilityActivatedEvent{MatchEventMeta: metaAt(18, changesOf(nil, nil)), Side: query.MatchBattleSideDefender, Ability: query.MatchBattleAbilityAttackImmunity},
 		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(19, changesOf(nil, nil)), Striker: query.MatchBattleSideAttacker, Attack: 40, Damage: 0, RemainingHitPoints: 20},
 		query.MatchCreatureStruckEvent{MatchEventMeta: metaAt(20, changesOf(nil, nil)), Striker: query.MatchBattleSideDefender, Attack: 10, Damage: 10, RemainingHitPoints: 10},
 	}, events)

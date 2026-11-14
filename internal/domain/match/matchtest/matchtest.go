@@ -162,7 +162,7 @@ func Battle(t testing.TB) *BattleInputBuilder {
 			Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 40),
 			ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
 		}
-		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: spec, HitPoints: creaturetest.HitPoints(t, 40)}
+		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: spec, Attack: spec.Attack, HitPoints: creaturetest.HitPoints(t, 40)}
 	}
 	land := match.BattleLand{Element: board.ElementFire, Level: 1}
 	rules := match.BattleRules{AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus, TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel}
@@ -182,6 +182,7 @@ func (b *BattleInputBuilder) Stats(side match.BattleSide, attack, hitPoints int)
 	b.t.Helper()
 	combatant := b.combatant(side)
 	combatant.Spec.Attack = creaturetest.Attack(b.t, attack)
+	combatant.Attack = combatant.Spec.Attack
 	combatant.HitPoints = creaturetest.HitPoints(b.t, hitPoints)
 	return b
 }

@@ -53,6 +53,8 @@ type PlacedCreature struct {
 	Owner ParticipantIndex
 	// 配置したときの性能の写し（対戦を始めたときの写しから写す。この 1 体だけを変える効果がほかの同じカードに響かないように）
 	Base CreatureSpec
+	// 今の AT（ボード上のスペル・能力で増減する。今は増減する効果が無いので性能の AT のまま。2026-11-14 オーナー。core#175）
+	Attack creature.Attack
 	// 今の体力
 	HitPoints creature.HitPoints
 }
@@ -80,27 +82,64 @@ type Invasion struct {
 	Creature PlacedCreatureID
 	// 出したときの性能の写し
 	Base CreatureSpec
-	// 戦闘の前の体力（戦闘の中の値は Battle が持つ）
+	// 戦闘の前の AT・体力（戦闘の中の値は Battle が持つ）
+	Attack    creature.Attack
 	HitPoints creature.HitPoints
 	// 出したアイテム。出すまでと、出さなかったときは nil
 	AttackerItem *card.Ref
 	DefenderItem *card.Ref
 }
 
-// 戦闘の中の片方のクリーチャー
+// 戦闘の中の片方のクリーチャー。値を層に分けて持ち、今の AT・HP（Stats）は層から計算する。今の値 1 つに混ぜると、
+// どの効果でいくら増えたか・受けたダメージがいくつかが残らず、地形効果の分だけを除く（貫通）・基本の値を見る（制約）といった
+// 計算ができないため（2026-11-14 オーナー。core#175）
 type BattleCreature struct {
-	// 効果と攻撃を当てた今の値
-	Stats BattleStats
-	// 効果を当てる前の体力
+	// 基本の AT・HP（カードの性能の値）
+	Base BattleStats
+	// 戦闘の前の AT・体力（領地のクリーチャーは、ボード上の効果と傷が残った今の値。手札から侵略したクリーチャーは基本の値と同じ）
+	InitialAttack    creature.Attack
 	InitialHitPoints creature.HitPoints
-	// 効果で増減した体力の合計
+	// 効果ごとの増減（当てた順。下限で止まった後の実際の量）
+	Modifiers []BattleStatModifier
+	// 攻撃で受けたダメージの合計（下限で止まった後の実際の量）
+	Damage int
+	// 能力（先制・後手）の発動で得た攻撃の順の強さ。先制は 1、後手は -1、どちらも発動していなければ 0。大きい方が先に攻撃する
+	StrikePriority int
+	// 攻撃で受けるダメージの割合（百分率）。ふつうは 100、攻撃無効の発動で 0。無効か否かの真偽にしないのは、攻撃半減のような
+	// 割合で減らす能力を同じ形で持つため（2026-11-14 オーナー。core#175）。複数が発動したら一番小さい割合を採る（倍率の
+	// 「一番高いものを 1 回だけ」と同じ考え方）
+	ReceivedDamagePercent int
+}
+
+// 効果 1 つで増減した量と、その出どころ
+type BattleStatModifier struct {
+	Source         BattleModifierSource
+	AttackDelta    int
 	HitPointsDelta int
+}
+
+// 今の AT・HP。AT は戦闘の前の値に増減を、HP は戦闘の前の値に増減と受けたダメージを当てる。増減とダメージは下限で止まった後の
+// 実際の量なので、足し合わせても途中で 0 を下回らない
+func (c BattleCreature) Stats() BattleStats {
+	attackDelta, hitPointsDelta := 0, 0
+	for _, modifier := range c.Modifiers {
+		attackDelta += modifier.AttackDelta
+		hitPointsDelta += modifier.HitPointsDelta
+	}
+	return BattleStats{Attack: c.InitialAttack.Modified(attackDelta), HitPoints: c.InitialHitPoints.Modified(hitPointsDelta - c.Damage)}
+}
+
+func (c BattleCreature) hitPointsDelta() int {
+	delta := 0
+	for _, modifier := range c.Modifiers {
+		delta += modifier.HitPointsDelta
+	}
+	return delta
 }
 
 // 戦闘の後に領地に残る体力。増えた分は先に減って残りは消え、下がった分は戦闘が終わると戻るので、残る傷は増えた分を超えたダメージだけ
 func (c BattleCreature) territoryHitPoints() creature.HitPoints {
-	damage := c.InitialHitPoints.Int() + c.HitPointsDelta - c.Stats.HitPoints.Int()
-	return c.InitialHitPoints.Modified(-max(damage-max(c.HitPointsDelta, 0), 0))
+	return c.InitialHitPoints.Modified(-max(c.Damage-max(c.hitPointsDelta(), 0), 0))
 }
 
 // 戦闘が始まってから終わるまでの両方のクリーチャー
@@ -109,7 +148,8 @@ type Battle struct {
 	Defender BattleCreature
 }
 
-func (b Battle) creature(side BattleSide) BattleCreature {
+// その側のクリーチャーの戦闘の中の値
+func (b Battle) Creature(side BattleSide) BattleCreature {
 	if side == BattleSideAttacker {
 		return b.Attacker
 	}
@@ -125,9 +165,15 @@ func (b Battle) withCreature(side BattleSide, updated BattleCreature) *Battle {
 	return &b
 }
 
+func (b Battle) withModifier(side BattleSide, source BattleModifierSource, change BattleStatChange) *Battle {
+	modified := b.Creature(side)
+	modified.Modifiers = append(slices.Clone(modified.Modifiers), BattleStatModifier{Source: source, AttackDelta: change.AttackDelta, HitPointsDelta: change.HitPointsDelta})
+	return b.withCreature(side, modified)
+}
+
 // どちらかの体力が 0 になっていて、戦闘が終わるか。AT は 0 になっても終わらない
 func (b Battle) decided() bool {
-	return b.Attacker.Stats.HitPoints.Int() == 0 || b.Defender.Stats.HitPoints.Int() == 0
+	return b.Attacker.Stats().HitPoints.Int() == 0 || b.Defender.Stats().HitPoints.Int() == 0
 }
 
 // 対戦の今の状態。read model を作らず、query もこの状態を読み直して返す（組み立ての決まりをここ 1 か所にするため）
@@ -728,8 +774,9 @@ func (m Match) TerritoryOwner(territory Territory) (ParticipantIndex, bool) {
 }
 
 // 侵略先の隣にある、その参加者の領地の位置（Position.Compare の順）。隣はボードのつながりだけで数え、転送円・橋の対は数えない（2026-11-09 オーナー）
+// 無いときも nil でなく空にする（戦闘の入力として記録すると、nil は "adjacent_territories": null になるため。2026-11-14 オーナー。core#175）
 func (m Match) adjacentTerritoriesOf(position board.Position, owner ParticipantIndex) []board.Position {
-	var positions []board.Position
+	positions := []board.Position{}
 	for _, connection := range m.Board.Connections {
 		neighbor := connection.A
 		switch position {

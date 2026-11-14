@@ -496,8 +496,8 @@ func (m Match) battleInput() (BattleInput, error) {
 		return invasion.From != nil && position == *invasion.From
 	})
 	return BattleInput{
-		Attacker:            BattleCombatant{Card: invasion.Card, Spec: invasion.Base, HitPoints: invasion.HitPoints, Item: attackerItem},
-		Defender:            BattleCombatant{Card: defending.Card, Spec: defending.Base, HitPoints: defending.HitPoints, Item: defenderItem},
+		Attacker:            BattleCombatant{Card: invasion.Card, Spec: invasion.Base, Attack: invasion.Attack, HitPoints: invasion.HitPoints, Item: attackerItem},
+		Defender:            BattleCombatant{Card: defending.Card, Spec: defending.Base, Attack: defending.Attack, HitPoints: defending.HitPoints, Item: defenderItem},
 		Land:                BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
 		AdjacentTerritories: adjacent,
 		Rules:               BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
@@ -598,7 +598,8 @@ func (b *battleResolver) applyAbilities(side BattleSide, random Random) error {
 		switch {
 		case ability.BattleModifier != nil:
 			modifier := *ability.BattleModifier
-			err = b.modifyStats(side, BattleStatSource{Effect: BattleEffectAbility, Ability: BattleAbilityBattleModifier}, modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+			change := b.actualChange(side, modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
+			err = b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleModifier, Change: &change})
 		case ability.BattleRandomStats != nil:
 			err = b.applyRandomStats(side, *ability.BattleRandomStats, random)
 		}
@@ -618,13 +619,18 @@ func (b *battleResolver) applyRandomStats(side BattleSide, randomStats creature.
 	minimum, maximum := randomStats.Minimum.Int(), randomStats.Maximum.Int()
 	attack := minimum + random.IntN(maximum-minimum+1)
 	hitPoints := minimum + random.IntN(maximum-minimum+1)
-	before := b.battle.creature(side).Stats
-	return b.modifyStats(side, BattleStatSource{Effect: BattleEffectAbility, Ability: BattleAbilityBattleRandomStats}, attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
+	before := b.battle.Creature(side).Stats()
+	change := b.actualChange(side, attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
+	return b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleRandomStats, Change: &change})
 }
 
+// 隣の自分の領地が無ければ発動しない
 func (b *battleResolver) applyAdjacentTerritories() error {
+	if len(b.input.AdjacentTerritories) == 0 {
+		return nil
+	}
 	bonus := len(b.input.AdjacentTerritories) * b.input.Rules.AdjacentTerritoryBonus.Int()
-	return b.modifyStats(BattleSideAttacker, BattleStatSource{Effect: BattleEffectAdjacentTerritories}, bonus, 0)
+	return b.emit(&BattleSupportEffectActivatedEvent{AttackDelta: b.actualChange(BattleSideAttacker, bonus, 0).AttackDelta})
 }
 
 func (b *battleResolver) applyTerrain() error {
@@ -632,7 +638,7 @@ func (b *battleResolver) applyTerrain() error {
 		return nil
 	}
 	bonus := b.input.Land.Level * b.input.Rules.TerrainBonusPerLevel.Int()
-	return b.modifyStats(BattleSideDefender, BattleStatSource{Effect: BattleEffectTerrain}, 0, bonus)
+	return b.emit(&BattleTerrainEffectActivatedEvent{HitPointsDelta: b.actualChange(BattleSideDefender, 0, bonus).HitPointsDelta})
 }
 
 // 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）
@@ -643,26 +649,24 @@ func terrainMatches(land board.Element, elements creature.Elements) bool {
 	return slices.ContainsFunc(elements, func(element creature.Element) bool { return element.String() == land.String() })
 }
 
+// アイテムの AT・HP の増減は、能力「戦闘中の増減」として発動する（能力と同じく増減が 0 でも出す）。
 // 巻物は分類だけで、増減を持っていても効果は無い（2026-11-09 オーナー）
 func (b *battleResolver) applyItem(side BattleSide) error {
 	used := b.input.combatant(side).Item
 	if used == nil || used.Spec.Category == item.CategoryScroll {
 		return nil
 	}
-	return b.modifyStats(side, BattleStatSource{Effect: BattleEffectItem}, used.Spec.AttackModifier.Int(), used.Spec.HitPointsModifier.Int())
+	change := b.actualChange(side, used.Spec.AttackModifier.Int(), used.Spec.HitPointsModifier.Int())
+	return b.emit(&BattleItemAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleModifier, Change: &change})
 }
 
-// 下限で止まった後の実際の増減を残す。何も変わらなければイベントを作らない。ただし能力は、このイベントが発動を表すので
-// （BattleAbilityActivatedEvent を別に出すと、再生で 1 つの発動が 2 行に割れるため。2026-11-12 オーナー）、
-// 持っていれば効き目が無くても出す決まり（2026-11-11 オーナー）に合わせて増減が 0 でも作る
-func (b *battleResolver) modifyStats(side BattleSide, source BattleStatSource, attackDelta, hitPointsDelta int) error {
-	before := b.battle.creature(side).Stats
-	attack, hitPoints := before.Attack.Modified(attackDelta), before.HitPoints.Modified(hitPointsDelta)
-	actualAttack, actualHitPoints := attack.Int()-before.Attack.Int(), hitPoints.Int()-before.HitPoints.Int()
-	if actualAttack == 0 && actualHitPoints == 0 && source.Effect != BattleEffectAbility {
-		return nil
+// 今の値に当てて下限（0）で止まった後の、実際の増減
+func (b *battleResolver) actualChange(side BattleSide, attackDelta, hitPointsDelta int) BattleStatChange {
+	before := b.battle.Creature(side).Stats()
+	return BattleStatChange{
+		AttackDelta:    before.Attack.Modified(attackDelta).Int() - before.Attack.Int(),
+		HitPointsDelta: before.HitPoints.Modified(hitPointsDelta).Int() - before.HitPoints.Int(),
 	}
-	return b.emit(&BattleStatModifiedEvent{Side: side, Source: source, AttackDelta: actualAttack, HitPointsDelta: actualHitPoints, Attack: attack, HitPoints: hitPoints})
 }
 
 // 攻撃の順に効く能力（先制・後手）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
@@ -672,38 +676,41 @@ func (b *battleResolver) activateStrikeAbilities() error {
 		if !ok {
 			continue
 		}
-		if err := b.emit(&BattleAbilityActivatedEvent{Side: side, Ability: ability}); err != nil {
+		if err := b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: ability}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）
+// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）。
+// 強さは発動で得た戦闘の中の値で比べる（core#175）
 func (b *battleResolver) strikeOrder() []BattleSide {
-	if b.input.Defender.Spec.strikePriority() > b.input.Attacker.Spec.strikePriority() {
+	if b.battle.Defender.StrikePriority > b.battle.Attacker.StrikePriority {
 		return []BattleSide{BattleSideDefender, BattleSideAttacker}
 	}
 	return []BattleSide{BattleSideAttacker, BattleSideDefender}
 }
 
 // 攻撃無効は相手の AT を下げるのではなく受けるダメージを 0 にするので、発動を攻撃の前に別のイベントで出す
-// （攻撃のイベントに埋めると、ダメージが 0 になった理由がイベントの並びに出ないため。2026-11-13 オーナー。core#174）
+// （攻撃のイベントに埋めると、ダメージが 0 になった理由がイベントの並びに出ないため。2026-11-13 オーナー。core#174）。
+// 発動するか（属性が合うか）は入力の性能で判定し、ダメージを 0 にするかは発動で得た戦闘の中の値で決める（core#175）
 func (b *battleResolver) strike(striker BattleSide) error {
 	receiver := striker.opponent()
-	damage := b.battle.creature(striker).Stats.Attack
 	if b.input.combatant(receiver).Spec.isImmuneToAttackFrom(b.input.combatant(striker).Spec) {
-		if err := b.emit(&BattleAbilityActivatedEvent{Side: receiver, Ability: BattleAbilityAttackImmunity}); err != nil {
+		if err := b.emit(&BattleCreatureAbilityActivatedEvent{Side: receiver, Ability: BattleAbilityAttackImmunity}); err != nil {
 			return err
 		}
-		damage = 0
 	}
-	remaining := b.battle.creature(receiver).Stats.HitPoints.Damaged(damage)
+	attack := b.battle.Creature(striker).Stats().Attack
+	// 受ける割合を掛けて切り捨てる（攻撃無効は 0）
+	damage := attack.Modified(attack.Int()*b.battle.Creature(receiver).ReceivedDamagePercent/100 - attack.Int())
+	remaining := b.battle.Creature(receiver).Stats().HitPoints.Damaged(damage)
 	return b.emit(&CreatureStruckEvent{Striker: striker, Damage: damage, RemainingHitPoints: remaining})
 }
 
 func settleBattle(r *recorder) error {
-	if r.state.Battle.Defender.Stats.HitPoints.Int() == 0 {
+	if r.state.Battle.Defender.Stats().HitPoints.Int() == 0 {
 		return conquer(r)
 	}
 	return repel(r)
@@ -737,7 +744,7 @@ func repel(r *recorder) error {
 		return ErrInvalidState
 	}
 	invasion := *r.state.Invasion
-	survived := r.state.Battle.Attacker.Stats.HitPoints.Int() > 0
+	survived := r.state.Battle.Attacker.Stats().HitPoints.Int() > 0
 	hitPoints := r.state.Battle.Defender.territoryHitPoints()
 	repelled := &InvasionRepelledEvent{Participant: 0, TerritoryHitPoints: hitPoints}
 	if survived && invasion.From != nil {

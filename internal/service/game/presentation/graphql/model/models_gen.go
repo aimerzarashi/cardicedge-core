@@ -170,11 +170,6 @@ type LevelUpMatchTerritoryResult interface {
 	IsLevelUpMatchTerritoryResult()
 }
 
-// 戦闘の AT・HP を変えた効果の出どころ
-type MatchBattleStatSource interface {
-	IsMatchBattleStatSource()
-}
-
 // 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
 // 誰が（participant）は Match.participants の何番目か
 type MatchEvent interface {
@@ -1352,28 +1347,6 @@ type Match struct {
 
 func (Match) IsMatchResult() {}
 
-// 発動した能力（このイベントが能力の発動を表す。MatchBattleAbilityActivatedEvent は別に出ない）
-type MatchAbilitySource struct {
-	// 発動した能力（BATTLE_MODIFIER・BATTLE_RANDOM_STATS）
-	Ability CreatureAbilityKind `json:"ability"`
-	// 戦闘中の増減の根拠（BATTLE_MODIFIER のときだけ。ほかは null）
-	BattleModifier *MatchBattleModifierBasis `json:"battleModifier,omitempty"`
-	// 戦闘中のランダムの根拠（BATTLE_RANDOM_STATS のときだけ。ほかは null）
-	BattleRandomStats *MatchBattleRandomStatsBasis `json:"battleRandomStats,omitempty"`
-}
-
-func (MatchAbilitySource) IsMatchBattleStatSource() {}
-
-// 支援効果（侵略先の隣にある、攻める側の領地）
-type MatchAdjacentTerritoriesSource struct {
-	// 隣の領地の位置
-	Positions []*BoardPosition `json:"positions"`
-	// 隣の領地 1 つあたりの AT の増加
-	BonusPerTerritory int `json:"bonusPerTerritory"`
-}
-
-func (MatchAdjacentTerritoriesSource) IsMatchBattleStatSource() {}
-
 // 参加者のアバターを、公開用の ID と名前で見せる値（名前は読むときに引く）
 type MatchAvatar struct {
 	// 公開用の ID（プレイヤーのアバターか、NPC のアバターか）
@@ -1382,8 +1355,9 @@ type MatchAvatar struct {
 	Name string `json:"name"`
 }
 
-// 戦闘で能力が発動した（先制・後手は、効き目が無いとき（両方が先制で打ち消し合う等）も、持っていれば出る。攻撃無効は、攻撃してきたクリーチャーの属性が合ったときだけ、その攻撃の前に出る）
-type MatchBattleAbilityActivatedEvent struct {
+// クリーチャーの能力が発動した。先制・後手は効き目が無いとき（両方が先制で打ち消し合う等）も持っていれば出る。攻撃無効は、攻撃してきた
+// クリーチャーの属性が合ったときだけ、その攻撃の前に出る。AT・HP を変える能力（戦闘中の増減・戦闘中のランダム）は増減が 0 でも出る
+type MatchBattleCreatureAbilityActivatedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
@@ -1392,20 +1366,63 @@ type MatchBattleAbilityActivatedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 能力を持つクリーチャーの側
 	Side MatchBattleSide `json:"side"`
-	// 発動した能力（AT・HP を変えない能力。今は FIRST_STRIKE・LAST_STRIKE・ATTACK_IMMUNITY）
+	// 発動した能力
 	Ability CreatureAbilityKind `json:"ability"`
+	// 増減と当てた後の値（AT・HP を変える能力のときだけ。ほかは null）
+	Change *MatchBattleStatChange `json:"change,omitempty"`
+	// 戦闘中の増減の根拠（BATTLE_MODIFIER のときだけ。ほかは null）
+	BattleModifier *MatchBattleModifierBasis `json:"battleModifier,omitempty"`
+	// 戦闘中のランダムの根拠（BATTLE_RANDOM_STATS のときだけ。ほかは null）
+	BattleRandomStats *MatchBattleRandomStatsBasis `json:"battleRandomStats,omitempty"`
 }
 
-func (MatchBattleAbilityActivatedEvent) IsMatchEvent() {}
+func (MatchBattleCreatureAbilityActivatedEvent) IsMatchEvent() {}
 
 // 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchBattleAbilityActivatedEvent) GetRevision() int { return this.Revision }
+func (this MatchBattleCreatureAbilityActivatedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
-func (this MatchBattleAbilityActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+func (this MatchBattleCreatureAbilityActivatedEvent) GetOccurredAt() time.Time {
+	return this.OccurredAt
+}
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchBattleAbilityActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+func (this MatchBattleCreatureAbilityActivatedEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
+}
+
+// 出したアイテムの能力が発動した（今のアイテムの AT・HP の増減は、能力「戦闘中の増減」として増減が 0 でも出る。巻物は効かないので出ない）
+type MatchBattleItemAbilityActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// アイテムを出した側
+	Side MatchBattleSide `json:"side"`
+	// 発動した能力（今は BATTLE_MODIFIER だけ）
+	Ability CreatureAbilityKind `json:"ability"`
+	// アイテムのカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// アイテムの決まった AT の増減（下限で止まる前の値）
+	AttackModifier int `json:"attackModifier"`
+	// アイテムの決まった HP の増減（下限で止まる前の値）
+	HitPointsModifier int `json:"hitPointsModifier"`
+	// 増減と当てた後の値
+	Change *MatchBattleStatChange `json:"change,omitempty"`
+}
+
+func (MatchBattleItemAbilityActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleItemAbilityActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleItemAbilityActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleItemAbilityActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘中の増減の決まった値
 type MatchBattleModifierBasis struct {
@@ -1415,7 +1432,7 @@ type MatchBattleModifierBasis struct {
 	HitPointsModifier int `json:"hitPointsModifier"`
 }
 
-// 戦闘中のランダムの範囲（引いた値は MatchBattleStatModifiedEvent の当てた後の AT・HP）
+// 戦闘中のランダムの範囲（引いた値は change の当てた後の AT・HP）
 type MatchBattleRandomStatsBasis struct {
 	// 範囲の最小
 	Minimum int `json:"minimum"`
@@ -1423,7 +1440,7 @@ type MatchBattleRandomStatsBasis struct {
 	Maximum int `json:"maximum"`
 }
 
-// 戦闘が始まった（効果を当てる前の両方の AT・HP）
+// 戦闘が始まった（効果を当てる前の両方の AT・HP。領地のクリーチャーは、ボード上の効果と傷が残った今の値）
 type MatchBattleStartedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -1448,18 +1465,8 @@ func (this MatchBattleStartedEvent) GetOccurredAt() time.Time { return this.Occu
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchBattleStartedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 効果 1 つが戦闘の AT・HP を変えた（出どころが能力のときは、持っていれば増減が 0 でも出る）
-type MatchBattleStatModifiedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 効果を受けた側
-	Side MatchBattleSide `json:"side"`
-	// 何の効果か
-	Source MatchBattleStatSource `json:"source"`
+// 戦闘の AT・HP の増減と、当てた後の値
+type MatchBattleStatChange struct {
 	// AT の増減（下限の 0 で止まった後の実際の増減）
 	AttackDelta int `json:"attackDelta"`
 	// HP の増減（下限の 0 で止まった後の実際の増減）
@@ -1470,23 +1477,76 @@ type MatchBattleStatModifiedEvent struct {
 	HitPoints int `json:"hitPoints"`
 }
 
-func (MatchBattleStatModifiedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchBattleStatModifiedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchBattleStatModifiedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchBattleStatModifiedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // 戦闘の中の AT・HP
 type MatchBattleStats struct {
 	// 攻撃力
 	Attack int `json:"attack"`
 	// 体力
 	HitPoints int `json:"hitPoints"`
+}
+
+// 攻める側に支援効果が発動した（隣の自分の領地の数 × 1 つあたりの値だけ AT が増える。隣の領地が無ければ出ない）
+type MatchBattleSupportEffectActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 効果を受けた側（いつも ATTACKER）
+	Side MatchBattleSide `json:"side"`
+	// 侵略先の隣にある、攻める側の領地の位置
+	Positions []*BoardPosition `json:"positions"`
+	// 隣の領地 1 つあたりの AT の増加
+	BonusPerTerritory int `json:"bonusPerTerritory"`
+	// 増減と当てた後の値（いつもある）
+	Change *MatchBattleStatChange `json:"change,omitempty"`
+}
+
+func (MatchBattleSupportEffectActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleSupportEffectActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleSupportEffectActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleSupportEffectActivatedEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
+}
+
+// 守る側に地形効果が発動した（土地の属性がクリーチャーの属性と合えば、レベル × 1 レベルあたりの値だけ HP が増える。合わなければ出ない）
+type MatchBattleTerrainEffectActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 効果を受けた側（いつも DEFENDER）
+	Side MatchBattleSide `json:"side"`
+	// 土地の属性
+	Element BoardTileElement `json:"element"`
+	// 土地のレベル
+	Level int `json:"level"`
+	// レベル 1 つあたりの HP の増加
+	BonusPerLevel int `json:"bonusPerLevel"`
+	// 増減と当てた後の値（いつもある）
+	Change *MatchBattleStatChange `json:"change,omitempty"`
+}
+
+func (MatchBattleTerrainEffectActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBattleTerrainEffectActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBattleTerrainEffectActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBattleTerrainEffectActivatedEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
 }
 
 // 対戦の盤面。始めた時点のボードの写し（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）。
@@ -2047,18 +2107,6 @@ func (this MatchItemSkippedEvent) GetOccurredAt() time.Time { return this.Occurr
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchItemSkippedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
-// 戦闘に出したアイテム
-type MatchItemSource struct {
-	// アイテムのカード（性能は対戦を始めたときの写し）
-	Card CardInfo `json:"card"`
-	// アイテムの決まった AT の増減（下限で止まる前の値）
-	AttackModifier int `json:"attackModifier"`
-	// アイテムの決まった HP の増減（下限で止まる前の値）
-	HitPointsModifier int `json:"hitPointsModifier"`
-}
-
-func (MatchItemSource) IsMatchBattleStatSource() {}
 
 // 戦闘に手札のアイテムを出した（攻める側も守る側も同じ。効果はまだ無い）
 type MatchItemUsedEvent struct {
@@ -2646,18 +2694,6 @@ func (this MatchSpellUsedEvent) GetOccurredAt() time.Time { return this.Occurred
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchSpellUsedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
-// 地形効果（効いた土地）
-type MatchTerrainSource struct {
-	// 土地の属性
-	Element BoardTileElement `json:"element"`
-	// 土地のレベル
-	Level int `json:"level"`
-	// レベル 1 つあたりの HP の増加
-	BonusPerLevel int `json:"bonusPerLevel"`
-}
-
-func (MatchTerrainSource) IsMatchBattleStatSource() {}
 
 // 領地（クリーチャーを配置した土地）
 type MatchTerritory struct {

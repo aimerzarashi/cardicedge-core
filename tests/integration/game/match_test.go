@@ -417,17 +417,13 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature card { id name } defendingCreatureCard { id name } }
 				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
-				... on MatchBattleStatModifiedEvent {
-					side attackDelta hitPointsDelta attack hitPoints
-					source {
-						__typename
-						... on MatchAdjacentTerritoriesSource { positions { x y } bonusPerTerritory }
-						... on MatchTerrainSource { element level bonusPerLevel }
-						... on MatchItemSource { card { id name } attackModifier hitPointsModifier }
-						... on MatchAbilitySource { ability battleModifier { attackModifier hitPointsModifier } battleRandomStats { minimum maximum } }
-					}
+				... on MatchBattleSupportEffectActivatedEvent { side positions { x y } bonusPerTerritory change { attackDelta hitPointsDelta attack hitPoints } }
+				... on MatchBattleTerrainEffectActivatedEvent { side element level bonusPerLevel change { attackDelta hitPointsDelta attack hitPoints } }
+				... on MatchBattleCreatureAbilityActivatedEvent {
+					side ability change { attackDelta hitPointsDelta attack hitPoints }
+					battleModifier { attackModifier hitPointsModifier } battleRandomStats { minimum maximum }
 				}
-				... on MatchBattleAbilityActivatedEvent { side ability }
+				... on MatchBattleItemAbilityActivatedEvent { side ability card { id name } attackModifier hitPointsModifier change { attackDelta hitPointsDelta attack hitPoints } }
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
 				... on MatchTerritoryConqueredEvent { participant position { x y } creature territoryHitPoints }
 				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
@@ -947,8 +943,8 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			movingFrom = nil
 		case "MatchTerritoryRelinquishedEvent":
 			delete(expected, key(event["position"]))
-		case "MatchBattleStatModifiedEvent":
-			requireStatDeltaMatchesSource(t, event)
+		case "MatchBattleSupportEffectActivatedEvent", "MatchBattleTerrainEffectActivatedEvent", "MatchBattleCreatureAbilityActivatedEvent", "MatchBattleItemAbilityActivatedEvent":
+			requireStatDeltaMatchesBasis(t, event)
 		case "MatchLandElementChangedEvent":
 			require.Equal(t, event["baseLandValue"].(float64)*event["multiplier"].(float64), event["magic"])
 		case "MatchMagicGainedEvent":
@@ -996,23 +992,27 @@ func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
 }
 
 // 増減が出どころの根拠から説明できる（下限の 0 で止まったときは、根拠の値より小さくなる）
-func requireStatDeltaMatchesSource(t *testing.T, event map[string]any) {
+// 発動のイベントの増減が、添えた根拠の値から決まる量と合う（AT・HP を変えない能力は増減を持たない）
+func requireStatDeltaMatchesBasis(t *testing.T, event map[string]any) {
 	t.Helper()
-	source := event["source"].(map[string]any)
-	attackDelta, hitPointsDelta := event["attackDelta"].(float64), event["hitPointsDelta"].(float64)
-	switch source["__typename"] {
-	case "MatchAdjacentTerritoriesSource":
-		require.Equal(t, float64(len(source["positions"].([]any)))*source["bonusPerTerritory"].(float64), attackDelta)
-	case "MatchTerrainSource":
-		require.Equal(t, source["level"].(float64)*source["bonusPerLevel"].(float64), hitPointsDelta)
-	case "MatchItemSource":
-		requireDeltaWithinModifier(t, source, attackDelta, hitPointsDelta)
-	case "MatchAbilitySource":
-		if basis, ok := source["battleModifier"].(map[string]any); ok {
+	change, ok := event["change"].(map[string]any)
+	if !ok {
+		return
+	}
+	attackDelta, hitPointsDelta := change["attackDelta"].(float64), change["hitPointsDelta"].(float64)
+	switch event["__typename"] {
+	case "MatchBattleSupportEffectActivatedEvent":
+		require.Equal(t, float64(len(event["positions"].([]any)))*event["bonusPerTerritory"].(float64), attackDelta)
+	case "MatchBattleTerrainEffectActivatedEvent":
+		require.Equal(t, event["level"].(float64)*event["bonusPerLevel"].(float64), hitPointsDelta)
+	case "MatchBattleItemAbilityActivatedEvent":
+		requireDeltaWithinModifier(t, event, attackDelta, hitPointsDelta)
+	case "MatchBattleCreatureAbilityActivatedEvent":
+		if basis, ok := event["battleModifier"].(map[string]any); ok {
 			requireDeltaWithinModifier(t, basis, attackDelta, hitPointsDelta)
 		}
-		if basis, ok := source["battleRandomStats"].(map[string]any); ok {
-			for _, stat := range []float64{event["attack"].(float64), event["hitPoints"].(float64)} {
+		if basis, ok := event["battleRandomStats"].(map[string]any); ok {
+			for _, stat := range []float64{change["attack"].(float64), change["hitPoints"].(float64)} {
 				require.GreaterOrEqual(t, stat, basis["minimum"])
 				require.LessOrEqual(t, stat, basis["maximum"])
 			}
