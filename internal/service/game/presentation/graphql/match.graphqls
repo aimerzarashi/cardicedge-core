@@ -19,7 +19,7 @@ enum MatchPhase {
   CHOOSING_PATH
   "空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
   PLACING
-  "止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchTerritory・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ"
+  "止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ"
   TERRITORY_COMMANDING
   "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
   INVADING
@@ -57,7 +57,7 @@ type MatchTerritory {
   level: Int!
   "土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）"
   value: Int!
-  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））"
+  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））"
   toll: Int!
   "手放したときに受け取る魔力"
   relinquishMagic: Int!
@@ -634,7 +634,7 @@ type MatchLevelUpChoice {
 }
 
 "通った自分の領地のレベルを上げる入力"
-input LevelUpMatchTerritoryInput {
+input LevelUpMatchLandInput {
   "対戦の公開用の ID"
   id: UUID!
   "画面が見ていた対戦の revision"
@@ -646,16 +646,16 @@ input LevelUpMatchTerritoryInput {
 }
 
 "領地のレベルを上げた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
-type LevelUpMatchTerritorySuccess {
+type LevelUpMatchLandSuccess {
   "対戦の公開用の ID"
   id: UUID!
   "操作した後の対戦の revision"
   revision: Int!
 }
 
-"levelUpMatchTerritory の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
-union LevelUpMatchTerritoryResult =
-    LevelUpMatchTerritorySuccess
+"levelUpMatchLand の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union LevelUpMatchLandResult =
+    LevelUpMatchLandSuccess
   | ValidationErrors
   | MatchNotFoundError
   | MatchNotYourTurnError
@@ -854,7 +854,7 @@ extend type Mutation {
   "魔力が負の間に、自分の領地を手放す"
   relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
   "通った自分の領地のレベルを上げる（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
-  levelUpMatchTerritory(input: LevelUpMatchTerritoryInput!): LevelUpMatchTerritoryResult!
+  levelUpMatchLand(input: LevelUpMatchLandInput!): LevelUpMatchLandResult!
   "通った自分の領地のクリーチャーを手札のクリーチャーと交換する（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
   exchangeMatchCreature(input: ExchangeMatchCreatureInput!): ExchangeMatchCreatureResult!
   "通った自分の領地のクリーチャーを動かす（領地コマンド。空き地へならそのまま止まったマスの決まりに進み、他人の領地へなら侵略と同じ戦闘をする）"
@@ -912,7 +912,7 @@ type MatchTerritoryValue {
   position: BoardPosition!
   "土地の価値（連鎖を含む）"
   value: Int!
-  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））"
+  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））"
   toll: Int!
   "土地のレベル（価値の根拠。レベルの倍率は MatchPlayRules.landLevelMultipliers）"
   level: Int!
@@ -980,7 +980,7 @@ type MatchTurnOrderDecidedEvent implements MatchEvent {
 }
 
 "山札が混ざった（並びは見せないので、項目を持たない）"
-type MatchDecksShuffledEvent implements MatchEvent {
+type MatchDrawPilesShuffledEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1162,7 +1162,7 @@ enum MatchBattleSide {
 }
 
 "通った自分の領地のレベルを上げた"
-type MatchTerritoryLeveledUpEvent implements MatchEvent {
+type MatchLandLeveledUpEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1402,7 +1402,7 @@ type MatchCreatureStruckEvent implements MatchEvent {
 }
 
 "守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）"
-type MatchTerritoryConqueredEvent implements MatchEvent {
+type MatchInvasionSucceededEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1420,7 +1420,7 @@ type MatchTerritoryConqueredEvent implements MatchEvent {
 }
 
 "守る側のクリーチャーを倒せなかった（続けて通行料を払う）"
-type MatchInvasionRepelledEvent implements MatchEvent {
+type MatchInvasionFailedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1444,7 +1444,7 @@ type MatchInvasionRepelledEvent implements MatchEvent {
 }
 
 "通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した（倍率を持っていれば、効き目が無くても出る）。続く MatchTollPaidEvent が multipliedToll を払う"
-type MatchTollMultiplierActivatedEvent implements MatchEvent {
+type MatchTollCreatureEffectActivatedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1565,20 +1565,52 @@ type MatchCreatureDamagedEvent implements MatchEvent {
   remainingHitPoints: Int!
 }
 
-"スペルのダメージで、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札に入る）"
-type MatchCreatureDestroyedEvent implements MatchEvent {
+"戦闘で、侵略したクリーチャーが破壊された（カードは捨て札に入り、移動で侵略していたら元の土地が空く）"
+type MatchInvadingCreatureDestroyedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
   "このイベントで変わった、描画に要る core の決まりで決まる値"
   changes: MatchEventChanges!
-  "使った参加者（Match.participants の何番目か）"
+  "今の番の参加者（Match.participants の何番目か）"
   participant: Int!
-  "破壊されたクリーチャーがいた領地の位置"
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（戦場）"
   position: BoardPosition!
-  "破壊されたクリーチャー（MatchPlacedCreature.id）"
-  creature: Int!
+}
+
+"戦闘で、守るクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）"
+type MatchDefendingCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（戦場）"
+  position: BoardPosition!
+}
+
+"ボードで（今はスペルのダメージで）、領地のクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）"
+type MatchBoardCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（その領地）"
+  position: BoardPosition!
 }
 
 "自分のターンを終えて、続いていたスペルの効果が終わった"
@@ -1612,7 +1644,7 @@ type MatchMagicGainedEvent implements MatchEvent {
 }
 
 "1 マス進んだ"
-type MatchMovedEvent implements MatchEvent {
+type MatchPieceMovedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1700,7 +1732,7 @@ type MatchRewardDrawnEvent implements MatchEvent {
 }
 
 "プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）"
-type MatchRewardsCompletedEvent implements MatchEvent {
+type MatchAllRewardsReceivedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"

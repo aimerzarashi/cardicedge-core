@@ -111,13 +111,13 @@ type RelinquishTerritoryCommand struct {
 func (*RelinquishTerritoryCommand) isMatchCommand() {}
 
 // 通った自分の領地の土地のレベルを Level に上げる（飛ばして上げられる）
-type LevelUpTerritoryCommand struct {
+type LevelUpLandCommand struct {
 	By       ParticipantIndex
 	Position board.Position
 	Level    int
 }
 
-func (*LevelUpTerritoryCommand) isMatchCommand() {}
+func (*LevelUpLandCommand) isMatchCommand() {}
 
 // 通った自分の領地のクリーチャーを、手札のクリーチャーと入れ替える（HandIndex は手札の何番目か。0 始まり）
 type ExchangeCreatureCommand struct {

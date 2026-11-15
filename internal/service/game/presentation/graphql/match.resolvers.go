@@ -117,22 +117,22 @@ func (r *mutationResolver) RelinquishMatchTerritory(ctx context.Context, input m
 	return &model.RelinquishMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// LevelUpMatchTerritory is the resolver for the levelUpMatchTerritory field.
-func (r *mutationResolver) LevelUpMatchTerritory(ctx context.Context, input model.LevelUpMatchTerritoryInput) (model.LevelUpMatchTerritoryResult, error) {
+// LevelUpMatchLand is the resolver for the levelUpMatchLand field.
+func (r *mutationResolver) LevelUpMatchLand(ctx context.Context, input model.LevelUpMatchLandInput) (model.LevelUpMatchLandResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	changed, err := r.matches.LevelUpTerritory(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.Level)
+	changed, err := r.matches.LevelUpLand(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.Level)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
-	if result, ok := matchError(err).(model.LevelUpMatchTerritoryResult); ok {
+	if result, ok := matchError(err).(model.LevelUpMatchLandResult); ok {
 		return result, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &model.LevelUpMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.LevelUpMatchLandSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // ExchangeMatchCreature is the resolver for the exchangeMatchCreature field.

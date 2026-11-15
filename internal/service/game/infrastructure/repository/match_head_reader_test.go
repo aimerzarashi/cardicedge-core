@@ -61,7 +61,7 @@ func TestMatchHeadReader_ReportsRewardsCompletedWhenTheLastEventIsRewardsComplet
 	id, _ := issueEntity(t, f, match.NewID)
 	at := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 	insertMatchEvent(t, f, id, 1, (&match.CreatedEvent{}).EventType(), at)
-	insertMatchEvent(t, f, id, 2, (&match.RewardsCompletedEvent{}).EventType(), at.Add(time.Second))
+	insertMatchEvent(t, f, id, 2, (&match.AllRewardsReceivedEvent{}).EventType(), at.Add(time.Second))
 
 	head, err := repository.NewMatchHeadReader().Load(f.ctx, id)
 

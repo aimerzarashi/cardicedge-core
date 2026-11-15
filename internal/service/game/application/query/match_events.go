@@ -72,7 +72,7 @@ type MatchTurnOrderDecidedEvent struct {
 }
 
 // 山札を混ぜた。並びは見せないので、何も持たない
-type MatchDecksShuffledEvent struct{ MatchEventMeta }
+type MatchDrawPilesShuffledEvent struct{ MatchEventMeta }
 
 type MatchHandsDealtEvent struct {
 	MatchEventMeta
@@ -139,12 +139,31 @@ type MatchCreatureDamagedEvent struct {
 	RemainingHitPoints int
 }
 
-// スペルのダメージで、領地のクリーチャーが破壊された
-type MatchCreatureDestroyedEvent struct {
+// 戦闘で、侵略したクリーチャーが破壊された
+type MatchInvadingCreatureDestroyedEvent struct {
 	MatchEventMeta
 	Participant int
-	Position    BoardPosition
-	Creature    int
+	// 破壊されたクリーチャーのカードと、破壊された場所（戦場）
+	Card     MatchCard
+	Position BoardPosition
+}
+
+// 戦闘で、守るクリーチャーが破壊された
+type MatchDefendingCreatureDestroyedEvent struct {
+	MatchEventMeta
+	Participant int
+	// 破壊されたクリーチャーのカードと、破壊された場所（戦場）
+	Card     MatchCard
+	Position BoardPosition
+}
+
+// ボードで、領地のクリーチャーが破壊された
+type MatchBoardCreatureDestroyedEvent struct {
+	MatchEventMeta
+	Participant int
+	// 破壊されたクリーチャーのカードと、破壊された場所（その領地）
+	Card     MatchCard
+	Position BoardPosition
 }
 
 // 自分のターンを終えて、続いていたスペルの効果が終わった
@@ -162,7 +181,7 @@ type MatchMagicGainedEvent struct {
 	MagicPerLap int
 }
 
-type MatchMovedEvent struct {
+type MatchPieceMovedEvent struct {
 	MatchEventMeta
 	Participant int
 	To          BoardPosition
@@ -196,7 +215,7 @@ type MatchEndedEvent struct {
 }
 
 // 通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した。Toll は盤面の通行料、MultipliedToll は払う額
-type MatchTollMultiplierActivatedEvent struct {
+type MatchTollCreatureEffectActivatedEvent struct {
 	MatchEventMeta
 	Position       BoardPosition
 	Percent        int
@@ -384,7 +403,7 @@ type MatchCreatureStruckEvent struct {
 }
 
 // 守る側のクリーチャーを倒して土地を奪った。Creature は領地に入ったクリーチャーの新しい ID
-type MatchTerritoryConqueredEvent struct {
+type MatchInvasionSucceededEvent struct {
 	MatchEventMeta
 	Participant        int
 	Position           BoardPosition
@@ -393,7 +412,7 @@ type MatchTerritoryConqueredEvent struct {
 }
 
 // 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り、倒れていれば捨て札になる
-type MatchInvasionRepelledEvent struct {
+type MatchInvasionFailedEvent struct {
 	MatchEventMeta
 	Participant        int
 	Position           BoardPosition
@@ -406,7 +425,7 @@ type MatchInvasionRepelledEvent struct {
 }
 
 // 通った自分の領地のレベルを上げた
-type MatchTerritoryLeveledUpEvent struct {
+type MatchLandLeveledUpEvent struct {
 	MatchEventMeta
 	Participant int
 	Position    BoardPosition
@@ -469,7 +488,7 @@ type MatchRewardDrawnEvent struct {
 }
 
 // プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
-type MatchRewardsCompletedEvent struct{ MatchEventMeta }
+type MatchAllRewardsReceivedEvent struct{ MatchEventMeta }
 
 // 「この版より後のイベント」を返す差分の query。対戦は read model を作らず、イベントストアから読んで写す。
 // 参加者のプレイヤーだけが読める
@@ -709,9 +728,21 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		return []card.Ref{handCard(previous, e.Participant, e.HandIndex)}
 	case *match.SpellUsedEvent:
 		return []card.Ref{handCard(previous, e.Participant, e.HandIndex)}
-	case *match.InvasionRepelledEvent:
+	case *match.InvasionFailedEvent:
 		if previous.Invasion != nil {
 			return []card.Ref{previous.Invasion.Card}
+		}
+	case *match.InvadingCreatureDestroyedEvent:
+		if previous.Invasion != nil {
+			return []card.Ref{previous.Invasion.Card}
+		}
+	case *match.DefendingCreatureDestroyedEvent:
+		if previous.Invasion != nil {
+			return []card.Ref{creatureAt(previous, previous.Invasion.Position).Card}
+		}
+	case *match.BoardCreatureDestroyedEvent:
+		if position, ok := destroyedOnBoard(previous); ok {
+			return []card.Ref{creatureAt(previous, position).Card}
 		}
 	case *match.BattleItemEffectActivatedEvent:
 		// 戦闘の開始が after より前でも引けるように、出来事の版から入力を引く
@@ -818,8 +849,8 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchCreatedEvent{meta}, nil
 	case *match.TurnOrderDecidedEvent:
 		return MatchTurnOrderDecidedEvent{meta, participantNumbers(e.Order)}, nil
-	case *match.DecksShuffledEvent:
-		return MatchDecksShuffledEvent{meta}, nil
+	case *match.DrawPilesShuffledEvent:
+		return MatchDrawPilesShuffledEvent{meta}, nil
 	case *match.HandsDealtEvent:
 		return MatchHandsDealtEvent{meta, e.Cards}, nil
 	case *match.CardDrawnEvent:
@@ -847,13 +878,28 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchSpellEffectEndedEvent{meta, e.Participant.Int()}, nil
 	case *match.CreatureDamagedEvent:
 		return MatchCreatureDamagedEvent{meta, e.Participant.Int(), boardPosition(e.Position), creatureAt(previous, e.Position).ID.Int(), e.Damage, e.RemainingHitPoints.Int()}, nil
-	case *match.CreatureDestroyedEvent:
-		return MatchCreatureDestroyedEvent{meta, e.Participant.Int(), boardPosition(e.Position), creatureAt(previous, e.Position).ID.Int()}, nil
+	case *match.InvadingCreatureDestroyedEvent:
+		if previous.Invasion == nil {
+			return nil, fmt.Errorf("query: invading creature destroyed event %d without invasion", e.AggregateVersion)
+		}
+		return MatchInvadingCreatureDestroyedEvent{meta, e.Participant.Int(), cardOf(previous.Invasion.Card, cards), boardPosition(previous.Invasion.Position)}, nil
+	case *match.DefendingCreatureDestroyedEvent:
+		if previous.Invasion == nil {
+			return nil, fmt.Errorf("query: defending creature destroyed event %d without invasion", e.AggregateVersion)
+		}
+		position := previous.Invasion.Position
+		return MatchDefendingCreatureDestroyedEvent{meta, e.Participant.Int(), cardOf(creatureAt(previous, position).Card, cards), boardPosition(position)}, nil
+	case *match.BoardCreatureDestroyedEvent:
+		position, ok := destroyedOnBoard(previous)
+		if !ok {
+			return nil, fmt.Errorf("query: board creature destroyed event %d without the destroyed creature", e.AggregateVersion)
+		}
+		return MatchBoardCreatureDestroyedEvent{meta, e.Participant.Int(), cardOf(creatureAt(previous, position).Card, cards), boardPosition(position)}, nil
 	case *match.MagicGainedEvent:
 		laps, perLap := magicGainedBasis(previous, e.Participant)
 		return MatchMagicGainedEvent{meta, e.Participant.Int(), e.Magic, laps, perLap}, nil
-	case *match.MovedEvent:
-		return MatchMovedEvent{meta, e.Participant.Int(), boardPosition(e.To)}, nil
+	case *match.PieceMovedEvent:
+		return MatchPieceMovedEvent{meta, e.Participant.Int(), boardPosition(e.To)}, nil
 	case *match.CheckpointPassedEvent:
 		return MatchCheckpointPassedEvent{meta, e.Participant.Int(), boardPosition(positionOf(previous, e.Participant)), e.Magic}, nil
 	case *match.LapCompletedEvent:
@@ -872,15 +918,15 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 			drawn[i] = cardOf(reward, cards)
 		}
 		return MatchRewardDrawnEvent{meta, e.Participant.Int(), string(e.Pack), drawn}, nil
-	case *match.RewardsCompletedEvent:
-		return MatchRewardsCompletedEvent{meta}, nil
-	case *match.TollMultiplierActivatedEvent:
+	case *match.AllRewardsReceivedEvent:
+		return MatchAllRewardsReceivedEvent{meta}, nil
+	case *match.TollCreatureEffectActivatedEvent:
 		// 今の番の人が止まっている領地。倍率は盤面の通行料に掛けて切り捨てる（Decide の payToll と同じ。払った額は続く TollPaidEvent）
 		position := currentPosition(previous)
 		territory, _ := previous.TerritoryAt(position)
 		percent, _ := creatureAt(previous, position).Base.TollMultiplier()
 		toll := previous.TerritoryToll(territory)
-		return MatchTollMultiplierActivatedEvent{meta, boardPosition(position), percent.Int(), toll, toll * percent.Int() / 100}, nil
+		return MatchTollCreatureEffectActivatedEvent{meta, boardPosition(position), percent.Int(), toll, toll * percent.Int() / 100}, nil
 	case *match.TollPaidEvent:
 		position := positionOf(previous, e.Participant)
 		territory, _ := previous.TerritoryAt(position)
@@ -903,8 +949,8 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cardOf(handCard(previous, e.Participant, e.HandIndex), cards), e.Cost.Int()}, nil
 	case *match.ItemSkippedEvent:
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
-	case *match.TerritoryLeveledUpEvent:
-		return MatchTerritoryLeveledUpEvent{meta, e.Participant.Int(), boardPosition(e.Position), e.Level, e.Magic}, nil
+	case *match.LandLeveledUpEvent:
+		return MatchLandLeveledUpEvent{meta, e.Participant.Int(), boardPosition(e.Position), e.Level, e.Magic}, nil
 	case *match.CreatureMovedEvent:
 		return MatchCreatureMovedEvent{meta, e.Participant.Int(), boardPosition(e.From), boardPosition(e.To), creatureAt(previous, e.From).ID.Int()}, nil
 	case *match.TerritoryInvadedByMoveEvent:
@@ -1022,12 +1068,12 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 			attack = previous.Battle.Defender.Stats().Attack
 		}
 		return MatchCreatureStruckEvent{meta, striker, attack.Int(), e.Damage.Int(), e.RemainingHitPoints.Int()}, nil
-	case *match.TerritoryConqueredEvent:
+	case *match.InvasionSucceededEvent:
 		if previous.Invasion == nil {
 			return nil, fmt.Errorf("query: conquered event %d without invasion", e.AggregateVersion)
 		}
-		return MatchTerritoryConqueredEvent{meta, e.Participant.Int(), boardPosition(previous.Invasion.Position), e.Creature.Int(), e.TerritoryHitPoints.Int()}, nil
-	case *match.InvasionRepelledEvent:
+		return MatchInvasionSucceededEvent{meta, e.Participant.Int(), boardPosition(previous.Invasion.Position), e.Creature.Int(), e.TerritoryHitPoints.Int()}, nil
+	case *match.InvasionFailedEvent:
 		invasion, battle := previous.Invasion, previous.Battle
 		if invasion == nil || battle == nil {
 			return nil, fmt.Errorf("query: repelled event %d without battle", e.AggregateVersion)
@@ -1040,7 +1086,7 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 			to, hitPoints := boardPosition(*invasion.From), e.ReturnedHitPoints.Int()
 			returnedTo, returnedHitPoints = &to, &hitPoints
 		}
-		return MatchInvasionRepelledEvent{meta, e.Participant.Int(), boardPosition(invasion.Position), cardOf(invasion.Card, cards), survived && invasion.From == nil, e.TerritoryHitPoints.Int(), returnedTo, returnedHitPoints}, nil
+		return MatchInvasionFailedEvent{meta, e.Participant.Int(), boardPosition(invasion.Position), cardOf(invasion.Card, cards), survived && invasion.From == nil, e.TerritoryHitPoints.Int(), returnedTo, returnedHitPoints}, nil
 	default:
 		return nil, fmt.Errorf("query: unexpected match event: %T", event)
 	}
@@ -1117,4 +1163,14 @@ func participantNumbers(indexes []match.ParticipantIndex) []int {
 		numbers[i] = index.Int()
 	}
 	return numbers
+}
+
+// ボードで破壊される領地（HP が 0 になった領地のクリーチャー。Evolve と同じ決まり）
+func destroyedOnBoard(previous match.Match) (board.Position, bool) {
+	for _, territory := range previous.Territories {
+		if placed, ok := previous.PlacedCreature(territory.Creature); ok && placed.HitPoints.Int() == 0 {
+			return territory.Position, true
+		}
+	}
+	return board.Position{}, false
 }

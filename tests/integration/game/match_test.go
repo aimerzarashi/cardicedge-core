@@ -164,7 +164,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchTerritory" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchLand" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -258,7 +258,7 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		if choices := m["levelUpChoices"].([]any); len(choices) > 0 {
 			choice := choices[0].(map[string]any)
 			input["position"], input["level"] = choice["position"], choice["level"]
-			return matchRevision(t, matchOperation(t, token, "levelUpMatchTerritory", input), "levelUpMatchTerritory")
+			return matchRevision(t, matchOperation(t, token, "levelUpMatchLand", input), "levelUpMatchLand")
 		}
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
 	case "RELINQUISHING":
@@ -404,14 +404,16 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchSpellEffectStartedEvent { participant target effect { remainingTurns effect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } } }
 				... on MatchSpellEffectEndedEvent { participant }
 				... on MatchCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
-				... on MatchCreatureDestroyedEvent { participant position { x y } creature }
+				... on MatchInvadingCreatureDestroyedEvent { participant card { id name } position { x y } }
+				... on MatchDefendingCreatureDestroyedEvent { participant card { id name } position { x y } }
+				... on MatchBoardCreatureDestroyedEvent { participant card { id name } position { x y } }
 				... on MatchCreaturePlacedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
-				... on MatchTollMultiplierActivatedEvent { position { x y } percent toll multipliedToll }
+				... on MatchTollCreatureEffectActivatedEvent { position { x y } percent toll multipliedToll }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost defendingCreatureCard { id name } }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
-				... on MatchTerritoryLeveledUpEvent { participant position { x y } level magic }
+				... on MatchLandLeveledUpEvent { participant position { x y } level magic }
 				... on MatchLandElementChangedEvent { participant position { x y } element magic baseLandValue multiplier }
 				... on MatchCreatureMovedEvent { participant from { x y } to { x y } creature }
 				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature card { id name } defendingCreatureCard { id name } }
@@ -428,12 +430,12 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 					activatedEffect { ...activatedEffectFields }
 				}
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
-				... on MatchTerritoryConqueredEvent { participant position { x y } creature territoryHitPoints }
-				... on MatchInvasionRepelledEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
+				... on MatchInvasionSucceededEvent { participant position { x y } creature territoryHitPoints }
+				... on MatchInvasionFailedEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
 				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
 				... on MatchMagicDepletedEvent { participant magic }
 				... on MatchDiceRolledEvent { participant value dice spellEffect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } }
-				... on MatchMovedEvent { participant to { x y } }
+				... on MatchPieceMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
 				... on MatchLapCompletedEvent { participant magic }
 				... on MatchTurnEndedEvent { participant }
@@ -624,7 +626,7 @@ func TestMatch_PlayerChoosesRewardPackAfterTheMatchAndReceivesTheCardsInTheColle
 	require.Equal(t, float64(0), drawn["participant"])
 	require.Equal(t, "default", drawn["pack"])
 	require.Len(t, drawn["rewardCards"], wantCards)
-	require.Equal(t, "MatchRewardsCompletedEvent", events[1].(map[string]any)["__typename"])
+	require.Equal(t, "MatchAllRewardsReceivedEvent", events[1].(map[string]any)["__typename"])
 
 	requireCollectionReceived(t, p, matchID, wantCards)
 }
@@ -675,7 +677,7 @@ func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing
 	events := all["events"].([]any)
 	require.GreaterOrEqual(t, len(events), 4)
 	// 始まりの 4 つ（版は 1 から抜けなく続く）
-	for i, name := range []string{"MatchCreatedEvent", "MatchTurnOrderDecidedEvent", "MatchDecksShuffledEvent", "MatchHandsDealtEvent"} {
+	for i, name := range []string{"MatchCreatedEvent", "MatchTurnOrderDecidedEvent", "MatchDrawPilesShuffledEvent", "MatchHandsDealtEvent"} {
 		event := events[i].(map[string]any)
 		require.Equal(t, name, event["__typename"])
 		require.Equal(t, float64(i+1), event["revision"])
@@ -706,13 +708,13 @@ func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing
 }
 
 // 山札の並びは見せない（イベントの型が項目を持たないので、読もうとすると問い合わせが検証で断られる）
-func TestMatchEvents_DecksShuffledEventHasNoFieldsToShow(t *testing.T) {
+func TestMatchEvents_DrawPilesShuffledEventHasNoFieldsToShow(t *testing.T) {
 	t.Parallel()
 	token := newPlayerToken(t)
 	registerPlayer(t, token)
 
 	status, body := client.Post(t, token, `query ($id: UUID!) {
-		matchEvents(id: $id, after: 0) { ... on MatchEventList { events { ... on MatchDecksShuffledEvent { drawPiles } } } }
+		matchEvents(id: $id, after: 0) { ... on MatchEventList { events { ... on MatchDrawPilesShuffledEvent { drawPiles } } } }
 	}`, map[string]any{"id": "00000000-0000-4000-8000-000000000000"})
 
 	require.Equal(t, 422, status)
@@ -797,21 +799,25 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 			break
 		}
 		switch event["__typename"] {
-		case "MatchTerritoryRelinquishedEvent", "MatchCreatureDestroyedEvent":
+		case "MatchTerritoryRelinquishedEvent":
+			delete(values, key(event["position"]))
+		case "MatchInvadingCreatureDestroyedEvent":
+			// 侵略したクリーチャーは戦場の領地にいないので、移動で侵略していたら元の領地が空く
+			if movedFrom != nil {
+				delete(values, key(movedFrom))
+			}
+		case "MatchDefendingCreatureDestroyedEvent", "MatchBoardCreatureDestroyedEvent":
 			delete(values, key(event["position"]))
 		case "MatchCreatureMovedEvent":
 			delete(values, key(event["from"]))
 		case "MatchTerritoryInvadedByMoveEvent":
 			movedFrom = event["from"]
-		case "MatchTerritoryConqueredEvent":
+		case "MatchInvasionSucceededEvent":
 			if movedFrom != nil {
 				delete(values, key(movedFrom))
 			}
 			movedFrom = nil
-		case "MatchInvasionRepelledEvent":
-			if movedFrom != nil && event["returnedTo"] == nil {
-				delete(values, key(movedFrom))
-			}
+		case "MatchInvasionFailedEvent":
 			movedFrom = nil
 		}
 		changes := event["changes"].(map[string]any)
@@ -935,7 +941,7 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			require.Equal(t, expected[key(event["position"])].card, event["defendingCreatureCard"].(map[string]any)["id"])
 			require.Equal(t, expected[key(event["from"])].creature, event["creature"])
 			require.Equal(t, expected[key(event["from"])].card, event["card"].(map[string]any)["id"])
-		case "MatchTerritoryConqueredEvent":
+		case "MatchInvasionSucceededEvent":
 			if movingFrom != nil {
 				// 動いたクリーチャーは同じ ID のまま移り、元の土地は空き地になる
 				expected[key(event["position"])] = expected[key(movingFrom)]
@@ -946,11 +952,19 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], invadingCard}
 			require.Equal(t, lastCreature+1, event["creature"])
 			lastCreature = event["creature"].(float64)
-		case "MatchInvasionRepelledEvent":
-			if movingFrom != nil && event["returnedTo"] == nil {
-				delete(expected, key(movingFrom))
-			}
+		case "MatchInvasionFailedEvent":
 			movingFrom = nil
+		case "MatchInvadingCreatureDestroyedEvent":
+			// 侵略したクリーチャーは戦場の領地にいないので、移動で侵略していたら元の領地が空く（core#181）
+			if movingFrom != nil {
+				require.Equal(t, expected[key(movingFrom)].card, event["card"].(map[string]any)["id"])
+				delete(expected, key(movingFrom))
+				break
+			}
+			require.Equal(t, invadingCard, event["card"].(map[string]any)["id"])
+		case "MatchDefendingCreatureDestroyedEvent", "MatchBoardCreatureDestroyedEvent":
+			require.Equal(t, expected[key(event["position"])].card, event["card"].(map[string]any)["id"])
+			delete(expected, key(event["position"]))
 		case "MatchTerritoryRelinquishedEvent":
 			delete(expected, key(event["position"]))
 		case "MatchBattleSupportEffectActivatedEvent", "MatchBattleTerrainEffectActivatedEvent", "MatchBattleCreatureEffectActivatedEvent", "MatchBattleItemEffectActivatedEvent":

@@ -33,7 +33,7 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseChoosingPath, now, func(r *recorder) error { return choosePath(r, c.To) })
 	case *PlaceCreatureCommand:
 		return playTurn(state, c.By, PhasePlacing, now, func(r *recorder) error { return place(r, c.HandIndex) })
-	case *LevelUpTerritoryCommand:
+	case *LevelUpLandCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return levelUp(r, c.Position, c.Level) }, PhasePlacing, PhaseInvading)
 	case *MoveCreatureCommand:
 		return playTurn(state, c.By, PhaseTerritoryCommanding, now, func(r *recorder) error { return moveCreature(r, c.From, c.To) }, PhasePlacing, PhaseInvading)
@@ -83,7 +83,7 @@ func start(c *StartCommand, now time.Time, random Random) ([]Event, error) {
 	return []Event{
 		&CreatedEvent{EventMeta: meta(1), Participants: c.Participants, Board: c.Board, Rules: c.Rules},
 		&TurnOrderDecidedEvent{EventMeta: meta(2), Order: order},
-		&DecksShuffledEvent{EventMeta: meta(3), DrawPiles: piles},
+		&DrawPilesShuffledEvent{EventMeta: meta(3), DrawPiles: piles},
 		&HandsDealtEvent{EventMeta: meta(4), Cards: c.Rules.StartingHandCards.Int()},
 	}, nil
 }
@@ -304,7 +304,7 @@ func damageCreature(r *recorder, position board.Position, damage int) error {
 		return nil
 	}
 	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureDestroyedEvent{EventMeta: meta, Participant: by, Position: position}
+		return &BoardCreatureDestroyedEvent{EventMeta: meta, Participant: by}
 	})
 }
 
@@ -345,7 +345,7 @@ func levelUp(r *recorder, position board.Position, level int) error {
 	}
 	magic := r.state.LevelUpChoices()[index].Magic
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryLeveledUpEvent{EventMeta: meta, Participant: by, Position: position, Level: level, Magic: magic}
+		return &LandLeveledUpEvent{EventMeta: meta, Participant: by, Position: position, Level: level, Magic: magic}
 	}); err != nil {
 		return err
 	}
@@ -776,17 +776,30 @@ func (b *battleResolver) strike(striker BattleSide) error {
 	return b.emit(&CreatureStruckEvent{Striker: striker, Damage: damage, RemainingHitPoints: remaining})
 }
 
+// 倒れた側を破壊してから、侵略の結果に進む（破壊を結果に埋めないのは、戦闘とスペルの破壊を 1 つのイベントにし、
+// 「破壊されたとき」の効果をその後ろに付けるため。2026-11-15 オーナー。core#181）
 func settleBattle(r *recorder) error {
 	if r.state.Battle.Defender.Stats().HitPoints.Int() == 0 {
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &DefendingCreatureDestroyedEvent{EventMeta: meta, Participant: by}
+		}); err != nil {
+			return err
+		}
 		return conquer(r)
+	}
+	if r.state.Battle.Attacker.Stats().HitPoints.Int() == 0 {
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &InvadingCreatureDestroyedEvent{EventMeta: meta, Participant: by}
+		}); err != nil {
+			return err
+		}
 	}
 	return repel(r)
 }
 
 // 奪ったら、配置と同じくそのままターンを終える
 func conquer(r *recorder) error {
-	_, ok := r.state.battleTerritory()
-	if !ok || r.state.Invasion == nil {
+	if r.state.Invasion == nil {
 		return ErrInvalidState
 	}
 	moved := r.state.Invasion.From != nil
@@ -796,7 +809,7 @@ func conquer(r *recorder) error {
 	}
 	hitPoints := r.state.Battle.Attacker.territoryHitPoints()
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &TerritoryConqueredEvent{EventMeta: meta, Participant: by, Creature: id, TerritoryHitPoints: hitPoints}
+		return &InvasionSucceededEvent{EventMeta: meta, Participant: by, Creature: id, TerritoryHitPoints: hitPoints}
 	}); err != nil {
 		return err
 	}
@@ -813,7 +826,7 @@ func repel(r *recorder) error {
 	invasion := *r.state.Invasion
 	survived := r.state.Battle.Attacker.Stats().HitPoints.Int() > 0
 	hitPoints := r.state.Battle.Defender.territoryHitPoints()
-	repelled := &InvasionRepelledEvent{Participant: 0, TerritoryHitPoints: hitPoints}
+	repelled := &InvasionFailedEvent{Participant: 0, TerritoryHitPoints: hitPoints}
 	if survived && invasion.From != nil {
 		// 移動で侵略して生き残ったクリーチャーは、元の領地に戻る（傷は残る）
 		returnedHitPoints := r.state.Battle.Attacker.territoryHitPoints()
@@ -847,7 +860,7 @@ func payToll(r *recorder) error {
 	if percent, ok := r.state.tollMultiplier(territory); ok {
 		multiplied := toll * percent.Int() / 100
 		if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
-			return &TollMultiplierActivatedEvent{EventMeta: meta}
+			return &TollCreatureEffectActivatedEvent{EventMeta: meta}
 		}); err != nil {
 			return err
 		}
@@ -895,7 +908,7 @@ func relinquish(r *recorder, position board.Position) error {
 // 1 歩進み、入ったマスで起きること（通過でも停止でも同じ。拠点を出るときは何も起きない）を続ける
 func step(r *recorder, to board.Position) error {
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &MovedEvent{EventMeta: meta, Participant: by, To: to}
+		return &PieceMovedEvent{EventMeta: meta, Participant: by, To: to}
 	}); err != nil {
 		return err
 	}
@@ -1048,7 +1061,7 @@ func chooseRewardPack(state State, c *ChooseRewardPackCommand, now time.Time, ra
 		return nil, err
 	}
 	if next.(Match).allPlayersRewarded() {
-		events = append(events, &RewardsCompletedEvent{EventMeta: meta(current.Version + 2)})
+		events = append(events, &AllRewardsReceivedEvent{EventMeta: meta(current.Version + 2)})
 	}
 	return events, nil
 }

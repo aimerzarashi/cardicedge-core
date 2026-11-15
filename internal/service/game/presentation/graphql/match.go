@@ -339,8 +339,8 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchCreatedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes}, nil
 	case query.MatchTurnOrderDecidedEvent:
 		return &model.MatchTurnOrderDecidedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Order: e.Order}, nil
-	case query.MatchDecksShuffledEvent:
-		return &model.MatchDecksShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes}, nil
+	case query.MatchDrawPilesShuffledEvent:
+		return &model.MatchDrawPilesShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes}, nil
 	case query.MatchHandsDealtEvent:
 		return &model.MatchHandsDealtEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Cards: e.Cards}, nil
 	case query.MatchCardDrawnEvent:
@@ -395,8 +395,8 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchItemUsedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card, Cost: e.Cost}, nil
 	case query.MatchItemSkippedEvent:
 		return &model.MatchItemSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
-	case query.MatchTerritoryLeveledUpEvent:
-		return &model.MatchTerritoryLeveledUpEvent{
+	case query.MatchLandLeveledUpEvent:
+		return &model.MatchLandLeveledUpEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Level: e.Level, Magic: e.Magic,
 		}, nil
@@ -508,12 +508,12 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchCreatureStruckEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Striker: striker, Attack: e.Attack, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints}, nil
-	case query.MatchTerritoryConqueredEvent:
-		return &model.MatchTerritoryConqueredEvent{
+	case query.MatchInvasionSucceededEvent:
+		return &model.MatchInvasionSucceededEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, TerritoryHitPoints: e.TerritoryHitPoints,
 		}, nil
-	case query.MatchInvasionRepelledEvent:
+	case query.MatchInvasionFailedEvent:
 		card, err := fromMatchCard(e.Card)
 		if err != nil {
 			return nil, err
@@ -522,13 +522,13 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if e.ReturnedTo != nil {
 			returnedTo = &model.BoardPosition{X: e.ReturnedTo.X, Y: e.ReturnedTo.Y}
 		}
-		return &model.MatchInvasionRepelledEvent{
+		return &model.MatchInvasionFailedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Card: card, ReturnedToHand: e.ReturnedToHand, TerritoryHitPoints: e.TerritoryHitPoints,
 			ReturnedTo: returnedTo, ReturnedHitPoints: e.ReturnedHitPoints,
 		}, nil
-	case query.MatchTollMultiplierActivatedEvent:
-		return &model.MatchTollMultiplierActivatedEvent{
+	case query.MatchTollCreatureEffectActivatedEvent:
+		return &model.MatchTollCreatureEffectActivatedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Percent: e.Percent, Toll: e.Toll, MultipliedToll: e.MultipliedToll,
 		}, nil
@@ -553,17 +553,30 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints,
 		}, nil
-	case query.MatchCreatureDestroyedEvent:
-		return &model.MatchCreatureDestroyedEvent{
-			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
-			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature,
-		}, nil
+	case query.MatchInvadingCreatureDestroyedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchInvadingCreatureDestroyedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Card: card, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}}, nil
+	case query.MatchDefendingCreatureDestroyedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchDefendingCreatureDestroyedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Card: card, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}}, nil
+	case query.MatchBoardCreatureDestroyedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchBoardCreatureDestroyedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Card: card, Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}}, nil
 	case query.MatchSpellEffectEndedEvent:
 		return &model.MatchSpellEffectEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchMagicGainedEvent:
 		return &model.MatchMagicGainedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic, Laps: e.Laps, MagicPerLap: e.MagicPerLap}, nil
-	case query.MatchMovedEvent:
-		return &model.MatchMovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}}, nil
+	case query.MatchPieceMovedEvent:
+		return &model.MatchPieceMovedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, To: &model.BoardPosition{X: e.To.X, Y: e.To.Y}}, nil
 	case query.MatchCheckpointPassedEvent:
 		return &model.MatchCheckpointPassedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
@@ -589,8 +602,8 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			cards[i] = converted
 		}
 		return &model.MatchRewardDrawnEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Pack: e.Pack, RewardCards: cards}, nil
-	case query.MatchRewardsCompletedEvent:
-		return &model.MatchRewardsCompletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes}, nil
+	case query.MatchAllRewardsReceivedEvent:
+		return &model.MatchAllRewardsReceivedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes}, nil
 	default:
 		return nil, fmt.Errorf("graphql: unknown match event: %T", event)
 	}

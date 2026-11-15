@@ -172,9 +172,9 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
-// levelUpMatchTerritory の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
-type LevelUpMatchTerritoryResult interface {
-	IsLevelUpMatchTerritoryResult()
+// levelUpMatchLand の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type LevelUpMatchLandResult interface {
+	IsLevelUpMatchLandResult()
 }
 
 // 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
@@ -1283,7 +1283,7 @@ func (this LandTile) GetX() int { return this.X }
 func (this LandTile) GetY() int { return this.Y }
 
 // 通った自分の領地のレベルを上げる入力
-type LevelUpMatchTerritoryInput struct {
+type LevelUpMatchLandInput struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていた対戦の revision
@@ -1295,14 +1295,14 @@ type LevelUpMatchTerritoryInput struct {
 }
 
 // 領地のレベルを上げた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）
-type LevelUpMatchTerritorySuccess struct {
+type LevelUpMatchLandSuccess struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
 	// 操作した後の対戦の revision
 	Revision int `json:"revision"`
 }
 
-func (LevelUpMatchTerritorySuccess) IsLevelUpMatchTerritoryResult() {}
+func (LevelUpMatchLandSuccess) IsLevelUpMatchLandResult() {}
 
 // 対戦。参加者は部屋の席の順で返す。
 // 順番は参加者ごとの turnOrder で見せる（始めるときに無作為に決めたもの）
@@ -1366,6 +1366,27 @@ type Match struct {
 }
 
 func (Match) IsMatchResult() {}
+
+// プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
+type MatchAllRewardsReceivedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+}
+
+func (MatchAllRewardsReceivedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchAllRewardsReceivedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchAllRewardsReceivedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchAllRewardsReceivedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 参加者のアバターを、公開用の ID と名前で見せる値（名前は読むときに引く）
 type MatchAvatar struct {
@@ -1562,6 +1583,33 @@ type MatchBoard struct {
 	Pairs []*BoardTilePair `json:"pairs"`
 }
 
+// ボードで（今はスペルのダメージで）、領地のクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）
+type MatchBoardCreatureDestroyedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 破壊されたクリーチャーのカード
+	Card CardInfo `json:"card"`
+	// 破壊された場所（その領地）
+	Position *BoardPosition `json:"position"`
+}
+
+func (MatchBoardCreatureDestroyedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchBoardCreatureDestroyedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchBoardCreatureDestroyedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchBoardCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 手札を 1 枚捨てた（捨て札に入る）
 type MatchCardDiscardedEvent struct {
 	// 対戦の版
@@ -1693,33 +1741,6 @@ func (this MatchCreatureDamagedEvent) GetOccurredAt() time.Time { return this.Oc
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureDamagedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// スペルのダメージで、領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札に入る）
-type MatchCreatureDestroyedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 使った参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 破壊されたクリーチャーがいた領地の位置
-	Position *BoardPosition `json:"position"`
-	// 破壊されたクリーチャー（MatchPlacedCreature.id）
-	Creature int `json:"creature"`
-}
-
-func (MatchCreatureDestroyedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchCreatureDestroyedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchCreatureDestroyedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // 領地のクリーチャーを手札のクリーチャーと入れ替えた
 type MatchCreatureExchangedEvent struct {
 	// 対戦の版
@@ -1846,26 +1867,32 @@ func (this MatchCreatureStruckEvent) GetOccurredAt() time.Time { return this.Occ
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureStruckEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 山札が混ざった（並びは見せないので、項目を持たない）
-type MatchDecksShuffledEvent struct {
+// 戦闘で、守るクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）
+type MatchDefendingCreatureDestroyedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
 	OccurredAt time.Time `json:"occurredAt"`
 	// このイベントで変わった、描画に要る core の決まりで決まる値
 	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 破壊されたクリーチャーのカード
+	Card CardInfo `json:"card"`
+	// 破壊された場所（戦場）
+	Position *BoardPosition `json:"position"`
 }
 
-func (MatchDecksShuffledEvent) IsMatchEvent() {}
+func (MatchDefendingCreatureDestroyedEvent) IsMatchEvent() {}
 
 // 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchDecksShuffledEvent) GetRevision() int { return this.Revision }
+func (this MatchDefendingCreatureDestroyedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
-func (this MatchDecksShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+func (this MatchDefendingCreatureDestroyedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchDecksShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
+func (this MatchDefendingCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // サイコロを振った
 type MatchDiceRolledEvent struct {
@@ -1920,6 +1947,27 @@ func (this MatchDiscardPileShuffledEvent) GetOccurredAt() time.Time { return thi
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchDiscardPileShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 山札が混ざった（並びは見せないので、項目を持たない）
+type MatchDrawPilesShuffledEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+}
+
+func (MatchDrawPilesShuffledEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDrawPilesShuffledEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDrawPilesShuffledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDrawPilesShuffledEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 土地の属性を変える選択肢 1 つ
 type MatchElementChangeChoice struct {
@@ -2038,6 +2086,33 @@ func (this MatchHandsDealtEvent) GetOccurredAt() time.Time { return this.Occurre
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchHandsDealtEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 戦闘で、侵略したクリーチャーが破壊された（カードは捨て札に入り、移動で侵略していたら元の土地が空く）
+type MatchInvadingCreatureDestroyedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 破壊されたクリーチャーのカード
+	Card CardInfo `json:"card"`
+	// 破壊された場所（戦場）
+	Position *BoardPosition `json:"position"`
+}
+
+func (MatchInvadingCreatureDestroyedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchInvadingCreatureDestroyedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchInvadingCreatureDestroyedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchInvadingCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // 戦闘が終わるまでの、侵略しているクリーチャー（領地には倒してから入るので、territories には含まない）
 type MatchInvasion struct {
 	// 攻められている領地の位置
@@ -2049,7 +2124,7 @@ type MatchInvasion struct {
 }
 
 // 守る側のクリーチャーを倒せなかった（続けて通行料を払う）
-type MatchInvasionRepelledEvent struct {
+type MatchInvasionFailedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
@@ -2072,16 +2147,45 @@ type MatchInvasionRepelledEvent struct {
 	ReturnedHitPoints *int `json:"returnedHitPoints,omitempty"`
 }
 
-func (MatchInvasionRepelledEvent) IsMatchEvent() {}
+func (MatchInvasionFailedEvent) IsMatchEvent() {}
 
 // 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchInvasionRepelledEvent) GetRevision() int { return this.Revision }
+func (this MatchInvasionFailedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
-func (this MatchInvasionRepelledEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+func (this MatchInvasionFailedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchInvasionRepelledEvent) GetChanges() *MatchEventChanges { return this.Changes }
+func (this MatchInvasionFailedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）
+type MatchInvasionSucceededEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 奪った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 奪った領地の位置
+	Position *BoardPosition `json:"position"`
+	// 領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）
+	Creature int `json:"creature"`
+	// 領地に入ったクリーチャーの体力
+	TerritoryHitPoints int `json:"territoryHitPoints"`
+}
+
+func (MatchInvasionSucceededEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchInvasionSucceededEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchInvasionSucceededEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchInvasionSucceededEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ）
 type MatchItemSkippedEvent struct {
@@ -2175,6 +2279,35 @@ type MatchLandLevel struct {
 	// レベル（2 以上）
 	Level int `json:"level"`
 }
+
+// 通った自分の領地のレベルを上げた
+type MatchLandLeveledUpEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 上げた参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 領地の位置
+	Position *BoardPosition `json:"position"`
+	// 上げた後のレベル
+	Level int `json:"level"`
+	// 払った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchLandLeveledUpEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchLandLeveledUpEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchLandLeveledUpEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchLandLeveledUpEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 全チェックポイントに印を付けて拠点に入り、周回を終えて魔力が増えた
 type MatchLapCompletedEvent struct {
@@ -2281,31 +2414,6 @@ type MatchMoveChoice struct {
 	To *BoardPosition `json:"to"`
 }
 
-// 1 マス進んだ
-type MatchMovedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 進んだ参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 入ったマスの位置
-	To *BoardPosition `json:"to"`
-}
-
-func (MatchMovedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchMovedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchMovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchMovedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // 自分が参加している対戦が無い（無い・参加していない対戦。存在を明かさないため区別しない）
 type MatchNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -2336,7 +2444,7 @@ func (MatchNotFoundError) IsDefendMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
 
-func (MatchNotFoundError) IsLevelUpMatchTerritoryResult() {}
+func (MatchNotFoundError) IsLevelUpMatchLandResult() {}
 
 func (MatchNotFoundError) IsMoveMatchCreatureResult() {}
 
@@ -2380,7 +2488,7 @@ func (MatchNotYourTurnError) IsDefendMatchTerritoryResult() {}
 
 func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
 
-func (MatchNotYourTurnError) IsLevelUpMatchTerritoryResult() {}
+func (MatchNotYourTurnError) IsLevelUpMatchLandResult() {}
 
 func (MatchNotYourTurnError) IsMoveMatchCreatureResult() {}
 
@@ -2460,7 +2568,7 @@ func (MatchPhaseNotAllowedError) IsDefendMatchTerritoryResult() {}
 
 func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
 
-func (MatchPhaseNotAllowedError) IsLevelUpMatchTerritoryResult() {}
+func (MatchPhaseNotAllowedError) IsLevelUpMatchLandResult() {}
 
 func (MatchPhaseNotAllowedError) IsMoveMatchCreatureResult() {}
 
@@ -2471,6 +2579,31 @@ func (MatchPhaseNotAllowedError) IsExchangeMatchCreatureResult() {}
 func (MatchPhaseNotAllowedError) IsEndMatchTurnResult() {}
 
 func (MatchPhaseNotAllowedError) IsChooseMatchRewardPackResult() {}
+
+// 1 マス進んだ
+type MatchPieceMovedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 進んだ参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 入ったマスの位置
+	To *BoardPosition `json:"to"`
+}
+
+func (MatchPieceMovedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchPieceMovedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchPieceMovedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchPieceMovedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）
 type MatchPlacedCreature struct {
@@ -2570,27 +2703,6 @@ type MatchRewardPack struct {
 	// 名前
 	Name string `json:"name"`
 }
-
-// プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）
-type MatchRewardsCompletedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-}
-
-func (MatchRewardsCompletedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchRewardsCompletedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchRewardsCompletedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchRewardsCompletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
 type MatchRules struct {
@@ -2705,40 +2817,11 @@ type MatchTerritory struct {
 	Level int `json:"level"`
 	// 土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）
 	Value int `json:"value"`
-	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））
+	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））
 	Toll int `json:"toll"`
 	// 手放したときに受け取る魔力
 	RelinquishMagic int `json:"relinquishMagic"`
 }
-
-// 守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）
-type MatchTerritoryConqueredEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 奪った参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 奪った領地の位置
-	Position *BoardPosition `json:"position"`
-	// 領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）
-	Creature int `json:"creature"`
-	// 領地に入ったクリーチャーの体力
-	TerritoryHitPoints int `json:"territoryHitPoints"`
-}
-
-func (MatchTerritoryConqueredEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchTerritoryConqueredEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchTerritoryConqueredEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchTerritoryConqueredEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）
 type MatchTerritoryInvadedByMoveEvent struct {
@@ -2806,35 +2889,6 @@ func (this MatchTerritoryInvadedEvent) GetOccurredAt() time.Time { return this.O
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchTerritoryInvadedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 通った自分の領地のレベルを上げた
-type MatchTerritoryLeveledUpEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 上げた参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 領地の位置
-	Position *BoardPosition `json:"position"`
-	// 上げた後のレベル
-	Level int `json:"level"`
-	// 払った魔力
-	Magic int `json:"magic"`
-}
-
-func (MatchTerritoryLeveledUpEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchTerritoryLeveledUpEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchTerritoryLeveledUpEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchTerritoryLeveledUpEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // 魔力が負の間に自分の領地を手放した（クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る）
 type MatchTerritoryRelinquishedEvent struct {
 	// 対戦の版
@@ -2870,7 +2924,7 @@ type MatchTerritoryValue struct {
 	Position *BoardPosition `json:"position"`
 	// 土地の価値（連鎖を含む）
 	Value int `json:"value"`
-	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollMultiplierActivatedEvent））
+	// 盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））
 	Toll int `json:"toll"`
 	// 土地のレベル（価値の根拠。レベルの倍率は MatchPlayRules.landLevelMultipliers）
 	Level int `json:"level"`
@@ -2881,7 +2935,7 @@ type MatchTerritoryValue struct {
 }
 
 // 通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した（倍率を持っていれば、効き目が無くても出る）。続く MatchTollPaidEvent が multipliedToll を払う
-type MatchTollMultiplierActivatedEvent struct {
+type MatchTollCreatureEffectActivatedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
@@ -2898,16 +2952,18 @@ type MatchTollMultiplierActivatedEvent struct {
 	MultipliedToll int `json:"multipliedToll"`
 }
 
-func (MatchTollMultiplierActivatedEvent) IsMatchEvent() {}
+func (MatchTollCreatureEffectActivatedEvent) IsMatchEvent() {}
 
 // 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchTollMultiplierActivatedEvent) GetRevision() int { return this.Revision }
+func (this MatchTollCreatureEffectActivatedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
-func (this MatchTollMultiplierActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+func (this MatchTollCreatureEffectActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchTollMultiplierActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+func (this MatchTollCreatureEffectActivatedEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
+}
 
 // 他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）
 type MatchTollPaidEvent struct {
@@ -3207,7 +3263,7 @@ func (PlayerNotRegisteredError) IsDefendMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
 
-func (PlayerNotRegisteredError) IsLevelUpMatchTerritoryResult() {}
+func (PlayerNotRegisteredError) IsLevelUpMatchLandResult() {}
 
 func (PlayerNotRegisteredError) IsMoveMatchCreatureResult() {}
 
@@ -3397,7 +3453,7 @@ func (RevisionConflictError) IsDefendMatchTerritoryResult() {}
 
 func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 
-func (RevisionConflictError) IsLevelUpMatchTerritoryResult() {}
+func (RevisionConflictError) IsLevelUpMatchLandResult() {}
 
 func (RevisionConflictError) IsMoveMatchCreatureResult() {}
 
@@ -3831,7 +3887,7 @@ func (ValidationErrors) IsDefendMatchTerritoryResult() {}
 
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
 
-func (ValidationErrors) IsLevelUpMatchTerritoryResult() {}
+func (ValidationErrors) IsLevelUpMatchLandResult() {}
 
 func (ValidationErrors) IsMoveMatchCreatureResult() {}
 
@@ -4524,7 +4580,7 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// 空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
 	MatchPhasePlacing MatchPhase = "PLACING"
-	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchTerritory・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ
+	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ
 	MatchPhaseTerritoryCommanding MatchPhase = "TERRITORY_COMMANDING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"

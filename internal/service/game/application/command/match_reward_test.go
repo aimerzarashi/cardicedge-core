@@ -214,7 +214,7 @@ func TestMatchReward_DoesNothingForOtherMatchEvents(t *testing.T) {
 	f := newMatchRewardFixture(t)
 	f.createCollection(t)
 
-	require.NoError(t, f.policy.Handle(f.ctx, &match.RewardsCompletedEvent{EventMeta: match.EventMeta{EntityID: f.id}}))
+	require.NoError(t, f.policy.Handle(f.ctx, &match.AllRewardsReceivedEvent{EventMeta: match.EventMeta{EntityID: f.id}}))
 
 	require.Equal(t, int64(1), f.loadCollection(t).Version)
 }

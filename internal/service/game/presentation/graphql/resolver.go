@@ -98,7 +98,7 @@ type Matches interface {
 	PayToll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	Defend(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (command.ChangedMatch, error)
 	RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
-	LevelUpTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (command.ChangedMatch, error)
+	LevelUpLand(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (command.ChangedMatch, error)
 	ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, element string) (command.ChangedMatch, error)
 	MoveCreature(ctx context.Context, id uuid.UUID, revision int64, fromX, fromY, toX, toY int) (command.ChangedMatch, error)
 	ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (command.ChangedMatch, error)
