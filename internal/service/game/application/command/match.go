@@ -526,13 +526,13 @@ func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, re
 }
 
 // 通った自分の領地のレベルを上げる。選べない位置とレベルの組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
-func (c *MatchHandler) LevelUpTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (ChangedMatch, error) {
+func (c *MatchHandler) LevelUpLand(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		position, err := newPosition(x, y)
 		if err != nil {
 			return nil, input.Errors{&input.NotFound{Field: "position"}}
 		}
-		return &match.LevelUpTerritoryCommand{By: by, Position: position, Level: level}, nil
+		return &match.LevelUpLandCommand{By: by, Position: position, Level: level}, nil
 	})
 }
 

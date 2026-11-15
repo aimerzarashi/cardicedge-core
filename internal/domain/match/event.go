@@ -44,7 +44,7 @@ type TurnOrderDecidedEvent struct {
 }
 
 // 参加者ごとの山札の並び（参加者の順。先頭から引く）。並びは見せないが、読み直しても同じ状態にするため残す
-type DecksShuffledEvent struct {
+type DrawPilesShuffledEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	DrawPiles   [][]card.Ref `json:"draw_piles"`
@@ -109,7 +109,7 @@ type TollPaidEvent struct {
 // 通行料を払う直前に、今いるマスの領地のクリーチャーの通行料の倍率が発動した。倍率を掛けて切り捨てた額は、続く TollPaidEvent が払う。
 // 倍率を持っていれば、効き目が無くても（100%）出す（2026-11-11 オーナー。core#159）。状態は変えない。
 // 発動したことだけを持つ（位置・倍率・盤面の通行料は直前の状態から、掛けた額は続く払ったイベントから決まる。2026-11-13 オーナー。core#171）
-type TollMultiplierActivatedEvent struct {
+type TollCreatureEffectActivatedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 }
@@ -193,12 +193,30 @@ type CreatureDamagedEvent struct {
 	RemainingHitPoints creature.HitPoints `json:"remaining_hit_points"`
 }
 
-// スペルのダメージで HP が 0 になり、Position の領地のクリーチャーが破壊された（領地から外れて土地は空き地。レベルは残り、カードは持ち主の捨て札）
-type CreatureDestroyedEvent struct {
+// 破壊は場面と立場ごとに 3 つのイベントに分ける（侵略したクリーチャー・守るクリーチャー・ボード。2026-11-15 オーナー。core#181）。
+// どれもカードは持ち主の捨て札に入り、領地にいたなら領地から外れて土地は空き地になる（レベルは土地に残る）。Participant は今の番の人で、
+// どのクリーチャーかは状態から決まるので持たない（戦闘は戦闘の中で HP が 0 の側、ボードは HP が 0 の領地のクリーチャー）。
+// 「破壊されたとき」の効果は、発動するイベントをこの 3 つから選ぶ
+
+// 戦闘で、侵略したクリーチャーが破壊された（移動で侵略していたら元の土地が空く）
+type InvadingCreatureDestroyedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
-	Position    board.Position   `json:"position"`
+}
+
+// 戦闘で、守るクリーチャーが破壊された
+type DefendingCreatureDestroyedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+}
+
+// 戦闘の外（今はスペルのダメージ）で、HP が 0 になった領地のクリーチャーが破壊された
+type BoardCreatureDestroyedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
 }
 
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ形）。段階のイベントは作らず、出さなかったという事実で次の段階に進める
@@ -306,8 +324,9 @@ func (e CreatureStruckEvent) withMeta(meta EventMeta) Event {
 	return &e
 }
 
-// 守る側のクリーチャーを倒して、侵略した土地を奪った。倒したクリーチャーは持ち主の捨て札に入り、土地のレベルは引き継ぐ。Creature は領地に入ったクリーチャーの ID（手札から侵略したときは新しい ID）、TerritoryHitPoints はその体力
-type TerritoryConqueredEvent struct {
+// 侵略に成功した（守る側は直前の DefendingCreatureDestroyedEvent で破壊されている）。攻めたクリーチャーが空いた土地に入って領地にし、土地のレベルは引き継ぐ。
+// Creature は領地に入ったクリーチャーの ID（手札から侵略したときは新しい ID）、TerritoryHitPoints はその体力
+type InvasionSucceededEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
@@ -315,8 +334,9 @@ type TerritoryConqueredEvent struct {
 	TerritoryHitPoints creature.HitPoints `json:"territory_hit_points"`
 }
 
-// 守る側のクリーチャーを倒せなかった。攻めたクリーチャーは生きていれば手札に戻り（移動で侵略したときは元の領地に戻り）、倒れていれば捨て札になる（どれになるかは戦闘の結果から決まるので持たない）。続けて通行料を払う。TerritoryHitPoints は領地のクリーチャーに残る体力
-type InvasionRepelledEvent struct {
+// 侵略に失敗した（守る側を倒せなかった）。攻めたクリーチャーは生きていれば手札に戻り（移動で侵略したときは元の領地に戻り）、倒れていれば
+// 直前の InvadingCreatureDestroyedEvent で捨て札に入っている。続けて通行料を払う。TerritoryHitPoints は領地のクリーチャーに残る体力
+type InvasionFailedEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
@@ -326,7 +346,7 @@ type InvasionRepelledEvent struct {
 }
 
 // 通った自分の領地の土地のレベルを上げた（Level は上げた後のレベル、Magic は払った魔力）
-type TerritoryLeveledUpEvent struct {
+type LandLeveledUpEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
@@ -387,7 +407,7 @@ type DiceRolledEvent struct {
 }
 
 // 1 歩進んで入ったマス
-type MovedEvent struct {
+type PieceMovedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Participant ParticipantIndex `json:"participant"`
@@ -437,7 +457,7 @@ type RewardDrawnEvent struct {
 }
 
 // プレイヤー全員が戦利品を受け取った
-type RewardsCompletedEvent struct {
+type AllRewardsReceivedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 }
@@ -445,18 +465,18 @@ type RewardsCompletedEvent struct {
 var (
 	createdEventType                       = domain.NewEventName("CreatedEvent")
 	turnOrderDecidedEventType              = domain.NewEventName("TurnOrderDecidedEvent")
-	decksShuffledEventType                 = domain.NewEventName("DecksShuffledEvent")
+	drawPilesShuffledEventType             = domain.NewEventName("DrawPilesShuffledEvent")
 	handsDealtEventType                    = domain.NewEventName("HandsDealtEvent")
 	cardDrawnEventType                     = domain.NewEventName("CardDrawnEvent")
 	cardDiscardedEventType                 = domain.NewEventName("CardDiscardedEvent")
 	diceRolledEventType                    = domain.NewEventName("DiceRolledEvent")
-	movedEventType                         = domain.NewEventName("MovedEvent")
+	pieceMovedEventType                    = domain.NewEventName("PieceMovedEvent")
 	checkpointPassedEventType              = domain.NewEventName("CheckpointPassedEvent")
 	lapCompletedEventType                  = domain.NewEventName("LapCompletedEvent")
 	turnEndedEventType                     = domain.NewEventName("TurnEndedEvent")
 	matchEndedEventType                    = domain.NewEventName("MatchEndedEvent")
 	rewardDrawnEventType                   = domain.NewEventName("RewardDrawnEvent")
-	rewardsCompletedEventType              = domain.NewEventName("RewardsCompletedEvent")
+	allRewardsReceivedEventType            = domain.NewEventName("AllRewardsReceivedEvent")
 	creaturePlacedEventType                = domain.NewEventName("CreaturePlacedEvent")
 	tollPaidEventType                      = domain.NewEventName("TollPaidEvent")
 	territoryRelinquishedEventType         = domain.NewEventName("TerritoryRelinquishedEvent")
@@ -464,16 +484,16 @@ var (
 	territoryInvadedEventType              = domain.NewEventName("TerritoryInvadedEvent")
 	itemUsedEventType                      = domain.NewEventName("ItemUsedEvent")
 	creatureStruckEventType                = domain.NewEventName("CreatureStruckEvent")
-	territoryConqueredEventType            = domain.NewEventName("TerritoryConqueredEvent")
-	invasionRepelledEventType              = domain.NewEventName("InvasionRepelledEvent")
+	invasionSucceededEventType             = domain.NewEventName("InvasionSucceededEvent")
+	invasionFailedEventType                = domain.NewEventName("InvasionFailedEvent")
 	itemSkippedEventType                   = domain.NewEventName("ItemSkippedEvent")
 	battleStartedEventType                 = domain.NewEventName("BattleStartedEvent")
 	battleSupportEffectActivatedEventType  = domain.NewEventName("BattleSupportEffectActivatedEvent")
 	battleTerrainEffectActivatedEventType  = domain.NewEventName("BattleTerrainEffectActivatedEvent")
 	battleCreatureEffectActivatedEventType = domain.NewEventName("BattleCreatureEffectActivatedEvent")
 	battleItemEffectActivatedEventType     = domain.NewEventName("BattleItemEffectActivatedEvent")
-	tollMultiplierActivatedEventType       = domain.NewEventName("TollMultiplierActivatedEvent")
-	territoryLeveledUpEventType            = domain.NewEventName("TerritoryLeveledUpEvent")
+	tollCreatureEffectActivatedEventType   = domain.NewEventName("TollCreatureEffectActivatedEvent")
+	landLeveledUpEventType                 = domain.NewEventName("LandLeveledUpEvent")
 	creatureExchangedEventType             = domain.NewEventName("CreatureExchangedEvent")
 	landElementChangedEventType            = domain.NewEventName("LandElementChangedEvent")
 	creatureMovedEventType                 = domain.NewEventName("CreatureMovedEvent")
@@ -485,7 +505,9 @@ var (
 	spellEffectStartedEventType            = domain.NewEventName("SpellEffectStartedEvent")
 	spellEffectEndedEventType              = domain.NewEventName("SpellEffectEndedEvent")
 	creatureDamagedEventType               = domain.NewEventName("CreatureDamagedEvent")
-	creatureDestroyedEventType             = domain.NewEventName("CreatureDestroyedEvent")
+	boardCreatureDestroyedEventType        = domain.NewEventName("BoardCreatureDestroyedEvent")
+	invadingCreatureDestroyedEventType     = domain.NewEventName("InvadingCreatureDestroyedEvent")
+	defendingCreatureDestroyedEventType    = domain.NewEventName("DefendingCreatureDestroyedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -496,8 +518,8 @@ func (*TurnOrderDecidedEvent) EventType() domain.EventName {
 	return turnOrderDecidedEventType
 }
 
-func (*DecksShuffledEvent) EventType() domain.EventName {
-	return decksShuffledEventType
+func (*DrawPilesShuffledEvent) EventType() domain.EventName {
+	return drawPilesShuffledEventType
 }
 
 func (*HandsDealtEvent) EventType() domain.EventName {
@@ -513,7 +535,7 @@ func (*TurnOrderDecidedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*DecksShuffledEvent) SchemaVersion() int {
+func (*DrawPilesShuffledEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -545,11 +567,11 @@ func (*DiceRolledEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*MovedEvent) EventType() domain.EventName {
-	return movedEventType
+func (*PieceMovedEvent) EventType() domain.EventName {
+	return pieceMovedEventType
 }
 
-func (*MovedEvent) SchemaVersion() int {
+func (*PieceMovedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -593,11 +615,11 @@ func (*RewardDrawnEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*RewardsCompletedEvent) EventType() domain.EventName {
-	return rewardsCompletedEventType
+func (*AllRewardsReceivedEvent) EventType() domain.EventName {
+	return allRewardsReceivedEventType
 }
 
-func (*RewardsCompletedEvent) SchemaVersion() int {
+func (*AllRewardsReceivedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -657,19 +679,19 @@ func (*CreatureStruckEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*TerritoryConqueredEvent) EventType() domain.EventName {
-	return territoryConqueredEventType
+func (*InvasionSucceededEvent) EventType() domain.EventName {
+	return invasionSucceededEventType
 }
 
-func (*TerritoryConqueredEvent) SchemaVersion() int {
+func (*InvasionSucceededEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*InvasionRepelledEvent) EventType() domain.EventName {
-	return invasionRepelledEventType
+func (*InvasionFailedEvent) EventType() domain.EventName {
+	return invasionFailedEventType
 }
 
-func (*InvasionRepelledEvent) SchemaVersion() int {
+func (*InvasionFailedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -721,19 +743,19 @@ func (*BattleItemEffectActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*TollMultiplierActivatedEvent) EventType() domain.EventName {
-	return tollMultiplierActivatedEventType
+func (*TollCreatureEffectActivatedEvent) EventType() domain.EventName {
+	return tollCreatureEffectActivatedEventType
 }
 
-func (*TollMultiplierActivatedEvent) SchemaVersion() int {
+func (*TollCreatureEffectActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*TerritoryLeveledUpEvent) EventType() domain.EventName {
-	return territoryLeveledUpEventType
+func (*LandLeveledUpEvent) EventType() domain.EventName {
+	return landLeveledUpEventType
 }
 
-func (*TerritoryLeveledUpEvent) SchemaVersion() int {
+func (*LandLeveledUpEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -825,25 +847,42 @@ func (*CreatureDamagedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*CreatureDestroyedEvent) EventType() domain.EventName {
-	return creatureDestroyedEventType
+func (*BoardCreatureDestroyedEvent) EventType() domain.EventName {
+	return boardCreatureDestroyedEventType
 }
 
-func (*CreatureDestroyedEvent) SchemaVersion() int {
+func (*BoardCreatureDestroyedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*InvadingCreatureDestroyedEvent) EventType() domain.EventName {
+	return invadingCreatureDestroyedEventType
+}
+
+func (*InvadingCreatureDestroyedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*DefendingCreatureDestroyedEvent) EventType() domain.EventName {
+	return defendingCreatureDestroyedEventType
+}
+
+func (*DefendingCreatureDestroyedEvent) SchemaVersion() int {
 	return 1
 }
 
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{EntityType: entityType, EventTypes: []domain.EventName{
-		createdEventType, turnOrderDecidedEventType, decksShuffledEventType, handsDealtEventType,
-		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, movedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
-		rewardDrawnEventType, rewardsCompletedEventType, creaturePlacedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
-		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
+		createdEventType, turnOrderDecidedEventType, drawPilesShuffledEventType, handsDealtEventType,
+		cardDrawnEventType, cardDiscardedEventType, diceRolledEventType, pieceMovedEventType, checkpointPassedEventType, lapCompletedEventType, turnEndedEventType, matchEndedEventType,
+		rewardDrawnEventType, allRewardsReceivedEventType, creaturePlacedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
+		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, invasionSucceededEventType, invasionFailedEventType, itemSkippedEventType,
 		battleStartedEventType, battleSupportEffectActivatedEventType, battleTerrainEffectActivatedEventType,
-		battleCreatureEffectActivatedEventType, battleItemEffectActivatedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
+		battleCreatureEffectActivatedEventType, battleItemEffectActivatedEventType, landLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
-		creatureDamagedEventType, creatureDestroyedEventType, tollMultiplierActivatedEventType,
+		creatureDamagedEventType, boardCreatureDestroyedEventType, tollCreatureEffectActivatedEventType,
+		invadingCreatureDestroyedEventType, defendingCreatureDestroyedEventType,
 	}}
 }
 
@@ -860,8 +899,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CreatedEvent{EventMeta: meta}
 	case EventType(turnOrderDecidedEventType):
 		event = &TurnOrderDecidedEvent{EventMeta: meta}
-	case EventType(decksShuffledEventType):
-		event = &DecksShuffledEvent{EventMeta: meta}
+	case EventType(drawPilesShuffledEventType):
+		event = &DrawPilesShuffledEvent{EventMeta: meta}
 	case EventType(handsDealtEventType):
 		event = &HandsDealtEvent{EventMeta: meta}
 	case EventType(cardDrawnEventType):
@@ -870,8 +909,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &CardDiscardedEvent{EventMeta: meta}
 	case EventType(diceRolledEventType):
 		event = &DiceRolledEvent{EventMeta: meta}
-	case EventType(movedEventType):
-		event = &MovedEvent{EventMeta: meta}
+	case EventType(pieceMovedEventType):
+		event = &PieceMovedEvent{EventMeta: meta}
 	case EventType(checkpointPassedEventType):
 		event = &CheckpointPassedEvent{EventMeta: meta}
 	case EventType(lapCompletedEventType):
@@ -882,8 +921,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &MatchEndedEvent{EventMeta: meta}
 	case EventType(rewardDrawnEventType):
 		event = &RewardDrawnEvent{EventMeta: meta}
-	case EventType(rewardsCompletedEventType):
-		event = &RewardsCompletedEvent{EventMeta: meta}
+	case EventType(allRewardsReceivedEventType):
+		event = &AllRewardsReceivedEvent{EventMeta: meta}
 	case EventType(creaturePlacedEventType):
 		event = &CreaturePlacedEvent{EventMeta: meta}
 	case EventType(tollPaidEventType):
@@ -898,10 +937,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ItemUsedEvent{EventMeta: meta}
 	case EventType(creatureStruckEventType):
 		event = &CreatureStruckEvent{EventMeta: meta}
-	case EventType(territoryConqueredEventType):
-		event = &TerritoryConqueredEvent{EventMeta: meta}
-	case EventType(invasionRepelledEventType):
-		event = &InvasionRepelledEvent{EventMeta: meta}
+	case EventType(invasionSucceededEventType):
+		event = &InvasionSucceededEvent{EventMeta: meta}
+	case EventType(invasionFailedEventType):
+		event = &InvasionFailedEvent{EventMeta: meta}
 	case EventType(itemSkippedEventType):
 		event = &ItemSkippedEvent{EventMeta: meta}
 	case EventType(battleStartedEventType):
@@ -914,10 +953,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &BattleCreatureEffectActivatedEvent{EventMeta: meta}
 	case EventType(battleItemEffectActivatedEventType):
 		event = &BattleItemEffectActivatedEvent{EventMeta: meta}
-	case EventType(tollMultiplierActivatedEventType):
-		event = &TollMultiplierActivatedEvent{EventMeta: meta}
-	case EventType(territoryLeveledUpEventType):
-		event = &TerritoryLeveledUpEvent{EventMeta: meta}
+	case EventType(tollCreatureEffectActivatedEventType):
+		event = &TollCreatureEffectActivatedEvent{EventMeta: meta}
+	case EventType(landLeveledUpEventType):
+		event = &LandLeveledUpEvent{EventMeta: meta}
 	case EventType(creatureExchangedEventType):
 		event = &CreatureExchangedEvent{EventMeta: meta}
 	case EventType(landElementChangedEventType):
@@ -940,8 +979,12 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &SpellEffectEndedEvent{EventMeta: meta}
 	case EventType(creatureDamagedEventType):
 		event = &CreatureDamagedEvent{EventMeta: meta}
-	case EventType(creatureDestroyedEventType):
-		event = &CreatureDestroyedEvent{EventMeta: meta}
+	case EventType(boardCreatureDestroyedEventType):
+		event = &BoardCreatureDestroyedEvent{EventMeta: meta}
+	case EventType(invadingCreatureDestroyedEventType):
+		event = &InvadingCreatureDestroyedEvent{EventMeta: meta}
+	case EventType(defendingCreatureDestroyedEventType):
+		event = &DefendingCreatureDestroyedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

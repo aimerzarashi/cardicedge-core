@@ -884,3 +884,43 @@ func (m Match) isVacantLand(position board.Position) bool {
 	}
 	return false
 }
+
+// 侵略したクリーチャーが破壊された後の状態。カードは今の番の人の捨て札に入り、移動で侵略していたら元の領地からも外れる
+func (m Match) invadingCreatureDestroyed(by ParticipantIndex) (Match, error) {
+	if m.Phase != PhaseBattling || m.Invasion == nil || m.Battle == nil || m.Battle.Attacker.Stats().HitPoints.Int() != 0 {
+		return m, ErrInvalidState
+	}
+	m.Participants = slices.Clone(m.Participants)
+	m.Participants[by].DiscardPile = append(slices.Clone(m.Participants[by].DiscardPile), m.Invasion.Card)
+	if m.Invasion.From == nil {
+		return m, nil
+	}
+	from, mover := *m.Invasion.From, m.Invasion.Creature
+	m.Territories = slices.DeleteFunc(slices.Clone(m.Territories), func(t Territory) bool { return t.Position == from })
+	m.PlacedCreatures = slices.DeleteFunc(slices.Clone(m.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == mover })
+	return m, nil
+}
+
+// 領地のクリーチャーが破壊された後の状態。カードは持ち主の捨て札に入り、領地から外れて土地は空き地になる
+func (m Match) territoryCreatureDestroyed(position board.Position) (Match, error) {
+	territory, ok := m.TerritoryAt(position)
+	placed, found := m.PlacedCreature(territory.Creature)
+	if !ok || !found {
+		return m, ErrInvalidState
+	}
+	m.Participants = slices.Clone(m.Participants)
+	m.Participants[placed.Owner].DiscardPile = append(slices.Clone(m.Participants[placed.Owner].DiscardPile), placed.Card)
+	m.Territories = slices.DeleteFunc(slices.Clone(m.Territories), func(t Territory) bool { return t.Position == position })
+	m.PlacedCreatures = slices.DeleteFunc(slices.Clone(m.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == placed.ID })
+	return m, nil
+}
+
+// ボードで破壊される領地。HP が 0 になった領地のクリーチャーはすぐ破壊されるので、0 の領地は多くても 1 つ
+func (m Match) destroyedOnBoard() (board.Position, bool) {
+	for _, territory := range m.Territories {
+		if placed, ok := m.PlacedCreature(territory.Creature); ok && placed.HitPoints.Int() == 0 {
+			return territory.Position, true
+		}
+	}
+	return board.Position{}, false
+}

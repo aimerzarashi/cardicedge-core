@@ -212,7 +212,7 @@ type Effect struct {
 	// 受けるダメージを 0 にする（画面のラベルは攻撃無効）。制約を満たす相手から攻撃を受けたとき、ダメージが 0 になる。
 	// 発動は攻撃を受ける直前（満たさなければ出さない）
 	NullifyReceivedDamage *NullifyReceivedDamageEffect `json:"nullify_received_damage,omitempty"`
-	// 通行料の倍率（戦闘の外）。いる領地の通行料を払うときに倍率を掛ける。発動は払うときの TollMultiplierActivatedEvent
+	// 通行料の倍率（戦闘の外）。いる領地の通行料を払うときに倍率を掛ける。発動は払うときの TollCreatureEffectActivatedEvent
 	TollMultiplier *TollMultiplierEffect `json:"toll_multiplier,omitempty"`
 	// 侵略できない（戦闘の外）。手札から侵略できず、移動で他人の領地にも入れない（守ることはできる）。match の判定は CreatureSpec.canInvade
 	ForbidInvasion *ForbidInvasionEffect `json:"forbid_invasion,omitempty"`

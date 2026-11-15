@@ -33,7 +33,7 @@ func Evolve(state State, event Event) (State, error) {
 	case *TurnOrderDecidedEvent:
 		current.TurnOrder = e.Order
 		current.Turn = 0
-	case *DecksShuffledEvent:
+	case *DrawPilesShuffledEvent:
 		if len(e.DrawPiles) != len(current.Participants) {
 			return state, ErrInvalidState
 		}
@@ -124,7 +124,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Dice = e.Value
 		current.RemainingSteps = e.Value
 		current.Phase = current.settle()
-	case *MovedEvent:
+	case *PieceMovedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
@@ -185,19 +185,41 @@ func Evolve(state State, event Event) (State, error) {
 				current.PlacedCreatures[i].HitPoints = e.RemainingHitPoints
 			}
 		}
-	case *CreatureDestroyedEvent:
+	case *InvadingCreatureDestroyedEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		next, err := current.invadingCreatureDestroyed(index)
+		if err != nil {
+			return state, err
+		}
+		current = next
+	case *DefendingCreatureDestroyedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
 		}
-		territory, ok := current.TerritoryAt(e.Position)
-		destroyed, found := current.PlacedCreature(territory.Creature)
-		if !ok || !found || destroyed.HitPoints.Int() != 0 {
+		if current.Phase != PhaseBattling || current.Invasion == nil || current.Battle == nil || current.Battle.Defender.Stats().HitPoints.Int() != 0 {
 			return state, ErrInvalidState
 		}
-		current.Participants = slices.Clone(current.Participants)
-		current.Participants[destroyed.Owner].DiscardPile = append(slices.Clone(current.Participants[destroyed.Owner].DiscardPile), destroyed.Card)
-		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
-		current.PlacedCreatures = slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == destroyed.ID })
+		next, err := current.territoryCreatureDestroyed(current.Invasion.Position)
+		if err != nil {
+			return state, err
+		}
+		current = next
+	case *BoardCreatureDestroyedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		position, ok := current.destroyedOnBoard()
+		if !ok {
+			return state, ErrInvalidState
+		}
+		next, err := current.territoryCreatureDestroyed(position)
+		if err != nil {
+			return state, err
+		}
+		current = next
 	case *SpellEffectEndedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
@@ -279,7 +301,7 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].Position = base
 		current.Participants[index].Previous = nil
 		current.Participants[index].PassedCheckpoints = nil
-	case *TerritoryLeveledUpEvent:
+	case *LandLeveledUpEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
@@ -450,7 +472,7 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		current.Battle = battle
-	case *TollMultiplierActivatedEvent:
+	case *TollCreatureEffectActivatedEvent:
 		territory, ok := current.invadedTerritory()
 		if !ok {
 			return state, ErrInvalidState
@@ -458,7 +480,7 @@ func Evolve(state State, event Event) (State, error) {
 		if _, ok := current.tollMultiplier(territory); !ok {
 			return state, ErrInvalidState
 		}
-	case *TerritoryConqueredEvent:
+	case *InvasionSucceededEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
@@ -466,34 +488,26 @@ func Evolve(state State, event Event) (State, error) {
 		if current.Phase != PhaseBattling || current.Invasion == nil || current.Battle == nil {
 			return state, ErrInvalidState
 		}
-		territory, ok := current.TerritoryAt(current.Invasion.Position)
-		if !ok {
+		// 守る側は直前の破壊で領地から外れている
+		if _, occupied := current.TerritoryAt(current.Invasion.Position); occupied {
 			return state, ErrInvalidState
 		}
-		defeated, found := current.PlacedCreature(territory.Creature)
-		if !found {
-			return state, ErrInvalidState
-		}
-		current.Participants = slices.Clone(current.Participants)
-		current.Participants[defeated.Owner].DiscardPile = append(slices.Clone(current.Participants[defeated.Owner].DiscardPile), defeated.Card)
 		invasion := *current.Invasion
 		if invasion.From != nil {
 			// 移動で侵略したクリーチャーは同じ 1 体のまま移り、元の土地は空き地になる
 			if e.Creature != invasion.Creature {
 				return state, ErrInvalidState
 			}
-			current.PlacedCreatures = slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == defeated.ID })
+			current.PlacedCreatures = slices.Clone(current.PlacedCreatures)
 			for i := range current.PlacedCreatures {
 				if current.PlacedCreatures[i].ID == e.Creature {
 					current.PlacedCreatures[i].HitPoints = e.TerritoryHitPoints
 				}
 			}
-			current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == *invasion.From })
-			for i := range current.Territories {
-				if current.Territories[i].Position == invasion.Position {
-					current.Territories[i].Creature = e.Creature
-				}
-			}
+			current.Territories = append(
+				slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == *invasion.From }),
+				Territory{Position: invasion.Position, Creature: e.Creature},
+			)
 			current.Invasion = nil
 			current.Battle = nil
 			current.Phase = PhaseEnding
@@ -503,20 +517,15 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		current.PlacedCreatures = append(
-			slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == defeated.ID }),
+			slices.Clone(current.PlacedCreatures),
 			PlacedCreature{ID: e.Creature, Card: invasion.Card, Owner: index, Base: invasion.Base, Attack: invasion.Attack, HitPoints: e.TerritoryHitPoints},
 		)
-		current.Territories = slices.Clone(current.Territories)
-		for i := range current.Territories {
-			if current.Territories[i].Position == invasion.Position {
-				current.Territories[i].Creature = e.Creature
-			}
-		}
+		current.Territories = append(slices.Clone(current.Territories), Territory{Position: invasion.Position, Creature: e.Creature})
 		current.LastPlacedCreatureID = e.Creature
 		current.Invasion = nil
 		current.Battle = nil
 		current.Phase = PhaseEnding
-	case *InvasionRepelledEvent:
+	case *InvasionFailedEvent:
 		index, err := current.actor(e.Participant)
 		if err != nil {
 			return state, err
@@ -531,18 +540,12 @@ func Evolve(state State, event Event) (State, error) {
 		if !ok || (e.ReturnedHitPoints != nil) != (survived && moved) {
 			return state, ErrInvalidState
 		}
-		if moved {
+		if moved && survived {
 			current.PlacedCreatures = slices.Clone(current.PlacedCreatures)
-			if survived {
-				for i := range current.PlacedCreatures {
-					if current.PlacedCreatures[i].ID == current.Invasion.Creature {
-						current.PlacedCreatures[i].HitPoints = *e.ReturnedHitPoints
-					}
+			for i := range current.PlacedCreatures {
+				if current.PlacedCreatures[i].ID == current.Invasion.Creature {
+					current.PlacedCreatures[i].HitPoints = *e.ReturnedHitPoints
 				}
-			} else {
-				from, mover := *current.Invasion.From, current.Invasion.Creature
-				current.PlacedCreatures = slices.DeleteFunc(current.PlacedCreatures, func(d PlacedCreature) bool { return d.ID == mover })
-				current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == from })
 			}
 		}
 		current.PlacedCreatures = slices.Clone(current.PlacedCreatures)
@@ -552,11 +555,9 @@ func Evolve(state State, event Event) (State, error) {
 			}
 		}
 		current.Participants = slices.Clone(current.Participants)
-		switch {
-		case survived && !moved:
+		// 倒れていれば、直前の破壊で捨て札に入っている
+		if survived && !moved {
 			current.Participants[index].Hand = append(slices.Clone(participant.Hand), current.Invasion.Card)
-		case !survived:
-			current.Participants[index].DiscardPile = append(slices.Clone(participant.DiscardPile), current.Invasion.Card)
 		}
 		current.Invasion = nil
 		current.Battle = nil
@@ -593,7 +594,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[e.Participant].Reward = &Reward{Pack: e.Pack, Cards: e.Cards}
-	case *RewardsCompletedEvent:
+	case *AllRewardsReceivedEvent:
 		if current.Phase != PhaseEnded || current.RewardsCompleted || !current.allPlayersRewarded() {
 			return state, ErrInvalidState
 		}
