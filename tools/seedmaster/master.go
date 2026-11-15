@@ -68,10 +68,9 @@ type masterCard struct {
 	ItemRestrictions      []string        `json:"item_restrictions"`
 	PlacementRestrictions []string        `json:"placement_restrictions"`
 	Abilities             []masterAbility `json:"abilities"`
-	// アイテムだけが持つ（増減は 0 が正しい値なので、攻撃力と同じくポインタで受ける）
-	Category          string `json:"category"`
-	AttackModifier    *int   `json:"attack_modifier"`
-	HitPointsModifier *int   `json:"hit_points_modifier"`
+	// アイテムだけが持つ（効果が無いアイテムは [] を書く。書き忘れと区別するため）
+	Category string             `json:"category"`
+	Effects  []masterItemEffect `json:"effects"`
 	// スペルだけが持つ。書かなければ効果なし（効果の無いスペルを公開できない決まりは、効果の種類がそろうまで効かせない。core#149）。
 	// 形は studio の read model と同じく、種類の名前の下に値を入れる（{"draw_cards":{"count":1}}）
 	Effect *masterSpellEffect `json:"effect"`
@@ -247,19 +246,57 @@ func (c masterCard) validateCreatureSpec() error {
 	return err
 }
 
-// アイテムは分類と増減を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
+// アイテムは分類と効果を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
 func (c masterCard) validateItemSpec() error {
 	if c.Type != "item" {
-		if c.Category != "" || c.AttackModifier != nil || c.HitPointsModifier != nil {
-			return fmt.Errorf("%s cannot have category, attack_modifier or hit_points_modifier", c.Type)
+		if c.Category != "" || c.Effects != nil {
+			return fmt.Errorf("%s cannot have category or effects", c.Type)
 		}
 		return nil
 	}
-	if c.AttackModifier == nil || c.HitPointsModifier == nil {
-		return errors.New("item needs attack_modifier and hit_points_modifier")
+	if c.Effects == nil {
+		return errors.New("item needs effects")
 	}
-	_, err := item.NewCategory(c.Category)
-	return err
+	category, err := item.NewCategory(c.Category)
+	if err != nil {
+		return err
+	}
+	for _, effect := range c.Effects {
+		kind, err := item.NewEffectKind(effect.Kind)
+		if err != nil {
+			return err
+		}
+		if !category.Allows(kind) {
+			return fmt.Errorf("%s cannot have the effect %q", category, effect.Kind)
+		}
+	}
+	return nil
+}
+
+// アイテムの効果 1 つ。種類と、種類に要る値（AT・HP の増減・AT の上書きは value、AT の倍率は percent と constraints）。
+// 種類と値の組み合わせは studio の ChangeEffects が確かめる
+type masterItemEffect struct {
+	Kind        string                 `json:"kind"`
+	Value       *int                   `json:"value"`
+	Percent     *int                   `json:"percent"`
+	Constraints []masterItemConstraint `json:"constraints"`
+}
+
+// 効果の制約 1 つ。種類と、種類に要る値（相手の属性は elements）
+type masterItemConstraint struct {
+	Kind     string   `json:"kind"`
+	Elements []string `json:"elements"`
+}
+
+func (e masterItemEffect) command() command.ItemEffect {
+	var constraints []command.ItemConstraint
+	if e.Constraints != nil {
+		constraints = make([]command.ItemConstraint, len(e.Constraints))
+		for i, constraint := range e.Constraints {
+			constraints[i] = command.ItemConstraint{Kind: constraint.Kind, Elements: constraint.Elements}
+		}
+	}
+	return command.ItemEffect{Kind: e.Kind, Value: e.Value, Percent: e.Percent, Constraints: constraints}
 }
 
 func loadMaster(raw []byte) (master, error) {

@@ -10,6 +10,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
 
@@ -338,16 +339,29 @@ type MatchBattleCreatureAbilityActivatedEvent struct {
 	BattleRandomStats *MatchBattleRandomStatsBasis
 }
 
-// アイテムの能力が発動した。アイテムのカードと決まった増減（下限で止まる前の値）を戦闘の入力から添える
-type MatchBattleItemAbilityActivatedEvent struct {
+// アイテムの効果が発動した。アイテムのカードと、発動したカードの効果（値は下限で止まる前の値）を戦闘の入力から添える。
+// カードの効果は同じ種類の最初のもの（倍率は制約を満たす一番高いもの）を採る（1 枚が同じ種類を重ねる見本が無いため。重ねるカードを
+// 作るときに見直す）。地形効果を無視するは、相手の HP が地形効果の分を除いた値になる変化を OpponentChange に持つ（core#177）
+type MatchBattleItemEffectActivatedEvent struct {
 	MatchEventMeta
-	Side              MatchBattleSide
-	Ability           MatchBattleAbility
-	Card              MatchCard
-	AttackModifier    int
-	HitPointsModifier int
-	Change            *MatchBattleStatChange
+	Side           MatchBattleSide
+	Effect         MatchBattleItemEffect
+	Card           MatchCard
+	CardEffect     ItemEffect
+	Change         *MatchBattleStatChange
+	OpponentChange *MatchBattleStatChange
 }
+
+// 戦闘で発動するアイテムの効果の種類
+type MatchBattleItemEffect string
+
+const (
+	MatchBattleItemEffectAttackModifier      MatchBattleItemEffect = "attack_modifier"
+	MatchBattleItemEffectHitPointsModifier   MatchBattleItemEffect = "hit_points_modifier"
+	MatchBattleItemEffectAttackOverride      MatchBattleItemEffect = "attack_override"
+	MatchBattleItemEffectAttackMultiplier    MatchBattleItemEffect = "attack_multiplier"
+	MatchBattleItemEffectIgnoreTerrainEffect MatchBattleItemEffect = "ignore_terrain_effect"
+)
 
 // 戦闘中の増減の決まった値（下限で止まる前の値）
 type MatchBattleModifierBasis struct {
@@ -616,7 +630,7 @@ func battleInputsByRevision(loaded []match.Event) map[int64]match.BattleInput {
 		switch e := event.(type) {
 		case *match.BattleStartedEvent:
 			current = e.Input
-		case *match.BattleSupportEffectActivatedEvent, *match.BattleTerrainEffectActivatedEvent, *match.BattleCreatureAbilityActivatedEvent, *match.BattleItemAbilityActivatedEvent:
+		case *match.BattleSupportEffectActivatedEvent, *match.BattleTerrainEffectActivatedEvent, *match.BattleCreatureAbilityActivatedEvent, *match.BattleItemEffectActivatedEvent:
 			inputs[event.GetMeta().AggregateVersion] = current
 		}
 	}
@@ -712,7 +726,7 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		if previous.Invasion != nil {
 			return []card.Ref{previous.Invasion.Card}
 		}
-	case *match.BattleItemAbilityActivatedEvent:
+	case *match.BattleItemEffectActivatedEvent:
 		// 戦闘の開始が after より前でも引けるように、出来事の版から入力を引く
 		if used := battleCombatant(input, e.Side).Item; used != nil {
 			return []card.Ref{used.Card}
@@ -969,26 +983,43 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 			}
 		}
 		return converted, nil
-	case *match.BattleItemAbilityActivatedEvent:
+	case *match.BattleItemEffectActivatedEvent:
 		input, ok := battleInputs[e.AggregateVersion]
 		if !ok || previous.Battle == nil {
-			return nil, fmt.Errorf("query: item ability event %d without battle", e.AggregateVersion)
+			return nil, fmt.Errorf("query: item effect event %d without battle", e.AggregateVersion)
 		}
 		side, err := fromBattleSide(e.Side)
 		if err != nil {
 			return nil, err
 		}
-		ability, err := fromBattleAbility(e.Ability)
-		if err != nil {
-			return nil, err
-		}
 		used := battleCombatant(input, e.Side).Item
 		if used == nil {
-			return nil, fmt.Errorf("query: item ability event %d without item on %s", e.AggregateVersion, e.Side)
+			return nil, fmt.Errorf("query: item effect event %d without item on %s", e.AggregateVersion, e.Side)
 		}
-		converted := MatchBattleItemAbilityActivatedEvent{
-			MatchEventMeta: meta, Side: side, Ability: ability, Card: cardOf(used.Card, cards),
-			AttackModifier: used.Spec.AttackModifier.Int(), HitPointsModifier: used.Spec.HitPointsModifier.Int(),
+		converted := MatchBattleItemEffectActivatedEvent{MatchEventMeta: meta, Side: side, Card: cardOf(used.Card, cards)}
+		cardEffect, found := activatedItemEffect(used.Spec.Effects, e.Effect, battleCombatant(input, opponentSide(e.Side)).Spec.Elements.Strings())
+		if !found {
+			return nil, fmt.Errorf("query: item effect event %d without the effect %q on the item", e.AggregateVersion, e.Effect)
+		}
+		converted.CardEffect = queryItemEffects(item.Effects{cardEffect})[0]
+		switch e.Effect {
+		case item.EffectKindAttackModifier:
+			converted.Effect = MatchBattleItemEffectAttackModifier
+		case item.EffectKindHitPointsModifier:
+			converted.Effect = MatchBattleItemEffectHitPointsModifier
+		case item.EffectKindAttackOverride:
+			converted.Effect = MatchBattleItemEffectAttackOverride
+		case item.EffectKindAttackMultiplier:
+			converted.Effect = MatchBattleItemEffectAttackMultiplier
+		case item.EffectKindIgnoreTerrainEffect:
+			converted.Effect = MatchBattleItemEffectIgnoreTerrainEffect
+			before := previous.Battle.Creature(opponentSide(e.Side))
+			ignored := before
+			ignored.TerrainEffectIgnored = true
+			change := statChange(before, match.BattleStatChange{HitPointsDelta: ignored.Stats().HitPoints.Int() - before.Stats().HitPoints.Int()})
+			converted.OpponentChange = &change
+		default:
+			return nil, fmt.Errorf("query: unknown item effect: %q", e.Effect)
 		}
 		if e.Change != nil {
 			change := statChange(previous.Battle.Creature(e.Side), *e.Change)
@@ -1047,6 +1078,31 @@ func statChange(before match.BattleCreature, change match.BattleStatChange) Matc
 		AttackDelta: change.AttackDelta, HitPointsDelta: change.HitPointsDelta,
 		Attack: stats.Attack.Int() + change.AttackDelta, HitPoints: stats.HitPoints.Int() + change.HitPointsDelta,
 	}
+}
+
+// 発動したカードの効果。同じ種類の最初のもの（倍率は相手の属性で制約を満たす一番高いもの）
+func activatedItemEffect(effects item.Effects, kind item.EffectKind, opponentElements []string) (item.Effect, bool) {
+	var activated item.Effect
+	found := false
+	for _, effect := range effects {
+		if effect.Kind() != kind {
+			continue
+		}
+		if effect.AttackMultiplier == nil {
+			return effect, true
+		}
+		if effect.AttackMultiplier.Constraints.SatisfiedByOpponentElements(opponentElements) && (!found || effect.AttackMultiplier.Percent > activated.AttackMultiplier.Percent) {
+			activated, found = effect, true
+		}
+	}
+	return activated, found
+}
+
+func opponentSide(side match.BattleSide) match.BattleSide {
+	if side == match.BattleSideAttacker {
+		return match.BattleSideDefender
+	}
+	return match.BattleSideAttacker
 }
 
 func fromBattleSide(side match.BattleSide) (MatchBattleSide, error) {

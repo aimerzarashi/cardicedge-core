@@ -479,31 +479,83 @@ const changeItemCategoryMutation = `mutation ($input: ChangeItemCategoryInput!) 
 	}
 }`
 
-const changeItemStatModifiersMutation = `mutation ($input: ChangeItemStatModifiersInput!) {
-	changeItemStatModifiers(input: $input) {
+const changeItemEffectsMutation = `mutation ($input: ChangeItemEffectsInput!) {
+	changeItemEffects(input: $input) {
 		__typename
-		... on ChangeItemStatModifiersSuccess { id revision }
+		... on ChangeItemEffectsSuccess { id revision }
+		... on ValidationErrors { errors { __typename field ... on FieldTooSmall { min } } }
 	}
 }`
 
-// 変えた分類と増減が登録の結果の既定の値を置き換え、カードの詳細で読める
-func TestItem_CategoryAndStatModifiersCanBeChangedWhileDraft(t *testing.T) {
+const itemEffectsQuery = `query ($id: UUID!) {
+	card(id: $id) {
+		__typename
+		... on Item {
+			category
+			allowedEffectKinds
+			effects {
+				__typename kind
+				... on ItemAttackOverrideEffect { value }
+				... on ItemAttackMultiplierEffect { percent constraints { __typename kind ... on ItemOpponentElementConstraint { elements } } }
+			}
+		}
+	}
+}`
+
+// 変えた分類と効果が登録の結果の既定の値を置き換え、カードの詳細で読める
+func TestItem_CategoryAndEffectsCanBeChangedWhileDraft(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
-	registered := registerItem(t, token, "かぶと-"+id)["item"].(map[string]any)
+	registered := registerItem(t, token, "まきもの-"+id)["item"].(map[string]any)
 	require.Equal(t, "WEAPON", registered["category"])
-	require.Equal(t, float64(0), registered["attackModifier"])
-	require.Equal(t, float64(0), registered["hitPointsModifier"])
+	require.Equal(t, []any{}, registered["effects"])
+	require.Equal(t, []any{"ATTACK_MODIFIER", "ATTACK_MULTIPLIER"}, registered["allowedEffectKinds"])
 
-	categorized := client.Data(t, token, changeItemCategoryMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": registered["revision"], "category": "ARMOR"}}, "changeItemCategory")
+	categorized := client.Data(t, token, changeItemCategoryMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": registered["revision"], "category": "SCROLL"}}, "changeItemCategory")
 	require.Equal(t, "ChangeItemCategorySuccess", categorized["__typename"])
-	changed := client.Data(t, token, changeItemStatModifiersMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": categorized["revision"], "attackModifier": -5, "hitPointsModifier": 30}}, "changeItemStatModifiers")
-	require.Equal(t, "ChangeItemStatModifiersSuccess", changed["__typename"])
+	effects := []map[string]any{
+		{"kind": "ATTACK_OVERRIDE", "value": 30},
+		{"kind": "IGNORE_TERRAIN_EFFECT"},
+		{"kind": "ATTACK_MULTIPLIER", "percent": 150, "constraints": []map[string]any{{"kind": "OPPONENT_ELEMENT", "elements": []string{"WATER", "FIRE"}}}},
+	}
+	changed := client.Data(t, token, changeItemEffectsMutation, map[string]any{"input": map[string]any{"id": registered["id"], "revision": categorized["revision"], "effects": effects}}, "changeItemEffects")
+	require.Equal(t, "ChangeItemEffectsSuccess", changed["__typename"])
 	require.Equal(t, registered["revision"].(float64)+2, changed["revision"])
+
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		card, err := client.TryData(t.Context(), token, itemEffectsQuery, map[string]any{"id": registered["id"]}, "card")
+		if assert.NoError(c, err) {
+			assert.Equal(c, map[string]any{"__typename": "Item", "category": "SCROLL", "allowedEffectKinds": []any{"ATTACK_OVERRIDE", "ATTACK_MULTIPLIER", "IGNORE_TERRAIN_EFFECT"}, "effects": []any{
+				map[string]any{"__typename": "ItemAttackOverrideEffect", "kind": "ATTACK_OVERRIDE", "value": float64(30)},
+				map[string]any{"__typename": "ItemIgnoreTerrainEffect", "kind": "IGNORE_TERRAIN_EFFECT"},
+				map[string]any{"__typename": "ItemAttackMultiplierEffect", "kind": "ATTACK_MULTIPLIER", "percent": float64(150), "constraints": []any{
+					map[string]any{"__typename": "ItemOpponentElementConstraint", "kind": "OPPONENT_ELEMENT", "elements": []any{"FIRE", "WATER"}},
+				}},
+			}}, card)
+		}
+	})
 }
 
-func TestItem_CategoryAndStatModifiersAreRejectedForOtherThanADraftItem(t *testing.T) {
+func TestItem_EffectsAreRejectedWhenInvalidOrNotAllowed(t *testing.T) {
+	t.Parallel()
+	token := operators.Token(t)
+	id := testhelper.UniqueID(t)
+	registered := registerItem(t, token, "ぶき-"+id)["item"].(map[string]any)
+	input := func(effects []map[string]any) map[string]any {
+		return map[string]any{"input": map[string]any{"id": registered["id"], "revision": registered["revision"], "effects": effects}}
+	}
+
+	invalid := client.Data(t, token, changeItemEffectsMutation, input([]map[string]any{{"kind": "ATTACK_MULTIPLIER", "percent": 0}}), "changeItemEffects")
+	notAllowed := client.Data(t, token, changeItemEffectsMutation, input([]map[string]any{{"kind": "HIT_POINTS_MODIFIER", "value": 10}}), "changeItemEffects")
+
+	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
+		map[string]any{"__typename": "FieldTooSmall", "field": "effects.0.percent", "min": float64(1)},
+	}}, invalid)
+	require.Equal(t, "ItemEffectNotAllowedError", notAllowed["__typename"])
+}
+
+func TestItem_CategoryAndEffectsAreRejectedForOtherThanADraftItem(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := testhelper.UniqueID(t)
@@ -512,7 +564,7 @@ func TestItem_CategoryAndStatModifiersAreRejectedForOtherThanADraftItem(t *testi
 	publishedRevision := publishCard(t, token, published["id"], published["revision"])["revision"]
 
 	notAnItem := client.Data(t, token, changeItemCategoryMutation, map[string]any{"input": map[string]any{"id": creature["id"], "revision": creature["revision"], "category": "ARMOR"}}, "changeItemCategory")
-	notDraft := client.Data(t, token, changeItemStatModifiersMutation, map[string]any{"input": map[string]any{"id": published["id"], "revision": publishedRevision, "attackModifier": 1, "hitPointsModifier": 1}}, "changeItemStatModifiers")
+	notDraft := client.Data(t, token, changeItemEffectsMutation, map[string]any{"input": map[string]any{"id": published["id"], "revision": publishedRevision, "effects": []map[string]any{{"kind": "ATTACK_MODIFIER", "value": 1}}}}, "changeItemEffects")
 
 	require.Equal(t, "CardNotFoundError", notAnItem["__typename"])
 	require.Equal(t, "CardNotDraftError", notDraft["__typename"])

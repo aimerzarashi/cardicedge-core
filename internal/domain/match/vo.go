@@ -149,7 +149,7 @@ type BattleCombatant struct {
 	Attack creature.Attack `json:"attack"`
 	// 戦闘の前の HP（守る側は領地での傷が残った値）
 	HitPoints creature.HitPoints `json:"hit_points"`
-	// 出したアイテム。出さなければ nil。効かないアイテム（巻物）も、選んだ入力として持つ（2026-11-13 オーナー）
+	// 出したアイテム。出さなければ nil
 	Item *BattleItem `json:"item,omitempty"`
 }
 
@@ -190,13 +190,14 @@ const (
 	BattleModifierSourceSupportEffect   BattleModifierSourceKind = "support_effect"
 	BattleModifierSourceTerrainEffect   BattleModifierSourceKind = "terrain_effect"
 	BattleModifierSourceCreatureAbility BattleModifierSourceKind = "creature_ability"
-	BattleModifierSourceItemAbility     BattleModifierSourceKind = "item_ability"
+	BattleModifierSourceItemEffect      BattleModifierSourceKind = "item_effect"
 )
 
-// 増減の出どころ。能力のときだけ、どの能力か
+// 増減の出どころ。クリーチャーの能力のときはどの能力か、アイテムの効果のときはどの効果か
 type BattleModifierSource struct {
-	Kind    BattleModifierSourceKind
-	Ability BattleAbility
+	Kind       BattleModifierSourceKind
+	Ability    BattleAbility
+	ItemEffect item.EffectKind
 }
 
 type EndReason string
@@ -248,9 +249,8 @@ type SpellSpec struct {
 
 // アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う
 type ItemSpec struct {
-	Category          item.Category          `json:"category"`
-	AttackModifier    item.AttackModifier    `json:"attack_modifier"`
-	HitPointsModifier item.HitPointsModifier `json:"hit_points_modifier"`
+	Category item.Category `json:"category"`
+	Effects  item.Effects  `json:"effects"`
 }
 
 // クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、

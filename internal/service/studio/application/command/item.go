@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,15 +34,14 @@ func NewItemHandler(
 
 // presentation 層にドメインの型（item.Item・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredItem struct {
-	ID                uuid.UUID
-	Name              string
-	Cost              int
-	Rarity            string
-	Category          string
-	AttackModifier    int
-	HitPointsModifier int
-	RegisteredAt      time.Time
-	UpdatedAt         time.Time
+	ID           uuid.UUID
+	Name         string
+	Cost         int
+	Rarity       string
+	Category     string
+	Effects      []ItemEffect
+	RegisteredAt time.Time
+	UpdatedAt    time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
 	Revision int64
 }
@@ -92,7 +92,7 @@ func (c *ItemHandler) Register(ctx context.Context, name string) (RegisteredItem
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredItem{
 		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
-		Category: registered.Category.String(), AttackModifier: registered.AttackModifier.Int(), HitPointsModifier: registered.HitPointsModifier.Int(),
+		Category: registered.Category.String(), Effects: itemEffects(registered.Effects),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -145,7 +145,7 @@ func (c *ItemHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision i
 }
 
 // 分類を変える（準備中だけ）。同じ値なら変わらず、revision も進まない。知らない値は input.Errors（InvalidFormat）。アイテムでない ID は ErrCardNotFound。
-// ほかのエラーは ChangeCost と同じ。分類はアイテムだけが持つので、CardHandler を通さずここで受ける
+// 今の効果を持てない分類は ErrItemEffectNotAllowed。ほかのエラーは ChangeCost と同じ。分類はアイテムだけが持つので、CardHandler を通さずここで受ける
 func (c *ItemHandler) ChangeCategory(ctx context.Context, id uuid.UUID, revision int64, category string) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
@@ -158,15 +158,29 @@ func (c *ItemHandler) ChangeCategory(ctx context.Context, id uuid.UUID, revision
 	return c.change(ctx, id, revision, &item.ChangeCategoryCommand{Category: value, ChangedBy: changedBy})
 }
 
-// 戦闘中の AT・HP の増減を変える（準備中だけ）。どちらも同じ値なら変わらず、revision も進まない。ほかのエラーは ChangeCategory と同じ
-func (c *ItemHandler) ChangeStatModifiers(ctx context.Context, id uuid.UUID, revision int64, attackModifier, hitPointsModifier int) (ChangedCard, error) {
+// 効果の並びを変える（準備中だけ。変えた後の並びの全体）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせが合わない・
+// 値の範囲の誤りは input.Errors（項目は effects.N・effects.N.value・effects.N.percent・effects.N.constraints.M・
+// effects.N.constraints.M.elements）、今の分類で持てない効果は ErrItemEffectNotAllowed。ほかのエラーは ChangeCategory と同じ
+func (c *ItemHandler) ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []ItemEffect) (ChangedCard, error) {
 	changedBy, ok := authentication.Operator(ctx)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.change(ctx, id, revision, &item.ChangeStatModifiersCommand{
-		AttackModifier: item.NewAttackModifier(attackModifier), HitPointsModifier: item.NewHitPointsModifier(hitPointsModifier), ChangedBy: changedBy,
-	})
+	values := make([]item.Effect, 0, len(effects))
+	invalid := input.Errors{}
+	for i, effect := range effects {
+		value, errs := effect.domain(fmt.Sprintf("effects.%d", i))
+		invalid = append(invalid, errs...)
+		values = append(values, value)
+	}
+	if len(invalid) > 0 {
+		return ChangedCard{}, invalid
+	}
+	value, err := item.NewEffects(values)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return c.change(ctx, id, revision, &item.ChangeEffectsCommand{Effects: value, ChangedBy: changedBy})
 }
 
 func (c *ItemHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd item.Command) (ChangedCard, error) {
@@ -190,6 +204,9 @@ func (c *ItemHandler) change(ctx context.Context, publicID uuid.UUID, revision i
 		}
 		return ChangedCard{ID: publicID, Revision: state.(item.Item).Version}, nil
 	})
+	if errors.Is(err, item.ErrEffectNotAllowed) {
+		return ChangedCard{}, ErrItemEffectNotAllowed
+	}
 	return changed, cardChangeError(err)
 }
 
@@ -214,4 +231,124 @@ func (c *ItemHandler) load(ctx context.Context, publicID uuid.UUID, revision int
 		return item.Item{}, ErrRevisionConflict
 	}
 	return loaded, nil
+}
+
+// アイテムの効果の種類（domain の種類の名前と同じ）
+const (
+	ItemEffectAttackModifier      = "attack_modifier"
+	ItemEffectHitPointsModifier   = "hit_points_modifier"
+	ItemEffectAttackOverride      = "attack_override"
+	ItemEffectAttackMultiplier    = "attack_multiplier"
+	ItemEffectIgnoreTerrainEffect = "ignore_terrain_effect"
+)
+
+// 効果の制約の種類（domain の種類の名前と同じ）
+const ItemConstraintOpponentElement = "opponent_element"
+
+// アイテムの効果の入力と出力。種類と、種類に要る値（AT・HP の増減・AT の上書きは Value、AT の倍率は Percent と Constraints）
+type ItemEffect struct {
+	Kind        string
+	Value       *int
+	Percent     *int
+	Constraints []ItemConstraint
+}
+
+// 効果の制約の入力と出力。種類と、種類に要る値（相手の属性は Elements）
+type ItemConstraint struct {
+	Kind     string
+	Elements []string
+}
+
+// 種類と値の組み合わせが合わないものは field の InvalidFormat、値の範囲の誤りは値の項目の誤り
+func (e ItemEffect) domain(field string) (item.Effect, input.Errors) {
+	shape := input.Errors{&input.InvalidFormat{Field: field}}
+	switch e.Kind {
+	case ItemEffectAttackModifier, ItemEffectHitPointsModifier, ItemEffectAttackOverride:
+		if e.Value == nil || e.Percent != nil || e.Constraints != nil {
+			return item.Effect{}, shape
+		}
+		switch e.Kind {
+		case ItemEffectAttackModifier:
+			return item.NewAttackModifierEffect(item.NewAttackModifier(*e.Value)), nil
+		case ItemEffectHitPointsModifier:
+			return item.NewHitPointsModifierEffect(item.NewHitPointsModifier(*e.Value)), nil
+		}
+		override, err := item.NewAttackOverride(*e.Value)
+		if err != nil {
+			return item.Effect{}, input.Errors{&input.TooSmall{Field: field + ".value", Min: 0}}
+		}
+		return item.NewAttackOverrideEffect(override), nil
+	case ItemEffectAttackMultiplier:
+		if e.Percent == nil || e.Value != nil {
+			return item.Effect{}, shape
+		}
+		invalid := input.Errors{}
+		percent, err := item.NewAttackMultiplierPercent(*e.Percent)
+		if err != nil {
+			invalid = append(invalid, &input.TooSmall{Field: field + ".percent", Min: 1})
+		}
+		constraints := make([]item.Constraint, 0, len(e.Constraints))
+		for i, constraint := range e.Constraints {
+			value, invalidConstraint := constraint.domain(fmt.Sprintf("%s.constraints.%d", field, i))
+			invalid = append(invalid, invalidConstraint...)
+			constraints = append(constraints, value)
+		}
+		if len(invalid) > 0 {
+			return item.Effect{}, invalid
+		}
+		value, err := item.NewConstraints(constraints)
+		if err != nil {
+			return item.Effect{}, shape
+		}
+		return item.NewAttackMultiplierEffect(percent, value), nil
+	case ItemEffectIgnoreTerrainEffect:
+		if e.Value != nil || e.Percent != nil || e.Constraints != nil {
+			return item.Effect{}, shape
+		}
+		return item.NewIgnoreTerrainEffect(), nil
+	}
+	return item.Effect{}, shape
+}
+
+// 属性の誤り（空・知らない属性・重複）は、どれも elements の 1 つの誤りにする
+func (c ItemConstraint) domain(field string) (item.Constraint, input.Errors) {
+	if c.Kind != ItemConstraintOpponentElement {
+		return item.Constraint{}, input.Errors{&input.InvalidFormat{Field: field}}
+	}
+	elements, err := item.NewElements(c.Elements)
+	if err != nil {
+		return item.Constraint{}, input.Errors{&input.InvalidFormat{Field: field + ".elements"}}
+	}
+	return item.NewOpponentElementConstraint(elements), nil
+}
+
+func itemEffects(effects item.Effects) []ItemEffect {
+	values := make([]ItemEffect, len(effects))
+	for i, effect := range effects {
+		switch {
+		case effect.AttackModifier != nil:
+			value := effect.AttackModifier.Value.Int()
+			values[i] = ItemEffect{Kind: ItemEffectAttackModifier, Value: &value}
+		case effect.HitPointsModifier != nil:
+			value := effect.HitPointsModifier.Value.Int()
+			values[i] = ItemEffect{Kind: ItemEffectHitPointsModifier, Value: &value}
+		case effect.AttackOverride != nil:
+			value := effect.AttackOverride.Value.Int()
+			values[i] = ItemEffect{Kind: ItemEffectAttackOverride, Value: &value}
+		case effect.AttackMultiplier != nil:
+			percent := effect.AttackMultiplier.Percent.Int()
+			constraints := make([]ItemConstraint, len(effect.AttackMultiplier.Constraints))
+			for j, constraint := range effect.AttackMultiplier.Constraints {
+				elements := make([]string, len(constraint.OpponentElement.Elements))
+				for k, element := range constraint.OpponentElement.Elements {
+					elements[k] = element.String()
+				}
+				constraints[j] = ItemConstraint{Kind: ItemConstraintOpponentElement, Elements: elements}
+			}
+			values[i] = ItemEffect{Kind: ItemEffectAttackMultiplier, Percent: &percent, Constraints: constraints}
+		case effect.IgnoreTerrainEffect != nil:
+			values[i] = ItemEffect{Kind: ItemEffectIgnoreTerrainEffect}
+		}
+	}
+	return values
 }

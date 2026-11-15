@@ -91,7 +91,7 @@ type Invasion struct {
 }
 
 // 戦闘の中の片方のクリーチャー。値を層に分けて持ち、今の AT・HP（Stats）は層から計算する。今の値 1 つに混ぜると、
-// どの効果でいくら増えたか・受けたダメージがいくつかが残らず、地形効果の分だけを除く（貫通）・基本の値を見る（制約）といった
+// どの効果でいくら増えたか・受けたダメージがいくつかが残らず、地形効果の分だけを除く（地形効果を無視する）・基本の値を見る（制約）といった
 // 計算ができないため（2026-11-14 オーナー。core#175）
 type BattleCreature struct {
 	// 基本の AT・HP（カードの性能の値）
@@ -109,6 +109,8 @@ type BattleCreature struct {
 	// 割合で減らす能力を同じ形で持つため（2026-11-14 オーナー。core#175）。複数が発動したら一番小さい割合を採る（倍率の
 	// 「一番高いものを 1 回だけ」と同じ考え方）
 	ReceivedDamagePercent int
+	// 相手の地形効果を無視する効果の発動で、地形効果の層を数えなくなったか（今の HP と戦闘の後に残る体力の両方。core#177）
+	TerrainEffectIgnored bool
 }
 
 // 効果 1 つで増減した量と、その出どころ
@@ -121,20 +123,30 @@ type BattleStatModifier struct {
 // 今の AT・HP。AT は戦闘の前の値に増減を、HP は戦闘の前の値に増減と受けたダメージを当てる。増減とダメージは下限で止まった後の
 // 実際の量なので、足し合わせても途中で 0 を下回らない
 func (c BattleCreature) Stats() BattleStats {
-	attackDelta, hitPointsDelta := 0, 0
+	attackDelta := 0
 	for _, modifier := range c.Modifiers {
 		attackDelta += modifier.AttackDelta
-		hitPointsDelta += modifier.HitPointsDelta
 	}
-	return BattleStats{Attack: c.InitialAttack.Modified(attackDelta), HitPoints: c.InitialHitPoints.Modified(hitPointsDelta - c.Damage)}
+	return BattleStats{Attack: c.InitialAttack.Modified(attackDelta), HitPoints: c.InitialHitPoints.Modified(c.hitPointsDelta() - c.Damage)}
 }
 
+// HP の増減の合計。地形効果が無視されたら地形効果の層を数えない
 func (c BattleCreature) hitPointsDelta() int {
 	delta := 0
 	for _, modifier := range c.Modifiers {
+		if c.TerrainEffectIgnored && modifier.Source.Kind == BattleModifierSourceTerrainEffect {
+			continue
+		}
 		delta += modifier.HitPointsDelta
 	}
 	return delta
+}
+
+// 地形効果の層があるか（地形効果を無視する効果は、無視するものが無ければ発動しない）
+func (c BattleCreature) hasTerrainEffect() bool {
+	return slices.ContainsFunc(c.Modifiers, func(modifier BattleStatModifier) bool {
+		return modifier.Source.Kind == BattleModifierSourceTerrainEffect
+	})
 }
 
 // 戦闘の後に領地に残る体力。増えた分は先に減って残りは消え、下がった分は戦闘が終わると戻るので、残る傷は増えた分を超えたダメージだけ

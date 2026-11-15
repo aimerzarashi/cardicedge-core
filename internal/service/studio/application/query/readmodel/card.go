@@ -103,11 +103,70 @@ type CreatureMetadata struct {
 	Abilities             []CreatureAbilityMetadata `json:"abilities"`
 }
 
-// アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）
+// アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）、効果は並びの順（core#177）
 type ItemMetadata struct {
-	Category          string `json:"category"`
-	AttackModifier    int    `json:"attack_modifier"`
-	HitPointsModifier int    `json:"hit_points_modifier"`
+	Category string               `json:"category"`
+	Effects  []ItemEffectMetadata `json:"effects"`
+}
+
+// アイテムの効果。domain の item.Effect と同じ形（持っている種類の名前の下に値を置く）
+type ItemEffectMetadata struct {
+	AttackModifier      *ItemValueEffectMetadata            `json:"attack_modifier,omitempty"`
+	HitPointsModifier   *ItemValueEffectMetadata            `json:"hit_points_modifier,omitempty"`
+	AttackOverride      *ItemValueEffectMetadata            `json:"attack_override,omitempty"`
+	AttackMultiplier    *ItemAttackMultiplierEffectMetadata `json:"attack_multiplier,omitempty"`
+	IgnoreTerrainEffect *ItemIgnoreTerrainEffectMetadata    `json:"ignore_terrain_effect,omitempty"`
+}
+
+// 値を 1 つだけ持つ効果（AT・HP の増減、AT の上書き）
+type ItemValueEffectMetadata struct {
+	Value int `json:"value"`
+}
+
+type ItemAttackMultiplierEffectMetadata struct {
+	Percent     int                      `json:"percent"`
+	Constraints []ItemConstraintMetadata `json:"constraints"`
+}
+
+type ItemIgnoreTerrainEffectMetadata struct{}
+
+// 効果の制約。domain の item.Constraint と同じ形
+type ItemConstraintMetadata struct {
+	OpponentElement *ItemOpponentElementConstraintMetadata `json:"opponent_element,omitempty"`
+}
+
+// 属性はクリーチャーの属性と同じ名前（火・地・水・風・無の順）
+type ItemOpponentElementConstraintMetadata struct {
+	Elements []string `json:"elements"`
+}
+
+func itemEffectsMetadata(effects item.Effects) []ItemEffectMetadata {
+	values := make([]ItemEffectMetadata, len(effects))
+	for i, effect := range effects {
+		switch {
+		case effect.AttackModifier != nil:
+			values[i].AttackModifier = &ItemValueEffectMetadata{Value: effect.AttackModifier.Value.Int()}
+		case effect.HitPointsModifier != nil:
+			values[i].HitPointsModifier = &ItemValueEffectMetadata{Value: effect.HitPointsModifier.Value.Int()}
+		case effect.AttackOverride != nil:
+			values[i].AttackOverride = &ItemValueEffectMetadata{Value: effect.AttackOverride.Value.Int()}
+		case effect.AttackMultiplier != nil:
+			constraints := make([]ItemConstraintMetadata, len(effect.AttackMultiplier.Constraints))
+			for j, constraint := range effect.AttackMultiplier.Constraints {
+				if constraint.OpponentElement != nil {
+					elements := make([]string, len(constraint.OpponentElement.Elements))
+					for k, element := range constraint.OpponentElement.Elements {
+						elements[k] = element.String()
+					}
+					constraints[j].OpponentElement = &ItemOpponentElementConstraintMetadata{Elements: elements}
+				}
+			}
+			values[i].AttackMultiplier = &ItemAttackMultiplierEffectMetadata{Percent: effect.AttackMultiplier.Percent.Int(), Constraints: constraints}
+		case effect.IgnoreTerrainEffect != nil:
+			values[i].IgnoreTerrainEffect = &ItemIgnoreTerrainEffectMetadata{}
+		}
+	}
+	return values
 }
 
 // スペルだけの性能
@@ -256,7 +315,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Item:         &ItemMetadata{Category: e.Category.String(), AttackModifier: e.AttackModifier.Int(), HitPointsModifier: e.HitPointsModifier.Int()},
+			Item:         &ItemMetadata{Category: e.Category.String(), Effects: itemEffectsMetadata(e.Effects)},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -336,10 +395,9 @@ func (state Card) Evolve(event any) Card {
 		changed.Category = e.Category.String()
 		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
-	case *item.StatModifiersChangedEvent:
+	case *item.EffectsChangedEvent:
 		changed := *state.Metadata.Item
-		changed.AttackModifier = e.AttackModifier.Int()
-		changed.HitPointsModifier = e.HitPointsModifier.Int()
+		changed.Effects = itemEffectsMetadata(e.Effects)
 		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *spell.RarityChangedEvent:

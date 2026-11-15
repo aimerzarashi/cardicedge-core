@@ -68,9 +68,34 @@ type SpellMultipleDice struct {
 
 // アイテムだけの性能（写した cards.metadata.item の値）
 type ItemSpec struct {
-	Category          string
-	AttackModifier    int
-	HitPointsModifier int
+	Category string
+	Effects  []ItemEffect
+}
+
+// アイテムの効果。種類ごとの値のどれか 1 つだけを持つ（query.ItemEffect と同じ形。core#177）
+type ItemEffect struct {
+	// AT の増減の値。持っていなければ nil
+	AttackModifier *int
+	// HP の増減の値。持っていなければ nil
+	HitPointsModifier *int
+	// 上書きした後の AT。持っていなければ nil
+	AttackOverride *int
+	// AT の倍率。持っていなければ nil
+	AttackMultiplier *ItemAttackMultiplier
+	// 地形効果を無視する
+	IgnoreTerrainEffect bool
+}
+
+// AT の倍率（百分率）と、発動する制約（すべてを満たすときに発動する）
+type ItemAttackMultiplier struct {
+	Percent     int
+	Constraints []ItemConstraint
+}
+
+// 効果の制約。種類ごとの値のどれか 1 つだけを持つ
+type ItemConstraint struct {
+	// 相手の属性（合えば満たす属性）。この種類でなければ nil
+	OpponentElements []string
 }
 
 // クリーチャーだけの性能（写した cards.metadata.creature の値）

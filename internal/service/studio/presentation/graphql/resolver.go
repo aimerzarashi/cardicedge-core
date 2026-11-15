@@ -25,7 +25,7 @@ type CreatureRegistrar interface {
 type ItemRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredItem, error)
 	ChangeCategory(ctx context.Context, id uuid.UUID, revision int64, category string) (command.ChangedCard, error)
-	ChangeStatModifiers(ctx context.Context, id uuid.UUID, revision int64, attackModifier, hitPointsModifier int) (command.ChangedCard, error)
+	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.ItemEffect) (command.ChangedCard, error)
 }
 
 // 実装は command.SpellHandler

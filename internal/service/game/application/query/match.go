@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -709,7 +710,7 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	}
 	found.Item = nil
 	if spec.Item != nil {
-		found.Item = &ItemSpec{Category: spec.Item.Category.String(), AttackModifier: spec.Item.AttackModifier.Int(), HitPointsModifier: spec.Item.HitPointsModifier.Int()}
+		found.Item = &ItemSpec{Category: spec.Item.Category.String(), Effects: queryItemEffects(spec.Item.Effects)}
 	}
 	found.Spell = nil
 	if spec.Spell != nil {
@@ -754,6 +755,35 @@ func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
 		}
 		if ability.AttackImmunity != nil {
 			values[i].AttackImmunityElements = ability.AttackImmunity.Elements.Strings()
+		}
+	}
+	return values
+}
+
+func queryItemEffects(effects item.Effects) []ItemEffect {
+	values := make([]ItemEffect, len(effects))
+	for i, effect := range effects {
+		switch {
+		case effect.AttackModifier != nil:
+			values[i].AttackModifier = new(effect.AttackModifier.Value.Int())
+		case effect.HitPointsModifier != nil:
+			values[i].HitPointsModifier = new(effect.HitPointsModifier.Value.Int())
+		case effect.AttackOverride != nil:
+			values[i].AttackOverride = new(effect.AttackOverride.Value.Int())
+		case effect.AttackMultiplier != nil:
+			constraints := make([]ItemConstraint, len(effect.AttackMultiplier.Constraints))
+			for j, constraint := range effect.AttackMultiplier.Constraints {
+				if constraint.OpponentElement != nil {
+					elements := make([]string, len(constraint.OpponentElement.Elements))
+					for k, element := range constraint.OpponentElement.Elements {
+						elements[k] = element.String()
+					}
+					constraints[j].OpponentElements = elements
+				}
+			}
+			values[i].AttackMultiplier = &ItemAttackMultiplier{Percent: effect.AttackMultiplier.Percent.Int(), Constraints: constraints}
+		case effect.IgnoreTerrainEffect != nil:
+			values[i].IgnoreTerrainEffect = true
 		}
 	}
 	return values

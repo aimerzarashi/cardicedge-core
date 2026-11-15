@@ -1,6 +1,7 @@
 package graphql
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -54,7 +55,13 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		if err != nil {
 			return nil, err
 		}
-		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, AttackModifier: item.AttackModifier, HitPointsModifier: item.HitPointsModifier}, nil
+		effects := make([]model.ItemEffect, len(item.Effects))
+		for i, effect := range item.Effects {
+			if effects[i], err = fromItemEffect(effect); err != nil {
+				return nil, err
+			}
+		}
+		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, Effects: effects}, nil
 	case query.CardTypeSpell:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
 		if spell == nil {
@@ -161,4 +168,31 @@ func fromCreatureAbilities(abilities []query.CreatureAbility) ([]model.CreatureA
 		}
 	}
 	return values, nil
+}
+
+func fromItemEffect(effect query.ItemEffect) (model.ItemEffect, error) {
+	switch {
+	case effect.AttackModifier != nil:
+		return &model.ItemAttackModifierEffect{Kind: model.ItemEffectKindAttackModifier, Value: *effect.AttackModifier}, nil
+	case effect.HitPointsModifier != nil:
+		return &model.ItemHitPointsModifierEffect{Kind: model.ItemEffectKindHitPointsModifier, Value: *effect.HitPointsModifier}, nil
+	case effect.AttackOverride != nil:
+		return &model.ItemAttackOverrideEffect{Kind: model.ItemEffectKindAttackOverride, Value: *effect.AttackOverride}, nil
+	case effect.AttackMultiplier != nil:
+		constraints := make([]model.ItemConstraint, len(effect.AttackMultiplier.Constraints))
+		for i, constraint := range effect.AttackMultiplier.Constraints {
+			if constraint.OpponentElements == nil {
+				return nil, fmt.Errorf("graphql: item constraint %d has no kind", i)
+			}
+			elements, err := fromElements(constraint.OpponentElements)
+			if err != nil {
+				return nil, err
+			}
+			constraints[i] = &model.ItemOpponentElementConstraint{Kind: model.ItemConstraintKindOpponentElement, Elements: elements}
+		}
+		return &model.ItemAttackMultiplierEffect{Kind: model.ItemEffectKindAttackMultiplier, Percent: effect.AttackMultiplier.Percent, Constraints: constraints}, nil
+	case effect.IgnoreTerrainEffect:
+		return &model.ItemIgnoreTerrainEffect{Kind: model.ItemEffectKindIgnoreTerrainEffect}, nil
+	}
+	return nil, errors.New("graphql: item effect has no kind")
 }

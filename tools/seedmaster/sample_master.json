@@ -270,8 +270,7 @@
       "cost": 15,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 30,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 30 }]
     },
     {
       "type": "item",
@@ -279,8 +278,7 @@
       "cost": 35,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 45,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 45 }]
     },
     {
       "type": "item",
@@ -288,17 +286,15 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 25,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["water"] }] }]
     },
     {
       "type": "item",
-      "name": "ウィンドスピア",
+      "name": "ウィンドボウ",
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 25,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["earth"] }] }]
     },
     {
       "type": "item",
@@ -306,8 +302,7 @@
       "cost": 15,
       "rarity": "normal",
       "category": "armor",
-      "attack_modifier": 0,
-      "hit_points_modifier": 25
+      "effects": [{ "kind": "hit_points_modifier", "value": 25 }]
     },
     {
       "type": "item",
@@ -315,17 +310,15 @@
       "cost": 35,
       "rarity": "normal",
       "category": "armor",
-      "attack_modifier": 0,
-      "hit_points_modifier": 45
+      "effects": [{ "kind": "hit_points_modifier", "value": 45 }]
     },
     {
       "type": "item",
-      "name": "アイスダガー",
+      "name": "アイススピア",
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 25,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["fire"] }] }]
     },
     {
       "type": "item",
@@ -333,8 +326,39 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "attack_modifier": 25,
-      "hit_points_modifier": 0
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["wind"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "アクアブラスト",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["fire"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "ゲイルカッター",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["earth"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "ストーンバレット",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["wind"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "フレアバースト",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["water"] }] }]
     },
     {
       "type": "spell",
@@ -471,7 +495,7 @@
           "count": 1
         },
         {
-          "card": "ウィンドスピア",
+          "card": "ストーンバレット",
           "count": 1
         },
         {
@@ -568,11 +592,11 @@
           "count": 1
         },
         {
-          "card": "アイスダガー",
+          "card": "アイススピア",
           "count": 1
         },
         {
-          "card": "ストーンアックス",
+          "card": "ゲイルカッター",
           "count": 1
         },
         {

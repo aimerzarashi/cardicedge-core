@@ -218,7 +218,11 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		if err != nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
 		}
-		spec.Item = &match.ItemSpec{Category: category, AttackModifier: item.NewAttackModifier(source.Item.AttackModifier), HitPointsModifier: item.NewHitPointsModifier(source.Item.HitPointsModifier)}
+		effects, err := newItemEffects(source.Item.Effects)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Item = &match.ItemSpec{Category: category, Effects: effects}
 	}
 	// クリーチャーと同じく、スペルの性能が無いのを黙って効果なしにしない
 	if ref.EntityType == card.SpellEntityType {
@@ -232,6 +236,48 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		spec.Spell = &match.SpellSpec{Effect: effect}
 	}
 	return spec, nil
+}
+
+// 写した効果を並びの順に domain の値にする。分類で持てる効果かは確かめない（書くときの決まりで、写した値を読むときは確かめない）
+func newItemEffects(source []master.ItemEffect) (item.Effects, error) {
+	values := make([]item.Effect, 0, len(source))
+	for _, effect := range source {
+		switch {
+		case effect.AttackModifier != nil:
+			values = append(values, item.NewAttackModifierEffect(item.NewAttackModifier(*effect.AttackModifier)))
+		case effect.HitPointsModifier != nil:
+			values = append(values, item.NewHitPointsModifierEffect(item.NewHitPointsModifier(*effect.HitPointsModifier)))
+		case effect.AttackOverride != nil:
+			override, err := item.NewAttackOverride(*effect.AttackOverride)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, item.NewAttackOverrideEffect(override))
+		case effect.AttackMultiplier != nil:
+			percent, err := item.NewAttackMultiplierPercent(effect.AttackMultiplier.Percent)
+			if err != nil {
+				return nil, err
+			}
+			constraints := make([]item.Constraint, 0, len(effect.AttackMultiplier.Constraints))
+			for _, constraint := range effect.AttackMultiplier.Constraints {
+				elements, err := item.NewElements(constraint.OpponentElements)
+				if err != nil {
+					return nil, err
+				}
+				constraints = append(constraints, item.NewOpponentElementConstraint(elements))
+			}
+			built, err := item.NewConstraints(constraints)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, item.NewAttackMultiplierEffect(percent, built))
+		case effect.IgnoreTerrainEffect:
+			values = append(values, item.NewIgnoreTerrainEffect())
+		default:
+			return nil, item.ErrEffectEmpty
+		}
+	}
+	return item.NewEffects(values)
 }
 
 // 写した効果のどれか 1 つ（どれも無ければ効果なし）

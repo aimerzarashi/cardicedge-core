@@ -5,14 +5,14 @@
       "spec": {"elements": ["neutral"], "attack": 30, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": []},
       "attack": 30,
       "hit_points": 40,
-      "item": {"card": {"entity_type": "item", "id": 301}, "spec": {"category": "weapon", "attack_modifier": 20, "hit_points_modifier": 0}}
+      "item": {"card": {"entity_type": "item", "id": 301}, "spec": {"category": "weapon", "effects": [{"attack_modifier": {"value": 20}}]}}
     },
     "defender": {
       "card": {"entity_type": "creature", "id": 201},
       "spec": {"elements": ["neutral"], "attack": 20, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "abilities": [{"battle_modifier": {"attack_modifier": 0, "hit_points_modifier": 20}}]},
       "attack": 20,
       "hit_points": 35,
-      "item": {"card": {"entity_type": "item", "id": 302}, "spec": {"category": "scroll", "attack_modifier": 0, "hit_points_modifier": 0}}
+      "item": {"card": {"entity_type": "item", "id": 302}, "spec": {"category": "scroll", "effects": [{"attack_override": {"value": 30}}, {"ignore_terrain_effect": {}}, {"attack_multiplier": {"percent": 150, "constraints": [{"opponent_element": {"elements": ["fire"]}}]}}]}}
     },
     "land": {"element": "fire", "level": 1},
     "adjacent_territories": [{"x": 0, "y": 0}, {"x": 2, "y": 0}],

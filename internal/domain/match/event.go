@@ -7,6 +7,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 )
 
 type sealedEvent interface {
@@ -139,7 +140,7 @@ type TerritoryInvadedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleItemAbilityActivatedEvent になる
+// 戦闘に手札のアイテムを出した（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。攻める側も守る側も同じ形で、効果は続く戦闘で BattleItemEffectActivatedEvent になる
 type ItemUsedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -245,13 +246,15 @@ type BattleCreatureAbilityActivatedEvent struct {
 	Change      *BattleStatChange `json:"change,omitempty"`
 }
 
-// Side の側が出したアイテムの能力が発動した。今のアイテムの AT・HP の増減は、能力「戦闘中の増減」として出す（増減が 0 でも出す。
-// 巻物は効かないので出さない。2026-11-09 オーナー）
-type BattleItemAbilityActivatedEvent struct {
+// Side の側が出したアイテムの効果が発動した（効果の種類ごとのタイミングは item.Effect のコメント）。AT・HP を変える効果は Change を持つ
+// （増減・上書きは増減が 0 でも出し、倍率は掛けたものだけが出す）。地形効果を無視するは Change を持たず、得た状態（相手の地形効果を
+// 無視する）は効果の種類から決まるので書かない。アイテムの何番目の効果かは持たない（1 枚が同じ種類の効果を重ねて持つ見本が無く、
+// どの制約が合ったかは入力から引けるため。重ねるカードを作るときに見直す。2026-11-14 オーナー。core#177）
+type BattleItemEffectActivatedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
 	Side        BattleSide        `json:"side"`
-	Ability     BattleAbility     `json:"ability"`
+	Effect      item.EffectKind   `json:"effect"`
 	Change      *BattleStatChange `json:"change,omitempty"`
 }
 
@@ -285,7 +288,7 @@ func (e BattleTerrainEffectActivatedEvent) withMeta(meta EventMeta) Event {
 	return &e
 }
 
-func (e BattleItemAbilityActivatedEvent) withMeta(meta EventMeta) Event {
+func (e BattleItemEffectActivatedEvent) withMeta(meta EventMeta) Event {
 	e.EventMeta = meta
 	return &e
 }
@@ -465,7 +468,7 @@ var (
 	battleSupportEffectActivatedEventType   = domain.NewEventName("BattleSupportEffectActivatedEvent")
 	battleTerrainEffectActivatedEventType   = domain.NewEventName("BattleTerrainEffectActivatedEvent")
 	battleCreatureAbilityActivatedEventType = domain.NewEventName("BattleCreatureAbilityActivatedEvent")
-	battleItemAbilityActivatedEventType     = domain.NewEventName("BattleItemAbilityActivatedEvent")
+	battleItemEffectActivatedEventType      = domain.NewEventName("BattleItemEffectActivatedEvent")
 	tollMultiplierActivatedEventType        = domain.NewEventName("TollMultiplierActivatedEvent")
 	territoryLeveledUpEventType             = domain.NewEventName("TerritoryLeveledUpEvent")
 	creatureExchangedEventType              = domain.NewEventName("CreatureExchangedEvent")
@@ -707,11 +710,11 @@ func (*BattleCreatureAbilityActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*BattleItemAbilityActivatedEvent) EventType() domain.EventName {
-	return battleItemAbilityActivatedEventType
+func (*BattleItemEffectActivatedEvent) EventType() domain.EventName {
+	return battleItemEffectActivatedEventType
 }
 
-func (*BattleItemAbilityActivatedEvent) SchemaVersion() int {
+func (*BattleItemEffectActivatedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -834,7 +837,7 @@ func Types() domain.AggregateTypes {
 		rewardDrawnEventType, rewardsCompletedEventType, creaturePlacedEventType, tollPaidEventType, territoryRelinquishedEventType, magicDepletedEventType,
 		territoryInvadedEventType, itemUsedEventType, creatureStruckEventType, territoryConqueredEventType, invasionRepelledEventType, itemSkippedEventType,
 		battleStartedEventType, battleSupportEffectActivatedEventType, battleTerrainEffectActivatedEventType,
-		battleCreatureAbilityActivatedEventType, battleItemAbilityActivatedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
+		battleCreatureAbilityActivatedEventType, battleItemEffectActivatedEventType, territoryLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
 		creatureDamagedEventType, creatureDestroyedEventType, tollMultiplierActivatedEventType,
@@ -906,8 +909,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &BattleTerrainEffectActivatedEvent{EventMeta: meta}
 	case EventType(battleCreatureAbilityActivatedEventType):
 		event = &BattleCreatureAbilityActivatedEvent{EventMeta: meta}
-	case EventType(battleItemAbilityActivatedEventType):
-		event = &BattleItemAbilityActivatedEvent{EventMeta: meta}
+	case EventType(battleItemEffectActivatedEventType):
+		event = &BattleItemEffectActivatedEvent{EventMeta: meta}
 	case EventType(tollMultiplierActivatedEventType):
 		event = &TollMultiplierActivatedEvent{EventMeta: meta}
 	case EventType(territoryLeveledUpEventType):

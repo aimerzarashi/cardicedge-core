@@ -20,6 +20,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Cost:         card.DefaultCost,
 			Rarity:       card.DefaultRarity,
 			Category:     DefaultCategory,
+			Effects:      DefaultEffects(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -59,19 +60,25 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil || item.Category == c.Category {
 			return nil, err
 		}
+		if _, found := item.Effects.NotAllowedIn(c.Category); found {
+			return nil, ErrEffectNotAllowed
+		}
 		return []Event{&CategoryChangedEvent{EventMeta: nextMeta(item, now), Category: c.Category, ChangedBy: c.ChangedBy}}, nil
-	case *ChangeStatModifiersCommand:
+	case *ChangeEffectsCommand:
 		item, err := editable(state)
-		if err != nil || (item.AttackModifier == c.AttackModifier && item.HitPointsModifier == c.HitPointsModifier) {
+		if err != nil || item.Effects.Equal(c.Effects) {
 			return nil, err
 		}
-		return []Event{&StatModifiersChangedEvent{EventMeta: nextMeta(item, now), AttackModifier: c.AttackModifier, HitPointsModifier: c.HitPointsModifier, ChangedBy: c.ChangedBy}}, nil
+		if _, found := c.Effects.NotAllowedIn(item.Category); found {
+			return nil, ErrEffectNotAllowed
+		}
+		return []Event{&EffectsChangedEvent{EventMeta: nextMeta(item, now), Effects: c.Effects, ChangedBy: c.ChangedBy}}, nil
 	default:
 		return nil, ErrInvalidState
 	}
 }
 
-// 性能を変えられる（登録済みで準備中の）クリーチャー
+// 性能を変えられる（登録済みで準備中の）アイテム
 func editable(state State) (Item, error) {
 	item, ok := state.(Item)
 	if !ok {
