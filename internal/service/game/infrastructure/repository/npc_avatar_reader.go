@@ -84,9 +84,54 @@ type spellEffectMetadata struct {
 }
 
 type itemMetadata struct {
-	Category          string `json:"category"`
-	AttackModifier    *int   `json:"attack_modifier"`
-	HitPointsModifier *int   `json:"hit_points_modifier"`
+	Category string `json:"category"`
+	// 無いのは効果を足す前に投影した行（効果が無ければ []）
+	Effects []itemEffectMetadata `json:"effects"`
+}
+
+type itemValueMetadata struct {
+	Value int `json:"value"`
+}
+
+type itemEffectMetadata struct {
+	AttackModifier    *itemValueMetadata `json:"attack_modifier"`
+	HitPointsModifier *itemValueMetadata `json:"hit_points_modifier"`
+	AttackOverride    *itemValueMetadata `json:"attack_override"`
+	AttackMultiplier  *struct {
+		Percent     int `json:"percent"`
+		Constraints []struct {
+			OpponentElement *struct {
+				Elements []string `json:"elements"`
+			} `json:"opponent_element"`
+		} `json:"constraints"`
+	} `json:"attack_multiplier"`
+	IgnoreTerrainEffect *struct{} `json:"ignore_terrain_effect"`
+}
+
+func queryItemEffects(effects []itemEffectMetadata) []query.ItemEffect {
+	values := make([]query.ItemEffect, len(effects))
+	for i, effect := range effects {
+		if effect.AttackModifier != nil {
+			values[i].AttackModifier = &effect.AttackModifier.Value
+		}
+		if effect.HitPointsModifier != nil {
+			values[i].HitPointsModifier = &effect.HitPointsModifier.Value
+		}
+		if effect.AttackOverride != nil {
+			values[i].AttackOverride = &effect.AttackOverride.Value
+		}
+		if multiplier := effect.AttackMultiplier; multiplier != nil {
+			constraints := make([]query.ItemConstraint, len(multiplier.Constraints))
+			for j, constraint := range multiplier.Constraints {
+				if constraint.OpponentElement != nil {
+					constraints[j].OpponentElements = constraint.OpponentElement.Elements
+				}
+			}
+			values[i].AttackMultiplier = &query.ItemAttackMultiplier{Percent: multiplier.Percent, Constraints: constraints}
+		}
+		values[i].IgnoreTerrainEffect = effect.IgnoreTerrainEffect != nil
+	}
+	return values
 }
 
 type creatureMetadata struct {
@@ -282,10 +327,10 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item
-		if itemSpec == nil || itemSpec.Category == "" || itemSpec.AttackModifier == nil || itemSpec.HitPointsModifier == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category, attack_modifier or hit_points_modifier (project the cards again and publish the master)", id)
+		if itemSpec == nil || itemSpec.Category == "" || itemSpec.Effects == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category or effects (project the cards again and publish the master)", id)
 		}
-		card.Item = &query.ItemSpec{Category: itemSpec.Category, AttackModifier: *itemSpec.AttackModifier, HitPointsModifier: *itemSpec.HitPointsModifier}
+		card.Item = &query.ItemSpec{Category: itemSpec.Category, Effects: queryItemEffects(itemSpec.Effects)}
 	}
 	if cardType == query.CardTypeSpell {
 		spellSpec := metadata.Spell

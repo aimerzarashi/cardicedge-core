@@ -201,14 +201,16 @@ func (b *BattleInputBuilder) Abilities(side match.BattleSide, abilities ...creat
 	return b
 }
 
-// 出したアイテム（攻める側はカード 301、守る側は 302）
-func (b *BattleInputBuilder) Item(side match.BattleSide, category item.Category, attackModifier, hitPointsModifier int) *BattleInputBuilder {
+// 出したアイテム（攻める側はカード 301、守る側は 302）。分類で持てる効果かは確かめない（戦闘の決まりだけを確かめるため）
+func (b *BattleInputBuilder) Item(side match.BattleSide, category item.Category, effects ...item.Effect) *BattleInputBuilder {
 	b.t.Helper()
 	id := int64(301)
 	if side == match.BattleSideDefender {
 		id = 302
 	}
-	spec := match.ItemSpec{Category: category, AttackModifier: item.NewAttackModifier(attackModifier), HitPointsModifier: item.NewHitPointsModifier(hitPointsModifier)}
+	values, err := item.NewEffects(effects)
+	require.NoError(b.t, err)
+	spec := match.ItemSpec{Category: category, Effects: values}
 	b.combatant(side).Item = &match.BattleItem{Card: cardtest.Ref(b.t, card.ItemEntityType, id), Spec: spec}
 	return b
 }

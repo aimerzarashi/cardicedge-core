@@ -64,7 +64,7 @@ func defaultCreatureSpec() *query.CreatureSpec {
 
 // insertCardRow が写すアイテムの性能
 func defaultItemSpec() *query.ItemSpec {
-	return &query.ItemSpec{Category: "weapon", AttackModifier: 30, HitPointsModifier: 0}
+	return &query.ItemSpec{Category: "weapon", Effects: []query.ItemEffect{{AttackModifier: new(30)}}}
 }
 
 // insertCardRow が写すスペルの性能（効果なし）
@@ -79,7 +79,7 @@ func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string,
 		metadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}
 	}
 	if cardType == query.CardTypeItem {
-		metadata.Item = &readmodel.ItemMetadata{Category: "weapon", AttackModifier: 30}
+		metadata.Item = &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.ItemEffectMetadata{{AttackModifier: &readmodel.ItemValueEffectMetadata{Value: 30}}}}
 	}
 	if cardType == query.CardTypeSpell {
 		metadata.Spell = &readmodel.SpellMetadata{}

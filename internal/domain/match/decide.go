@@ -578,7 +578,7 @@ func (b *battleResolver) emit(event battleEvent) error {
 }
 
 // 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は スペルの効果 → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
-// スペルの効果は作るときに前へ足し、倍率の効果は足し算がすべて終わった後に足す
+// スペルの効果は作るときに前へ足す。倍率は、両方の側の増減・上書きがすべて済んだ後の倍率の段階で掛ける（2026-11-14 オーナー。core#177）
 func (b *battleResolver) effects(random Random) []func() error {
 	return []func() error{
 		func() error { return b.applyAbilities(BattleSideAttacker, random) },
@@ -587,6 +587,8 @@ func (b *battleResolver) effects(random Random) []func() error {
 		func() error { return b.applyAbilities(BattleSideDefender, random) },
 		b.applyTerrain,
 		func() error { return b.applyItem(BattleSideDefender) },
+		func() error { return b.applyAttackMultiplier(BattleSideAttacker) },
+		func() error { return b.applyAttackMultiplier(BattleSideDefender) },
 	}
 }
 
@@ -649,15 +651,69 @@ func terrainMatches(land board.Element, elements creature.Elements) bool {
 	return slices.ContainsFunc(elements, func(element creature.Element) bool { return element.String() == land.String() })
 }
 
-// アイテムの AT・HP の増減は、能力「戦闘中の増減」として発動する（能力と同じく増減が 0 でも出す）。
-// 巻物は分類だけで、増減を持っていても効果は無い（2026-11-09 オーナー）
+// アイテムの位置。効果を並びの順に、増減・上書きだけ当てる（増減が 0 でも発動を表すので出す。倍率は倍率の段階、
+// 地形効果を無視するは攻撃の直前に発動する）。上書きの増減は、上書きした値と今の値の差
 func (b *battleResolver) applyItem(side BattleSide) error {
 	used := b.input.combatant(side).Item
-	if used == nil || used.Spec.Category == item.CategoryScroll {
+	if used == nil {
 		return nil
 	}
-	change := b.actualChange(side, used.Spec.AttackModifier.Int(), used.Spec.HitPointsModifier.Int())
-	return b.emit(&BattleItemAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleModifier, Change: &change})
+	for _, effect := range used.Spec.Effects {
+		var change BattleStatChange
+		switch {
+		case effect.AttackModifier != nil:
+			change = b.actualChange(side, effect.AttackModifier.Value.Int(), 0)
+		case effect.HitPointsModifier != nil:
+			change = b.actualChange(side, 0, effect.HitPointsModifier.Value.Int())
+		case effect.AttackOverride != nil:
+			change = b.actualChange(side, effect.AttackOverride.Value.Int()-b.battle.Creature(side).Stats().Attack.Int(), 0)
+		default:
+			continue
+		}
+		if err := b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: effect.Kind(), Change: &change}); err != nil {
+			return err
+		}
+		if b.battle.decided() {
+			return nil
+		}
+	}
+	return nil
+}
+
+// 倍率の段階。制約を満たす AT の倍率のうち一番高いものを 1 回だけ掛け（切り捨て）、掛けたものだけが発動を出す。採られなかった
+// 倍率は何も出さない（2026-11-14 オーナー。重なるカードを作るときに見直す）。同じ倍率が並べば先のものを採る
+func (b *battleResolver) applyAttackMultiplier(side BattleSide) error {
+	used := b.input.combatant(side).Item
+	if used == nil {
+		return nil
+	}
+	opponentElements := b.input.combatant(side.opponent()).Spec.Elements.Strings()
+	highest := 0
+	for _, effect := range used.Spec.Effects {
+		if effect.AttackMultiplier == nil || !effect.AttackMultiplier.Constraints.SatisfiedByOpponentElements(opponentElements) {
+			continue
+		}
+		highest = max(highest, effect.AttackMultiplier.Percent.Int())
+	}
+	if highest == 0 {
+		return nil
+	}
+	attack := b.battle.Creature(side).Stats().Attack.Int()
+	change := b.actualChange(side, attack*highest/100-attack, 0)
+	return b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: item.EffectKindAttackMultiplier, Change: &change})
+}
+
+// 地形効果を無視する効果を持つ側が攻撃する直前に、相手に地形効果の層があれば発動する（無視するものが無ければ状態が変わらないので
+// 出さない。2026-11-14 オーナー）
+func (b *battleResolver) ignoreTerrainEffect(striker BattleSide) error {
+	used := b.input.combatant(striker).Item
+	if used == nil || !b.battle.Creature(striker.opponent()).hasTerrainEffect() {
+		return nil
+	}
+	if !slices.ContainsFunc(used.Spec.Effects, func(effect item.Effect) bool { return effect.IgnoreTerrainEffect != nil }) {
+		return nil
+	}
+	return b.emit(&BattleItemEffectActivatedEvent{Side: striker, Effect: item.EffectKindIgnoreTerrainEffect})
 }
 
 // 今の値に当てて下限（0）で止まった後の、実際の増減
@@ -697,6 +753,10 @@ func (b *battleResolver) strikeOrder() []BattleSide {
 // 発動するか（属性が合うか）は入力の性能で判定し、ダメージを 0 にするかは発動で得た戦闘の中の値で決める（core#175）
 func (b *battleResolver) strike(striker BattleSide) error {
 	receiver := striker.opponent()
+	// 地形効果を無視する（攻める側の効果）→ 攻撃無効（受ける側の能力）→ 攻撃の順（2026-11-14 オーナー）
+	if err := b.ignoreTerrainEffect(striker); err != nil {
+		return err
+	}
 	if b.input.combatant(receiver).Spec.isImmuneToAttackFrom(b.input.combatant(striker).Spec) {
 		if err := b.emit(&BattleCreatureAbilityActivatedEvent{Side: receiver, Ability: BattleAbilityAttackImmunity}); err != nil {
 			return err

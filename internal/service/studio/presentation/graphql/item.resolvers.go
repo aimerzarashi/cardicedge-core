@@ -26,6 +26,9 @@ func (r *mutationResolver) ChangeItemCategory(ctx context.Context, input model.C
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
+	if errors.Is(err, command.ErrItemEffectNotAllowed) {
+		return &model.ItemEffectNotAllowedError{Message: "item effect not allowed in the category"}, nil
+	}
 	if result := cardChangeError(err); result != nil {
 		return result, nil
 	}
@@ -35,14 +38,21 @@ func (r *mutationResolver) ChangeItemCategory(ctx context.Context, input model.C
 	return &model.ChangeItemCategorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// ChangeItemStatModifiers is the resolver for the changeItemStatModifiers field.
-func (r *mutationResolver) ChangeItemStatModifiers(ctx context.Context, input model.ChangeItemStatModifiersInput) (model.ChangeItemStatModifiersResult, error) {
+// ChangeItemEffects is the resolver for the changeItemEffects field.
+func (r *mutationResolver) ChangeItemEffects(ctx context.Context, input model.ChangeItemEffectsInput) (model.ChangeItemEffectsResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	changed, err := r.items.ChangeStatModifiers(ctx, input.ID, int64(input.Revision), input.AttackModifier, input.HitPointsModifier)
+	effects, err := toItemEffects(input.Effects)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.items.ChangeEffects(ctx, input.ID, int64(input.Revision), effects)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
+	}
+	if errors.Is(err, command.ErrItemEffectNotAllowed) {
+		return &model.ItemEffectNotAllowedError{Message: "item effect not allowed in the category"}, nil
 	}
 	if result := cardChangeError(err); result != nil {
 		return result, nil
@@ -50,7 +60,7 @@ func (r *mutationResolver) ChangeItemStatModifiers(ctx context.Context, input mo
 	if err != nil {
 		return nil, err
 	}
-	return &model.ChangeItemStatModifiersSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.ChangeItemEffectsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // RegisterItem is the resolver for the registerItem field.
@@ -76,9 +86,17 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	if err != nil {
 		return nil, err
 	}
+	effects, err := fromItemEffects(registered.Effects)
+	if err != nil {
+		return nil, err
+	}
+	allowed, err := allowedItemEffectKinds(registered.Category)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterItemSuccess{Item: &model.Item{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Category: category, AttackModifier: registered.AttackModifier, HitPointsModifier: registered.HitPointsModifier,
+		Category: category, Effects: effects, AllowedEffectKinds: allowed,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

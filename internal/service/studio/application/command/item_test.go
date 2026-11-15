@@ -149,18 +149,58 @@ func TestRegisterItem_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	itemIDByName(t, ctx, name)
 }
 
-func TestChangeItemCategoryAndStatModifiers_ChangeSpecOfDraft(t *testing.T) {
+func TestChangeItemCategoryAndEffects_ChangeSpecOfDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newItemHandler(t, ctx)
-	registered, err := commands.Register(ctx, "かぶと")
+	registered, err := commands.Register(ctx, "まきもの")
 	require.NoError(t, err)
 
-	categorized, err := commands.ChangeCategory(ctx, registered.ID, registered.Revision, "armor")
+	categorized, err := commands.ChangeCategory(ctx, registered.ID, registered.Revision, "scroll")
 	require.NoError(t, err)
-	changed, err := commands.ChangeStatModifiers(ctx, categorized.ID, categorized.Revision, -5, 30)
+	changed, err := commands.ChangeEffects(ctx, categorized.ID, categorized.Revision, []command.ItemEffect{
+		{Kind: command.ItemEffectAttackOverride, Value: new(30)},
+		{Kind: command.ItemEffectIgnoreTerrainEffect},
+		{Kind: command.ItemEffectAttackMultiplier, Percent: new(150), Constraints: []command.ItemConstraint{{Kind: command.ItemConstraintOpponentElement, Elements: []string{"fire"}}}},
+	})
 
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision+2, changed.Revision)
+}
+
+func TestChangeItemEffects_RejectsInvalidInputAtEachField(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "まきもの")
+	require.NoError(t, err)
+
+	_, err = commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.ItemEffect{
+		{Kind: command.ItemEffectAttackModifier},
+		{Kind: command.ItemEffectAttackOverride, Value: new(-1)},
+		{Kind: command.ItemEffectAttackMultiplier, Percent: new(0), Constraints: []command.ItemConstraint{{Kind: command.ItemConstraintOpponentElement, Elements: []string{"multi"}}, {Kind: "unknown"}}},
+	})
+
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "effects.0"},
+		&input.TooSmall{Field: "effects.1.value", Min: 0},
+		&input.TooSmall{Field: "effects.2.percent", Min: 1},
+		&input.InvalidFormat{Field: "effects.2.constraints.0.elements"},
+		&input.InvalidFormat{Field: "effects.2.constraints.1"},
+	}, err)
+}
+
+func TestChangeItemEffectsAndCategory_RejectEffectsTheCategoryDoesNotAllow(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ぶき")
+	require.NoError(t, err)
+	changed, err := commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.ItemEffect{{Kind: command.ItemEffectAttackModifier, Value: new(10)}})
+	require.NoError(t, err)
+
+	_, effectErr := commands.ChangeEffects(ctx, changed.ID, changed.Revision, []command.ItemEffect{{Kind: command.ItemEffectHitPointsModifier, Value: new(10)}})
+	_, categoryErr := commands.ChangeCategory(ctx, changed.ID, changed.Revision, "armor")
+
+	require.ErrorIs(t, effectErr, command.ErrItemEffectNotAllowed)
+	require.ErrorIs(t, categoryErr, command.ErrItemEffectNotAllowed)
 }
 
 func TestChangeItemCategory_RejectsUnknownValue(t *testing.T) {
@@ -174,7 +214,7 @@ func TestChangeItemCategory_RejectsUnknownValue(t *testing.T) {
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "category"}}, err)
 }
 
-func TestChangeItemStatModifiers_RejectsPublishedItem(t *testing.T) {
+func TestChangeItemEffects_RejectsPublishedItem(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newItemHandler(t, ctx)
 	registered, err := commands.Register(ctx, "かぶと")
@@ -182,7 +222,7 @@ func TestChangeItemStatModifiers_RejectsPublishedItem(t *testing.T) {
 	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
 	require.NoError(t, err)
 
-	_, err = commands.ChangeStatModifiers(ctx, published.ID, published.Revision, 5, 5)
+	_, err = commands.ChangeEffects(ctx, published.ID, published.Revision, []command.ItemEffect{{Kind: command.ItemEffectAttackModifier, Value: new(5)}})
 
 	require.ErrorIs(t, err, command.ErrCardNotDraft)
 }

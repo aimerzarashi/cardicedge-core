@@ -165,6 +165,20 @@ type InvadeMatchTerritoryResult interface {
 	IsInvadeMatchTerritoryResult()
 }
 
+// 効果の制約（種類ごとの型）
+type ItemConstraint interface {
+	IsItemConstraint()
+	// 制約の種類
+	GetKind() ItemConstraintKind
+}
+
+// アイテムの効果（種類ごとの型）
+type ItemEffect interface {
+	IsItemEffect()
+	// 効果の種類
+	GetKind() ItemEffectKind
+}
+
 // levelUpMatchTerritory の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type LevelUpMatchTerritoryResult interface {
 	IsLevelUpMatchTerritoryResult()
@@ -1210,6 +1224,47 @@ type InvadeMatchTerritorySuccess struct {
 
 func (InvadeMatchTerritorySuccess) IsInvadeMatchTerritoryResult() {}
 
+// AT の増減
+type ItemAttackModifierEffect struct {
+	// 効果の種類
+	Kind ItemEffectKind `json:"kind"`
+	// 増減の値（負は下げる）
+	Value int `json:"value"`
+}
+
+func (ItemAttackModifierEffect) IsItemEffect() {}
+
+// 効果の種類
+func (this ItemAttackModifierEffect) GetKind() ItemEffectKind { return this.Kind }
+
+// AT の倍率
+type ItemAttackMultiplierEffect struct {
+	// 効果の種類
+	Kind ItemEffectKind `json:"kind"`
+	// 倍率（百分率。150 で 1.5 倍）
+	Percent int `json:"percent"`
+	// 発動する制約（すべてを満たすときに発動する。無ければ空でいつも発動する）
+	Constraints []ItemConstraint `json:"constraints"`
+}
+
+func (ItemAttackMultiplierEffect) IsItemEffect() {}
+
+// 効果の種類
+func (this ItemAttackMultiplierEffect) GetKind() ItemEffectKind { return this.Kind }
+
+// AT の上書き
+type ItemAttackOverrideEffect struct {
+	// 効果の種類
+	Kind ItemEffectKind `json:"kind"`
+	// 上書きした後の AT
+	Value int `json:"value"`
+}
+
+func (ItemAttackOverrideEffect) IsItemEffect() {}
+
+// 効果の種類
+func (this ItemAttackOverrideEffect) GetKind() ItemEffectKind { return this.Kind }
+
 // アイテム
 type ItemCardInfo struct {
 	// 公開用の ID
@@ -1222,10 +1277,8 @@ type ItemCardInfo struct {
 	Rarity CardRarity `json:"rarity"`
 	// 分類
 	Category ItemCategory `json:"category"`
-	// 戦闘中に足す攻撃力（負は下げる）
-	AttackModifier int `json:"attackModifier"`
-	// 戦闘中に足す体力（負は下げる）
-	HitPointsModifier int `json:"hitPointsModifier"`
+	// 効果の並び（並びの順に当てる。無ければ空）
+	Effects []ItemEffect `json:"effects"`
 }
 
 func (ItemCardInfo) IsCardInfo() {}
@@ -1243,6 +1296,43 @@ func (this ItemCardInfo) GetCost() int { return this.Cost }
 func (this ItemCardInfo) GetRarity() CardRarity { return this.Rarity }
 
 func (ItemCardInfo) IsCardResult() {}
+
+// HP の増減
+type ItemHitPointsModifierEffect struct {
+	// 効果の種類
+	Kind ItemEffectKind `json:"kind"`
+	// 増減の値（負は下げる）
+	Value int `json:"value"`
+}
+
+func (ItemHitPointsModifierEffect) IsItemEffect() {}
+
+// 効果の種類
+func (this ItemHitPointsModifierEffect) GetKind() ItemEffectKind { return this.Kind }
+
+// 地形効果を無視する
+type ItemIgnoreTerrainEffect struct {
+	// 効果の種類
+	Kind ItemEffectKind `json:"kind"`
+}
+
+func (ItemIgnoreTerrainEffect) IsItemEffect() {}
+
+// 効果の種類
+func (this ItemIgnoreTerrainEffect) GetKind() ItemEffectKind { return this.Kind }
+
+// 相手の属性の制約
+type ItemOpponentElementConstraint struct {
+	// 制約の種類
+	Kind ItemConstraintKind `json:"kind"`
+	// 合えば満たす相手の属性（火・地・水・風・無の順）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (ItemOpponentElementConstraint) IsItemConstraint() {}
+
+// 制約の種類
+func (this ItemOpponentElementConstraint) GetKind() ItemConstraintKind { return this.Kind }
 
 // 土地（ふつうのマス）
 type LandTile struct {
@@ -1391,8 +1481,8 @@ func (this MatchBattleCreatureAbilityActivatedEvent) GetChanges() *MatchEventCha
 	return this.Changes
 }
 
-// 出したアイテムの能力が発動した（今のアイテムの AT・HP の増減は、能力「戦闘中の増減」として増減が 0 でも出る。巻物は効かないので出ない）
-type MatchBattleItemAbilityActivatedEvent struct {
+// 出したアイテムの効果が発動した（増減・上書きは増減が 0 でも出る。倍率は掛けたものだけ、地形効果を無視するは相手に地形効果があるときだけ出る）
+type MatchBattleItemEffectActivatedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
 	// 起きた時刻
@@ -1401,28 +1491,26 @@ type MatchBattleItemAbilityActivatedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// アイテムを出した側
 	Side MatchBattleSide `json:"side"`
-	// 発動した能力（今は BATTLE_MODIFIER だけ）
-	Ability CreatureAbilityKind `json:"ability"`
 	// アイテムのカード（性能は対戦を始めたときの写し）
 	Card CardInfo `json:"card"`
-	// アイテムの決まった AT の増減（下限で止まる前の値）
-	AttackModifier int `json:"attackModifier"`
-	// アイテムの決まった HP の増減（下限で止まる前の値）
-	HitPointsModifier int `json:"hitPointsModifier"`
-	// 増減と当てた後の値
+	// 発動したカードの効果（種類と、下限で止まる前の値。倍率は制約を満たす一番高いもの）
+	CardEffect ItemEffect `json:"cardEffect"`
+	// アイテムを出した側の増減と当てた後の値（AT・HP を変える効果のときだけ。地形効果を無視するは null）
 	Change *MatchBattleStatChange `json:"change,omitempty"`
+	// 相手の増減と当てた後の値（地形効果を無視するときだけ。相手の HP が地形効果の分を除いた値になる。ほかは null）
+	OpponentChange *MatchBattleStatChange `json:"opponentChange,omitempty"`
 }
 
-func (MatchBattleItemAbilityActivatedEvent) IsMatchEvent() {}
+func (MatchBattleItemEffectActivatedEvent) IsMatchEvent() {}
 
 // 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchBattleItemAbilityActivatedEvent) GetRevision() int { return this.Revision }
+func (this MatchBattleItemEffectActivatedEvent) GetRevision() int { return this.Revision }
 
 // 起きた時刻
-func (this MatchBattleItemAbilityActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+func (this MatchBattleItemEffectActivatedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchBattleItemAbilityActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+func (this MatchBattleItemEffectActivatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘中の増減の決まった値
 type MatchBattleModifierBasis struct {
@@ -4202,6 +4290,128 @@ func (e *ItemCategory) UnmarshalJSON(b []byte) error {
 }
 
 func (e ItemCategory) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 効果の制約の種類
+type ItemConstraintKind string
+
+const (
+	// 相手の属性（戦う相手のクリーチャーの属性のどれかが合うとき）
+	ItemConstraintKindOpponentElement ItemConstraintKind = "OPPONENT_ELEMENT"
+)
+
+var AllItemConstraintKind = []ItemConstraintKind{
+	ItemConstraintKindOpponentElement,
+}
+
+func (e ItemConstraintKind) IsValid() bool {
+	switch e {
+	case ItemConstraintKindOpponentElement:
+		return true
+	}
+	return false
+}
+
+func (e ItemConstraintKind) String() string {
+	return string(e)
+}
+
+func (e *ItemConstraintKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ItemConstraintKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ItemConstraintKind", str)
+	}
+	return nil
+}
+
+func (e ItemConstraintKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ItemConstraintKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ItemConstraintKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// アイテムの効果の種類
+type ItemEffectKind string
+
+const (
+	// AT の増減（戦闘中、AT が決まった値だけ増減する）
+	ItemEffectKindAttackModifier ItemEffectKind = "ATTACK_MODIFIER"
+	// HP の増減（戦闘中、HP が決まった値だけ増減する）
+	ItemEffectKindHitPointsModifier ItemEffectKind = "HIT_POINTS_MODIFIER"
+	// AT の上書き（戦闘中、AT が決まった値になる）
+	ItemEffectKindAttackOverride ItemEffectKind = "ATTACK_OVERRIDE"
+	// AT の倍率（制約を満たすとき、増減・上書きの後に AT に倍率を掛ける。発動したうち一番高い倍率を 1 回だけ）
+	ItemEffectKindAttackMultiplier ItemEffectKind = "ATTACK_MULTIPLIER"
+	// 地形効果を無視する（相手の地形効果を無視してダメージを与える）
+	ItemEffectKindIgnoreTerrainEffect ItemEffectKind = "IGNORE_TERRAIN_EFFECT"
+)
+
+var AllItemEffectKind = []ItemEffectKind{
+	ItemEffectKindAttackModifier,
+	ItemEffectKindHitPointsModifier,
+	ItemEffectKindAttackOverride,
+	ItemEffectKindAttackMultiplier,
+	ItemEffectKindIgnoreTerrainEffect,
+}
+
+func (e ItemEffectKind) IsValid() bool {
+	switch e {
+	case ItemEffectKindAttackModifier, ItemEffectKindHitPointsModifier, ItemEffectKindAttackOverride, ItemEffectKindAttackMultiplier, ItemEffectKindIgnoreTerrainEffect:
+		return true
+	}
+	return false
+}
+
+func (e ItemEffectKind) String() string {
+	return string(e)
+}
+
+func (e *ItemEffectKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ItemEffectKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ItemEffectKind", str)
+	}
+	return nil
+}
+
+func (e ItemEffectKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ItemEffectKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ItemEffectKind) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

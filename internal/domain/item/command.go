@@ -40,23 +40,23 @@ type ChangeRarityCommand struct {
 	ChangedBy operator.ID
 }
 
-// 分類を変える（準備中だけ）。同じ値なら何も変えない
+// 分類を変える（準備中だけ）。同じ値なら何も変えない。今の効果を持てない分類には変えられない（ErrEffectNotAllowed）。
+// 持てない効果を消して変える形にしないのは、入れた効果が黙って消えないようにするため
 type ChangeCategoryCommand struct {
 	Category  Category
 	ChangedBy operator.ID
 }
 
-// 戦闘中の AT・HP の増減を変える（準備中だけ。2 つは一緒に変える）。どちらも同じ値なら何も変えない
-type ChangeStatModifiersCommand struct {
-	AttackModifier    AttackModifier
-	HitPointsModifier HitPointsModifier
-	ChangedBy         operator.ID
+// 効果の並びを変える（準備中だけ。変えた後の並びの全体）。分類で持てない効果は ErrEffectNotAllowed。同じ並びなら何も変えない
+type ChangeEffectsCommand struct {
+	Effects   Effects
+	ChangedBy operator.ID
 }
 
-func (*RegisterCommand) isItemCommand()            {}
-func (*PublishCommand) isItemCommand()             {}
-func (*RetireCommand) isItemCommand()              {}
-func (*ChangeCostCommand) isItemCommand()          {}
-func (*ChangeRarityCommand) isItemCommand()        {}
-func (*ChangeCategoryCommand) isItemCommand()      {}
-func (*ChangeStatModifiersCommand) isItemCommand() {}
+func (*RegisterCommand) isItemCommand()       {}
+func (*PublishCommand) isItemCommand()        {}
+func (*RetireCommand) isItemCommand()         {}
+func (*ChangeCostCommand) isItemCommand()     {}
+func (*ChangeRarityCommand) isItemCommand()   {}
+func (*ChangeCategoryCommand) isItemCommand() {}
+func (*ChangeEffectsCommand) isItemCommand()  {}

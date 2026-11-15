@@ -149,9 +149,17 @@ func toCard(card query.Card) (model.Card, error) {
 		if err != nil {
 			return nil, err
 		}
+		effects, err := fromItemEffectsMetadata(card.Item.Effects)
+		if err != nil {
+			return nil, err
+		}
+		allowed, err := allowedItemEffectKinds(card.Item.Category)
+		if err != nil {
+			return nil, err
+		}
 		return &model.Item{
 			ID: card.ID, Name: card.Name, Status: status, Cost: card.Cost, Rarity: rarity, Revision: revision,
-			Category: category, AttackModifier: card.Item.AttackModifier, HitPointsModifier: card.Item.HitPointsModifier,
+			Category: category, Effects: effects, AllowedEffectKinds: allowed,
 			RegisteredAt: card.RegisteredAt, UpdatedAt: card.UpdatedAt,
 		}, nil
 	case readmodel.CardTypeSpell:
@@ -193,7 +201,7 @@ type cardChangeResult interface {
 	model.ChangeCreatureItemRestrictionsResult
 	model.ChangeCreaturePlacementRestrictionsResult
 	model.ChangeItemCategoryResult
-	model.ChangeItemStatModifiersResult
+	model.ChangeItemEffectsResult
 	model.ChangeSpellEffectResult
 }
 
@@ -462,6 +470,121 @@ func toCreatureAbilities(abilities []*model.CreatureAbilityInput) ([]command.Cre
 			elements = converted
 		}
 		values[i] = command.CreatureAbility{Kind: kind, Percent: ability.Percent, AttackModifier: ability.AttackModifier, HitPointsModifier: ability.HitPointsModifier, Minimum: ability.Minimum, Maximum: ability.Maximum, Elements: elements}
+	}
+	return values, nil
+}
+
+// read model の効果を、command の効果の形にそろえてから GraphQL の型にする（変換を 1 か所にするため）
+func fromItemEffectsMetadata(effects []readmodel.ItemEffectMetadata) ([]model.ItemEffect, error) {
+	values := make([]command.ItemEffect, len(effects))
+	for i, effect := range effects {
+		switch {
+		case effect.AttackModifier != nil:
+			values[i] = command.ItemEffect{Kind: command.ItemEffectAttackModifier, Value: &effect.AttackModifier.Value}
+		case effect.HitPointsModifier != nil:
+			values[i] = command.ItemEffect{Kind: command.ItemEffectHitPointsModifier, Value: &effect.HitPointsModifier.Value}
+		case effect.AttackOverride != nil:
+			values[i] = command.ItemEffect{Kind: command.ItemEffectAttackOverride, Value: &effect.AttackOverride.Value}
+		case effect.AttackMultiplier != nil:
+			constraints := make([]command.ItemConstraint, len(effect.AttackMultiplier.Constraints))
+			for j, constraint := range effect.AttackMultiplier.Constraints {
+				if constraint.OpponentElement != nil {
+					constraints[j] = command.ItemConstraint{Kind: command.ItemConstraintOpponentElement, Elements: constraint.OpponentElement.Elements}
+				}
+			}
+			values[i] = command.ItemEffect{Kind: command.ItemEffectAttackMultiplier, Percent: &effect.AttackMultiplier.Percent, Constraints: constraints}
+		case effect.IgnoreTerrainEffect != nil:
+			values[i] = command.ItemEffect{Kind: command.ItemEffectIgnoreTerrainEffect}
+		default:
+			return nil, fmt.Errorf("graphql: item effect %d has no kind", i)
+		}
+	}
+	return fromItemEffects(values)
+}
+
+func fromItemEffects(effects []command.ItemEffect) ([]model.ItemEffect, error) {
+	values := make([]model.ItemEffect, len(effects))
+	for i, effect := range effects {
+		switch effect.Kind {
+		case command.ItemEffectAttackModifier:
+			values[i] = &model.ItemAttackModifierEffect{Kind: model.ItemEffectKindAttackModifier, Value: *effect.Value}
+		case command.ItemEffectHitPointsModifier:
+			values[i] = &model.ItemHitPointsModifierEffect{Kind: model.ItemEffectKindHitPointsModifier, Value: *effect.Value}
+		case command.ItemEffectAttackOverride:
+			values[i] = &model.ItemAttackOverrideEffect{Kind: model.ItemEffectKindAttackOverride, Value: *effect.Value}
+		case command.ItemEffectAttackMultiplier:
+			constraints := make([]model.ItemConstraint, len(effect.Constraints))
+			for j, constraint := range effect.Constraints {
+				if constraint.Kind != command.ItemConstraintOpponentElement {
+					return nil, fmt.Errorf("graphql: unknown item constraint kind %q", constraint.Kind)
+				}
+				elements, err := fromElements(constraint.Elements)
+				if err != nil {
+					return nil, err
+				}
+				constraints[j] = &model.ItemOpponentElementConstraint{Kind: model.ItemConstraintKindOpponentElement, Elements: elements}
+			}
+			values[i] = &model.ItemAttackMultiplierEffect{Kind: model.ItemEffectKindAttackMultiplier, Percent: *effect.Percent, Constraints: constraints}
+		case command.ItemEffectIgnoreTerrainEffect:
+			values[i] = &model.ItemIgnoreTerrainEffect{Kind: model.ItemEffectKindIgnoreTerrainEffect}
+		default:
+			return nil, fmt.Errorf("graphql: unknown item effect kind %q", effect.Kind)
+		}
+	}
+	return values, nil
+}
+
+var itemEffectKinds = map[model.ItemEffectKind]string{
+	model.ItemEffectKindAttackModifier:      command.ItemEffectAttackModifier,
+	model.ItemEffectKindHitPointsModifier:   command.ItemEffectHitPointsModifier,
+	model.ItemEffectKindAttackOverride:      command.ItemEffectAttackOverride,
+	model.ItemEffectKindAttackMultiplier:    command.ItemEffectAttackMultiplier,
+	model.ItemEffectKindIgnoreTerrainEffect: command.ItemEffectIgnoreTerrainEffect,
+}
+
+// 値はどの種類でもそのまま渡し、種類と値の組み合わせは command が確かめる
+func toItemEffects(effects []*model.ItemEffectInput) ([]command.ItemEffect, error) {
+	values := make([]command.ItemEffect, len(effects))
+	for i, effect := range effects {
+		kind, ok := itemEffectKinds[effect.Kind]
+		if !ok {
+			return nil, fmt.Errorf("graphql: unknown item effect kind %q", effect.Kind)
+		}
+		var constraints []command.ItemConstraint
+		if effect.Constraints != nil {
+			constraints = make([]command.ItemConstraint, len(effect.Constraints))
+			for j, constraint := range effect.Constraints {
+				if constraint.Kind != model.ItemConstraintKindOpponentElement {
+					return nil, fmt.Errorf("graphql: unknown item constraint kind %q", constraint.Kind)
+				}
+				elements, err := toElements(constraint.Elements)
+				if err != nil {
+					return nil, err
+				}
+				constraints[j] = command.ItemConstraint{Kind: command.ItemConstraintOpponentElement, Elements: elements}
+			}
+		}
+		values[i] = command.ItemEffect{Kind: kind, Value: effect.Value, Percent: effect.Percent, Constraints: constraints}
+	}
+	return values, nil
+}
+
+func allowedItemEffectKinds(category string) ([]model.ItemEffectKind, error) {
+	kinds, err := query.ItemAllowedEffectKinds(category)
+	if err != nil {
+		return nil, err
+	}
+	values := make([]model.ItemEffectKind, len(kinds))
+	for i, kind := range kinds {
+		found := false
+		for value, name := range itemEffectKinds {
+			if name == kind {
+				values[i], found = value, true
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("graphql: unknown item effect kind %q", kind)
+		}
 	}
 	return values, nil
 }

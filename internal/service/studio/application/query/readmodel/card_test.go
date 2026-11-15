@@ -64,7 +64,7 @@ func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Item: &readmodel.ItemMetadata{Category: "weapon"}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Item: &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.ItemEffectMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeItem,
@@ -259,13 +259,21 @@ func TestCard_ItemAndSpellHaveNoCreatureSpec(t *testing.T) {
 func TestCard_ItemHasItsSpecFromRegistrationAndChanges(t *testing.T) {
 	at := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
 	registered := readmodel.Card{}.Evolve(registeredItem(t, uuid.New(), "Potion", at)[0])
-	require.Equal(t, &readmodel.ItemMetadata{Category: "weapon"}, registered.Metadata.Item)
+	require.Equal(t, &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.ItemEffectMetadata{}}, registered.Metadata.Item)
 	meta := item.EventMeta{EntityID: itemtest.ID(t, 1), AggregateVersion: 2, OccurredAt: at}
 
-	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: item.CategoryArmor, ChangedBy: operatortest.ID(t, 10)})
-	changed := categorized.Evolve(&item.StatModifiersChangedEvent{EventMeta: meta, AttackModifier: item.NewAttackModifier(5), HitPointsModifier: item.NewHitPointsModifier(30), ChangedBy: operatortest.ID(t, 10)})
+	effects := itemtest.Effects(t, itemtest.AttackOverrideEffect(t, 30), item.NewIgnoreTerrainEffect(), itemtest.AttackMultiplierEffect(t, 150, "water", "fire"))
 
-	require.Equal(t, &readmodel.ItemMetadata{Category: "armor", AttackModifier: 5, HitPointsModifier: 30}, changed.Metadata.Item)
+	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: item.CategoryScroll, ChangedBy: operatortest.ID(t, 10)})
+	changed := categorized.Evolve(&item.EffectsChangedEvent{EventMeta: meta, Effects: effects, ChangedBy: operatortest.ID(t, 10)})
+
+	require.Equal(t, &readmodel.ItemMetadata{Category: "scroll", Effects: []readmodel.ItemEffectMetadata{
+		{AttackOverride: &readmodel.ItemValueEffectMetadata{Value: 30}},
+		{IgnoreTerrainEffect: &readmodel.ItemIgnoreTerrainEffectMetadata{}},
+		{AttackMultiplier: &readmodel.ItemAttackMultiplierEffectMetadata{Percent: 150, Constraints: []readmodel.ItemConstraintMetadata{
+			{OpponentElement: &readmodel.ItemOpponentElementConstraintMetadata{Elements: []string{"fire", "water"}}},
+		}}},
+	}}, changed.Metadata.Item)
 	// 元の状態の入れ子を書き換えない
 	require.Equal(t, "weapon", registered.Metadata.Item.Category)
 }

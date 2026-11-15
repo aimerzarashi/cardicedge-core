@@ -1363,10 +1363,10 @@ type MatchBattleCreatureAbilityActivatedEvent implements MatchEvent {
   battleRandomStats: MatchBattleRandomStatsBasis
 }
 
-# 能力の種類は、今のアイテムの能力が戦闘中の増減だけなので CreatureAbilityKind を使う（同じ名前の項目の型が型ごとに食い違うと、
-# 1 つの問い合わせで読めなくなるため）。アイテムの能力の種類は、能力の作りの見直しで決め直す
-"出したアイテムの能力が発動した（今のアイテムの AT・HP の増減は、能力「戦闘中の増減」として増減が 0 でも出る。巻物は効かないので出ない）"
-type MatchBattleItemAbilityActivatedEvent implements MatchEvent {
+# 発動したカードの効果を cardEffect に入れ子で持つのは、value・percent・effect をほかの対戦のイベントと同じ名前の項目にすると、
+# 型が食い違って 1 つの問い合わせで読めなくなるため（core#177）
+"出したアイテムの効果が発動した（増減・上書きは増減が 0 でも出る。倍率は掛けたものだけ、地形効果を無視するは相手に地形効果があるときだけ出る）"
+type MatchBattleItemEffectActivatedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
@@ -1375,16 +1375,14 @@ type MatchBattleItemAbilityActivatedEvent implements MatchEvent {
   changes: MatchEventChanges!
   "アイテムを出した側"
   side: MatchBattleSide!
-  "発動した能力（今は BATTLE_MODIFIER だけ）"
-  ability: CreatureAbilityKind!
   "アイテムのカード（性能は対戦を始めたときの写し）"
   card: CardInfo!
-  "アイテムの決まった AT の増減（下限で止まる前の値）"
-  attackModifier: Int!
-  "アイテムの決まった HP の増減（下限で止まる前の値）"
-  hitPointsModifier: Int!
-  "増減と当てた後の値"
+  "発動したカードの効果（種類と、下限で止まる前の値。倍率は制約を満たす一番高いもの）"
+  cardEffect: ItemEffect!
+  "アイテムを出した側の増減と当てた後の値（AT・HP を変える効果のときだけ。地形効果を無視するは null）"
   change: MatchBattleStatChange
+  "相手の増減と当てた後の値（地形効果を無視するときだけ。相手の HP が地形効果の分を除いた値になる。ほかは null）"
+  opponentChange: MatchBattleStatChange
 }
 
 "戦闘中の増減の決まった値"

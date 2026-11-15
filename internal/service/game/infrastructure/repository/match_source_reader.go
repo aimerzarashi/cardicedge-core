@@ -299,7 +299,7 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions, Abilities: masterCreatureAbilities(row.card.Creature.Abilities)}
 		}
 		if row.card.Item != nil {
-			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, AttackModifier: row.card.Item.AttackModifier, HitPointsModifier: row.card.Item.HitPointsModifier}
+			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, Effects: masterItemEffects(row.card.Item.Effects)}
 		}
 		if row.card.Spell != nil {
 			spec.Spell = &master.SpellSpec{}
@@ -336,6 +336,21 @@ func masterCreatureAbilities(abilities []query.CreatureAbility) []master.Creatur
 			values[i].BattleRandomStats = &master.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
 		}
 		values[i].AttackImmunityElements = ability.AttackImmunityElements
+	}
+	return values
+}
+
+func masterItemEffects(effects []query.ItemEffect) []master.ItemEffect {
+	values := make([]master.ItemEffect, len(effects))
+	for i, effect := range effects {
+		values[i] = master.ItemEffect{AttackModifier: effect.AttackModifier, HitPointsModifier: effect.HitPointsModifier, AttackOverride: effect.AttackOverride, IgnoreTerrainEffect: effect.IgnoreTerrainEffect}
+		if effect.AttackMultiplier != nil {
+			constraints := make([]master.ItemConstraint, len(effect.AttackMultiplier.Constraints))
+			for j, constraint := range effect.AttackMultiplier.Constraints {
+				constraints[j] = master.ItemConstraint{OpponentElements: constraint.OpponentElements}
+			}
+			values[i].AttackMultiplier = &master.ItemAttackMultiplier{Percent: effect.AttackMultiplier.Percent, Constraints: constraints}
+		}
 	}
 	return values
 }

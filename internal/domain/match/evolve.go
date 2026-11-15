@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 )
 
 // 状態は値で返し、渡された状態を書き換えない
@@ -440,7 +441,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Battle = battle
 		current.Phase = PhaseBattling
-	case *BattleSupportEffectActivatedEvent, *BattleTerrainEffectActivatedEvent, *BattleCreatureAbilityActivatedEvent, *BattleItemAbilityActivatedEvent, *CreatureStruckEvent:
+	case *BattleSupportEffectActivatedEvent, *BattleTerrainEffectActivatedEvent, *BattleCreatureAbilityActivatedEvent, *BattleItemEffectActivatedEvent, *CreatureStruckEvent:
 		if current.Phase != PhaseBattling {
 			return state, ErrInvalidState
 		}
@@ -754,11 +755,26 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 			return nil, ErrInvalidState
 		}
 		return battle.withModifier(BattleSideDefender, BattleModifierSource{Kind: BattleModifierSourceTerrainEffect}, BattleStatChange{HitPointsDelta: e.HitPointsDelta}), nil
-	case *BattleItemAbilityActivatedEvent:
-		if battle == nil || !e.Side.valid() || e.Ability != BattleAbilityBattleModifier || e.Change == nil {
+	case *BattleItemEffectActivatedEvent:
+		if battle == nil || !e.Side.valid() {
 			return nil, ErrInvalidState
 		}
-		return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceItemAbility, Ability: e.Ability}, *e.Change), nil
+		switch e.Effect {
+		case item.EffectKindAttackModifier, item.EffectKindHitPointsModifier, item.EffectKindAttackOverride, item.EffectKindAttackMultiplier:
+			if e.Change == nil {
+				return nil, ErrInvalidState
+			}
+			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceItemEffect, ItemEffect: e.Effect}, *e.Change), nil
+		case item.EffectKindIgnoreTerrainEffect:
+			// 無視されるのは相手の地形効果なので、相手の側に持たせる
+			if e.Change != nil {
+				return nil, ErrInvalidState
+			}
+			opponent := battle.Creature(e.Side.opponent())
+			opponent.TerrainEffectIgnored = true
+			return battle.withCreature(e.Side.opponent(), opponent), nil
+		}
+		return nil, ErrInvalidState
 	// 発動で得た状態を戦闘の中の値に持たせ、後の攻撃の順とダメージはこの値だけで決める（入力の性能を見直すと、
 	// イベントの並びだけでは「なぜその順か」「なぜ 0 か」が決まらないため。2026-11-14 オーナー。core#175）
 	case *BattleCreatureAbilityActivatedEvent:

@@ -27,7 +27,7 @@ const registerCreatureMutation = `mutation ($input: RegisterCreatureInput!) {
 const registerItemMutation = `mutation ($input: RegisterItemInput!) {
 	registerItem(input: $input) {
 		__typename
-		... on RegisterItemSuccess { item { id name status category attackModifier hitPointsModifier revision registeredAt updatedAt } }
+		... on RegisterItemSuccess { item { id name status category effects { __typename kind } allowedEffectKinds revision registeredAt updatedAt } }
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } } }
 	}
 }`

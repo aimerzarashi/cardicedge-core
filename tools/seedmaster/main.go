@@ -935,12 +935,16 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangePlacementRestrictions(ctx, changed.ID, changed.Revision, c.PlacementRestrictions)
 		}
-		// 分類と増減はアイテムだけ（validate が、アイテムには必ず書いてあることを確かめている）
+		// 分類と効果はアイテムだけ（validate が、アイテムには必ず書いてあることを確かめている）。効果は分類で持てるものだけなので、分類を先に変える
 		if err == nil && c.Type == "item" {
 			changed, err = s.items.ChangeCategory(ctx, changed.ID, changed.Revision, c.Category)
 		}
 		if err == nil && c.Type == "item" {
-			changed, err = s.items.ChangeStatModifiers(ctx, changed.ID, changed.Revision, *c.AttackModifier, *c.HitPointsModifier)
+			effects := make([]command.ItemEffect, len(c.Effects))
+			for i, effect := range c.Effects {
+				effects[i] = effect.command()
+			}
+			changed, err = s.items.ChangeEffects(ctx, changed.ID, changed.Revision, effects)
 		}
 		// 効果はスペルだけ（書いていなければ効果なしのまま）
 		if err == nil && c.Type == "spell" {
