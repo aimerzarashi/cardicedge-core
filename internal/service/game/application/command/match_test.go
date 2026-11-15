@@ -14,10 +14,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
@@ -128,9 +128,9 @@ func TestMatchStart_CopiesCardSpecsIntoParticipantDecks(t *testing.T) {
 	started, ok := f.matches(t).(match.Match)
 	require.True(t, ok)
 	require.Equal(t, map[card.Ref]match.CardSpec{
-		cardA: {Cost: cardtest.Cost(t, 30), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 20), HitPoints: creaturetest.HitPoints(t, 30), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Abilities: mustNoAbilities(t)}},
-		cardB: {Cost: cardtest.Cost(t, 0), Rarity: card.RarityStrange, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "water", "earth"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Abilities: mustNoAbilities(t)}},
-		cardC: {Cost: cardtest.Cost(t, 50), Rarity: card.RarityRare, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "neutral"), Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 40), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Abilities: mustNoAbilities(t)}},
+		cardA: {Cost: cardtest.Cost(t, 30), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 20), HitPoints: creaturetest.HitPoints(t, 30), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
+		cardB: {Cost: cardtest.Cost(t, 0), Rarity: card.RarityStrange, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "water", "earth"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
+		cardC: {Cost: cardtest.Cost(t, 50), Rarity: card.RarityRare, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "neutral"), Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 40), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
 	}, started.CardSpecs())
 }
 
@@ -811,11 +811,4 @@ func TestMatchHandler_UseSpellReportsTheTargetPositionOfDamage(t *testing.T) {
 	require.Equal(t, input.Errors{&input.Required{Field: "targetPosition"}}, missing)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, notFound)
 	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, negativeErr)
-}
-
-func mustNoAbilities(t *testing.T) creature.Abilities {
-	t.Helper()
-	abilities, err := creature.NewAbilities(nil)
-	require.NoError(t, err)
-	return abilities
 }

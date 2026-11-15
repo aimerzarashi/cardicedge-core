@@ -223,7 +223,7 @@ func TestCard_ReturnsPlayerNotRegisteredForUnregisteredPlayer(t *testing.T) {
 const creatureCardQuery = `query ($id: UUID!) {
 	card(id: $id) {
 		__typename
-		... on CreatureCardInfo { id name elements attack hitPoints itemRestrictions placementRestrictions abilities { __typename kind ... on CreatureTollMultiplierAbility { percent } ... on CreatureBattleModifierAbility { attackModifier hitPointsModifier } } }
+		... on CreatureCardInfo { id name elements attack hitPoints itemRestrictions placementRestrictions effects { __typename kind ... on TollMultiplierEffect { percent } ... on HitPointsModifierEffect { value } } }
 	}
 }`
 
@@ -236,6 +236,6 @@ func TestCard_ReturnsCreatureElementsAttackAndHitPoints(t *testing.T) {
 
 	require.Equal(t, map[string]any{
 		"__typename": "CreatureCardInfo", "id": master.NPCAvatars.Creature.String(), "name": "ゴブリン",
-		"elements": []any{"FIRE", "WIND"}, "attack": float64(25), "hitPoints": float64(45), "itemRestrictions": []any{"ARMOR", "SCROLL"}, "placementRestrictions": []any{"EARTH", "WIND"}, "abilities": []any{map[string]any{"__typename": "CreatureDefensiveAbility", "kind": "DEFENSIVE"}},
+		"elements": []any{"FIRE", "WIND"}, "attack": float64(25), "hitPoints": float64(45), "itemRestrictions": []any{"ARMOR", "SCROLL"}, "placementRestrictions": []any{"EARTH", "WIND"}, "effects": []any{map[string]any{"__typename": "ForbidInvasionEffect", "kind": "FORBID_INVASION"}, map[string]any{"__typename": "ForbidMovementEffect", "kind": "FORBID_MOVEMENT"}},
 	}, result)
 }

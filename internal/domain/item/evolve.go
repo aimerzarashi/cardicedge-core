@@ -1,6 +1,8 @@
 package item
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 func Evolve(state State, event Event) (State, error) {
 	switch e := event.(type) {

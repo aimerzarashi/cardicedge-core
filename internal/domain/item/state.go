@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 type State interface {
@@ -23,8 +24,8 @@ type Item struct {
 	Status   card.Status
 	Cost     card.Cost
 	Rarity   card.Rarity
-	Category Category
-	Effects  Effects
+	Category card.ItemCategory
+	Effects  effect.Effects
 }
 
 func (Item) isItemState() {}

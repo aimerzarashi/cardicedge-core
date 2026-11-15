@@ -744,18 +744,6 @@ func TestNewTileKind_RejectsUnknownValue(t *testing.T) {
 	require.ErrorIs(t, err, board.ErrTileKindUnknown)
 }
 
-func TestNewElement_RejectsUnknownValue(t *testing.T) {
-	for _, value := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
-		element, err := board.NewElement(value)
-		require.NoError(t, err)
-		require.Equal(t, value, element.String())
-	}
-
-	_, err := board.NewElement("light")
-
-	require.ErrorIs(t, err, board.ErrElementUnknown)
-}
-
 func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
 	name, err := board.NewName("  草原  ")
 	require.NoError(t, err)

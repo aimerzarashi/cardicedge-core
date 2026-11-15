@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -93,78 +94,115 @@ type CardMetadata struct {
 	UpdatedBy    uuid.UUID `json:"updated_by"`
 }
 
-// クリーチャーだけの性能。属性は domain の creature.Element の値（fire・earth・water・wind・neutral）を火・地・水・風の順に並べた配列
+// クリーチャーだけの性能。属性は domain の element.Creature の値（fire・earth・water・wind・neutral）を火・地・水・風の順に並べた配列
 type CreatureMetadata struct {
-	Elements              []string                  `json:"elements"`
-	Attack                int                       `json:"attack"`
-	HitPoints             int                       `json:"hit_points"`
-	ItemRestrictions      []string                  `json:"item_restrictions"`
-	PlacementRestrictions []string                  `json:"placement_restrictions"`
-	Abilities             []CreatureAbilityMetadata `json:"abilities"`
+	Elements              []string         `json:"elements"`
+	Attack                int              `json:"attack"`
+	HitPoints             int              `json:"hit_points"`
+	ItemRestrictions      []string         `json:"item_restrictions"`
+	PlacementRestrictions []string         `json:"placement_restrictions"`
+	Effects               []EffectMetadata `json:"effects"`
 }
 
-// アイテムだけの性能。分類は domain の item.Category の値（weapon・armor・scroll）、効果は並びの順（core#177）
+// アイテムだけの性能。分類は domain の card.ItemCategory の値（weapon・armor・scroll）、効果は並びの順（core#177）
 type ItemMetadata struct {
-	Category string               `json:"category"`
-	Effects  []ItemEffectMetadata `json:"effects"`
+	Category string           `json:"category"`
+	Effects  []EffectMetadata `json:"effects"`
 }
 
-// アイテムの効果。domain の item.Effect と同じ形（持っている種類の名前の下に値を置く）
-type ItemEffectMetadata struct {
-	AttackModifier      *ItemValueEffectMetadata            `json:"attack_modifier,omitempty"`
-	HitPointsModifier   *ItemValueEffectMetadata            `json:"hit_points_modifier,omitempty"`
-	AttackOverride      *ItemValueEffectMetadata            `json:"attack_override,omitempty"`
-	AttackMultiplier    *ItemAttackMultiplierEffectMetadata `json:"attack_multiplier,omitempty"`
-	IgnoreTerrainEffect *ItemIgnoreTerrainEffectMetadata    `json:"ignore_terrain_effect,omitempty"`
+// 効果（アイテムとクリーチャーで共有する。core#178）。domain の effect.Effect と同じ形（持っている種類の名前の下に値を置く）
+type EffectMetadata struct {
+	AttackModifier        *ValueEffectMetadata       `json:"attack_modifier,omitempty"`
+	HitPointsModifier     *ValueEffectMetadata       `json:"hit_points_modifier,omitempty"`
+	AttackOverride        *RangeEffectMetadata       `json:"attack_override,omitempty"`
+	HitPointsOverride     *RangeEffectMetadata       `json:"hit_points_override,omitempty"`
+	AttackMultiplier      *PercentEffectMetadata     `json:"attack_multiplier,omitempty"`
+	IgnoreTerrainEffect   *EmptyEffectMetadata       `json:"ignore_terrain_effect,omitempty"`
+	StrikeFirst           *EmptyEffectMetadata       `json:"strike_first,omitempty"`
+	StrikeLast            *EmptyEffectMetadata       `json:"strike_last,omitempty"`
+	NullifyReceivedDamage *ConstrainedEffectMetadata `json:"nullify_received_damage,omitempty"`
+	TollMultiplier        *PercentEffectMetadata     `json:"toll_multiplier,omitempty"`
+	ForbidInvasion        *EmptyEffectMetadata       `json:"forbid_invasion,omitempty"`
+	ForbidMovement        *EmptyEffectMetadata       `json:"forbid_movement,omitempty"`
 }
 
-// 値を 1 つだけ持つ効果（AT・HP の増減、AT の上書き）
-type ItemValueEffectMetadata struct {
+// 値を 1 つだけ持つ効果（AT・HP の増減）
+type ValueEffectMetadata struct {
 	Value int `json:"value"`
 }
 
-type ItemAttackMultiplierEffectMetadata struct {
-	Percent     int                      `json:"percent"`
-	Constraints []ItemConstraintMetadata `json:"constraints"`
+// 範囲を持つ効果（AT・HP の上書き。固定は最小と最大が同じ）
+type RangeEffectMetadata struct {
+	Minimum int `json:"minimum"`
+	Maximum int `json:"maximum"`
 }
 
-type ItemIgnoreTerrainEffectMetadata struct{}
+// 百分率を持つ効果（AT の倍率は制約も持つ。通行料の倍率は制約を持たないので省く）
+type PercentEffectMetadata struct {
+	Percent     int                  `json:"percent"`
+	Constraints []ConstraintMetadata `json:"constraints,omitempty"`
+}
 
-// 効果の制約。domain の item.Constraint と同じ形
-type ItemConstraintMetadata struct {
-	OpponentElement *ItemOpponentElementConstraintMetadata `json:"opponent_element,omitempty"`
+// 制約だけを持つ効果（受けるダメージを 0 にする）
+type ConstrainedEffectMetadata struct {
+	Constraints []ConstraintMetadata `json:"constraints"`
+}
+
+// 値を持たない効果
+type EmptyEffectMetadata struct{}
+
+// 効果の制約。domain の effect.Constraint と同じ形
+type ConstraintMetadata struct {
+	OpponentCreatureElement *OpponentCreatureElementConstraintMetadata `json:"opponent_creature_element,omitempty"`
 }
 
 // 属性はクリーチャーの属性と同じ名前（火・地・水・風・無の順）
-type ItemOpponentElementConstraintMetadata struct {
+type OpponentCreatureElementConstraintMetadata struct {
 	Elements []string `json:"elements"`
 }
 
-func itemEffectsMetadata(effects item.Effects) []ItemEffectMetadata {
-	values := make([]ItemEffectMetadata, len(effects))
-	for i, effect := range effects {
+func effectsMetadata(effects effect.Effects) []EffectMetadata {
+	values := make([]EffectMetadata, len(effects))
+	for i, value := range effects {
 		switch {
-		case effect.AttackModifier != nil:
-			values[i].AttackModifier = &ItemValueEffectMetadata{Value: effect.AttackModifier.Value.Int()}
-		case effect.HitPointsModifier != nil:
-			values[i].HitPointsModifier = &ItemValueEffectMetadata{Value: effect.HitPointsModifier.Value.Int()}
-		case effect.AttackOverride != nil:
-			values[i].AttackOverride = &ItemValueEffectMetadata{Value: effect.AttackOverride.Value.Int()}
-		case effect.AttackMultiplier != nil:
-			constraints := make([]ItemConstraintMetadata, len(effect.AttackMultiplier.Constraints))
-			for j, constraint := range effect.AttackMultiplier.Constraints {
-				if constraint.OpponentElement != nil {
-					elements := make([]string, len(constraint.OpponentElement.Elements))
-					for k, element := range constraint.OpponentElement.Elements {
-						elements[k] = element.String()
-					}
-					constraints[j].OpponentElement = &ItemOpponentElementConstraintMetadata{Elements: elements}
-				}
-			}
-			values[i].AttackMultiplier = &ItemAttackMultiplierEffectMetadata{Percent: effect.AttackMultiplier.Percent.Int(), Constraints: constraints}
-		case effect.IgnoreTerrainEffect != nil:
-			values[i].IgnoreTerrainEffect = &ItemIgnoreTerrainEffectMetadata{}
+		case value.AttackModifier != nil:
+			values[i].AttackModifier = &ValueEffectMetadata{Value: value.AttackModifier.Value.Int()}
+		case value.HitPointsModifier != nil:
+			values[i].HitPointsModifier = &ValueEffectMetadata{Value: value.HitPointsModifier.Value.Int()}
+		case value.AttackOverride != nil:
+			values[i].AttackOverride = &RangeEffectMetadata{Minimum: value.AttackOverride.Minimum.Int(), Maximum: value.AttackOverride.Maximum.Int()}
+		case value.HitPointsOverride != nil:
+			values[i].HitPointsOverride = &RangeEffectMetadata{Minimum: value.HitPointsOverride.Minimum.Int(), Maximum: value.HitPointsOverride.Maximum.Int()}
+		case value.AttackMultiplier != nil:
+			// AT の倍率は制約が無くても [] で書く（ゲームが項目の欠けと見分けるため）
+			values[i].AttackMultiplier = &PercentEffectMetadata{Percent: value.AttackMultiplier.Percent.Int(), Constraints: append([]ConstraintMetadata{}, constraintsMetadata(value.AttackMultiplier.Constraints)...)}
+		case value.IgnoreTerrainEffect != nil:
+			values[i].IgnoreTerrainEffect = &EmptyEffectMetadata{}
+		case value.StrikeFirst != nil:
+			values[i].StrikeFirst = &EmptyEffectMetadata{}
+		case value.StrikeLast != nil:
+			values[i].StrikeLast = &EmptyEffectMetadata{}
+		case value.NullifyReceivedDamage != nil:
+			values[i].NullifyReceivedDamage = &ConstrainedEffectMetadata{Constraints: constraintsMetadata(value.NullifyReceivedDamage.Constraints)}
+		case value.TollMultiplier != nil:
+			values[i].TollMultiplier = &PercentEffectMetadata{Percent: value.TollMultiplier.Percent.Int()}
+		case value.ForbidInvasion != nil:
+			values[i].ForbidInvasion = &EmptyEffectMetadata{}
+		case value.ForbidMovement != nil:
+			values[i].ForbidMovement = &EmptyEffectMetadata{}
 		}
+	}
+	return values
+}
+
+func constraintsMetadata(constraints effect.Constraints) []ConstraintMetadata {
+	values := make([]ConstraintMetadata, len(constraints))
+	for i, constraint := range constraints {
+		elements := make([]string, len(constraint.OpponentCreatureElement.Elements))
+		for j, creatureElement := range constraint.OpponentCreatureElement.Elements {
+			elements[j] = creatureElement.String()
+		}
+		values[i].OpponentCreatureElement = &OpponentCreatureElementConstraintMetadata{Elements: elements}
 	}
 	return values
 }
@@ -174,7 +212,7 @@ type SpellMetadata struct {
 	Effect SpellEffectMetadata `json:"effect"`
 }
 
-// スペルの効果。domain の spell.Effect と同じ形（持っている種類の名前の下に値を入れ、効果なしは {}）。種類ごとの型を分けるのも同じ（2026-11-10 オーナー）
+// スペルの効果。domain の effect.SpellEffect と同じ形（持っている種類の名前の下に値を入れ、効果なしは {}）。種類ごとの型を分けるのも同じ（2026-11-10 オーナー）
 type SpellEffectMetadata struct {
 	DrawCards    *SpellDrawCardsMetadata    `json:"draw_cards,omitempty"`
 	GainMagic    *SpellGainMagicMetadata    `json:"gain_magic,omitempty"`
@@ -205,71 +243,7 @@ type SpellMultipleDiceMetadata struct {
 	Turns int `json:"turns"`
 }
 
-// クリーチャーの能力。domain の creature.Ability と同じ形（持っている種類の名前の下に値を置く）
-type CreatureAbilityMetadata struct {
-	Defensive         *CreatureDefensiveAbilityMetadata         `json:"defensive,omitempty"`
-	TollMultiplier    *CreatureTollMultiplierAbilityMetadata    `json:"toll_multiplier,omitempty"`
-	FirstStrike       *CreatureFirstStrikeAbilityMetadata       `json:"first_strike,omitempty"`
-	LastStrike        *CreatureLastStrikeAbilityMetadata        `json:"last_strike,omitempty"`
-	BattleModifier    *CreatureBattleModifierAbilityMetadata    `json:"battle_modifier,omitempty"`
-	BattleRandomStats *CreatureBattleRandomStatsAbilityMetadata `json:"battle_random_stats,omitempty"`
-	AttackImmunity    *CreatureAttackImmunityAbilityMetadata    `json:"attack_immunity,omitempty"`
-}
-
-type CreatureDefensiveAbilityMetadata struct{}
-
-type CreatureFirstStrikeAbilityMetadata struct{}
-
-type CreatureLastStrikeAbilityMetadata struct{}
-
-type CreatureBattleModifierAbilityMetadata struct {
-	AttackModifier    int `json:"attack_modifier"`
-	HitPointsModifier int `json:"hit_points_modifier"`
-}
-
-type CreatureBattleRandomStatsAbilityMetadata struct {
-	Minimum int `json:"minimum"`
-	Maximum int `json:"maximum"`
-}
-
-// 属性はクリーチャーの属性と同じ名前（火・地・水・風の順）
-type CreatureAttackImmunityAbilityMetadata struct {
-	Elements []string `json:"elements"`
-}
-
-type CreatureTollMultiplierAbilityMetadata struct {
-	Percent int `json:"percent"`
-}
-
-func creatureAbilitiesMetadata(abilities creature.Abilities) []CreatureAbilityMetadata {
-	values := make([]CreatureAbilityMetadata, len(abilities))
-	for i, ability := range abilities {
-		if ability.IsDefensive() {
-			values[i].Defensive = &CreatureDefensiveAbilityMetadata{}
-		}
-		if ability.TollMultiplier != nil {
-			values[i].TollMultiplier = &CreatureTollMultiplierAbilityMetadata{Percent: ability.TollMultiplier.Percent.Int()}
-		}
-		if ability.FirstStrike != nil {
-			values[i].FirstStrike = &CreatureFirstStrikeAbilityMetadata{}
-		}
-		if ability.LastStrike != nil {
-			values[i].LastStrike = &CreatureLastStrikeAbilityMetadata{}
-		}
-		if ability.BattleModifier != nil {
-			values[i].BattleModifier = &CreatureBattleModifierAbilityMetadata{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
-		}
-		if ability.BattleRandomStats != nil {
-			values[i].BattleRandomStats = &CreatureBattleRandomStatsAbilityMetadata{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
-		}
-		if ability.AttackImmunity != nil {
-			values[i].AttackImmunity = &CreatureAttackImmunityAbilityMetadata{Elements: ability.AttackImmunity.Elements.Strings()}
-		}
-	}
-	return values
-}
-
-func spellEffectMetadata(effect spell.Effect) SpellEffectMetadata {
+func spellEffectMetadata(effect effect.SpellEffect) SpellEffectMetadata {
 	var metadata SpellEffectMetadata
 	if effect.DrawCards != nil {
 		metadata.DrawCards = &SpellDrawCardsMetadata{Count: effect.DrawCards.Count.Int()}
@@ -301,7 +275,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), ItemRestrictions: e.ItemRestrictions.Strings(), PlacementRestrictions: e.PlacementRestrictions.Strings(), Abilities: creatureAbilitiesMetadata(e.Abilities)},
+			Creature:     &CreatureMetadata{Elements: e.Elements.Strings(), Attack: e.Attack.Int(), HitPoints: e.HitPoints.Int(), ItemRestrictions: e.ItemRestrictions.Strings(), PlacementRestrictions: e.PlacementRestrictions.Strings(), Effects: effectsMetadata(e.Effects)},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -315,7 +289,7 @@ func (state Card) Evolve(event any) Card {
 		state.Metadata = CardMetadata{
 			ID: e.PublicID, Name: e.Name.String(), Status: CardStatusDraft, Revision: e.GetMeta().AggregateVersion,
 			Cost: e.Cost.Int(), Rarity: e.Rarity.String(),
-			Item:         &ItemMetadata{Category: e.Category.String(), Effects: itemEffectsMetadata(e.Effects)},
+			Item:         &ItemMetadata{Category: e.Category.String(), Effects: effectsMetadata(e.Effects)},
 			RegisteredAt: occurredAt, UpdatedAt: occurredAt,
 		}
 		state.RegisteredBy = e.RegisteredBy
@@ -372,9 +346,9 @@ func (state Card) Evolve(event any) Card {
 	case *spell.EffectChangedEvent:
 		state.Metadata.Spell = &SpellMetadata{Effect: spellEffectMetadata(e.Effect)}
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
-	case *creature.AbilitiesChangedEvent:
+	case *creature.EffectsChangedEvent:
 		changed := *state.Metadata.Creature
-		changed.Abilities = creatureAbilitiesMetadata(e.Abilities)
+		changed.Effects = effectsMetadata(e.Effects)
 		state.Metadata.Creature = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *creature.ItemRestrictionsChangedEvent:
@@ -397,7 +371,7 @@ func (state Card) Evolve(event any) Card {
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *item.EffectsChangedEvent:
 		changed := *state.Metadata.Item
-		changed.Effects = itemEffectsMetadata(e.Effects)
+		changed.Effects = effectsMetadata(e.Effects)
 		state.Metadata.Item = &changed
 		state = state.changed(e.GetMeta().AggregateVersion, e.GetMeta().OccurredAt, e.ChangedBy)
 	case *spell.RarityChangedEvent:

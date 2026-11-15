@@ -16,7 +16,7 @@ type CreatureRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredCreature, error)
 	ChangeElements(ctx context.Context, id uuid.UUID, revision int64, elements []string) (command.ChangedCard, error)
 	ChangeStats(ctx context.Context, id uuid.UUID, revision int64, attack, hitPoints int) (command.ChangedCard, error)
-	ChangeAbilities(ctx context.Context, id uuid.UUID, revision int64, abilities []command.CreatureAbility) (command.ChangedCard, error)
+	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.Effect) (command.ChangedCard, error)
 	ChangeItemRestrictions(ctx context.Context, id uuid.UUID, revision int64, itemRestrictions []string) (command.ChangedCard, error)
 	ChangePlacementRestrictions(ctx context.Context, id uuid.UUID, revision int64, placementRestrictions []string) (command.ChangedCard, error)
 }
@@ -25,7 +25,7 @@ type CreatureRegistrar interface {
 type ItemRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredItem, error)
 	ChangeCategory(ctx context.Context, id uuid.UUID, revision int64, category string) (command.ChangedCard, error)
-	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.ItemEffect) (command.ChangedCard, error)
+	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.Effect) (command.ChangedCard, error)
 }
 
 // 実装は command.SpellHandler

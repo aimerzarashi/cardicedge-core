@@ -12,6 +12,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect/effecttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item/itemtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -31,7 +33,7 @@ func TestCard_EvolvesFromCreatureRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｄragon", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:   publicID,
 		CardType: readmodel.CardTypeCreature,
@@ -64,7 +66,7 @@ func TestCard_EvolvesFromItemRegistered(t *testing.T) {
 		state = state.Evolve(event)
 	}
 
-	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Item: &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.ItemEffectMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
+	metadata := readmodel.CardMetadata{ID: publicID, Name: "Ｐotion", Status: readmodel.CardStatusDraft, Cost: 10, Rarity: "normal", Item: &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.EffectMetadata{}}, Revision: 1, RegisteredAt: at, UpdatedAt: at}
 	require.Equal(t, readmodel.Card{
 		CardID:       publicID,
 		CardType:     readmodel.CardTypeItem,
@@ -138,11 +140,11 @@ func TestCard_EvolvesStatusFromPublishedAndRetired(t *testing.T) {
 
 	require.Equal(t, readmodel.CardStatusPublished, afterPublished.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, Revision: 2, RegisteredAt: registeredAt, UpdatedAt: publishedAt,
 	}, afterPublished.Metadata)
 	require.Equal(t, readmodel.CardStatusRetired, afterRetired.Status)
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusRetired, Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: retiredAt,
 	}, afterRetired.Metadata)
 	require.Equal(t, operatortest.ID(t, 10), afterPublished.RegisteredBy)
 	require.Equal(t, operatortest.ID(t, 11), afterPublished.UpdatedBy)
@@ -163,7 +165,7 @@ func TestCard_EvolvesSpecFromCostAndRarityChanged(t *testing.T) {
 	publicID := uuid.New()
 	state := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
 	registered := creature.Creature{ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities()}
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Effects: effect.DefaultEffects()}
 	costChanged, err := creature.Decide(registered, &creature.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: operatortest.ID(t, 11)}, changedAt)
 	require.NoError(t, err)
 	afterCostState, err := creature.Evolve(registered, costChanged[0])
@@ -174,7 +176,7 @@ func TestCard_EvolvesSpecFromCostAndRarityChanged(t *testing.T) {
 	after := state.Evolve(costChanged[0]).Evolve(rarityChanged[0])
 
 	require.Equal(t, readmodel.CardMetadata{
-		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusDraft, Cost: 30, Rarity: "rare", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: changedAt,
+		ID: publicID, Name: "Dragon", Status: readmodel.CardStatusDraft, Cost: 30, Rarity: "rare", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, Revision: 3, RegisteredAt: registeredAt, UpdatedAt: changedAt,
 	}, after.Metadata)
 	require.Equal(t, operatortest.ID(t, 12), after.UpdatedBy)
 }
@@ -186,7 +188,7 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	registeredState := readmodel.Card{}.Evolve(registeredCreature(t, publicID, "Dragon", registeredAt)[0])
 	registered := creature.Creature{
 		ID: creaturetest.ID(t, 1), Version: 1, Status: card.StatusDraft, Cost: card.DefaultCost, Rarity: card.DefaultRarity,
-		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
+		Elements: creature.DefaultElements(), Attack: creature.DefaultAttack, HitPoints: creature.DefaultHitPoints, ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Effects: effect.DefaultEffects(),
 	}
 	elementsChanged, err := creature.Decide(registered, &creature.ChangeElementsCommand{Elements: creaturetest.Elements(t, "wind", "fire"), ChangedBy: operatortest.ID(t, 11)}, changedAt)
 	require.NoError(t, err)
@@ -198,51 +200,41 @@ func TestCard_EvolvesCreatureSpecFromElementsAndStatsChanged(t *testing.T) {
 	afterElements := registeredState.Evolve(elementsChanged[0])
 	afterStats := afterElements.Evolve(statsChanged[0])
 
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterElements.Metadata.Creature)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterStats.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, afterElements.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, afterStats.Metadata.Creature)
 	require.Equal(t, int64(3), afterStats.Metadata.Revision)
 	require.Equal(t, operatortest.ID(t, 12), afterStats.UpdatedBy)
 	restrictionsChanged := creature.ItemRestrictionsChangedEvent{ItemRestrictions: creaturetest.ItemRestrictions(t, "armor", "scroll"), ChangedBy: operatortest.ID(t, 14)}
 	afterRestrictions := afterStats.Evolve(&restrictionsChanged)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterRestrictions.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, afterRestrictions.Metadata.Creature)
 	placementChanged := creature.PlacementRestrictionsChangedEvent{PlacementRestrictions: creaturetest.PlacementRestrictions(t, "fire"), ChangedBy: operatortest.ID(t, 15)}
 	afterPlacement := afterRestrictions.Evolve(&placementChanged)
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"fire"}, Abilities: []readmodel.CreatureAbilityMetadata{}}, afterPlacement.Metadata.Creature)
-	defensive, err := creature.NewAbilities([]creature.Ability{creature.NewDefensiveAbility()})
-	require.NoError(t, err)
-	abilitiesChanged := creature.AbilitiesChangedEvent{Abilities: defensive, ChangedBy: operatortest.ID(t, 16)}
-	afterAbilities := afterPlacement.Evolve(&abilitiesChanged)
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{Defensive: &readmodel.CreatureDefensiveAbilityMetadata{}}}, afterAbilities.Metadata.Creature.Abilities)
-	percent, err := creature.NewTollMultiplierPercent(150)
-	require.NoError(t, err)
-	tolled, err := creature.NewAbilities([]creature.Ability{creature.NewTollMultiplierAbility(percent)})
-	require.NoError(t, err)
-	tollChanged := creature.AbilitiesChangedEvent{Abilities: tolled, ChangedBy: operatortest.ID(t, 17)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{TollMultiplier: &readmodel.CreatureTollMultiplierAbilityMetadata{Percent: 150}}}, afterAbilities.Evolve(&tollChanged).Metadata.Creature.Abilities)
-	firstStrike, err := creature.NewAbilities([]creature.Ability{creature.NewFirstStrikeAbility()})
-	require.NoError(t, err)
-	firstStrikeChanged := creature.AbilitiesChangedEvent{Abilities: firstStrike, ChangedBy: operatortest.ID(t, 18)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{FirstStrike: &readmodel.CreatureFirstStrikeAbilityMetadata{}}}, afterAbilities.Evolve(&firstStrikeChanged).Metadata.Creature.Abilities)
-	lastStrike, err := creature.NewAbilities([]creature.Ability{creature.NewLastStrikeAbility()})
-	require.NoError(t, err)
-	lastStrikeChanged := creature.AbilitiesChangedEvent{Abilities: lastStrike, ChangedBy: operatortest.ID(t, 19)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{LastStrike: &readmodel.CreatureLastStrikeAbilityMetadata{}}}, afterAbilities.Evolve(&lastStrikeChanged).Metadata.Creature.Abilities)
-	battleModifier, err := creature.NewAbilities([]creature.Ability{creature.NewBattleModifierAbility(creature.NewAttackModifier(-10), creature.NewHitPointsModifier(20))})
-	require.NoError(t, err)
-	battleModifierChanged := creature.AbilitiesChangedEvent{Abilities: battleModifier, ChangedBy: operatortest.ID(t, 20)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{BattleModifier: &readmodel.CreatureBattleModifierAbilityMetadata{AttackModifier: -10, HitPointsModifier: 20}}}, afterAbilities.Evolve(&battleModifierChanged).Metadata.Creature.Abilities)
-	randomStatsAbility, err := creature.NewBattleRandomStatsAbility(10, 70)
-	require.NoError(t, err)
-	randomStats, err := creature.NewAbilities([]creature.Ability{randomStatsAbility})
-	require.NoError(t, err)
-	randomStatsChanged := creature.AbilitiesChangedEvent{Abilities: randomStats, ChangedBy: operatortest.ID(t, 21)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{BattleRandomStats: &readmodel.CreatureBattleRandomStatsAbilityMetadata{Minimum: 10, Maximum: 70}}}, afterAbilities.Evolve(&randomStatsChanged).Metadata.Creature.Abilities)
-	immunity, err := creature.NewAbilities([]creature.Ability{creaturetest.AttackImmunity(t, "fire", "earth")})
-	require.NoError(t, err)
-	immunityChanged := creature.AbilitiesChangedEvent{Abilities: immunity, ChangedBy: operatortest.ID(t, 22)}
-	require.Equal(t, []readmodel.CreatureAbilityMetadata{{AttackImmunity: &readmodel.CreatureAttackImmunityAbilityMetadata{Elements: []string{"fire", "earth"}}}}, afterAbilities.Evolve(&immunityChanged).Metadata.Creature.Abilities)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 30, HitPoints: 50, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"fire"}, Effects: []readmodel.EffectMetadata{}}, afterPlacement.Metadata.Creature)
+	// 効果はすべての種類が、domain と同じ形の metadata になる（game との約束。core#178）
+	effects := effecttest.Effects(t,
+		effecttest.AttackModifier(-10), effecttest.HitPointsModifier(20), effecttest.AttackOverrideRange(t, 10, 70), effecttest.HitPointsOverrideRange(t, 10, 70),
+		effect.NewStrikeFirstEffect(), effect.NewStrikeLastEffect(), effecttest.NullifyReceivedDamage(t, "fire", "earth"), effecttest.TollMultiplier(t, 150),
+		effect.NewForbidInvasionEffect(), effect.NewForbidMovementEffect(),
+	)
+	effectsChanged := creature.EffectsChangedEvent{Effects: effects, ChangedBy: operatortest.ID(t, 16)}
+	afterEffects := afterPlacement.Evolve(&effectsChanged)
+	empty := &readmodel.EmptyEffectMetadata{}
+	require.Equal(t, []readmodel.EffectMetadata{
+		{AttackModifier: &readmodel.ValueEffectMetadata{Value: -10}},
+		{HitPointsModifier: &readmodel.ValueEffectMetadata{Value: 20}},
+		{AttackOverride: &readmodel.RangeEffectMetadata{Minimum: 10, Maximum: 70}},
+		{HitPointsOverride: &readmodel.RangeEffectMetadata{Minimum: 10, Maximum: 70}},
+		{StrikeFirst: empty},
+		{StrikeLast: empty},
+		{NullifyReceivedDamage: &readmodel.ConstrainedEffectMetadata{Constraints: []readmodel.ConstraintMetadata{
+			{OpponentCreatureElement: &readmodel.OpponentCreatureElementConstraintMetadata{Elements: []string{"fire", "earth"}}},
+		}}},
+		{TollMultiplier: &readmodel.PercentEffectMetadata{Percent: 150}},
+		{ForbidInvasion: empty},
+		{ForbidMovement: empty},
+	}, afterEffects.Metadata.Creature.Effects)
 	// 前の状態の値を書き換えない（投影が途中の状態を持ち回るため）
-	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}, registeredState.Metadata.Creature)
+	require.Equal(t, &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}, registeredState.Metadata.Creature)
 }
 
 // アイテム・呪文は、クリーチャーだけの性能を持たない（JSON にも出さない）
@@ -259,19 +251,19 @@ func TestCard_ItemAndSpellHaveNoCreatureSpec(t *testing.T) {
 func TestCard_ItemHasItsSpecFromRegistrationAndChanges(t *testing.T) {
 	at := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
 	registered := readmodel.Card{}.Evolve(registeredItem(t, uuid.New(), "Potion", at)[0])
-	require.Equal(t, &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.ItemEffectMetadata{}}, registered.Metadata.Item)
+	require.Equal(t, &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.EffectMetadata{}}, registered.Metadata.Item)
 	meta := item.EventMeta{EntityID: itemtest.ID(t, 1), AggregateVersion: 2, OccurredAt: at}
 
-	effects := itemtest.Effects(t, itemtest.AttackOverrideEffect(t, 30), item.NewIgnoreTerrainEffect(), itemtest.AttackMultiplierEffect(t, 150, "water", "fire"))
+	effects := effecttest.Effects(t, effecttest.AttackOverride(t, 30), effect.NewIgnoreTerrainEffect(), effecttest.AttackMultiplier(t, 150, "water", "fire"))
 
-	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: item.CategoryScroll, ChangedBy: operatortest.ID(t, 10)})
+	categorized := registered.Evolve(&item.CategoryChangedEvent{EventMeta: meta, Category: card.ItemCategoryScroll, ChangedBy: operatortest.ID(t, 10)})
 	changed := categorized.Evolve(&item.EffectsChangedEvent{EventMeta: meta, Effects: effects, ChangedBy: operatortest.ID(t, 10)})
 
-	require.Equal(t, &readmodel.ItemMetadata{Category: "scroll", Effects: []readmodel.ItemEffectMetadata{
-		{AttackOverride: &readmodel.ItemValueEffectMetadata{Value: 30}},
-		{IgnoreTerrainEffect: &readmodel.ItemIgnoreTerrainEffectMetadata{}},
-		{AttackMultiplier: &readmodel.ItemAttackMultiplierEffectMetadata{Percent: 150, Constraints: []readmodel.ItemConstraintMetadata{
-			{OpponentElement: &readmodel.ItemOpponentElementConstraintMetadata{Elements: []string{"fire", "water"}}},
+	require.Equal(t, &readmodel.ItemMetadata{Category: "scroll", Effects: []readmodel.EffectMetadata{
+		{AttackOverride: &readmodel.RangeEffectMetadata{Minimum: 30, Maximum: 30}},
+		{IgnoreTerrainEffect: &readmodel.EmptyEffectMetadata{}},
+		{AttackMultiplier: &readmodel.PercentEffectMetadata{Percent: 150, Constraints: []readmodel.ConstraintMetadata{
+			{OpponentCreatureElement: &readmodel.OpponentCreatureElementConstraintMetadata{Elements: []string{"fire", "water"}}},
 		}}},
 	}}, changed.Metadata.Item)
 	// 元の状態の入れ子を書き換えない
@@ -298,7 +290,7 @@ func TestCard_EvolvesSpellEffectFromEffectChanged(t *testing.T) {
 	require.Equal(t, &readmodel.SpellMetadata{}, registeredState.Metadata.Spell)
 }
 
-// 効果の JSON は domain の spell.Effect と同じ形（game が読む約束。効果なしは {}）
+// 効果の JSON は domain の effect.SpellEffect と同じ形（game が読む約束。効果なしは {}）
 func TestSpellMetadata_EffectJSONMatchesTheDomainEffect(t *testing.T) {
 	var none readmodel.SpellEffectMetadata
 	drawOne := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 1}}

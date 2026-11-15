@@ -43,7 +43,7 @@ func (r *mutationResolver) ChangeItemEffects(ctx context.Context, input model.Ch
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	effects, err := toItemEffects(input.Effects)
+	effects, err := toEffects(input.Effects)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	if err != nil {
 		return nil, err
 	}
-	effects, err := fromItemEffects(registered.Effects)
+	effects, err := fromEffects(registered.Effects)
 	if err != nil {
 		return nil, err
 	}

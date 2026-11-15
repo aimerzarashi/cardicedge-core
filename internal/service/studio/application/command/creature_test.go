@@ -147,24 +147,22 @@ func TestRegisterCreature_ReturnsDefaultSpec(t *testing.T) {
 	require.Equal(t, []string{"neutral"}, registered.Elements)
 	require.Equal(t, creature.DefaultAttack.Int(), registered.Attack)
 	require.Equal(t, creature.DefaultHitPoints.Int(), registered.HitPoints)
-	require.Empty(t, registered.Abilities)
+	require.Empty(t, registered.Effects)
 }
 
-func TestChangeCreatureAbilities_ChangesDraftAndRejectsDuplicates(t *testing.T) {
+func TestChangeCreatureEffects_ChangesDraftAndKeepsRevisionWhenUnchanged(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
 	registered, err := commands.Register(ctx, "ドラゴン")
 	require.NoError(t, err)
-	defensive := command.CreatureAbility{Kind: command.CreatureAbilityDefensive}
+	defensive := []command.Effect{{Kind: command.EffectForbidInvasion}, {Kind: command.EffectForbidMovement}}
 
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{defensive})
+	changed, err := commands.ChangeEffects(ctx, registered.ID, registered.Revision, defensive)
 	require.NoError(t, err)
 	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
-	unchanged, err := commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{defensive})
+	unchanged, err := commands.ChangeEffects(ctx, changed.ID, changed.Revision, defensive)
 	require.NoError(t, err)
 	require.Equal(t, changed, unchanged)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{defensive, defensive})
-	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities"}}, err)
 }
 
 func TestChangeCreatureItemRestrictions_ChangesDraftAndRejectsUnknown(t *testing.T) {
@@ -201,157 +199,61 @@ func TestChangeCreaturePlacementRestrictions_ChangesDraftAndRejectsNeutral(t *te
 	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "placementRestrictions"}}, err)
 }
 
-func TestChangeCreatureAbilities_RejectsMismatchedValuesAndTooSmallPercent(t *testing.T) {
+// 効果の入力の誤りの決まり（種類と値の組み合わせ・値の範囲・制約）はアイテムと共有する（core#178）。クリーチャーの種類で、項目ごとに確かめる
+func TestChangeCreatureEffects_RejectsInvalidInputAtEachField(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
+	registered, err := commands.Register(ctx, "スペクター")
 	require.NoError(t, err)
-	zero, half := 0, 150
 
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityTollMultiplier, Percent: &half}})
-	require.NoError(t, err)
-	require.Equal(t, registered.Revision+1, changed.Revision)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityDefensive, Percent: &half},
-		{Kind: command.CreatureAbilityTollMultiplier, Percent: &zero},
-		{Kind: command.CreatureAbilityTollMultiplier},
-	})
-	require.Equal(t, input.Errors{
-		&input.InvalidFormat{Field: "abilities.0"},
-		&input.TooSmall{Field: "abilities.1.percent", Min: 1},
-		&input.InvalidFormat{Field: "abilities.2"},
-	}, err)
-}
-
-func TestChangeCreatureAbilities_BattleModifierNeedsBothValuesAndOtherKindsHaveNone(t *testing.T) {
-	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
-	require.NoError(t, err)
-	negative, zero, percent := -10, 0, 150
-
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative, HitPointsModifier: &zero}})
-	require.NoError(t, err)
-	require.Equal(t, registered.Revision+1, changed.Revision)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative},
-		{Kind: command.CreatureAbilityBattleModifier, HitPointsModifier: &zero},
-		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &negative, HitPointsModifier: &zero, Percent: &percent},
-		{Kind: command.CreatureAbilityDefensive, AttackModifier: &negative},
-		{Kind: command.CreatureAbilityTollMultiplier, Percent: &percent, HitPointsModifier: &zero},
-	})
-	require.Equal(t, input.Errors{
-		&input.InvalidFormat{Field: "abilities.0"},
-		&input.InvalidFormat{Field: "abilities.1"},
-		&input.InvalidFormat{Field: "abilities.2"},
-		&input.InvalidFormat{Field: "abilities.3"},
-		&input.InvalidFormat{Field: "abilities.4"},
-	}, err)
-}
-
-func TestChangeCreatureAbilities_BattleRandomStatsNeedsBothBoundsAndOtherKindsHaveNone(t *testing.T) {
-	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
-	require.NoError(t, err)
-	minimum, maximum, percent, modifier := 10, 70, 150, 0
-
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum}})
-	require.NoError(t, err)
-	require.Equal(t, registered.Revision+1, changed.Revision)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum},
-		{Kind: command.CreatureAbilityBattleRandomStats, Maximum: &maximum},
-		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum, Percent: &percent},
-		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &minimum, Maximum: &maximum, AttackModifier: &modifier},
-		{Kind: command.CreatureAbilityDefensive, Minimum: &minimum},
-		{Kind: command.CreatureAbilityBattleModifier, AttackModifier: &modifier, HitPointsModifier: &modifier, Maximum: &maximum},
-	})
-	require.Equal(t, input.Errors{
-		&input.InvalidFormat{Field: "abilities.0"},
-		&input.InvalidFormat{Field: "abilities.1"},
-		&input.InvalidFormat{Field: "abilities.2"},
-		&input.InvalidFormat{Field: "abilities.3"},
-		&input.InvalidFormat{Field: "abilities.4"},
-		&input.InvalidFormat{Field: "abilities.5"},
-	}, err)
-}
-
-func TestChangeCreatureAbilities_RejectsBattleRandomStatsRangeOutOfOrder(t *testing.T) {
-	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
-	require.NoError(t, err)
-	zero, ten, nine := 0, 10, 9
-
-	_, err = commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &zero, Maximum: &ten},
-		{Kind: command.CreatureAbilityBattleRandomStats, Minimum: &ten, Maximum: &nine},
+	_, err = commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{
+		{Kind: command.EffectAttackOverride, Minimum: new(10)},
+		{Kind: command.EffectHitPointsOverride, Minimum: new(0), Maximum: new(70)},
+		{Kind: command.EffectHitPointsOverride, Minimum: new(30), Maximum: new(29)},
+		{Kind: command.EffectTollMultiplier, Percent: new(0)},
+		{Kind: command.EffectStrikeFirst, Value: new(1)},
+		{Kind: command.EffectNullifyReceivedDamage, Constraints: []command.EffectConstraint{{Kind: command.EffectConstraintOpponentCreatureElement, Elements: []string{"fire", "fire"}}}},
+		{Kind: "unknown"},
 	})
 
 	require.Equal(t, input.Errors{
-		&input.TooSmall{Field: "abilities.0.minimum", Min: 1},
-		&input.TooSmall{Field: "abilities.1.maximum", Min: 10},
+		&input.InvalidFormat{Field: "effects.0"},
+		&input.TooSmall{Field: "effects.1.minimum", Min: 1},
+		&input.TooSmall{Field: "effects.2.maximum", Min: 30},
+		&input.TooSmall{Field: "effects.3.percent", Min: 1},
+		&input.InvalidFormat{Field: "effects.4"},
+		&input.InvalidFormat{Field: "effects.5.constraints.0.elements"},
+		&input.InvalidFormat{Field: "effects.6"},
 	}, err)
 }
 
-func TestChangeCreatureAbilities_AttackImmunityNeedsElementsAndOtherKindsHaveNone(t *testing.T) {
+func TestChangeCreatureEffects_AcceptsTheRangeOfOverridesAndNeutralInConstraints(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
-	require.NoError(t, err)
-	percent := 150
-
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"earth", "fire"}}})
-	require.NoError(t, err)
-	require.Equal(t, registered.Revision+1, changed.Revision)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityAttackImmunity},
-		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"fire"}, Percent: &percent},
-		{Kind: command.CreatureAbilityDefensive, Elements: []string{"fire"}},
-	})
-	require.Equal(t, input.Errors{
-		&input.InvalidFormat{Field: "abilities.0"},
-		&input.InvalidFormat{Field: "abilities.1"},
-		&input.InvalidFormat{Field: "abilities.2"},
-	}, err)
-}
-
-func TestChangeCreatureAbilities_RejectsInvalidAttackImmunityElements(t *testing.T) {
-	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
-	commands := newCreatureHandler(t, ctx)
-	registered, err := commands.Register(ctx, "ドラゴン")
+	registered, err := commands.Register(ctx, "スペクター")
 	require.NoError(t, err)
 
-	_, err = commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{
-		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{}},
-		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"neutral"}},
-		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"fire", "fire"}},
-		{Kind: command.CreatureAbilityAttackImmunity, Elements: []string{"light"}},
+	_, err = commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{
+		{Kind: command.EffectAttackOverride, Minimum: new(0), Maximum: new(0)},
+		{Kind: command.EffectHitPointsOverride, Minimum: new(10), Maximum: new(70)},
+		{Kind: command.EffectNullifyReceivedDamage, Constraints: []command.EffectConstraint{{Kind: command.EffectConstraintOpponentCreatureElement, Elements: []string{"neutral", "fire"}}}},
 	})
 
-	require.Equal(t, input.Errors{
-		&input.InvalidFormat{Field: "abilities.0.elements"},
-		&input.InvalidFormat{Field: "abilities.1.elements"},
-		&input.InvalidFormat{Field: "abilities.2.elements"},
-		&input.InvalidFormat{Field: "abilities.3.elements"},
-	}, err)
+	require.NoError(t, err)
 }
 
-func TestChangeCreatureAbilities_RejectsFirstStrikeWithLastStrike(t *testing.T) {
+// アイテムだけの種類は持てない。先に攻撃すると後に攻撃するは一緒に持てない
+func TestChangeCreatureEffects_RejectsKindsNotAllowedAndStrikeFirstWithStrikeLast(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newCreatureHandler(t, ctx)
 	registered, err := commands.Register(ctx, "ドラゴン")
 	require.NoError(t, err)
-	percent := 150
 
-	changed, err := commands.ChangeAbilities(ctx, registered.ID, registered.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityFirstStrike}})
-	require.NoError(t, err)
-	require.Equal(t, registered.Revision+1, changed.Revision)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityFirstStrike}, {Kind: command.CreatureAbilityLastStrike}})
-	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities"}}, err)
-	_, err = commands.ChangeAbilities(ctx, changed.ID, changed.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityLastStrike, Percent: &percent}})
-	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "abilities.0"}}, err)
+	_, notAllowed := commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{{Kind: command.EffectStrikeFirst}, {Kind: command.EffectIgnoreTerrainEffect}})
+	_, conflicted := commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{{Kind: command.EffectStrikeFirst}, {Kind: command.EffectStrikeLast}})
+
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "effects.1"}}, notAllowed)
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "effects"}}, conflicted)
 }
 
 func TestChangeCreatureElementsAndStats_ChangeSpecOfDraft(t *testing.T) {
@@ -446,11 +348,11 @@ func TestChangeCreatureElementsAndStats_RejectNotDraft(t *testing.T) {
 
 	_, elementsErr := commands.ChangeElements(ctx, published.ID, published.Revision, []string{"fire"})
 	_, statsErr := commands.ChangeStats(ctx, published.ID, published.Revision, 30, 50)
-	_, abilitiesErr := commands.ChangeAbilities(ctx, published.ID, published.Revision, []command.CreatureAbility{{Kind: command.CreatureAbilityDefensive}})
+	_, effectsErr := commands.ChangeEffects(ctx, published.ID, published.Revision, []command.Effect{{Kind: command.EffectStrikeFirst}})
 
 	require.ErrorIs(t, elementsErr, command.ErrCardNotDraft)
 	require.ErrorIs(t, statsErr, command.ErrCardNotDraft)
-	require.ErrorIs(t, abilitiesErr, command.ErrCardNotDraft)
+	require.ErrorIs(t, effectsErr, command.ErrCardNotDraft)
 }
 
 func TestChangeCreatureElementsAndStats_RejectStaleRevision(t *testing.T) {

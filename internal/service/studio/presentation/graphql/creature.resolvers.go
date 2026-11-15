@@ -53,16 +53,16 @@ func (r *mutationResolver) ChangeCreatureStats(ctx context.Context, input model.
 	return &model.ChangeCreatureStatsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
-// ChangeCreatureAbilities is the resolver for the changeCreatureAbilities field.
-func (r *mutationResolver) ChangeCreatureAbilities(ctx context.Context, input model.ChangeCreatureAbilitiesInput) (model.ChangeCreatureAbilitiesResult, error) {
+// ChangeCreatureEffects is the resolver for the changeCreatureEffects field.
+func (r *mutationResolver) ChangeCreatureEffects(ctx context.Context, input model.ChangeCreatureEffectsInput) (model.ChangeCreatureEffectsResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	abilities, err := toCreatureAbilities(input.Abilities)
+	effects, err := toEffects(input.Effects)
 	if err != nil {
 		return nil, err
 	}
-	changed, err := r.creatures.ChangeAbilities(ctx, input.ID, int64(input.Revision), abilities)
+	changed, err := r.creatures.ChangeEffects(ctx, input.ID, int64(input.Revision), effects)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}
@@ -72,7 +72,7 @@ func (r *mutationResolver) ChangeCreatureAbilities(ctx context.Context, input mo
 	if err != nil {
 		return nil, err
 	}
-	return &model.ChangeCreatureAbilitiesSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+	return &model.ChangeCreatureEffectsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
 // ChangeCreatureItemRestrictions is the resolver for the changeCreatureItemRestrictions field.
@@ -102,7 +102,7 @@ func (r *mutationResolver) ChangeCreaturePlacementRestrictions(ctx context.Conte
 	if forbidden := requireOperator(ctx); forbidden != nil {
 		return forbidden, nil
 	}
-	placementRestrictions, err := toElements(input.PlacementRestrictions)
+	placementRestrictions, err := toLandElements(input.PlacementRestrictions)
 	if err != nil {
 		return nil, err
 	}
@@ -146,17 +146,21 @@ func (r *mutationResolver) RegisterCreature(ctx context.Context, input model.Reg
 	if err != nil {
 		return nil, err
 	}
-	placementRestrictions, err := fromElements(registered.PlacementRestrictions)
+	placementRestrictions, err := fromLandElements(registered.PlacementRestrictions)
 	if err != nil {
 		return nil, err
 	}
-	abilities, err := fromCreatureAbilities(registered.Abilities)
+	effects, err := fromEffects(registered.Effects)
+	if err != nil {
+		return nil, err
+	}
+	allowed, err := allowedCreatureEffectKinds()
 	if err != nil {
 		return nil, err
 	}
 	return &model.RegisterCreatureSuccess{Creature: &model.Creature{
 		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
-		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities,
+		Elements: elements, Attack: registered.Attack, HitPoints: registered.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Effects: effects, AllowedEffectKinds: allowed,
 		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil

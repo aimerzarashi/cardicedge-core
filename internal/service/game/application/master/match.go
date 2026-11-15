@@ -69,33 +69,46 @@ type SpellMultipleDice struct {
 // アイテムだけの性能（写した cards.metadata.item の値）
 type ItemSpec struct {
 	Category string
-	Effects  []ItemEffect
+	Effects  []Effect
 }
 
-// アイテムの効果。種類ごとの値のどれか 1 つだけを持つ（query.ItemEffect と同じ形。core#177）
-type ItemEffect struct {
-	// AT の増減の値。持っていなければ nil
-	AttackModifier *int
-	// HP の増減の値。持っていなければ nil
-	HitPointsModifier *int
-	// 上書きした後の AT。持っていなければ nil
-	AttackOverride *int
-	// AT の倍率。持っていなければ nil
-	AttackMultiplier *ItemAttackMultiplier
-	// 地形効果を無視する
-	IgnoreTerrainEffect bool
+// 効果の写し。種類ごとの値のどれか 1 つだけを持つ（query.Effect と同じ形。アイテムとクリーチャーで共有する。core#178）
+type Effect struct {
+	AttackModifier        *int
+	HitPointsModifier     *int
+	AttackOverride        *EffectRange
+	HitPointsOverride     *EffectRange
+	AttackMultiplier      *EffectAttackMultiplier
+	IgnoreTerrainEffect   bool
+	StrikeFirst           bool
+	StrikeLast            bool
+	NullifyReceivedDamage *EffectNullifyReceivedDamage
+	TollMultiplierPercent *int
+	ForbidInvasion        bool
+	ForbidMovement        bool
+}
+
+// 上書きの範囲（固定は最小と最大が同じ）
+type EffectRange struct {
+	Minimum int
+	Maximum int
 }
 
 // AT の倍率（百分率）と、発動する制約（すべてを満たすときに発動する）
-type ItemAttackMultiplier struct {
+type EffectAttackMultiplier struct {
 	Percent     int
-	Constraints []ItemConstraint
+	Constraints []EffectConstraint
+}
+
+// 受けるダメージを 0 にする制約（すべてを満たすときに発動する）
+type EffectNullifyReceivedDamage struct {
+	Constraints []EffectConstraint
 }
 
 // 効果の制約。種類ごとの値のどれか 1 つだけを持つ
-type ItemConstraint struct {
-	// 相手の属性（合えば満たす属性）。この種類でなければ nil
-	OpponentElements []string
+type EffectConstraint struct {
+	// 相手のクリーチャーの属性（合えば満たす属性）。この種類でなければ nil
+	OpponentCreatureElements []string
 }
 
 // クリーチャーだけの性能（写した cards.metadata.creature の値）
@@ -105,7 +118,7 @@ type CreatureSpec struct {
 	HitPoints             int
 	ItemRestrictions      []string
 	PlacementRestrictions []string
-	Abilities             []CreatureAbility
+	Effects               []Effect
 }
 
 // カードの性能を、写した cards から 1 回で読む。写していないカードはエラー（デッキのカードは必ず写してあるため）
@@ -114,30 +127,3 @@ type GetCardSpecsFunc func(ctx context.Context, refs []card.Ref) (map[card.Ref]C
 // 戦利品の候補にするカード。そのときの公開中のカードすべて（始めるときに一覧を写さず、引くときに読む）。
 // 使用不可のカードは含めない（game の cards には使用不可のカードも写してあるが、戦利品にはしない）
 type GetPublishedCardsFunc func(ctx context.Context) ([]card.Ref, error)
-
-// クリーチャーの能力の写し。種類ごとの値のどれか 1 つだけを持つ
-type CreatureAbility struct {
-	Defensive bool
-	// 通行料の倍率（百分率）。持っていなければ nil
-	TollMultiplierPercent *int
-	FirstStrike           bool
-	LastStrike            bool
-	// 戦闘中の増減。持っていなければ nil
-	BattleModifier *CreatureBattleModifier
-	// 戦闘中のランダム。持っていなければ nil
-	BattleRandomStats *CreatureBattleRandomStats
-	// 攻撃無効が効く相手の属性。持っていなければ nil
-	AttackImmunityElements []string
-}
-
-// 戦闘中の AT・HP の範囲（引く値の最小と最大）
-type CreatureBattleRandomStats struct {
-	Minimum int
-	Maximum int
-}
-
-// 戦闘中の AT・HP の増減（負も 0 もある）
-type CreatureBattleModifier struct {
-	AttackModifier    int
-	HitPointsModifier int
-}

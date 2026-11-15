@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -39,7 +40,7 @@ type RegisteredEvent struct {
 	HitPoints             HitPoints             `json:"hit_points"`
 	ItemRestrictions      ItemRestrictions      `json:"item_restrictions"`
 	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
-	Abilities             Abilities             `json:"abilities"`
+	Effects               effect.Effects        `json:"effects"`
 	RegisteredBy          operator.ID           `json:"registered_by"`
 }
 
@@ -161,21 +162,21 @@ func (*StatsChangedEvent) SchemaVersion() int {
 	return 1
 }
 
-// 能力を変えた（変えた後の並び）
-type AbilitiesChangedEvent struct {
+// 効果の並びを変えた（変えた後の並び）
+type EffectsChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Abilities   Abilities   `json:"abilities"`
-	ChangedBy   operator.ID `json:"changed_by"`
+	Effects     effect.Effects `json:"effects"`
+	ChangedBy   operator.ID    `json:"changed_by"`
 }
 
-var abilitiesChangedEventType = domain.NewEventName("AbilitiesChangedEvent")
+var effectsChangedEventType = domain.NewEventName("EffectsChangedEvent")
 
-func (*AbilitiesChangedEvent) EventType() domain.EventName {
-	return abilitiesChangedEventType
+func (*EffectsChangedEvent) EventType() domain.EventName {
+	return effectsChangedEventType
 }
 
-func (*AbilitiesChangedEvent) SchemaVersion() int {
+func (*EffectsChangedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -220,7 +221,7 @@ func Types() domain.AggregateTypes {
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
 			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
-			elementsChangedEventType, statsChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType, abilitiesChangedEventType,
+			elementsChangedEventType, statsChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType, effectsChangedEventType,
 		},
 	}
 }
@@ -248,8 +249,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &ElementsChangedEvent{EventMeta: meta}
 	case EventType(statsChangedEventType):
 		event = &StatsChangedEvent{EventMeta: meta}
-	case EventType(abilitiesChangedEventType):
-		event = &AbilitiesChangedEvent{EventMeta: meta}
+	case EventType(effectsChangedEventType):
+		event = &EffectsChangedEvent{EventMeta: meta}
 	case EventType(itemRestrictionsChangedEventType):
 		event = &ItemRestrictionsChangedEvent{EventMeta: meta}
 	case EventType(placementRestrictionsChangedEventType):

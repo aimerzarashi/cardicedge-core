@@ -59,7 +59,7 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
-// 土地の属性。domain の board.Element を使わない理由は BoardTileKind と同じ
+// 土地の属性。domain の element.Land を使わない理由は BoardTileKind と同じ
 type BoardTileElement string
 
 const (

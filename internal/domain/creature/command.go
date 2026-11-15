@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -53,9 +54,10 @@ type ChangeStatsCommand struct {
 	ChangedBy operator.ID
 }
 
-// 移動を変える（準備中だけ）。同じ値なら何も変えない。AT・HP とは別の操作にする（2026-11-10 オーナー）
-type ChangeAbilitiesCommand struct {
-	Abilities Abilities
+// 効果の並びを変える（準備中だけ。変えた後の並びの全体）。持てない効果は ErrEffectNotAllowed、先に攻撃すると後に攻撃するを一緒に持つのは
+// ErrEffectsConflicted。同じ並びなら何も変えない
+type ChangeEffectsCommand struct {
+	Effects   effect.Effects
 	ChangedBy operator.ID
 }
 
@@ -76,6 +78,6 @@ func (*ChangeCostCommand) isCreatureCommand()                  {}
 func (*ChangeRarityCommand) isCreatureCommand()                {}
 func (*ChangeElementsCommand) isCreatureCommand()              {}
 func (*ChangeStatsCommand) isCreatureCommand()                 {}
-func (*ChangeAbilitiesCommand) isCreatureCommand()             {}
+func (*ChangeEffectsCommand) isCreatureCommand()               {}
 func (*ChangeItemRestrictionsCommand) isCreatureCommand()      {}
 func (*ChangePlacementRestrictionsCommand) isCreatureCommand() {}

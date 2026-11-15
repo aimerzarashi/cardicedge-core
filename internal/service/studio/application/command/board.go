@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -599,9 +600,9 @@ func boardPublishProblems(readiness board.Readiness) []BoardPublishProblem {
 }
 
 // 土地でないマスには属性が無い（空）
-func optionalTileElement(value string) (board.Element, error) {
+func optionalTileElement(value string) (element.Land, error) {
 	if value == "" {
 		return "", nil
 	}
-	return board.NewElement(value)
+	return element.NewLand(value)
 }

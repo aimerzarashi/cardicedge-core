@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 // 状態は値で返し、渡された状態を書き換えない
@@ -441,7 +441,7 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Battle = battle
 		current.Phase = PhaseBattling
-	case *BattleSupportEffectActivatedEvent, *BattleTerrainEffectActivatedEvent, *BattleCreatureAbilityActivatedEvent, *BattleItemEffectActivatedEvent, *CreatureStruckEvent:
+	case *BattleSupportEffectActivatedEvent, *BattleTerrainEffectActivatedEvent, *BattleCreatureEffectActivatedEvent, *BattleItemEffectActivatedEvent, *CreatureStruckEvent:
 		if current.Phase != PhaseBattling {
 			return state, ErrInvalidState
 		}
@@ -746,10 +746,10 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 			Defender: BattleCreature{Base: BattleStats{Attack: defender.Spec.Attack, HitPoints: defender.Spec.HitPoints}, InitialAttack: defender.Attack, InitialHitPoints: defender.HitPoints, ReceivedDamagePercent: 100},
 		}, nil
 	case *BattleSupportEffectActivatedEvent:
-		if battle == nil {
+		if battle == nil || !e.Side.valid() {
 			return nil, ErrInvalidState
 		}
-		return battle.withModifier(BattleSideAttacker, BattleModifierSource{Kind: BattleModifierSourceSupportEffect}, BattleStatChange{AttackDelta: e.AttackDelta}), nil
+		return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceSupportEffect}, BattleStatChange{AttackDelta: e.AttackDelta}), nil
 	case *BattleTerrainEffectActivatedEvent:
 		if battle == nil {
 			return nil, ErrInvalidState
@@ -760,12 +760,12 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 			return nil, ErrInvalidState
 		}
 		switch e.Effect {
-		case item.EffectKindAttackModifier, item.EffectKindHitPointsModifier, item.EffectKindAttackOverride, item.EffectKindAttackMultiplier:
+		case effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindAttackMultiplier:
 			if e.Change == nil {
 				return nil, ErrInvalidState
 			}
-			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceItemEffect, ItemEffect: e.Effect}, *e.Change), nil
-		case item.EffectKindIgnoreTerrainEffect:
+			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceItemEffect, Effect: e.Effect}, *e.Change), nil
+		case effect.KindIgnoreTerrainEffect:
 			// 無視されるのは相手の地形効果なので、相手の側に持たせる
 			if e.Change != nil {
 				return nil, ErrInvalidState
@@ -777,27 +777,27 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 		return nil, ErrInvalidState
 	// 発動で得た状態を戦闘の中の値に持たせ、後の攻撃の順とダメージはこの値だけで決める（入力の性能を見直すと、
 	// イベントの並びだけでは「なぜその順か」「なぜ 0 か」が決まらないため。2026-11-14 オーナー。core#175）
-	case *BattleCreatureAbilityActivatedEvent:
+	case *BattleCreatureEffectActivatedEvent:
 		if battle == nil || !e.Side.valid() {
 			return nil, ErrInvalidState
 		}
-		switch e.Ability {
-		case BattleAbilityBattleModifier, BattleAbilityBattleRandomStats:
+		switch e.Effect {
+		case effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride:
 			if e.Change == nil {
 				return nil, ErrInvalidState
 			}
-			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceCreatureAbility, Ability: e.Ability}, *e.Change), nil
+			return battle.withModifier(e.Side, BattleModifierSource{Kind: BattleModifierSourceCreatureEffect, Effect: e.Effect}, *e.Change), nil
 		}
 		if e.Change != nil {
 			return nil, ErrInvalidState
 		}
 		activated := battle.Creature(e.Side)
-		switch e.Ability {
-		case BattleAbilityFirstStrike:
+		switch e.Effect {
+		case effect.KindStrikeFirst:
 			activated.StrikePriority = 1
-		case BattleAbilityLastStrike:
+		case effect.KindStrikeLast:
 			activated.StrikePriority = -1
-		case BattleAbilityAttackImmunity:
+		case effect.KindNullifyReceivedDamage:
 			activated.ReceivedDamagePercent = min(activated.ReceivedDamagePercent, 0)
 		default:
 			return nil, ErrInvalidState

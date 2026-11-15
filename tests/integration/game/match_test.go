@@ -419,17 +419,13 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
 				... on MatchBattleSupportEffectActivatedEvent { side positions { x y } bonusPerTerritory change { attackDelta hitPointsDelta attack hitPoints } }
 				... on MatchBattleTerrainEffectActivatedEvent { side element level bonusPerLevel change { attackDelta hitPointsDelta attack hitPoints } }
-				... on MatchBattleCreatureAbilityActivatedEvent {
-					side ability change { attackDelta hitPointsDelta attack hitPoints }
-					battleModifier { attackModifier hitPointsModifier } battleRandomStats { minimum maximum }
+				... on MatchBattleCreatureEffectActivatedEvent {
+					side card { id name } change { attackDelta hitPointsDelta attack hitPoints }
+					activatedEffect { ...activatedEffectFields }
 				}
 				... on MatchBattleItemEffectActivatedEvent {
 					side card { id name } change { attackDelta hitPointsDelta attack hitPoints } opponentChange { attackDelta hitPointsDelta attack hitPoints }
-					cardEffect {
-						__typename kind
-						... on ItemAttackModifierEffect { value } ... on ItemHitPointsModifierEffect { value } ... on ItemAttackOverrideEffect { value }
-						... on ItemAttackMultiplierEffect { percent }
-					}
+					activatedEffect { ...activatedEffectFields }
 				}
 				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
 				... on MatchTerritoryConqueredEvent { participant position { x y } creature territoryHitPoints }
@@ -448,6 +444,13 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
 	}
+}
+
+fragment activatedEffectFields on Effect {
+	__typename kind
+	... on AttackModifierEffect { value } ... on HitPointsModifierEffect { value }
+	... on AttackOverrideEffect { minimum maximum } ... on HitPointsOverrideEffect { minimum maximum }
+	... on AttackMultiplierEffect { percent }
 }`
 
 func matchEvents(t *testing.T, token, matchID string, after int) map[string]any {
@@ -950,7 +953,7 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			movingFrom = nil
 		case "MatchTerritoryRelinquishedEvent":
 			delete(expected, key(event["position"]))
-		case "MatchBattleSupportEffectActivatedEvent", "MatchBattleTerrainEffectActivatedEvent", "MatchBattleCreatureAbilityActivatedEvent", "MatchBattleItemEffectActivatedEvent":
+		case "MatchBattleSupportEffectActivatedEvent", "MatchBattleTerrainEffectActivatedEvent", "MatchBattleCreatureEffectActivatedEvent", "MatchBattleItemEffectActivatedEvent":
 			requireStatDeltaMatchesBasis(t, event)
 		case "MatchLandElementChangedEvent":
 			require.Equal(t, event["baseLandValue"].(float64)*event["multiplier"].(float64), event["magic"])
@@ -1012,28 +1015,23 @@ func requireStatDeltaMatchesBasis(t *testing.T, event map[string]any) {
 		require.Equal(t, float64(len(event["positions"].([]any)))*event["bonusPerTerritory"].(float64), attackDelta)
 	case "MatchBattleTerrainEffectActivatedEvent":
 		require.Equal(t, event["level"].(float64)*event["bonusPerLevel"].(float64), hitPointsDelta)
-	case "MatchBattleItemEffectActivatedEvent":
-		effect := event["cardEffect"].(map[string]any)
+	case "MatchBattleCreatureEffectActivatedEvent", "MatchBattleItemEffectActivatedEvent":
+		// クリーチャーとアイテムで同じ効果の型を共有する（core#178）
+		effect := event["activatedEffect"].(map[string]any)
 		switch effect["__typename"] {
-		case "ItemAttackModifierEffect":
+		case "AttackModifierEffect":
 			requireDeltaWithinModifier(t, map[string]any{"attackModifier": effect["value"], "hitPointsModifier": float64(0)}, attackDelta, hitPointsDelta)
-		case "ItemHitPointsModifierEffect":
+		case "HitPointsModifierEffect":
 			requireDeltaWithinModifier(t, map[string]any{"attackModifier": float64(0), "hitPointsModifier": effect["value"]}, attackDelta, hitPointsDelta)
-		case "ItemAttackOverrideEffect":
-			require.Equal(t, effect["value"], change["attack"])
-		case "ItemAttackMultiplierEffect":
+		case "AttackOverrideEffect":
+			require.GreaterOrEqual(t, change["attack"], effect["minimum"])
+			require.LessOrEqual(t, change["attack"], effect["maximum"])
+		case "HitPointsOverrideEffect":
+			require.GreaterOrEqual(t, change["hitPoints"], effect["minimum"])
+			require.LessOrEqual(t, change["hitPoints"], effect["maximum"])
+		case "AttackMultiplierEffect":
 			before := change["attack"].(float64) - attackDelta
 			require.Equal(t, math.Floor(before*effect["percent"].(float64)/100), change["attack"])
-		}
-	case "MatchBattleCreatureAbilityActivatedEvent":
-		if basis, ok := event["battleModifier"].(map[string]any); ok {
-			requireDeltaWithinModifier(t, basis, attackDelta, hitPointsDelta)
-		}
-		if basis, ok := event["battleRandomStats"].(map[string]any); ok {
-			for _, stat := range []float64{change["attack"].(float64), change["hitPoints"].(float64)} {
-				require.GreaterOrEqual(t, stat, basis["minimum"])
-				require.LessOrEqual(t, stat, basis["maximum"])
-			}
 		}
 	}
 }

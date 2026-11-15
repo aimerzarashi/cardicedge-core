@@ -8,6 +8,6 @@
   "hit_points": 10,
   "item_restrictions": [],
   "placement_restrictions": [],
-  "abilities": [],
+  "effects": [],
   "registered_by": 10
 }

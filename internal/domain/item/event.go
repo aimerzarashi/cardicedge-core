@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -30,13 +31,13 @@ type EventMeta = domain.EventMeta[ID]
 type RegisteredEvent struct {
 	EventMeta    `json:"-"`
 	eventMarker  `json:"-"`
-	PublicID     uuid.UUID   `json:"public_id"`
-	Name         card.Name   `json:"name"`
-	Cost         card.Cost   `json:"cost"`
-	Rarity       card.Rarity `json:"rarity"`
-	Category     Category    `json:"category"`
-	Effects      Effects     `json:"effects"`
-	RegisteredBy operator.ID `json:"registered_by"`
+	PublicID     uuid.UUID         `json:"public_id"`
+	Name         card.Name         `json:"name"`
+	Cost         card.Cost         `json:"cost"`
+	Rarity       card.Rarity       `json:"rarity"`
+	Category     card.ItemCategory `json:"category"`
+	Effects      effect.Effects    `json:"effects"`
+	RegisteredBy operator.ID       `json:"registered_by"`
 }
 
 var registeredEventType = domain.NewEventName("RegisteredEvent")
@@ -124,8 +125,8 @@ func (*RarityChangedEvent) SchemaVersion() int {
 type CategoryChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Category    Category    `json:"category"`
-	ChangedBy   operator.ID `json:"changed_by"`
+	Category    card.ItemCategory `json:"category"`
+	ChangedBy   operator.ID       `json:"changed_by"`
 }
 
 var categoryChangedEventType = domain.NewEventName("CategoryChangedEvent")
@@ -142,8 +143,8 @@ func (*CategoryChangedEvent) SchemaVersion() int {
 type EffectsChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
-	Effects     Effects     `json:"effects"`
-	ChangedBy   operator.ID `json:"changed_by"`
+	Effects     effect.Effects `json:"effects"`
+	ChangedBy   operator.ID    `json:"changed_by"`
 }
 
 var effectsChangedEventType = domain.NewEventName("EffectsChangedEvent")

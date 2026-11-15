@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
@@ -142,7 +143,7 @@ func (c *SpellHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision 
 	return c.change(ctx, id, revision, &spell.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
 }
 
-// スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の spell.Effect と同じ形）
+// スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の effect.SpellEffect と同じ形）
 type SpellEffect struct {
 	DrawCards    *SpellDrawCards
 	GainMagic    *SpellGainMagic
@@ -189,56 +190,56 @@ func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision 
 	return c.change(ctx, id, revision, &spell.ChangeEffectCommand{Effect: value, ChangedBy: changedBy})
 }
 
-func newSpellEffect(effect SpellEffect) (spell.Effect, error) {
+func newSpellEffect(source SpellEffect) (effect.SpellEffect, error) {
 	switch {
-	case effect.DrawCards != nil:
-		count, err := spell.NewDrawCount(effect.DrawCards.Count)
+	case source.DrawCards != nil:
+		count, err := effect.NewDrawCount(source.DrawCards.Count)
 		if err != nil {
-			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
 		}
-		return spell.NewDrawCardsSpellEffect(count), nil
-	case effect.GainMagic != nil:
-		perLap, err := spell.NewMagicPerLap(effect.GainMagic.PerLap)
+		return effect.NewDrawCardsSpellEffect(count), nil
+	case source.GainMagic != nil:
+		perLap, err := effect.NewMagicPerLap(source.GainMagic.PerLap)
 		if err != nil {
-			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}
 		}
-		return spell.NewGainMagicSpellEffect(perLap), nil
-	case effect.MultipleDice != nil:
+		return effect.NewGainMagicSpellEffect(perLap), nil
+	case source.MultipleDice != nil:
 		invalid := input.Errors{}
-		count, countErr := spell.NewDiceCount(effect.MultipleDice.Count)
+		count, countErr := effect.NewDiceCount(source.MultipleDice.Count)
 		if countErr != nil {
 			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.count", Min: 2})
 		}
-		turns, turnsErr := spell.NewEffectTurns(effect.MultipleDice.Turns)
+		turns, turnsErr := effect.NewEffectTurns(source.MultipleDice.Turns)
 		if turnsErr != nil {
 			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.turns", Min: 1})
 		}
 		if len(invalid) > 0 {
-			return spell.Effect{}, invalid
+			return effect.SpellEffect{}, invalid
 		}
-		return spell.NewMultipleDiceSpellEffect(count, turns), nil
-	case effect.FixedDice != nil:
+		return effect.NewMultipleDiceSpellEffect(count, turns), nil
+	case source.FixedDice != nil:
 		invalid := input.Errors{}
-		value, valueErr := spell.NewDiceFace(effect.FixedDice.Value)
+		value, valueErr := effect.NewDiceFace(source.FixedDice.Value)
 		if valueErr != nil {
 			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.value", Min: 1})
 		}
-		turns, turnsErr := spell.NewEffectTurns(effect.FixedDice.Turns)
+		turns, turnsErr := effect.NewEffectTurns(source.FixedDice.Turns)
 		if turnsErr != nil {
 			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.turns", Min: 1})
 		}
 		if len(invalid) > 0 {
-			return spell.Effect{}, invalid
+			return effect.SpellEffect{}, invalid
 		}
-		return spell.NewFixedDiceSpellEffect(value, turns), nil
-	case effect.Damage != nil:
-		amount, err := spell.NewDamageAmount(effect.Damage.Amount)
+		return effect.NewFixedDiceSpellEffect(value, turns), nil
+	case source.Damage != nil:
+		amount, err := effect.NewDamageAmount(source.Damage.Amount)
 		if err != nil {
-			return spell.Effect{}, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}
 		}
-		return spell.NewDamageSpellEffect(amount), nil
+		return effect.NewDamageSpellEffect(amount), nil
 	default:
-		return spell.NoEffect(), nil
+		return effect.NoSpellEffect(), nil
 	}
 }
 

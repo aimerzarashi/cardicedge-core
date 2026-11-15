@@ -1,7 +1,6 @@
 package graphql
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -34,17 +33,17 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 			}
 			itemRestrictions[i] = category
 		}
-		placementRestrictions, err := fromElements(creature.PlacementRestrictions)
+		placementRestrictions, err := fromLandElements(creature.PlacementRestrictions)
 		if err != nil {
 			return nil, err
 		}
-		abilities, err := fromCreatureAbilities(creature.Abilities)
+		effects, err := fromEffects(creature.Effects)
 		if err != nil {
 			return nil, err
 		}
 		return &model.CreatureCardInfo{
 			ID: id, Name: name, Cost: cost, Rarity: converted,
-			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities,
+			Elements: elements, Attack: creature.Attack, HitPoints: creature.HitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Effects: effects,
 		}, nil
 	case query.CardTypeItem:
 		// creature と同じく、読み出しが弾くので、無いのはコードの誤り
@@ -55,11 +54,9 @@ func fromCard(cardType query.CardType, id uuid.UUID, name string, cost int, rari
 		if err != nil {
 			return nil, err
 		}
-		effects := make([]model.ItemEffect, len(item.Effects))
-		for i, effect := range item.Effects {
-			if effects[i], err = fromItemEffect(effect); err != nil {
-				return nil, err
-			}
+		effects, err := fromEffects(item.Effects)
+		if err != nil {
+			return nil, err
 		}
 		return &model.ItemCardInfo{ID: id, Name: name, Cost: cost, Rarity: converted, Category: category, Effects: effects}, nil
 	case query.CardTypeSpell:
@@ -141,58 +138,4 @@ func fromElements(values []string) ([]model.CreatureElement, error) {
 		}
 	}
 	return elements, nil
-}
-
-func fromCreatureAbilities(abilities []query.CreatureAbility) ([]model.CreatureAbility, error) {
-	values := make([]model.CreatureAbility, len(abilities))
-	for i, ability := range abilities {
-		switch {
-		case ability.Defensive:
-			values[i] = &model.CreatureDefensiveAbility{Kind: model.CreatureAbilityKindDefensive}
-		case ability.TollMultiplierPercent != nil:
-			values[i] = &model.CreatureTollMultiplierAbility{Kind: model.CreatureAbilityKindTollMultiplier, Percent: *ability.TollMultiplierPercent}
-		case ability.BattleModifier != nil:
-			values[i] = &model.CreatureBattleModifierAbility{Kind: model.CreatureAbilityKindBattleModifier, AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
-		case ability.BattleRandomStats != nil:
-			values[i] = &model.CreatureBattleRandomStatsAbility{Kind: model.CreatureAbilityKindBattleRandomStats, Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
-		case ability.AttackImmunityElements != nil:
-			elements, err := fromElements(ability.AttackImmunityElements)
-			if err != nil {
-				return nil, err
-			}
-			values[i] = &model.CreatureAttackImmunityAbility{Kind: model.CreatureAbilityKindAttackImmunity, Elements: elements}
-		case ability.FirstStrike:
-			values[i] = &model.CreatureFirstStrikeAbility{Kind: model.CreatureAbilityKindFirstStrike}
-		case ability.LastStrike:
-			values[i] = &model.CreatureLastStrikeAbility{Kind: model.CreatureAbilityKindLastStrike}
-		}
-	}
-	return values, nil
-}
-
-func fromItemEffect(effect query.ItemEffect) (model.ItemEffect, error) {
-	switch {
-	case effect.AttackModifier != nil:
-		return &model.ItemAttackModifierEffect{Kind: model.ItemEffectKindAttackModifier, Value: *effect.AttackModifier}, nil
-	case effect.HitPointsModifier != nil:
-		return &model.ItemHitPointsModifierEffect{Kind: model.ItemEffectKindHitPointsModifier, Value: *effect.HitPointsModifier}, nil
-	case effect.AttackOverride != nil:
-		return &model.ItemAttackOverrideEffect{Kind: model.ItemEffectKindAttackOverride, Value: *effect.AttackOverride}, nil
-	case effect.AttackMultiplier != nil:
-		constraints := make([]model.ItemConstraint, len(effect.AttackMultiplier.Constraints))
-		for i, constraint := range effect.AttackMultiplier.Constraints {
-			if constraint.OpponentElements == nil {
-				return nil, fmt.Errorf("graphql: item constraint %d has no kind", i)
-			}
-			elements, err := fromElements(constraint.OpponentElements)
-			if err != nil {
-				return nil, err
-			}
-			constraints[i] = &model.ItemOpponentElementConstraint{Kind: model.ItemConstraintKindOpponentElement, Elements: elements}
-		}
-		return &model.ItemAttackMultiplierEffect{Kind: model.ItemEffectKindAttackMultiplier, Percent: effect.AttackMultiplier.Percent, Constraints: constraints}, nil
-	case effect.IgnoreTerrainEffect:
-		return &model.ItemIgnoreTerrainEffect{Kind: model.ItemEffectKindIgnoreTerrainEffect}, nil
-	}
-	return nil, errors.New("graphql: item effect has no kind")
 }

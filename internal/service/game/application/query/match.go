@@ -11,12 +11,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 // 公開 ID に当たる対戦が、そのプレイヤーの対戦として無い（無い・参加していない対戦。存在を明かさないため区別しない）
@@ -706,11 +704,11 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	found.Rarity = spec.Rarity.String()
 	found.Creature = nil
 	if spec.Creature != nil {
-		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings(), Abilities: queryCreatureAbilities(spec.Creature.Abilities)}
+		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings(), Effects: queryEffects(spec.Creature.Effects)}
 	}
 	found.Item = nil
 	if spec.Item != nil {
-		found.Item = &ItemSpec{Category: spec.Item.Category.String(), Effects: queryItemEffects(spec.Item.Effects)}
+		found.Item = &ItemSpec{Category: spec.Item.Category.String(), Effects: queryEffects(spec.Item.Effects)}
 	}
 	found.Spell = nil
 	if spec.Spell != nil {
@@ -719,7 +717,7 @@ func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
 	return found
 }
 
-func fromSpellEffect(effect spell.Effect) SpellEffect {
+func fromSpellEffect(effect effect.SpellEffect) SpellEffect {
 	var converted SpellEffect
 	if effect.DrawCards != nil {
 		converted.DrawCards = &SpellDrawCards{Count: effect.DrawCards.Count.Int()}
@@ -739,52 +737,46 @@ func fromSpellEffect(effect spell.Effect) SpellEffect {
 	return converted
 }
 
-func queryCreatureAbilities(abilities creature.Abilities) []CreatureAbility {
-	values := make([]CreatureAbility, len(abilities))
-	for i, ability := range abilities {
-		values[i] = CreatureAbility{Defensive: ability.IsDefensive(), FirstStrike: ability.FirstStrike != nil, LastStrike: ability.LastStrike != nil}
-		if ability.TollMultiplier != nil {
-			percent := ability.TollMultiplier.Percent.Int()
-			values[i].TollMultiplierPercent = &percent
-		}
-		if ability.BattleModifier != nil {
-			values[i].BattleModifier = &CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier.Int(), HitPointsModifier: ability.BattleModifier.HitPointsModifier.Int()}
-		}
-		if ability.BattleRandomStats != nil {
-			values[i].BattleRandomStats = &CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum.Int(), Maximum: ability.BattleRandomStats.Maximum.Int()}
-		}
-		if ability.AttackImmunity != nil {
-			values[i].AttackImmunityElements = ability.AttackImmunity.Elements.Strings()
-		}
+func queryEffects(effects effect.Effects) []Effect {
+	values := make([]Effect, len(effects))
+	for i, value := range effects {
+		values[i] = queryEffect(value)
 	}
 	return values
 }
 
-func queryItemEffects(effects item.Effects) []ItemEffect {
-	values := make([]ItemEffect, len(effects))
-	for i, effect := range effects {
-		switch {
-		case effect.AttackModifier != nil:
-			values[i].AttackModifier = new(effect.AttackModifier.Value.Int())
-		case effect.HitPointsModifier != nil:
-			values[i].HitPointsModifier = new(effect.HitPointsModifier.Value.Int())
-		case effect.AttackOverride != nil:
-			values[i].AttackOverride = new(effect.AttackOverride.Value.Int())
-		case effect.AttackMultiplier != nil:
-			constraints := make([]ItemConstraint, len(effect.AttackMultiplier.Constraints))
-			for j, constraint := range effect.AttackMultiplier.Constraints {
-				if constraint.OpponentElement != nil {
-					elements := make([]string, len(constraint.OpponentElement.Elements))
-					for k, element := range constraint.OpponentElement.Elements {
-						elements[k] = element.String()
-					}
-					constraints[j].OpponentElements = elements
-				}
-			}
-			values[i].AttackMultiplier = &ItemAttackMultiplier{Percent: effect.AttackMultiplier.Percent.Int(), Constraints: constraints}
-		case effect.IgnoreTerrainEffect != nil:
-			values[i].IgnoreTerrainEffect = true
+func queryEffect(value effect.Effect) Effect {
+	converted := Effect{
+		IgnoreTerrainEffect: value.IgnoreTerrainEffect != nil, StrikeFirst: value.StrikeFirst != nil, StrikeLast: value.StrikeLast != nil,
+		ForbidInvasion: value.ForbidInvasion != nil, ForbidMovement: value.ForbidMovement != nil,
+	}
+	switch {
+	case value.AttackModifier != nil:
+		converted.AttackModifier = new(value.AttackModifier.Value.Int())
+	case value.HitPointsModifier != nil:
+		converted.HitPointsModifier = new(value.HitPointsModifier.Value.Int())
+	case value.AttackOverride != nil:
+		converted.AttackOverride = &EffectRange{Minimum: value.AttackOverride.Minimum.Int(), Maximum: value.AttackOverride.Maximum.Int()}
+	case value.HitPointsOverride != nil:
+		converted.HitPointsOverride = &EffectRange{Minimum: value.HitPointsOverride.Minimum.Int(), Maximum: value.HitPointsOverride.Maximum.Int()}
+	case value.AttackMultiplier != nil:
+		converted.AttackMultiplier = &EffectAttackMultiplier{Percent: value.AttackMultiplier.Percent.Int(), Constraints: queryConstraints(value.AttackMultiplier.Constraints)}
+	case value.NullifyReceivedDamage != nil:
+		converted.NullifyReceivedDamage = &EffectNullifyReceivedDamage{Constraints: queryConstraints(value.NullifyReceivedDamage.Constraints)}
+	case value.TollMultiplier != nil:
+		converted.TollMultiplierPercent = new(value.TollMultiplier.Percent.Int())
+	}
+	return converted
+}
+
+func queryConstraints(constraints effect.Constraints) []EffectConstraint {
+	values := make([]EffectConstraint, len(constraints))
+	for i, constraint := range constraints {
+		elements := make([]string, len(constraint.OpponentCreatureElement.Elements))
+		for j, creatureElement := range constraint.OpponentCreatureElement.Elements {
+			elements[j] = creatureElement.String()
 		}
+		values[i].OpponentCreatureElements = elements
 	}
 	return values
 }

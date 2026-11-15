@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 // テストでも値の型は生成関数で作る（検証を通らない値でテストしないため。factory_enforcer）。
@@ -90,9 +91,9 @@ func TileKind(t testing.TB, value string) board.TileKind {
 	return kind
 }
 
-func Element(t testing.TB, value string) board.Element {
+func Element(t testing.TB, value string) element.Land {
 	t.Helper()
-	element, err := board.NewElement(value)
+	element, err := element.NewLand(value)
 	require.NoError(t, err)
 	return element
 }

@@ -12,7 +12,6 @@ var (
 	ErrNameAlreadyInUse = errors.New("board: name already in use")
 	ErrStatusUnknown    = errors.New("board: unknown status")
 	ErrTileKindUnknown  = errors.New("board: unknown tile kind")
-	ErrElementUnknown   = errors.New("board: unknown element")
 	// 幅・高さが studio_rules の範囲の外
 	ErrSizeOutOfRange = errors.New("board: size is out of range")
 	// 範囲の下限・上限が 1 未満、または上限が下限未満

@@ -18,11 +18,6 @@ var (
 	ErrPlacementRestrictionUnknown     = errors.New("creature: unknown placement restriction")
 	ErrPlacementRestrictionsDuplicated = errors.New("creature: duplicated placement restriction")
 
-	ErrAbilityEmpty                            = errors.New("creature: ability has no kind")
-	ErrAbilitiesDuplicated                     = errors.New("creature: duplicated ability")
-	ErrAbilitiesConflicted                     = errors.New("creature: first strike and last strike cannot be combined")
-	ErrBattleRandomStatsMinimumTooSmall        = errors.New("creature: battle random stats minimum is less than 1")
-	ErrBattleRandomStatsMaximumLessThanMinimum = errors.New("creature: battle random stats maximum is less than minimum")
-	ErrAttackImmunityNeutral                   = errors.New("creature: attack immunity has neutral element")
-	ErrTollMultiplierPercentTooSmall           = errors.New("creature: toll multiplier percent is less than 1")
+	ErrEffectNotAllowed  = errors.New("creature: effect not allowed for creatures")
+	ErrEffectsConflicted = errors.New("creature: strike first and strike last cannot be combined")
 )

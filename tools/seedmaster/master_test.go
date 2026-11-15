@@ -321,7 +321,7 @@ func TestLoadMaster_RejectsInvalidItemSpec(t *testing.T) {
 		{name: "missing_category", card: func(c *masterCard) { c.Category = "" }},
 		{name: "unknown_category", card: func(c *masterCard) { c.Category = "shield" }},
 		{name: "missing_effects", card: func(c *masterCard) { c.Effects = nil }},
-		{name: "effect_the_category_does_not_allow", card: func(c *masterCard) { c.Effects = []masterItemEffect{{Kind: "hit_points_modifier", Value: new(10)}} }},
+		{name: "effect_the_category_does_not_allow", card: func(c *masterCard) { c.Effects = []masterEffect{{Kind: "hit_points_modifier", Value: new(10)}} }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -334,6 +334,37 @@ func TestLoadMaster_RejectsInvalidItemSpec(t *testing.T) {
 			require.Error(t, m.validate())
 		})
 	}
+}
+
+// クリーチャーも効果を必ず書き（無ければ []）、持てない種類は流す前に止める（core#178）
+func TestLoadMaster_RejectsInvalidCreatureEffects(t *testing.T) {
+	tests := []struct {
+		name    string
+		effects []masterEffect
+	}{
+		{name: "missing_effects", effects: nil},
+		{name: "unknown_kind", effects: []masterEffect{{Kind: "defensive"}}},
+		{name: "effect_creatures_cannot_have", effects: []masterEffect{{Kind: "ignore_terrain_effect"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "creature" })
+			m.Cards[index].Effects = tt.effects
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+func TestLoadMaster_RejectsEffectsOnSpells(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+	index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "spell" })
+	m.Cards[index].Effects = []masterEffect{}
+
+	require.Error(t, m.validate())
 }
 
 func TestLoadMaster_RejectsItemSpecOnOtherCards(t *testing.T) {
