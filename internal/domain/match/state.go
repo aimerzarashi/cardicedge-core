@@ -6,6 +6,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -576,7 +578,7 @@ func (m Match) ExchangeChoices() []ExchangeChoice {
 type ElementChangeChoice struct {
 	Position board.Position
 	// 変えた後の属性
-	Element board.Element
+	Element element.Land
 	// 払う魔力（基本の値 × Multiplier）
 	Magic int
 	// 掛けた倍率。複属性の土地からは安い倍率になる。イベントは持たないので、画面向けの写し（query）が直前の状態の選択肢から根拠を引く
@@ -584,7 +586,7 @@ type ElementChangeChoice struct {
 }
 
 // 変えられる先の属性。無属性・複属性へは変えられない（2026-11-10 オーナー）
-var changeableLandElements = []board.Element{board.ElementFire, board.ElementEarth, board.ElementWater, board.ElementWind}
+var changeableLandElements = []element.Land{element.LandFire, element.LandEarth, element.LandWater, element.LandWind}
 
 // 今の番の人が選べる属性の変更（通った順・火・地・水・風の順）。止まった後の段階でだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ
 func (m Match) ElementChangeChoices() []ElementChangeChoice {
@@ -612,8 +614,8 @@ func (m Match) ElementChangeChoices() []ElementChangeChoice {
 }
 
 // 払う魔力は基本の値 × この倍率。複属性の土地からは安い倍率（2026-11-10 オーナー）
-func (m Match) landElementChangeMultiplier(current board.Element) int {
-	if current == board.ElementMulti {
+func (m Match) landElementChangeMultiplier(current element.Land) int {
+	if current == element.LandMulti {
 		return m.Rules.MultiLandElementChangeMultiplier.Int()
 	}
 	return m.Rules.LandElementChangeMultiplier.Int()
@@ -808,7 +810,7 @@ func (m Match) adjacentTerritoriesOf(position board.Position, owner ParticipantI
 	return slices.Compact(positions)
 }
 
-func (m Match) landElement(position board.Position) board.Element {
+func (m Match) landElement(position board.Position) element.Land {
 	for _, tile := range m.Board.Tiles {
 		if tile.Position == position {
 			return tile.Element
@@ -820,14 +822,14 @@ func (m Match) landElement(position board.Position) board.Element {
 // 同じ持ち主の、同じ属性の土地の数（自分を含む）。保存せず、そのたびに数える（領地が増減するたびに持ち主の全部の領地を書き直さないため）。
 // 複は連鎖しない（2026-11-08 オーナー）
 func (m Match) TerritoryChainCount(territory Territory) int {
-	element := m.landElement(territory.Position)
+	land := m.landElement(territory.Position)
 	owner, ok := m.TerritoryOwner(territory)
-	if !ok || element == board.ElementMulti {
+	if !ok || land == element.LandMulti {
 		return 1
 	}
 	count := 0
 	for _, other := range m.territoriesOf(owner) {
-		if m.landElement(other.Position) == element {
+		if m.landElement(other.Position) == land {
 			count++
 		}
 	}
@@ -845,12 +847,12 @@ func (m Match) TerritoryToll(territory Territory) int {
 }
 
 // いるクリーチャーの通行料の倍率。持っていなければ false
-func (m Match) tollMultiplier(territory Territory) (creature.TollMultiplierPercent, bool) {
+func (m Match) tollMultiplier(territory Territory) (effect.TollMultiplierPercent, bool) {
 	placed, ok := m.PlacedCreature(territory.Creature)
 	if !ok {
 		return 0, false
 	}
-	return placed.Base.Abilities.TollMultiplier()
+	return placed.Base.TollMultiplier()
 }
 
 // 手放したときに受け取る魔力（端数は切り捨て）

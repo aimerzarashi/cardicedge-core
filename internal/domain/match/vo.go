@@ -10,12 +10,12 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 )
 
 type ID int64
@@ -106,17 +106,6 @@ func (s BattleSide) valid() bool {
 	return s == BattleSideAttacker || s == BattleSideDefender
 }
 
-// 戦闘で発動した能力の種類（creature.Ability の種類の名前とそろえる）。戦闘の能力を足すときにここへ足す
-type BattleAbility string
-
-const (
-	BattleAbilityFirstStrike       BattleAbility = "first_strike"
-	BattleAbilityLastStrike        BattleAbility = "last_strike"
-	BattleAbilityBattleModifier    BattleAbility = "battle_modifier"
-	BattleAbilityBattleRandomStats BattleAbility = "battle_random_stats"
-	BattleAbilityAttackImmunity    BattleAbility = "attack_immunity"
-)
-
 func (s BattleSide) opponent() BattleSide {
 	if s == BattleSideAttacker {
 		return BattleSideDefender
@@ -136,9 +125,7 @@ type BattleInput struct {
 	Attacker BattleCombatant `json:"attacker"`
 	Defender BattleCombatant `json:"defender"`
 	Land     BattleLand      `json:"land"`
-	// 支援効果に数える、侵略先の隣にある攻める側の領地。移動で侵略したときの元の領地は入らない（2026-11-10 オーナー）
-	AdjacentTerritories []board.Position `json:"adjacent_territories"`
-	Rules               BattleRules      `json:"rules"`
+	Rules    BattleRules     `json:"rules"`
 }
 
 // 戦闘に出たクリーチャー。性能は戦闘で使わない項目も含めてまるごと持つ（2026-11-13 オーナー）
@@ -151,6 +138,9 @@ type BattleCombatant struct {
 	HitPoints creature.HitPoints `json:"hit_points"`
 	// 出したアイテム。出さなければ nil
 	Item *BattleItem `json:"item,omitempty"`
+	// 支援効果に数える、戦場の隣にあるその側の領地。攻める側が移動で侵略したときの元の領地は入らない（2026-11-10 オーナー）。
+	// 守る側にも付く（2026-11-15 オーナー。core#178）
+	AdjacentTerritories []board.Position `json:"adjacent_territories"`
 }
 
 type BattleItem struct {
@@ -160,8 +150,8 @@ type BattleItem struct {
 
 // 戦う土地（地形効果の根拠）
 type BattleLand struct {
-	Element board.Element `json:"element"`
-	Level   int           `json:"level"`
+	Element element.Land `json:"element"`
+	Level   int          `json:"level"`
 }
 
 // 戦闘で使うルールの値
@@ -170,7 +160,8 @@ type BattleRules struct {
 	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
 }
 
-func (i BattleInput) combatant(side BattleSide) BattleCombatant {
+// その側の戦闘に出たクリーチャー（query が支援効果の根拠を側ごとに読む）
+func (i BattleInput) Combatant(side BattleSide) BattleCombatant {
 	if side == BattleSideAttacker {
 		return i.Attacker
 	}
@@ -187,17 +178,16 @@ type BattleStatChange struct {
 type BattleModifierSourceKind string
 
 const (
-	BattleModifierSourceSupportEffect   BattleModifierSourceKind = "support_effect"
-	BattleModifierSourceTerrainEffect   BattleModifierSourceKind = "terrain_effect"
-	BattleModifierSourceCreatureAbility BattleModifierSourceKind = "creature_ability"
-	BattleModifierSourceItemEffect      BattleModifierSourceKind = "item_effect"
+	BattleModifierSourceSupportEffect  BattleModifierSourceKind = "support_effect"
+	BattleModifierSourceTerrainEffect  BattleModifierSourceKind = "terrain_effect"
+	BattleModifierSourceCreatureEffect BattleModifierSourceKind = "creature_effect"
+	BattleModifierSourceItemEffect     BattleModifierSourceKind = "item_effect"
 )
 
-// 増減の出どころ。クリーチャーの能力のときはどの能力か、アイテムの効果のときはどの効果か
+// 増減の出どころ。クリーチャー・アイテムの効果のときはどの効果か
 type BattleModifierSource struct {
-	Kind       BattleModifierSourceKind
-	Ability    BattleAbility
-	ItemEffect item.EffectKind
+	Kind   BattleModifierSourceKind
+	Effect effect.Kind
 }
 
 type EndReason string
@@ -238,19 +228,19 @@ type CardSpec struct {
 // 参加者に続いているスペルの効果（ターンをまたいで効き続けるもの。サイコロを複数振る・サイコロの目を固定する）。
 // Effect は使ったスペルの効果の写し、RemainingTurns は残りのターン数で、かかった人が自分のターンを終えるたびに 1 減り、0 で終わる（2026-11-13 オーナー。core#173）
 type LastingSpellEffect struct {
-	Effect         spell.Effect `json:"effect"`
-	RemainingTurns int          `json:"remaining_turns"`
+	Effect         effect.SpellEffect `json:"effect"`
+	RemainingTurns int                `json:"remaining_turns"`
 }
 
 // スペルの性能の写し。値の型は CreatureSpec と同じ理由で spell パッケージのものをそのまま使う
 type SpellSpec struct {
-	Effect spell.Effect `json:"effect"`
+	Effect effect.SpellEffect `json:"effect"`
 }
 
 // アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う
 type ItemSpec struct {
-	Category item.Category `json:"category"`
-	Effects  item.Effects  `json:"effects"`
+	Category card.ItemCategory `json:"category"`
+	Effects  effect.Effects    `json:"effects"`
 }
 
 // クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、
@@ -261,44 +251,54 @@ type CreatureSpec struct {
 	HitPoints             creature.HitPoints             `json:"hit_points"`
 	ItemRestrictions      creature.ItemRestrictions      `json:"item_restrictions"`
 	PlacementRestrictions creature.PlacementRestrictions `json:"placement_restrictions"`
-	Abilities             creature.Abilities             `json:"abilities"`
+	Effects               effect.Effects                 `json:"effects"`
 }
 
 // アイテム制限。性能の無いアイテムは分類が無いので制限に当たらない
 func (s CreatureSpec) canUseItem(candidate CardSpec) bool {
-	return candidate.Item == nil || !s.ItemRestrictions.Forbids(candidate.Item.Category.String())
+	return candidate.Item == nil || !s.ItemRestrictions.Forbids(candidate.Item.Category)
 }
 
 // 配置制限。配置・侵略・交換・移動の行き先と、土地の属性の変更の後の属性のどれにも、この 1 つで答える
-func (s CreatureSpec) canBeActiveOn(element board.Element) bool {
-	return !s.PlacementRestrictions.Forbids(element.String())
+func (s CreatureSpec) canBeActiveOn(land element.Land) bool {
+	return !s.PlacementRestrictions.Forbids(land)
 }
 
-// 防御型（手札からの侵略にも、移動して侵略にも効く）
+// 侵略できない（手札からの侵略にも、移動して侵略にも効く）
 func (s CreatureSpec) canInvade() bool {
-	return !s.Abilities.IsDefensive()
+	return !s.Effects.Has(effect.KindForbidInvasion)
 }
 
-// 防御型（空き地への移動にも効く）
+// 移動できない（空き地への移動にも効く）
 func (s CreatureSpec) canMove() bool {
-	return !s.Abilities.IsDefensive()
+	return !s.Effects.Has(effect.KindForbidMovement)
 }
 
-// 攻撃の順に効く能力（先制か後手。持っていなければ無し）
-func (s CreatureSpec) strikeAbility() (BattleAbility, bool) {
-	switch {
-	case s.Abilities.HasFirstStrike():
-		return BattleAbilityFirstStrike, true
-	case s.Abilities.HasLastStrike():
-		return BattleAbilityLastStrike, true
+// 攻撃の順に効く効果（先に攻撃するか後に攻撃する。両方は持てない決まり（creature）。持っていなければ無し）
+func (s CreatureSpec) strikeEffect() (effect.Kind, bool) {
+	for _, kind := range []effect.Kind{effect.KindStrikeFirst, effect.KindStrikeLast} {
+		if s.Effects.Has(kind) {
+			return kind, true
+		}
 	}
 	return "", false
 }
 
-// 攻撃無効（攻撃してきたクリーチャーの属性のどれかが合えば効く）
-func (s CreatureSpec) isImmuneToAttackFrom(striker CreatureSpec) bool {
-	immunity, ok := s.Abilities.AttackImmunity()
-	return ok && immunity.Elements.Overlaps(striker.Elements)
+// 受けるダメージを 0 にする（攻撃してきたクリーチャーが制約を満たせば効く）
+func (s CreatureSpec) nullifiesDamageFrom(striker CreatureSpec) bool {
+	return slices.ContainsFunc(s.Effects, func(candidate effect.Effect) bool {
+		return candidate.NullifyReceivedDamage != nil && candidate.NullifyReceivedDamage.Constraints.SatisfiedByOpponentCreatureElements(striker.Elements)
+	})
+}
+
+// 通行料の倍率。持っていなければ false。重ねて持つ見本は無いので最初のものを使う（query が発動の画面の値を作るのにも使う）（重ねるカードを作るときに見直す）
+func (s CreatureSpec) TollMultiplier() (effect.TollMultiplierPercent, bool) {
+	for _, candidate := range s.Effects {
+		if candidate.TollMultiplier != nil {
+			return candidate.TollMultiplier.Percent, true
+		}
+	}
+	return 0, false
 }
 
 // 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため

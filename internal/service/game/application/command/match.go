@@ -12,11 +12,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/input"
@@ -214,11 +214,11 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 		if source.Item == nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d has no item spec", ref.EntityType, ref.ID)
 		}
-		category, err := item.NewCategory(source.Item.Category)
+		category, err := card.NewItemCategory(source.Item.Category)
 		if err != nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
 		}
-		effects, err := newItemEffects(source.Item.Effects)
+		effects, err := newEffects(source.Item.Effects)
 		if err != nil {
 			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
 		}
@@ -238,76 +238,122 @@ func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec,
 	return spec, nil
 }
 
-// 写した効果を並びの順に domain の値にする。分類で持てる効果かは確かめない（書くときの決まりで、写した値を読むときは確かめない）
-func newItemEffects(source []master.ItemEffect) (item.Effects, error) {
-	values := make([]item.Effect, 0, len(source))
-	for _, effect := range source {
-		switch {
-		case effect.AttackModifier != nil:
-			values = append(values, item.NewAttackModifierEffect(item.NewAttackModifier(*effect.AttackModifier)))
-		case effect.HitPointsModifier != nil:
-			values = append(values, item.NewHitPointsModifierEffect(item.NewHitPointsModifier(*effect.HitPointsModifier)))
-		case effect.AttackOverride != nil:
-			override, err := item.NewAttackOverride(*effect.AttackOverride)
-			if err != nil {
-				return nil, err
-			}
-			values = append(values, item.NewAttackOverrideEffect(override))
-		case effect.AttackMultiplier != nil:
-			percent, err := item.NewAttackMultiplierPercent(effect.AttackMultiplier.Percent)
-			if err != nil {
-				return nil, err
-			}
-			constraints := make([]item.Constraint, 0, len(effect.AttackMultiplier.Constraints))
-			for _, constraint := range effect.AttackMultiplier.Constraints {
-				elements, err := item.NewElements(constraint.OpponentElements)
-				if err != nil {
-					return nil, err
-				}
-				constraints = append(constraints, item.NewOpponentElementConstraint(elements))
-			}
-			built, err := item.NewConstraints(constraints)
-			if err != nil {
-				return nil, err
-			}
-			values = append(values, item.NewAttackMultiplierEffect(percent, built))
-		case effect.IgnoreTerrainEffect:
-			values = append(values, item.NewIgnoreTerrainEffect())
-		default:
-			return nil, item.ErrEffectEmpty
+// 写した効果を並びの順に domain の値にする。持ち主が持てる効果かは確かめない（書くときの決まりで、写した値を読むときは確かめない）。
+// アイテムとクリーチャーで共有する（core#178）
+func newEffects(source []master.Effect) (effect.Effects, error) {
+	values := make([]effect.Effect, 0, len(source))
+	for _, copied := range source {
+		value, err := newEffect(copied)
+		if err != nil {
+			return nil, err
 		}
+		values = append(values, value)
 	}
-	return item.NewEffects(values)
+	return effect.NewEffects(values)
+}
+
+func newEffect(copied master.Effect) (effect.Effect, error) {
+	switch {
+	case copied.AttackModifier != nil:
+		return effect.NewAttackModifierEffect(effect.NewAttackModifier(*copied.AttackModifier)), nil
+	case copied.HitPointsModifier != nil:
+		return effect.NewHitPointsModifierEffect(effect.NewHitPointsModifier(*copied.HitPointsModifier)), nil
+	case copied.AttackOverride != nil:
+		minimum, err := effect.NewAttackOverride(copied.AttackOverride.Minimum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		maximum, err := effect.NewAttackOverride(copied.AttackOverride.Maximum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewAttackOverrideEffect(minimum, maximum)
+	case copied.HitPointsOverride != nil:
+		minimum, err := effect.NewHitPointsOverride(copied.HitPointsOverride.Minimum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		maximum, err := effect.NewHitPointsOverride(copied.HitPointsOverride.Maximum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewHitPointsOverrideEffect(minimum, maximum)
+	case copied.AttackMultiplier != nil:
+		percent, err := effect.NewAttackMultiplierPercent(copied.AttackMultiplier.Percent)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		constraints, err := newConstraints(copied.AttackMultiplier.Constraints)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewAttackMultiplierEffect(percent, constraints), nil
+	case copied.NullifyReceivedDamage != nil:
+		constraints, err := newConstraints(copied.NullifyReceivedDamage.Constraints)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewNullifyReceivedDamageEffect(constraints), nil
+	case copied.TollMultiplierPercent != nil:
+		percent, err := effect.NewTollMultiplierPercent(*copied.TollMultiplierPercent)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewTollMultiplierEffect(percent), nil
+	case copied.IgnoreTerrainEffect:
+		return effect.NewIgnoreTerrainEffect(), nil
+	case copied.StrikeFirst:
+		return effect.NewStrikeFirstEffect(), nil
+	case copied.StrikeLast:
+		return effect.NewStrikeLastEffect(), nil
+	case copied.ForbidInvasion:
+		return effect.NewForbidInvasionEffect(), nil
+	case copied.ForbidMovement:
+		return effect.NewForbidMovementEffect(), nil
+	}
+	return effect.Effect{}, effect.ErrEffectEmpty
+}
+
+func newConstraints(source []master.EffectConstraint) (effect.Constraints, error) {
+	constraints := make([]effect.Constraint, 0, len(source))
+	for _, constraint := range source {
+		elements, err := effect.NewCreatureElements(constraint.OpponentCreatureElements)
+		if err != nil {
+			return nil, err
+		}
+		constraints = append(constraints, effect.NewOpponentCreatureElementConstraint(elements))
+	}
+	return effect.NewConstraints(constraints)
 }
 
 // 写した効果のどれか 1 つ（どれも無ければ効果なし）
-func newSpellEffect(source *master.SpellSpec) (spell.Effect, error) {
+func newSpellEffect(source *master.SpellSpec) (effect.SpellEffect, error) {
 	switch {
 	case source.DrawCards != nil:
-		count, err := spell.NewDrawCount(source.DrawCards.Count)
-		return spell.NewDrawCardsSpellEffect(count), err
+		count, err := effect.NewDrawCount(source.DrawCards.Count)
+		return effect.NewDrawCardsSpellEffect(count), err
 	case source.GainMagic != nil:
-		perLap, err := spell.NewMagicPerLap(source.GainMagic.PerLap)
-		return spell.NewGainMagicSpellEffect(perLap), err
+		perLap, err := effect.NewMagicPerLap(source.GainMagic.PerLap)
+		return effect.NewGainMagicSpellEffect(perLap), err
 	case source.MultipleDice != nil:
-		count, err := spell.NewDiceCount(source.MultipleDice.Count)
+		count, err := effect.NewDiceCount(source.MultipleDice.Count)
 		if err != nil {
-			return spell.Effect{}, err
+			return effect.SpellEffect{}, err
 		}
-		turns, err := spell.NewEffectTurns(source.MultipleDice.Turns)
-		return spell.NewMultipleDiceSpellEffect(count, turns), err
+		turns, err := effect.NewEffectTurns(source.MultipleDice.Turns)
+		return effect.NewMultipleDiceSpellEffect(count, turns), err
 	case source.FixedDice != nil:
-		value, err := spell.NewDiceFace(source.FixedDice.Value)
+		value, err := effect.NewDiceFace(source.FixedDice.Value)
 		if err != nil {
-			return spell.Effect{}, err
+			return effect.SpellEffect{}, err
 		}
-		turns, err := spell.NewEffectTurns(source.FixedDice.Turns)
-		return spell.NewFixedDiceSpellEffect(value, turns), err
+		turns, err := effect.NewEffectTurns(source.FixedDice.Turns)
+		return effect.NewFixedDiceSpellEffect(value, turns), err
 	case source.Damage != nil:
-		amount, err := spell.NewDamageAmount(source.Damage.Amount)
-		return spell.NewDamageSpellEffect(amount), err
+		amount, err := effect.NewDamageAmount(source.Damage.Amount)
+		return effect.NewDamageSpellEffect(amount), err
 	default:
-		return spell.NoEffect(), nil
+		return effect.NoSpellEffect(), nil
 	}
 }
 
@@ -332,48 +378,11 @@ func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
 	if err != nil {
 		return match.CreatureSpec{}, err
 	}
-	values := make([]creature.Ability, 0, len(source.Abilities))
-	for _, ability := range source.Abilities {
-		var value creature.Ability
-		switch {
-		case ability.Defensive:
-			value = creature.NewDefensiveAbility()
-		case ability.TollMultiplierPercent != nil:
-			percent, err := creature.NewTollMultiplierPercent(*ability.TollMultiplierPercent)
-			if err != nil {
-				return match.CreatureSpec{}, err
-			}
-			value = creature.NewTollMultiplierAbility(percent)
-		case ability.BattleModifier != nil:
-			value = creature.NewBattleModifierAbility(creature.NewAttackModifier(ability.BattleModifier.AttackModifier), creature.NewHitPointsModifier(ability.BattleModifier.HitPointsModifier))
-		case ability.BattleRandomStats != nil:
-			randomStats, err := creature.NewBattleRandomStatsAbility(ability.BattleRandomStats.Minimum, ability.BattleRandomStats.Maximum)
-			if err != nil {
-				return match.CreatureSpec{}, err
-			}
-			value = randomStats
-		case ability.AttackImmunityElements != nil:
-			immunityElements, err := creature.NewElements(ability.AttackImmunityElements)
-			if err != nil {
-				return match.CreatureSpec{}, err
-			}
-			immunity, err := creature.NewAttackImmunityAbility(immunityElements)
-			if err != nil {
-				return match.CreatureSpec{}, err
-			}
-			value = immunity
-		case ability.FirstStrike:
-			value = creature.NewFirstStrikeAbility()
-		case ability.LastStrike:
-			value = creature.NewLastStrikeAbility()
-		}
-		values = append(values, value)
-	}
-	abilities, err := creature.NewAbilities(values)
+	effects, err := newEffects(source.Effects)
 	if err != nil {
 		return match.CreatureSpec{}, err
 	}
-	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Abilities: abilities}, nil
+	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Effects: effects}, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）
@@ -538,14 +547,14 @@ func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revis
 	})
 }
 
-// 通った自分の領地の土地の属性を変える。element は board の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
-func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, element string) (ChangedMatch, error) {
+// 通った自分の領地の土地の属性を変える。landElement は土地の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
+func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, landElement string) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		position, err := newPosition(x, y)
 		if err != nil {
 			return nil, input.Errors{&input.NotFound{Field: "position"}}
 		}
-		parsed, err := board.NewElement(element)
+		parsed, err := element.NewLand(landElement)
 		if err != nil {
 			return nil, input.Errors{&input.NotFound{Field: "element"}}
 		}

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -64,7 +65,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		Name:         f.name,
 		Cost:         card.DefaultCost,
 		Rarity:       card.DefaultRarity,
-		Effect:       spell.NoEffect(),
+		Effect:       effect.NoSpellEffect(),
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -85,7 +86,7 @@ func TestEvolve_RegisteredEventMakesSpell(t *testing.T) {
 
 	require.Equal(t, spell.Spell{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
-		Cost: card.DefaultCost, Rarity: card.DefaultRarity, Effect: spell.NoEffect(),
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity, Effect: effect.NoSpellEffect(),
 	}, registered)
 }
 
@@ -312,7 +313,7 @@ func TestDecide_SpecChangesEmitNothingWhenUnchanged(t *testing.T) {
 	}{
 		{name: "same_cost", cmd: &spell.ChangeCostCommand{Cost: card.DefaultCost}},
 		{name: "same_rarity", cmd: &spell.ChangeRarityCommand{Rarity: card.DefaultRarity}},
-		{name: "same_effect", cmd: &spell.ChangeEffectCommand{Effect: spell.NoEffect()}},
+		{name: "same_effect", cmd: &spell.ChangeEffectCommand{Effect: effect.NoSpellEffect()}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -368,27 +369,27 @@ func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
 }
 
 func TestNewDrawCount_RejectsLessThanOne(t *testing.T) {
-	_, err := spell.NewDrawCount(0)
+	_, err := effect.NewDrawCount(0)
 
-	require.ErrorIs(t, err, spell.ErrDrawCountTooSmall)
+	require.ErrorIs(t, err, effect.ErrDrawCountTooSmall)
 }
 
 func TestEffect_EqualComparesTheContents(t *testing.T) {
 	require.True(t, spelltest.DrawCards(t, 1).Equal(spelltest.DrawCards(t, 1)))
 	require.False(t, spelltest.DrawCards(t, 1).Equal(spelltest.DrawCards(t, 2)))
-	require.False(t, spelltest.DrawCards(t, 1).Equal(spell.NoEffect()))
-	require.True(t, spell.NoEffect().Equal(spell.NoEffect()))
+	require.False(t, spelltest.DrawCards(t, 1).Equal(effect.NoSpellEffect()))
+	require.True(t, effect.NoSpellEffect().Equal(effect.NoSpellEffect()))
 	require.True(t, spelltest.GainMagic(t, 100).Equal(spelltest.GainMagic(t, 100)))
 	require.False(t, spelltest.GainMagic(t, 100).Equal(spelltest.MultipleDice(t, 2, 1)))
 	require.False(t, spelltest.MultipleDice(t, 2, 1).Equal(spelltest.MultipleDice(t, 3, 1)))
 }
 
 func TestNewMagicPerLapAndDiceCount_RejectTooSmall(t *testing.T) {
-	_, perLapErr := spell.NewMagicPerLap(0)
-	_, diceErr := spell.NewDiceCount(1)
+	_, perLapErr := effect.NewMagicPerLap(0)
+	_, diceErr := effect.NewDiceCount(1)
 
-	require.ErrorIs(t, perLapErr, spell.ErrMagicPerLapTooSmall)
-	require.ErrorIs(t, diceErr, spell.ErrDiceCountTooSmall)
+	require.ErrorIs(t, perLapErr, effect.ErrMagicPerLapTooSmall)
+	require.ErrorIs(t, diceErr, effect.ErrDiceCountTooSmall)
 }
 
 // 効果の無いスペルは対戦で使えないため、公開できない

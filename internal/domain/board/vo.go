@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 type ID int64
@@ -358,39 +359,11 @@ func (k TileKind) String() string {
 	return string(k)
 }
 
-// 土地の属性（element）。火・地・水・風・無・複の 6 つで、複は火・地・水・風の 4 色のマークが描かれた特殊な土地を表す値の 1 つ
-// （組み合わせは持たない）。名前はクリーチャーの element にそろえるが、型は分ける（クリーチャーの element は無が単独・複数持てるなど、
-// このボードの element と決まりが別で、共通にすると片方を変えたくなったときに分けられなくなるため）
-type Element string
-
-const (
-	ElementFire    Element = "fire"
-	ElementEarth   Element = "earth"
-	ElementWater   Element = "water"
-	ElementWind    Element = "wind"
-	ElementNeutral Element = "neutral"
-	ElementMulti   Element = "multi"
-)
-
-func NewElement(value string) (Element, error) {
-	element := Element(value)
-	switch element {
-	case ElementFire, ElementEarth, ElementWater, ElementWind, ElementNeutral, ElementMulti:
-		return element, nil
-	default:
-		return "", fmt.Errorf("%w: %q", ErrElementUnknown, value)
-	}
-}
-
-func (e Element) String() string {
-	return string(e)
-}
-
 // Element は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
 type Tile struct {
-	Position Position `json:"position"`
-	Kind     TileKind `json:"kind"`
-	Element  Element  `json:"element,omitempty"`
+	Position Position     `json:"position"`
+	Kind     TileKind     `json:"kind"`
+	Element  element.Land `json:"element,omitempty"`
 }
 
 // 向きが無いので、並べ方の小さい方を A にそろえて 1 通りにする（a,b と b,a を同じつながりにし、map の key にできるように）

@@ -44,6 +44,23 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	AttackModifierEffect struct {
+		Kind  func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
+	AttackMultiplierEffect struct {
+		Constraints func(childComplexity int) int
+		Kind        func(childComplexity int) int
+		Percent     func(childComplexity int) int
+	}
+
+	AttackOverrideEffect struct {
+		Kind    func(childComplexity int) int
+		Maximum func(childComplexity int) int
+		Minimum func(childComplexity int) int
+	}
+
 	BaseCountProblem struct {
 		Message   func(childComplexity int) int
 		Positions func(childComplexity int) int
@@ -199,7 +216,7 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
-	ChangeCreatureAbilitiesSuccess struct {
+	ChangeCreatureEffectsSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
 	}
@@ -249,9 +266,10 @@ type ComplexityRoot struct {
 	}
 
 	Creature struct {
-		Abilities             func(childComplexity int) int
+		AllowedEffectKinds    func(childComplexity int) int
 		Attack                func(childComplexity int) int
 		Cost                  func(childComplexity int) int
+		Effects               func(childComplexity int) int
 		Elements              func(childComplexity int) int
 		HitPoints             func(childComplexity int) int
 		ID                    func(childComplexity int) int
@@ -263,40 +281,6 @@ type ComplexityRoot struct {
 		Revision              func(childComplexity int) int
 		Status                func(childComplexity int) int
 		UpdatedAt             func(childComplexity int) int
-	}
-
-	CreatureAttackImmunityAbility struct {
-		Elements func(childComplexity int) int
-		Kind     func(childComplexity int) int
-	}
-
-	CreatureBattleModifierAbility struct {
-		AttackModifier    func(childComplexity int) int
-		HitPointsModifier func(childComplexity int) int
-		Kind              func(childComplexity int) int
-	}
-
-	CreatureBattleRandomStatsAbility struct {
-		Kind    func(childComplexity int) int
-		Maximum func(childComplexity int) int
-		Minimum func(childComplexity int) int
-	}
-
-	CreatureDefensiveAbility struct {
-		Kind func(childComplexity int) int
-	}
-
-	CreatureFirstStrikeAbility struct {
-		Kind func(childComplexity int) int
-	}
-
-	CreatureLastStrikeAbility struct {
-		Kind func(childComplexity int) int
-	}
-
-	CreatureTollMultiplierAbility struct {
-		Kind    func(childComplexity int) int
-		Percent func(childComplexity int) int
 	}
 
 	DamageSpellEffect struct {
@@ -408,6 +392,14 @@ type ComplexityRoot struct {
 		Value func(childComplexity int) int
 	}
 
+	ForbidInvasionEffect struct {
+		Kind func(childComplexity int) int
+	}
+
+	ForbidMovementEffect struct {
+		Kind func(childComplexity int) int
+	}
+
 	ForbiddenError struct {
 		Message func(childComplexity int) int
 	}
@@ -453,6 +445,21 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	HitPointsModifierEffect struct {
+		Kind  func(childComplexity int) int
+		Value func(childComplexity int) int
+	}
+
+	HitPointsOverrideEffect struct {
+		Kind    func(childComplexity int) int
+		Maximum func(childComplexity int) int
+		Minimum func(childComplexity int) int
+	}
+
+	IgnoreTerrainEffect struct {
+		Kind func(childComplexity int) int
+	}
+
 	InvalidBoardStatusTransitionError struct {
 		Message func(childComplexity int) int
 	}
@@ -491,38 +498,8 @@ type ComplexityRoot struct {
 		UpdatedAt          func(childComplexity int) int
 	}
 
-	ItemAttackModifierEffect struct {
-		Kind  func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
-	ItemAttackMultiplierEffect struct {
-		Constraints func(childComplexity int) int
-		Kind        func(childComplexity int) int
-		Percent     func(childComplexity int) int
-	}
-
-	ItemAttackOverrideEffect struct {
-		Kind  func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
 	ItemEffectNotAllowedError struct {
 		Message func(childComplexity int) int
-	}
-
-	ItemHitPointsModifierEffect struct {
-		Kind  func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
-	ItemIgnoreTerrainEffect struct {
-		Kind func(childComplexity int) int
-	}
-
-	ItemOpponentElementConstraint struct {
-		Elements func(childComplexity int) int
-		Kind     func(childComplexity int) int
 	}
 
 	LandTile struct {
@@ -548,7 +525,7 @@ type ComplexityRoot struct {
 		ChangeBoardLayout                   func(childComplexity int, input model.ChangeBoardLayoutInput) int
 		ChangeCardCost                      func(childComplexity int, input model.ChangeCardCostInput) int
 		ChangeCardRarity                    func(childComplexity int, input model.ChangeCardRarityInput) int
-		ChangeCreatureAbilities             func(childComplexity int, input model.ChangeCreatureAbilitiesInput) int
+		ChangeCreatureEffects               func(childComplexity int, input model.ChangeCreatureEffectsInput) int
 		ChangeCreatureElements              func(childComplexity int, input model.ChangeCreatureElementsInput) int
 		ChangeCreatureItemRestrictions      func(childComplexity int, input model.ChangeCreatureItemRestrictionsInput) int
 		ChangeCreaturePlacementRestrictions func(childComplexity int, input model.ChangeCreaturePlacementRestrictionsInput) int
@@ -667,6 +644,16 @@ type ComplexityRoot struct {
 
 	NpcDeckNotFoundError struct {
 		Message func(childComplexity int) int
+	}
+
+	NullifyReceivedDamageEffect struct {
+		Constraints func(childComplexity int) int
+		Kind        func(childComplexity int) int
+	}
+
+	OpponentCreatureElementConstraint struct {
+		Elements func(childComplexity int) int
+		Kind     func(childComplexity int) int
 	}
 
 	PageInfo struct {
@@ -975,8 +962,21 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	StrikeFirstEffect struct {
+		Kind func(childComplexity int) int
+	}
+
+	StrikeLastEffect struct {
+		Kind func(childComplexity int) int
+	}
+
 	StudioRules struct {
 		Board func(childComplexity int) int
+	}
+
+	TollMultiplierEffect struct {
+		Kind    func(childComplexity int) int
+		Percent func(childComplexity int) int
 	}
 
 	UnpairedTilesProblem struct {
@@ -1020,7 +1020,7 @@ type MutationResolver interface {
 	RetireCard(ctx context.Context, input model.RetireCardInput) (model.RetireCardResult, error)
 	ChangeCreatureElements(ctx context.Context, input model.ChangeCreatureElementsInput) (model.ChangeCreatureElementsResult, error)
 	ChangeCreatureStats(ctx context.Context, input model.ChangeCreatureStatsInput) (model.ChangeCreatureStatsResult, error)
-	ChangeCreatureAbilities(ctx context.Context, input model.ChangeCreatureAbilitiesInput) (model.ChangeCreatureAbilitiesResult, error)
+	ChangeCreatureEffects(ctx context.Context, input model.ChangeCreatureEffectsInput) (model.ChangeCreatureEffectsResult, error)
 	ChangeCreatureItemRestrictions(ctx context.Context, input model.ChangeCreatureItemRestrictionsInput) (model.ChangeCreatureItemRestrictionsResult, error)
 	ChangeCreaturePlacementRestrictions(ctx context.Context, input model.ChangeCreaturePlacementRestrictionsInput) (model.ChangeCreaturePlacementRestrictionsResult, error)
 	RegisterCreature(ctx context.Context, input model.RegisterCreatureInput) (model.RegisterCreatureResult, error)
@@ -1113,6 +1113,57 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "AttackModifierEffect.kind":
+		if e.ComplexityRoot.AttackModifierEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackModifierEffect.Kind(childComplexity), true
+	case "AttackModifierEffect.value":
+		if e.ComplexityRoot.AttackModifierEffect.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackModifierEffect.Value(childComplexity), true
+
+	case "AttackMultiplierEffect.constraints":
+		if e.ComplexityRoot.AttackMultiplierEffect.Constraints == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackMultiplierEffect.Constraints(childComplexity), true
+	case "AttackMultiplierEffect.kind":
+		if e.ComplexityRoot.AttackMultiplierEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackMultiplierEffect.Kind(childComplexity), true
+	case "AttackMultiplierEffect.percent":
+		if e.ComplexityRoot.AttackMultiplierEffect.Percent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackMultiplierEffect.Percent(childComplexity), true
+
+	case "AttackOverrideEffect.kind":
+		if e.ComplexityRoot.AttackOverrideEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackOverrideEffect.Kind(childComplexity), true
+	case "AttackOverrideEffect.maximum":
+		if e.ComplexityRoot.AttackOverrideEffect.Maximum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackOverrideEffect.Maximum(childComplexity), true
+	case "AttackOverrideEffect.minimum":
+		if e.ComplexityRoot.AttackOverrideEffect.Minimum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AttackOverrideEffect.Minimum(childComplexity), true
 
 	case "BaseCountProblem.message":
 		if e.ComplexityRoot.BaseCountProblem.Message == nil {
@@ -1602,18 +1653,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ChangeCardRaritySuccess.Revision(childComplexity), true
 
-	case "ChangeCreatureAbilitiesSuccess.id":
-		if e.ComplexityRoot.ChangeCreatureAbilitiesSuccess.ID == nil {
+	case "ChangeCreatureEffectsSuccess.id":
+		if e.ComplexityRoot.ChangeCreatureEffectsSuccess.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ChangeCreatureAbilitiesSuccess.ID(childComplexity), true
-	case "ChangeCreatureAbilitiesSuccess.revision":
-		if e.ComplexityRoot.ChangeCreatureAbilitiesSuccess.Revision == nil {
+		return e.ComplexityRoot.ChangeCreatureEffectsSuccess.ID(childComplexity), true
+	case "ChangeCreatureEffectsSuccess.revision":
+		if e.ComplexityRoot.ChangeCreatureEffectsSuccess.Revision == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ChangeCreatureAbilitiesSuccess.Revision(childComplexity), true
+		return e.ComplexityRoot.ChangeCreatureEffectsSuccess.Revision(childComplexity), true
 
 	case "ChangeCreatureElementsSuccess.id":
 		if e.ComplexityRoot.ChangeCreatureElementsSuccess.ID == nil {
@@ -1726,12 +1777,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.CheckpointTile.Y(childComplexity), true
 
-	case "Creature.abilities":
-		if e.ComplexityRoot.Creature.Abilities == nil {
+	case "Creature.allowedEffectKinds":
+		if e.ComplexityRoot.Creature.AllowedEffectKinds == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Creature.Abilities(childComplexity), true
+		return e.ComplexityRoot.Creature.AllowedEffectKinds(childComplexity), true
 	case "Creature.attack":
 		if e.ComplexityRoot.Creature.Attack == nil {
 			break
@@ -1744,6 +1795,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.Cost(childComplexity), true
+	case "Creature.effects":
+		if e.ComplexityRoot.Creature.Effects == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Creature.Effects(childComplexity), true
 	case "Creature.elements":
 		if e.ComplexityRoot.Creature.Elements == nil {
 			break
@@ -1810,91 +1867,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Creature.UpdatedAt(childComplexity), true
-
-	case "CreatureAttackImmunityAbility.elements":
-		if e.ComplexityRoot.CreatureAttackImmunityAbility.Elements == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureAttackImmunityAbility.Elements(childComplexity), true
-	case "CreatureAttackImmunityAbility.kind":
-		if e.ComplexityRoot.CreatureAttackImmunityAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureAttackImmunityAbility.Kind(childComplexity), true
-
-	case "CreatureBattleModifierAbility.attackModifier":
-		if e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleModifierAbility.AttackModifier(childComplexity), true
-	case "CreatureBattleModifierAbility.hitPointsModifier":
-		if e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleModifierAbility.HitPointsModifier(childComplexity), true
-	case "CreatureBattleModifierAbility.kind":
-		if e.ComplexityRoot.CreatureBattleModifierAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleModifierAbility.Kind(childComplexity), true
-
-	case "CreatureBattleRandomStatsAbility.kind":
-		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Kind(childComplexity), true
-	case "CreatureBattleRandomStatsAbility.maximum":
-		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Maximum == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Maximum(childComplexity), true
-	case "CreatureBattleRandomStatsAbility.minimum":
-		if e.ComplexityRoot.CreatureBattleRandomStatsAbility.Minimum == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureBattleRandomStatsAbility.Minimum(childComplexity), true
-
-	case "CreatureDefensiveAbility.kind":
-		if e.ComplexityRoot.CreatureDefensiveAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureDefensiveAbility.Kind(childComplexity), true
-
-	case "CreatureFirstStrikeAbility.kind":
-		if e.ComplexityRoot.CreatureFirstStrikeAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureFirstStrikeAbility.Kind(childComplexity), true
-
-	case "CreatureLastStrikeAbility.kind":
-		if e.ComplexityRoot.CreatureLastStrikeAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureLastStrikeAbility.Kind(childComplexity), true
-
-	case "CreatureTollMultiplierAbility.kind":
-		if e.ComplexityRoot.CreatureTollMultiplierAbility.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureTollMultiplierAbility.Kind(childComplexity), true
-	case "CreatureTollMultiplierAbility.percent":
-		if e.ComplexityRoot.CreatureTollMultiplierAbility.Percent == nil {
-			break
-		}
-
-		return e.ComplexityRoot.CreatureTollMultiplierAbility.Percent(childComplexity), true
 
 	case "DamageSpellEffect.amount":
 		if e.ComplexityRoot.DamageSpellEffect.Amount == nil {
@@ -2125,6 +2097,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FixedDiceSpellEffect.Value(childComplexity), true
 
+	case "ForbidInvasionEffect.kind":
+		if e.ComplexityRoot.ForbidInvasionEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ForbidInvasionEffect.Kind(childComplexity), true
+
+	case "ForbidMovementEffect.kind":
+		if e.ComplexityRoot.ForbidMovementEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ForbidMovementEffect.Kind(childComplexity), true
+
 	case "ForbiddenError.message":
 		if e.ComplexityRoot.ForbiddenError.Message == nil {
 			break
@@ -2242,6 +2228,45 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GrantDeckNotFoundError.Message(childComplexity), true
 
+	case "HitPointsModifierEffect.kind":
+		if e.ComplexityRoot.HitPointsModifierEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HitPointsModifierEffect.Kind(childComplexity), true
+	case "HitPointsModifierEffect.value":
+		if e.ComplexityRoot.HitPointsModifierEffect.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HitPointsModifierEffect.Value(childComplexity), true
+
+	case "HitPointsOverrideEffect.kind":
+		if e.ComplexityRoot.HitPointsOverrideEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HitPointsOverrideEffect.Kind(childComplexity), true
+	case "HitPointsOverrideEffect.maximum":
+		if e.ComplexityRoot.HitPointsOverrideEffect.Maximum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HitPointsOverrideEffect.Maximum(childComplexity), true
+	case "HitPointsOverrideEffect.minimum":
+		if e.ComplexityRoot.HitPointsOverrideEffect.Minimum == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HitPointsOverrideEffect.Minimum(childComplexity), true
+
+	case "IgnoreTerrainEffect.kind":
+		if e.ComplexityRoot.IgnoreTerrainEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IgnoreTerrainEffect.Kind(childComplexity), true
+
 	case "InvalidBoardStatusTransitionError.message":
 		if e.ComplexityRoot.InvalidBoardStatusTransitionError.Message == nil {
 			break
@@ -2351,90 +2376,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Item.UpdatedAt(childComplexity), true
 
-	case "ItemAttackModifierEffect.kind":
-		if e.ComplexityRoot.ItemAttackModifierEffect.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackModifierEffect.Kind(childComplexity), true
-	case "ItemAttackModifierEffect.value":
-		if e.ComplexityRoot.ItemAttackModifierEffect.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackModifierEffect.Value(childComplexity), true
-
-	case "ItemAttackMultiplierEffect.constraints":
-		if e.ComplexityRoot.ItemAttackMultiplierEffect.Constraints == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackMultiplierEffect.Constraints(childComplexity), true
-	case "ItemAttackMultiplierEffect.kind":
-		if e.ComplexityRoot.ItemAttackMultiplierEffect.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackMultiplierEffect.Kind(childComplexity), true
-	case "ItemAttackMultiplierEffect.percent":
-		if e.ComplexityRoot.ItemAttackMultiplierEffect.Percent == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackMultiplierEffect.Percent(childComplexity), true
-
-	case "ItemAttackOverrideEffect.kind":
-		if e.ComplexityRoot.ItemAttackOverrideEffect.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackOverrideEffect.Kind(childComplexity), true
-	case "ItemAttackOverrideEffect.value":
-		if e.ComplexityRoot.ItemAttackOverrideEffect.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemAttackOverrideEffect.Value(childComplexity), true
-
 	case "ItemEffectNotAllowedError.message":
 		if e.ComplexityRoot.ItemEffectNotAllowedError.Message == nil {
 			break
 		}
 
 		return e.ComplexityRoot.ItemEffectNotAllowedError.Message(childComplexity), true
-
-	case "ItemHitPointsModifierEffect.kind":
-		if e.ComplexityRoot.ItemHitPointsModifierEffect.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemHitPointsModifierEffect.Kind(childComplexity), true
-	case "ItemHitPointsModifierEffect.value":
-		if e.ComplexityRoot.ItemHitPointsModifierEffect.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemHitPointsModifierEffect.Value(childComplexity), true
-
-	case "ItemIgnoreTerrainEffect.kind":
-		if e.ComplexityRoot.ItemIgnoreTerrainEffect.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemIgnoreTerrainEffect.Kind(childComplexity), true
-
-	case "ItemOpponentElementConstraint.elements":
-		if e.ComplexityRoot.ItemOpponentElementConstraint.Elements == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemOpponentElementConstraint.Elements(childComplexity), true
-	case "ItemOpponentElementConstraint.kind":
-		if e.ComplexityRoot.ItemOpponentElementConstraint.Kind == nil {
-			break
-		}
-
-		return e.ComplexityRoot.ItemOpponentElementConstraint.Kind(childComplexity), true
 
 	case "LandTile.element":
 		if e.ComplexityRoot.LandTile.Element == nil {
@@ -2537,17 +2484,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ChangeCardRarity(childComplexity, args["input"].(model.ChangeCardRarityInput)), true
-	case "Mutation.changeCreatureAbilities":
-		if e.ComplexityRoot.Mutation.ChangeCreatureAbilities == nil {
+	case "Mutation.changeCreatureEffects":
+		if e.ComplexityRoot.Mutation.ChangeCreatureEffects == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_changeCreatureAbilities_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_changeCreatureEffects_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.ChangeCreatureAbilities(childComplexity, args["input"].(model.ChangeCreatureAbilitiesInput)), true
+		return e.ComplexityRoot.Mutation.ChangeCreatureEffects(childComplexity, args["input"].(model.ChangeCreatureEffectsInput)), true
 	case "Mutation.changeCreatureElements":
 		if e.ComplexityRoot.Mutation.ChangeCreatureElements == nil {
 			break
@@ -3280,6 +3227,32 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.NpcDeckNotFoundError.Message(childComplexity), true
+
+	case "NullifyReceivedDamageEffect.constraints":
+		if e.ComplexityRoot.NullifyReceivedDamageEffect.Constraints == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NullifyReceivedDamageEffect.Constraints(childComplexity), true
+	case "NullifyReceivedDamageEffect.kind":
+		if e.ComplexityRoot.NullifyReceivedDamageEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NullifyReceivedDamageEffect.Kind(childComplexity), true
+
+	case "OpponentCreatureElementConstraint.elements":
+		if e.ComplexityRoot.OpponentCreatureElementConstraint.Elements == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OpponentCreatureElementConstraint.Elements(childComplexity), true
+	case "OpponentCreatureElementConstraint.kind":
+		if e.ComplexityRoot.OpponentCreatureElementConstraint.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OpponentCreatureElementConstraint.Kind(childComplexity), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -4241,12 +4214,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StarterSetNotFoundError.Message(childComplexity), true
 
+	case "StrikeFirstEffect.kind":
+		if e.ComplexityRoot.StrikeFirstEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StrikeFirstEffect.Kind(childComplexity), true
+
+	case "StrikeLastEffect.kind":
+		if e.ComplexityRoot.StrikeLastEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StrikeLastEffect.Kind(childComplexity), true
+
 	case "StudioRules.board":
 		if e.ComplexityRoot.StudioRules.Board == nil {
 			break
 		}
 
 		return e.ComplexityRoot.StudioRules.Board(childComplexity), true
+
+	case "TollMultiplierEffect.kind":
+		if e.ComplexityRoot.TollMultiplierEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TollMultiplierEffect.Kind(childComplexity), true
+	case "TollMultiplierEffect.percent":
+		if e.ComplexityRoot.TollMultiplierEffect.Percent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TollMultiplierEffect.Percent(childComplexity), true
 
 	case "UnpairedTilesProblem.message":
 		if e.ComplexityRoot.UnpairedTilesProblem.Message == nil {
@@ -4313,7 +4313,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChangeBoardLayoutInput", ec.unmarshalInputChangeBoardLayoutInput),
 			graphql.NewInputUnmarshaler("ChangeCardCostInput", ec.unmarshalInputChangeCardCostInput),
 			graphql.NewInputUnmarshaler("ChangeCardRarityInput", ec.unmarshalInputChangeCardRarityInput),
-			graphql.NewInputUnmarshaler("ChangeCreatureAbilitiesInput", ec.unmarshalInputChangeCreatureAbilitiesInput),
+			graphql.NewInputUnmarshaler("ChangeCreatureEffectsInput", ec.unmarshalInputChangeCreatureEffectsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureElementsInput", ec.unmarshalInputChangeCreatureElementsInput),
 			graphql.NewInputUnmarshaler("ChangeCreatureItemRestrictionsInput", ec.unmarshalInputChangeCreatureItemRestrictionsInput),
 			graphql.NewInputUnmarshaler("ChangeCreaturePlacementRestrictionsInput", ec.unmarshalInputChangeCreaturePlacementRestrictionsInput),
@@ -4322,7 +4322,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("ChangeItemEffectsInput", ec.unmarshalInputChangeItemEffectsInput),
 			graphql.NewInputUnmarshaler("ChangeSpellEffectInput", ec.unmarshalInputChangeSpellEffectInput),
 			graphql.NewInputUnmarshaler("CheckBoardLayoutInput", ec.unmarshalInputCheckBoardLayoutInput),
-			graphql.NewInputUnmarshaler("CreatureAbilityInput", ec.unmarshalInputCreatureAbilityInput),
 			graphql.NewInputUnmarshaler("DamageSpellEffectInput", ec.unmarshalInputDamageSpellEffectInput),
 			graphql.NewInputUnmarshaler("DeckCardCountInput", ec.unmarshalInputDeckCardCountInput),
 			graphql.NewInputUnmarshaler("DeleteBoardInput", ec.unmarshalInputDeleteBoardInput),
@@ -4332,11 +4331,11 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("DeletePresetDeckInput", ec.unmarshalInputDeletePresetDeckInput),
 			graphql.NewInputUnmarshaler("DeleteStarterSetInput", ec.unmarshalInputDeleteStarterSetInput),
 			graphql.NewInputUnmarshaler("DrawCardsSpellEffectInput", ec.unmarshalInputDrawCardsSpellEffectInput),
+			graphql.NewInputUnmarshaler("EffectConstraintInput", ec.unmarshalInputEffectConstraintInput),
+			graphql.NewInputUnmarshaler("EffectInput", ec.unmarshalInputEffectInput),
 			graphql.NewInputUnmarshaler("FixedDiceSpellEffectInput", ec.unmarshalInputFixedDiceSpellEffectInput),
 			graphql.NewInputUnmarshaler("GainMagicSpellEffectInput", ec.unmarshalInputGainMagicSpellEffectInput),
 			graphql.NewInputUnmarshaler("GrantDeckFilter", ec.unmarshalInputGrantDeckFilter),
-			graphql.NewInputUnmarshaler("ItemConstraintInput", ec.unmarshalInputItemConstraintInput),
-			graphql.NewInputUnmarshaler("ItemEffectInput", ec.unmarshalInputItemEffectInput),
 			graphql.NewInputUnmarshaler("LandTileInput", ec.unmarshalInputLandTileInput),
 			graphql.NewInputUnmarshaler("MultipleDiceSpellEffectInput", ec.unmarshalInputMultipleDiceSpellEffectInput),
 			graphql.NewInputUnmarshaler("NpcAvatarFilter", ec.unmarshalInputNpcAvatarFilter),
@@ -4456,7 +4455,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "board.graphqls" "card.graphqls" "common.graphqls" "creature.graphqls" "game_rules.graphqls" "grant_deck.graphqls" "item.graphqls" "npc_avatar.graphqls" "npc_deck.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_set.graphqls" "studio_rules.graphqls"
+//go:embed "board.graphqls" "card.graphqls" "common.graphqls" "creature.graphqls" "effect.graphqls" "game_rules.graphqls" "grant_deck.graphqls" "item.graphqls" "npc_avatar.graphqls" "npc_deck.graphqls" "preset_deck.graphqls" "spell.graphqls" "starter_set.graphqls" "studio_rules.graphqls"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -4472,6 +4471,7 @@ var sources = []*ast.Source{
 	{Name: "card.graphqls", Input: sourceData("card.graphqls"), BuiltIn: false},
 	{Name: "common.graphqls", Input: sourceData("common.graphqls"), BuiltIn: false},
 	{Name: "creature.graphqls", Input: sourceData("creature.graphqls"), BuiltIn: false},
+	{Name: "effect.graphqls", Input: sourceData("effect.graphqls"), BuiltIn: false},
 	{Name: "game_rules.graphqls", Input: sourceData("game_rules.graphqls"), BuiltIn: false},
 	{Name: "grant_deck.graphqls", Input: sourceData("grant_deck.graphqls"), BuiltIn: false},
 	{Name: "item.graphqls", Input: sourceData("item.graphqls"), BuiltIn: false},
@@ -4662,8 +4662,10 @@ func (ec *executionContext) childFields_Creature(ctx context.Context, field grap
 		return ec.fieldContext_Creature_itemRestrictions(ctx, field)
 	case "placementRestrictions":
 		return ec.fieldContext_Creature_placementRestrictions(ctx, field)
-	case "abilities":
-		return ec.fieldContext_Creature_abilities(ctx, field)
+	case "effects":
+		return ec.fieldContext_Creature_effects(ctx, field)
+	case "allowedEffectKinds":
+		return ec.fieldContext_Creature_allowedEffectKinds(ctx, field)
 	case "revision":
 		return ec.fieldContext_Creature_revision(ctx, field)
 	case "registeredAt":
@@ -5094,12 +5096,12 @@ func (ec *executionContext) field_Mutation_changeCardRarity_args(ctx context.Con
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_changeCreatureAbilities_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_changeCreatureEffects_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
-		func(ctx context.Context, v any) (model.ChangeCreatureAbilitiesInput, error) {
-			return ec.unmarshalNChangeCreatureAbilitiesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureAbilitiesInput(ctx, v)
+		func(ctx context.Context, v any) (model.ChangeCreatureEffectsInput, error) {
+			return ec.unmarshalNChangeCreatureEffectsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureEffectsInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -6203,6 +6205,199 @@ func (ec *executionContext) field___Type_inputFields_args(ctx context.Context, r
 // endregion ***************************** args.gotpl *****************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _AttackModifierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.AttackModifierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackModifierEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackModifierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackModifierEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _AttackModifierEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.AttackModifierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackModifierEffect_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackModifierEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackModifierEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _AttackMultiplierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.AttackMultiplierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackMultiplierEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackMultiplierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackMultiplierEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _AttackMultiplierEffect_percent(ctx context.Context, field graphql.CollectedField, obj *model.AttackMultiplierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackMultiplierEffect_percent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Percent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackMultiplierEffect_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackMultiplierEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _AttackMultiplierEffect_constraints(ctx context.Context, field graphql.CollectedField, obj *model.AttackMultiplierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackMultiplierEffect_constraints(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Constraints, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectConstraint) graphql.Marshaler {
+			return ec.marshalNEffectConstraint2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackMultiplierEffect_constraints(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AttackMultiplierEffect",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AttackOverrideEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.AttackOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackOverrideEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackOverrideEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackOverrideEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _AttackOverrideEffect_minimum(ctx context.Context, field graphql.CollectedField, obj *model.AttackOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackOverrideEffect_minimum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Minimum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackOverrideEffect_minimum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackOverrideEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _AttackOverrideEffect_maximum(ctx context.Context, field graphql.CollectedField, obj *model.AttackOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AttackOverrideEffect_maximum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Maximum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AttackOverrideEffect_maximum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AttackOverrideEffect", field, false, false, "Int")
+}
 
 func (ec *executionContext) _BaseCountProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.BaseCountProblem) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -8137,13 +8332,13 @@ func (ec *executionContext) fieldContext_ChangeCardRaritySuccess_revision(_ cont
 	return graphql.NewScalarFieldContext("ChangeCardRaritySuccess", field, false, false, "Int")
 }
 
-func (ec *executionContext) _ChangeCreatureAbilitiesSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureAbilitiesSuccess) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChangeCreatureEffectsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureEffectsSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ChangeCreatureAbilitiesSuccess_id(ctx, field)
+			return ec.fieldContext_ChangeCreatureEffectsSuccess_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.ID, nil
@@ -8156,17 +8351,17 @@ func (ec *executionContext) _ChangeCreatureAbilitiesSuccess_id(ctx context.Conte
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ChangeCreatureAbilitiesSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ChangeCreatureAbilitiesSuccess", field, false, false, "UUID")
+func (ec *executionContext) fieldContext_ChangeCreatureEffectsSuccess_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeCreatureEffectsSuccess", field, false, false, "UUID")
 }
 
-func (ec *executionContext) _ChangeCreatureAbilitiesSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureAbilitiesSuccess) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChangeCreatureEffectsSuccess_revision(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureEffectsSuccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ChangeCreatureAbilitiesSuccess_revision(ctx, field)
+			return ec.fieldContext_ChangeCreatureEffectsSuccess_revision(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Revision, nil
@@ -8179,8 +8374,8 @@ func (ec *executionContext) _ChangeCreatureAbilitiesSuccess_revision(ctx context
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ChangeCreatureAbilitiesSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ChangeCreatureAbilitiesSuccess", field, false, false, "Int")
+func (ec *executionContext) fieldContext_ChangeCreatureEffectsSuccess_revision(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ChangeCreatureEffectsSuccess", field, false, false, "Int")
 }
 
 func (ec *executionContext) _ChangeCreatureElementsSuccess_id(ctx context.Context, field graphql.CollectedField, obj *model.ChangeCreatureElementsSuccess) (ret graphql.Marshaler) {
@@ -8802,37 +8997,37 @@ func (ec *executionContext) _Creature_placementRestrictions(ctx context.Context,
 			return obj.PlacementRestrictions, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
-			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.BoardTileElement) graphql.Marshaler {
+			return ec.marshalNBoardTileElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElementᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Creature_placementRestrictions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Creature", field, false, false, "CreatureElement")
+	return graphql.NewScalarFieldContext("Creature", field, false, false, "BoardTileElement")
 }
 
-func (ec *executionContext) _Creature_abilities(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+func (ec *executionContext) _Creature_effects(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Creature_abilities(ctx, field)
+			return ec.fieldContext_Creature_effects(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Abilities, nil
+			return obj.Effects, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureAbility) graphql.Marshaler {
-			return ec.marshalNCreatureAbility2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Effect) graphql.Marshaler {
+			return ec.marshalNEffect2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Creature_abilities(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Creature_effects(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Creature",
 		Field:      field,
@@ -8843,6 +9038,29 @@ func (ec *executionContext) fieldContext_Creature_abilities(_ context.Context, f
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Creature_allowedEffectKinds(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Creature_allowedEffectKinds(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowedEffectKinds, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKindᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Creature_allowedEffectKinds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Creature", field, false, false, "EffectKind")
 }
 
 func (ec *executionContext) _Creature_revision(ctx context.Context, field graphql.CollectedField, obj *model.Creature) (ret graphql.Marshaler) {
@@ -8912,305 +9130,6 @@ func (ec *executionContext) _Creature_updatedAt(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_Creature_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Creature", field, false, false, "DateTime")
-}
-
-func (ec *executionContext) _CreatureAttackImmunityAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureAttackImmunityAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureAttackImmunityAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureAttackImmunityAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureAttackImmunityAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureAttackImmunityAbility_elements(ctx context.Context, field graphql.CollectedField, obj *model.CreatureAttackImmunityAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureAttackImmunityAbility_elements(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Elements, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
-			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureAttackImmunityAbility_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureAttackImmunityAbility", field, false, false, "CreatureElement")
-}
-
-func (ec *executionContext) _CreatureBattleModifierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleModifierAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureBattleModifierAbility_attackModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleModifierAbility_attackModifier(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.AttackModifier, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_attackModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
-}
-
-func (ec *executionContext) _CreatureBattleModifierAbility_hitPointsModifier(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleModifierAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleModifierAbility_hitPointsModifier(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.HitPointsModifier, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleModifierAbility_hitPointsModifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleModifierAbility", field, false, false, "Int")
-}
-
-func (ec *executionContext) _CreatureBattleRandomStatsAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleRandomStatsAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureBattleRandomStatsAbility_minimum(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleRandomStatsAbility_minimum(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Minimum, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_minimum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "Int")
-}
-
-func (ec *executionContext) _CreatureBattleRandomStatsAbility_maximum(ctx context.Context, field graphql.CollectedField, obj *model.CreatureBattleRandomStatsAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureBattleRandomStatsAbility_maximum(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Maximum, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureBattleRandomStatsAbility_maximum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureBattleRandomStatsAbility", field, false, false, "Int")
-}
-
-func (ec *executionContext) _CreatureDefensiveAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureDefensiveAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureDefensiveAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureDefensiveAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureDefensiveAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureFirstStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureFirstStrikeAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureFirstStrikeAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureFirstStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureFirstStrikeAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureLastStrikeAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureLastStrikeAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureLastStrikeAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureLastStrikeAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureLastStrikeAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureTollMultiplierAbility_kind(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureTollMultiplierAbility_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-			return ec.marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureTollMultiplierAbility_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureTollMultiplierAbility", field, false, false, "CreatureAbilityKind")
-}
-
-func (ec *executionContext) _CreatureTollMultiplierAbility_percent(ctx context.Context, field graphql.CollectedField, obj *model.CreatureTollMultiplierAbility) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CreatureTollMultiplierAbility_percent(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Percent, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CreatureTollMultiplierAbility_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CreatureTollMultiplierAbility", field, false, false, "Int")
 }
 
 func (ec *executionContext) _DamageSpellEffect_amount(ctx context.Context, field graphql.CollectedField, obj *model.DamageSpellEffect) (ret graphql.Marshaler) {
@@ -10004,6 +9923,52 @@ func (ec *executionContext) fieldContext_FixedDiceSpellEffect_turns(_ context.Co
 	return graphql.NewScalarFieldContext("FixedDiceSpellEffect", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ForbidInvasionEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ForbidInvasionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ForbidInvasionEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ForbidInvasionEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ForbidInvasionEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _ForbidMovementEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ForbidMovementEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ForbidMovementEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ForbidMovementEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ForbidMovementEffect", field, false, false, "EffectKind")
+}
+
 func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field graphql.CollectedField, obj *model.ForbiddenError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -10463,6 +10428,144 @@ func (ec *executionContext) fieldContext_GrantDeckNotFoundError_message(_ contex
 	return graphql.NewScalarFieldContext("GrantDeckNotFoundError", field, false, false, "String")
 }
 
+func (ec *executionContext) _HitPointsModifierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.HitPointsModifierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HitPointsModifierEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HitPointsModifierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HitPointsModifierEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _HitPointsModifierEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.HitPointsModifierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HitPointsModifierEffect_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HitPointsModifierEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HitPointsModifierEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _HitPointsOverrideEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.HitPointsOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HitPointsOverrideEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HitPointsOverrideEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HitPointsOverrideEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _HitPointsOverrideEffect_minimum(ctx context.Context, field graphql.CollectedField, obj *model.HitPointsOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HitPointsOverrideEffect_minimum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Minimum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HitPointsOverrideEffect_minimum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HitPointsOverrideEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _HitPointsOverrideEffect_maximum(ctx context.Context, field graphql.CollectedField, obj *model.HitPointsOverrideEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HitPointsOverrideEffect_maximum(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Maximum, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HitPointsOverrideEffect_maximum(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HitPointsOverrideEffect", field, false, false, "Int")
+}
+
+func (ec *executionContext) _IgnoreTerrainEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.IgnoreTerrainEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IgnoreTerrainEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IgnoreTerrainEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IgnoreTerrainEffect", field, false, false, "EffectKind")
+}
+
 func (ec *executionContext) _InvalidBoardStatusTransitionError_message(ctx context.Context, field graphql.CollectedField, obj *model.InvalidBoardStatusTransitionError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -10751,8 +10854,8 @@ func (ec *executionContext) _Item_effects(ctx context.Context, field graphql.Col
 			return obj.Effects, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.ItemEffect) graphql.Marshaler {
-			return ec.marshalNItemEffect2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Effect) graphql.Marshaler {
+			return ec.marshalNEffect2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -10783,15 +10886,15 @@ func (ec *executionContext) _Item_allowedEffectKinds(ctx context.Context, field 
 			return obj.AllowedEffectKinds, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKindᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKindᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Item_allowedEffectKinds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Item", field, false, false, "ItemEffectKind")
+	return graphql.NewScalarFieldContext("Item", field, false, false, "EffectKind")
 }
 
 func (ec *executionContext) _Item_revision(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
@@ -10863,176 +10966,6 @@ func (ec *executionContext) fieldContext_Item_updatedAt(_ context.Context, field
 	return graphql.NewScalarFieldContext("Item", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _ItemAttackModifierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackModifierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackModifierEffect_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackModifierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackModifierEffect", field, false, false, "ItemEffectKind")
-}
-
-func (ec *executionContext) _ItemAttackModifierEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackModifierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackModifierEffect_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackModifierEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackModifierEffect", field, false, false, "Int")
-}
-
-func (ec *executionContext) _ItemAttackMultiplierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackMultiplierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackMultiplierEffect_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackMultiplierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackMultiplierEffect", field, false, false, "ItemEffectKind")
-}
-
-func (ec *executionContext) _ItemAttackMultiplierEffect_percent(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackMultiplierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackMultiplierEffect_percent(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Percent, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackMultiplierEffect_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackMultiplierEffect", field, false, false, "Int")
-}
-
-func (ec *executionContext) _ItemAttackMultiplierEffect_constraints(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackMultiplierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackMultiplierEffect_constraints(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Constraints, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.ItemConstraint) graphql.Marshaler {
-			return ec.marshalNItemConstraint2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackMultiplierEffect_constraints(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "ItemAttackMultiplierEffect",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _ItemAttackOverrideEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackOverrideEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackOverrideEffect_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackOverrideEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackOverrideEffect", field, false, false, "ItemEffectKind")
-}
-
-func (ec *executionContext) _ItemAttackOverrideEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.ItemAttackOverrideEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemAttackOverrideEffect_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemAttackOverrideEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemAttackOverrideEffect", field, false, false, "Int")
-}
-
 func (ec *executionContext) _ItemEffectNotAllowedError_message(ctx context.Context, field graphql.CollectedField, obj *model.ItemEffectNotAllowedError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11054,121 +10987,6 @@ func (ec *executionContext) _ItemEffectNotAllowedError_message(ctx context.Conte
 }
 func (ec *executionContext) fieldContext_ItemEffectNotAllowedError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ItemEffectNotAllowedError", field, false, false, "String")
-}
-
-func (ec *executionContext) _ItemHitPointsModifierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemHitPointsModifierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemHitPointsModifierEffect_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemHitPointsModifierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemHitPointsModifierEffect", field, false, false, "ItemEffectKind")
-}
-
-func (ec *executionContext) _ItemHitPointsModifierEffect_value(ctx context.Context, field graphql.CollectedField, obj *model.ItemHitPointsModifierEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemHitPointsModifierEffect_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemHitPointsModifierEffect_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemHitPointsModifierEffect", field, false, false, "Int")
-}
-
-func (ec *executionContext) _ItemIgnoreTerrainEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemIgnoreTerrainEffect) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemIgnoreTerrainEffect_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-			return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemIgnoreTerrainEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemIgnoreTerrainEffect", field, false, false, "ItemEffectKind")
-}
-
-func (ec *executionContext) _ItemOpponentElementConstraint_kind(ctx context.Context, field graphql.CollectedField, obj *model.ItemOpponentElementConstraint) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemOpponentElementConstraint_kind(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Kind, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ItemConstraintKind) graphql.Marshaler {
-			return ec.marshalNItemConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintKind(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemOpponentElementConstraint_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemOpponentElementConstraint", field, false, false, "ItemConstraintKind")
-}
-
-func (ec *executionContext) _ItemOpponentElementConstraint_elements(ctx context.Context, field graphql.CollectedField, obj *model.ItemOpponentElementConstraint) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ItemOpponentElementConstraint_elements(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Elements, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
-			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ItemOpponentElementConstraint_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ItemOpponentElementConstraint", field, false, false, "CreatureElement")
 }
 
 func (ec *executionContext) _LandTile_x(ctx context.Context, field graphql.CollectedField, obj *model.LandTile) (ret graphql.Marshaler) {
@@ -11950,34 +11768,34 @@ func (ec *executionContext) fieldContext_Mutation_changeCreatureStats(ctx contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_changeCreatureAbilities(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_changeCreatureEffects(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_changeCreatureAbilities(ctx, field)
+			return ec.fieldContext_Mutation_changeCreatureEffects(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().ChangeCreatureAbilities(ctx, fc.Args["input"].(model.ChangeCreatureAbilitiesInput))
+			return ec.Resolvers.Mutation().ChangeCreatureEffects(ctx, fc.Args["input"].(model.ChangeCreatureEffectsInput))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeCreatureAbilitiesResult) graphql.Marshaler {
-			return ec.marshalNChangeCreatureAbilitiesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureAbilitiesResult(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v model.ChangeCreatureEffectsResult) graphql.Marshaler {
+			return ec.marshalNChangeCreatureEffectsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureEffectsResult(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Mutation_changeCreatureAbilities(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_changeCreatureEffects(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ChangeCreatureAbilitiesResult does not have child fields")
+			return nil, errors.New("field of type ChangeCreatureEffectsResult does not have child fields")
 		},
 	}
 	defer func() {
@@ -11987,7 +11805,7 @@ func (ec *executionContext) fieldContext_Mutation_changeCreatureAbilities(ctx co
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_changeCreatureAbilities_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_changeCreatureEffects_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -14514,6 +14332,107 @@ func (ec *executionContext) _NpcDeckNotFoundError_message(ctx context.Context, f
 }
 func (ec *executionContext) fieldContext_NpcDeckNotFoundError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("NpcDeckNotFoundError", field, false, false, "String")
+}
+
+func (ec *executionContext) _NullifyReceivedDamageEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.NullifyReceivedDamageEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NullifyReceivedDamageEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NullifyReceivedDamageEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NullifyReceivedDamageEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _NullifyReceivedDamageEffect_constraints(ctx context.Context, field graphql.CollectedField, obj *model.NullifyReceivedDamageEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NullifyReceivedDamageEffect_constraints(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Constraints, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectConstraint) graphql.Marshaler {
+			return ec.marshalNEffectConstraint2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NullifyReceivedDamageEffect_constraints(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NullifyReceivedDamageEffect",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("FieldContext.Child cannot be called on type INTERFACE")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _OpponentCreatureElementConstraint_kind(ctx context.Context, field graphql.CollectedField, obj *model.OpponentCreatureElementConstraint) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OpponentCreatureElementConstraint_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectConstraintKind) graphql.Marshaler {
+			return ec.marshalNEffectConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OpponentCreatureElementConstraint_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OpponentCreatureElementConstraint", field, false, false, "EffectConstraintKind")
+}
+
+func (ec *executionContext) _OpponentCreatureElementConstraint_elements(ctx context.Context, field graphql.CollectedField, obj *model.OpponentCreatureElementConstraint) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OpponentCreatureElementConstraint_elements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Elements, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OpponentCreatureElementConstraint_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OpponentCreatureElementConstraint", field, false, false, "CreatureElement")
 }
 
 func (ec *executionContext) _PageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.PageInfo) (ret graphql.Marshaler) {
@@ -18198,6 +18117,52 @@ func (ec *executionContext) fieldContext_StarterSetNotFoundError_message(_ conte
 	return graphql.NewScalarFieldContext("StarterSetNotFoundError", field, false, false, "String")
 }
 
+func (ec *executionContext) _StrikeFirstEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.StrikeFirstEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StrikeFirstEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrikeFirstEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StrikeFirstEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _StrikeLastEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.StrikeLastEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StrikeLastEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrikeLastEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StrikeLastEffect", field, false, false, "EffectKind")
+}
+
 func (ec *executionContext) _StudioRules_board(ctx context.Context, field graphql.CollectedField, obj *model.StudioRules) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -18228,6 +18193,52 @@ func (ec *executionContext) fieldContext_StudioRules_board(_ context.Context, fi
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _TollMultiplierEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.TollMultiplierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TollMultiplierEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TollMultiplierEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TollMultiplierEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _TollMultiplierEffect_percent(ctx context.Context, field graphql.CollectedField, obj *model.TollMultiplierEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TollMultiplierEffect_percent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Percent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TollMultiplierEffect_percent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TollMultiplierEffect", field, false, false, "Int")
 }
 
 func (ec *executionContext) _UnpairedTilesProblem_message(ctx context.Context, field graphql.CollectedField, obj *model.UnpairedTilesProblem) (ret graphql.Marshaler) {
@@ -20142,8 +20153,8 @@ func UnmarshalChangeCardRarityInput(ctx context.Context, raw any) (model.ChangeC
 	return out, err
 }
 
-func (ec *executionContext) unmarshalInputChangeCreatureAbilitiesInput(ctx context.Context, obj any) (model.ChangeCreatureAbilitiesInput, error) {
-	var it model.ChangeCreatureAbilitiesInput
+func (ec *executionContext) unmarshalInputChangeCreatureEffectsInput(ctx context.Context, obj any) (model.ChangeCreatureEffectsInput, error) {
+	var it model.ChangeCreatureEffectsInput
 	if obj == nil {
 		return it, nil
 	}
@@ -20153,7 +20164,7 @@ func (ec *executionContext) unmarshalInputChangeCreatureAbilitiesInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "abilities"}
+	fieldsInOrder := [...]string{"id", "revision", "effects"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -20174,27 +20185,27 @@ func (ec *executionContext) unmarshalInputChangeCreatureAbilitiesInput(ctx conte
 				return it, err
 			}
 			it.Revision = data
-		case "abilities":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("abilities"))
-			data, err := ec.unmarshalNCreatureAbilityInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityInputᚄ(ctx, v)
+		case "effects":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("effects"))
+			data, err := ec.unmarshalNEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Abilities = data
+			it.Effects = data
 		}
 	}
 	return it, nil
 }
 
-// UnmarshalChangeCreatureAbilitiesInput unmarshals raw into the ChangeCreatureAbilitiesInput input type, using the
+// UnmarshalChangeCreatureEffectsInput unmarshals raw into the ChangeCreatureEffectsInput input type, using the
 // unmarshaler bound to ctx's request. Call it from a resolver to decode an input
 // object that was not passed as a field argument.
 //
 // ctx must come from a gqlgen request; outside one there is no unmarshaler to use
 // and the returned error says so.
-func UnmarshalChangeCreatureAbilitiesInput(ctx context.Context, raw any) (model.ChangeCreatureAbilitiesInput, error) {
-	var out model.ChangeCreatureAbilitiesInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeCreatureAbilitiesInput", raw, &out)
+func UnmarshalChangeCreatureEffectsInput(ctx context.Context, raw any) (model.ChangeCreatureEffectsInput, error) {
+	var out model.ChangeCreatureEffectsInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "ChangeCreatureEffectsInput", raw, &out)
 	return out, err
 }
 
@@ -20344,7 +20355,7 @@ func (ec *executionContext) unmarshalInputChangeCreaturePlacementRestrictionsInp
 			it.Revision = data
 		case "placementRestrictions":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("placementRestrictions"))
-			data, err := ec.unmarshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
+			data, err := ec.unmarshalNBoardTileElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElementᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -20519,7 +20530,7 @@ func (ec *executionContext) unmarshalInputChangeItemEffectsInput(ctx context.Con
 			it.Revision = data
 		case "effects":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("effects"))
-			data, err := ec.unmarshalNItemEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectInputᚄ(ctx, v)
+			data, err := ec.unmarshalNEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInputᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -20664,90 +20675,6 @@ func (ec *executionContext) unmarshalInputCheckBoardLayoutInput(ctx context.Cont
 func UnmarshalCheckBoardLayoutInput(ctx context.Context, raw any) (model.CheckBoardLayoutInput, error) {
 	var out model.CheckBoardLayoutInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "CheckBoardLayoutInput", raw, &out)
-	return out, err
-}
-
-func (ec *executionContext) unmarshalInputCreatureAbilityInput(ctx context.Context, obj any) (model.CreatureAbilityInput, error) {
-	var it model.CreatureAbilityInput
-	if obj == nil {
-		return it, nil
-	}
-
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"kind", "percent", "attackModifier", "hitPointsModifier", "minimum", "maximum", "elements"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "kind":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
-			data, err := ec.unmarshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Kind = data
-		case "percent":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("percent"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Percent = data
-		case "attackModifier":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attackModifier"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.AttackModifier = data
-		case "hitPointsModifier":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hitPointsModifier"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.HitPointsModifier = data
-		case "minimum":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("minimum"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Minimum = data
-		case "maximum":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("maximum"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Maximum = data
-		case "elements":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("elements"))
-			data, err := ec.unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Elements = data
-		}
-	}
-	return it, nil
-}
-
-// UnmarshalCreatureAbilityInput unmarshals raw into the CreatureAbilityInput input type, using the
-// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
-// object that was not passed as a field argument.
-//
-// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
-// and the returned error says so.
-func UnmarshalCreatureAbilityInput(ctx context.Context, raw any) (model.CreatureAbilityInput, error) {
-	var out model.CreatureAbilityInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "CreatureAbilityInput", raw, &out)
 	return out, err
 }
 
@@ -21178,6 +21105,132 @@ func UnmarshalDrawCardsSpellEffectInput(ctx context.Context, raw any) (model.Dra
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputEffectConstraintInput(ctx context.Context, obj any) (model.EffectConstraintInput, error) {
+	var it model.EffectConstraintInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"kind", "elements"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "kind":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
+			data, err := ec.unmarshalNEffectConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintKind(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Kind = data
+		case "elements":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("elements"))
+			data, err := ec.unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Elements = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalEffectConstraintInput unmarshals raw into the EffectConstraintInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalEffectConstraintInput(ctx context.Context, raw any) (model.EffectConstraintInput, error) {
+	var out model.EffectConstraintInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "EffectConstraintInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputEffectInput(ctx context.Context, obj any) (model.EffectInput, error) {
+	var it model.EffectInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"kind", "value", "minimum", "maximum", "percent", "constraints"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "kind":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
+			data, err := ec.unmarshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Kind = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "minimum":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("minimum"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Minimum = data
+		case "maximum":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("maximum"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Maximum = data
+		case "percent":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("percent"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Percent = data
+		case "constraints":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("constraints"))
+			data, err := ec.unmarshalOEffectConstraintInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Constraints = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalEffectInput unmarshals raw into the EffectInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalEffectInput(ctx context.Context, raw any) (model.EffectInput, error) {
+	var out model.EffectInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "EffectInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputFixedDiceSpellEffectInput(ctx context.Context, obj any) (model.FixedDiceSpellEffectInput, error) {
 	var it model.FixedDiceSpellEffectInput
 	if obj == nil {
@@ -21315,118 +21368,6 @@ func (ec *executionContext) unmarshalInputGrantDeckFilter(ctx context.Context, o
 func UnmarshalGrantDeckFilter(ctx context.Context, raw any) (model.GrantDeckFilter, error) {
 	var out model.GrantDeckFilter
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "GrantDeckFilter", raw, &out)
-	return out, err
-}
-
-func (ec *executionContext) unmarshalInputItemConstraintInput(ctx context.Context, obj any) (model.ItemConstraintInput, error) {
-	var it model.ItemConstraintInput
-	if obj == nil {
-		return it, nil
-	}
-
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"kind", "elements"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "kind":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
-			data, err := ec.unmarshalNItemConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintKind(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Kind = data
-		case "elements":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("elements"))
-			data, err := ec.unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Elements = data
-		}
-	}
-	return it, nil
-}
-
-// UnmarshalItemConstraintInput unmarshals raw into the ItemConstraintInput input type, using the
-// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
-// object that was not passed as a field argument.
-//
-// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
-// and the returned error says so.
-func UnmarshalItemConstraintInput(ctx context.Context, raw any) (model.ItemConstraintInput, error) {
-	var out model.ItemConstraintInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "ItemConstraintInput", raw, &out)
-	return out, err
-}
-
-func (ec *executionContext) unmarshalInputItemEffectInput(ctx context.Context, obj any) (model.ItemEffectInput, error) {
-	var it model.ItemEffectInput
-	if obj == nil {
-		return it, nil
-	}
-
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"kind", "value", "percent", "constraints"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "kind":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("kind"))
-			data, err := ec.unmarshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Kind = data
-		case "value":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Value = data
-		case "percent":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("percent"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Percent = data
-		case "constraints":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("constraints"))
-			data, err := ec.unmarshalOItemConstraintInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintInputᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Constraints = data
-		}
-	}
-	return it, nil
-}
-
-// UnmarshalItemEffectInput unmarshals raw into the ItemEffectInput input type, using the
-// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
-// object that was not passed as a field argument.
-//
-// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
-// and the returned error says so.
-func UnmarshalItemEffectInput(ctx context.Context, raw any) (model.ItemEffectInput, error) {
-	var out model.ItemEffectInput
-	err := graphql.UnmarshalNamedInputFromContext(ctx, "ItemEffectInput", raw, &out)
 	return out, err
 }
 
@@ -24153,7 +24094,7 @@ func (ec *executionContext) _ChangeCardRarityResult(ctx context.Context, sel ast
 	}
 }
 
-func (ec *executionContext) _ChangeCreatureAbilitiesResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeCreatureAbilitiesResult) graphql.Marshaler {
+func (ec *executionContext) _ChangeCreatureEffectsResult(ctx context.Context, sel ast.SelectionSet, obj model.ChangeCreatureEffectsResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
@@ -24178,13 +24119,13 @@ func (ec *executionContext) _ChangeCreatureAbilitiesResult(ctx context.Context, 
 			return graphql.Null
 		}
 		return ec._ForbiddenError(ctx, sel, obj)
-	case model.ChangeCreatureAbilitiesSuccess:
-		return ec._ChangeCreatureAbilitiesSuccess(ctx, sel, &obj)
-	case *model.ChangeCreatureAbilitiesSuccess:
+	case model.ChangeCreatureEffectsSuccess:
+		return ec._ChangeCreatureEffectsSuccess(ctx, sel, &obj)
+	case *model.ChangeCreatureEffectsSuccess:
 		if obj == nil {
 			return graphql.Null
 		}
-		return ec._ChangeCreatureAbilitiesSuccess(ctx, sel, obj)
+		return ec._ChangeCreatureEffectsSuccess(ctx, sel, obj)
 	case model.CardNotFoundError:
 		return ec._CardNotFoundError(ctx, sel, &obj)
 	case *model.CardNotFoundError:
@@ -24203,7 +24144,7 @@ func (ec *executionContext) _ChangeCreatureAbilitiesResult(ctx context.Context, 
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
 		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeCreatureAbilitiesResult must implement graphql.Marshaler", obj))
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of ChangeCreatureEffectsResult must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -24641,68 +24582,6 @@ func (ec *executionContext) _CheckBoardLayoutResult(ctx context.Context, sel ast
 	}
 }
 
-func (ec *executionContext) _CreatureAbility(ctx context.Context, sel ast.SelectionSet, obj model.CreatureAbility) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.CreatureTollMultiplierAbility:
-		return ec._CreatureTollMultiplierAbility(ctx, sel, &obj)
-	case *model.CreatureTollMultiplierAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureTollMultiplierAbility(ctx, sel, obj)
-	case model.CreatureLastStrikeAbility:
-		return ec._CreatureLastStrikeAbility(ctx, sel, &obj)
-	case *model.CreatureLastStrikeAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureLastStrikeAbility(ctx, sel, obj)
-	case model.CreatureFirstStrikeAbility:
-		return ec._CreatureFirstStrikeAbility(ctx, sel, &obj)
-	case *model.CreatureFirstStrikeAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureFirstStrikeAbility(ctx, sel, obj)
-	case model.CreatureDefensiveAbility:
-		return ec._CreatureDefensiveAbility(ctx, sel, &obj)
-	case *model.CreatureDefensiveAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureDefensiveAbility(ctx, sel, obj)
-	case model.CreatureBattleRandomStatsAbility:
-		return ec._CreatureBattleRandomStatsAbility(ctx, sel, &obj)
-	case *model.CreatureBattleRandomStatsAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureBattleRandomStatsAbility(ctx, sel, obj)
-	case model.CreatureBattleModifierAbility:
-		return ec._CreatureBattleModifierAbility(ctx, sel, &obj)
-	case *model.CreatureBattleModifierAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureBattleModifierAbility(ctx, sel, obj)
-	case model.CreatureAttackImmunityAbility:
-		return ec._CreatureAttackImmunityAbility(ctx, sel, &obj)
-	case *model.CreatureAttackImmunityAbility:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._CreatureAttackImmunityAbility(ctx, sel, obj)
-	default:
-		if typedObj, ok := obj.(graphql.Marshaler); ok {
-			return typedObj
-		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of CreatureAbility must implement graphql.Marshaler", obj))
-		}
-	}
-}
-
 func (ec *executionContext) _DeleteBoardResult(ctx context.Context, sel ast.SelectionSet, obj model.DeleteBoardResult) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -24984,6 +24863,123 @@ func (ec *executionContext) _DeleteStarterSetResult(ctx context.Context, sel ast
 	}
 }
 
+func (ec *executionContext) _Effect(ctx context.Context, sel ast.SelectionSet, obj model.Effect) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.TollMultiplierEffect:
+		return ec._TollMultiplierEffect(ctx, sel, &obj)
+	case *model.TollMultiplierEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._TollMultiplierEffect(ctx, sel, obj)
+	case model.StrikeLastEffect:
+		return ec._StrikeLastEffect(ctx, sel, &obj)
+	case *model.StrikeLastEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StrikeLastEffect(ctx, sel, obj)
+	case model.StrikeFirstEffect:
+		return ec._StrikeFirstEffect(ctx, sel, &obj)
+	case *model.StrikeFirstEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._StrikeFirstEffect(ctx, sel, obj)
+	case model.NullifyReceivedDamageEffect:
+		return ec._NullifyReceivedDamageEffect(ctx, sel, &obj)
+	case *model.NullifyReceivedDamageEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._NullifyReceivedDamageEffect(ctx, sel, obj)
+	case model.IgnoreTerrainEffect:
+		return ec._IgnoreTerrainEffect(ctx, sel, &obj)
+	case *model.IgnoreTerrainEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._IgnoreTerrainEffect(ctx, sel, obj)
+	case model.HitPointsOverrideEffect:
+		return ec._HitPointsOverrideEffect(ctx, sel, &obj)
+	case *model.HitPointsOverrideEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._HitPointsOverrideEffect(ctx, sel, obj)
+	case model.HitPointsModifierEffect:
+		return ec._HitPointsModifierEffect(ctx, sel, &obj)
+	case *model.HitPointsModifierEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._HitPointsModifierEffect(ctx, sel, obj)
+	case model.ForbidMovementEffect:
+		return ec._ForbidMovementEffect(ctx, sel, &obj)
+	case *model.ForbidMovementEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbidMovementEffect(ctx, sel, obj)
+	case model.ForbidInvasionEffect:
+		return ec._ForbidInvasionEffect(ctx, sel, &obj)
+	case *model.ForbidInvasionEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ForbidInvasionEffect(ctx, sel, obj)
+	case model.AttackOverrideEffect:
+		return ec._AttackOverrideEffect(ctx, sel, &obj)
+	case *model.AttackOverrideEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AttackOverrideEffect(ctx, sel, obj)
+	case model.AttackMultiplierEffect:
+		return ec._AttackMultiplierEffect(ctx, sel, &obj)
+	case *model.AttackMultiplierEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AttackMultiplierEffect(ctx, sel, obj)
+	case model.AttackModifierEffect:
+		return ec._AttackModifierEffect(ctx, sel, &obj)
+	case *model.AttackModifierEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AttackModifierEffect(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of Effect must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
+func (ec *executionContext) _EffectConstraint(ctx context.Context, sel ast.SelectionSet, obj model.EffectConstraint) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case model.OpponentCreatureElementConstraint:
+		return ec._OpponentCreatureElementConstraint(ctx, sel, &obj)
+	case *model.OpponentCreatureElementConstraint:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._OpponentCreatureElementConstraint(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of EffectConstraint must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSet, obj model.FieldError) graphql.Marshaler {
 	switch obj := (obj).(type) {
 	case nil:
@@ -25193,74 +25189,6 @@ func (ec *executionContext) _GrantDecksResult(ctx context.Context, sel ast.Selec
 			return typedObj
 		} else {
 			panic(fmt.Errorf("unexpected type %T; non-generated variants of GrantDecksResult must implement graphql.Marshaler", obj))
-		}
-	}
-}
-
-func (ec *executionContext) _ItemConstraint(ctx context.Context, sel ast.SelectionSet, obj model.ItemConstraint) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.ItemOpponentElementConstraint:
-		return ec._ItemOpponentElementConstraint(ctx, sel, &obj)
-	case *model.ItemOpponentElementConstraint:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemOpponentElementConstraint(ctx, sel, obj)
-	default:
-		if typedObj, ok := obj.(graphql.Marshaler); ok {
-			return typedObj
-		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of ItemConstraint must implement graphql.Marshaler", obj))
-		}
-	}
-}
-
-func (ec *executionContext) _ItemEffect(ctx context.Context, sel ast.SelectionSet, obj model.ItemEffect) graphql.Marshaler {
-	switch obj := (obj).(type) {
-	case nil:
-		return graphql.Null
-	case model.ItemIgnoreTerrainEffect:
-		return ec._ItemIgnoreTerrainEffect(ctx, sel, &obj)
-	case *model.ItemIgnoreTerrainEffect:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemIgnoreTerrainEffect(ctx, sel, obj)
-	case model.ItemHitPointsModifierEffect:
-		return ec._ItemHitPointsModifierEffect(ctx, sel, &obj)
-	case *model.ItemHitPointsModifierEffect:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemHitPointsModifierEffect(ctx, sel, obj)
-	case model.ItemAttackOverrideEffect:
-		return ec._ItemAttackOverrideEffect(ctx, sel, &obj)
-	case *model.ItemAttackOverrideEffect:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemAttackOverrideEffect(ctx, sel, obj)
-	case model.ItemAttackMultiplierEffect:
-		return ec._ItemAttackMultiplierEffect(ctx, sel, &obj)
-	case *model.ItemAttackMultiplierEffect:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemAttackMultiplierEffect(ctx, sel, obj)
-	case model.ItemAttackModifierEffect:
-		return ec._ItemAttackModifierEffect(ctx, sel, &obj)
-	case *model.ItemAttackModifierEffect:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._ItemAttackModifierEffect(ctx, sel, obj)
-	default:
-		if typedObj, ok := obj.(graphql.Marshaler); ok {
-			return typedObj
-		} else {
-			panic(fmt.Errorf("unexpected type %T; non-generated variants of ItemEffect must implement graphql.Marshaler", obj))
 		}
 	}
 }
@@ -27414,6 +27342,130 @@ func (ec *executionContext) _StudioRulesResult(ctx context.Context, sel ast.Sele
 
 // region    **************************** object.gotpl ****************************
 
+var attackModifierEffectImplementors = []string{"AttackModifierEffect", "Effect"}
+
+func (ec *executionContext) _AttackModifierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.AttackModifierEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, attackModifierEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AttackModifierEffect")
+		case "kind":
+			out.Values[i] = ec._AttackModifierEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._AttackModifierEffect_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var attackMultiplierEffectImplementors = []string{"AttackMultiplierEffect", "Effect"}
+
+func (ec *executionContext) _AttackMultiplierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.AttackMultiplierEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, attackMultiplierEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AttackMultiplierEffect")
+		case "kind":
+			out.Values[i] = ec._AttackMultiplierEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "percent":
+			out.Values[i] = ec._AttackMultiplierEffect_percent(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "constraints":
+			out.Values[i] = ec._AttackMultiplierEffect_constraints(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var attackOverrideEffectImplementors = []string{"AttackOverrideEffect", "Effect"}
+
+func (ec *executionContext) _AttackOverrideEffect(ctx context.Context, sel ast.SelectionSet, obj *model.AttackOverrideEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, attackOverrideEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AttackOverrideEffect")
+		case "kind":
+			out.Values[i] = ec._AttackOverrideEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "minimum":
+			out.Values[i] = ec._AttackOverrideEffect_minimum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maximum":
+			out.Values[i] = ec._AttackOverrideEffect_maximum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var baseCountProblemImplementors = []string{"BaseCountProblem", "BoardPublishProblem"}
 
 func (ec *executionContext) _BaseCountProblem(ctx context.Context, sel ast.SelectionSet, obj *model.BaseCountProblem) graphql.Marshaler {
@@ -28271,7 +28323,7 @@ func (ec *executionContext) _CardNameAlreadyInUseError(ctx context.Context, sel 
 	return out
 }
 
-var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "ChangeSpellEffectResult"}
+var cardNotDraftErrorImplementors = []string{"CardNotDraftError", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotDraftError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotDraftErrorImplementors)
@@ -28304,7 +28356,7 @@ func (ec *executionContext) _CardNotDraftError(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "ChangeSpellEffectResult"}
+var cardNotFoundErrorImplementors = []string{"CardNotFoundError", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "ChangeSpellEffectResult"}
 
 func (ec *executionContext) _CardNotFoundError(ctx context.Context, sel ast.SelectionSet, obj *model.CardNotFoundError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, cardNotFoundErrorImplementors)
@@ -28527,24 +28579,24 @@ func (ec *executionContext) _ChangeCardRaritySuccess(ctx context.Context, sel as
 	return out
 }
 
-var changeCreatureAbilitiesSuccessImplementors = []string{"ChangeCreatureAbilitiesSuccess", "ChangeCreatureAbilitiesResult"}
+var changeCreatureEffectsSuccessImplementors = []string{"ChangeCreatureEffectsSuccess", "ChangeCreatureEffectsResult"}
 
-func (ec *executionContext) _ChangeCreatureAbilitiesSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeCreatureAbilitiesSuccess) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, changeCreatureAbilitiesSuccessImplementors)
+func (ec *executionContext) _ChangeCreatureEffectsSuccess(ctx context.Context, sel ast.SelectionSet, obj *model.ChangeCreatureEffectsSuccess) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, changeCreatureEffectsSuccessImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := graphql.NewDeferredGroup(ctx)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("ChangeCreatureAbilitiesSuccess")
+			out.Values[i] = graphql.MarshalString("ChangeCreatureEffectsSuccess")
 		case "id":
-			out.Values[i] = ec._ChangeCreatureAbilitiesSuccess_id(ctx, field, obj)
+			out.Values[i] = ec._ChangeCreatureEffectsSuccess_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "revision":
-			out.Values[i] = ec._ChangeCreatureAbilitiesSuccess_revision(ctx, field, obj)
+			out.Values[i] = ec._ChangeCreatureEffectsSuccess_revision(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28963,8 +29015,13 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "abilities":
-			out.Values[i] = ec._Creature_abilities(ctx, field, obj)
+		case "effects":
+			out.Values[i] = ec._Creature_effects(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "allowedEffectKinds":
+			out.Values[i] = ec._Creature_allowedEffectKinds(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28980,267 +29037,6 @@ func (ec *executionContext) _Creature(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Creature_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureAttackImmunityAbilityImplementors = []string{"CreatureAttackImmunityAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureAttackImmunityAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureAttackImmunityAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureAttackImmunityAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureAttackImmunityAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureAttackImmunityAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "elements":
-			out.Values[i] = ec._CreatureAttackImmunityAbility_elements(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureBattleModifierAbilityImplementors = []string{"CreatureBattleModifierAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureBattleModifierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureBattleModifierAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureBattleModifierAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureBattleModifierAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureBattleModifierAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "attackModifier":
-			out.Values[i] = ec._CreatureBattleModifierAbility_attackModifier(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "hitPointsModifier":
-			out.Values[i] = ec._CreatureBattleModifierAbility_hitPointsModifier(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureBattleRandomStatsAbilityImplementors = []string{"CreatureBattleRandomStatsAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureBattleRandomStatsAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureBattleRandomStatsAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureBattleRandomStatsAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureBattleRandomStatsAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureBattleRandomStatsAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "minimum":
-			out.Values[i] = ec._CreatureBattleRandomStatsAbility_minimum(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "maximum":
-			out.Values[i] = ec._CreatureBattleRandomStatsAbility_maximum(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureDefensiveAbilityImplementors = []string{"CreatureDefensiveAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureDefensiveAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureDefensiveAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureDefensiveAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureDefensiveAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureDefensiveAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureFirstStrikeAbilityImplementors = []string{"CreatureFirstStrikeAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureFirstStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureFirstStrikeAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureFirstStrikeAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureFirstStrikeAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureFirstStrikeAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureLastStrikeAbilityImplementors = []string{"CreatureLastStrikeAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureLastStrikeAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureLastStrikeAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureLastStrikeAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureLastStrikeAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureLastStrikeAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var creatureTollMultiplierAbilityImplementors = []string{"CreatureTollMultiplierAbility", "CreatureAbility"}
-
-func (ec *executionContext) _CreatureTollMultiplierAbility(ctx context.Context, sel ast.SelectionSet, obj *model.CreatureTollMultiplierAbility) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, creatureTollMultiplierAbilityImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CreatureTollMultiplierAbility")
-		case "kind":
-			out.Values[i] = ec._CreatureTollMultiplierAbility_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "percent":
-			out.Values[i] = ec._CreatureTollMultiplierAbility_percent(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -30131,7 +29927,73 @@ func (ec *executionContext) _FixedDiceSpellEffect(ctx context.Context, sel ast.S
 	return out
 }
 
-var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
+var forbidInvasionEffectImplementors = []string{"ForbidInvasionEffect", "Effect"}
+
+func (ec *executionContext) _ForbidInvasionEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ForbidInvasionEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, forbidInvasionEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ForbidInvasionEffect")
+		case "kind":
+			out.Values[i] = ec._ForbidInvasionEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var forbidMovementEffectImplementors = []string{"ForbidMovementEffect", "Effect"}
+
+func (ec *executionContext) _ForbidMovementEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ForbidMovementEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, forbidMovementEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ForbidMovementEffect")
+		case "kind":
+			out.Values[i] = ec._ForbidMovementEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var forbiddenErrorImplementors = []string{"ForbiddenError", "BoardsResult", "BoardResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "CardsResult", "CardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GameRulesResult", "GrantDecksResult", "GrantDeckResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "NpcAvatarsResult", "NpcAvatarResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "NpcDecksResult", "NpcDeckResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "PresetDecksResult", "PresetDeckResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "StarterSetResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult", "StudioRulesResult"}
 
 func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.SelectionSet, obj *model.ForbiddenError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, forbiddenErrorImplementors)
@@ -30474,6 +30336,120 @@ func (ec *executionContext) _GrantDeckNotFoundError(ctx context.Context, sel ast
 	return out
 }
 
+var hitPointsModifierEffectImplementors = []string{"HitPointsModifierEffect", "Effect"}
+
+func (ec *executionContext) _HitPointsModifierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.HitPointsModifierEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, hitPointsModifierEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HitPointsModifierEffect")
+		case "kind":
+			out.Values[i] = ec._HitPointsModifierEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._HitPointsModifierEffect_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var hitPointsOverrideEffectImplementors = []string{"HitPointsOverrideEffect", "Effect"}
+
+func (ec *executionContext) _HitPointsOverrideEffect(ctx context.Context, sel ast.SelectionSet, obj *model.HitPointsOverrideEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, hitPointsOverrideEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HitPointsOverrideEffect")
+		case "kind":
+			out.Values[i] = ec._HitPointsOverrideEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "minimum":
+			out.Values[i] = ec._HitPointsOverrideEffect_minimum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maximum":
+			out.Values[i] = ec._HitPointsOverrideEffect_maximum(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var ignoreTerrainEffectImplementors = []string{"IgnoreTerrainEffect", "Effect"}
+
+func (ec *executionContext) _IgnoreTerrainEffect(ctx context.Context, sel ast.SelectionSet, obj *model.IgnoreTerrainEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, ignoreTerrainEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IgnoreTerrainEffect")
+		case "kind":
+			out.Values[i] = ec._IgnoreTerrainEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var invalidBoardStatusTransitionErrorImplementors = []string{"InvalidBoardStatusTransitionError", "RetireBoardResult"}
 
 func (ec *executionContext) _InvalidBoardStatusTransitionError(ctx context.Context, sel ast.SelectionSet, obj *model.InvalidBoardStatusTransitionError) graphql.Marshaler {
@@ -30755,125 +30731,6 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
-var itemAttackModifierEffectImplementors = []string{"ItemAttackModifierEffect", "ItemEffect"}
-
-func (ec *executionContext) _ItemAttackModifierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ItemAttackModifierEffect) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemAttackModifierEffectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemAttackModifierEffect")
-		case "kind":
-			out.Values[i] = ec._ItemAttackModifierEffect_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._ItemAttackModifierEffect_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var itemAttackMultiplierEffectImplementors = []string{"ItemAttackMultiplierEffect", "ItemEffect"}
-
-func (ec *executionContext) _ItemAttackMultiplierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ItemAttackMultiplierEffect) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemAttackMultiplierEffectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemAttackMultiplierEffect")
-		case "kind":
-			out.Values[i] = ec._ItemAttackMultiplierEffect_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "percent":
-			out.Values[i] = ec._ItemAttackMultiplierEffect_percent(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "constraints":
-			out.Values[i] = ec._ItemAttackMultiplierEffect_constraints(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var itemAttackOverrideEffectImplementors = []string{"ItemAttackOverrideEffect", "ItemEffect"}
-
-func (ec *executionContext) _ItemAttackOverrideEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ItemAttackOverrideEffect) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemAttackOverrideEffectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemAttackOverrideEffect")
-		case "kind":
-			out.Values[i] = ec._ItemAttackOverrideEffect_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._ItemAttackOverrideEffect_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var itemEffectNotAllowedErrorImplementors = []string{"ItemEffectNotAllowedError", "ChangeItemCategoryResult", "ChangeItemEffectsResult"}
 
 func (ec *executionContext) _ItemEffectNotAllowedError(ctx context.Context, sel ast.SelectionSet, obj *model.ItemEffectNotAllowedError) graphql.Marshaler {
@@ -30887,115 +30744,6 @@ func (ec *executionContext) _ItemEffectNotAllowedError(ctx context.Context, sel 
 			out.Values[i] = graphql.MarshalString("ItemEffectNotAllowedError")
 		case "message":
 			out.Values[i] = ec._ItemEffectNotAllowedError_message(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var itemHitPointsModifierEffectImplementors = []string{"ItemHitPointsModifierEffect", "ItemEffect"}
-
-func (ec *executionContext) _ItemHitPointsModifierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ItemHitPointsModifierEffect) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemHitPointsModifierEffectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemHitPointsModifierEffect")
-		case "kind":
-			out.Values[i] = ec._ItemHitPointsModifierEffect_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._ItemHitPointsModifierEffect_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var itemIgnoreTerrainEffectImplementors = []string{"ItemIgnoreTerrainEffect", "ItemEffect"}
-
-func (ec *executionContext) _ItemIgnoreTerrainEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ItemIgnoreTerrainEffect) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemIgnoreTerrainEffectImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemIgnoreTerrainEffect")
-		case "kind":
-			out.Values[i] = ec._ItemIgnoreTerrainEffect_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
-var itemOpponentElementConstraintImplementors = []string{"ItemOpponentElementConstraint", "ItemConstraint"}
-
-func (ec *executionContext) _ItemOpponentElementConstraint(ctx context.Context, sel ast.SelectionSet, obj *model.ItemOpponentElementConstraint) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, itemOpponentElementConstraintImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("ItemOpponentElementConstraint")
-		case "kind":
-			out.Values[i] = ec._ItemOpponentElementConstraint_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "elements":
-			out.Values[i] = ec._ItemOpponentElementConstraint_elements(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -31255,9 +31003,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "changeCreatureAbilities":
+		case "changeCreatureEffects":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_changeCreatureAbilities(ctx, field)
+				return ec._Mutation_changeCreatureEffects(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -32055,6 +31803,82 @@ func (ec *executionContext) _NpcDeckNotFoundError(ctx context.Context, sel ast.S
 			out.Values[i] = graphql.MarshalString("NpcDeckNotFoundError")
 		case "message":
 			out.Values[i] = ec._NpcDeckNotFoundError_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var nullifyReceivedDamageEffectImplementors = []string{"NullifyReceivedDamageEffect", "Effect"}
+
+func (ec *executionContext) _NullifyReceivedDamageEffect(ctx context.Context, sel ast.SelectionSet, obj *model.NullifyReceivedDamageEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, nullifyReceivedDamageEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NullifyReceivedDamageEffect")
+		case "kind":
+			out.Values[i] = ec._NullifyReceivedDamageEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "constraints":
+			out.Values[i] = ec._NullifyReceivedDamageEffect_constraints(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var opponentCreatureElementConstraintImplementors = []string{"OpponentCreatureElementConstraint", "EffectConstraint"}
+
+func (ec *executionContext) _OpponentCreatureElementConstraint(ctx context.Context, sel ast.SelectionSet, obj *model.OpponentCreatureElementConstraint) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, opponentCreatureElementConstraintImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("OpponentCreatureElementConstraint")
+		case "kind":
+			out.Values[i] = ec._OpponentCreatureElementConstraint_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "elements":
+			out.Values[i] = ec._OpponentCreatureElementConstraint_elements(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -33606,7 +33430,7 @@ func (ec *executionContext) _RetireStarterSetSuccess(ctx context.Context, sel as
 	return out
 }
 
-var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
+var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, revisionConflictErrorImplementors)
@@ -34376,6 +34200,72 @@ func (ec *executionContext) _StarterSetNotFoundError(ctx context.Context, sel as
 	return out
 }
 
+var strikeFirstEffectImplementors = []string{"StrikeFirstEffect", "Effect"}
+
+func (ec *executionContext) _StrikeFirstEffect(ctx context.Context, sel ast.SelectionSet, obj *model.StrikeFirstEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, strikeFirstEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StrikeFirstEffect")
+		case "kind":
+			out.Values[i] = ec._StrikeFirstEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var strikeLastEffectImplementors = []string{"StrikeLastEffect", "Effect"}
+
+func (ec *executionContext) _StrikeLastEffect(ctx context.Context, sel ast.SelectionSet, obj *model.StrikeLastEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, strikeLastEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StrikeLastEffect")
+		case "kind":
+			out.Values[i] = ec._StrikeLastEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var studioRulesImplementors = []string{"StudioRules", "StudioRulesResult"}
 
 func (ec *executionContext) _StudioRules(ctx context.Context, sel ast.SelectionSet, obj *model.StudioRules) graphql.Marshaler {
@@ -34389,6 +34279,44 @@ func (ec *executionContext) _StudioRules(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = graphql.MarshalString("StudioRules")
 		case "board":
 			out.Values[i] = ec._StudioRules_board(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var tollMultiplierEffectImplementors = []string{"TollMultiplierEffect", "Effect"}
+
+func (ec *executionContext) _TollMultiplierEffect(ctx context.Context, sel ast.SelectionSet, obj *model.TollMultiplierEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tollMultiplierEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TollMultiplierEffect")
+		case "kind":
+			out.Values[i] = ec._TollMultiplierEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "percent":
+			out.Values[i] = ec._TollMultiplierEffect_percent(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -34485,7 +34413,7 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 	return out
 }
 
-var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureAbilitiesResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
+var validationErrorsImplementors = []string{"ValidationErrors", "BoardsResult", "CheckBoardLayoutResult", "RegisterBoardResult", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "CardsResult", "ChangeCardCostResult", "RegisterCreatureResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "GrantDecksResult", "RegisterGrantDeckResult", "RegisterGrantDeckFromPresetDeckResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "PublishGrantDeckResult", "RegisterItemResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "NpcAvatarsResult", "RegisterNpcAvatarResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "PublishNpcAvatarResult", "NpcDecksResult", "RegisterNpcDeckResult", "RegisterNpcDeckFromPresetDeckResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "PublishNpcDeckResult", "PresetDecksResult", "RegisterPresetDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "RegisterSpellResult", "ChangeSpellEffectResult", "StarterSetsResult", "RegisterStarterSetResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "PublishStarterSetResult"}
 
 func (ec *executionContext) _ValidationErrors(ctx context.Context, sel ast.SelectionSet, obj *model.ValidationErrors) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, validationErrorsImplementors)
@@ -35114,6 +35042,36 @@ func (ec *executionContext) marshalNBoardTileElement2gitlabᚗcomᚋaimerzarashi
 	return v
 }
 
+func (ec *executionContext) unmarshalNBoardTileElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElementᚄ(ctx context.Context, v any) ([]model.BoardTileElement, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.BoardTileElement, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNBoardTileElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElement(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNBoardTileElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElementᚄ(ctx context.Context, sel ast.SelectionSet, v []model.BoardTileElement) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNBoardTileElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileElement(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalNBoardTileInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐBoardTileInputᚄ(ctx context.Context, v any) ([]*model.BoardTileInput, error) {
 	vSlice := graphql.CoerceList(v)
 	var err error
@@ -35352,17 +35310,17 @@ func (ec *executionContext) marshalNChangeCardRarityResult2gitlabᚗcomᚋaimerz
 	return ec._ChangeCardRarityResult(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNChangeCreatureAbilitiesInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureAbilitiesInput(ctx context.Context, v any) (model.ChangeCreatureAbilitiesInput, error) {
-	res, err := ec.unmarshalInputChangeCreatureAbilitiesInput(ctx, v)
+func (ec *executionContext) unmarshalNChangeCreatureEffectsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureEffectsInput(ctx context.Context, v any) (model.ChangeCreatureEffectsInput, error) {
+	res, err := ec.unmarshalInputChangeCreatureEffectsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNChangeCreatureAbilitiesResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureAbilitiesResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeCreatureAbilitiesResult) graphql.Marshaler {
+func (ec *executionContext) marshalNChangeCreatureEffectsResult2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureEffectsResult(ctx context.Context, sel ast.SelectionSet, v model.ChangeCreatureEffectsResult) graphql.Marshaler {
 	if v == nil {
-		graphql.AddInvalidNullError(ctx, "ChangeCreatureAbilitiesResult!")
+		graphql.AddInvalidNullError(ctx, "ChangeCreatureEffectsResult!")
 		return graphql.Null
 	}
-	return ec._ChangeCreatureAbilitiesResult(ctx, sel, v)
+	return ec._ChangeCreatureEffectsResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNChangeCreatureElementsInput2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐChangeCreatureElementsInput(ctx context.Context, v any) (model.ChangeCreatureElementsInput, error) {
@@ -35475,59 +35433,6 @@ func (ec *executionContext) marshalNCreature2ᚖgitlabᚗcomᚋaimerzarashiᚋdi
 		return graphql.Null
 	}
 	return ec._Creature(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNCreatureAbility2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbility(ctx context.Context, sel ast.SelectionSet, v model.CreatureAbility) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "CreatureAbility!")
-		return graphql.Null
-	}
-	return ec._CreatureAbility(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNCreatureAbility2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityᚄ(ctx context.Context, sel ast.SelectionSet, v []model.CreatureAbility) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNCreatureAbility2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbility(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) unmarshalNCreatureAbilityInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityInputᚄ(ctx context.Context, v any) ([]*model.CreatureAbilityInput, error) {
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]*model.CreatureAbilityInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNCreatureAbilityInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) unmarshalNCreatureAbilityInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityInput(ctx context.Context, v any) (*model.CreatureAbilityInput, error) {
-	res, err := ec.unmarshalInputCreatureAbilityInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx context.Context, v any) (model.CreatureAbilityKind, error) {
-	var res model.CreatureAbilityKind
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNCreatureAbilityKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureAbilityKind(ctx context.Context, sel ast.SelectionSet, v model.CreatureAbilityKind) graphql.Marshaler {
-	return v
 }
 
 func (ec *executionContext) unmarshalNCreatureElement2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElement(ctx context.Context, v any) (model.CreatureElement, error) {
@@ -35705,6 +35610,128 @@ func (ec *executionContext) marshalNDeleteStarterSetResult2gitlabᚗcomᚋaimerz
 	return ec._DeleteStarterSetResult(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffect(ctx context.Context, sel ast.SelectionSet, v model.Effect) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Effect!")
+		return graphql.Null
+	}
+	return ec._Effect(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEffect2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Effect) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffect(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNEffectConstraint2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraint(ctx context.Context, sel ast.SelectionSet, v model.EffectConstraint) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "EffectConstraint!")
+		return graphql.Null
+	}
+	return ec._EffectConstraint(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNEffectConstraint2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintᚄ(ctx context.Context, sel ast.SelectionSet, v []model.EffectConstraint) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEffectConstraint2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraint(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNEffectConstraintInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintInput(ctx context.Context, v any) (*model.EffectConstraintInput, error) {
+	res, err := ec.unmarshalInputEffectConstraintInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNEffectConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintKind(ctx context.Context, v any) (model.EffectConstraintKind, error) {
+	var res model.EffectConstraintKind
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEffectConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintKind(ctx context.Context, sel ast.SelectionSet, v model.EffectConstraintKind) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInputᚄ(ctx context.Context, v any) ([]*model.EffectInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.EffectInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInput(ctx context.Context, v any) (*model.EffectInput, error) {
+	res, err := ec.unmarshalInputEffectInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx context.Context, v any) (model.EffectKind, error) {
+	var res model.EffectKind
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx context.Context, sel ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKindᚄ(ctx context.Context, v any) ([]model.EffectKind, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.EffectKind, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKindᚄ(ctx context.Context, sel ast.SelectionSet, v []model.EffectKind) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNFieldError2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐFieldError(ctx context.Context, sel ast.SelectionSet, v model.FieldError) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "FieldError!")
@@ -35862,128 +35889,6 @@ func (ec *executionContext) marshalNItemCategory2ᚕgitlabᚗcomᚋaimerzarashi�
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
 		return ec.marshalNItemCategory2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemCategory(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNItemConstraint2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraint(ctx context.Context, sel ast.SelectionSet, v model.ItemConstraint) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "ItemConstraint!")
-		return graphql.Null
-	}
-	return ec._ItemConstraint(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNItemConstraint2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintᚄ(ctx context.Context, sel ast.SelectionSet, v []model.ItemConstraint) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNItemConstraint2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraint(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) unmarshalNItemConstraintInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintInput(ctx context.Context, v any) (*model.ItemConstraintInput, error) {
-	res, err := ec.unmarshalInputItemConstraintInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNItemConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintKind(ctx context.Context, v any) (model.ItemConstraintKind, error) {
-	var res model.ItemConstraintKind
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNItemConstraintKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintKind(ctx context.Context, sel ast.SelectionSet, v model.ItemConstraintKind) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) marshalNItemEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffect(ctx context.Context, sel ast.SelectionSet, v model.ItemEffect) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "ItemEffect!")
-		return graphql.Null
-	}
-	return ec._ItemEffect(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNItemEffect2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectᚄ(ctx context.Context, sel ast.SelectionSet, v []model.ItemEffect) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNItemEffect2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffect(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) unmarshalNItemEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectInputᚄ(ctx context.Context, v any) ([]*model.ItemEffectInput, error) {
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]*model.ItemEffectInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNItemEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) unmarshalNItemEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectInput(ctx context.Context, v any) (*model.ItemEffectInput, error) {
-	res, err := ec.unmarshalInputItemEffectInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx context.Context, v any) (model.ItemEffectKind, error) {
-	var res model.ItemEffectKind
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx context.Context, sel ast.SelectionSet, v model.ItemEffectKind) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) unmarshalNItemEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKindᚄ(ctx context.Context, v any) ([]model.ItemEffectKind, error) {
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]model.ItemEffectKind, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalNItemEffectKind2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKindᚄ(ctx context.Context, sel ast.SelectionSet, v []model.ItemEffectKind) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNItemEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemEffectKind(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -37154,6 +37059,23 @@ func (ec *executionContext) unmarshalODrawCardsSpellEffectInput2ᚖgitlabᚗcom�
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalOEffectConstraintInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintInputᚄ(ctx context.Context, v any) ([]*model.EffectConstraintInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.EffectConstraintInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEffectConstraintInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectConstraintInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
 func (ec *executionContext) unmarshalOFixedDiceSpellEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐFixedDiceSpellEffectInput(ctx context.Context, v any) (*model.FixedDiceSpellEffectInput, error) {
 	if v == nil {
 		return nil, nil
@@ -37230,23 +37152,6 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	_ = ctx
 	res := graphql.MarshalInt(*v)
 	return res
-}
-
-func (ec *executionContext) unmarshalOItemConstraintInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintInputᚄ(ctx context.Context, v any) ([]*model.ItemConstraintInput, error) {
-	if v == nil {
-		return nil, nil
-	}
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]*model.ItemConstraintInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNItemConstraintInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐItemConstraintInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
 }
 
 func (ec *executionContext) unmarshalOLandTileInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐLandTileInput(ctx context.Context, v any) (*model.LandTileInput, error) {

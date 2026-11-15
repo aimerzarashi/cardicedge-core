@@ -11,9 +11,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
 
@@ -160,13 +161,13 @@ func Battle(t testing.TB) *BattleInputBuilder {
 	combatant := func(id int64) match.BattleCombatant {
 		spec := match.CreatureSpec{
 			Elements: creature.DefaultElements(), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 40),
-			ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Abilities: creature.DefaultAbilities(),
+			ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Effects: effect.DefaultEffects(),
 		}
-		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: spec, Attack: spec.Attack, HitPoints: creaturetest.HitPoints(t, 40)}
+		return match.BattleCombatant{Card: cardtest.CreatureRef(t, id), Spec: spec, Attack: spec.Attack, HitPoints: creaturetest.HitPoints(t, 40), AdjacentTerritories: []board.Position{}}
 	}
-	land := match.BattleLand{Element: board.ElementFire, Level: 1}
+	land := match.BattleLand{Element: element.LandFire, Level: 1}
 	rules := match.BattleRules{AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus, TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel}
-	input := match.BattleInput{Attacker: combatant(101), Defender: combatant(201), Land: land, AdjacentTerritories: []board.Position{}, Rules: rules}
+	input := match.BattleInput{Attacker: combatant(101), Defender: combatant(201), Land: land, Rules: rules}
 	return &BattleInputBuilder{t: t, input: input}
 }
 
@@ -193,41 +194,42 @@ func (b *BattleInputBuilder) Elements(side match.BattleSide, values ...string) *
 	return b
 }
 
-func (b *BattleInputBuilder) Abilities(side match.BattleSide, abilities ...creature.Ability) *BattleInputBuilder {
+// クリーチャーの効果。持てる効果の表と組み合わせの決まりは確かめない（戦闘の決まりだけを確かめるため）
+func (b *BattleInputBuilder) Effects(side match.BattleSide, effects ...effect.Effect) *BattleInputBuilder {
 	b.t.Helper()
-	values, err := creature.NewAbilities(abilities)
+	values, err := effect.NewEffects(effects)
 	require.NoError(b.t, err)
-	b.combatant(side).Spec.Abilities = values
+	b.combatant(side).Spec.Effects = values
 	return b
 }
 
 // 出したアイテム（攻める側はカード 301、守る側は 302）。分類で持てる効果かは確かめない（戦闘の決まりだけを確かめるため）
-func (b *BattleInputBuilder) Item(side match.BattleSide, category item.Category, effects ...item.Effect) *BattleInputBuilder {
+func (b *BattleInputBuilder) Item(side match.BattleSide, category card.ItemCategory, effects ...effect.Effect) *BattleInputBuilder {
 	b.t.Helper()
 	id := int64(301)
 	if side == match.BattleSideDefender {
 		id = 302
 	}
-	values, err := item.NewEffects(effects)
+	values, err := effect.NewEffects(effects)
 	require.NoError(b.t, err)
 	spec := match.ItemSpec{Category: category, Effects: values}
 	b.combatant(side).Item = &match.BattleItem{Card: cardtest.Ref(b.t, card.ItemEntityType, id), Spec: spec}
 	return b
 }
 
-func (b *BattleInputBuilder) Land(element board.Element, level int) *BattleInputBuilder {
+func (b *BattleInputBuilder) Land(element element.Land, level int) *BattleInputBuilder {
 	b.input.Land.Element, b.input.Land.Level = element, level
 	return b
 }
 
-// 支援効果に数える隣の領地の数（位置は (0, 0) から x の順）
-func (b *BattleInputBuilder) AdjacentTerritories(count int) *BattleInputBuilder {
+// 支援効果に数える、その側の隣の領地の数（位置は (0, 0) から x の順）
+func (b *BattleInputBuilder) AdjacentTerritories(side match.BattleSide, count int) *BattleInputBuilder {
 	b.t.Helper()
 	positions := make([]board.Position, count)
 	for i := range positions {
 		positions[i] = boardtest.Position(b.t, i, 0)
 	}
-	b.input.AdjacentTerritories = positions
+	b.combatant(side).AdjacentTerritories = positions
 	return b
 }
 

@@ -914,7 +914,7 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 		if err == nil {
 			changed, err = s.cardCommands.ChangeRarity(ctx, changed.ID, changed.Revision, c.Rarity)
 		}
-		// 属性・攻撃力・体力・能力はクリーチャーだけ（validate が、クリーチャーには必ず書いてあることを確かめている）
+		// 属性・攻撃力・体力・効果はクリーチャー（効果はアイテムも）（validate が、クリーチャーには必ず書いてあることを確かめている）
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangeElements(ctx, changed.ID, changed.Revision, c.Elements)
 		}
@@ -922,12 +922,7 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 			changed, err = s.creatures.ChangeStats(ctx, changed.ID, changed.Revision, *c.Attack, *c.HitPoints)
 		}
 		if err == nil && c.Type == "creature" {
-			abilities := make([]command.CreatureAbility, len(c.Abilities))
-			for i, ability := range c.Abilities {
-				// validate が知らない種類を弾いている
-				abilities[i], _ = ability.command()
-			}
-			changed, err = s.creatures.ChangeAbilities(ctx, changed.ID, changed.Revision, abilities)
+			changed, err = s.creatures.ChangeEffects(ctx, changed.ID, changed.Revision, masterEffects(c.Effects))
 		}
 		if err == nil && c.Type == "creature" {
 			changed, err = s.creatures.ChangeItemRestrictions(ctx, changed.ID, changed.Revision, c.ItemRestrictions)
@@ -940,11 +935,7 @@ func (s *seeder) changeCardSpec(ctx context.Context, c masterCard, current query
 			changed, err = s.items.ChangeCategory(ctx, changed.ID, changed.Revision, c.Category)
 		}
 		if err == nil && c.Type == "item" {
-			effects := make([]command.ItemEffect, len(c.Effects))
-			for i, effect := range c.Effects {
-				effects[i] = effect.command()
-			}
-			changed, err = s.items.ChangeEffects(ctx, changed.ID, changed.Revision, effects)
+			changed, err = s.items.ChangeEffects(ctx, changed.ID, changed.Revision, masterEffects(c.Effects))
 		}
 		// 効果はスペルだけ（書いていなければ効果なしのまま）
 		if err == nil && c.Type == "spell" {

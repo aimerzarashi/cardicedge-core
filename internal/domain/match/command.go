@@ -3,6 +3,7 @@ package match
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 type Command interface {
@@ -140,7 +141,7 @@ func (*MoveCreatureCommand) isMatchCommand() {}
 type ChangeLandElementCommand struct {
 	By       ParticipantIndex
 	Position board.Position
-	Element  board.Element
+	Element  element.Land
 }
 
 func (*ChangeLandElementCommand) isMatchCommand() {}

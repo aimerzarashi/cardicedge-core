@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 // 変わらない操作（公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）
@@ -20,7 +21,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Cost:         card.DefaultCost,
 			Rarity:       card.DefaultRarity,
 			Category:     DefaultCategory,
-			Effects:      DefaultEffects(),
+			Effects:      effect.DefaultEffects(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -60,7 +61,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil || item.Category == c.Category {
 			return nil, err
 		}
-		if _, found := item.Effects.NotAllowedIn(c.Category); found {
+		if _, found := item.Effects.NotAllowed(allowedEffectKinds[c.Category]); found {
 			return nil, ErrEffectNotAllowed
 		}
 		return []Event{&CategoryChangedEvent{EventMeta: nextMeta(item, now), Category: c.Category, ChangedBy: c.ChangedBy}}, nil
@@ -69,7 +70,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 		if err != nil || item.Effects.Equal(c.Effects) {
 			return nil, err
 		}
-		if _, found := c.Effects.NotAllowedIn(item.Category); found {
+		if _, found := c.Effects.NotAllowed(allowedEffectKinds[item.Category]); found {
 			return nil, ErrEffectNotAllowed
 		}
 		return []Event{&EffectsChangedEvent{EventMeta: nextMeta(item, now), Effects: c.Effects, ChangedBy: c.ChangedBy}}, nil

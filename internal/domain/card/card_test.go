@@ -284,3 +284,13 @@ func TestNewRarity_RejectsUnknownValue(t *testing.T) {
 	_, err := card.NewRarity("N")
 	require.ErrorIs(t, err, card.ErrRarityUnknown)
 }
+
+func TestNewItemCategory_AcceptsOnlyTheKnownValues(t *testing.T) {
+	for _, value := range []string{"weapon", "armor", "scroll"} {
+		category, err := card.NewItemCategory(value)
+		require.NoError(t, err)
+		require.Equal(t, value, category.String())
+	}
+	_, err := card.NewItemCategory("shield")
+	require.ErrorIs(t, err, card.ErrItemCategoryUnknown)
+}

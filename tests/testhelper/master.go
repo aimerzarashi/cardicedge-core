@@ -139,7 +139,7 @@ func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
 		StarterSets: StarterSets{Published: uuid.New(), Draft: uuid.New(), Retired: uuid.New()},
 	}
 	for _, id := range []uuid.UUID{master.CardA, master.CardB, master.CardC} {
-		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String(), Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Abilities: []readmodel.CreatureAbilityMetadata{}}})
+		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String(), Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}})
 		if err != nil {
 			return Master{}, err
 		}
@@ -358,10 +358,10 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 	for _, c := range cards {
 		cardMetadata := readmodel.CardMetadata{ID: c.id, Name: c.name, Status: readmodel.CardStatusPublished, Cost: c.cost, Rarity: c.rarity}
 		if c.cardType == readmodel.CardTypeCreature {
-			cardMetadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 25, HitPoints: 45, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"earth", "wind"}, Abilities: []readmodel.CreatureAbilityMetadata{{Defensive: &readmodel.CreatureDefensiveAbilityMetadata{}}}}
+			cardMetadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 25, HitPoints: 45, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"earth", "wind"}, Effects: []readmodel.EffectMetadata{{ForbidInvasion: &readmodel.EmptyEffectMetadata{}}, {ForbidMovement: &readmodel.EmptyEffectMetadata{}}}}
 		}
 		if c.cardType == readmodel.CardTypeItem {
-			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", Effects: []readmodel.ItemEffectMetadata{{HitPointsModifier: &readmodel.ItemValueEffectMetadata{Value: 15}}}}
+			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", Effects: []readmodel.EffectMetadata{{HitPointsModifier: &readmodel.ValueEffectMetadata{Value: 15}}}}
 		}
 		if c.cardType == readmodel.CardTypeSpell {
 			effect := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 2}}

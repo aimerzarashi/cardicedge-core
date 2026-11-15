@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 type State interface {
@@ -23,7 +24,7 @@ type Spell struct {
 	Status   card.Status
 	Cost     card.Cost
 	Rarity   card.Rarity
-	Effect   Effect
+	Effect   effect.SpellEffect
 }
 
 func (Spell) isSpellState() {}

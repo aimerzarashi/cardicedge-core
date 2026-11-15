@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 // 変わらない操作（公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）
@@ -19,7 +20,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			Name:         c.Name,
 			Cost:         card.DefaultCost,
 			Rarity:       card.DefaultRarity,
-			Effect:       NoEffect(),
+			Effect:       effect.NoSpellEffect(),
 			RegisteredBy: c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:

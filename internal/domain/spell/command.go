@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -42,7 +43,7 @@ type ChangeRarityCommand struct {
 
 // 効果を変える（準備中だけ）。変えた後の効果の全体（効果なしにもできる）。同じ値なら何も変えない
 type ChangeEffectCommand struct {
-	Effect    Effect
+	Effect    effect.SpellEffect
 	ChangedBy operator.ID
 }
 

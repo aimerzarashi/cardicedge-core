@@ -10,7 +10,7 @@
       "hit_points": 40,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -22,7 +22,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -34,7 +34,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -46,7 +46,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -58,7 +58,7 @@
       "hit_points": 20,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "first_strike" }]
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
@@ -70,7 +70,7 @@
       "hit_points": 50,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "defensive" }]
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }]
     },
     {
       "type": "creature",
@@ -82,7 +82,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -94,7 +94,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -106,7 +106,7 @@
       "hit_points": 50,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -118,7 +118,7 @@
       "hit_points": 60,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "defensive" }]
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }]
     },
     {
       "type": "creature",
@@ -130,7 +130,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "toll_multiplier", "percent": 150 }]
+      "effects": [{ "kind": "toll_multiplier", "percent": 150 }]
     },
     {
       "type": "creature",
@@ -142,7 +142,7 @@
       "hit_points": 30,
       "item_restrictions": ["weapon"],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -154,7 +154,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -166,7 +166,7 @@
       "hit_points": 40,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "defensive" }, { "kind": "battle_modifier", "attack_modifier": 0, "hit_points_modifier": 20 }]
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }, { "kind": "hit_points_modifier", "value": 20 }]
     },
     {
       "type": "creature",
@@ -178,7 +178,7 @@
       "hit_points": 50,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "last_strike" }]
+      "effects": [{ "kind": "strike_last" }]
     },
     {
       "type": "creature",
@@ -190,7 +190,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "attack_immunity", "elements": ["fire", "earth"] }]
+      "effects": [{ "kind": "nullify_received_damage", "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire", "earth"] }] }]
     },
     {
       "type": "creature",
@@ -202,7 +202,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "first_strike" }]
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
@@ -214,7 +214,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "creature",
@@ -226,7 +226,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "battle_random_stats", "minimum": 10, "maximum": 70 }]
+      "effects": [{ "kind": "attack_override", "minimum": 10, "maximum": 70 }, { "kind": "hit_points_override", "minimum": 10, "maximum": 70 }]
     },
     {
       "type": "creature",
@@ -238,7 +238,7 @@
       "hit_points": 50,
       "item_restrictions": ["armor", "scroll"],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "defensive" }, { "kind": "first_strike" }]
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }, { "kind": "strike_first" }]
     },
     {
       "type": "creature",
@@ -250,7 +250,7 @@
       "hit_points": 30,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": [{ "kind": "first_strike" }]
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
@@ -262,7 +262,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "abilities": []
+      "effects": []
     },
     {
       "type": "item",
@@ -286,7 +286,7 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["water"] }] }]
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["water"] }] }]
     },
     {
       "type": "item",
@@ -294,7 +294,7 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["earth"] }] }]
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["earth"] }] }]
     },
     {
       "type": "item",
@@ -318,7 +318,7 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["fire"] }] }]
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire"] }] }]
     },
     {
       "type": "item",
@@ -326,7 +326,7 @@
       "cost": 20,
       "rarity": "normal",
       "category": "weapon",
-      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["wind"] }] }]
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["wind"] }] }]
     },
     {
       "type": "item",
@@ -334,7 +334,7 @@
       "cost": 30,
       "rarity": "normal",
       "category": "scroll",
-      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["fire"] }] }]
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire"] }] }]
     },
     {
       "type": "item",
@@ -342,7 +342,7 @@
       "cost": 30,
       "rarity": "normal",
       "category": "scroll",
-      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["earth"] }] }]
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["earth"] }] }]
     },
     {
       "type": "item",
@@ -350,7 +350,7 @@
       "cost": 30,
       "rarity": "normal",
       "category": "scroll",
-      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["wind"] }] }]
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["wind"] }] }]
     },
     {
       "type": "item",
@@ -358,7 +358,7 @@
       "cost": 30,
       "rarity": "normal",
       "category": "scroll",
-      "effects": [{ "kind": "attack_override", "value": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_element", "elements": ["water"] }] }]
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["water"] }] }]
     },
     {
       "type": "spell",

@@ -261,23 +261,6 @@ func fromMatchBattleSide(side query.MatchBattleSide) (model.MatchBattleSide, err
 	}
 }
 
-func fromMatchBattleAbility(ability query.MatchBattleAbility) (model.CreatureAbilityKind, error) {
-	switch ability {
-	case query.MatchBattleAbilityFirstStrike:
-		return model.CreatureAbilityKindFirstStrike, nil
-	case query.MatchBattleAbilityLastStrike:
-		return model.CreatureAbilityKindLastStrike, nil
-	case query.MatchBattleAbilityBattleModifier:
-		return model.CreatureAbilityKindBattleModifier, nil
-	case query.MatchBattleAbilityBattleRandomStats:
-		return model.CreatureAbilityKindBattleRandomStats, nil
-	case query.MatchBattleAbilityAttackImmunity:
-		return model.CreatureAbilityKindAttackImmunity, nil
-	default:
-		return "", fmt.Errorf("graphql: unknown match battle ability: %q", ability)
-	}
-}
-
 func fromMatchEndReason(reason query.MatchEndReason) (model.MatchEndReason, error) {
 	switch reason {
 	case query.MatchEndReasonTargetMagic:
@@ -486,23 +469,22 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Element: element, Level: e.Level,
 			BonusPerLevel: e.BonusPerLevel, Change: fromMatchBattleStatChange(&e.Change),
 		}, nil
-	case query.MatchBattleCreatureAbilityActivatedEvent:
+	case query.MatchBattleCreatureEffectActivatedEvent:
 		side, err := fromMatchBattleSide(e.Side)
 		if err != nil {
 			return nil, err
 		}
-		ability, err := fromMatchBattleAbility(e.Ability)
+		card, err := fromMatchCard(e.Card)
 		if err != nil {
 			return nil, err
 		}
-		converted := &model.MatchBattleCreatureAbilityActivatedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Ability: ability, Change: fromMatchBattleStatChange(e.Change)}
-		if basis := e.BattleModifier; basis != nil {
-			converted.BattleModifier = &model.MatchBattleModifierBasis{AttackModifier: basis.AttackModifier, HitPointsModifier: basis.HitPointsModifier}
+		activated, err := fromEffect(e.ActivatedEffect)
+		if err != nil {
+			return nil, err
 		}
-		if basis := e.BattleRandomStats; basis != nil {
-			converted.BattleRandomStats = &model.MatchBattleRandomStatsBasis{Minimum: basis.Minimum, Maximum: basis.Maximum}
-		}
-		return converted, nil
+		return &model.MatchBattleCreatureEffectActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Card: card, ActivatedEffect: activated, Change: fromMatchBattleStatChange(e.Change),
+		}, nil
 	case query.MatchBattleItemEffectActivatedEvent:
 		side, err := fromMatchBattleSide(e.Side)
 		if err != nil {
@@ -512,12 +494,12 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		if err != nil {
 			return nil, err
 		}
-		cardEffect, err := fromItemEffect(e.CardEffect)
+		activated, err := fromEffect(e.ActivatedEffect)
 		if err != nil {
 			return nil, err
 		}
 		return &model.MatchBattleItemEffectActivatedEvent{
-			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Card: card, CardEffect: cardEffect,
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Side: side, Card: card, ActivatedEffect: activated,
 			Change: fromMatchBattleStatChange(e.Change), OpponentChange: fromMatchBattleStatChange(e.OpponentChange),
 		}, nil
 	case query.MatchCreatureStruckEvent:

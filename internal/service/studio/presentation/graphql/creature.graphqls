@@ -19,9 +19,11 @@ type Creature implements Card {
   "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
   itemRestrictions: [ItemCategory!]!
   "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
-  placementRestrictions: [CreatureElement!]!
-  "能力（並びは決めた順。無ければ空）"
-  abilities: [CreatureAbility!]!
+  placementRestrictions: [BoardTileElement!]!
+  "効果の並び（入れた順。無ければ空）"
+  effects: [Effect!]!
+  "クリーチャーが持てる効果の種類（画面が選べるものだけを出すため。決まりは core が持つ）"
+  allowedEffectKinds: [EffectKind!]!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -103,126 +105,26 @@ type ChangeCreatureStatsSuccess {
 "クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
 union ChangeCreatureStatsResult = ChangeCreatureStatsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
 
-"クリーチャーの能力の種類"
-enum CreatureAbilityKind {
-  "防御型（侵略できない。移動できない。守ることはできる）"
-  DEFENSIVE
-  "通行料の倍率（いる領地の通行料を払うときに倍率を掛ける）"
-  TOLL_MULTIPLIER
-  "先制（戦闘で、先制の無い相手より先に攻撃する。後手と同時には持てない）"
-  FIRST_STRIKE
-  "後手（戦闘で、後手の無い相手より後に攻撃する。先制と同時には持てない）"
-  LAST_STRIKE
-  "戦闘中の増減（戦闘中、AT・HP が決まった値だけ増減する）"
-  BATTLE_MODIFIER
-  "戦闘中のランダム（戦闘中、AT・HP が最小〜最大のランダムな値になる。別々に引く）"
-  BATTLE_RANDOM_STATS
-  "攻撃無効（戦闘で、属性のどれかが合うクリーチャーから攻撃を受けたとき、ダメージが 0 になる）"
-  ATTACK_IMMUNITY
-}
-
-# 種類ごとに型を分ける（スペルの効果と同じ）。スペルの効果と違って union にしないのは、値の無い能力（防御型）の型に項目が 1 つは要るため、
-# すべての能力に共通の kind を持たせて interface にする（2026-11-11 オーナー。core#156）
-"クリーチャーの能力"
-interface CreatureAbility {
-  "能力の種類"
-  kind: CreatureAbilityKind!
-}
-
-"防御型"
-type CreatureDefensiveAbility implements CreatureAbility {
-  "能力の種類（DEFENSIVE）"
-  kind: CreatureAbilityKind!
-}
-
-"通行料の倍率"
-type CreatureTollMultiplierAbility implements CreatureAbility {
-  "能力の種類（TOLL_MULTIPLIER）"
-  kind: CreatureAbilityKind!
-  "倍率（百分率。150 で 1.5 倍。1 以上）"
-  percent: Int!
-}
-
-"先制"
-type CreatureFirstStrikeAbility implements CreatureAbility {
-  "能力の種類（FIRST_STRIKE）"
-  kind: CreatureAbilityKind!
-}
-
-"後手"
-type CreatureLastStrikeAbility implements CreatureAbility {
-  "能力の種類（LAST_STRIKE）"
-  kind: CreatureAbilityKind!
-}
-
-"戦闘中の増減"
-type CreatureBattleModifierAbility implements CreatureAbility {
-  "能力の種類（BATTLE_MODIFIER）"
-  kind: CreatureAbilityKind!
-  "戦闘中の AT の増減（負も 0 もある）"
-  attackModifier: Int!
-  "戦闘中の HP の増減（負も 0 もある）"
-  hitPointsModifier: Int!
-}
-
-"戦闘中のランダム"
-type CreatureBattleRandomStatsAbility implements CreatureAbility {
-  "能力の種類（BATTLE_RANDOM_STATS）"
-  kind: CreatureAbilityKind!
-  "戦闘中の AT・HP の最小（1 以上）"
-  minimum: Int!
-  "戦闘中の AT・HP の最大（最小以上）"
-  maximum: Int!
-}
-
-"攻撃無効"
-type CreatureAttackImmunityAbility implements CreatureAbility {
-  "能力の種類（ATTACK_IMMUNITY）"
-  kind: CreatureAbilityKind!
-  "攻撃してきたときに無効にする相手の属性（火・地・水・風から 1 つ以上。無は選べない）"
-  elements: [CreatureElement!]!
-}
-
-"能力 1 つの入力"
-# 種類ごとに要る値だけを入れる（通行料の倍率は percent、戦闘中の増減は attackModifier・hitPointsModifier、戦闘中のランダムは minimum・maximum、攻撃無効は elements。防御型・先制・後手は値なし）。種類と値の組み合わせが合わないものは FieldInvalidFormat（abilities.N）、
-# 値の範囲の誤りは FieldTooSmall（abilities.N.percent・abilities.N.minimum。最大が最小より小さいのは、最大は最小と等しくてよいので FieldNotGreaterThan でなく、最小を下限にした FieldTooSmall の abilities.N.maximum）。攻撃無効の属性の誤り（空・重複・無）は FieldInvalidFormat（abilities.N.elements）
-input CreatureAbilityInput {
-  "能力の種類"
-  kind: CreatureAbilityKind!
-  "通行料の倍率（百分率。TOLL_MULTIPLIER だけに要る）"
-  percent: Int
-  "戦闘中の AT の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）"
-  attackModifier: Int
-  "戦闘中の HP の増減（負も 0 もよい。BATTLE_MODIFIER だけに要る）"
-  hitPointsModifier: Int
-  "戦闘中の AT・HP の最小（1 以上。BATTLE_RANDOM_STATS だけに要る）"
-  minimum: Int
-  "戦闘中の AT・HP の最大（最小以上。BATTLE_RANDOM_STATS だけに要る）"
-  maximum: Int
-  "攻撃無効が効く相手の属性（火・地・水・風から 1 つ以上。ATTACK_IMMUNITY だけに要る）"
-  elements: [CreatureElement!]
-}
-
-"クリーチャーの能力を変える入力"
-input ChangeCreatureAbilitiesInput {
+"クリーチャーの効果の並びを変える入力"
+input ChangeCreatureEffectsInput {
   "クリーチャーの公開用の ID"
   id: UUID!
   "画面が見ていたクリーチャーの revision"
   revision: Int!
-  "変えた後の能力の並び（同じ種類は 1 つまで。先制と後手は同時に持てない。どちらも違えば FieldInvalidFormat（abilities）。無しは空）"
-  abilities: [CreatureAbilityInput!]!
+  "変えた後の効果の並び（全体。並びの順に当てる。同じ種類を重ねてよい。クリーチャーが持てない種類は FieldInvalidFormat（effects.N）、先に攻撃すると後に攻撃するを一緒に持つのは FieldInvalidFormat（effects）。無しは空）"
+  effects: [EffectInput!]!
 }
 
-"クリーチャーの能力を変えた（同じ並びなら何も変えず、revision も進まない）"
-type ChangeCreatureAbilitiesSuccess {
+"クリーチャーの効果の並びを変えた（同じ並びなら何も変えず、revision も進まない）"
+type ChangeCreatureEffectsSuccess {
   "変えたクリーチャーの公開用の ID"
   id: UUID!
   "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
   revision: Int!
 }
 
-"クリーチャーの能力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
-union ChangeCreatureAbilitiesResult = ChangeCreatureAbilitiesSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+"クリーチャーの効果の並びを変える操作の結果（入力の誤りの項目は changeItemEffects と同じ。カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureEffectsResult = ChangeCreatureEffectsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
 
 "クリーチャーのアイテム制限を変える入力"
 input ChangeCreatureItemRestrictionsInput {
@@ -252,7 +154,7 @@ input ChangeCreaturePlacementRestrictionsInput {
   "画面が見ていたクリーチャーの revision"
   revision: Int!
   "変えた後の配置制限（置けない土地の属性。火・地・水・風で重複なし。無しは空）"
-  placementRestrictions: [CreatureElement!]!
+  placementRestrictions: [BoardTileElement!]!
 }
 
 "クリーチャーの配置制限を変えた（同じ集合なら何も変えず、revision も進まない）"
@@ -277,11 +179,11 @@ extend type Mutation {
     "変えるクリーチャーと攻撃力・体力"
     input: ChangeCreatureStatsInput!
   ): ChangeCreatureStatsResult!
-  "クリーチャーの能力を変える（紐づいたオペレーターだけ。準備中だけ。並びを全体で入れ替える）"
-  changeCreatureAbilities(
-    "変えるクリーチャーと能力"
-    input: ChangeCreatureAbilitiesInput!
-  ): ChangeCreatureAbilitiesResult!
+  "クリーチャーの効果の並びを変える（紐づいたオペレーターだけ。準備中だけ。並びを全体で入れ替える）"
+  changeCreatureEffects(
+    "変えるクリーチャーと効果の並び"
+    input: ChangeCreatureEffectsInput!
+  ): ChangeCreatureEffectsResult!
   "クリーチャーのアイテム制限を変える（紐づいたオペレーターだけ。準備中だけ）"
   changeCreatureItemRestrictions(
     "変えるクリーチャーとアイテム制限"

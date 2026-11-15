@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -44,17 +45,27 @@ type Card struct {
 	UpdatedBy    uuid.UUID
 }
 
-// その分類のアイテムが持てる効果の種類（item.EffectKind の値。選べる効果の表は item に 1 つだけ置き、画面に書き写さないため。core#177）。
+// クリーチャーが持てる効果の種類（effect.Kind の値。選べる効果の表は creature に 1 つだけ置き、画面に書き写さないため。core#178）
+func CreatureAllowedEffectKinds() []string {
+	kinds := creature.AllowedEffectKinds()
+	values := make([]string, len(kinds))
+	for i, kind := range kinds {
+		values[i] = kind.String()
+	}
+	return values
+}
+
+// その分類のアイテムが持てる効果の種類（effect.Kind の値。選べる効果の表は item に 1 つだけ置き、画面に書き写さないため。core#177）。
 // 知らない分類は read model の不整合なので誤りにする
 func ItemAllowedEffectKinds(category string) ([]string, error) {
-	value, err := item.NewCategory(category)
+	value, err := card.NewItemCategory(category)
 	if err != nil {
 		return nil, err
 	}
-	kinds := value.AllowedEffectKinds()
+	kinds := item.AllowedEffectKinds(value)
 	values := make([]string, len(kinds))
 	for i, kind := range kinds {
-		values[i] = string(kind)
+		values[i] = kind.String()
 	}
 	return values, nil
 }

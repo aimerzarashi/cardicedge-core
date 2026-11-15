@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 // 変わらない操作（公開中にもう一度公開する等）は、イベントを作らない（版を進めず、画面の版を古くしないため）
@@ -24,7 +25,7 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			HitPoints:             DefaultHitPoints,
 			ItemRestrictions:      DefaultItemRestrictions(),
 			PlacementRestrictions: DefaultPlacementRestrictions(),
-			Abilities:             DefaultAbilities(),
+			Effects:               effect.DefaultEffects(),
 			RegisteredBy:          c.RegisteredBy,
 		}}, nil
 	case *PublishCommand:
@@ -71,12 +72,15 @@ func Decide(state State, cmd Command, now time.Time) ([]Event, error) {
 			return nil, err
 		}
 		return []Event{&StatsChangedEvent{EventMeta: nextMeta(creature, now), Attack: c.Attack, HitPoints: c.HitPoints, ChangedBy: c.ChangedBy}}, nil
-	case *ChangeAbilitiesCommand:
+	case *ChangeEffectsCommand:
 		creature, err := editable(state)
-		if err != nil || creature.Abilities.Equal(c.Abilities) {
+		if err != nil || creature.Effects.Equal(c.Effects) {
 			return nil, err
 		}
-		return []Event{&AbilitiesChangedEvent{EventMeta: nextMeta(creature, now), Abilities: c.Abilities, ChangedBy: c.ChangedBy}}, nil
+		if err := checkEffects(c.Effects); err != nil {
+			return nil, err
+		}
+		return []Event{&EffectsChangedEvent{EventMeta: nextMeta(creature, now), Effects: c.Effects, ChangedBy: c.ChangedBy}}, nil
 	case *ChangeItemRestrictionsCommand:
 		creature, err := editable(state)
 		if err != nil || creature.ItemRestrictions.Equal(c.ItemRestrictions) {

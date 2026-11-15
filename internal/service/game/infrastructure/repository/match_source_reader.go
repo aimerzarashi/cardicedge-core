@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -196,7 +197,7 @@ func toMatchBoard(id board.ID, metadata boardMetadata) (match.Board, error) {
 		}
 		tile := board.Tile{Position: at, Kind: kind}
 		if t.Element != "" {
-			if tile.Element, err = board.NewElement(t.Element); err != nil {
+			if tile.Element, err = element.NewLand(t.Element); err != nil {
 				return match.Board{}, err
 			}
 		}
@@ -296,10 +297,10 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 		}
 		spec := master.CardSpec{Cost: row.card.Cost, Rarity: row.card.Rarity}
 		if row.card.Creature != nil {
-			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions, Abilities: masterCreatureAbilities(row.card.Creature.Abilities)}
+			spec.Creature = &master.CreatureSpec{Elements: row.card.Creature.Elements, Attack: row.card.Creature.Attack, HitPoints: row.card.Creature.HitPoints, ItemRestrictions: row.card.Creature.ItemRestrictions, PlacementRestrictions: row.card.Creature.PlacementRestrictions, Effects: masterEffects(row.card.Creature.Effects)}
 		}
 		if row.card.Item != nil {
-			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, Effects: masterItemEffects(row.card.Item.Effects)}
+			spec.Item = &master.ItemSpec{Category: row.card.Item.Category, Effects: masterEffects(row.card.Item.Effects)}
 		}
 		if row.card.Spell != nil {
 			spec.Spell = &master.SpellSpec{}
@@ -325,32 +326,34 @@ func (r *MatchSourceReader) CardSpecs(ctx context.Context, refs []card.Ref) (map
 	return specs, nil
 }
 
-func masterCreatureAbilities(abilities []query.CreatureAbility) []master.CreatureAbility {
-	values := make([]master.CreatureAbility, len(abilities))
-	for i, ability := range abilities {
-		values[i] = master.CreatureAbility{Defensive: ability.Defensive, TollMultiplierPercent: ability.TollMultiplierPercent, FirstStrike: ability.FirstStrike, LastStrike: ability.LastStrike}
-		if ability.BattleModifier != nil {
-			values[i].BattleModifier = &master.CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
+func masterEffects(effects []query.Effect) []master.Effect {
+	values := make([]master.Effect, len(effects))
+	for i, value := range effects {
+		values[i] = master.Effect{
+			AttackModifier: value.AttackModifier, HitPointsModifier: value.HitPointsModifier, IgnoreTerrainEffect: value.IgnoreTerrainEffect,
+			StrikeFirst: value.StrikeFirst, StrikeLast: value.StrikeLast, TollMultiplierPercent: value.TollMultiplierPercent,
+			ForbidInvasion: value.ForbidInvasion, ForbidMovement: value.ForbidMovement,
 		}
-		if ability.BattleRandomStats != nil {
-			values[i].BattleRandomStats = &master.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
+		if value.AttackOverride != nil {
+			values[i].AttackOverride = &master.EffectRange{Minimum: value.AttackOverride.Minimum, Maximum: value.AttackOverride.Maximum}
 		}
-		values[i].AttackImmunityElements = ability.AttackImmunityElements
+		if value.HitPointsOverride != nil {
+			values[i].HitPointsOverride = &master.EffectRange{Minimum: value.HitPointsOverride.Minimum, Maximum: value.HitPointsOverride.Maximum}
+		}
+		if value.AttackMultiplier != nil {
+			values[i].AttackMultiplier = &master.EffectAttackMultiplier{Percent: value.AttackMultiplier.Percent, Constraints: masterConstraints(value.AttackMultiplier.Constraints)}
+		}
+		if value.NullifyReceivedDamage != nil {
+			values[i].NullifyReceivedDamage = &master.EffectNullifyReceivedDamage{Constraints: masterConstraints(value.NullifyReceivedDamage.Constraints)}
+		}
 	}
 	return values
 }
 
-func masterItemEffects(effects []query.ItemEffect) []master.ItemEffect {
-	values := make([]master.ItemEffect, len(effects))
-	for i, effect := range effects {
-		values[i] = master.ItemEffect{AttackModifier: effect.AttackModifier, HitPointsModifier: effect.HitPointsModifier, AttackOverride: effect.AttackOverride, IgnoreTerrainEffect: effect.IgnoreTerrainEffect}
-		if effect.AttackMultiplier != nil {
-			constraints := make([]master.ItemConstraint, len(effect.AttackMultiplier.Constraints))
-			for j, constraint := range effect.AttackMultiplier.Constraints {
-				constraints[j] = master.ItemConstraint{OpponentElements: constraint.OpponentElements}
-			}
-			values[i].AttackMultiplier = &master.ItemAttackMultiplier{Percent: effect.AttackMultiplier.Percent, Constraints: constraints}
-		}
+func masterConstraints(constraints []query.EffectConstraint) []master.EffectConstraint {
+	values := make([]master.EffectConstraint, len(constraints))
+	for i, constraint := range constraints {
+		values[i] = master.EffectConstraint{OpponentCreatureElements: constraint.OpponentCreatureElements}
 	}
 	return values
 }

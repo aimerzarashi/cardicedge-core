@@ -25,7 +25,7 @@ var Types = Catalog{
 			{ID: 1107, Name: "StatsChangedEvent"},
 			{ID: 1109, Name: "ItemRestrictionsChangedEvent"},
 			{ID: 1110, Name: "PlacementRestrictionsChangedEvent"},
-			{ID: 1111, Name: "AbilitiesChangedEvent"},
+			{ID: 1111, Name: "EffectsChangedEvent"},
 		}},
 		{ID: 1200, Name: "item", Events: []EventTypeDef{
 			{ID: 1201, Name: "RegisteredEvent"},
@@ -172,7 +172,7 @@ var Types = Catalog{
 			{ID: 3025, Name: "BattleStartedEvent"},
 			{ID: 3026, Name: "BattleSupportEffectActivatedEvent"},
 			{ID: 3027, Name: "BattleTerrainEffectActivatedEvent"},
-			{ID: 3028, Name: "BattleCreatureAbilityActivatedEvent"},
+			{ID: 3028, Name: "BattleCreatureEffectActivatedEvent"},
 			{ID: 3029, Name: "BattleItemEffectActivatedEvent"},
 			{ID: 3030, Name: "TerritoryLeveledUpEvent"},
 			{ID: 3031, Name: "LandElementChangedEvent"},

@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 )
 
 type State interface {
@@ -29,7 +30,7 @@ type Creature struct {
 	HitPoints             HitPoints
 	ItemRestrictions      ItemRestrictions
 	PlacementRestrictions PlacementRestrictions
-	Abilities             Abilities
+	Effects               effect.Effects
 }
 
 func (Creature) isCreatureState() {}

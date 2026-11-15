@@ -7,8 +7,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 // 中で time.Now や乱数を呼ばず受け取るのは、テストで時刻・並びを固定するため。混ぜた並びはイベントに残し、Evolve は乱数に左右されない
@@ -209,7 +209,7 @@ func roll(r *recorder, random Random) error {
 }
 
 // ターンをまたいで効き続ける効果ならそのターン数
-func lastingTurns(effect spell.Effect) (int, bool) {
+func lastingTurns(effect effect.SpellEffect) (int, bool) {
 	switch {
 	case effect.MultipleDice != nil:
 		return effect.MultipleDice.Turns.Int(), true
@@ -370,7 +370,7 @@ func moveCreature(r *recorder, from, to board.Position) error {
 	return afterTerritoryCommand(r)
 }
 
-func changeLandElement(r *recorder, position board.Position, element board.Element) error {
+func changeLandElement(r *recorder, position board.Position, element element.Land) error {
 	index := slices.IndexFunc(r.state.ElementChangeChoices(), func(choice ElementChangeChoice) bool { return choice.Position == position && choice.Element == element })
 	if index < 0 {
 		return ErrLandElementNotChangeable
@@ -496,11 +496,10 @@ func (m Match) battleInput() (BattleInput, error) {
 		return invasion.From != nil && position == *invasion.From
 	})
 	return BattleInput{
-		Attacker:            BattleCombatant{Card: invasion.Card, Spec: invasion.Base, Attack: invasion.Attack, HitPoints: invasion.HitPoints, Item: attackerItem},
-		Defender:            BattleCombatant{Card: defending.Card, Spec: defending.Base, Attack: defending.Attack, HitPoints: defending.HitPoints, Item: defenderItem},
-		Land:                BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
-		AdjacentTerritories: adjacent,
-		Rules:               BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
+		Attacker: BattleCombatant{Card: invasion.Card, Spec: invasion.Base, Attack: invasion.Attack, HitPoints: invasion.HitPoints, Item: attackerItem, AdjacentTerritories: adjacent},
+		Defender: BattleCombatant{Card: defending.Card, Spec: defending.Base, Attack: defending.Attack, HitPoints: defending.HitPoints, Item: defenderItem, AdjacentTerritories: m.adjacentTerritoriesOf(territory.Position, defending.Owner)},
+		Land:     BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
+		Rules:    BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
 	}, nil
 }
 
@@ -546,7 +545,7 @@ func resolveBattle(input BattleInput, random Random) ([]battleEvent, error) {
 			return b.events, nil
 		}
 	}
-	if err := b.activateStrikeAbilities(); err != nil {
+	if err := b.activateStrikeEffects(); err != nil {
 		return nil, err
 	}
 	for _, striker := range b.strikeOrder() {
@@ -577,35 +576,33 @@ func (b *battleResolver) emit(event battleEvent) error {
 	return nil
 }
 
-// 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は スペルの効果 → 能力 → 場の効果 → アイテム（2026-11-09 オーナー）。
+// 効果を当てる順はここだけで決める。攻める側を全部当ててから守る側で、各側の中は スペルの効果 → クリーチャーの効果 → 場の効果 → アイテム（2026-11-09 オーナー）。
+// 場の効果は、攻める側は支援効果、守る側は支援効果 → 地形効果（AT と HP なので順で値は変わらないが、攻める側と並びをそろえる。2026-11-15 オーナー。core#178）。
 // スペルの効果は作るときに前へ足す。倍率は、両方の側の増減・上書きがすべて済んだ後の倍率の段階で掛ける（2026-11-14 オーナー。core#177）
 func (b *battleResolver) effects(random Random) []func() error {
 	return []func() error{
-		func() error { return b.applyAbilities(BattleSideAttacker, random) },
-		b.applyAdjacentTerritories,
-		func() error { return b.applyItem(BattleSideAttacker) },
-		func() error { return b.applyAbilities(BattleSideDefender, random) },
+		func() error { return b.applyCreatureEffects(BattleSideAttacker, random) },
+		func() error { return b.applySupportEffect(BattleSideAttacker) },
+		func() error { return b.applyItem(BattleSideAttacker, random) },
+		func() error { return b.applyCreatureEffects(BattleSideDefender, random) },
+		func() error { return b.applySupportEffect(BattleSideDefender) },
 		b.applyTerrain,
-		func() error { return b.applyItem(BattleSideDefender) },
+		func() error { return b.applyItem(BattleSideDefender, random) },
 		func() error { return b.applyAttackMultiplier(BattleSideAttacker) },
 		func() error { return b.applyAttackMultiplier(BattleSideDefender) },
 	}
 }
 
-// 能力の位置。持っている能力を並びの順に、AT・HP を変える能力だけ当てる（先制・後手は攻撃の前に別に発動する）。
-// 種類ごとに決まった順にしないのは、能力の並びが入力のまま残る決まり（core#127）で、効果を当てる順になりうるため
-func (b *battleResolver) applyAbilities(side BattleSide, random Random) error {
-	for _, ability := range b.input.combatant(side).Spec.Abilities {
-		var err error
-		switch {
-		case ability.BattleModifier != nil:
-			modifier := *ability.BattleModifier
-			change := b.actualChange(side, modifier.AttackModifier.Int(), modifier.HitPointsModifier.Int())
-			err = b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleModifier, Change: &change})
-		case ability.BattleRandomStats != nil:
-			err = b.applyRandomStats(side, *ability.BattleRandomStats, random)
+// クリーチャーの効果の位置。効果を並びの順に、AT・HP を変える効果（増減・上書き）だけ当てる（先に・後に攻撃するは攻撃の前に、
+// 受けるダメージを 0 にするは攻撃を受ける直前に別に発動する）。種類ごとに決まった順にしないのは、効果の並びが入力のまま残る決まりで、
+// 当てる順・乱数を引く順になるため（core#127・core#178）
+func (b *battleResolver) applyCreatureEffects(side BattleSide, random Random) error {
+	for _, candidate := range b.input.Combatant(side).Spec.Effects {
+		change, ok := b.statChange(side, candidate, random)
+		if !ok {
+			continue
 		}
-		if err != nil {
+		if err := b.emit(&BattleCreatureEffectActivatedEvent{Side: side, Effect: candidate.Kind(), Change: &change}); err != nil {
 			return err
 		}
 		if b.battle.decided() {
@@ -615,24 +612,41 @@ func (b *battleResolver) applyAbilities(side BattleSide, random Random) error {
 	return nil
 }
 
-// AT → HP の順に引く（乱数の元を使う順を決めて、再生と同じ値になるようにするため）。増減は引いた値と今の値の差で、
-// 増減が 0 でも発動を表すので出す
-func (b *battleResolver) applyRandomStats(side BattleSide, randomStats creature.BattleRandomStatsAbility, random Random) error {
-	minimum, maximum := randomStats.Minimum.Int(), randomStats.Maximum.Int()
-	attack := minimum + random.IntN(maximum-minimum+1)
-	hitPoints := minimum + random.IntN(maximum-minimum+1)
+// AT・HP を変える効果（増減・上書き）の実際の増減。ほかの種類は false。クリーチャーとアイテムの位置で同じ決まりを使う。
+// 上書きの増減は、引いた値と今の値の差（増減が 0 でも発動を表すので出す）
+func (b *battleResolver) statChange(side BattleSide, candidate effect.Effect, random Random) (BattleStatChange, bool) {
 	before := b.battle.Creature(side).Stats()
-	change := b.actualChange(side, attack-before.Attack.Int(), hitPoints-before.HitPoints.Int())
-	return b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: BattleAbilityBattleRandomStats, Change: &change})
+	switch {
+	case candidate.AttackModifier != nil:
+		return b.actualChange(side, candidate.AttackModifier.Value.Int(), 0), true
+	case candidate.HitPointsModifier != nil:
+		return b.actualChange(side, 0, candidate.HitPointsModifier.Value.Int()), true
+	case candidate.AttackOverride != nil:
+		attack := overrideValue(candidate.AttackOverride.Minimum.Int(), candidate.AttackOverride.Maximum.Int(), random)
+		return b.actualChange(side, attack-before.Attack.Int(), 0), true
+	case candidate.HitPointsOverride != nil:
+		hitPoints := overrideValue(candidate.HitPointsOverride.Minimum.Int(), candidate.HitPointsOverride.Maximum.Int(), random)
+		return b.actualChange(side, 0, hitPoints-before.HitPoints.Int()), true
+	}
+	return BattleStatChange{}, false
+}
+
+// 上書きの値。最小〜最大から 1 刻みで引く。固定（最小と最大が同じ）は引かない（乱数の元を使わず、固定の上書きだけの戦闘の再生を変えないため）
+func overrideValue(minimum, maximum int, random Random) int {
+	if minimum == maximum {
+		return minimum
+	}
+	return minimum + random.IntN(maximum-minimum+1)
 }
 
 // 隣の自分の領地が無ければ発動しない
-func (b *battleResolver) applyAdjacentTerritories() error {
-	if len(b.input.AdjacentTerritories) == 0 {
+func (b *battleResolver) applySupportEffect(side BattleSide) error {
+	adjacent := b.input.Combatant(side).AdjacentTerritories
+	if len(adjacent) == 0 {
 		return nil
 	}
-	bonus := len(b.input.AdjacentTerritories) * b.input.Rules.AdjacentTerritoryBonus.Int()
-	return b.emit(&BattleSupportEffectActivatedEvent{AttackDelta: b.actualChange(BattleSideAttacker, bonus, 0).AttackDelta})
+	bonus := len(adjacent) * b.input.Rules.AdjacentTerritoryBonus.Int()
+	return b.emit(&BattleSupportEffectActivatedEvent{Side: side, AttackDelta: b.actualChange(side, bonus, 0).AttackDelta})
 }
 
 func (b *battleResolver) applyTerrain() error {
@@ -644,33 +658,26 @@ func (b *battleResolver) applyTerrain() error {
 }
 
 // 複の土地は、無属性以外のクリーチャーならどれでも効く（2026-11-09 オーナー）
-func terrainMatches(land board.Element, elements creature.Elements) bool {
-	if land == board.ElementMulti {
-		return !slices.Contains(elements, creature.ElementNeutral)
+func terrainMatches(land element.Land, elements creature.Elements) bool {
+	if land == element.LandMulti {
+		return !slices.Contains(elements, element.CreatureNeutral)
 	}
-	return slices.ContainsFunc(elements, func(element creature.Element) bool { return element.String() == land.String() })
+	return slices.ContainsFunc(elements, func(element element.Creature) bool { return element.String() == land.String() })
 }
 
 // アイテムの位置。効果を並びの順に、増減・上書きだけ当てる（増減が 0 でも発動を表すので出す。倍率は倍率の段階、
-// 地形効果を無視するは攻撃の直前に発動する）。上書きの増減は、上書きした値と今の値の差
-func (b *battleResolver) applyItem(side BattleSide) error {
-	used := b.input.combatant(side).Item
+// 地形効果を無視するは攻撃の直前に発動する）
+func (b *battleResolver) applyItem(side BattleSide, random Random) error {
+	used := b.input.Combatant(side).Item
 	if used == nil {
 		return nil
 	}
-	for _, effect := range used.Spec.Effects {
-		var change BattleStatChange
-		switch {
-		case effect.AttackModifier != nil:
-			change = b.actualChange(side, effect.AttackModifier.Value.Int(), 0)
-		case effect.HitPointsModifier != nil:
-			change = b.actualChange(side, 0, effect.HitPointsModifier.Value.Int())
-		case effect.AttackOverride != nil:
-			change = b.actualChange(side, effect.AttackOverride.Value.Int()-b.battle.Creature(side).Stats().Attack.Int(), 0)
-		default:
+	for _, candidate := range used.Spec.Effects {
+		change, ok := b.statChange(side, candidate, random)
+		if !ok {
 			continue
 		}
-		if err := b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: effect.Kind(), Change: &change}); err != nil {
+		if err := b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: candidate.Kind(), Change: &change}); err != nil {
 			return err
 		}
 		if b.battle.decided() {
@@ -683,14 +690,14 @@ func (b *battleResolver) applyItem(side BattleSide) error {
 // 倍率の段階。制約を満たす AT の倍率のうち一番高いものを 1 回だけ掛け（切り捨て）、掛けたものだけが発動を出す。採られなかった
 // 倍率は何も出さない（2026-11-14 オーナー。重なるカードを作るときに見直す）。同じ倍率が並べば先のものを採る
 func (b *battleResolver) applyAttackMultiplier(side BattleSide) error {
-	used := b.input.combatant(side).Item
+	used := b.input.Combatant(side).Item
 	if used == nil {
 		return nil
 	}
-	opponentElements := b.input.combatant(side.opponent()).Spec.Elements.Strings()
+	opponentElements := b.input.Combatant(side.opponent()).Spec.Elements
 	highest := 0
 	for _, effect := range used.Spec.Effects {
-		if effect.AttackMultiplier == nil || !effect.AttackMultiplier.Constraints.SatisfiedByOpponentElements(opponentElements) {
+		if effect.AttackMultiplier == nil || !effect.AttackMultiplier.Constraints.SatisfiedByOpponentCreatureElements(opponentElements) {
 			continue
 		}
 		highest = max(highest, effect.AttackMultiplier.Percent.Int())
@@ -700,20 +707,20 @@ func (b *battleResolver) applyAttackMultiplier(side BattleSide) error {
 	}
 	attack := b.battle.Creature(side).Stats().Attack.Int()
 	change := b.actualChange(side, attack*highest/100-attack, 0)
-	return b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: item.EffectKindAttackMultiplier, Change: &change})
+	return b.emit(&BattleItemEffectActivatedEvent{Side: side, Effect: effect.KindAttackMultiplier, Change: &change})
 }
 
 // 地形効果を無視する効果を持つ側が攻撃する直前に、相手に地形効果の層があれば発動する（無視するものが無ければ状態が変わらないので
 // 出さない。2026-11-14 オーナー）
 func (b *battleResolver) ignoreTerrainEffect(striker BattleSide) error {
-	used := b.input.combatant(striker).Item
+	used := b.input.Combatant(striker).Item
 	if used == nil || !b.battle.Creature(striker.opponent()).hasTerrainEffect() {
 		return nil
 	}
-	if !slices.ContainsFunc(used.Spec.Effects, func(effect item.Effect) bool { return effect.IgnoreTerrainEffect != nil }) {
+	if !slices.ContainsFunc(used.Spec.Effects, func(effect effect.Effect) bool { return effect.IgnoreTerrainEffect != nil }) {
 		return nil
 	}
-	return b.emit(&BattleItemEffectActivatedEvent{Side: striker, Effect: item.EffectKindIgnoreTerrainEffect})
+	return b.emit(&BattleItemEffectActivatedEvent{Side: striker, Effect: effect.KindIgnoreTerrainEffect})
 }
 
 // 今の値に当てて下限（0）で止まった後の、実際の増減
@@ -725,21 +732,21 @@ func (b *battleResolver) actualChange(side BattleSide, attackDelta, hitPointsDel
 	}
 }
 
-// 攻撃の順に効く能力（先制・後手）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
-func (b *battleResolver) activateStrikeAbilities() error {
+// 攻撃の順に効く効果（先に・後に攻撃する）を、持っている側ごとに攻める側 → 守る側の順で発動させる。効き目が無くても持っていれば出す
+func (b *battleResolver) activateStrikeEffects() error {
 	for _, side := range []BattleSide{BattleSideAttacker, BattleSideDefender} {
-		ability, ok := b.input.combatant(side).Spec.strikeAbility()
+		kind, ok := b.input.Combatant(side).Spec.strikeEffect()
 		if !ok {
 			continue
 		}
-		if err := b.emit(&BattleCreatureAbilityActivatedEvent{Side: side, Ability: ability}); err != nil {
+		if err := b.emit(&BattleCreatureEffectActivatedEvent{Side: side, Effect: kind}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// 攻撃する順。先制 > どちらも無し > 後手 の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）。
+// 攻撃する順。先に攻撃する > どちらも無し > 後に攻撃する の強い方が先で、同じなら攻める側が先（culdcept-lab.com の戦闘のクイズの基礎編。2026-11-11 オーナー。core#158）。
 // 強さは発動で得た戦闘の中の値で比べる（core#175）
 func (b *battleResolver) strikeOrder() []BattleSide {
 	if b.battle.Defender.StrikePriority > b.battle.Attacker.StrikePriority {
@@ -748,22 +755,22 @@ func (b *battleResolver) strikeOrder() []BattleSide {
 	return []BattleSide{BattleSideAttacker, BattleSideDefender}
 }
 
-// 攻撃無効は相手の AT を下げるのではなく受けるダメージを 0 にするので、発動を攻撃の前に別のイベントで出す
+// 受けるダメージを 0 にする（攻撃無効）は相手の AT を下げるのではないので、発動を攻撃の前に別のイベントで出す
 // （攻撃のイベントに埋めると、ダメージが 0 になった理由がイベントの並びに出ないため。2026-11-13 オーナー。core#174）。
-// 発動するか（属性が合うか）は入力の性能で判定し、ダメージを 0 にするかは発動で得た戦闘の中の値で決める（core#175）
+// 発動するか（制約を満たすか）は入力の性能で判定し、ダメージを 0 にするかは発動で得た戦闘の中の値で決める（core#175）
 func (b *battleResolver) strike(striker BattleSide) error {
 	receiver := striker.opponent()
-	// 地形効果を無視する（攻める側の効果）→ 攻撃無効（受ける側の能力）→ 攻撃の順（2026-11-14 オーナー）
+	// 地形効果を無視する（攻める側の効果）→ 受けるダメージを 0 にする（受ける側の効果）→ 攻撃の順（2026-11-14 オーナー）
 	if err := b.ignoreTerrainEffect(striker); err != nil {
 		return err
 	}
-	if b.input.combatant(receiver).Spec.isImmuneToAttackFrom(b.input.combatant(striker).Spec) {
-		if err := b.emit(&BattleCreatureAbilityActivatedEvent{Side: receiver, Ability: BattleAbilityAttackImmunity}); err != nil {
+	if b.input.Combatant(receiver).Spec.nullifiesDamageFrom(b.input.Combatant(striker).Spec) {
+		if err := b.emit(&BattleCreatureEffectActivatedEvent{Side: receiver, Effect: effect.KindNullifyReceivedDamage}); err != nil {
 			return err
 		}
 	}
 	attack := b.battle.Creature(striker).Stats().Attack
-	// 受ける割合を掛けて切り捨てる（攻撃無効は 0）
+	// 受ける割合を掛けて切り捨てる（受けるダメージを 0 にするは 0）
 	damage := attack.Modified(attack.Int()*b.battle.Creature(receiver).ReceivedDamagePercent/100 - attack.Int())
 	remaining := b.battle.Creature(receiver).Stats().HitPoints.Damaged(damage)
 	return b.emit(&CreatureStruckEvent{Striker: striker, Damage: damage, RemainingHitPoints: remaining})

@@ -14,6 +14,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect/effecttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item/itemtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -66,7 +68,7 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		Cost:         card.DefaultCost,
 		Rarity:       card.DefaultRarity,
 		Category:     item.DefaultCategory,
-		Effects:      item.DefaultEffects(),
+		Effects:      effect.DefaultEffects(),
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -81,7 +83,7 @@ func TestDecide_RejectsRegisterWhenAlreadyRegistered(t *testing.T) {
 }
 
 func TestEvolve_RegisteredEventMakesItem(t *testing.T) {
-	noEffects := item.DefaultEffects()
+	noEffects := effect.DefaultEffects()
 	f := newFixture(t)
 
 	registered, _ := f.register(t)
@@ -110,8 +112,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	_, retired := f.retire(t, f.publishedState(t))
 	_, costChanged := f.decide(t, state, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
 	_, rarityChanged := f.decide(t, state, &item.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
-	_, categoryChanged := f.decide(t, state, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy})
-	_, effectsChanged := f.decide(t, state, &item.ChangeEffectsCommand{Effects: itemtest.Effects(t, item.NewAttackModifierEffect(item.NewAttackModifier(30)), itemtest.AttackMultiplierEffect(t, 150, "water")), ChangedBy: f.registeredBy})
+	_, categoryChanged := f.decide(t, state, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy})
+	_, effectsChanged := f.decide(t, state, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(30)), effecttest.AttackMultiplier(t, 150, "water")), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event item.Event
@@ -274,7 +276,7 @@ func TestDecide_RejectsStatusCommandsBeforeRegistered(t *testing.T) {
 }
 
 func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
-	noEffects := item.DefaultEffects()
+	noEffects := effect.DefaultEffects()
 	f := newFixture(t)
 	registered, _ := f.register(t)
 
@@ -361,20 +363,20 @@ func TestDecide_RegisterGivesTheDefaultCategoryAndNoEffects(t *testing.T) {
 	state, _ := newFixture(t).register(t)
 	registered := state.(item.Item)
 
-	require.Equal(t, item.CategoryWeapon, registered.Category)
-	require.Equal(t, item.DefaultEffects(), registered.Effects)
+	require.Equal(t, card.ItemCategoryWeapon, registered.Category)
+	require.Equal(t, effect.DefaultEffects(), registered.Effects)
 }
 
 func TestDecide_CategoryAndEffectsChangeWhileDraft(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
-	effects := itemtest.Effects(t, itemtest.AttackOverrideEffect(t, 30), item.NewIgnoreTerrainEffect(), itemtest.AttackMultiplierEffect(t, 150, "fire"))
+	effects := effecttest.Effects(t, effecttest.AttackOverride(t, 30), effect.NewIgnoreTerrainEffect(), effecttest.AttackMultiplier(t, 150, "fire"))
 
-	categorized, _ := f.decide(t, registered, &item.ChangeCategoryCommand{Category: item.CategoryScroll, ChangedBy: f.registeredBy})
+	categorized, _ := f.decide(t, registered, &item.ChangeCategoryCommand{Category: card.ItemCategoryScroll, ChangedBy: f.registeredBy})
 	state, _ := f.decide(t, categorized, &item.ChangeEffectsCommand{Effects: effects, ChangedBy: f.registeredBy})
 	changed := state.(item.Item)
 
-	require.Equal(t, item.CategoryScroll, changed.Category)
+	require.Equal(t, card.ItemCategoryScroll, changed.Category)
 	require.True(t, effects.Equal(changed.Effects))
 	require.Equal(t, int64(3), changed.Version)
 }
@@ -384,7 +386,7 @@ func TestDecide_CategoryAndEffectsEmitNothingWhenUnchanged(t *testing.T) {
 	registered, _ := f.register(t)
 
 	_, categoryEvents := f.decide(t, registered, &item.ChangeCategoryCommand{Category: item.DefaultCategory, ChangedBy: f.registeredBy})
-	_, effectEvents := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: itemtest.Effects(t), ChangedBy: f.registeredBy})
+	_, effectEvents := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t), ChangedBy: f.registeredBy})
 
 	require.Empty(t, categoryEvents)
 	require.Empty(t, effectEvents)
@@ -394,8 +396,8 @@ func TestDecide_RejectsCategoryAndEffectsWhenNotDraft(t *testing.T) {
 	f := newFixture(t)
 	published := f.publishedState(t)
 
-	_, categoryErr := item.Decide(published, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy}, changedAt)
-	_, effectsErr := item.Decide(published, &item.ChangeEffectsCommand{Effects: itemtest.Effects(t, item.NewAttackModifierEffect(item.NewAttackModifier(5))), ChangedBy: f.registeredBy}, changedAt)
+	_, categoryErr := item.Decide(published, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy}, changedAt)
+	_, effectsErr := item.Decide(published, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(5))), ChangedBy: f.registeredBy}, changedAt)
 
 	require.ErrorIs(t, categoryErr, card.ErrNotDraft)
 	require.ErrorIs(t, effectsErr, card.ErrNotDraft)
@@ -405,7 +407,7 @@ func TestDecide_RejectsEffectsTheCategoryDoesNotAllow(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
 
-	_, err := item.Decide(registered, &item.ChangeEffectsCommand{Effects: itemtest.Effects(t, item.NewHitPointsModifierEffect(item.NewHitPointsModifier(10))), ChangedBy: f.registeredBy}, changedAt)
+	_, err := item.Decide(registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewHitPointsModifierEffect(effect.NewHitPointsModifier(10))), ChangedBy: f.registeredBy}, changedAt)
 
 	require.ErrorIs(t, err, item.ErrEffectNotAllowed)
 }
@@ -413,9 +415,9 @@ func TestDecide_RejectsEffectsTheCategoryDoesNotAllow(t *testing.T) {
 func TestDecide_RejectsCategoryThatDoesNotAllowTheCurrentEffects(t *testing.T) {
 	f := newFixture(t)
 	registered, _ := f.register(t)
-	withEffects, _ := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: itemtest.Effects(t, item.NewAttackModifierEffect(item.NewAttackModifier(10))), ChangedBy: f.registeredBy})
+	withEffects, _ := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(10))), ChangedBy: f.registeredBy})
 
-	_, err := item.Decide(withEffects, &item.ChangeCategoryCommand{Category: item.CategoryArmor, ChangedBy: f.registeredBy}, changedAt)
+	_, err := item.Decide(withEffects, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy}, changedAt)
 
 	require.ErrorIs(t, err, item.ErrEffectNotAllowed)
 }
@@ -423,68 +425,19 @@ func TestDecide_RejectsCategoryThatDoesNotAllowTheCurrentEffects(t *testing.T) {
 func TestCategory_AllowsTheEffectKindsOfTheTable(t *testing.T) {
 	tests := []struct {
 		name     string
-		category item.Category
-		allowed  []item.EffectKind
+		category card.ItemCategory
+		allowed  []effect.Kind
 	}{
-		{name: "weapon", category: item.CategoryWeapon, allowed: []item.EffectKind{item.EffectKindAttackModifier, item.EffectKindAttackMultiplier}},
-		{name: "armor", category: item.CategoryArmor, allowed: []item.EffectKind{item.EffectKindHitPointsModifier}},
-		{name: "scroll", category: item.CategoryScroll, allowed: []item.EffectKind{item.EffectKindAttackOverride, item.EffectKindAttackMultiplier, item.EffectKindIgnoreTerrainEffect}},
+		{name: "weapon", category: card.ItemCategoryWeapon, allowed: []effect.Kind{effect.KindAttackModifier, effect.KindAttackMultiplier}},
+		{name: "armor", category: card.ItemCategoryArmor, allowed: []effect.Kind{effect.KindHitPointsModifier}},
+		{name: "scroll", category: card.ItemCategoryScroll, allowed: []effect.Kind{effect.KindAttackOverride, effect.KindAttackMultiplier, effect.KindIgnoreTerrainEffect}},
 	}
-	kinds := []item.EffectKind{item.EffectKindAttackModifier, item.EffectKindHitPointsModifier, item.EffectKindAttackOverride, item.EffectKindAttackMultiplier, item.EffectKindIgnoreTerrainEffect}
+	kinds := []effect.Kind{effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindAttackMultiplier, effect.KindIgnoreTerrainEffect}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, kind := range kinds {
-				require.Equal(t, slices.Contains(tt.allowed, kind), tt.category.Allows(kind))
+				require.Equal(t, slices.Contains(tt.allowed, kind), item.Allows(tt.category, kind))
 			}
 		})
 	}
-}
-
-func TestNewEffects_RejectsAnEffectWithoutAKind(t *testing.T) {
-	_, err := item.NewEffects([]item.Effect{{}})
-
-	require.ErrorIs(t, err, item.ErrEffectEmpty)
-}
-
-func TestNewAttackOverride_RejectsNegative(t *testing.T) {
-	_, err := item.NewAttackOverride(-1)
-
-	require.ErrorIs(t, err, item.ErrAttackOverrideNegative)
-}
-
-func TestNewAttackMultiplierPercent_RejectsBelowOne(t *testing.T) {
-	_, err := item.NewAttackMultiplierPercent(0)
-
-	require.ErrorIs(t, err, item.ErrAttackMultiplierPercentTooSmall)
-}
-
-func TestNewElements_SortsAndRejectsInvalidValues(t *testing.T) {
-	elements, err := item.NewElements([]string{"neutral", "water", "fire"})
-	require.NoError(t, err)
-	require.Equal(t, item.Elements{item.ElementFire, item.ElementWater, item.ElementNeutral}, elements)
-
-	_, emptyErr := item.NewElements(nil)
-	_, unknownErr := item.NewElements([]string{"multi"})
-	_, duplicatedErr := item.NewElements([]string{"fire", "fire"})
-	require.ErrorIs(t, emptyErr, item.ErrElementsEmpty)
-	require.ErrorIs(t, unknownErr, item.ErrElementUnknown)
-	require.ErrorIs(t, duplicatedErr, item.ErrElementsDuplicated)
-}
-
-func TestConstraints_AreSatisfiedWhenAnyOpponentElementMatchesEveryConstraint(t *testing.T) {
-	strike := itemtest.AttackMultiplierEffect(t, 150, "water", "wind").AttackMultiplier.Constraints
-
-	require.True(t, strike.SatisfiedByOpponentElements([]string{"fire", "wind"}))
-	require.False(t, strike.SatisfiedByOpponentElements([]string{"fire", "earth"}))
-	require.True(t, item.Constraints{}.SatisfiedByOpponentElements([]string{"fire"}))
-}
-
-func TestNewCategory_AcceptsOnlyTheKnownValues(t *testing.T) {
-	for _, value := range []string{"weapon", "armor", "scroll"} {
-		category, err := item.NewCategory(value)
-		require.NoError(t, err)
-		require.Equal(t, value, category.String())
-	}
-	_, err := item.NewCategory("shield")
-	require.ErrorIs(t, err, item.ErrCategoryInvalid)
 }

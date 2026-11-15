@@ -1,0 +1,8 @@
+{
+  "effects": [
+    { "attack_override": { "minimum": 10, "maximum": 70 } },
+    { "nullify_received_damage": { "constraints": [{ "opponent_creature_element": { "elements": ["fire"] } }] } },
+    { "forbid_invasion": {} }
+  ],
+  "changed_by": 10
+}

@@ -258,3 +258,25 @@ func NewRarity(value string) (Rarity, error) {
 func (r Rarity) String() string {
 	return string(r)
 }
+
+// アイテムの分類（武器・防具・巻物。2026-11-07 オーナー）。カードの種類の下の分類で、アイテムだけの性能ではなく「カードとは何か」の語彙
+// として card に置く（2026-11-15 オーナー。core#178。クリーチャーのアイテム制限は「使えないカードの分類」で、item を読まずにこの型を使う）
+type ItemCategory string
+
+const (
+	ItemCategoryWeapon ItemCategory = "weapon"
+	ItemCategoryArmor  ItemCategory = "armor"
+	ItemCategoryScroll ItemCategory = "scroll"
+)
+
+func NewItemCategory(value string) (ItemCategory, error) {
+	switch category := ItemCategory(value); category {
+	case ItemCategoryWeapon, ItemCategoryArmor, ItemCategoryScroll:
+		return category, nil
+	}
+	return "", fmt.Errorf("%w: %q", ErrItemCategoryUnknown, value)
+}
+
+func (c ItemCategory) String() string {
+	return string(c)
+}

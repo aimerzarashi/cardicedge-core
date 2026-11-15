@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"unicode/utf8"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
@@ -58,19 +60,19 @@ type masterNPCAvatar struct {
 // 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
 // （攻撃力は 0 が正しい値なので、書き忘れと見分けるためにポインタで受ける）
 type masterCard struct {
-	Type                  string          `json:"type"`
-	Name                  string          `json:"name"`
-	Cost                  int             `json:"cost"`
-	Rarity                string          `json:"rarity"`
-	Elements              []string        `json:"elements"`
-	Attack                *int            `json:"attack"`
-	HitPoints             *int            `json:"hit_points"`
-	ItemRestrictions      []string        `json:"item_restrictions"`
-	PlacementRestrictions []string        `json:"placement_restrictions"`
-	Abilities             []masterAbility `json:"abilities"`
-	// アイテムだけが持つ（効果が無いアイテムは [] を書く。書き忘れと区別するため）
-	Category string             `json:"category"`
-	Effects  []masterItemEffect `json:"effects"`
+	Type                  string   `json:"type"`
+	Name                  string   `json:"name"`
+	Cost                  int      `json:"cost"`
+	Rarity                string   `json:"rarity"`
+	Elements              []string `json:"elements"`
+	Attack                *int     `json:"attack"`
+	HitPoints             *int     `json:"hit_points"`
+	ItemRestrictions      []string `json:"item_restrictions"`
+	PlacementRestrictions []string `json:"placement_restrictions"`
+	// クリーチャーとアイテムが持つ（効果が無ければ [] を書く。書き忘れと区別するため。core#178 でクリーチャーの能力も効果の並びにした）
+	Effects []masterEffect `json:"effects"`
+	// アイテムだけが持つ
+	Category string `json:"category"`
 	// スペルだけが持つ。書かなければ効果なし（効果の無いスペルを公開できない決まりは、効果の種類がそろうまで効かせない。core#149）。
 	// 形は studio の read model と同じく、種類の名前の下に値を入れる（{"draw_cards":{"count":1}}）
 	Effect *masterSpellEffect `json:"effect"`
@@ -108,27 +110,27 @@ func (c masterCard) validateSpellSpec() error {
 	var err error
 	if c.Effect.DrawCards != nil {
 		kinds++
-		_, err = spell.NewDrawCount(c.Effect.DrawCards.Count)
+		_, err = effect.NewDrawCount(c.Effect.DrawCards.Count)
 	}
 	if c.Effect.GainMagic != nil {
 		kinds++
-		_, err = spell.NewMagicPerLap(c.Effect.GainMagic.PerLap)
+		_, err = effect.NewMagicPerLap(c.Effect.GainMagic.PerLap)
 	}
 	if multiple := c.Effect.MultipleDice; multiple != nil {
 		kinds++
-		if _, err = spell.NewDiceCount(multiple.Count); err == nil {
-			_, err = spell.NewEffectTurns(multiple.Turns)
+		if _, err = effect.NewDiceCount(multiple.Count); err == nil {
+			_, err = effect.NewEffectTurns(multiple.Turns)
 		}
 	}
 	if fixed := c.Effect.FixedDice; fixed != nil {
 		kinds++
-		if _, err = spell.NewDiceFace(fixed.Value); err == nil {
-			_, err = spell.NewEffectTurns(fixed.Turns)
+		if _, err = effect.NewDiceFace(fixed.Value); err == nil {
+			_, err = effect.NewEffectTurns(fixed.Turns)
 		}
 	}
 	if c.Effect.Damage != nil {
 		kinds++
-		_, err = spell.NewDamageAmount(c.Effect.Damage.Amount)
+		_, err = effect.NewDamageAmount(c.Effect.Damage.Amount)
 	}
 	if kinds != 1 {
 		return errors.New("spell effect needs exactly one kind")
@@ -214,30 +216,26 @@ const (
 	deckTotalCount = 40
 )
 
-// クリーチャーは属性・攻撃力・体力・アイテム制限・配置制限・能力（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため）
+// クリーチャーは属性・攻撃力・体力・アイテム制限・配置制限・効果（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため。
+// 効果はアイテムも書くので validateEffects で確かめる）
 func (c masterCard) validateCreatureSpec() error {
 	if c.Type != "creature" {
-		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.ItemRestrictions != nil || c.PlacementRestrictions != nil || c.Abilities != nil {
-			return fmt.Errorf("%s cannot have elements, attack, hit_points, item_restrictions, placement_restrictions or abilities", c.Type)
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.ItemRestrictions != nil || c.PlacementRestrictions != nil {
+			return fmt.Errorf("%s cannot have elements, attack, hit_points, item_restrictions or placement_restrictions", c.Type)
 		}
 		return nil
 	}
 	if _, err := creature.NewElements(c.Elements); err != nil {
 		return err
 	}
-	if c.Attack == nil || c.HitPoints == nil || c.ItemRestrictions == nil || c.PlacementRestrictions == nil || c.Abilities == nil {
-		return errors.New("creature needs attack, hit_points, item_restrictions, placement_restrictions and abilities")
+	if c.Attack == nil || c.HitPoints == nil || c.ItemRestrictions == nil || c.PlacementRestrictions == nil {
+		return errors.New("creature needs attack, hit_points, item_restrictions and placement_restrictions")
 	}
 	if _, err := creature.NewItemRestrictions(c.ItemRestrictions); err != nil {
 		return err
 	}
 	if _, err := creature.NewPlacementRestrictions(c.PlacementRestrictions); err != nil {
 		return err
-	}
-	for _, ability := range c.Abilities {
-		if _, err := ability.command(); err != nil {
-			return err
-		}
 	}
 	if _, err := creature.NewAttack(*c.Attack); err != nil {
 		return err
@@ -246,57 +244,86 @@ func (c masterCard) validateCreatureSpec() error {
 	return err
 }
 
-// アイテムは分類と効果を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
+// アイテムは分類を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
 func (c masterCard) validateItemSpec() error {
 	if c.Type != "item" {
-		if c.Category != "" || c.Effects != nil {
-			return fmt.Errorf("%s cannot have category or effects", c.Type)
+		if c.Category != "" {
+			return fmt.Errorf("%s cannot have category", c.Type)
+		}
+		return nil
+	}
+	_, err := card.NewItemCategory(c.Category)
+	return err
+}
+
+// クリーチャーとアイテムは効果（無ければ []）を必ず書き、スペルは書かない。持ち主が持てない種類は流す前に止める
+// （種類と値の組み合わせは studio の ChangeEffects が確かめる）
+func (c masterCard) validateEffects() error {
+	var allowed []effect.Kind
+	switch c.Type {
+	case "creature":
+		allowed = creature.AllowedEffectKinds()
+	case "item":
+		category, err := card.NewItemCategory(c.Category)
+		if err != nil {
+			return err
+		}
+		allowed = item.AllowedEffectKinds(category)
+	default:
+		if c.Effects != nil {
+			return fmt.Errorf("%s cannot have effects", c.Type)
 		}
 		return nil
 	}
 	if c.Effects == nil {
-		return errors.New("item needs effects")
+		return fmt.Errorf("%s needs effects", c.Type)
 	}
-	category, err := item.NewCategory(c.Category)
-	if err != nil {
-		return err
-	}
-	for _, effect := range c.Effects {
-		kind, err := item.NewEffectKind(effect.Kind)
+	for _, sample := range c.Effects {
+		kind, err := effect.NewKind(sample.Kind)
 		if err != nil {
 			return err
 		}
-		if !category.Allows(kind) {
-			return fmt.Errorf("%s cannot have the effect %q", category, effect.Kind)
+		if !slices.Contains(allowed, kind) {
+			return fmt.Errorf("%s cannot have the effect %q", c.Type, sample.Kind)
 		}
 	}
 	return nil
 }
 
-// アイテムの効果 1 つ。種類と、種類に要る値（AT・HP の増減・AT の上書きは value、AT の倍率は percent と constraints）。
-// 種類と値の組み合わせは studio の ChangeEffects が確かめる
-type masterItemEffect struct {
-	Kind        string                 `json:"kind"`
-	Value       *int                   `json:"value"`
-	Percent     *int                   `json:"percent"`
-	Constraints []masterItemConstraint `json:"constraints"`
+// 効果 1 つ。種類と、種類に要る値（増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、
+// 受けるダメージを 0 にするは constraints）。アイテムとクリーチャーで共有する
+type masterEffect struct {
+	Kind        string                   `json:"kind"`
+	Value       *int                     `json:"value"`
+	Minimum     *int                     `json:"minimum"`
+	Maximum     *int                     `json:"maximum"`
+	Percent     *int                     `json:"percent"`
+	Constraints []masterEffectConstraint `json:"constraints"`
 }
 
-// 効果の制約 1 つ。種類と、種類に要る値（相手の属性は elements）
-type masterItemConstraint struct {
+// 効果の制約 1 つ。種類と、種類に要る値（相手のクリーチャーの属性は elements）
+type masterEffectConstraint struct {
 	Kind     string   `json:"kind"`
 	Elements []string `json:"elements"`
 }
 
-func (e masterItemEffect) command() command.ItemEffect {
-	var constraints []command.ItemConstraint
+func (e masterEffect) command() command.Effect {
+	var constraints []command.EffectConstraint
 	if e.Constraints != nil {
-		constraints = make([]command.ItemConstraint, len(e.Constraints))
+		constraints = make([]command.EffectConstraint, len(e.Constraints))
 		for i, constraint := range e.Constraints {
-			constraints[i] = command.ItemConstraint{Kind: constraint.Kind, Elements: constraint.Elements}
+			constraints[i] = command.EffectConstraint{Kind: constraint.Kind, Elements: constraint.Elements}
 		}
 	}
-	return command.ItemEffect{Kind: e.Kind, Value: e.Value, Percent: e.Percent, Constraints: constraints}
+	return command.Effect{Kind: e.Kind, Value: e.Value, Minimum: e.Minimum, Maximum: e.Maximum, Percent: e.Percent, Constraints: constraints}
+}
+
+func masterEffects(effects []masterEffect) []command.Effect {
+	values := make([]command.Effect, len(effects))
+	for i, value := range effects {
+		values[i] = value.command()
+	}
+	return values
 }
 
 func loadMaster(raw []byte) (master, error) {
@@ -336,6 +363,9 @@ func (m master) validate() error {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 		if err := c.validateSpellSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateEffects(); err != nil {
 			return fmt.Errorf("card %q: %w", c.Name, err)
 		}
 	}
@@ -547,7 +577,7 @@ func (b masterBoard) layout() (board.Layout, error) {
 		}
 		tile := board.Tile{Position: position, Kind: kind}
 		if t.Element != "" {
-			tile.Element, err = board.NewElement(t.Element)
+			tile.Element, err = element.NewLand(t.Element)
 			if err != nil {
 				return board.Layout{}, err
 			}
@@ -621,24 +651,4 @@ func (b masterBoard) layoutInput() command.BoardLayoutInput {
 		})
 	}
 	return command.BoardLayoutInput{Width: b.Width, Height: b.Height, Tiles: tiles, Connections: connections, Pairs: pairs}
-}
-
-// 能力 1 つ。種類と、種類に要る値（通行料の倍率は percent、戦闘中の増減は attack_modifier・hit_points_modifier、戦闘中のランダムは minimum・maximum、攻撃無効は elements）
-type masterAbility struct {
-	Kind              string   `json:"kind"`
-	Percent           *int     `json:"percent"`
-	AttackModifier    *int     `json:"attack_modifier"`
-	HitPointsModifier *int     `json:"hit_points_modifier"`
-	Minimum           *int     `json:"minimum"`
-	Maximum           *int     `json:"maximum"`
-	Elements          []string `json:"elements"`
-}
-
-// 種類と値の組み合わせは studio の ChangeAbilities が確かめるので、ここでは知らない種類だけを弾く（流してから気づくより先に止めるため）
-func (a masterAbility) command() (command.CreatureAbility, error) {
-	switch a.Kind {
-	case command.CreatureAbilityDefensive, command.CreatureAbilityTollMultiplier, command.CreatureAbilityFirstStrike, command.CreatureAbilityLastStrike, command.CreatureAbilityBattleModifier, command.CreatureAbilityBattleRandomStats, command.CreatureAbilityAttackImmunity:
-		return command.CreatureAbility{Kind: a.Kind, Percent: a.Percent, AttackModifier: a.AttackModifier, HitPointsModifier: a.HitPointsModifier, Minimum: a.Minimum, Maximum: a.Maximum, Elements: a.Elements}, nil
-	}
-	return command.CreatureAbility{}, fmt.Errorf("unknown ability %q", a.Kind)
 }

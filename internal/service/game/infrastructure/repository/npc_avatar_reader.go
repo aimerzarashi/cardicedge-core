@@ -86,61 +86,97 @@ type spellEffectMetadata struct {
 type itemMetadata struct {
 	Category string `json:"category"`
 	// 無いのは効果を足す前に投影した行（効果が無ければ []）
-	Effects []itemEffectMetadata `json:"effects"`
+	Effects []effectMetadata `json:"effects"`
 }
 
-type itemValueMetadata struct {
+type valueEffectMetadata struct {
 	Value int `json:"value"`
 }
 
-type itemEffectMetadata struct {
-	AttackModifier    *itemValueMetadata `json:"attack_modifier"`
-	HitPointsModifier *itemValueMetadata `json:"hit_points_modifier"`
-	AttackOverride    *itemValueMetadata `json:"attack_override"`
-	AttackMultiplier  *struct {
-		Percent     int `json:"percent"`
-		Constraints []struct {
-			OpponentElement *struct {
-				Elements []string `json:"elements"`
-			} `json:"opponent_element"`
-		} `json:"constraints"`
-	} `json:"attack_multiplier"`
-	IgnoreTerrainEffect *struct{} `json:"ignore_terrain_effect"`
+type rangeEffectMetadata struct {
+	Minimum int `json:"minimum"`
+	Maximum int `json:"maximum"`
 }
 
-func queryItemEffects(effects []itemEffectMetadata) []query.ItemEffect {
-	values := make([]query.ItemEffect, len(effects))
-	for i, effect := range effects {
-		if effect.AttackModifier != nil {
-			values[i].AttackModifier = &effect.AttackModifier.Value
+type constraintMetadata struct {
+	OpponentCreatureElement *struct {
+		Elements []string `json:"elements"`
+	} `json:"opponent_creature_element"`
+}
+
+// 効果（アイテムとクリーチャーで共有する。studio の readmodel.EffectMetadata と同じ形。core#178）
+type effectMetadata struct {
+	AttackModifier    *valueEffectMetadata `json:"attack_modifier"`
+	HitPointsModifier *valueEffectMetadata `json:"hit_points_modifier"`
+	AttackOverride    *rangeEffectMetadata `json:"attack_override"`
+	HitPointsOverride *rangeEffectMetadata `json:"hit_points_override"`
+	AttackMultiplier  *struct {
+		Percent     int                  `json:"percent"`
+		Constraints []constraintMetadata `json:"constraints"`
+	} `json:"attack_multiplier"`
+	IgnoreTerrainEffect   *struct{} `json:"ignore_terrain_effect"`
+	StrikeFirst           *struct{} `json:"strike_first"`
+	StrikeLast            *struct{} `json:"strike_last"`
+	NullifyReceivedDamage *struct {
+		Constraints []constraintMetadata `json:"constraints"`
+	} `json:"nullify_received_damage"`
+	TollMultiplier *struct {
+		Percent int `json:"percent"`
+	} `json:"toll_multiplier"`
+	ForbidInvasion *struct{} `json:"forbid_invasion"`
+	ForbidMovement *struct{} `json:"forbid_movement"`
+}
+
+func queryEffects(effects []effectMetadata) []query.Effect {
+	values := make([]query.Effect, len(effects))
+	for i, metadata := range effects {
+		value := query.Effect{
+			IgnoreTerrainEffect: metadata.IgnoreTerrainEffect != nil, StrikeFirst: metadata.StrikeFirst != nil, StrikeLast: metadata.StrikeLast != nil,
+			ForbidInvasion: metadata.ForbidInvasion != nil, ForbidMovement: metadata.ForbidMovement != nil,
 		}
-		if effect.HitPointsModifier != nil {
-			values[i].HitPointsModifier = &effect.HitPointsModifier.Value
+		if metadata.AttackModifier != nil {
+			value.AttackModifier = &metadata.AttackModifier.Value
 		}
-		if effect.AttackOverride != nil {
-			values[i].AttackOverride = &effect.AttackOverride.Value
+		if metadata.HitPointsModifier != nil {
+			value.HitPointsModifier = &metadata.HitPointsModifier.Value
 		}
-		if multiplier := effect.AttackMultiplier; multiplier != nil {
-			constraints := make([]query.ItemConstraint, len(multiplier.Constraints))
-			for j, constraint := range multiplier.Constraints {
-				if constraint.OpponentElement != nil {
-					constraints[j].OpponentElements = constraint.OpponentElement.Elements
-				}
-			}
-			values[i].AttackMultiplier = &query.ItemAttackMultiplier{Percent: multiplier.Percent, Constraints: constraints}
+		if metadata.AttackOverride != nil {
+			value.AttackOverride = &query.EffectRange{Minimum: metadata.AttackOverride.Minimum, Maximum: metadata.AttackOverride.Maximum}
 		}
-		values[i].IgnoreTerrainEffect = effect.IgnoreTerrainEffect != nil
+		if metadata.HitPointsOverride != nil {
+			value.HitPointsOverride = &query.EffectRange{Minimum: metadata.HitPointsOverride.Minimum, Maximum: metadata.HitPointsOverride.Maximum}
+		}
+		if multiplier := metadata.AttackMultiplier; multiplier != nil {
+			value.AttackMultiplier = &query.EffectAttackMultiplier{Percent: multiplier.Percent, Constraints: queryConstraints(multiplier.Constraints)}
+		}
+		if nullify := metadata.NullifyReceivedDamage; nullify != nil {
+			value.NullifyReceivedDamage = &query.EffectNullifyReceivedDamage{Constraints: queryConstraints(nullify.Constraints)}
+		}
+		if metadata.TollMultiplier != nil {
+			value.TollMultiplierPercent = &metadata.TollMultiplier.Percent
+		}
+		values[i] = value
+	}
+	return values
+}
+
+func queryConstraints(constraints []constraintMetadata) []query.EffectConstraint {
+	values := make([]query.EffectConstraint, len(constraints))
+	for i, constraint := range constraints {
+		if constraint.OpponentCreatureElement != nil {
+			values[i].OpponentCreatureElements = constraint.OpponentCreatureElement.Elements
+		}
 	}
 	return values
 }
 
 type creatureMetadata struct {
-	Elements              []string                  `json:"elements"`
-	Attack                *int                      `json:"attack"`
-	HitPoints             *int                      `json:"hit_points"`
-	ItemRestrictions      []string                  `json:"item_restrictions"`
-	PlacementRestrictions []string                  `json:"placement_restrictions"`
-	Abilities             []creatureAbilityMetadata `json:"abilities"`
+	Elements              []string         `json:"elements"`
+	Attack                *int             `json:"attack"`
+	HitPoints             *int             `json:"hit_points"`
+	ItemRestrictions      []string         `json:"item_restrictions"`
+	PlacementRestrictions []string         `json:"placement_restrictions"`
+	Effects               []effectMetadata `json:"effects"`
 }
 
 // プレイヤーが解放した NPC のアバターを、解放した順（read model unlocks の metadata の並び）に読む。公開中でないもの
@@ -320,17 +356,17 @@ func newCardRow(id uuid.UUID, cardTypeValue int16, sortName string, raw []byte) 
 	card := query.DeckCard{CardID: id, Name: metadata.Name, Type: cardType, Cost: *metadata.Cost, Rarity: metadata.Rarity}
 	if cardType == query.CardTypeCreature {
 		creatureSpec := metadata.Creature
-		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.ItemRestrictions == nil || creatureSpec.PlacementRestrictions == nil || creatureSpec.Abilities == nil {
-			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, item_restrictions, placement_restrictions or abilities (project the cards again and publish the master)", id)
+		if creatureSpec == nil || len(creatureSpec.Elements) == 0 || creatureSpec.Attack == nil || creatureSpec.HitPoints == nil || creatureSpec.ItemRestrictions == nil || creatureSpec.PlacementRestrictions == nil || creatureSpec.Effects == nil {
+			return cardRow{}, fmt.Errorf("cards.metadata of %s has no creature elements, attack, hit_points, item_restrictions, placement_restrictions or effects (project the cards again and publish the master)", id)
 		}
-		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, ItemRestrictions: creatureSpec.ItemRestrictions, PlacementRestrictions: creatureSpec.PlacementRestrictions, Abilities: queryCreatureAbilities(creatureSpec.Abilities)}
+		card.Creature = &query.CreatureSpec{Elements: creatureSpec.Elements, Attack: *creatureSpec.Attack, HitPoints: *creatureSpec.HitPoints, ItemRestrictions: creatureSpec.ItemRestrictions, PlacementRestrictions: creatureSpec.PlacementRestrictions, Effects: queryEffects(creatureSpec.Effects)}
 	}
 	if cardType == query.CardTypeItem {
 		itemSpec := metadata.Item
 		if itemSpec == nil || itemSpec.Category == "" || itemSpec.Effects == nil {
 			return cardRow{}, fmt.Errorf("cards.metadata of %s has no item category or effects (project the cards again and publish the master)", id)
 		}
-		card.Item = &query.ItemSpec{Category: itemSpec.Category, Effects: queryItemEffects(itemSpec.Effects)}
+		card.Item = &query.ItemSpec{Category: itemSpec.Category, Effects: queryEffects(itemSpec.Effects)}
 	}
 	if cardType == query.CardTypeSpell {
 		spellSpec := metadata.Spell
@@ -364,44 +400,4 @@ func uuidArgs(ids []uuid.UUID) []any {
 		args = append(args, id.String())
 	}
 	return args
-}
-
-type creatureAbilityMetadata struct {
-	Defensive      *struct{} `json:"defensive"`
-	TollMultiplier *struct {
-		Percent int `json:"percent"`
-	} `json:"toll_multiplier"`
-	FirstStrike    *struct{} `json:"first_strike"`
-	LastStrike     *struct{} `json:"last_strike"`
-	BattleModifier *struct {
-		AttackModifier    int `json:"attack_modifier"`
-		HitPointsModifier int `json:"hit_points_modifier"`
-	} `json:"battle_modifier"`
-	BattleRandomStats *struct {
-		Minimum int `json:"minimum"`
-		Maximum int `json:"maximum"`
-	} `json:"battle_random_stats"`
-	AttackImmunity *struct {
-		Elements []string `json:"elements"`
-	} `json:"attack_immunity"`
-}
-
-func queryCreatureAbilities(abilities []creatureAbilityMetadata) []query.CreatureAbility {
-	values := make([]query.CreatureAbility, len(abilities))
-	for i, ability := range abilities {
-		values[i] = query.CreatureAbility{Defensive: ability.Defensive != nil, FirstStrike: ability.FirstStrike != nil, LastStrike: ability.LastStrike != nil}
-		if ability.TollMultiplier != nil {
-			values[i].TollMultiplierPercent = &ability.TollMultiplier.Percent
-		}
-		if ability.BattleModifier != nil {
-			values[i].BattleModifier = &query.CreatureBattleModifier{AttackModifier: ability.BattleModifier.AttackModifier, HitPointsModifier: ability.BattleModifier.HitPointsModifier}
-		}
-		if ability.BattleRandomStats != nil {
-			values[i].BattleRandomStats = &query.CreatureBattleRandomStats{Minimum: ability.BattleRandomStats.Minimum, Maximum: ability.BattleRandomStats.Maximum}
-		}
-		if ability.AttackImmunity != nil {
-			values[i].AttackImmunityElements = ability.AttackImmunity.Elements
-		}
-	}
-	return values
 }

@@ -1302,7 +1302,7 @@ type MatchBattleStatChange {
   hitPoints: Int!
 }
 
-"攻める側に支援効果が発動した（隣の自分の領地の数 × 1 つあたりの値だけ AT が増える。隣の領地が無ければ出ない）"
+"支援効果が発動した（戦場の隣にあるその側の領地の数 × 1 つあたりの値だけ AT が増える。攻める側にも守る側にも付き、隣の領地が無い側には出ない）"
 type MatchBattleSupportEffectActivatedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1310,9 +1310,9 @@ type MatchBattleSupportEffectActivatedEvent implements MatchEvent {
   occurredAt: DateTime!
   "このイベントで変わった、描画に要る core の決まりで決まる値"
   changes: MatchEventChanges!
-  "効果を受けた側（いつも ATTACKER）"
+  "効果を受けた側"
   side: MatchBattleSide!
-  "侵略先の隣にある、攻める側の領地の位置"
+  "戦場の隣にある、その側の領地の位置"
   positions: [BoardPosition!]!
   "隣の領地 1 つあたりの AT の増加"
   bonusPerTerritory: Int!
@@ -1340,31 +1340,29 @@ type MatchBattleTerrainEffectActivatedEvent implements MatchEvent {
   change: MatchBattleStatChange
 }
 
+# 発動したカードの効果を activatedEffect に入れ子で持つのは、value・percent・effect をほかの対戦のイベントと同じ名前の項目にすると、
+# 型が食い違って 1 つの問い合わせで読めなくなるため（core#177）。クリーチャーとアイテムで同じ形にする（core#178）
 """
-クリーチャーの能力が発動した。先制・後手は効き目が無いとき（両方が先制で打ち消し合う等）も持っていれば出る。攻撃無効は、攻撃してきた
-クリーチャーの属性が合ったときだけ、その攻撃の前に出る。AT・HP を変える能力（戦闘中の増減・戦闘中のランダム）は増減が 0 でも出る
+クリーチャーの効果が発動した。先に・後に攻撃するは効き目が無いとき（両方が先に攻撃するで打ち消し合う等）も持っていれば出る。
+受けるダメージを 0 にするは、攻撃してきたクリーチャーが制約を満たしたときだけ、その攻撃の前に出る。AT・HP を変える効果（増減・上書き）は増減が 0 でも出る
 """
-type MatchBattleCreatureAbilityActivatedEvent implements MatchEvent {
+type MatchBattleCreatureEffectActivatedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
   "このイベントで変わった、描画に要る core の決まりで決まる値"
   changes: MatchEventChanges!
-  "能力を持つクリーチャーの側"
+  "効果を持つクリーチャーの側"
   side: MatchBattleSide!
-  "発動した能力"
-  ability: CreatureAbilityKind!
-  "増減と当てた後の値（AT・HP を変える能力のときだけ。ほかは null）"
+  "クリーチャーのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "発動したカードの効果（種類と、下限で止まる前の値・上書きの範囲。受けるダメージを 0 にするは相手が制約を満たす最初のもの）"
+  activatedEffect: Effect!
+  "増減と当てた後の値（AT・HP を変える効果のときだけ。ほかは null）"
   change: MatchBattleStatChange
-  "戦闘中の増減の根拠（BATTLE_MODIFIER のときだけ。ほかは null）"
-  battleModifier: MatchBattleModifierBasis
-  "戦闘中のランダムの根拠（BATTLE_RANDOM_STATS のときだけ。ほかは null）"
-  battleRandomStats: MatchBattleRandomStatsBasis
 }
 
-# 発動したカードの効果を cardEffect に入れ子で持つのは、value・percent・effect をほかの対戦のイベントと同じ名前の項目にすると、
-# 型が食い違って 1 つの問い合わせで読めなくなるため（core#177）
 "出したアイテムの効果が発動した（増減・上書きは増減が 0 でも出る。倍率は掛けたものだけ、地形効果を無視するは相手に地形効果があるときだけ出る）"
 type MatchBattleItemEffectActivatedEvent implements MatchEvent {
   "対戦の版"
@@ -1378,27 +1376,11 @@ type MatchBattleItemEffectActivatedEvent implements MatchEvent {
   "アイテムのカード（性能は対戦を始めたときの写し）"
   card: CardInfo!
   "発動したカードの効果（種類と、下限で止まる前の値。倍率は制約を満たす一番高いもの）"
-  cardEffect: ItemEffect!
+  activatedEffect: Effect!
   "アイテムを出した側の増減と当てた後の値（AT・HP を変える効果のときだけ。地形効果を無視するは null）"
   change: MatchBattleStatChange
   "相手の増減と当てた後の値（地形効果を無視するときだけ。相手の HP が地形効果の分を除いた値になる。ほかは null）"
   opponentChange: MatchBattleStatChange
-}
-
-"戦闘中の増減の決まった値"
-type MatchBattleModifierBasis {
-  "AT の増減（下限で止まる前の値）"
-  attackModifier: Int!
-  "HP の増減（下限で止まる前の値）"
-  hitPointsModifier: Int!
-}
-
-"戦闘中のランダムの範囲（引いた値は change の当てた後の AT・HP）"
-type MatchBattleRandomStatsBasis {
-  "範囲の最小"
-  minimum: Int!
-  "範囲の最大"
-  maximum: Int!
 }
 
 "戦闘の攻撃が 1 回当たった"
