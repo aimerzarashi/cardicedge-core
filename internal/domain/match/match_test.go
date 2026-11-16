@@ -2590,6 +2590,84 @@ func TestDecide_TerritoryCommandsAreOfferedAlongsideTheActionOfTheStoppedTile(t 
 	}
 }
 
+// 拠点 (0,0)・土地 (1,0)・(2,0)・チェックポイント (3,0)・土地 (4,0)・(5,0) の一本道
+func checkpointBoard(t *testing.T) match.Board {
+	t.Helper()
+	tiles := []board.Tile{boardtest.Tile(t, 0, 0, "base", "")}
+	var connections []board.Connection
+	for i, kind := range []string{"land", "land", "checkpoint", "land", "land"} {
+		element := ""
+		if kind == "land" {
+			element = "fire"
+		}
+		tiles = append(tiles, boardtest.Tile(t, i+1, 0, kind, element))
+		connections = append(connections, boardtest.Connection(t, i, 0, i+1, 0))
+	}
+	return match.Board{ID: boardtest.ID(t, 6), Size: boardtest.Size(t, 6, 1), Tiles: tiles, Connections: connections}
+}
+
+func levelUpPositions(state match.Match) []board.Position {
+	var positions []board.Position
+	for _, choice := range state.LevelUpChoices() {
+		if !slices.Contains(positions, choice.Position) {
+			positions = append(positions, choice.Position)
+		}
+	}
+	return positions
+}
+
+func TestDecide_StoppingExactlyOnABaseOrACheckpointOffersAllOwnTerritories(t *testing.T) {
+	cases := []struct {
+		name  string
+		start int
+		face  int
+	}{
+		{name: "checkpoint", start: 0, face: 3},
+		{name: "base", start: 2, face: 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := newMatch(t, checkpointBoard(t), defaultRules(t))
+			state = withTerritory(t, withTerritory(t, withTerritory(t, state, 1, 5, 1), 0, 4, 1), 1, 1, 1)
+			state.Participants = slices.Clone(state.Participants)
+			state.Participants[1].Position = pos(t, tc.start, 0)
+			previous := pos(t, tc.start+1, 0)
+			if tc.start == 0 {
+				state.Participants[1].Previous = nil
+			} else {
+				state.Participants[1].Previous = &previous
+			}
+
+			state = rolledTo(t, state, tc.face)
+
+			require.Equal(t, match.PhaseTerritoryCommanding, state.Phase)
+			// 通っていない (5,0) も入り、他人の (4,0) は入らない（並びは領地ができた順）
+			require.Equal(t, []board.Position{pos(t, 5, 0), pos(t, 1, 0)}, levelUpPositions(state))
+		})
+	}
+}
+
+func TestDecide_PassingACheckpointOffersOnlyPassedTerritories(t *testing.T) {
+	state := newMatch(t, checkpointBoard(t), defaultRules(t))
+	state = withTerritory(t, withTerritory(t, state, 1, 5, 1), 1, 1, 1)
+
+	state = rolledTo(t, state, 4)
+
+	require.Equal(t, match.PhasePlacing, state.Phase)
+	require.Equal(t, []board.Position{pos(t, 1, 0)}, levelUpPositions(state))
+}
+
+func TestDecide_LevelUpOnATerritoryNotPassedAfterStoppingOnACheckpoint(t *testing.T) {
+	state := withTerritory(t, newMatch(t, checkpointBoard(t), defaultRules(t)), 1, 5, 1)
+	state = rolledTo(t, state, 3)
+
+	state, events := levelUp(t, state, 5, 2)
+
+	require.Equal(t, 1, countOf[*match.LandLeveledUpEvent](events))
+	require.Equal(t, 1, countOf[*match.TurnEndedEvent](events))
+	require.Equal(t, 2, state.LandLevel(pos(t, 5, 0)))
+}
+
 func TestDecide_DoingNothingWhereThereIsNoActionEndsTheTurn(t *testing.T) {
 	state := rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 1)
 

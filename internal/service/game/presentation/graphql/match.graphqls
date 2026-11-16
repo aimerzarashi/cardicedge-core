@@ -19,7 +19,7 @@ enum MatchPhase {
   CHOOSING_PATH
   "空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
   PLACING
-  "止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ"
+  "止まったマスに行動が無く、領地コマンドを使える自分の領地（通った領地。拠点・チェックポイントにちょうど止まったらすべて）があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ"
   TERRITORY_COMMANDING
   "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
   INVADING
@@ -633,7 +633,7 @@ type MatchLevelUpChoice {
   magic: Int!
 }
 
-"通った自分の領地のレベルを上げる入力"
+"領地コマンドを使える自分の領地のレベルを上げる入力"
 input LevelUpMatchLandInput {
   "対戦の公開用の ID"
   id: UUID!
@@ -671,7 +671,7 @@ type MatchMoveChoice {
   to: BoardPosition!
 }
 
-"通った自分の領地のクリーチャーを動かす入力"
+"領地コマンドを使える自分の領地のクリーチャーを動かす入力"
 input MoveMatchCreatureInput {
   "対戦の公開用の ID"
   id: UUID!
@@ -711,7 +711,7 @@ type MatchElementChangeChoice {
   magic: Int!
 }
 
-"通った自分の領地の土地の属性を変える入力"
+"領地コマンドを使える自分の領地の土地の属性を変える入力"
 input ChangeMatchLandElementInput {
   "対戦の公開用の ID"
   id: UUID!
@@ -751,7 +751,7 @@ type MatchExchangeChoice {
   magic: Int!
 }
 
-"通った自分の領地のクリーチャーを手札のクリーチャーと交換する入力"
+"領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する入力"
 input ExchangeMatchCreatureInput {
   "対戦の公開用の ID"
   id: UUID!
@@ -853,13 +853,13 @@ extend type Mutation {
   placeMatchCreature(input: PlaceMatchCreatureInput!): PlaceMatchCreatureResult!
   "魔力が負の間に、自分の領地を手放す"
   relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
-  "通った自分の領地のレベルを上げる（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  "領地コマンドを使える自分の領地のレベルを上げる（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
   levelUpMatchLand(input: LevelUpMatchLandInput!): LevelUpMatchLandResult!
-  "通った自分の領地のクリーチャーを手札のクリーチャーと交換する（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  "領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
   exchangeMatchCreature(input: ExchangeMatchCreatureInput!): ExchangeMatchCreatureResult!
-  "通った自分の領地のクリーチャーを動かす（領地コマンド。空き地へならそのまま止まったマスの決まりに進み、他人の領地へなら侵略と同じ戦闘をする）"
+  "領地コマンドを使える自分の領地のクリーチャーを動かす（領地コマンド。空き地へならそのまま止まったマスの決まりに進み、他人の領地へなら侵略と同じ戦闘をする）"
   moveMatchCreature(input: MoveMatchCreatureInput!): MoveMatchCreatureResult!
-  "通った自分の領地の土地の属性を変える（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  "領地コマンドを使える自分の領地の土地の属性を変える（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
   changeMatchLandElement(input: ChangeMatchLandElementInput!): ChangeMatchLandElementResult!
   "サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで。コストの分の魔力を払う）"
   useMatchSpell(input: UseMatchSpellInput!): UseMatchSpellResult!
@@ -1161,7 +1161,7 @@ enum MatchBattleSide {
   DEFENDER
 }
 
-"通った自分の領地のレベルを上げた"
+"領地コマンドを使える自分の領地のレベルを上げた"
 type MatchLandLeveledUpEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1179,7 +1179,7 @@ type MatchLandLeveledUpEvent implements MatchEvent {
   magic: Int!
 }
 
-"通った自分の領地のクリーチャーを空き地へ動かした（行き先が領地になり、元の土地は空き地になる。土地のレベルはどちらも土地に残る）"
+"領地コマンドを使える自分の領地のクリーチャーを空き地へ動かした（行き先が領地になり、元の土地は空き地になる。土地のレベルはどちらも土地に残る）"
 type MatchCreatureMovedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1197,7 +1197,7 @@ type MatchCreatureMovedEvent implements MatchEvent {
   creature: Int!
 }
 
-"通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）"
+"領地コマンドを使える自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）"
 type MatchTerritoryInvadedByMoveEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
@@ -1219,7 +1219,7 @@ type MatchTerritoryInvadedByMoveEvent implements MatchEvent {
   defendingCreatureCard: CardInfo!
 }
 
-"通った自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）"
+"領地コマンドを使える自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）"
 type MatchLandElementChangedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!

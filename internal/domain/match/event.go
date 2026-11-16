@@ -374,7 +374,7 @@ type InvasionFailedEvent struct {
 	ReturnedHitPoints *creature.HitPoints `json:"returned_hit_points,omitempty"`
 }
 
-// 通った自分の領地の土地のレベルを上げた（Level は上げた後のレベル、Magic は払った魔力）
+// 領地コマンドを使える自分の領地の土地のレベルを上げた（Level は上げた後のレベル、Magic は払った魔力）
 type LandLeveledUpEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -384,7 +384,7 @@ type LandLeveledUpEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// 通った自分の領地のクリーチャーを手札のクリーチャーと入れ替えた。Creature は領地に入ったクリーチャーの新しい ID で、体力はカードの値。元のクリーチャーのカードは手札の最後に戻る。Cost は払った魔力
+// 領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと入れ替えた。Creature は領地に入ったクリーチャーの新しい ID で、体力はカードの値。元のクリーチャーのカードは手札の最後に戻る。Cost は払った魔力
 type CreatureExchangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -395,7 +395,7 @@ type CreatureExchangedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
-// 通った自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力 = 土地の基本の値 × 変える前の属性で決まる倍率）。土地のレベルとクリーチャーはそのまま
+// 領地コマンドを使える自分の領地の土地の属性を変えた（Element は変えた後の属性、Magic は払った魔力 = 土地の基本の値 × 変える前の属性で決まる倍率）。土地のレベルとクリーチャーはそのまま
 type LandElementChangedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -405,7 +405,7 @@ type LandElementChangedEvent struct {
 	Magic       int              `json:"magic"`
 }
 
-// 通った自分の領地のクリーチャーを空き地へ動かした。行き先が領地になり、元の土地は空き地になる（土地のレベルはどちらも土地に残る）
+// 領地コマンドを使える自分の領地のクリーチャーを空き地へ動かした。行き先が領地になり、元の土地は空き地になる（土地のレベルはどちらも土地に残る）
 type CreatureMovedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -414,7 +414,7 @@ type CreatureMovedEvent struct {
 	To          board.Position   `json:"to"`
 }
 
-// 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）。Position は攻める領地
+// 領地コマンドを使える自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）。Position は攻める領地
 type TerritoryInvadedByMoveEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`

@@ -532,14 +532,14 @@ func (m Match) acceptsTerritoryCommand() bool {
 	return m.Phase == PhasePlacing || m.Phase == PhaseInvading || m.Phase == PhaseTerritoryCommanding
 }
 
-// 今の番の人が選べるレベルアップ（通った順・低いレベルの順）。止まった後の段階でだけ中身がある。手持ちの魔力で払える分だけ
+// 今の番の人が選べるレベルアップ（使える領地の順・低いレベルの順）。止まった後の段階でだけ中身がある。手持ちの魔力で払える分だけ
 func (m Match) LevelUpChoices() []LevelUpChoice {
 	index, ok := m.CurrentParticipant()
 	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
 	var choices []LevelUpChoice
-	for _, territory := range m.passedOwnTerritories() {
+	for _, territory := range m.commandableTerritories() {
 		for level := m.LandLevel(territory.Position) + 1; level <= len(m.Rules.LandLevelMultipliers); level++ {
 			if magic := m.levelUpMagic(territory, level); magic <= m.Participants[index].Magic {
 				choices = append(choices, LevelUpChoice{Position: territory.Position, Level: level, Magic: magic})
@@ -558,7 +558,7 @@ type ExchangeChoice struct {
 	Magic int
 }
 
-// 今の番の人が選べる交換（通った順・手札の順）。止まった後の段階でだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ
+// 今の番の人が選べる交換（使える領地の順・手札の順）。止まった後の段階でだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ
 func (m Match) ExchangeChoices() []ExchangeChoice {
 	index, ok := m.CurrentParticipant()
 	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
@@ -566,7 +566,7 @@ func (m Match) ExchangeChoices() []ExchangeChoice {
 	}
 	specs := m.CardSpecs()
 	var choices []ExchangeChoice
-	for _, territory := range m.passedOwnTerritories() {
+	for _, territory := range m.commandableTerritories() {
 		for _, handIndex := range m.creaturesPlaceableOn(territory.Position) {
 			choices = append(choices, ExchangeChoice{Position: territory.Position, HandIndex: handIndex, Magic: specs[m.Participants[index].Hand[handIndex]].Cost.Int()})
 		}
@@ -588,14 +588,14 @@ type ElementChangeChoice struct {
 // 変えられる先の属性。無属性・複属性へは変えられない（2026-11-10 オーナー）
 var changeableLandElements = []element.Land{element.LandFire, element.LandEarth, element.LandWater, element.LandWind}
 
-// 今の番の人が選べる属性の変更（通った順・火・地・水・風の順）。止まった後の段階でだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ
+// 今の番の人が選べる属性の変更（使える領地の順・火・地・水・風の順）。止まった後の段階でだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ
 func (m Match) ElementChangeChoices() []ElementChangeChoice {
 	index, ok := m.CurrentParticipant()
 	if !m.acceptsTerritoryCommand() || !ok || int(index) >= len(m.Participants) {
 		return nil
 	}
 	var choices []ElementChangeChoice
-	for _, territory := range m.passedOwnTerritories() {
+	for _, territory := range m.commandableTerritories() {
 		current := m.landElement(territory.Position)
 		multiplier := m.landElementChangeMultiplier(current)
 		magic := m.Rules.BaseLandValue * multiplier
@@ -626,11 +626,15 @@ func (m Match) levelUpMagic(territory Territory, level int) int {
 	return m.Rules.BaseLandValue * (m.Rules.landLevelMultiplier(level) - m.Rules.landLevelMultiplier(m.LandLevel(territory.Position)))
 }
 
-// 今の番の人が、このターンに通った自分の領地（入った順で重ならない）
-func (m Match) passedOwnTerritories() []Territory {
+// 今の番の人が領地コマンドを使える自分の領地。拠点・チェックポイントにちょうど止まったらすべての自分の領地（できた順）、
+// ほかはこのターンに通った自分の領地（入った順で重ならない）（2026-11-16 オーナー。core#183）
+func (m Match) commandableTerritories() []Territory {
 	index, ok := m.CurrentParticipant()
 	if !ok {
 		return nil
+	}
+	if m.stoppedOnBaseOrCheckpoint() {
+		return m.territoriesOf(index)
 	}
 	var owned []Territory
 	var seen []board.Position
@@ -645,6 +649,21 @@ func (m Match) passedOwnTerritories() []Territory {
 		}
 	}
 	return owned
+}
+
+// サイコロの目を使い切って、拠点かチェックポイントのマスで止まったか（通過したとき・ターンの始めのマスは当たらない）
+func (m Match) stoppedOnBaseOrCheckpoint() bool {
+	index, ok := m.CurrentParticipant()
+	if !ok || int(index) >= len(m.Participants) || len(m.PassedPositions) == 0 || m.RemainingSteps > 0 {
+		return false
+	}
+	position := m.Participants[index].Position
+	for _, tile := range m.Board.Tiles {
+		if tile.Position == position {
+			return tile.Kind == board.TileKindBase || tile.Kind == board.TileKindCheckpoint
+		}
+	}
+	return false
 }
 
 // 戦闘で攻められている領地。侵略の間は侵略の位置（移動で侵略したときは止まったマスと違う）、ほかは止まったマス
@@ -664,7 +683,7 @@ type MoveChoice struct {
 	To   board.Position
 }
 
-// 今の番の人が選べる移動（通った順・行き先の位置の順）。止まった後の段階でだけ中身がある。ちょうど creatureMoveSteps だけ、ボードのつながりで
+// 今の番の人が選べる移動（使える領地の順・行き先の位置の順）。止まった後の段階でだけ中身がある。ちょうど creatureMoveSteps だけ、ボードのつながりで
 // 進み（転送円・橋の対は使わない）、途中はどのマスも通り抜けられ、来たマスへは折り返さない。行き先は土地の空き地か他人の領地
 // （2026-11-10 オーナー。core#147）
 func (m Match) MoveChoices() []MoveChoice {
@@ -673,7 +692,7 @@ func (m Match) MoveChoices() []MoveChoice {
 		return nil
 	}
 	var choices []MoveChoice
-	for _, territory := range m.passedOwnTerritories() {
+	for _, territory := range m.commandableTerritories() {
 		placed, ok := m.PlacedCreature(territory.Creature)
 		if !ok || !placed.Base.canMove() {
 			continue

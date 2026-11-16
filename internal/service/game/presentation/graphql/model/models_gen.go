@@ -566,7 +566,7 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
-// 通った自分の領地の土地の属性を変える入力
+// 領地コマンドを使える自分の領地の土地の属性を変える入力
 type ChangeMatchLandElementInput struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1003,7 +1003,7 @@ type EndMatchTurnSuccess struct {
 
 func (EndMatchTurnSuccess) IsEndMatchTurnResult() {}
 
-// 通った自分の領地のクリーチャーを手札のクリーチャーと交換する入力
+// 領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する入力
 type ExchangeMatchCreatureInput struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1297,7 +1297,7 @@ func (this LandTile) GetX() int { return this.X }
 // 行
 func (this LandTile) GetY() int { return this.Y }
 
-// 通った自分の領地のレベルを上げる入力
+// 領地コマンドを使える自分の領地のレベルを上げる入力
 type LevelUpMatchLandInput struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -1818,7 +1818,7 @@ func (this MatchCreatureExchangedEvent) GetOccurredAt() time.Time { return this.
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureExchangedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 通った自分の領地のクリーチャーを空き地へ動かした（行き先が領地になり、元の土地は空き地になる。土地のレベルはどちらも土地に残る）
+// 領地コマンドを使える自分の領地のクリーチャーを空き地へ動かした（行き先が領地になり、元の土地は空き地になる。土地のレベルはどちらも土地に残る）
 type MatchCreatureMovedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -2314,7 +2314,7 @@ func (this MatchItemUsedEvent) GetOccurredAt() time.Time { return this.OccurredA
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchItemUsedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 通った自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）
+// 領地コマンドを使える自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）
 type MatchLandElementChangedEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -2355,7 +2355,7 @@ type MatchLandLevel struct {
 	Level int `json:"level"`
 }
 
-// 通った自分の領地のレベルを上げた
+// 領地コマンドを使える自分の領地のレベルを上げた
 type MatchLandLeveledUpEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -2925,7 +2925,7 @@ type MatchTerritory struct {
 	RelinquishMagic int `json:"relinquishMagic"`
 }
 
-// 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）
+// 領地コマンドを使える自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）
 type MatchTerritoryInvadedByMoveEvent struct {
 	// 対戦の版
 	Revision int `json:"revision"`
@@ -3150,7 +3150,7 @@ func (this MatchTurnOrderDecidedEvent) GetOccurredAt() time.Time { return this.O
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchTurnOrderDecidedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// 通った自分の領地のクリーチャーを動かす入力
+// 領地コマンドを使える自分の領地のクリーチャーを動かす入力
 type MoveMatchCreatureInput struct {
 	// 対戦の公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -4762,7 +4762,7 @@ const (
 	MatchPhaseChoosingPath MatchPhase = "CHOOSING_PATH"
 	// 空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）
 	MatchPhasePlacing MatchPhase = "PLACING"
-	// 止まったマスに行動が無く、通った自分の領地があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ
+	// 止まったマスに行動が無く、領地コマンドを使える自分の領地（通った領地。拠点・チェックポイントにちょうど止まったらすべて）があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ
 	MatchPhaseTerritoryCommanding MatchPhase = "TERRITORY_COMMANDING"
 	// 他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る
 	MatchPhaseInvading MatchPhase = "INVADING"

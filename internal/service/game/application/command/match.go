@@ -541,7 +541,7 @@ func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, re
 	})
 }
 
-// 通った自分の領地のレベルを上げる。選べない位置とレベルの組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+// 領地コマンドを使える自分の領地のレベルを上げる。選べない位置とレベルの組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
 func (c *MatchHandler) LevelUpLand(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		position, err := newPosition(x, y)
@@ -552,7 +552,7 @@ func (c *MatchHandler) LevelUpLand(ctx context.Context, id uuid.UUID, revision i
 	})
 }
 
-// 通った自分の領地のクリーチャーを手札のクリーチャーと交換する。選べない組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+// 領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する。選べない組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
 func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		position, err := newPosition(x, y)
@@ -563,7 +563,7 @@ func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revis
 	})
 }
 
-// 通った自分の領地の土地の属性を変える。landElement は土地の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
+// 領地コマンドを使える自分の領地の土地の属性を変える。landElement は土地の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
 func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, landElement string) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		position, err := newPosition(x, y)
@@ -578,7 +578,7 @@ func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revi
 	})
 }
 
-// 通った自分の領地のクリーチャーを動かす（他人の領地へなら続けて戦闘）。選べない組は input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
+// 領地コマンドを使える自分の領地のクリーチャーを動かす（他人の領地へなら続けて戦闘）。選べない組は input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
 func (c *MatchHandler) MoveCreature(ctx context.Context, id uuid.UUID, revision int64, fromX, fromY, toX, toY int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
 		from, err := newPosition(fromX, fromY)
