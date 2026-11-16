@@ -110,6 +110,8 @@ type MatchPlayRules {
   diceMax: Int!
   "土地の基本の値。レベルと連鎖の倍率を掛ける元"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
   "手札の上限"
   maxHandCards: Int!
   "始めに配る手札の枚数"
@@ -1733,8 +1735,16 @@ type MatchLapCompletedEvent implements MatchEvent {
   changes: MatchEventChanges!
   "周回を終えた参加者（Match.participants の何番目か）"
   participant: Int!
-  "増えた魔力"
+  "増えた魔力の合計（lapBonus + territoryBonus）"
   magic: Int!
+  "増えた魔力の根拠の、周回のボーナス（領地の数によらない決まった額）"
+  lapBonus: Int!
+  "増えた魔力の根拠の、領地の分の額（territoryCount × lapBonusPerTerritory）"
+  territoryBonus: Int!
+  "増えた魔力の根拠の、周回を終えたときの自分の領地の数"
+  territoryCount: Int!
+  "増えた魔力の根拠の、領地 1 つあたりの額"
+  lapBonusPerTerritory: Int!
 }
 
 "ターンを終えた"

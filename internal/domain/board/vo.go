@@ -108,14 +108,15 @@ func (s Status) Retire() (Status, bool, error) {
 // 登録の直後の既定のルール（対戦を始めるとき、ここから変えられる前提の値）。登録のイベントが値を明示して持つので、
 // 変えても過去のボードの値は変わらない。ラウンドの上限（30）は仮の値
 const (
-	DefaultTargetMagic     = 8000
-	DefaultStartingMagic   = 600
-	DefaultLapBonus        = 300
-	DefaultCheckpointBonus = 100
-	DefaultRoundLimit      = 30
-	DefaultDiceMin         = 1
-	DefaultDiceMax         = 6
-	DefaultBaseLandValue   = 100
+	DefaultTargetMagic          = 8000
+	DefaultStartingMagic        = 600
+	DefaultLapBonus             = 300
+	DefaultCheckpointBonus      = 100
+	DefaultRoundLimit           = 30
+	DefaultDiceMin              = 1
+	DefaultDiceMax              = 6
+	DefaultBaseLandValue        = 100
+	DefaultLapBonusPerTerritory = 20
 )
 
 // 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
@@ -134,10 +135,12 @@ type DefaultRules struct {
 	DiceMax int `json:"dice_max"`
 	// 土地の基本の値（レベルと連鎖の倍率を掛ける元）
 	BaseLandValue int `json:"base_land_value"`
+	// 拠点に戻ったときに、周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 なら足さない。core#170）
+	LapBonusPerTerritory int `json:"lap_bonus_per_territory"`
 }
 
 // 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) (DefaultRules, error) {
+func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) (DefaultRules, error) {
 	var errs []error
 	if targetMagic < 1 {
 		errs = append(errs, ErrTargetMagicTooSmall)
@@ -160,6 +163,9 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	if baseLandValue < 1 {
 		errs = append(errs, ErrBaseLandValueTooSmall)
 	}
+	if lapBonusPerTerritory < 0 {
+		errs = append(errs, ErrLapBonusPerTerritoryTooSmall)
+	}
 	// 下限を割った値と比べても意味がないので、下限を満たすときだけ比べる
 	if startingMagic >= 0 && targetMagic <= startingMagic {
 		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
@@ -173,7 +179,7 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	}
 	return DefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}, nil
 }
 
@@ -182,7 +188,7 @@ func InitialDefaultRules() DefaultRules {
 	return DefaultRules{
 		TargetMagic: DefaultTargetMagic, StartingMagic: DefaultStartingMagic,
 		LapBonus: DefaultLapBonus, CheckpointBonus: DefaultCheckpointBonus,
-		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax, BaseLandValue: DefaultBaseLandValue,
+		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax, BaseLandValue: DefaultBaseLandValue, LapBonusPerTerritory: DefaultLapBonusPerTerritory,
 	}
 }
 

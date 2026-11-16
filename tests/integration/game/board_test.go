@@ -8,7 +8,7 @@ import (
 )
 
 const boardFields = `id name width height
-	defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue }
+	defaultRules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue lapBonusPerTerritory }
 	tileCounts { land base checkpoint fire earth water wind neutral multi warp bridge sanctuary shrine prophecyShop cardShop }
 	tiles { __typename x y ... on LandTile { element } }
 	connections { a { x y } b { x y } }
@@ -62,7 +62,7 @@ func connection(a, b map[string]any) map[string]any {
 func publishedBoardA() map[string]any {
 	return map[string]any{
 		"id": master.Boards.PublishedA.String(), "name": "公開中A", "width": float64(2), "height": float64(1),
-		"defaultRules": map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100), "roundLimit": float64(30), "diceMin": float64(1), "diceMax": float64(6), "baseLandValue": float64(100)},
+		"defaultRules": map[string]any{"targetMagic": float64(8000), "startingMagic": float64(600), "lapBonus": float64(300), "checkpointBonus": float64(100), "roundLimit": float64(30), "diceMin": float64(1), "diceMax": float64(6), "baseLandValue": float64(100), "lapBonusPerTerritory": float64(20)},
 		"tileCounts":   map[string]any{"land": float64(0), "base": float64(1), "checkpoint": float64(1), "fire": float64(0), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(0), "warp": float64(0), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)},
 		"tiles":        []any{tile(0, 0, "BaseTile", ""), tile(1, 0, "CheckpointTile", "")},
 		"connections":  []any{connection(position(0, 0), position(1, 0))},
@@ -73,7 +73,7 @@ func publishedBoardA() map[string]any {
 func publishedBoardB() map[string]any {
 	return map[string]any{
 		"id": master.Boards.PublishedB.String(), "name": "公開中B", "width": float64(3), "height": float64(2),
-		"defaultRules": map[string]any{"targetMagic": float64(5000), "startingMagic": float64(0), "lapBonus": float64(200), "checkpointBonus": float64(50), "roundLimit": float64(12), "diceMin": float64(2), "diceMax": float64(8), "baseLandValue": float64(100)},
+		"defaultRules": map[string]any{"targetMagic": float64(5000), "startingMagic": float64(0), "lapBonus": float64(200), "checkpointBonus": float64(50), "roundLimit": float64(12), "diceMin": float64(2), "diceMax": float64(8), "baseLandValue": float64(100), "lapBonusPerTerritory": float64(40)},
 		"tileCounts":   map[string]any{"land": float64(2), "base": float64(1), "checkpoint": float64(1), "fire": float64(1), "earth": float64(0), "water": float64(0), "wind": float64(0), "neutral": float64(0), "multi": float64(1), "warp": float64(2), "bridge": float64(0), "sanctuary": float64(0), "shrine": float64(0), "prophecyShop": float64(0), "cardShop": float64(0)},
 		"tiles":        []any{tile(0, 0, "BaseTile", ""), tile(1, 0, "LandTile", "FIRE"), tile(2, 0, "CheckpointTile", ""), tile(0, 1, "WarpTile", ""), tile(1, 1, "LandTile", "MULTI"), tile(2, 1, "WarpTile", "")},
 		"connections": []any{

@@ -18,7 +18,7 @@ var (
 	ErrSizeRangeInvalid = errors.New("board: size range is invalid")
 	// 座標が負（格子の中かどうかは ValidateLayout が大きさと合わせて確かめる）
 	ErrPositionNegative = errors.New("board: position is negative")
-	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナスは 0 以上、
+	// 既定のルールの決まり。目標の魔力・ラウンドの上限・サイコロの目の最小は 1 以上、開始時の魔力・周回のボーナス・チェックポイントのボーナス・周回のボーナス（領地 1 つあたり）は 0 以上、
 	// 目標の魔力は開始時の魔力より大きい、サイコロの目の最大は最小より大きい（最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため。core#71・core#100）
 	ErrTargetMagicTooSmall                    = errors.New("board: target magic is too small")
 	ErrStartingMagicTooSmall                  = errors.New("board: starting magic is too small")
@@ -29,6 +29,7 @@ var (
 	ErrDiceMinTooSmall                        = errors.New("board: dice min is too small")
 	ErrDiceMaxNotGreaterThanDiceMin           = errors.New("board: dice max is not greater than dice min")
 	ErrBaseLandValueTooSmall                  = errors.New("board: base land value is too small")
+	ErrLapBonusPerTerritoryTooSmall           = errors.New("board: lap bonus per territory is too small")
 	// 準備中のボードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("board: invalid status transition")
 	// 準備中でないボードの名前・レイアウト・既定のルールを変える、または削除しようとした

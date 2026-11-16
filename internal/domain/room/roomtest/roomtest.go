@@ -75,7 +75,7 @@ func NPCChoice(t testing.TB, npcAvatarID, npcDeckID int64) room.SeatChoice {
 func MatchRules(t testing.TB, boardID board.ID) room.MatchRules {
 	t.Helper()
 	rules := board.InitialDefaultRules()
-	matchRules, err := room.NewMatchRules(boardID, rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue)
+	matchRules, err := room.NewMatchRules(boardID, rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue, rules.LapBonusPerTerritory)
 	require.NoError(t, err)
 	return matchRules
 }

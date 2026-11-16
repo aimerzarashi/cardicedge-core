@@ -101,14 +101,15 @@ type ComplexityRoot struct {
 	}
 
 	BoardDefaultRules struct {
-		BaseLandValue   func(childComplexity int) int
-		CheckpointBonus func(childComplexity int) int
-		DiceMax         func(childComplexity int) int
-		DiceMin         func(childComplexity int) int
-		LapBonus        func(childComplexity int) int
-		RoundLimit      func(childComplexity int) int
-		StartingMagic   func(childComplexity int) int
-		TargetMagic     func(childComplexity int) int
+		BaseLandValue        func(childComplexity int) int
+		CheckpointBonus      func(childComplexity int) int
+		DiceMax              func(childComplexity int) int
+		DiceMin              func(childComplexity int) int
+		LapBonus             func(childComplexity int) int
+		LapBonusPerTerritory func(childComplexity int) int
+		RoundLimit           func(childComplexity int) int
+		StartingMagic        func(childComplexity int) int
+		TargetMagic          func(childComplexity int) int
 	}
 
 	BoardNotFoundError struct {
@@ -802,11 +803,15 @@ type ComplexityRoot struct {
 	}
 
 	MatchLapCompletedEvent struct {
-		Changes     func(childComplexity int) int
-		Magic       func(childComplexity int) int
-		OccurredAt  func(childComplexity int) int
-		Participant func(childComplexity int) int
-		Revision    func(childComplexity int) int
+		Changes              func(childComplexity int) int
+		LapBonus             func(childComplexity int) int
+		LapBonusPerTerritory func(childComplexity int) int
+		Magic                func(childComplexity int) int
+		OccurredAt           func(childComplexity int) int
+		Participant          func(childComplexity int) int
+		Revision             func(childComplexity int) int
+		TerritoryBonus       func(childComplexity int) int
+		TerritoryCount       func(childComplexity int) int
 	}
 
 	MatchLastingSpellEffect struct {
@@ -909,6 +914,7 @@ type ComplexityRoot struct {
 		DiceMin              func(childComplexity int) int
 		LandLevelMultipliers func(childComplexity int) int
 		LapBonus             func(childComplexity int) int
+		LapBonusPerTerritory func(childComplexity int) int
 		MaxHandCards         func(childComplexity int) int
 		RelinquishPercentage func(childComplexity int) int
 		RoundLimit           func(childComplexity int) int
@@ -1286,15 +1292,16 @@ type ComplexityRoot struct {
 	}
 
 	RoomMatchRules struct {
-		BaseLandValue   func(childComplexity int) int
-		Board           func(childComplexity int) int
-		CheckpointBonus func(childComplexity int) int
-		DiceMax         func(childComplexity int) int
-		DiceMin         func(childComplexity int) int
-		LapBonus        func(childComplexity int) int
-		RoundLimit      func(childComplexity int) int
-		StartingMagic   func(childComplexity int) int
-		TargetMagic     func(childComplexity int) int
+		BaseLandValue        func(childComplexity int) int
+		Board                func(childComplexity int) int
+		CheckpointBonus      func(childComplexity int) int
+		DiceMax              func(childComplexity int) int
+		DiceMin              func(childComplexity int) int
+		LapBonus             func(childComplexity int) int
+		LapBonusPerTerritory func(childComplexity int) int
+		RoundLimit           func(childComplexity int) int
+		StartingMagic        func(childComplexity int) int
+		TargetMagic          func(childComplexity int) int
 	}
 
 	RoomNamed struct {
@@ -1688,6 +1695,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.LapBonus(childComplexity), true
+	case "BoardDefaultRules.lapBonusPerTerritory":
+		if e.ComplexityRoot.BoardDefaultRules.LapBonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.LapBonusPerTerritory(childComplexity), true
 	case "BoardDefaultRules.roundLimit":
 		if e.ComplexityRoot.BoardDefaultRules.RoundLimit == nil {
 			break
@@ -4170,6 +4183,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchLapCompletedEvent.Changes(childComplexity), true
+	case "MatchLapCompletedEvent.lapBonus":
+		if e.ComplexityRoot.MatchLapCompletedEvent.LapBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLapCompletedEvent.LapBonus(childComplexity), true
+	case "MatchLapCompletedEvent.lapBonusPerTerritory":
+		if e.ComplexityRoot.MatchLapCompletedEvent.LapBonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLapCompletedEvent.LapBonusPerTerritory(childComplexity), true
 	case "MatchLapCompletedEvent.magic":
 		if e.ComplexityRoot.MatchLapCompletedEvent.Magic == nil {
 			break
@@ -4194,6 +4219,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchLapCompletedEvent.Revision(childComplexity), true
+	case "MatchLapCompletedEvent.territoryBonus":
+		if e.ComplexityRoot.MatchLapCompletedEvent.TerritoryBonus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLapCompletedEvent.TerritoryBonus(childComplexity), true
+	case "MatchLapCompletedEvent.territoryCount":
+		if e.ComplexityRoot.MatchLapCompletedEvent.TerritoryCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchLapCompletedEvent.TerritoryCount(childComplexity), true
 
 	case "MatchLastingSpellEffect.effect":
 		if e.ComplexityRoot.MatchLastingSpellEffect.Effect == nil {
@@ -4568,6 +4605,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchPlayRules.LapBonus(childComplexity), true
+	case "MatchPlayRules.lapBonusPerTerritory":
+		if e.ComplexityRoot.MatchPlayRules.LapBonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchPlayRules.LapBonusPerTerritory(childComplexity), true
 	case "MatchPlayRules.maxHandCards":
 		if e.ComplexityRoot.MatchPlayRules.MaxHandCards == nil {
 			break
@@ -6173,6 +6216,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomMatchRules.LapBonus(childComplexity), true
+	case "RoomMatchRules.lapBonusPerTerritory":
+		if e.ComplexityRoot.RoomMatchRules.LapBonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomMatchRules.LapBonusPerTerritory(childComplexity), true
 	case "RoomMatchRules.roundLimit":
 		if e.ComplexityRoot.RoomMatchRules.RoundLimit == nil {
 			break
@@ -6681,6 +6730,8 @@ func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, f
 		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
 	case "baseLandValue":
 		return ec.fieldContext_BoardDefaultRules_baseLandValue(ctx, field)
+	case "lapBonusPerTerritory":
+		return ec.fieldContext_BoardDefaultRules_lapBonusPerTerritory(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
 }
@@ -7113,6 +7164,8 @@ func (ec *executionContext) childFields_MatchPlayRules(ctx context.Context, fiel
 		return ec.fieldContext_MatchPlayRules_diceMax(ctx, field)
 	case "baseLandValue":
 		return ec.fieldContext_MatchPlayRules_baseLandValue(ctx, field)
+	case "lapBonusPerTerritory":
+		return ec.fieldContext_MatchPlayRules_lapBonusPerTerritory(ctx, field)
 	case "maxHandCards":
 		return ec.fieldContext_MatchPlayRules_maxHandCards(ctx, field)
 	case "startingHandCards":
@@ -7363,6 +7416,8 @@ func (ec *executionContext) childFields_RoomMatchRules(ctx context.Context, fiel
 		return ec.fieldContext_RoomMatchRules_diceMax(ctx, field)
 	case "baseLandValue":
 		return ec.fieldContext_RoomMatchRules_baseLandValue(ctx, field)
+	case "lapBonusPerTerritory":
+		return ec.fieldContext_RoomMatchRules_lapBonusPerTerritory(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RoomMatchRules", field.Name)
 }
@@ -9104,6 +9159,29 @@ func (ec *executionContext) _BoardDefaultRules_baseLandValue(ctx context.Context
 	)
 }
 func (ec *executionContext) fieldContext_BoardDefaultRules_baseLandValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _BoardDefaultRules_lapBonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_lapBonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_lapBonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
 }
 
@@ -19278,6 +19356,98 @@ func (ec *executionContext) fieldContext_MatchLapCompletedEvent_magic(_ context.
 	return graphql.NewScalarFieldContext("MatchLapCompletedEvent", field, false, false, "Int")
 }
 
+func (ec *executionContext) _MatchLapCompletedEvent_lapBonus(ctx context.Context, field graphql.CollectedField, obj *model.MatchLapCompletedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLapCompletedEvent_lapBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLapCompletedEvent_lapBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLapCompletedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchLapCompletedEvent_territoryBonus(ctx context.Context, field graphql.CollectedField, obj *model.MatchLapCompletedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLapCompletedEvent_territoryBonus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TerritoryBonus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLapCompletedEvent_territoryBonus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLapCompletedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchLapCompletedEvent_territoryCount(ctx context.Context, field graphql.CollectedField, obj *model.MatchLapCompletedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLapCompletedEvent_territoryCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TerritoryCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLapCompletedEvent_territoryCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLapCompletedEvent", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchLapCompletedEvent_lapBonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.MatchLapCompletedEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchLapCompletedEvent_lapBonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchLapCompletedEvent_lapBonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchLapCompletedEvent", field, false, false, "Int")
+}
+
 func (ec *executionContext) _MatchLastingSpellEffect_effect(ctx context.Context, field graphql.CollectedField, obj *model.MatchLastingSpellEffect) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -20822,6 +20992,29 @@ func (ec *executionContext) _MatchPlayRules_baseLandValue(ctx context.Context, f
 	)
 }
 func (ec *executionContext) fieldContext_MatchPlayRules_baseLandValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPlayRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _MatchPlayRules_lapBonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.MatchPlayRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPlayRules_lapBonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPlayRules_lapBonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchPlayRules", field, false, false, "Int")
 }
 
@@ -27371,6 +27564,29 @@ func (ec *executionContext) fieldContext_RoomMatchRules_baseLandValue(_ context.
 	return graphql.NewScalarFieldContext("RoomMatchRules", field, false, false, "Int")
 }
 
+func (ec *executionContext) _RoomMatchRules_lapBonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.RoomMatchRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomMatchRules_lapBonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoomMatchRules_lapBonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomMatchRules", field, false, false, "Int")
+}
+
 func (ec *executionContext) _RoomNamed_id(ctx context.Context, field graphql.CollectedField, obj *model.RoomNamed) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -29618,7 +29834,7 @@ func (ec *executionContext) unmarshalInputChangeRoomMatchRulesInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "boardId", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax", "baseLandValue"}
+	fieldsInOrder := [...]string{"id", "revision", "boardId", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax", "baseLandValue", "lapBonusPerTerritory"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -29702,6 +29918,13 @@ func (ec *executionContext) unmarshalInputChangeRoomMatchRulesInput(ctx context.
 				return it, err
 			}
 			it.BaseLandValue = data
+		case "lapBonusPerTerritory":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("lapBonusPerTerritory"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LapBonusPerTerritory = data
 		}
 	}
 	return it, nil
@@ -34458,6 +34681,11 @@ func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.Sele
 			}
 		case "baseLandValue":
 			out.Values[i] = ec._BoardDefaultRules_baseLandValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonusPerTerritory":
+			out.Values[i] = ec._BoardDefaultRules_lapBonusPerTerritory(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -39251,6 +39479,26 @@ func (ec *executionContext) _MatchLapCompletedEvent(ctx context.Context, sel ast
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "lapBonus":
+			out.Values[i] = ec._MatchLapCompletedEvent_lapBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "territoryBonus":
+			out.Values[i] = ec._MatchLapCompletedEvent_territoryBonus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "territoryCount":
+			out.Values[i] = ec._MatchLapCompletedEvent_territoryCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonusPerTerritory":
+			out.Values[i] = ec._MatchLapCompletedEvent_lapBonusPerTerritory(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -39945,6 +40193,11 @@ func (ec *executionContext) _MatchPlayRules(ctx context.Context, sel ast.Selecti
 			}
 		case "baseLandValue":
 			out.Values[i] = ec._MatchPlayRules_baseLandValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonusPerTerritory":
+			out.Values[i] = ec._MatchPlayRules_lapBonusPerTerritory(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -42653,6 +42906,11 @@ func (ec *executionContext) _RoomMatchRules(ctx context.Context, sel ast.Selecti
 			}
 		case "baseLandValue":
 			out.Values[i] = ec._RoomMatchRules_baseLandValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonusPerTerritory":
+			out.Values[i] = ec._RoomMatchRules_lapBonusPerTerritory(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

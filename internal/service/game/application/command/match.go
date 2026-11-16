@@ -103,7 +103,7 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	}
 	values := current.MatchRules
 	defaultRules, err := board.NewDefaultRules(values.TargetMagic, values.StartingMagic, values.LapBonus, values.CheckpointBonus,
-		values.RoundLimit, values.DiceMin, values.DiceMax, values.BaseLandValue)
+		values.RoundLimit, values.DiceMin, values.DiceMax, values.BaseLandValue, values.LapBonusPerTerritory)
 	if err != nil {
 		return err
 	}

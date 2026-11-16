@@ -440,6 +440,8 @@ type BoardDefaultRules struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値（レベルと連鎖の倍率を掛ける元）
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // 公開中のボードが無い（公開中でないものを含む）
@@ -612,6 +614,8 @@ type ChangeRoomMatchRulesInput struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // 対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）
@@ -2394,8 +2398,16 @@ type MatchLapCompletedEvent struct {
 	Changes *MatchEventChanges `json:"changes"`
 	// 周回を終えた参加者（Match.participants の何番目か）
 	Participant int `json:"participant"`
-	// 増えた魔力
+	// 増えた魔力の合計（lapBonus + territoryBonus）
 	Magic int `json:"magic"`
+	// 増えた魔力の根拠の、周回のボーナス（領地の数によらない決まった額）
+	LapBonus int `json:"lapBonus"`
+	// 増えた魔力の根拠の、領地の分の額（territoryCount × lapBonusPerTerritory）
+	TerritoryBonus int `json:"territoryBonus"`
+	// 増えた魔力の根拠の、周回を終えたときの自分の領地の数
+	TerritoryCount int `json:"territoryCount"`
+	// 増えた魔力の根拠の、領地 1 つあたりの額
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 func (MatchLapCompletedEvent) IsMatchEvent() {}
@@ -2736,6 +2748,8 @@ type MatchPlayRules struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値。レベルと連鎖の倍率を掛ける元
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 	// 手札の上限
 	MaxHandCards int `json:"maxHandCards"`
 	// 始めに配る手札の枚数
@@ -3704,6 +3718,8 @@ type RoomMatchRules struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // アバター・デッキ・ボードを、公開用の ID と名前で見せる値（名前は読むときに引く）

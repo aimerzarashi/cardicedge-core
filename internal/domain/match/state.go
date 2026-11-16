@@ -790,6 +790,16 @@ func (m Match) territoriesOf(index ParticipantIndex) []Territory {
 	return owned
 }
 
+// 周回を終えたときに得る魔力。周回のボーナス ＋ そのときの自分の領地の数 × 領地 1 つあたりの額（レベル等の条件は無い。2026-11-12 オーナー。core#170）
+func (m Match) LapBonus(index ParticipantIndex) int {
+	return m.Rules.LapBonus + m.TerritoryCount(index)*m.Rules.LapBonusPerTerritory
+}
+
+// その参加者の領地の数
+func (m Match) TerritoryCount(index ParticipantIndex) int {
+	return len(m.territoriesOf(index))
+}
+
 // その位置の土地のレベル（上げていなければ 1）
 func (m Match) LandLevel(position board.Position) int {
 	for _, land := range m.LandLevels {

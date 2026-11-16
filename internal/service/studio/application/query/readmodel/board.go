@@ -83,27 +83,28 @@ func NewBoardTileElement(value string) (BoardTileElement, error) {
 
 // boards.metadata の default_rules。domain の board.DefaultRules を使わない理由は BoardTileKind と同じ
 type BoardDefaultRules struct {
-	TargetMagic     int `json:"target_magic"`
-	StartingMagic   int `json:"starting_magic"`
-	LapBonus        int `json:"lap_bonus"`
-	CheckpointBonus int `json:"checkpoint_bonus"`
-	RoundLimit      int `json:"round_limit"`
-	DiceMin         int `json:"dice_min"`
-	DiceMax         int `json:"dice_max"`
-	BaseLandValue   int `json:"base_land_value"`
+	TargetMagic          int `json:"target_magic"`
+	StartingMagic        int `json:"starting_magic"`
+	LapBonus             int `json:"lap_bonus"`
+	CheckpointBonus      int `json:"checkpoint_bonus"`
+	RoundLimit           int `json:"round_limit"`
+	DiceMin              int `json:"dice_min"`
+	DiceMax              int `json:"dice_max"`
+	BaseLandValue        int `json:"base_land_value"`
+	LapBonusPerTerritory int `json:"lap_bonus_per_territory"`
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) BoardDefaultRules {
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}
 }
 
 func toBoardDefaultRules(rules board.DefaultRules) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 	}
 }
 

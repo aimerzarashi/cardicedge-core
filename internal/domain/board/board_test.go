@@ -112,7 +112,7 @@ func (f fixture) retired(t *testing.T) board.State {
 
 func initialDefaultRules(t *testing.T) board.DefaultRules {
 	t.Helper()
-	return boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, 1, 6, 100)
+	return boardtest.DefaultRules(t, 8000, 600, 300, 100, 30, 1, 6, 100, 20)
 }
 
 func (f fixture) changeDefaultRulesCommand(rules board.DefaultRules) *board.ChangeDefaultRulesCommand {
@@ -205,7 +205,7 @@ func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 
 func TestDecide_ChangeDefaultRulesReplacesAllValues(t *testing.T) {
 	f := newFixture(t)
-	rules := boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100)
+	rules := boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100, 40)
 
 	state, events := apply(t, f.register(t), f.changeDefaultRulesCommand(rules), changedAt)
 
@@ -222,7 +222,7 @@ func TestDecide_ChangeDefaultRulesReplacesAllValues(t *testing.T) {
 // 値を決めたのは登録のときで、定数を変えても過去のボードの値が変わらないことを、登録のイベントの値で確かめる
 func TestEvolve_KeepsRegisteredDefaultRules(t *testing.T) {
 	f := newFixture(t)
-	rules := boardtest.DefaultRules(t, 9999, 1, 2, 3, 4, 5, 6, 100)
+	rules := boardtest.DefaultRules(t, 9999, 1, 2, 3, 4, 5, 6, 100, 20)
 	event := &board.RegisteredEvent{
 		EventMeta: board.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:  publicID, Name: f.name, Width: boardtest.Width(t, 8), Height: boardtest.Height(t, 8), DefaultRules: rules, RegisteredBy: f.operatorID,
@@ -622,7 +622,7 @@ func TestDecide_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 	}{
 		{name: "rename", cmd: &board.RenameCommand{Name: boardtest.Name(t, "砂漠"), RenamedBy: f.operatorID}},
 		{name: "change_layout", cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 2, 2)))},
-		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100))},
+		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100, 40))},
 		{name: "delete", cmd: &board.DeleteCommand{DeletedBy: f.operatorID}},
 	}
 	states := []struct {
@@ -664,7 +664,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	}{
 		{name: "rename", cmd: &board.RenameCommand{Name: boardtest.Name(t, "砂漠"), RenamedBy: f.operatorID}},
 		{name: "change_layout", cmd: f.changeLayoutCommand(board.EmptyLayout(boardtest.Size(t, 2, 2)))},
-		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100))},
+		{name: "change_default_rules", cmd: f.changeDefaultRulesCommand(boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100, 40))},
 		{name: "publish", cmd: f.publishCommand()},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: &board.DeleteCommand{DeletedBy: f.operatorID}},
@@ -759,12 +759,12 @@ func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
 
 func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 	tests := []struct {
-		name                                                                           string
-		target, starting, lap, checkpoint, roundLimit, diceMin, diceMax, baseLandValue int
-		wantErrs                                                                       []error
+		name                                                                                                 string
+		target, starting, lap, checkpoint, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int
+		wantErrs                                                                                             []error
 	}{
 		{name: "minimum", target: 1, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 2, baseLandValue: 1},
-		{name: "beyond_default_values", target: 1_000_000, starting: 999_999, lap: 1_000_000, checkpoint: 1_000_000, roundLimit: 1_000_000, diceMin: 1_000, diceMax: 1_000_000, baseLandValue: 100},
+		{name: "beyond_default_values", target: 1_000_000, starting: 999_999, lap: 1_000_000, checkpoint: 1_000_000, roundLimit: 1_000_000, diceMin: 1_000, diceMax: 1_000_000, baseLandValue: 100, lapBonusPerTerritory: 1_000_000},
 		{name: "zero_target", target: 0, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, baseLandValue: 100, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
 		{name: "negative_target", target: -1, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, baseLandValue: 100, wantErrs: []error{board.ErrTargetMagicTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic}},
 		{name: "negative_starting", target: 100, starting: -1, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, baseLandValue: 100, wantErrs: []error{board.ErrStartingMagicTooSmall}},
@@ -777,23 +777,25 @@ func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 		{name: "dice_max_less_than_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 4, diceMax: 3, baseLandValue: 100, wantErrs: []error{board.ErrDiceMaxNotGreaterThanDiceMin}},
 		{name: "dice_max_equal_to_dice_min", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 3, diceMax: 3, baseLandValue: 100, wantErrs: []error{board.ErrDiceMaxNotGreaterThanDiceMin}},
 		{name: "zero_base_land_value", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, baseLandValue: 0, wantErrs: []error{board.ErrBaseLandValueTooSmall}},
-		{name: "reports_all_violations", target: 0, starting: 0, lap: -1, checkpoint: -1, roundLimit: 0, diceMin: 0, diceMax: -1, baseLandValue: 0, wantErrs: []error{
+		{name: "negative_lap_bonus_per_territory", target: 100, starting: 0, lap: 0, checkpoint: 0, roundLimit: 1, diceMin: 1, diceMax: 6, baseLandValue: 100, lapBonusPerTerritory: -1, wantErrs: []error{board.ErrLapBonusPerTerritoryTooSmall}},
+		{name: "reports_all_violations", target: 0, starting: 0, lap: -1, checkpoint: -1, roundLimit: 0, diceMin: 0, diceMax: -1, baseLandValue: 0, lapBonusPerTerritory: -1, wantErrs: []error{
 			board.ErrTargetMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall, board.ErrTargetMagicNotGreaterThanStartingMagic,
-			board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall, board.ErrBaseLandValueTooSmall,
+			board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall, board.ErrBaseLandValueTooSmall, board.ErrLapBonusPerTerritoryTooSmall,
 		}},
 	}
 	all := []error{
 		board.ErrTargetMagicTooSmall, board.ErrStartingMagicTooSmall, board.ErrLapBonusTooSmall, board.ErrCheckpointBonusTooSmall,
 		board.ErrTargetMagicNotGreaterThanStartingMagic, board.ErrRoundLimitTooSmall, board.ErrDiceMinTooSmall, board.ErrDiceMaxNotGreaterThanDiceMin, board.ErrBaseLandValueTooSmall,
+		board.ErrLapBonusPerTerritoryTooSmall,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rules, err := board.NewDefaultRules(tt.target, tt.starting, tt.lap, tt.checkpoint, tt.roundLimit, tt.diceMin, tt.diceMax, tt.baseLandValue)
+			rules, err := board.NewDefaultRules(tt.target, tt.starting, tt.lap, tt.checkpoint, tt.roundLimit, tt.diceMin, tt.diceMax, tt.baseLandValue, tt.lapBonusPerTerritory)
 
 			if len(tt.wantErrs) == 0 {
 				require.NoError(t, err)
-				require.Equal(t, []int{tt.target, tt.starting, tt.lap, tt.checkpoint, tt.roundLimit, tt.diceMin, tt.diceMax, tt.baseLandValue},
-					[]int{rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue})
+				require.Equal(t, []int{tt.target, tt.starting, tt.lap, tt.checkpoint, tt.roundLimit, tt.diceMin, tt.diceMax, tt.baseLandValue, tt.lapBonusPerTerritory},
+					[]int{rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue, rules.LapBonusPerTerritory})
 				return
 			}
 			got := slices.DeleteFunc(slices.Clone(all), func(e error) bool { return !errors.Is(err, e) })
@@ -806,7 +808,7 @@ func TestNewDefaultRules_ChecksEachRule(t *testing.T) {
 func TestInitialDefaultRules_SatisfiesTheRules(t *testing.T) {
 	rules := board.InitialDefaultRules()
 
-	checked, err := board.NewDefaultRules(rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue)
+	checked, err := board.NewDefaultRules(rules.TargetMagic, rules.StartingMagic, rules.LapBonus, rules.CheckpointBonus, rules.RoundLimit, rules.DiceMin, rules.DiceMax, rules.BaseLandValue, rules.LapBonusPerTerritory)
 
 	require.NoError(t, err)
 	require.Equal(t, rules, checked)
@@ -1138,7 +1140,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 			Unpaired:     []board.Pair{boardtest.Pair(t, 1, 2, 2, 2)},
 			ChangedBy:    f.operatorID,
 		},
-		&board.DefaultRulesChangedEvent{EventMeta: meta, DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100), ChangedBy: f.operatorID},
+		&board.DefaultRulesChangedEvent{EventMeta: meta, DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100, 40), ChangedBy: f.operatorID},
 		&board.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
 		&board.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
 		&board.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},

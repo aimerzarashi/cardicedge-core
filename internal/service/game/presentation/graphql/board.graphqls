@@ -80,6 +80,8 @@ type BoardDefaultRules {
   diceMax: Int!
   "土地の基本の値（レベルと連鎖の倍率を掛ける元）"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 """

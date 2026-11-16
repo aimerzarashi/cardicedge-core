@@ -585,6 +585,8 @@ type BoardDefaultRules struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元。登録した直後は 100）
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す。登録した直後は 20）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // ボードの一覧の絞り込み
@@ -916,6 +918,8 @@ type ChangeBoardDefaultRulesInput struct {
 	DiceMax int `json:"diceMax"`
 	// 土地の基本の値（1 以上）
 	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）

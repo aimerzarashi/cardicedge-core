@@ -399,16 +399,17 @@ func (b Board) base() (board.Position, bool) {
 // 対戦のルール。部屋の対戦ルール（ボードの既定のルールと同じ 8 つの値）と、全体のルールの手札の決まりの写し（始めた後にルールを変えても対戦に響かないため）。
 // 8 つの値は board.DefaultRules で受け取る（目の範囲が 2 種類以上であることなどを、確かめずに作れないように）
 type Rules struct {
-	TargetMagic       int                         `json:"target_magic"`
-	StartingMagic     int                         `json:"starting_magic"`
-	LapBonus          int                         `json:"lap_bonus"`
-	CheckpointBonus   int                         `json:"checkpoint_bonus"`
-	RoundLimit        int                         `json:"round_limit"`
-	DiceMin           int                         `json:"dice_min"`
-	DiceMax           int                         `json:"dice_max"`
-	BaseLandValue     int                         `json:"base_land_value"`
-	MaxHandCards      gamerules.MaxHandCards      `json:"max_hand_cards"`
-	StartingHandCards gamerules.StartingHandCards `json:"starting_hand_cards"`
+	TargetMagic          int                         `json:"target_magic"`
+	StartingMagic        int                         `json:"starting_magic"`
+	LapBonus             int                         `json:"lap_bonus"`
+	CheckpointBonus      int                         `json:"checkpoint_bonus"`
+	RoundLimit           int                         `json:"round_limit"`
+	DiceMin              int                         `json:"dice_min"`
+	DiceMax              int                         `json:"dice_max"`
+	BaseLandValue        int                         `json:"base_land_value"`
+	LapBonusPerTerritory int                         `json:"lap_bonus_per_territory"`
+	MaxHandCards         gamerules.MaxHandCards      `json:"max_hand_cards"`
+	StartingHandCards    gamerules.StartingHandCards `json:"starting_hand_cards"`
 	// 順位（1 位から）ごとの戦利品の枚数。全体のルールの写しで、数え方は rewardCards の 1 か所
 	RewardCardsByRank gamerules.RewardCardsByRank `json:"reward_cards_by_rank"`
 	// 戦利品に選べるパック
@@ -429,7 +430,7 @@ type Rules struct {
 func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus, landElementChangeMultiplier, multiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
-		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue,
+		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue, LapBonusPerTerritory: values.LapBonusPerTerritory,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
 		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,

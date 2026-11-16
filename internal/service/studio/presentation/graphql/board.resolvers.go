@@ -93,7 +93,7 @@ func (r *mutationResolver) ChangeBoardDefaultRules(ctx context.Context, input mo
 	}
 	rules := command.BoardDefaultRulesInput{
 		TargetMagic: input.TargetMagic, StartingMagic: input.StartingMagic, LapBonus: input.LapBonus, CheckpointBonus: input.CheckpointBonus,
-		RoundLimit: input.RoundLimit, DiceMin: input.DiceMin, DiceMax: input.DiceMax, BaseLandValue: input.BaseLandValue,
+		RoundLimit: input.RoundLimit, DiceMin: input.DiceMin, DiceMax: input.DiceMax, BaseLandValue: input.BaseLandValue, LapBonusPerTerritory: input.LapBonusPerTerritory,
 	}
 	changed, err := r.boards.ChangeDefaultRules(ctx, input.ID, int64(input.Revision), rules)
 	if invalid := validationErrors(err); invalid != nil {

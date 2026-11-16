@@ -116,7 +116,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
 		Rules: &model.MatchPlayRules{
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
+			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 			MaxHandCards: rules.MaxHandCards, StartingHandCards: rules.StartingHandCards,
 			LandLevelMultipliers: rules.LandLevelMultipliers, ChainMultipliers: rules.ChainMultipliers,
 			TollPercentage: rules.TollPercentage, RelinquishPercentage: rules.RelinquishPercentage,
@@ -603,7 +603,10 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			Checkpoint: &model.BoardPosition{X: e.Checkpoint.X, Y: e.Checkpoint.Y}, Magic: e.Magic,
 		}, nil
 	case query.MatchLapCompletedEvent:
-		return &model.MatchLapCompletedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic}, nil
+		return &model.MatchLapCompletedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Magic: e.Magic,
+			LapBonus: e.LapBonus, TerritoryBonus: e.TerritoryBonus, TerritoryCount: e.TerritoryCount, LapBonusPerTerritory: e.LapBonusPerTerritory,
+		}, nil
 	case query.MatchTurnEndedEvent:
 		return &model.MatchTurnEndedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchEndedEvent:

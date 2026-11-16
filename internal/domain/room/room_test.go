@@ -198,7 +198,7 @@ func TestNewSeatIndex_RejectsNegative(t *testing.T) {
 }
 
 func TestNewMatchRules_ReturnsBoardDefaultRulesViolations(t *testing.T) {
-	_, err := room.NewMatchRules(boardtest.ID(t, 5), 0, 0, 0, 0, 1, 1, 6, 100)
+	_, err := room.NewMatchRules(boardtest.ID(t, 5), 0, 0, 0, 0, 1, 1, 6, 100, 0)
 
 	require.ErrorIs(t, err, board.ErrTargetMagicTooSmall)
 	require.ErrorIs(t, err, board.ErrTargetMagicNotGreaterThanStartingMagic)
