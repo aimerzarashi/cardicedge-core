@@ -25,7 +25,7 @@ const matchQuery = `query ($id: UUID!) {
 		__typename
 		... on Match {
 			id revision round
-			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue maxHandCards startingHandCards }
+			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue lapBonusPerTerritory maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
 			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount discardPile { __typename id name } lastingSpellEffect { remainingTurns effect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } } turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
@@ -105,7 +105,7 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(1), found["round"])
 	require.Equal(t, map[string]any{
 		"targetMagic": float64(5000), "startingMagic": float64(300), "lapBonus": float64(200), "checkpointBonus": float64(50),
-		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "baseLandValue": float64(100), "maxHandCards": float64(6), "startingHandCards": float64(5),
+		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "baseLandValue": float64(100), "lapBonusPerTerritory": float64(20), "maxHandCards": float64(6), "startingHandCards": float64(5),
 	}, found["rules"])
 	board := found["board"].(map[string]any)
 	require.NotEmpty(t, board["tiles"])
@@ -440,7 +440,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchDiceRolledEvent { participant value dice spellEffect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } }
 				... on MatchPieceMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
-				... on MatchLapCompletedEvent { participant magic }
+				... on MatchLapCompletedEvent { participant magic lapBonus territoryBonus territoryCount lapBonusPerTerritory }
 				... on MatchTurnEndedEvent { participant }
 				... on MatchEndedEvent { winners ranks reason }
 				... on MatchRewardDrawnEvent { participant pack rewardCards { __typename id name cost rarity } }
@@ -978,6 +978,17 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			require.Equal(t, (event["laps"].(float64)+1)*event["magicPerLap"].(float64), event["magic"])
 		case "MatchHandLimitExceededEvent":
 			require.Greater(t, event["handCount"], event["maxHandCards"])
+		case "MatchLapCompletedEvent":
+			// 内訳は、周回を終えたときの自分の領地の数から作る（core#170）
+			owned := 0
+			for _, territory := range expected {
+				if territory.owner == event["participant"] {
+					owned++
+				}
+			}
+			require.Equal(t, float64(owned), event["territoryCount"])
+			require.Equal(t, event["territoryCount"].(float64)*event["lapBonusPerTerritory"].(float64), event["territoryBonus"])
+			require.Equal(t, event["lapBonus"].(float64)+event["territoryBonus"].(float64), event["magic"])
 		}
 	}
 	// 土地が 2 つあるボードで 10 ラウンド進めるので、誰かが配置している

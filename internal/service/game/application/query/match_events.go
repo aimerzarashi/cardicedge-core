@@ -199,8 +199,13 @@ type MatchCheckpointPassedEvent struct {
 type MatchLapCompletedEvent struct {
 	MatchEventMeta
 	Participant int
-	// 足した魔力
+	// 足した魔力の合計（LapBonus + TerritoryBonus）
 	Magic int
+	// 足した魔力の根拠（周回のボーナス・領地の分の額 = TerritoryCount × LapBonusPerTerritory。イベントは持たず、直前の状態から作る。core#170）
+	LapBonus             int
+	TerritoryBonus       int
+	TerritoryCount       int
+	LapBonusPerTerritory int
 }
 
 type MatchTurnEndedEvent struct {
@@ -952,7 +957,11 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 	case *match.CheckpointPassedEvent:
 		return MatchCheckpointPassedEvent{meta, e.Participant.Int(), boardPosition(positionOf(previous, e.Participant)), e.Magic}, nil
 	case *match.LapCompletedEvent:
-		return MatchLapCompletedEvent{meta, e.Participant.Int(), e.Magic}, nil
+		territoryCount := previous.TerritoryCount(e.Participant)
+		return MatchLapCompletedEvent{
+			meta, e.Participant.Int(), e.Magic, previous.Rules.LapBonus,
+			territoryCount * previous.Rules.LapBonusPerTerritory, territoryCount, previous.Rules.LapBonusPerTerritory,
+		}, nil
 	case *match.TurnEndedEvent:
 		return MatchTurnEndedEvent{meta, e.Participant.Int()}, nil
 	case *match.MatchEndedEvent:

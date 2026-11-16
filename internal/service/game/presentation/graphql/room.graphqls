@@ -109,6 +109,8 @@ type RoomMatchRules {
   diceMax: Int!
   "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 "この部屋で始めた対戦 1 つ（中身は match(id) で読む）"
@@ -324,6 +326,8 @@ input ChangeRoomMatchRulesInput {
   diceMax: Int!
   "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 "対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）"

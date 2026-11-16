@@ -108,16 +108,17 @@ type MatchBoard struct {
 
 // 対戦のルール。始めた時点の写し（全体のルール MatchRules とは別の値）
 type MatchPlayRules struct {
-	TargetMagic       int
-	StartingMagic     int
-	LapBonus          int
-	CheckpointBonus   int
-	RoundLimit        int
-	DiceMin           int
-	DiceMax           int
-	BaseLandValue     int
-	MaxHandCards      int
-	StartingHandCards int
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
+	MaxHandCards         int
+	StartingHandCards    int
 	// 土地のレベル・連鎖の数ごとの倍率と、通行料・手放すときの割合
 	LandLevelMultipliers []int
 	ChainMultipliers     []int
@@ -664,7 +665,7 @@ func fromBoardPositions(positions []board.Position) []BoardPosition {
 func fromMatchPlayRules(rules match.Rules) MatchPlayRules {
 	return MatchPlayRules{
 		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 		MaxHandCards: rules.MaxHandCards.Int(), StartingHandCards: rules.StartingHandCards.Int(),
 		LandLevelMultipliers: slices.Clone(rules.LandLevelMultipliers), ChainMultipliers: slices.Clone(rules.ChainMultipliers),
 		TollPercentage: rules.TollPercentage.Int(), RelinquishPercentage: rules.RelinquishPercentage.Int(),

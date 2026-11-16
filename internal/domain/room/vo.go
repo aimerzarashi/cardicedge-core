@@ -221,25 +221,26 @@ func (c SeatChoice) equal(other SeatChoice) bool {
 // 部屋では既定ではないので入れ子にせず並べる。ボードとルールを 1 つにするのは、ルールはボードの既定を写して変えるもので、
 // ボードを変えると前のルールが意味を失うため。決まりは board.NewDefaultRules に 1 つだけ置く
 type MatchRules struct {
-	Board           board.ID `json:"board"`
-	TargetMagic     int      `json:"target_magic"`
-	StartingMagic   int      `json:"starting_magic"`
-	LapBonus        int      `json:"lap_bonus"`
-	CheckpointBonus int      `json:"checkpoint_bonus"`
-	RoundLimit      int      `json:"round_limit"`
-	DiceMin         int      `json:"dice_min"`
-	DiceMax         int      `json:"dice_max"`
-	BaseLandValue   int      `json:"base_land_value"`
+	Board                board.ID `json:"board"`
+	TargetMagic          int      `json:"target_magic"`
+	StartingMagic        int      `json:"starting_magic"`
+	LapBonus             int      `json:"lap_bonus"`
+	CheckpointBonus      int      `json:"checkpoint_bonus"`
+	RoundLimit           int      `json:"round_limit"`
+	DiceMin              int      `json:"dice_min"`
+	DiceMax              int      `json:"dice_max"`
+	BaseLandValue        int      `json:"base_land_value"`
+	LapBonusPerTerritory int      `json:"lap_bonus_per_territory"`
 }
 
 // 違反は board.NewDefaultRules のエラー（errors.Join）のまま返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewMatchRules(boardID board.ID, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) (MatchRules, error) {
-	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue)
+func NewMatchRules(boardID board.ID, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) (MatchRules, error) {
+	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory)
 	if err != nil {
 		return MatchRules{}, err
 	}
 	return MatchRules{
 		Board: boardID, TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus,
-		CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
+		CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 	}, nil
 }

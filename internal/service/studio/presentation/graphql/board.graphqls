@@ -92,6 +92,8 @@ type BoardDefaultRules {
   diceMax: Int!
   "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元。登録した直後は 100）"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す。登録した直後は 20）"
+  lapBonusPerTerritory: Int!
 }
 
 # 準備中から使用不可へ直接は移れず、公開中から準備中へも戻れない。公開中にもう一度公開する・使用不可にもう一度使用不可にするのは、
@@ -570,6 +572,8 @@ input ChangeBoardDefaultRulesInput {
   diceMax: Int!
   "土地の基本の値（1 以上）"
   baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 "ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）"
@@ -581,7 +585,7 @@ type ChangeBoardDefaultRulesSuccess {
 }
 
 # 入力の誤りの項目: targetMagic（FieldTooSmall。開始時の魔力以下なら FieldNotGreaterThan で相手は startingMagic）、
-# startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin・baseLandValue（FieldTooSmall）、diceMax（最小以下なら FieldNotGreaterThan で相手は diceMin。
+# startingMagic・lapBonus・checkpointBonus・roundLimit・diceMin・baseLandValue・lapBonusPerTerritory（FieldTooSmall）、diceMax（最小以下なら FieldNotGreaterThan で相手は diceMin。
 # 最大と最小が同じだと毎回同じ数だけ進み、サイコロを振る意味が無くなるため、等しいのも誤り）。上限は持たない
 "ボードの既定のルールの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）"
 union ChangeBoardDefaultRulesResult =

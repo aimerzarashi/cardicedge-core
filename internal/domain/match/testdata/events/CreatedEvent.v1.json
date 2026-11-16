@@ -98,7 +98,7 @@
     "round_limit": 30,
     "dice_min": 1,
     "dice_max": 6,
-    "base_land_value": 100,
+    "base_land_value": 100, "lap_bonus_per_territory": 0,
     "max_hand_cards": 6,
     "starting_hand_cards": 5,
     "reward_cards_by_rank": [

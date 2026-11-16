@@ -82,15 +82,16 @@ const (
 
 // 対戦ルールの入力。ボードの公開 ID と、ボードの既定のルールと同じ名前の 8 つの値
 type RoomMatchRulesInput struct {
-	BoardID         uuid.UUID
-	TargetMagic     int
-	StartingMagic   int
-	LapBonus        int
-	CheckpointBonus int
-	RoundLimit      int
-	DiceMin         int
-	DiceMax         int
-	BaseLandValue   int
+	BoardID              uuid.UUID
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
@@ -194,7 +195,7 @@ func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revisi
 			return nil, invalid
 		}
 		matchRules, err := room.NewMatchRules(boardID, rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus,
-			rulesInput.CheckpointBonus, rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
+			rulesInput.CheckpointBonus, rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue, rulesInput.LapBonusPerTerritory)
 		if err != nil {
 			return nil, err
 		}
@@ -205,7 +206,7 @@ func (c *RoomHandler) ChangeMatchRules(ctx context.Context, id uuid.UUID, revisi
 // 8 つの値の決まりは board.NewDefaultRules にあり、ここは違反を入力の項目に写すだけ（違反が無ければ空）
 func valuesToInput(rulesInput RoomMatchRulesInput) input.Errors {
 	_, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus,
-		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
+		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue, rulesInput.LapBonusPerTerritory)
 	if err == nil {
 		return nil
 	}
@@ -236,6 +237,9 @@ func valuesToInput(rulesInput RoomMatchRulesInput) input.Errors {
 	}
 	if errors.Is(err, board.ErrBaseLandValueTooSmall) {
 		invalid = append(invalid, &input.TooSmall{Field: "baseLandValue", Min: 1})
+	}
+	if errors.Is(err, board.ErrLapBonusPerTerritoryTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "lapBonusPerTerritory", Min: 0})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）

@@ -274,7 +274,7 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 		result.MatchRules = &query.RoomMatchRules{
 			Board:       boardNamed,
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue,
+			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 		}
 	}
 	return result, nil

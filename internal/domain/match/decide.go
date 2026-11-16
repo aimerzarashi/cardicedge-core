@@ -990,7 +990,7 @@ func step(r *recorder, to board.Position) error {
 func enterBase(r *recorder) error {
 	if r.state.allCheckpointsPassed(r.current()) {
 		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-			return &LapCompletedEvent{EventMeta: meta, Participant: by, Magic: r.state.Rules.LapBonus}
+			return &LapCompletedEvent{EventMeta: meta, Participant: by, Magic: r.state.LapBonus(by)}
 		}); err != nil {
 			return err
 		}

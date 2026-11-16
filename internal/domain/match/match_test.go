@@ -725,6 +725,19 @@ func TestDecide_LapBonusIsGivenOnTheBaseOnlyWithEveryCheckpointMarkedAndClearsTh
 	require.Empty(t, state.Participants[1].PassedCheckpoints)
 }
 
+func TestDecide_LapBonusAddsTheAmountPerOwnTerritory(t *testing.T) {
+	state := newMatch(t, ringBoard(t), defaultRules(t))
+	state.Rules.LapBonusPerTerritory = 20
+	// 自分の領地 2 つと他人の領地 1 つ（数えるだけなので、ボードの外の位置に置く）
+	state = withTerritory(t, withTerritory(t, withTerritory(t, state, 1, 7, 1), 0, 8, 1), 1, 9, 3)
+	state, _ = drawAndRoll(t, state, 1, 6)
+
+	state, events := choose(t, state, 1, 1, 0)
+
+	require.Equal(t, 300+2*20, eventOf[*match.LapCompletedEvent](t, events).Magic)
+	require.Equal(t, 600+100+100+300+2*20, state.Participants[1].Magic)
+}
+
 func TestDecide_NoLapBonusOnTheBaseWhileACheckpointIsUnmarked(t *testing.T) {
 	state := newMatch(t, forkBoard(t), defaultRules(t))
 	state, _ = drawAndRoll(t, state, 1, 4)

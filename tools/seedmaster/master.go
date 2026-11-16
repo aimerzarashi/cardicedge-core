@@ -183,14 +183,15 @@ type masterBoard struct {
 }
 
 type masterBoardDefaultRules struct {
-	TargetMagic     int `json:"target_magic"`
-	StartingMagic   int `json:"starting_magic"`
-	LapBonus        int `json:"lap_bonus"`
-	CheckpointBonus int `json:"checkpoint_bonus"`
-	RoundLimit      int `json:"round_limit"`
-	DiceMin         int `json:"dice_min"`
-	DiceMax         int `json:"dice_max"`
-	BaseLandValue   int `json:"base_land_value"`
+	TargetMagic          int `json:"target_magic"`
+	StartingMagic        int `json:"starting_magic"`
+	LapBonus             int `json:"lap_bonus"`
+	CheckpointBonus      int `json:"checkpoint_bonus"`
+	RoundLimit           int `json:"round_limit"`
+	DiceMin              int `json:"dice_min"`
+	DiceMax              int `json:"dice_max"`
+	BaseLandValue        int `json:"base_land_value"`
+	LapBonusPerTerritory int `json:"lap_bonus_per_territory"`
 }
 
 type masterBoardTile struct {
@@ -499,7 +500,7 @@ func (m master) validateBoards() error {
 		names[b.Name] = true
 		// 決まりは domain の関数で確かめる。書き忘れ（0）もここで見つかる
 		if _, err := board.NewDefaultRules(b.DefaultRules.TargetMagic, b.DefaultRules.StartingMagic, b.DefaultRules.LapBonus, b.DefaultRules.CheckpointBonus,
-			b.DefaultRules.RoundLimit, b.DefaultRules.DiceMin, b.DefaultRules.DiceMax, b.DefaultRules.BaseLandValue); err != nil {
+			b.DefaultRules.RoundLimit, b.DefaultRules.DiceMin, b.DefaultRules.DiceMax, b.DefaultRules.BaseLandValue, b.DefaultRules.LapBonusPerTerritory); err != nil {
 			return fmt.Errorf("board %q: %w", b.Name, err)
 		}
 		layout, err := b.layout()
@@ -633,7 +634,7 @@ func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {
 	return command.BoardDefaultRulesInput{
 		TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
 		LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
-		RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax, BaseLandValue: b.DefaultRules.BaseLandValue,
+		RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax, BaseLandValue: b.DefaultRules.BaseLandValue, LapBonusPerTerritory: b.DefaultRules.LapBonusPerTerritory,
 	}
 }
 

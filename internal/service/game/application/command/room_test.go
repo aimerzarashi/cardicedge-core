@@ -165,7 +165,7 @@ func (f roomFixture) withSeats(t *testing.T) command.ChangedRoom {
 
 func (f roomFixture) rulesInput() command.RoomMatchRulesInput {
 	return command.RoomMatchRulesInput{
-		BoardID: f.board, TargetMagic: 8000, StartingMagic: 600, LapBonus: 300, CheckpointBonus: 100, RoundLimit: 30, DiceMin: 1, DiceMax: 6, BaseLandValue: 100,
+		BoardID: f.board, TargetMagic: 8000, StartingMagic: 600, LapBonus: 300, CheckpointBonus: 100, RoundLimit: 30, DiceMin: 1, DiceMax: 6, BaseLandValue: 100, LapBonusPerTerritory: 20,
 	}
 }
 

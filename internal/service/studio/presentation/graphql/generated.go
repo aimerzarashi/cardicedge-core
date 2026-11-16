@@ -94,14 +94,15 @@ type ComplexityRoot struct {
 	}
 
 	BoardDefaultRules struct {
-		BaseLandValue   func(childComplexity int) int
-		CheckpointBonus func(childComplexity int) int
-		DiceMax         func(childComplexity int) int
-		DiceMin         func(childComplexity int) int
-		LapBonus        func(childComplexity int) int
-		RoundLimit      func(childComplexity int) int
-		StartingMagic   func(childComplexity int) int
-		TargetMagic     func(childComplexity int) int
+		BaseLandValue        func(childComplexity int) int
+		CheckpointBonus      func(childComplexity int) int
+		DiceMax              func(childComplexity int) int
+		DiceMin              func(childComplexity int) int
+		LapBonus             func(childComplexity int) int
+		LapBonusPerTerritory func(childComplexity int) int
+		RoundLimit           func(childComplexity int) int
+		StartingMagic        func(childComplexity int) int
+		TargetMagic          func(childComplexity int) int
 	}
 
 	BoardNameAlreadyInUseError struct {
@@ -1330,6 +1331,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.BoardDefaultRules.LapBonus(childComplexity), true
+	case "BoardDefaultRules.lapBonusPerTerritory":
+		if e.ComplexityRoot.BoardDefaultRules.LapBonusPerTerritory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.BoardDefaultRules.LapBonusPerTerritory(childComplexity), true
 	case "BoardDefaultRules.roundLimit":
 		if e.ComplexityRoot.BoardDefaultRules.RoundLimit == nil {
 			break
@@ -4593,6 +4600,8 @@ func (ec *executionContext) childFields_BoardDefaultRules(ctx context.Context, f
 		return ec.fieldContext_BoardDefaultRules_diceMax(ctx, field)
 	case "baseLandValue":
 		return ec.fieldContext_BoardDefaultRules_baseLandValue(ctx, field)
+	case "lapBonusPerTerritory":
+		return ec.fieldContext_BoardDefaultRules_lapBonusPerTerritory(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BoardDefaultRules", field.Name)
 }
@@ -7164,6 +7173,29 @@ func (ec *executionContext) _BoardDefaultRules_baseLandValue(ctx context.Context
 	)
 }
 func (ec *executionContext) fieldContext_BoardDefaultRules_baseLandValue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
+}
+
+func (ec *executionContext) _BoardDefaultRules_lapBonusPerTerritory(ctx context.Context, field graphql.CollectedField, obj *model.BoardDefaultRules) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_BoardDefaultRules_lapBonusPerTerritory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LapBonusPerTerritory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_BoardDefaultRules_lapBonusPerTerritory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("BoardDefaultRules", field, false, false, "Int")
 }
 
@@ -20021,7 +20053,7 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax", "baseLandValue"}
+	fieldsInOrder := [...]string{"id", "revision", "targetMagic", "startingMagic", "lapBonus", "checkpointBonus", "roundLimit", "diceMin", "diceMax", "baseLandValue", "lapBonusPerTerritory"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -20098,6 +20130,13 @@ func (ec *executionContext) unmarshalInputChangeBoardDefaultRulesInput(ctx conte
 				return it, err
 			}
 			it.BaseLandValue = data
+		case "lapBonusPerTerritory":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("lapBonusPerTerritory"))
+			data, err := ec.unmarshalNInt2int(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LapBonusPerTerritory = data
 		}
 	}
 	return it, nil
@@ -27912,6 +27951,11 @@ func (ec *executionContext) _BoardDefaultRules(ctx context.Context, sel ast.Sele
 			}
 		case "baseLandValue":
 			out.Values[i] = ec._BoardDefaultRules_baseLandValue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lapBonusPerTerritory":
+			out.Values[i] = ec._BoardDefaultRules_lapBonusPerTerritory(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -83,20 +83,21 @@ type BoardLayoutInput struct {
 
 // 変えた後の既定のルールの全体。決まりは board.NewDefaultRules の 1 か所にあり、違反は入力の項目のパスに写す
 type BoardDefaultRulesInput struct {
-	TargetMagic     int
-	StartingMagic   int
-	LapBonus        int
-	CheckpointBonus int
-	RoundLimit      int
-	DiceMin         int
-	DiceMax         int
-	BaseLandValue   int
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
 }
 
-func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) BoardDefaultRulesInput {
+func NewBoardDefaultRulesInput(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) BoardDefaultRulesInput {
 	return BoardDefaultRulesInput{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}
 }
 
@@ -440,7 +441,7 @@ func newLayout(rules board.SizeRange, layoutInput BoardLayoutInput) (board.Layou
 // 決まりは board.NewDefaultRules にあり、ここは違反を入力の項目のパスに写すだけ。誤りはまとめて input.Errors で返す
 func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules, error) {
 	rules, err := board.NewDefaultRules(rulesInput.TargetMagic, rulesInput.StartingMagic, rulesInput.LapBonus, rulesInput.CheckpointBonus,
-		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue)
+		rulesInput.RoundLimit, rulesInput.DiceMin, rulesInput.DiceMax, rulesInput.BaseLandValue, rulesInput.LapBonusPerTerritory)
 	if err == nil {
 		return rules, nil
 	}
@@ -471,6 +472,9 @@ func newBoardDefaultRules(rulesInput BoardDefaultRulesInput) (board.DefaultRules
 	}
 	if errors.Is(err, board.ErrBaseLandValueTooSmall) {
 		invalid = append(invalid, &input.TooSmall{Field: "baseLandValue", Min: 1})
+	}
+	if errors.Is(err, board.ErrLapBonusPerTerritoryTooSmall) {
+		invalid = append(invalid, &input.TooSmall{Field: "lapBonusPerTerritory", Min: 0})
 	}
 	if len(invalid) == 0 {
 		// 理由を domain に足したのに、ここに写し方を足し忘れた（黙って通さない）

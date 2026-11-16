@@ -93,20 +93,21 @@ type BoardPair struct {
 
 // 写した boards.metadata の default_rules。対戦を始めるときの既定の値で、始めるときにここから変えられる前提
 type BoardDefaultRules struct {
-	TargetMagic     int
-	StartingMagic   int
-	LapBonus        int
-	CheckpointBonus int
-	RoundLimit      int
-	DiceMin         int
-	DiceMax         int
-	BaseLandValue   int
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue int) BoardDefaultRules {
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}
 }
 
