@@ -288,6 +288,11 @@ type Effect struct {
 	ReturnToHandOnDestruction *ReturnToHandOnDestructionEffect `json:"return_to_hand_on_destruction,omitempty"`
 	// 破壊されたら魔力を得る。選んだ破壊のとき、持ち主が額の魔力を受け取る。発動は手札に戻ると同じで、結果は MagicReceivedEvent
 	GainMagicOnDestruction *GainMagicOnDestructionEffect `json:"gain_magic_on_destruction,omitempty"`
+	// 手札のクリーチャーをアイテムとして使える（画面のラベルは援護）。戦闘でアイテムを選ぶ段階で、アイテムの代わりに、属性が Elements の
+	// どれかに合う手札のクリーチャーを 1 枚出せる（払うのはコストの魔力だけ。出したカードは捨て札）。出したクリーチャーのカードの AT・HP を
+	// アイテムの位置で足し、出したクリーチャーの属性・効果は使わない（2026-11-16 オーナー。core#114）。発動はアイテムの位置の
+	// BattleCreatureEffectActivatedEvent（足した AT・HP を増減に持つ）
+	UseCreatureAsItem *UseCreatureAsItemEffect `json:"use_creature_as_item,omitempty"`
 }
 
 type AttackModifierEffect struct {
@@ -338,6 +343,11 @@ type ReturnToHandOnDestructionEffect struct {
 type GainMagicOnDestructionEffect struct {
 	Destructions Destructions           `json:"destructions"`
 	Amount       DestructionMagicAmount `json:"amount"`
+}
+
+// 属性の指定が無い援護も、すべての属性を並べて表す（空をすべてとみなす決まりを作らないため）
+type UseCreatureAsItemEffect struct {
+	Elements CreatureElements `json:"elements"`
 }
 
 func NewAttackModifierEffect(value AttackModifier) Effect {
@@ -399,6 +409,20 @@ func NewGainMagicOnDestructionEffect(destructions Destructions, amount Destructi
 	return Effect{GainMagicOnDestruction: &GainMagicOnDestructionEffect{Destructions: destructions, Amount: amount}}
 }
 
+func NewUseCreatureAsItemEffect(elements CreatureElements) Effect {
+	return Effect{UseCreatureAsItem: &UseCreatureAsItemEffect{Elements: slices.Clone(elements)}}
+}
+
+// 手札のクリーチャーをアイテムとして使えるとき、属性が elements のクリーチャーを出せるか（属性のどれかが合えば出せる）
+func (e Effect) AcceptsCreatureAsItem(elements []element.Creature) bool {
+	if e.UseCreatureAsItem == nil {
+		return false
+	}
+	return slices.ContainsFunc(e.UseCreatureAsItem.Elements, func(creatureElement element.Creature) bool {
+		return slices.Contains(elements, creatureElement)
+	})
+}
+
 // 破壊されたときの効果が、その破壊で発動するか
 func (e Effect) ActivatesOn(destruction Destruction) bool {
 	switch {
@@ -432,13 +456,14 @@ const (
 	KindForbidMovement            Kind = "forbid_movement"
 	KindReturnToHandOnDestruction Kind = "return_to_hand_on_destruction"
 	KindGainMagicOnDestruction    Kind = "gain_magic_on_destruction"
+	KindUseCreatureAsItem         Kind = "use_creature_as_item"
 )
 
 // 一覧の並び（Effect の項目の順）
 var kinds = []Kind{
 	KindAttackModifier, KindHitPointsModifier, KindAttackOverride, KindHitPointsOverride, KindAttackMultiplier, KindIgnoreTerrainEffect,
 	KindStrikeFirst, KindStrikeLast, KindNullifyReceivedDamage, KindTollMultiplier, KindForbidInvasion, KindForbidMovement,
-	KindReturnToHandOnDestruction, KindGainMagicOnDestruction,
+	KindReturnToHandOnDestruction, KindGainMagicOnDestruction, KindUseCreatureAsItem,
 }
 
 func NewKind(value string) (Kind, error) {
@@ -458,6 +483,7 @@ func (e Effect) Kind() Kind {
 		e.AttackModifier != nil, e.HitPointsModifier != nil, e.AttackOverride != nil, e.HitPointsOverride != nil, e.AttackMultiplier != nil,
 		e.IgnoreTerrainEffect != nil, e.StrikeFirst != nil, e.StrikeLast != nil, e.NullifyReceivedDamage != nil, e.TollMultiplier != nil,
 		e.ForbidInvasion != nil, e.ForbidMovement != nil, e.ReturnToHandOnDestruction != nil, e.GainMagicOnDestruction != nil,
+		e.UseCreatureAsItem != nil,
 	}
 	var found []Kind
 	for i, ok := range present {
@@ -496,6 +522,8 @@ func (e Effect) equal(other Effect) bool {
 	case e.GainMagicOnDestruction != nil:
 		return e.GainMagicOnDestruction.Amount == other.GainMagicOnDestruction.Amount &&
 			e.GainMagicOnDestruction.Destructions.Equal(other.GainMagicOnDestruction.Destructions)
+	case e.UseCreatureAsItem != nil:
+		return e.UseCreatureAsItem.Elements.Equal(other.UseCreatureAsItem.Elements)
 	}
 	return true
 }

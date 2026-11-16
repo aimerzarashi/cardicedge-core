@@ -280,6 +280,24 @@ func (r *mutationResolver) DefendMatchTerritory(ctx context.Context, input model
 	return &model.DefendMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// UseMatchCreatureAsItem is the resolver for the useMatchCreatureAsItem field.
+func (r *mutationResolver) UseMatchCreatureAsItem(ctx context.Context, input model.UseMatchCreatureAsItemInput) (model.UseMatchCreatureAsItemResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.UseCreatureAsItem(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.UseMatchCreatureAsItemResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.UseMatchCreatureAsItemSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // EndMatchTurn is the resolver for the endMatchTurn field.
 func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

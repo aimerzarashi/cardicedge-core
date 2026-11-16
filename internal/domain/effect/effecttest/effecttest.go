@@ -110,3 +110,14 @@ func GainMagicOnDestruction(t testing.TB, amount int, destructions ...effect.Des
 	require.NoError(t, err)
 	return effect.NewGainMagicOnDestructionEffect(Destructions(t, destructions...), value)
 }
+
+// 手札のクリーチャーをアイテムとして使える（援護）。属性を並べなければすべての属性
+func UseCreatureAsItem(t testing.TB, elements ...string) effect.Effect {
+	t.Helper()
+	if len(elements) == 0 {
+		elements = []string{"fire", "earth", "water", "wind", "neutral"}
+	}
+	values, err := effect.NewCreatureElements(elements)
+	require.NoError(t, err)
+	return effect.NewUseCreatureAsItemEffect(values)
+}

@@ -292,7 +292,8 @@ func (c masterCard) validateEffects() error {
 }
 
 // 効果 1 つ。種類と、種類に要る値（増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、
-// 受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount）。
+// 受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount、
+// 手札のクリーチャーをアイテムとして使えるは elements）。
 // アイテムとクリーチャーで共有する
 type masterEffect struct {
 	Kind         string                   `json:"kind"`
@@ -303,6 +304,7 @@ type masterEffect struct {
 	Constraints  []masterEffectConstraint `json:"constraints"`
 	Destructions []string                 `json:"destructions"`
 	Amount       *int                     `json:"amount"`
+	Elements     []string                 `json:"elements"`
 }
 
 // 効果の制約 1 つ。種類と、種類に要る値（相手のクリーチャーの属性は elements）
@@ -321,7 +323,7 @@ func (e masterEffect) command() command.Effect {
 	}
 	return command.Effect{
 		Kind: e.Kind, Value: e.Value, Minimum: e.Minimum, Maximum: e.Maximum, Percent: e.Percent, Constraints: constraints,
-		Destructions: e.Destructions, Amount: e.Amount,
+		Destructions: e.Destructions, Amount: e.Amount, Elements: e.Elements,
 	}
 }
 

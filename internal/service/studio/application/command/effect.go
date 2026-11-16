@@ -23,6 +23,7 @@ const (
 	EffectForbidMovement            = "forbid_movement"
 	EffectReturnToHandOnDestruction = "return_to_hand_on_destruction"
 	EffectGainMagicOnDestruction    = "gain_magic_on_destruction"
+	EffectUseCreatureAsItem         = "use_creature_as_item"
 )
 
 // 効果の制約の種類（domain の種類の名前と同じ）
@@ -30,7 +31,7 @@ const EffectConstraintOpponentCreatureElement = "opponent_creature_element"
 
 // 効果の入力と出力。種類と、種類に要る値（増減は Value、上書きは Minimum と Maximum、AT の倍率は Percent と Constraints、
 // 通行料の倍率は Percent、受けるダメージを 0 にするは Constraints、破壊されたら手札に戻るは Destructions、
-// 破壊されたら魔力を得るは Destructions と Amount）
+// 破壊されたら魔力を得るは Destructions と Amount、手札のクリーチャーをアイテムとして使えるは Elements）
 type Effect struct {
 	Kind         string
 	Value        *int
@@ -40,6 +41,7 @@ type Effect struct {
 	Constraints  []EffectConstraint
 	Destructions []string
 	Amount       *int
+	Elements     []string
 }
 
 // 効果の制約の入力と出力。種類と、種類に要る値（相手のクリーチャーの属性は Elements）
@@ -71,7 +73,7 @@ func newEffects(inputs []Effect) (effect.Effects, input.Errors) {
 
 // 種類ごとに要る値の組（ほかの値が入っていれば形の誤り）
 type effectValues struct {
-	value, rangeValues, percent, constraints, destructions, amount bool
+	value, rangeValues, percent, constraints, destructions, amount, elements bool
 }
 
 var effectShapes = map[string]effectValues{
@@ -89,12 +91,13 @@ var effectShapes = map[string]effectValues{
 	EffectForbidMovement:            {},
 	EffectReturnToHandOnDestruction: {destructions: true},
 	EffectGainMagicOnDestruction:    {destructions: true, amount: true},
+	EffectUseCreatureAsItem:         {elements: true},
 }
 
 func (e Effect) matches(shape effectValues) bool {
 	return (e.Value != nil) == shape.value && (e.Minimum != nil) == shape.rangeValues && (e.Maximum != nil) == shape.rangeValues &&
 		(e.Percent != nil) == shape.percent && (shape.constraints || e.Constraints == nil) &&
-		(e.Destructions != nil) == shape.destructions && (e.Amount != nil) == shape.amount
+		(e.Destructions != nil) == shape.destructions && (e.Amount != nil) == shape.amount && (e.Elements != nil) == shape.elements
 }
 
 func (e Effect) domain(field string) (effect.Effect, input.Errors) {
@@ -142,6 +145,13 @@ func (e Effect) domain(field string) (effect.Effect, input.Errors) {
 		return effect.NewReturnToHandOnDestructionEffect(destructions), nil
 	case EffectGainMagicOnDestruction:
 		return e.gainMagicOnDestruction(field)
+	case EffectUseCreatureAsItem:
+		// 属性の誤り（空・知らない属性・重複）は、制約の属性と同じく elements の 1 つの誤りにする
+		elements, err := effect.NewCreatureElements(e.Elements)
+		if err != nil {
+			return effect.Effect{}, input.Errors{&input.InvalidFormat{Field: field + ".elements"}}
+		}
+		return effect.NewUseCreatureAsItemEffect(elements), nil
 	case EffectIgnoreTerrainEffect:
 		return effect.NewIgnoreTerrainEffect(), nil
 	case EffectStrikeFirst:
@@ -265,6 +275,8 @@ func effectOf(value effect.Effect) Effect {
 	case value.GainMagicOnDestruction != nil:
 		converted.Destructions = destructionsOf(value.GainMagicOnDestruction.Destructions)
 		converted.Amount = new(value.GainMagicOnDestruction.Amount.Int())
+	case value.UseCreatureAsItem != nil:
+		converted.Elements = creatureElementsOf(value.UseCreatureAsItem.Elements)
 	}
 	return converted
 }
@@ -280,11 +292,15 @@ func destructionsOf(destructions effect.Destructions) []string {
 func constraintsOf(constraints effect.Constraints) []EffectConstraint {
 	values := make([]EffectConstraint, len(constraints))
 	for i, constraint := range constraints {
-		elements := make([]string, len(constraint.OpponentCreatureElement.Elements))
-		for j, creatureElement := range constraint.OpponentCreatureElement.Elements {
-			elements[j] = creatureElement.String()
-		}
-		values[i] = EffectConstraint{Kind: EffectConstraintOpponentCreatureElement, Elements: elements}
+		values[i] = EffectConstraint{Kind: EffectConstraintOpponentCreatureElement, Elements: creatureElementsOf(constraint.OpponentCreatureElement.Elements)}
+	}
+	return values
+}
+
+func creatureElementsOf(elements effect.CreatureElements) []string {
+	values := make([]string, len(elements))
+	for i, creatureElement := range elements {
+		values[i] = creatureElement.String()
 	}
 	return values
 }

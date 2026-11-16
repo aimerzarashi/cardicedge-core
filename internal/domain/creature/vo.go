@@ -240,11 +240,12 @@ func (h HitPoints) Modified(delta int) HitPoints {
 // クリーチャーが持てる効果の種類（選べる効果の表）。見本のカードで使う種類だけを入れ、新しい種類は足すときに議論する
 // （2026-11-15 オーナー。core#178。能力を効果の並びに移した。効果の型と定義は effect、どの持ち主が何を持てるかは持ち主の側）。
 // 能力の言葉との対応: 戦闘中の増減 → AT・HP の増減、戦闘中のランダム → AT・HP の上書き（範囲）、先制・後手 → 先に・後に攻撃する、
-// 攻撃無効 → 受けるダメージを 0 にする、防御型 → 侵略できない・移動できない
+// 攻撃無効 → 受けるダメージを 0 にする、防御型 → 侵略できない・移動できない、援護 → 手札のクリーチャーをアイテムとして使える
 var allowedEffectKinds = []effect.Kind{
 	effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride,
 	effect.KindStrikeFirst, effect.KindStrikeLast, effect.KindNullifyReceivedDamage, effect.KindTollMultiplier,
 	effect.KindForbidInvasion, effect.KindForbidMovement, effect.KindReturnToHandOnDestruction, effect.KindGainMagicOnDestruction,
+	effect.KindUseCreatureAsItem,
 }
 
 // クリーチャーが持てる効果の種類（選べる効果の表の並び）。studio の画面が、選べるものだけを出すのに使う

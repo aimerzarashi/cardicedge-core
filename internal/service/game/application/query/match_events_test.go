@@ -345,6 +345,42 @@ func battleStartedWith(t *testing.T, revision int64, input match.BattleInput) *m
 	return &match.BattleStartedEvent{EventMeta: eventMeta(t, revision), Input: input}
 }
 
+// 援護は、出したクリーチャーのカードを手札から引き、発動は戦うクリーチャーの効果として、援護の効果と足した AT・HP を添える（core#114）
+func TestMatchEventsHandler_ReturnsTheCreatureUsedAsItemAndItsActivation(t *testing.T) {
+	player := matchtest.Index(t, 0)
+	input := battleInput(t)
+	input.Attacker.Spec.Effects = effecttest.Effects(t, effecttest.UseCreatureAsItem(t))
+	input.Attacker.CreatureAsItem = &match.BattleCreatureAsItem{Card: cardtest.CreatureRef(t, 101), Spec: input.Defender.Spec}
+	events := append(sampleEvents(t)[:9],
+		&match.TurnEndedEvent{EventMeta: eventMeta(t, 10), Participant: matchtest.Index(t, 1)},
+		&match.CardDrawnEvent{EventMeta: eventMeta(t, 11), Participant: player},
+		&match.DiceRolledEvent{EventMeta: eventMeta(t, 12), Participant: player, Value: 2},
+		&match.PieceMovedEvent{EventMeta: eventMeta(t, 13), Participant: player, To: boardtest.Position(t, 1, 0)},
+		&match.PieceMovedEvent{EventMeta: eventMeta(t, 14), Participant: player, To: boardtest.Position(t, 2, 0)},
+		&match.TerritoryInvadedEvent{EventMeta: eventMeta(t, 15), Participant: player, Cost: cardtest.Cost(t, 10)},
+		&match.CreatureUsedAsItemEvent{EventMeta: eventMeta(t, 16), Participant: player, HandIndex: 0, Cost: cardtest.Cost(t, 10)},
+		battleStartedWith(t, 17, input),
+		&match.BattleCreatureEffectActivatedEvent{EventMeta: eventMeta(t, 18), Side: match.BattleSideAttacker, Effect: effect.KindUseCreatureAsItem, Change: &match.BattleStatChange{AttackDelta: 10, HitPointsDelta: 30}},
+	)
+	f := newEventsFixture(t, events)
+	dragon := placedDragon(f.cardID)
+
+	listed, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 15)
+
+	require.NoError(t, err)
+	require.Len(t, listed, 3)
+	used, ok := listed[0].(query.MatchCreatureUsedAsItemEvent)
+	require.True(t, ok)
+	require.Equal(t, []int{0, 0, 10}, []int{used.Participant, used.HandIndex, used.Cost})
+	require.Equal(t, dragon, used.Card)
+	activated, ok := listed[2].(query.MatchBattleCreatureEffectActivatedEvent)
+	require.True(t, ok)
+	require.Equal(t, query.EffectKindUseCreatureAsItem, activated.Effect)
+	require.Equal(t, dragon, activated.Card)
+	require.Equal(t, query.Effect{UseCreatureAsItem: &query.EffectUseCreatureAsItem{Elements: []string{"fire", "earth", "water", "wind", "neutral"}}}, activated.ActivatedEffect)
+	require.Equal(t, &query.MatchBattleStatChange{AttackDelta: 10, HitPointsDelta: 30, Attack: 20, HitPoints: 50}, activated.Change)
+}
+
 // 発動のイベントは増減だけを持ち、根拠の値は戦闘の開始の入力から、当てた後の値は直前の戦闘の中の値から添える（core#171・core#175）
 func TestMatchEventsHandler_ReturnsTheBasisAndTheStatsAfterEachActivation(t *testing.T) {
 	input := battleInput(t)

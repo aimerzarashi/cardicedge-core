@@ -240,6 +240,8 @@ type Match struct {
 	InvadeChoices []int
 	// 操作を待っている人が戦闘に出せるアイテムの手札の番号。攻める段階と守る段階のときだけ中身がある
 	ItemChoices []int
+	// 操作を待っている人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（援護。手札の順）
+	CreatureAsItemChoices []int
 	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
 	RelinquishChoices []BoardPosition
 	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1）
@@ -491,7 +493,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
-		SpellChoices: []MatchSpellChoice{}, PlaceChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		SpellChoices: []MatchSpellChoice{}, PlaceChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, CreatureAsItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
 		MoveChoices: []MatchMoveChoice{},
 	}
@@ -594,6 +596,9 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	}
 	if choices := current.ItemChoices(); len(choices) > 0 {
 		result.ItemChoices = choices
+	}
+	if choices := current.CreatureAsItemChoices(); len(choices) > 0 {
+		result.CreatureAsItemChoices = choices
 	}
 	if current.Result != nil {
 		outcome, err := fromMatchResult(*current.Result)
@@ -772,6 +777,12 @@ func queryEffect(value effect.Effect) Effect {
 		converted.GainMagicOnDestruction = &EffectGainMagicOnDestruction{
 			Destructions: queryDestructions(value.GainMagicOnDestruction.Destructions), Amount: value.GainMagicOnDestruction.Amount.Int(),
 		}
+	case value.UseCreatureAsItem != nil:
+		elements := make([]string, len(value.UseCreatureAsItem.Elements))
+		for i, creatureElement := range value.UseCreatureAsItem.Elements {
+			elements[i] = creatureElement.String()
+		}
+		converted.UseCreatureAsItem = &EffectUseCreatureAsItem{Elements: elements}
 	}
 	return converted
 }

@@ -463,6 +463,28 @@ func Evolve(state State, event Event) (State, error) {
 		}
 		current.Invasion = &invasion
 		current.Phase = current.afterItemChoice()
+	case *CreatureUsedAsItemEvent:
+		if !current.awaitsItemChoiceOf(e.Participant) {
+			return state, ErrInvalidState
+		}
+		hand := current.Participants[e.Participant].Hand
+		used, ok := current.Participants[e.Participant].handCard(e.HandIndex)
+		if !ok || used.EntityType != card.CreatureEntityType {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Participant].Hand = slices.Delete(slices.Clone(hand), e.HandIndex, e.HandIndex+1)
+		current.Participants[e.Participant].DiscardPile = append(slices.Clone(current.Participants[e.Participant].DiscardPile), used)
+		current.Participants[e.Participant].Magic -= e.Cost.Int()
+		// アイテムの枠に置く（戦闘の入力を組むときに、カードの種類でアイテムかクリーチャーかを分ける）
+		invasion := *current.Invasion
+		if current.Phase == PhaseAttacking {
+			invasion.AttackerItem = &used
+		} else {
+			invasion.DefenderItem = &used
+		}
+		current.Invasion = &invasion
+		current.Phase = current.afterItemChoice()
 	case *ItemSkippedEvent:
 		if !current.awaitsItemChoiceOf(e.Participant) {
 			return state, ErrInvalidState
@@ -830,7 +852,7 @@ func evolveBattle(battle *Battle, event Event) (*Battle, error) {
 			return nil, ErrInvalidState
 		}
 		switch e.Effect {
-		case effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride:
+		case effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride, effect.KindUseCreatureAsItem:
 			if e.Change == nil {
 				return nil, ErrInvalidState
 			}

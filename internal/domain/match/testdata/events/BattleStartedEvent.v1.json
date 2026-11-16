@@ -2,10 +2,10 @@
   "input": {
     "attacker": {
       "card": {"entity_type": "creature", "id": 101},
-      "spec": {"elements": ["neutral"], "attack": 30, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": []},
+      "spec": {"elements": ["neutral"], "attack": 30, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": [{"use_creature_as_item": {"elements": ["earth", "neutral"]}}]},
       "attack": 30,
       "hit_points": 40,
-      "item": {"card": {"entity_type": "item", "id": 301}, "spec": {"category": "weapon", "effects": [{"attack_modifier": {"value": 20}}]}},
+      "creature_as_item": {"card": {"entity_type": "creature", "id": 151}, "spec": {"elements": ["neutral"], "attack": 255, "hit_points": 520, "item_restrictions": [], "placement_restrictions": [], "effects": []}},
       "adjacent_territories": [{"x": 0, "y": 0}, {"x": 2, "y": 0}]
     },
     "defender": {

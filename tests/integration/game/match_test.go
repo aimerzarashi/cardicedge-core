@@ -32,6 +32,7 @@ const matchQuery = `query ($id: UUID!) {
 			awaitingParticipant
 			invadeChoices
 			itemChoices
+			creatureAsItemChoices
 			invasion { position { x y } card { id name } hitPoints }
 			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } placeChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
@@ -164,7 +165,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchLand" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchLand" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" || name == "useMatchCreatureAsItem" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -416,6 +417,7 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost defendingCreatureCard { id name } }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
+				... on MatchCreatureUsedAsItemEvent { participant handIndex card { id name } cost }
 				... on MatchItemSkippedEvent { participant }
 				... on MatchLandLeveledUpEvent { participant position { x y } level magic }
 				... on MatchLandElementChangedEvent { participant position { x y } element magic baseLandValue multiplier }
@@ -1028,13 +1030,16 @@ func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
 	attack := matchOperation(t, p.token, "attackMatchTerritory", input)
 	toll := matchOperation(t, p.token, "payMatchToll", input)
 	defend := matchOperation(t, p.token, "defendMatchTerritory", input)
+	creatureAsItem := matchOperation(t, p.token, "useMatchCreatureAsItem", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
 
 	require.Equal(t, "MatchPhaseNotAllowedError", invade["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", creatureAsItem["__typename"])
 	require.Equal(t, "MatchPhaseNotAllowedError", attack["__typename"])
 	require.Equal(t, "MatchPhaseNotAllowedError", toll["__typename"])
 	require.Equal(t, "MatchPhaseNotAllowedError", defend["__typename"])
 	require.Empty(t, m["invadeChoices"])
 	require.Empty(t, m["itemChoices"])
+	require.Empty(t, m["creatureAsItemChoices"])
 	require.Nil(t, m["invasion"])
 }
 

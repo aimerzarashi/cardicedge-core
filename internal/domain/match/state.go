@@ -87,7 +87,7 @@ type Invasion struct {
 	// 戦闘の前の AT・体力（戦闘の中の値は Battle が持つ）
 	Attack    creature.Attack
 	HitPoints creature.HitPoints
-	// 出したアイテム。出すまでと、出さなかったときは nil
+	// アイテムの枠に出したカード（アイテムか、援護で出したクリーチャー）。出すまでと、出さなかったときは nil
 	AttackerItem *card.Ref
 	DefenderItem *card.Ref
 }
@@ -475,6 +475,32 @@ func (m Match) ItemChoices() []int {
 	for i, ref := range participant.Hand {
 		spec, ok := specs[ref]
 		if ok && ref.EntityType == card.ItemEntityType && spec.Cost.Int() <= participant.Magic && fighter.canUseItem(spec) {
+			choices = append(choices, i)
+		}
+	}
+	return choices
+}
+
+// 今選んでいる人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（手札の順）。攻める段階と守る段階でだけ中身がある。
+// 戦うクリーチャーの援護の効果が属性を受け付け、コストが今の魔力以下のもの（2026-11-16 オーナー。core#114）
+func (m Match) CreatureAsItemChoices() []int {
+	if m.Phase != PhaseAttacking && m.Phase != PhaseDefending {
+		return nil
+	}
+	index, ok := m.AwaitingParticipant()
+	if !ok || int(index) >= len(m.Participants) {
+		return nil
+	}
+	fighter, ok := m.awaitingFighter()
+	if !ok {
+		return nil
+	}
+	participant := m.Participants[index]
+	specs := m.CardSpecs()
+	var choices []int
+	for i, ref := range participant.Hand {
+		spec, ok := specs[ref]
+		if ok && ref.EntityType == card.CreatureEntityType && spec.Cost.Int() <= participant.Magic && fighter.canUseCreatureAsItem(spec) {
 			choices = append(choices, i)
 		}
 	}

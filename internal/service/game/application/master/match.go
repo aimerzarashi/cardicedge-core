@@ -89,6 +89,12 @@ type Effect struct {
 	// 発動する破壊（invading・defending・board）
 	ReturnToHandOnDestruction *EffectReturnToHandOnDestruction
 	GainMagicOnDestruction    *EffectGainMagicOnDestruction
+	// 手札のクリーチャーをアイテムとして使える（使えるクリーチャーの属性）
+	UseCreatureAsItem *EffectUseCreatureAsItem
+}
+
+type EffectUseCreatureAsItem struct {
+	Elements []string
 }
 
 type EffectReturnToHandOnDestruction struct {

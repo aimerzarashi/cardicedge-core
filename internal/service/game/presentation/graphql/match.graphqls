@@ -241,6 +241,8 @@ type Match {
   invadeChoices: [Int!]!
   "操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）"
   itemChoices: [Int!]!
+  "操作を待っている人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（援護。0 始まり。手札の順。ATTACKING と DEFENDING のときだけ、戦うクリーチャーが援護を持つときに中身がある。useMatchCreatureAsItem で出す）"
+  creatureAsItemChoices: [Int!]!
   "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
   relinquishChoices: [BoardPosition!]!
   "レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）"
@@ -589,6 +591,34 @@ union DefendMatchTerritoryResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"アイテムの代わりに手札のクリーチャーを出す入力（援護）"
+input UseMatchCreatureAsItemInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すクリーチャーの手札の番号（0 始まり。Match.creatureAsItemChoices の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）"
+  handIndex: Int!
+}
+
+"クリーチャーを出した（守る側なら戦闘まで終わった。成功したら対戦の revision が進む）"
+type UseMatchCreatureAsItemSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"useMatchCreatureAsItem の結果（ATTACKING・DEFENDING の段階の、操作を待っている人だけ。ほかの人は MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union UseMatchCreatureAsItemResult =
+    UseMatchCreatureAsItemSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "魔力が負の間に、自分の領地を手放す入力"
 input RelinquishMatchTerritoryInput {
   "対戦の公開用の ID"
@@ -873,6 +903,8 @@ extend type Mutation {
   payMatchToll(input: PayMatchTollInput!): PayMatchTollResult!
   "侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さないことも選ぶ）"
   defendMatchTerritory(input: DefendMatchTerritoryInput!): DefendMatchTerritoryResult!
+  "アイテムを選んでいる人（攻める側・守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。コストの分の魔力を払う。守る側なら戦闘に進む）"
+  useMatchCreatureAsItem(input: UseMatchCreatureAsItemInput!): UseMatchCreatureAsItemResult!
   "ターンを終える（PLACING では配置しない）"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
   "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
@@ -1120,6 +1152,24 @@ type MatchSpellUsedEvent implements MatchEvent {
   "使った手札の番号（0 始まり）"
   handIndex: Int!
   "使ったカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘に、アイテムの代わりに手札のクリーチャーを出した（援護。攻める側も守る側も同じ。足す AT・HP は続く MatchBattleCreatureEffectActivatedEvent）"
+type MatchCreatureUsedAsItemEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したクリーチャーのカード（性能は対戦を始めたときの写し）"
   card: CardInfo!
   "払った魔力"
   cost: Int!

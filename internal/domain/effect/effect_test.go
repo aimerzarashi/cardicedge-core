@@ -128,3 +128,15 @@ func TestEffect_ActivatesOnlyOnTheChosenDestructions(t *testing.T) {
 	require.False(t, effecttest.AttackModifier(10).ActivatesOn(effect.DestructionBoard))
 	require.False(t, effecttest.Effects(t, cornfolk).Equal(effecttest.Effects(t, effecttest.GainMagicOnDestruction(t, 100, effect.DestructionInvading, effect.DestructionDefending, effect.DestructionBoard))))
 }
+
+func TestEffect_AcceptsCreaturesAsItemsOnlyOfTheElements(t *testing.T) {
+	dryad := effecttest.UseCreatureAsItem(t, "earth", "neutral")
+
+	require.True(t, dryad.AcceptsCreatureAsItem([]element.Creature{element.CreatureEarth}))
+	require.True(t, dryad.AcceptsCreatureAsItem([]element.Creature{element.CreatureFire, element.CreatureNeutral}))
+	require.False(t, dryad.AcceptsCreatureAsItem([]element.Creature{element.CreatureFire}))
+	require.True(t, effecttest.UseCreatureAsItem(t).AcceptsCreatureAsItem([]element.Creature{element.CreatureWind}))
+	require.False(t, effecttest.AttackModifier(10).AcceptsCreatureAsItem([]element.Creature{element.CreatureEarth}))
+	require.Equal(t, effect.KindUseCreatureAsItem, dryad.Kind())
+	require.False(t, effecttest.Effects(t, dryad).Equal(effecttest.Effects(t, effecttest.UseCreatureAsItem(t, "earth"))))
+}
