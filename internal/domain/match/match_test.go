@@ -233,6 +233,9 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.BoardCreatureDestroyedEvent{EventMeta: meta, Participant: by},
 		&match.InvadingCreatureDestroyedEvent{EventMeta: meta, Participant: by},
 		&match.DefendingCreatureDestroyedEvent{EventMeta: meta, Participant: by},
+		&match.DestructionCreatureEffectActivatedEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Card: cardtest.CreatureRef(t, 201), Effect: effect.KindReturnToHandOnDestruction},
+		&match.CardReturnedToHandEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Card: cardtest.CreatureRef(t, 201)},
+		&match.MagicReceivedEvent{EventMeta: meta, Participant: by, Owner: matchtest.Index(t, 0), Magic: 200},
 		&match.DiceRolledEvent{EventMeta: meta, Participant: by, Value: 4},
 		&match.PieceMovedEvent{EventMeta: meta, Participant: by, To: boardtest.Position(t, 1, 0)},
 		&match.CheckpointPassedEvent{EventMeta: meta, Participant: by, Magic: 100},
@@ -3642,4 +3645,81 @@ func TestDecide_HitPointsRolledByBattleRandomStatsAbsorbDamageAndDoNotRemainAfte
 
 	// 引いた HP 35 に 10 のダメージ。戦闘の後は戦闘の前の 20 に戻る
 	require.Equal(t, creaturetest.HitPoints(t, 20), state.PlacedCreatures[0].HitPoints)
+}
+
+// 「破壊されたとき」の効果は、破壊のイベントの直後に効果の並びの順に発動し、結果が続く（core#182）
+func TestDecide_InvadingCreatureReturnsToTheHandRightAfterItIsDestroyed(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 10, 10, 20)
+	state = withCreatureEffects(t, state, []effect.Effect{effecttest.ReturnToHandOnDestruction(t, effect.DestructionInvading, effect.DestructionDefending)}, nil)
+	handBefore := len(state.Participants[1].Hand)
+
+	state, events := defend(t, state)
+
+	at := slices.IndexFunc(events, func(event match.Event) bool { _, ok := event.(*match.InvadingCreatureDestroyedEvent); return ok })
+	require.GreaterOrEqual(t, at, 0)
+	invader := cardtest.CreatureRef(t, 201)
+	require.Equal(t, &match.DestructionCreatureEffectActivatedEvent{EventMeta: events[at+1].GetMeta(), Participant: matchtest.Index(t, 1), Owner: matchtest.Index(t, 1), Card: invader, Effect: effect.KindReturnToHandOnDestruction}, events[at+1])
+	require.Equal(t, &match.CardReturnedToHandEvent{EventMeta: events[at+2].GetMeta(), Participant: matchtest.Index(t, 1), Owner: matchtest.Index(t, 1), Card: invader}, events[at+2])
+	require.IsType(t, &match.InvasionFailedEvent{}, events[at+3])
+	require.Len(t, state.Participants[1].Hand, handBefore+1)
+	require.Equal(t, invader, state.Participants[1].Hand[handBefore])
+	require.Empty(t, state.Participants[1].DiscardPile)
+}
+
+// 手札が上限でも戻り、上限は持ち主のターンの終わりに捨てて合わせる（2026-11-15 オーナー）
+func TestDecide_DestroyedCreatureReturnsEvenToAFullHand(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 10, 10, 20)
+	state = withCreatureEffects(t, state, []effect.Effect{effecttest.ReturnToHandOnDestruction(t, effect.DestructionInvading)}, nil)
+	state.Participants = slices.Clone(state.Participants)
+	state.Participants[1].Hand = refs(t, 101, 102, 103, 104, 105, 106)
+
+	state, events := defend(t, state)
+
+	require.Equal(t, 1, countOf[*match.CardReturnedToHandEvent](events))
+	// 戻った後、ターンの終わりに上限を超えた分を捨てる段階になる
+	require.Len(t, state.Participants[1].Hand, 7)
+	require.Equal(t, 1, countOf[*match.HandLimitExceededEvent](events))
+	require.Empty(t, state.Participants[1].DiscardPile)
+}
+
+func TestDecide_DestructionEffectActivatesOnlyOnTheChosenDestructions(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 5, 10, 10, 20)
+	state = withCreatureEffects(t, state, []effect.Effect{effecttest.ReturnToHandOnDestruction(t, effect.DestructionDefending, effect.DestructionBoard)}, nil)
+
+	state, events := defend(t, state)
+
+	require.Zero(t, countOf[*match.DestructionCreatureEffectActivatedEvent](events))
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
+}
+
+func TestDecide_DefendingCreatureGivesItsOwnerMagicBeforeTheInvasionSucceeds(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 30, 20, 5, 10)
+	state = withCreatureEffects(t, state, nil, []effect.Effect{effecttest.GainMagicOnDestruction(t, 200, effect.DestructionDefending)})
+	magicBefore := state.Participants[0].Magic
+
+	state, events := defend(t, state)
+
+	received := slices.IndexFunc(events, func(event match.Event) bool { _, ok := event.(*match.MagicReceivedEvent); return ok })
+	succeeded := slices.IndexFunc(events, func(event match.Event) bool { _, ok := event.(*match.InvasionSucceededEvent); return ok })
+	require.Positive(t, received)
+	require.Less(t, received, succeeded)
+	require.Equal(t, &match.MagicReceivedEvent{EventMeta: events[received].GetMeta(), Participant: matchtest.Index(t, 1), Owner: matchtest.Index(t, 0), Magic: 200}, events[received])
+	require.Equal(t, magicBefore+200, state.Participants[0].Magic)
+}
+
+func TestDecide_CreatureDestroyedOnTheBoardActivatesItsDestructionEffects(t *testing.T) {
+	state := rollingWithDamage(t)
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].Base.Effects = effecttest.Effects(t,
+		effecttest.GainMagicOnDestruction(t, 200, effect.DestructionBoard), effecttest.ReturnToHandOnDestruction(t, effect.DestructionBoard))
+	magicBefore := state.Participants[0].Magic
+
+	state, events := useDamage(t, state, 1)
+
+	require.Equal(t, 2, countOf[*match.DestructionCreatureEffectActivatedEvent](events))
+	require.Equal(t, 1, countOf[*match.MagicReceivedEvent](events))
+	require.Equal(t, 1, countOf[*match.CardReturnedToHandEvent](events))
+	require.Equal(t, magicBefore+200, state.Participants[0].Magic)
+	require.Contains(t, state.Participants[0].Hand, cardtest.CreatureRef(t, 201))
+	require.Empty(t, state.Participants[0].DiscardPile)
 }

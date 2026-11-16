@@ -114,6 +114,35 @@ type TollCreatureEffectActivatedEvent struct {
 	eventMarker `json:"-"`
 }
 
+// 破壊されたクリーチャーの「破壊されたとき」の効果が発動した（破壊のイベントの直後に、効果の並びの順。2026-11-15 オーナー。core#182）。
+// 持ち主とカードは、破壊の後の状態に残らないので持つ。魔力の額は効果の値から引けるので持たない。状態は変えず、結果は続くイベントが当てる
+type DestructionCreatureEffectActivatedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Owner       ParticipantIndex `json:"owner"`
+	Card        card.Ref         `json:"card"`
+	Effect      effect.Kind      `json:"effect"`
+}
+
+// 破壊されて捨て札に入ったカードが、持ち主の手札の最後に戻った（手札の上限は持ち主のターンの終わりに合わせる）
+type CardReturnedToHandEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Owner       ParticipantIndex `json:"owner"`
+	Card        card.Ref         `json:"card"`
+}
+
+// 持ち主が魔力を受け取った（破壊されたら魔力を得る効果の結果。スペルの MagicGainedEvent は周回数を根拠に持つので分ける）
+type MagicReceivedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Owner       ParticipantIndex `json:"owner"`
+	Magic       int              `json:"magic"`
+}
+
 // 魔力が負の間に、自分の領地を手放した（Magic は受け取った魔力）。クリーチャーは盤面から外れて持ち主の捨て札に入り、土地は空く（レベルは土地に残る。core#146）
 type TerritoryRelinquishedEvent struct {
 	EventMeta   `json:"-"`
@@ -463,51 +492,54 @@ type AllRewardsReceivedEvent struct {
 }
 
 var (
-	createdEventType                       = domain.NewEventName("CreatedEvent")
-	turnOrderDecidedEventType              = domain.NewEventName("TurnOrderDecidedEvent")
-	drawPilesShuffledEventType             = domain.NewEventName("DrawPilesShuffledEvent")
-	handsDealtEventType                    = domain.NewEventName("HandsDealtEvent")
-	cardDrawnEventType                     = domain.NewEventName("CardDrawnEvent")
-	cardDiscardedEventType                 = domain.NewEventName("CardDiscardedEvent")
-	diceRolledEventType                    = domain.NewEventName("DiceRolledEvent")
-	pieceMovedEventType                    = domain.NewEventName("PieceMovedEvent")
-	checkpointPassedEventType              = domain.NewEventName("CheckpointPassedEvent")
-	lapCompletedEventType                  = domain.NewEventName("LapCompletedEvent")
-	turnEndedEventType                     = domain.NewEventName("TurnEndedEvent")
-	matchEndedEventType                    = domain.NewEventName("MatchEndedEvent")
-	rewardDrawnEventType                   = domain.NewEventName("RewardDrawnEvent")
-	allRewardsReceivedEventType            = domain.NewEventName("AllRewardsReceivedEvent")
-	creaturePlacedEventType                = domain.NewEventName("CreaturePlacedEvent")
-	tollPaidEventType                      = domain.NewEventName("TollPaidEvent")
-	territoryRelinquishedEventType         = domain.NewEventName("TerritoryRelinquishedEvent")
-	magicDepletedEventType                 = domain.NewEventName("MagicDepletedEvent")
-	territoryInvadedEventType              = domain.NewEventName("TerritoryInvadedEvent")
-	itemUsedEventType                      = domain.NewEventName("ItemUsedEvent")
-	creatureStruckEventType                = domain.NewEventName("CreatureStruckEvent")
-	invasionSucceededEventType             = domain.NewEventName("InvasionSucceededEvent")
-	invasionFailedEventType                = domain.NewEventName("InvasionFailedEvent")
-	itemSkippedEventType                   = domain.NewEventName("ItemSkippedEvent")
-	battleStartedEventType                 = domain.NewEventName("BattleStartedEvent")
-	battleSupportEffectActivatedEventType  = domain.NewEventName("BattleSupportEffectActivatedEvent")
-	battleTerrainEffectActivatedEventType  = domain.NewEventName("BattleTerrainEffectActivatedEvent")
-	battleCreatureEffectActivatedEventType = domain.NewEventName("BattleCreatureEffectActivatedEvent")
-	battleItemEffectActivatedEventType     = domain.NewEventName("BattleItemEffectActivatedEvent")
-	tollCreatureEffectActivatedEventType   = domain.NewEventName("TollCreatureEffectActivatedEvent")
-	landLeveledUpEventType                 = domain.NewEventName("LandLeveledUpEvent")
-	creatureExchangedEventType             = domain.NewEventName("CreatureExchangedEvent")
-	landElementChangedEventType            = domain.NewEventName("LandElementChangedEvent")
-	creatureMovedEventType                 = domain.NewEventName("CreatureMovedEvent")
-	territoryInvadedByMoveEventType        = domain.NewEventName("TerritoryInvadedByMoveEvent")
-	discardPileShuffledEventType           = domain.NewEventName("DiscardPileShuffledEvent")
-	handLimitExceededEventType             = domain.NewEventName("HandLimitExceededEvent")
-	spellUsedEventType                     = domain.NewEventName("SpellUsedEvent")
-	magicGainedEventType                   = domain.NewEventName("MagicGainedEvent")
-	spellEffectStartedEventType            = domain.NewEventName("SpellEffectStartedEvent")
-	spellEffectEndedEventType              = domain.NewEventName("SpellEffectEndedEvent")
-	creatureDamagedEventType               = domain.NewEventName("CreatureDamagedEvent")
-	boardCreatureDestroyedEventType        = domain.NewEventName("BoardCreatureDestroyedEvent")
-	invadingCreatureDestroyedEventType     = domain.NewEventName("InvadingCreatureDestroyedEvent")
-	defendingCreatureDestroyedEventType    = domain.NewEventName("DefendingCreatureDestroyedEvent")
+	createdEventType                            = domain.NewEventName("CreatedEvent")
+	turnOrderDecidedEventType                   = domain.NewEventName("TurnOrderDecidedEvent")
+	drawPilesShuffledEventType                  = domain.NewEventName("DrawPilesShuffledEvent")
+	handsDealtEventType                         = domain.NewEventName("HandsDealtEvent")
+	cardDrawnEventType                          = domain.NewEventName("CardDrawnEvent")
+	cardDiscardedEventType                      = domain.NewEventName("CardDiscardedEvent")
+	diceRolledEventType                         = domain.NewEventName("DiceRolledEvent")
+	pieceMovedEventType                         = domain.NewEventName("PieceMovedEvent")
+	checkpointPassedEventType                   = domain.NewEventName("CheckpointPassedEvent")
+	lapCompletedEventType                       = domain.NewEventName("LapCompletedEvent")
+	turnEndedEventType                          = domain.NewEventName("TurnEndedEvent")
+	matchEndedEventType                         = domain.NewEventName("MatchEndedEvent")
+	rewardDrawnEventType                        = domain.NewEventName("RewardDrawnEvent")
+	allRewardsReceivedEventType                 = domain.NewEventName("AllRewardsReceivedEvent")
+	creaturePlacedEventType                     = domain.NewEventName("CreaturePlacedEvent")
+	tollPaidEventType                           = domain.NewEventName("TollPaidEvent")
+	territoryRelinquishedEventType              = domain.NewEventName("TerritoryRelinquishedEvent")
+	magicDepletedEventType                      = domain.NewEventName("MagicDepletedEvent")
+	territoryInvadedEventType                   = domain.NewEventName("TerritoryInvadedEvent")
+	itemUsedEventType                           = domain.NewEventName("ItemUsedEvent")
+	creatureStruckEventType                     = domain.NewEventName("CreatureStruckEvent")
+	invasionSucceededEventType                  = domain.NewEventName("InvasionSucceededEvent")
+	invasionFailedEventType                     = domain.NewEventName("InvasionFailedEvent")
+	itemSkippedEventType                        = domain.NewEventName("ItemSkippedEvent")
+	battleStartedEventType                      = domain.NewEventName("BattleStartedEvent")
+	battleSupportEffectActivatedEventType       = domain.NewEventName("BattleSupportEffectActivatedEvent")
+	battleTerrainEffectActivatedEventType       = domain.NewEventName("BattleTerrainEffectActivatedEvent")
+	battleCreatureEffectActivatedEventType      = domain.NewEventName("BattleCreatureEffectActivatedEvent")
+	battleItemEffectActivatedEventType          = domain.NewEventName("BattleItemEffectActivatedEvent")
+	tollCreatureEffectActivatedEventType        = domain.NewEventName("TollCreatureEffectActivatedEvent")
+	destructionCreatureEffectActivatedEventType = domain.NewEventName("DestructionCreatureEffectActivatedEvent")
+	cardReturnedToHandEventType                 = domain.NewEventName("CardReturnedToHandEvent")
+	magicReceivedEventType                      = domain.NewEventName("MagicReceivedEvent")
+	landLeveledUpEventType                      = domain.NewEventName("LandLeveledUpEvent")
+	creatureExchangedEventType                  = domain.NewEventName("CreatureExchangedEvent")
+	landElementChangedEventType                 = domain.NewEventName("LandElementChangedEvent")
+	creatureMovedEventType                      = domain.NewEventName("CreatureMovedEvent")
+	territoryInvadedByMoveEventType             = domain.NewEventName("TerritoryInvadedByMoveEvent")
+	discardPileShuffledEventType                = domain.NewEventName("DiscardPileShuffledEvent")
+	handLimitExceededEventType                  = domain.NewEventName("HandLimitExceededEvent")
+	spellUsedEventType                          = domain.NewEventName("SpellUsedEvent")
+	magicGainedEventType                        = domain.NewEventName("MagicGainedEvent")
+	spellEffectStartedEventType                 = domain.NewEventName("SpellEffectStartedEvent")
+	spellEffectEndedEventType                   = domain.NewEventName("SpellEffectEndedEvent")
+	creatureDamagedEventType                    = domain.NewEventName("CreatureDamagedEvent")
+	boardCreatureDestroyedEventType             = domain.NewEventName("BoardCreatureDestroyedEvent")
+	invadingCreatureDestroyedEventType          = domain.NewEventName("InvadingCreatureDestroyedEvent")
+	defendingCreatureDestroyedEventType         = domain.NewEventName("DefendingCreatureDestroyedEvent")
 )
 
 func (*CreatedEvent) EventType() domain.EventName {
@@ -883,6 +915,7 @@ func Types() domain.AggregateTypes {
 		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
 		creatureDamagedEventType, boardCreatureDestroyedEventType, tollCreatureEffectActivatedEventType,
 		invadingCreatureDestroyedEventType, defendingCreatureDestroyedEventType,
+		destructionCreatureEffectActivatedEventType, cardReturnedToHandEventType, magicReceivedEventType,
 	}}
 }
 
@@ -953,6 +986,12 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &BattleCreatureEffectActivatedEvent{EventMeta: meta}
 	case EventType(battleItemEffectActivatedEventType):
 		event = &BattleItemEffectActivatedEvent{EventMeta: meta}
+	case EventType(destructionCreatureEffectActivatedEventType):
+		event = &DestructionCreatureEffectActivatedEvent{EventMeta: meta}
+	case EventType(cardReturnedToHandEventType):
+		event = &CardReturnedToHandEvent{EventMeta: meta}
+	case EventType(magicReceivedEventType):
+		event = &MagicReceivedEvent{EventMeta: meta}
 	case EventType(tollCreatureEffectActivatedEventType):
 		event = &TollCreatureEffectActivatedEvent{EventMeta: meta}
 	case EventType(landLeveledUpEventType):
@@ -992,4 +1031,28 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		return nil, err
 	}
 	return event, nil
+}
+
+func (*DestructionCreatureEffectActivatedEvent) EventType() domain.EventName {
+	return destructionCreatureEffectActivatedEventType
+}
+
+func (*DestructionCreatureEffectActivatedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CardReturnedToHandEvent) EventType() domain.EventName {
+	return cardReturnedToHandEventType
+}
+
+func (*CardReturnedToHandEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*MagicReceivedEvent) EventType() domain.EventName {
+	return magicReceivedEventType
+}
+
+func (*MagicReceivedEvent) SchemaVersion() int {
+	return 1
 }

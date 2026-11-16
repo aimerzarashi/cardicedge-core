@@ -404,6 +404,12 @@ type ComplexityRoot struct {
 		Message func(childComplexity int) int
 	}
 
+	GainMagicOnDestructionEffect struct {
+		Amount       func(childComplexity int) int
+		Destructions func(childComplexity int) int
+		Kind         func(childComplexity int) int
+	}
+
 	GainMagicSpellEffect struct {
 		PerLap func(childComplexity int) int
 	}
@@ -856,6 +862,11 @@ type ComplexityRoot struct {
 	RetireStarterSetSuccess struct {
 		ID       func(childComplexity int) int
 		Revision func(childComplexity int) int
+	}
+
+	ReturnToHandOnDestructionEffect struct {
+		Destructions func(childComplexity int) int
+		Kind         func(childComplexity int) int
 	}
 
 	RevisionConflictError struct {
@@ -2117,6 +2128,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ForbiddenError.Message(childComplexity), true
+
+	case "GainMagicOnDestructionEffect.amount":
+		if e.ComplexityRoot.GainMagicOnDestructionEffect.Amount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GainMagicOnDestructionEffect.Amount(childComplexity), true
+	case "GainMagicOnDestructionEffect.destructions":
+		if e.ComplexityRoot.GainMagicOnDestructionEffect.Destructions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GainMagicOnDestructionEffect.Destructions(childComplexity), true
+	case "GainMagicOnDestructionEffect.kind":
+		if e.ComplexityRoot.GainMagicOnDestructionEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GainMagicOnDestructionEffect.Kind(childComplexity), true
 
 	case "GainMagicSpellEffect.perLap":
 		if e.ComplexityRoot.GainMagicSpellEffect.PerLap == nil {
@@ -3912,6 +3942,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RetireStarterSetSuccess.Revision(childComplexity), true
+
+	case "ReturnToHandOnDestructionEffect.destructions":
+		if e.ComplexityRoot.ReturnToHandOnDestructionEffect.Destructions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReturnToHandOnDestructionEffect.Destructions(childComplexity), true
+	case "ReturnToHandOnDestructionEffect.kind":
+		if e.ComplexityRoot.ReturnToHandOnDestructionEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ReturnToHandOnDestructionEffect.Kind(childComplexity), true
 
 	case "RevisionConflictError.message":
 		if e.ComplexityRoot.RevisionConflictError.Message == nil {
@@ -9990,6 +10033,75 @@ func (ec *executionContext) _ForbiddenError_message(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_ForbiddenError_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ForbiddenError", field, false, false, "String")
+}
+
+func (ec *executionContext) _GainMagicOnDestructionEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.GainMagicOnDestructionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GainMagicOnDestructionEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GainMagicOnDestructionEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GainMagicOnDestructionEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _GainMagicOnDestructionEffect_destructions(ctx context.Context, field graphql.CollectedField, obj *model.GainMagicOnDestructionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GainMagicOnDestructionEffect_destructions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Destructions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectDestruction) graphql.Marshaler {
+			return ec.marshalNEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GainMagicOnDestructionEffect_destructions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GainMagicOnDestructionEffect", field, false, false, "EffectDestruction")
+}
+
+func (ec *executionContext) _GainMagicOnDestructionEffect_amount(ctx context.Context, field graphql.CollectedField, obj *model.GainMagicOnDestructionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_GainMagicOnDestructionEffect_amount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Amount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_GainMagicOnDestructionEffect_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("GainMagicOnDestructionEffect", field, false, false, "Int")
 }
 
 func (ec *executionContext) _GainMagicSpellEffect_perLap(ctx context.Context, field graphql.CollectedField, obj *model.GainMagicSpellEffect) (ret graphql.Marshaler) {
@@ -16982,6 +17094,52 @@ func (ec *executionContext) fieldContext_RetireStarterSetSuccess_revision(_ cont
 	return graphql.NewScalarFieldContext("RetireStarterSetSuccess", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ReturnToHandOnDestructionEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.ReturnToHandOnDestructionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReturnToHandOnDestructionEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ReturnToHandOnDestructionEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ReturnToHandOnDestructionEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _ReturnToHandOnDestructionEffect_destructions(ctx context.Context, field graphql.CollectedField, obj *model.ReturnToHandOnDestructionEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ReturnToHandOnDestructionEffect_destructions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Destructions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.EffectDestruction) graphql.Marshaler {
+			return ec.marshalNEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ReturnToHandOnDestructionEffect_destructions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ReturnToHandOnDestructionEffect", field, false, false, "EffectDestruction")
+}
+
 func (ec *executionContext) _RevisionConflictError_message(ctx context.Context, field graphql.CollectedField, obj *model.RevisionConflictError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -21165,7 +21323,7 @@ func (ec *executionContext) unmarshalInputEffectInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"kind", "value", "minimum", "maximum", "percent", "constraints"}
+	fieldsInOrder := [...]string{"kind", "value", "minimum", "maximum", "percent", "constraints", "destructions", "amount"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -21214,6 +21372,20 @@ func (ec *executionContext) unmarshalInputEffectInput(ctx context.Context, obj a
 				return it, err
 			}
 			it.Constraints = data
+		case "destructions":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("destructions"))
+			data, err := ec.unmarshalOEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Destructions = data
+		case "amount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Amount = data
 		}
 	}
 	return it, nil
@@ -24888,6 +25060,13 @@ func (ec *executionContext) _Effect(ctx context.Context, sel ast.SelectionSet, o
 			return graphql.Null
 		}
 		return ec._StrikeFirstEffect(ctx, sel, obj)
+	case model.ReturnToHandOnDestructionEffect:
+		return ec._ReturnToHandOnDestructionEffect(ctx, sel, &obj)
+	case *model.ReturnToHandOnDestructionEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._ReturnToHandOnDestructionEffect(ctx, sel, obj)
 	case model.NullifyReceivedDamageEffect:
 		return ec._NullifyReceivedDamageEffect(ctx, sel, &obj)
 	case *model.NullifyReceivedDamageEffect:
@@ -24916,6 +25095,13 @@ func (ec *executionContext) _Effect(ctx context.Context, sel ast.SelectionSet, o
 			return graphql.Null
 		}
 		return ec._HitPointsModifierEffect(ctx, sel, obj)
+	case model.GainMagicOnDestructionEffect:
+		return ec._GainMagicOnDestructionEffect(ctx, sel, &obj)
+	case *model.GainMagicOnDestructionEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._GainMagicOnDestructionEffect(ctx, sel, obj)
 	case model.ForbidMovementEffect:
 		return ec._ForbidMovementEffect(ctx, sel, &obj)
 	case *model.ForbidMovementEffect:
@@ -30026,6 +30212,49 @@ func (ec *executionContext) _ForbiddenError(ctx context.Context, sel ast.Selecti
 	return out
 }
 
+var gainMagicOnDestructionEffectImplementors = []string{"GainMagicOnDestructionEffect", "Effect"}
+
+func (ec *executionContext) _GainMagicOnDestructionEffect(ctx context.Context, sel ast.SelectionSet, obj *model.GainMagicOnDestructionEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gainMagicOnDestructionEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GainMagicOnDestructionEffect")
+		case "kind":
+			out.Values[i] = ec._GainMagicOnDestructionEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "destructions":
+			out.Values[i] = ec._GainMagicOnDestructionEffect_destructions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "amount":
+			out.Values[i] = ec._GainMagicOnDestructionEffect_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var gainMagicSpellEffectImplementors = []string{"GainMagicSpellEffect", "SpellEffect"}
 
 func (ec *executionContext) _GainMagicSpellEffect(ctx context.Context, sel ast.SelectionSet, obj *model.GainMagicSpellEffect) graphql.Marshaler {
@@ -33430,6 +33659,44 @@ func (ec *executionContext) _RetireStarterSetSuccess(ctx context.Context, sel as
 	return out
 }
 
+var returnToHandOnDestructionEffectImplementors = []string{"ReturnToHandOnDestructionEffect", "Effect"}
+
+func (ec *executionContext) _ReturnToHandOnDestructionEffect(ctx context.Context, sel ast.SelectionSet, obj *model.ReturnToHandOnDestructionEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, returnToHandOnDestructionEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ReturnToHandOnDestructionEffect")
+		case "kind":
+			out.Values[i] = ec._ReturnToHandOnDestructionEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "destructions":
+			out.Values[i] = ec._ReturnToHandOnDestructionEffect_destructions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var revisionConflictErrorImplementors = []string{"RevisionConflictError", "RenameBoardResult", "ChangeBoardLayoutResult", "ChangeBoardDefaultRulesResult", "DeleteBoardResult", "PublishBoardResult", "RetireBoardResult", "PublishCardResult", "RetireCardResult", "ChangeCardCostResult", "ChangeCardRarityResult", "ChangeCreatureElementsResult", "ChangeCreatureStatsResult", "ChangeCreatureEffectsResult", "ChangeCreatureItemRestrictionsResult", "ChangeCreaturePlacementRestrictionsResult", "RenameGrantDeckResult", "SetGrantDeckCardCountsResult", "DeleteGrantDeckResult", "PublishGrantDeckResult", "RetireGrantDeckResult", "ChangeItemCategoryResult", "ChangeItemEffectsResult", "RenameNpcAvatarResult", "SetNpcAvatarDecksResult", "DeleteNpcAvatarResult", "PublishNpcAvatarResult", "RetireNpcAvatarResult", "RenameNpcDeckResult", "SetNpcDeckCardCountsResult", "DeleteNpcDeckResult", "PublishNpcDeckResult", "RetireNpcDeckResult", "RenamePresetDeckResult", "SetPresetDeckCardCountsResult", "DeletePresetDeckResult", "ChangeSpellEffectResult", "RenameStarterSetResult", "SetStarterSetGrantDecksResult", "SetStarterSetUnlockBoardsResult", "SetStarterSetUnlockNpcAvatarsResult", "DeleteStarterSetResult", "PublishStarterSetResult", "RetireStarterSetResult"}
 
 func (ec *executionContext) _RevisionConflictError(ctx context.Context, sel ast.SelectionSet, obj *model.RevisionConflictError) graphql.Marshaler {
@@ -35673,6 +35940,46 @@ func (ec *executionContext) marshalNEffectConstraintKind2gitlabᚗcomᚋaimerzar
 	return v
 }
 
+func (ec *executionContext) unmarshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx context.Context, v any) (model.EffectDestruction, error) {
+	var res model.EffectDestruction
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx context.Context, sel ast.SelectionSet, v model.EffectDestruction) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx context.Context, v any) ([]model.EffectDestruction, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.EffectDestruction, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx context.Context, sel ast.SelectionSet, v []model.EffectDestruction) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalNEffectInput2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectInputᚄ(ctx context.Context, v any) ([]*model.EffectInput, error) {
 	vSlice := graphql.CoerceList(v)
 	var err error
@@ -37074,6 +37381,42 @@ func (ec *executionContext) unmarshalOEffectConstraintInput2ᚕᚖgitlabᚗcom�
 		}
 	}
 	return res, nil
+}
+
+func (ec *executionContext) unmarshalOEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx context.Context, v any) ([]model.EffectDestruction, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.EffectDestruction, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOEffectDestruction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestructionᚄ(ctx context.Context, sel ast.SelectionSet, v []model.EffectDestruction) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEffectDestruction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectDestruction(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOFixedDiceSpellEffectInput2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐFixedDiceSpellEffectInput(ctx context.Context, v any) (*model.FixedDiceSpellEffectInput, error) {

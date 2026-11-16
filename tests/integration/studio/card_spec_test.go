@@ -295,6 +295,7 @@ const creatureEffectsQuery = `query ($id: UUID!) {
 				... on AttackOverrideEffect { minimum maximum } ... on HitPointsOverrideEffect { minimum maximum }
 				... on TollMultiplierEffect { percent }
 				... on NullifyReceivedDamageEffect { constraints { __typename kind ... on OpponentCreatureElementConstraint { elements } } }
+				... on ReturnToHandOnDestructionEffect { destructions } ... on GainMagicOnDestructionEffect { destructions amount }
 			}
 			revision
 		}
@@ -311,6 +312,8 @@ func TestChangeCreatureEffects_ChangesCreatureAfterProjected(t *testing.T) {
 		{"kind": "ATTACK_OVERRIDE", "minimum": 10, "maximum": 70}, {"kind": "HIT_POINTS_OVERRIDE", "minimum": 10, "maximum": 70},
 		{"kind": "TOLL_MULTIPLIER", "percent": 150}, {"kind": "STRIKE_FIRST"},
 		{"kind": "NULLIFY_RECEIVED_DAMAGE", "constraints": []map[string]any{{"kind": "OPPONENT_CREATURE_ELEMENT", "elements": []string{"EARTH", "FIRE"}}}},
+		{"kind": "RETURN_TO_HAND_ON_DESTRUCTION", "destructions": []string{"DEFENDING", "INVADING"}},
+		{"kind": "GAIN_MAGIC_ON_DESTRUCTION", "destructions": []string{"BOARD"}, "amount": 200},
 	}
 
 	changed := client.Data(t, token, changeCreatureEffectsMutation, map[string]any{"input": map[string]any{"id": card["id"], "revision": card["revision"], "effects": effects}}, "changeCreatureEffects")
@@ -323,6 +326,7 @@ func TestChangeCreatureEffects_ChangesCreatureAfterProjected(t *testing.T) {
 				"allowedEffectKinds": []any{
 					"ATTACK_MODIFIER", "HIT_POINTS_MODIFIER", "ATTACK_OVERRIDE", "HIT_POINTS_OVERRIDE", "STRIKE_FIRST", "STRIKE_LAST",
 					"NULLIFY_RECEIVED_DAMAGE", "TOLL_MULTIPLIER", "FORBID_INVASION", "FORBID_MOVEMENT",
+					"RETURN_TO_HAND_ON_DESTRUCTION", "GAIN_MAGIC_ON_DESTRUCTION",
 				},
 				"effects": []any{
 					map[string]any{"__typename": "ForbidInvasionEffect", "kind": "FORBID_INVASION"},
@@ -335,6 +339,9 @@ func TestChangeCreatureEffects_ChangesCreatureAfterProjected(t *testing.T) {
 					map[string]any{"__typename": "NullifyReceivedDamageEffect", "kind": "NULLIFY_RECEIVED_DAMAGE", "constraints": []any{
 						map[string]any{"__typename": "OpponentCreatureElementConstraint", "kind": "OPPONENT_CREATURE_ELEMENT", "elements": []any{"FIRE", "EARTH"}},
 					}},
+					// 発動する破壊は侵略・守る・ボードの順にそろう
+					map[string]any{"__typename": "ReturnToHandOnDestructionEffect", "kind": "RETURN_TO_HAND_ON_DESTRUCTION", "destructions": []any{"INVADING", "DEFENDING"}},
+					map[string]any{"__typename": "GainMagicOnDestructionEffect", "kind": "GAIN_MAGIC_ON_DESTRUCTION", "destructions": []any{"BOARD"}, "amount": float64(200)},
 				},
 				"revision": float64(2),
 			}, got)
@@ -354,6 +361,8 @@ func TestChangeCreatureEffects_RejectsInvalidInputAtEachField(t *testing.T) {
 		{"kind": "HIT_POINTS_MODIFIER"},
 		{"kind": "HIT_POINTS_OVERRIDE", "minimum": 0, "maximum": 70},
 		{"kind": "ATTACK_OVERRIDE", "minimum": 20, "maximum": 10},
+		{"kind": "RETURN_TO_HAND_ON_DESTRUCTION", "destructions": []string{}},
+		{"kind": "GAIN_MAGIC_ON_DESTRUCTION", "destructions": []string{"BOARD"}, "amount": 0},
 		{"kind": "IGNORE_TERRAIN_EFFECT"},
 	})
 	conflicted := change([]map[string]any{{"kind": "STRIKE_FIRST"}, {"kind": "STRIKE_LAST"}})
@@ -362,6 +371,8 @@ func TestChangeCreatureEffects_RejectsInvalidInputAtEachField(t *testing.T) {
 		map[string]any{"__typename": "FieldInvalidFormat", "field": "effects.0"},
 		map[string]any{"__typename": "FieldTooSmall", "field": "effects.1.minimum"},
 		map[string]any{"__typename": "FieldTooSmall", "field": "effects.2.maximum"},
+		map[string]any{"__typename": "FieldInvalidFormat", "field": "effects.3.destructions"},
+		map[string]any{"__typename": "FieldTooSmall", "field": "effects.4.amount"},
 	}}, invalid)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "effects"}}}, conflicted)
 }

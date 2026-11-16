@@ -924,3 +924,8 @@ func (m Match) destroyedOnBoard() (board.Position, bool) {
 	}
 	return board.Position{}, false
 }
+
+// 対戦の参加者の番号か（今の番の人でない参加者を項目に持つイベントの確かめ）
+func (m Match) validParticipant(index ParticipantIndex) bool {
+	return int(index) >= 0 && int(index) < len(m.Participants)
+}

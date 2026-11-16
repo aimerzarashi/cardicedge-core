@@ -343,6 +343,12 @@ func masterEffects(effects []query.Effect) []master.Effect {
 		if value.AttackMultiplier != nil {
 			values[i].AttackMultiplier = &master.EffectAttackMultiplier{Percent: value.AttackMultiplier.Percent, Constraints: masterConstraints(value.AttackMultiplier.Constraints)}
 		}
+		if value.ReturnToHandOnDestruction != nil {
+			values[i].ReturnToHandOnDestruction = &master.EffectReturnToHandOnDestruction{Destructions: value.ReturnToHandOnDestruction.Destructions}
+		}
+		if value.GainMagicOnDestruction != nil {
+			values[i].GainMagicOnDestruction = &master.EffectGainMagicOnDestruction{Destructions: value.GainMagicOnDestruction.Destructions, Amount: value.GainMagicOnDestruction.Amount}
+		}
 		if value.NullifyReceivedDamage != nil {
 			values[i].NullifyReceivedDamage = &master.EffectNullifyReceivedDamage{Constraints: masterConstraints(value.NullifyReceivedDamage.Constraints)}
 		}

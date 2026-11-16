@@ -303,9 +303,47 @@ func damageCreature(r *recorder, position board.Position, damage int) error {
 	if remaining.Int() > 0 {
 		return nil
 	}
-	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 		return &BoardCreatureDestroyedEvent{EventMeta: meta, Participant: by}
-	})
+	}); err != nil {
+		return err
+	}
+	return activateDestructionEffects(r, effect.DestructionBoard, target.Owner, target.Card, target.Base)
+}
+
+// 破壊されたクリーチャーの「破壊されたとき」の効果を、効果の並びの順に発動し、結果を続ける（破壊のイベントの直後に呼ぶ。core#182）。
+// 持ち主・カード・性能は、破壊の前の状態から渡す（破壊の後は盤面・侵略に残らないため）
+func activateDestructionEffects(r *recorder, destruction effect.Destruction, owner ParticipantIndex, destroyed card.Ref, spec CreatureSpec) error {
+	for _, candidate := range spec.Effects {
+		if !candidate.ActivatesOn(destruction) {
+			continue
+		}
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &DestructionCreatureEffectActivatedEvent{EventMeta: meta, Participant: by, Owner: owner, Card: destroyed, Effect: candidate.Kind()}
+		}); err != nil {
+			return err
+		}
+		var result func(meta EventMeta, by ParticipantIndex) Event
+		switch {
+		case candidate.ReturnToHandOnDestruction != nil:
+			// 手札が上限でも戻る。上限は、ほかの手札と同じく持ち主のターンの終わりに捨てて合わせる（戻るときに確かめると、
+			// 自分の番の侵略でも相手の番の守りでも手札はたいてい上限で、効果がほぼ働かなかったため。2026-11-15 オーナー）
+			result = func(meta EventMeta, by ParticipantIndex) Event {
+				return &CardReturnedToHandEvent{EventMeta: meta, Participant: by, Owner: owner, Card: destroyed}
+			}
+		case candidate.GainMagicOnDestruction != nil:
+			magic := candidate.GainMagicOnDestruction.Amount.Int()
+			result = func(meta EventMeta, by ParticipantIndex) Event {
+				return &MagicReceivedEvent{EventMeta: meta, Participant: by, Owner: owner, Magic: magic}
+			}
+		default:
+			continue
+		}
+		if err := r.record(result); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // 配置して、そのままターンを終える
@@ -779,18 +817,35 @@ func (b *battleResolver) strike(striker BattleSide) error {
 // 倒れた側を破壊してから、侵略の結果に進む（破壊を結果に埋めないのは、戦闘とスペルの破壊を 1 つのイベントにし、
 // 「破壊されたとき」の効果をその後ろに付けるため。2026-11-15 オーナー。core#181）
 func settleBattle(r *recorder) error {
+	invasion := r.state.Invasion
+	attacker, ok := r.state.CurrentParticipant()
+	if invasion == nil || !ok {
+		return ErrInvalidState
+	}
 	if r.state.Battle.Defender.Stats().HitPoints.Int() == 0 {
+		territory, _ := r.state.TerritoryAt(invasion.Position)
+		defending, found := r.state.PlacedCreature(territory.Creature)
+		if !found {
+			return ErrInvalidState
+		}
 		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &DefendingCreatureDestroyedEvent{EventMeta: meta, Participant: by}
 		}); err != nil {
 			return err
 		}
+		if err := activateDestructionEffects(r, effect.DestructionDefending, defending.Owner, defending.Card, defending.Base); err != nil {
+			return err
+		}
 		return conquer(r)
 	}
 	if r.state.Battle.Attacker.Stats().HitPoints.Int() == 0 {
+		owner, invading, spec := attacker, invasion.Card, invasion.Base
 		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &InvadingCreatureDestroyedEvent{EventMeta: meta, Participant: by}
 		}); err != nil {
+			return err
+		}
+		if err := activateDestructionEffects(r, effect.DestructionInvading, owner, invading, spec); err != nil {
 			return err
 		}
 	}

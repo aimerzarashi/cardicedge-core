@@ -20,4 +20,8 @@ var (
 	ErrDiceFaceTooSmall                = errors.New("effect: dice face must be at least 1")
 	ErrEffectTurnsTooSmall             = errors.New("effect: effect turns must be at least 1")
 	ErrDamageAmountTooSmall            = errors.New("effect: damage amount must be at least 1")
+	ErrDestructionMagicAmountTooSmall  = errors.New("effect: destruction magic amount must be at least 1")
+	ErrDestructionsEmpty               = errors.New("effect: destructions are empty")
+	ErrDestructionUnknown              = errors.New("effect: unknown destruction")
+	ErrDestructionsDuplicated          = errors.New("effect: duplicated destruction")
 )

@@ -1443,6 +1443,56 @@ type MatchInvasionFailedEvent implements MatchEvent {
   returnedHitPoints: Int
 }
 
+"破壊されたクリーチャーの「破壊されたとき」の効果が発動した（破壊のイベントの直後。結果は続く MatchCardReturnedToHandEvent・MatchMagicReceivedEvent）"
+type MatchDestructionCreatureEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーの持ち主（Match.participants の何番目か）"
+  owner: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "発動したカードの効果"
+  activatedEffect: Effect!
+}
+
+"破壊されて捨て札に入ったカードが、持ち主の手札の最後に戻った（手札の上限は持ち主のターンの終わりに合わせる）"
+type MatchCardReturnedToHandEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "カードの持ち主（Match.participants の何番目か）"
+  owner: Int!
+  "戻ったカード"
+  card: CardInfo!
+}
+
+"持ち主が魔力を受け取った（破壊されたら魔力を得る効果の結果）"
+type MatchMagicReceivedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "受け取った参加者（Match.participants の何番目か）"
+  owner: Int!
+  "受け取った魔力"
+  magic: Int!
+}
+
 "通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した（倍率を持っていれば、効き目が無くても出る）。続く MatchTollPaidEvent が multipliedToll を払う"
 type MatchTollCreatureEffectActivatedEvent implements MatchEvent {
   "対戦の版"

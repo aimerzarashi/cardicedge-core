@@ -89,6 +89,71 @@ func (p TollMultiplierPercent) Int() int {
 	return int(p)
 }
 
+// 破壊されたときの効果で得る魔力の額。1 以上
+type DestructionMagicAmount int
+
+func NewDestructionMagicAmount(value int) (DestructionMagicAmount, error) {
+	if value < 1 {
+		return 0, ErrDestructionMagicAmountTooSmall
+	}
+	return DestructionMagicAmount(value), nil
+}
+
+func (a DestructionMagicAmount) Int() int {
+	return int(a)
+}
+
+// 破壊されたときの効果が発動する破壊。match の 3 つの破壊のイベント（侵略したクリーチャー・守るクリーチャー・ボード）と対応する
+// （2026-11-15 オーナー。core#182）
+type Destruction string
+
+const (
+	// 戦闘で、侵略したクリーチャーとして破壊された（InvadingCreatureDestroyedEvent）
+	DestructionInvading Destruction = "invading"
+	// 戦闘で、領地を守るクリーチャーとして破壊された（DefendingCreatureDestroyedEvent）
+	DestructionDefending Destruction = "defending"
+	// 戦闘の外（今はスペルのダメージ）で破壊された（BoardCreatureDestroyedEvent）
+	DestructionBoard Destruction = "board"
+)
+
+// 保存の並び
+var canonicalDestructions = []Destruction{DestructionInvading, DestructionDefending, DestructionBoard}
+
+// 発動する破壊の集合。1 つ以上（選ばないと発動しない効果になるため）で重複なし、並びは侵略・守る・ボードに固定する
+type Destructions []Destruction
+
+func NewDestructions(values []string) (Destructions, error) {
+	if len(values) == 0 {
+		return nil, ErrDestructionsEmpty
+	}
+	selected := map[Destruction]bool{}
+	for _, value := range values {
+		destruction := Destruction(value)
+		if !slices.Contains(canonicalDestructions, destruction) {
+			return nil, fmt.Errorf("%w: %q", ErrDestructionUnknown, value)
+		}
+		if selected[destruction] {
+			return nil, fmt.Errorf("%w: %q", ErrDestructionsDuplicated, value)
+		}
+		selected[destruction] = true
+	}
+	destructions := make(Destructions, 0, len(values))
+	for _, destruction := range canonicalDestructions {
+		if selected[destruction] {
+			destructions = append(destructions, destruction)
+		}
+	}
+	return destructions, nil
+}
+
+func (d Destructions) Contains(destruction Destruction) bool {
+	return slices.Contains(d, destruction)
+}
+
+func (d Destructions) Equal(other Destructions) bool {
+	return slices.Equal(d, other)
+}
+
 // 制約で比べるクリーチャーの属性の集合。1 つ以上（重複なし）で、無とほかを一緒に選べる（クリーチャー自身の属性の
 // 「無は無だけ」の決まりは creature のもので、ここには当てない）。並びは火・地・水・風・無に固定する。値の比較は Equal
 type CreatureElements []element.Creature
@@ -218,6 +283,11 @@ type Effect struct {
 	ForbidInvasion *ForbidInvasionEffect `json:"forbid_invasion,omitempty"`
 	// 移動できない（戦闘の外）。領地コマンドで動けない。match の判定は CreatureSpec.canMove
 	ForbidMovement *ForbidMovementEffect `json:"forbid_movement,omitempty"`
+	// 破壊されたら手札に戻る。選んだ破壊のとき、捨て札に入ったカードが持ち主の手札に戻る（手札の上限はいつもどおり持ち主のターンの終わりに合わせる）。
+	// 発動は破壊のイベントの直後の DestructionCreatureEffectActivatedEvent で、結果は CardReturnedToHandEvent
+	ReturnToHandOnDestruction *ReturnToHandOnDestructionEffect `json:"return_to_hand_on_destruction,omitempty"`
+	// 破壊されたら魔力を得る。選んだ破壊のとき、持ち主が額の魔力を受け取る。発動は手札に戻ると同じで、結果は MagicReceivedEvent
+	GainMagicOnDestruction *GainMagicOnDestructionEffect `json:"gain_magic_on_destruction,omitempty"`
 }
 
 type AttackModifierEffect struct {
@@ -260,6 +330,15 @@ type TollMultiplierEffect struct {
 type ForbidInvasionEffect struct{}
 
 type ForbidMovementEffect struct{}
+
+type ReturnToHandOnDestructionEffect struct {
+	Destructions Destructions `json:"destructions"`
+}
+
+type GainMagicOnDestructionEffect struct {
+	Destructions Destructions           `json:"destructions"`
+	Amount       DestructionMagicAmount `json:"amount"`
+}
 
 func NewAttackModifierEffect(value AttackModifier) Effect {
 	return Effect{AttackModifier: &AttackModifierEffect{Value: value}}
@@ -312,6 +391,25 @@ func NewForbidInvasionEffect() Effect {
 	return Effect{ForbidInvasion: &ForbidInvasionEffect{}}
 }
 
+func NewReturnToHandOnDestructionEffect(destructions Destructions) Effect {
+	return Effect{ReturnToHandOnDestruction: &ReturnToHandOnDestructionEffect{Destructions: destructions}}
+}
+
+func NewGainMagicOnDestructionEffect(destructions Destructions, amount DestructionMagicAmount) Effect {
+	return Effect{GainMagicOnDestruction: &GainMagicOnDestructionEffect{Destructions: destructions, Amount: amount}}
+}
+
+// 破壊されたときの効果が、その破壊で発動するか
+func (e Effect) ActivatesOn(destruction Destruction) bool {
+	switch {
+	case e.ReturnToHandOnDestruction != nil:
+		return e.ReturnToHandOnDestruction.Destructions.Contains(destruction)
+	case e.GainMagicOnDestruction != nil:
+		return e.GainMagicOnDestruction.Destructions.Contains(destruction)
+	}
+	return false
+}
+
 func NewForbidMovementEffect() Effect {
 	return Effect{ForbidMovement: &ForbidMovementEffect{}}
 }
@@ -320,24 +418,27 @@ func NewForbidMovementEffect() Effect {
 type Kind string
 
 const (
-	KindAttackModifier        Kind = "attack_modifier"
-	KindHitPointsModifier     Kind = "hit_points_modifier"
-	KindAttackOverride        Kind = "attack_override"
-	KindHitPointsOverride     Kind = "hit_points_override"
-	KindAttackMultiplier      Kind = "attack_multiplier"
-	KindIgnoreTerrainEffect   Kind = "ignore_terrain_effect"
-	KindStrikeFirst           Kind = "strike_first"
-	KindStrikeLast            Kind = "strike_last"
-	KindNullifyReceivedDamage Kind = "nullify_received_damage"
-	KindTollMultiplier        Kind = "toll_multiplier"
-	KindForbidInvasion        Kind = "forbid_invasion"
-	KindForbidMovement        Kind = "forbid_movement"
+	KindAttackModifier            Kind = "attack_modifier"
+	KindHitPointsModifier         Kind = "hit_points_modifier"
+	KindAttackOverride            Kind = "attack_override"
+	KindHitPointsOverride         Kind = "hit_points_override"
+	KindAttackMultiplier          Kind = "attack_multiplier"
+	KindIgnoreTerrainEffect       Kind = "ignore_terrain_effect"
+	KindStrikeFirst               Kind = "strike_first"
+	KindStrikeLast                Kind = "strike_last"
+	KindNullifyReceivedDamage     Kind = "nullify_received_damage"
+	KindTollMultiplier            Kind = "toll_multiplier"
+	KindForbidInvasion            Kind = "forbid_invasion"
+	KindForbidMovement            Kind = "forbid_movement"
+	KindReturnToHandOnDestruction Kind = "return_to_hand_on_destruction"
+	KindGainMagicOnDestruction    Kind = "gain_magic_on_destruction"
 )
 
 // 一覧の並び（Effect の項目の順）
 var kinds = []Kind{
 	KindAttackModifier, KindHitPointsModifier, KindAttackOverride, KindHitPointsOverride, KindAttackMultiplier, KindIgnoreTerrainEffect,
 	KindStrikeFirst, KindStrikeLast, KindNullifyReceivedDamage, KindTollMultiplier, KindForbidInvasion, KindForbidMovement,
+	KindReturnToHandOnDestruction, KindGainMagicOnDestruction,
 }
 
 func NewKind(value string) (Kind, error) {
@@ -356,7 +457,7 @@ func (e Effect) Kind() Kind {
 	present := []bool{
 		e.AttackModifier != nil, e.HitPointsModifier != nil, e.AttackOverride != nil, e.HitPointsOverride != nil, e.AttackMultiplier != nil,
 		e.IgnoreTerrainEffect != nil, e.StrikeFirst != nil, e.StrikeLast != nil, e.NullifyReceivedDamage != nil, e.TollMultiplier != nil,
-		e.ForbidInvasion != nil, e.ForbidMovement != nil,
+		e.ForbidInvasion != nil, e.ForbidMovement != nil, e.ReturnToHandOnDestruction != nil, e.GainMagicOnDestruction != nil,
 	}
 	var found []Kind
 	for i, ok := range present {
@@ -390,6 +491,11 @@ func (e Effect) equal(other Effect) bool {
 		return e.NullifyReceivedDamage.Constraints.Equal(other.NullifyReceivedDamage.Constraints)
 	case e.TollMultiplier != nil:
 		return *e.TollMultiplier == *other.TollMultiplier
+	case e.ReturnToHandOnDestruction != nil:
+		return e.ReturnToHandOnDestruction.Destructions.Equal(other.ReturnToHandOnDestruction.Destructions)
+	case e.GainMagicOnDestruction != nil:
+		return e.GainMagicOnDestruction.Amount == other.GainMagicOnDestruction.Amount &&
+			e.GainMagicOnDestruction.Destructions.Equal(other.GainMagicOnDestruction.Destructions)
 	}
 	return true
 }

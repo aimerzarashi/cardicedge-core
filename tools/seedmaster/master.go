@@ -291,14 +291,17 @@ func (c masterCard) validateEffects() error {
 }
 
 // 効果 1 つ。種類と、種類に要る値（増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、
-// 受けるダメージを 0 にするは constraints）。アイテムとクリーチャーで共有する
+// 受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount）。
+// アイテムとクリーチャーで共有する
 type masterEffect struct {
-	Kind        string                   `json:"kind"`
-	Value       *int                     `json:"value"`
-	Minimum     *int                     `json:"minimum"`
-	Maximum     *int                     `json:"maximum"`
-	Percent     *int                     `json:"percent"`
-	Constraints []masterEffectConstraint `json:"constraints"`
+	Kind         string                   `json:"kind"`
+	Value        *int                     `json:"value"`
+	Minimum      *int                     `json:"minimum"`
+	Maximum      *int                     `json:"maximum"`
+	Percent      *int                     `json:"percent"`
+	Constraints  []masterEffectConstraint `json:"constraints"`
+	Destructions []string                 `json:"destructions"`
+	Amount       *int                     `json:"amount"`
 }
 
 // 効果の制約 1 つ。種類と、種類に要る値（相手のクリーチャーの属性は elements）
@@ -315,7 +318,10 @@ func (e masterEffect) command() command.Effect {
 			constraints[i] = command.EffectConstraint{Kind: constraint.Kind, Elements: constraint.Elements}
 		}
 	}
-	return command.Effect{Kind: e.Kind, Value: e.Value, Minimum: e.Minimum, Maximum: e.Maximum, Percent: e.Percent, Constraints: constraints}
+	return command.Effect{
+		Kind: e.Kind, Value: e.Value, Minimum: e.Minimum, Maximum: e.Maximum, Percent: e.Percent, Constraints: constraints,
+		Destructions: e.Destructions, Amount: e.Amount,
+	}
 }
 
 func masterEffects(effects []masterEffect) []command.Effect {

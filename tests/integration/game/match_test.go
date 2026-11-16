@@ -409,6 +409,9 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchBoardCreatureDestroyedEvent { participant card { id name } position { x y } }
 				... on MatchCreaturePlacedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
 				... on MatchTollCreatureEffectActivatedEvent { position { x y } percent toll multipliedToll }
+				... on MatchDestructionCreatureEffectActivatedEvent { participant owner card { id name } activatedEffect { kind } }
+				... on MatchCardReturnedToHandEvent { participant owner card { id name } }
+				... on MatchMagicReceivedEvent { participant owner magic }
 				... on MatchTollPaidEvent { participant owner position { x y } magic }
 				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost defendingCreatureCard { id name } }
 				... on MatchItemUsedEvent { participant handIndex card { id name } cost }

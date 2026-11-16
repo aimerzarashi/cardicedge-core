@@ -82,7 +82,7 @@
       "hit_points": 30,
       "item_restrictions": ["scroll"],
       "placement_restrictions": [],
-      "effects": []
+      "effects": [{ "kind": "return_to_hand_on_destruction", "destructions": ["invading", "defending"] }]
     },
     {
       "type": "creature",
@@ -262,7 +262,7 @@
       "hit_points": 40,
       "item_restrictions": [],
       "placement_restrictions": [],
-      "effects": []
+      "effects": [{ "kind": "gain_magic_on_destruction", "destructions": ["invading", "defending", "board"], "amount": 200 }]
     },
     {
       "type": "item",

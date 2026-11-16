@@ -300,6 +300,22 @@ func newEffect(copied master.Effect) (effect.Effect, error) {
 			return effect.Effect{}, err
 		}
 		return effect.NewTollMultiplierEffect(percent), nil
+	case copied.ReturnToHandOnDestruction != nil:
+		destructions, err := effect.NewDestructions(copied.ReturnToHandOnDestruction.Destructions)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewReturnToHandOnDestructionEffect(destructions), nil
+	case copied.GainMagicOnDestruction != nil:
+		destructions, err := effect.NewDestructions(copied.GainMagicOnDestruction.Destructions)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		amount, err := effect.NewDestructionMagicAmount(copied.GainMagicOnDestruction.Amount)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewGainMagicOnDestructionEffect(destructions, amount), nil
 	case copied.IgnoreTerrainEffect:
 		return effect.NewIgnoreTerrainEffect(), nil
 	case copied.StrikeFirst:

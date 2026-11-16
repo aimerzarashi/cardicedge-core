@@ -244,7 +244,7 @@ func (h HitPoints) Modified(delta int) HitPoints {
 var allowedEffectKinds = []effect.Kind{
 	effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride,
 	effect.KindStrikeFirst, effect.KindStrikeLast, effect.KindNullifyReceivedDamage, effect.KindTollMultiplier,
-	effect.KindForbidInvasion, effect.KindForbidMovement,
+	effect.KindForbidInvasion, effect.KindForbidMovement, effect.KindReturnToHandOnDestruction, effect.KindGainMagicOnDestruction,
 }
 
 // クリーチャーが持てる効果の種類（選べる効果の表の並び）。studio の画面が、選べるものだけを出すのに使う

@@ -433,7 +433,7 @@ func TestAllowedEffectKinds_AreTheKindsOfTheSampleCreatures(t *testing.T) {
 	require.Equal(t, []effect.Kind{
 		effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindHitPointsOverride,
 		effect.KindStrikeFirst, effect.KindStrikeLast, effect.KindNullifyReceivedDamage, effect.KindTollMultiplier,
-		effect.KindForbidInvasion, effect.KindForbidMovement,
+		effect.KindForbidInvasion, effect.KindForbidMovement, effect.KindReturnToHandOnDestruction, effect.KindGainMagicOnDestruction,
 	}, creature.AllowedEffectKinds())
 }
 
