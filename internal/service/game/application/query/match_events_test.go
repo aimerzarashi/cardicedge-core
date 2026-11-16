@@ -180,6 +180,27 @@ func TestMatchEventsHandler_ReturnsOnlyEventsAfterTheRevisionInOrder(t *testing.
 }
 
 // 振るときに効いたスペルの効果は、イベントに持たず、振る直前の状態から作る（core#173）
+// 配置が after より前でも、回復したクリーチャーのカードを直前の状態から引ける（開発の画面で、カードが空のまま返って再生が止まった。core#114）
+func TestMatchEventsHandler_LapRecoveryShowsTheCardPlacedBeforeTheRevision(t *testing.T) {
+	by := matchtest.Index(t, 1)
+	events := sampleEvents(t)
+	events = append(events[:len(events)-1],
+		&match.SpellCreatureDamagedEvent{EventMeta: eventMeta(t, 10), Participant: by, Position: boardtest.Position(t, 2, 0), Damage: 15, RemainingHitPoints: creaturetest.HitPoints(t, 5)},
+		&match.LapCreatureHitPointsRecoveredEvent{EventMeta: eventMeta(t, 11), Participant: by, Creature: matchtest.PlacedCreatureID(t, 1), Amount: 10},
+	)
+	f := newEventsFixture(t, events)
+
+	listed, err := f.handler.ListAfter(t.Context(), f.viewer, f.matchID, 10)
+
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	recovered, ok := listed[0].(query.MatchLapCreatureHitPointsRecoveredEvent)
+	require.True(t, ok)
+	require.Equal(t, placedDragon(f.cardID), recovered.Card)
+	require.Equal(t, query.NewBoardPosition(2, 0), recovered.Position)
+	require.Equal(t, []int{1, 1, 10, 15}, []int{recovered.Participant, recovered.Creature, recovered.Amount, recovered.HitPoints})
+}
+
 func TestMatchEventsHandler_DiceRolledShowsTheLastingSpellEffectBeforeTheRoll(t *testing.T) {
 	by := matchtest.Index(t, 1)
 	started := match.LastingSpellEffect{Effect: spelltest.FixedDice(t, 6, 1), RemainingTurns: 1}

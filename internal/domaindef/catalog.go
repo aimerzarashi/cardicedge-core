@@ -185,7 +185,7 @@ var Types = Catalog{
 			{ID: 3038, Name: "MagicGainedEvent"},
 			{ID: 3039, Name: "SpellEffectStartedEvent"},
 			{ID: 3040, Name: "SpellEffectEndedEvent"},
-			{ID: 3041, Name: "CreatureDamagedEvent"},
+			{ID: 3041, Name: "SpellCreatureDamagedEvent"},
 			{ID: 3042, Name: "BoardCreatureDestroyedEvent"},
 			{ID: 3043, Name: "TollCreatureEffectActivatedEvent"},
 			{ID: 3044, Name: "InvadingCreatureDestroyedEvent"},
@@ -193,6 +193,7 @@ var Types = Catalog{
 			{ID: 3046, Name: "DestructionCreatureEffectActivatedEvent"},
 			{ID: 3047, Name: "CardReturnedToHandEvent"},
 			{ID: 3048, Name: "MagicReceivedEvent"},
+			{ID: 3049, Name: "LapCreatureHitPointsRecoveredEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

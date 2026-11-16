@@ -425,9 +425,11 @@ type Rules struct {
 	// 土地の属性を変える費用の決まり。全体のルールの写し
 	LandElementChangeMultiplier      gamerules.LandElementChangeMultiplier `json:"land_element_change_multiplier"`
 	MultiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier `json:"multi_land_element_change_multiplier"`
+	// 周回回復の量。全体のルールの写し
+	LapHitPointsRecovery gamerules.LapHitPointsRecovery `json:"lap_hit_points_recovery"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus, landElementChangeMultiplier, multiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus, landElementChangeMultiplier, multiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier, lapHitPointsRecovery gamerules.LapHitPointsRecovery) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
 		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue, LapBonusPerTerritory: values.LapBonusPerTerritory,
@@ -436,6 +438,7 @@ func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, st
 		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
 		TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
 		LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
+		LapHitPointsRecovery: lapHitPointsRecovery,
 	}
 }
 

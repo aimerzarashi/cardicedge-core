@@ -568,8 +568,17 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchDiceRolledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Value: e.Value, Dice: e.Dice, SpellEffect: fromRollingSpellEffect(e.SpellEffect)}, nil
 	case query.MatchSpellEffectStartedEvent:
 		return &model.MatchSpellEffectStartedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Target: e.Target, Effect: fromMatchLastingSpellEffect(&e.Effect)}, nil
-	case query.MatchCreatureDamagedEvent:
-		return &model.MatchCreatureDamagedEvent{
+	case query.MatchLapCreatureHitPointsRecoveredEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchLapCreatureHitPointsRecoveredEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
+			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, Card: card, Amount: e.Amount, HitPoints: e.HitPoints,
+		}, nil
+	case query.MatchSpellCreatureDamagedEvent:
+		return &model.MatchSpellCreatureDamagedEvent{
 			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant,
 			Position: &model.BoardPosition{X: e.Position.X, Y: e.Position.Y}, Creature: e.Creature, Damage: e.Damage, RemainingHitPoints: e.RemainingHitPoints,
 		}, nil

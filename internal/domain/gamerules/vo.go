@@ -78,6 +78,8 @@ type Match struct {
 	TerrainBonusPerLevel TerrainBonusPerLevel `json:"terrain_bonus_per_level"`
 	// 支援効果で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
 	AdjacentTerritoryBonus AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	// 周回回復の量（周回を終えたときに、その人の領地のクリーチャーの HP が回復する量。カードの HP まで）
+	LapHitPointsRecovery LapHitPointsRecovery `json:"lap_hit_points_recovery"`
 	// 土地の属性を変える費用の、基本の値に掛ける倍率
 	LandElementChangeMultiplier LandElementChangeMultiplier `json:"land_element_change_multiplier"`
 	// 複属性の土地から変えるときの倍率
@@ -253,6 +255,20 @@ func (t TerrainBonusPerLevel) Int() int {
 	return int(t)
 }
 
+// 周回回復の量。1 以上
+type LapHitPointsRecovery int
+
+func NewLapHitPointsRecovery(value int) (LapHitPointsRecovery, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: lap hit points recovery is %d", ErrMatchValueNotPositive, value)
+	}
+	return LapHitPointsRecovery(value), nil
+}
+
+func (l LapHitPointsRecovery) Int() int {
+	return int(l)
+}
+
 // 支援効果の、隣の領地 1 つあたりの AT。1 以上
 type AdjacentTerritoryBonus int
 
@@ -352,6 +368,9 @@ func Defaults() Rules {
 	must(err)
 	adjacentTerritoryBonus, err := NewAdjacentTerritoryBonus(10)
 	must(err)
+	// 2026-11-16 オーナー（参考サイトに量の記載が無く、決めた値）
+	lapHitPointsRecovery, err := NewLapHitPointsRecovery(10)
+	must(err)
 	// 仮の値（2026-11-10 オーナー）
 	landElementChangeMultiplier, err := NewLandElementChangeMultiplier(2)
 	must(err)
@@ -364,7 +383,7 @@ func Defaults() Rules {
 			MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 			RewardCardsByRank: rewardCardsByRank, LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers,
 			TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
-			TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
+			TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus, LapHitPointsRecovery: lapHitPointsRecovery,
 			LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
 		},
 	}

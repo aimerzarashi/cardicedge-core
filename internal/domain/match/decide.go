@@ -290,13 +290,13 @@ func useSpell(r *recorder, handIndex int, target *ParticipantIndex, targetPositi
 	return nil
 }
 
-// 今の HP から引き、0 になれば破壊する（2026-11-10 オーナー。減った HP の戻り方は core#114）
+// 今の HP から引き、0 になれば破壊する（2026-11-10 オーナー。減った HP は周回回復で戻る。recoverCreatures）
 func damageCreature(r *recorder, position board.Position, damage int) error {
 	territory, _ := r.state.TerritoryAt(position)
 	target, _ := r.state.PlacedCreature(territory.Creature)
 	remaining := target.HitPoints.Modified(-damage)
 	if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
-		return &CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Damage: damage, RemainingHitPoints: remaining}
+		return &SpellCreatureDamagedEvent{EventMeta: meta, Participant: by, Position: position, Damage: damage, RemainingHitPoints: remaining}
 	}); err != nil {
 		return err
 	}
@@ -987,11 +987,36 @@ func step(r *recorder, to board.Position) error {
 	return nil
 }
 
+// 周回回復。周回を終えた人の領地のクリーチャーの HP を、周回回復の量だけ戻す（カードの HP まで。領地ができた順。HP が変わらないクリーチャーには
+// イベントを出さない。2026-11-16 オーナー。core#114）
+func recoverCreatures(r *recorder) error {
+	index, _ := r.state.CurrentParticipant()
+	for _, territory := range r.state.territoriesOf(index) {
+		placed, ok := r.state.PlacedCreature(territory.Creature)
+		if !ok {
+			continue
+		}
+		amount := min(r.state.Rules.LapHitPointsRecovery.Int(), placed.Base.HitPoints.Int()-placed.HitPoints.Int())
+		if amount < 1 {
+			continue
+		}
+		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
+			return &LapCreatureHitPointsRecoveredEvent{EventMeta: meta, Participant: by, Creature: placed.ID, Amount: amount}
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func enterBase(r *recorder) error {
 	if r.state.allCheckpointsPassed(r.current()) {
 		if err := r.record(func(meta EventMeta, by ParticipantIndex) Event {
 			return &LapCompletedEvent{EventMeta: meta, Participant: by, Magic: r.state.LapBonus(by)}
 		}); err != nil {
+			return err
+		}
+		if err := recoverCreatures(r); err != nil {
 			return err
 		}
 	}

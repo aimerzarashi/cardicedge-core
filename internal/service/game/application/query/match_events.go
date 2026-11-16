@@ -130,8 +130,20 @@ type MatchSpellEffectStartedEvent struct {
 	Effect      MatchLastingSpellEffect
 }
 
+// 周回回復で、領地のクリーチャーの HP が回復した。位置・カード・回復した後の HP は、イベントは持たず、直前の状態から作る（core#114）
+type MatchLapCreatureHitPointsRecoveredEvent struct {
+	MatchEventMeta
+	Participant int
+	Position    BoardPosition
+	Creature    int
+	Card        MatchCard
+	Amount      int
+	// 回復した後の HP（回復する前は HitPoints - Amount）
+	HitPoints int
+}
+
 // スペルで、領地のクリーチャーにダメージを与えた（RemainingHitPoints が 0 なら続けて破壊される）
-type MatchCreatureDamagedEvent struct {
+type MatchSpellCreatureDamagedEvent struct {
 	MatchEventMeta
 	Participant        int
 	Position           BoardPosition
@@ -782,6 +794,10 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		if position, ok := destroyedOnBoard(previous); ok {
 			return []card.Ref{creatureAt(previous, position).Card}
 		}
+	case *match.LapCreatureHitPointsRecoveredEvent:
+		if placed, ok := previous.PlacedCreature(e.Creature); ok {
+			return []card.Ref{placed.Card}
+		}
 	case *match.BattleItemEffectActivatedEvent:
 		// 戦闘の開始が after より前でも引けるように、出来事の版から入力を引く
 		if used := battleCombatant(input, e.Side).Item; used != nil {
@@ -930,8 +946,22 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchSpellEffectStartedEvent{meta, e.Participant.Int(), e.Target.Int(), *fromLastingSpellEffect(&lasting)}, nil
 	case *match.SpellEffectEndedEvent:
 		return MatchSpellEffectEndedEvent{meta, e.Participant.Int()}, nil
-	case *match.CreatureDamagedEvent:
-		return MatchCreatureDamagedEvent{meta, e.Participant.Int(), boardPosition(e.Position), creatureAt(previous, e.Position).ID.Int(), e.Damage, e.RemainingHitPoints.Int()}, nil
+	case *match.LapCreatureHitPointsRecoveredEvent:
+		placed, ok := previous.PlacedCreature(e.Creature)
+		if !ok {
+			return nil, fmt.Errorf("query: lap creature hit points recovered event %d without the creature", e.AggregateVersion)
+		}
+		var position board.Position
+		for _, territory := range previous.Territories {
+			if territory.Creature == e.Creature {
+				position = territory.Position
+			}
+		}
+		return MatchLapCreatureHitPointsRecoveredEvent{
+			meta, e.Participant.Int(), boardPosition(position), e.Creature.Int(), cardOf(placed.Card, cards), e.Amount, placed.HitPoints.Int() + e.Amount,
+		}, nil
+	case *match.SpellCreatureDamagedEvent:
+		return MatchSpellCreatureDamagedEvent{meta, e.Participant.Int(), boardPosition(e.Position), creatureAt(previous, e.Position).ID.Int(), e.Damage, e.RemainingHitPoints.Int()}, nil
 	case *match.InvadingCreatureDestroyedEvent:
 		if previous.Invasion == nil {
 			return nil, fmt.Errorf("query: invading creature destroyed event %d without invasion", e.AggregateVersion)

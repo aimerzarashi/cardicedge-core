@@ -171,7 +171,22 @@ func Evolve(state State, event Event) (State, error) {
 		lasting := e.Effect
 		current.Participants = slices.Clone(current.Participants)
 		current.Participants[e.Target].LastingSpellEffect = &lasting
-	case *CreatureDamagedEvent:
+	case *LapCreatureHitPointsRecoveredEvent:
+		index, err := current.actor(e.Participant)
+		if err != nil {
+			return state, err
+		}
+		placed, ok := current.PlacedCreature(e.Creature)
+		if !ok || placed.Owner != index || e.Amount < 1 || placed.HitPoints.Int()+e.Amount > placed.Base.HitPoints.Int() {
+			return state, ErrInvalidState
+		}
+		current.PlacedCreatures = slices.Clone(current.PlacedCreatures)
+		for i := range current.PlacedCreatures {
+			if current.PlacedCreatures[i].ID == e.Creature {
+				current.PlacedCreatures[i].HitPoints = placed.HitPoints.Modified(e.Amount)
+			}
+		}
+	case *SpellCreatureDamagedEvent:
 		if _, err := current.actor(e.Participant); err != nil {
 			return state, err
 		}
