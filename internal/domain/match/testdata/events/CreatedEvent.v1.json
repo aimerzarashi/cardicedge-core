@@ -120,6 +120,7 @@
     "terrain_bonus_per_level": 10,
     "adjacent_territory_bonus": 10,
     "land_element_change_multiplier": 2,
-    "multi_land_element_change_multiplier": 1
+    "multi_land_element_change_multiplier": 1,
+    "lap_hit_points_recovery": 10
   }
 }

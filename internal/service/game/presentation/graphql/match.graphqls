@@ -1597,8 +1597,30 @@ type MatchSpellEffectStartedEvent implements MatchEvent {
   effect: MatchLastingSpellEffect!
 }
 
+"周回回復で、周回を終えた人の領地のクリーチャーの HP が回復した（回復したクリーチャーごとに 1 つ。HP が変わらないクリーチャーには出ない）"
+type MatchLapCreatureHitPointsRecoveredEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "周回を終えた参加者（Match.participants の何番目か。クリーチャーの持ち主）"
+  participant: Int!
+  "回復したクリーチャーがいる領地の位置"
+  position: BoardPosition!
+  "回復したクリーチャー（MatchPlacedCreature.id）"
+  creature: Int!
+  "回復したクリーチャーのカード"
+  card: CardInfo!
+  "回復した量（カードの HP で止まった後の実際の量）"
+  amount: Int!
+  "回復した後の HP（回復する前は hitPoints - amount）"
+  hitPoints: Int!
+}
+
 "スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）"
-type MatchCreatureDamagedEvent implements MatchEvent {
+type MatchSpellCreatureDamagedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"

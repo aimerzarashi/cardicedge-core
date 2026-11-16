@@ -212,8 +212,18 @@ type SpellEffectEndedEvent struct {
 	Participant ParticipantIndex `json:"participant"`
 }
 
+// 周回回復で、Creature（配置したクリーチャー）の HP が回復した（Participant は周回を終えた人で、クリーチャーの持ち主。Amount は増えた量で、
+// カードの HP で止まった後の実際の量。回復したクリーチャーごとに 1 つ出し、HP が変わらないクリーチャーには出さない。2026-11-16 オーナー。core#114）
+type LapCreatureHitPointsRecoveredEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	Creature    PlacedCreatureID `json:"creature"`
+	Amount      int              `json:"amount"`
+}
+
 // スペルで、Position の領地のクリーチャーにダメージを与えた（Participant は使った人。RemainingHitPoints は残りの HP で、0 なら続けて破壊される）
-type CreatureDamagedEvent struct {
+type SpellCreatureDamagedEvent struct {
 	EventMeta          `json:"-"`
 	eventMarker        `json:"-"`
 	Participant        ParticipantIndex   `json:"participant"`
@@ -536,7 +546,8 @@ var (
 	magicGainedEventType                        = domain.NewEventName("MagicGainedEvent")
 	spellEffectStartedEventType                 = domain.NewEventName("SpellEffectStartedEvent")
 	spellEffectEndedEventType                   = domain.NewEventName("SpellEffectEndedEvent")
-	creatureDamagedEventType                    = domain.NewEventName("CreatureDamagedEvent")
+	spellCreatureDamagedEventType               = domain.NewEventName("SpellCreatureDamagedEvent")
+	lapCreatureHitPointsRecoveredEventType      = domain.NewEventName("LapCreatureHitPointsRecoveredEvent")
 	boardCreatureDestroyedEventType             = domain.NewEventName("BoardCreatureDestroyedEvent")
 	invadingCreatureDestroyedEventType          = domain.NewEventName("InvadingCreatureDestroyedEvent")
 	defendingCreatureDestroyedEventType         = domain.NewEventName("DefendingCreatureDestroyedEvent")
@@ -871,11 +882,19 @@ func (*SpellEffectEndedEvent) SchemaVersion() int {
 	return 1
 }
 
-func (*CreatureDamagedEvent) EventType() domain.EventName {
-	return creatureDamagedEventType
+func (*LapCreatureHitPointsRecoveredEvent) EventType() domain.EventName {
+	return lapCreatureHitPointsRecoveredEventType
 }
 
-func (*CreatureDamagedEvent) SchemaVersion() int {
+func (*LapCreatureHitPointsRecoveredEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*SpellCreatureDamagedEvent) EventType() domain.EventName {
+	return spellCreatureDamagedEventType
+}
+
+func (*SpellCreatureDamagedEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -913,9 +932,10 @@ func Types() domain.AggregateTypes {
 		battleCreatureEffectActivatedEventType, battleItemEffectActivatedEventType, landLeveledUpEventType, landElementChangedEventType, creatureExchangedEventType,
 		creatureMovedEventType, territoryInvadedByMoveEventType, discardPileShuffledEventType, handLimitExceededEventType,
 		spellUsedEventType, magicGainedEventType, spellEffectStartedEventType, spellEffectEndedEventType,
-		creatureDamagedEventType, boardCreatureDestroyedEventType, tollCreatureEffectActivatedEventType,
+		spellCreatureDamagedEventType, boardCreatureDestroyedEventType, tollCreatureEffectActivatedEventType,
 		invadingCreatureDestroyedEventType, defendingCreatureDestroyedEventType,
 		destructionCreatureEffectActivatedEventType, cardReturnedToHandEventType, magicReceivedEventType,
+		lapCreatureHitPointsRecoveredEventType,
 	}}
 }
 
@@ -1016,8 +1036,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &SpellEffectStartedEvent{EventMeta: meta}
 	case EventType(spellEffectEndedEventType):
 		event = &SpellEffectEndedEvent{EventMeta: meta}
-	case EventType(creatureDamagedEventType):
-		event = &CreatureDamagedEvent{EventMeta: meta}
+	case EventType(lapCreatureHitPointsRecoveredEventType):
+		event = &LapCreatureHitPointsRecoveredEvent{EventMeta: meta}
+	case EventType(spellCreatureDamagedEventType):
+		event = &SpellCreatureDamagedEvent{EventMeta: meta}
 	case EventType(boardCreatureDestroyedEventType):
 		event = &BoardCreatureDestroyedEvent{EventMeta: meta}
 	case EventType(invadingCreatureDestroyedEventType):

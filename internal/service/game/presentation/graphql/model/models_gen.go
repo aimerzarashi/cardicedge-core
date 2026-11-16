@@ -1756,37 +1756,6 @@ func (this MatchCreatedEvent) GetOccurredAt() time.Time { return this.OccurredAt
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
-// スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）
-type MatchCreatureDamagedEvent struct {
-	// 対戦の版
-	Revision int `json:"revision"`
-	// 起きた時刻
-	OccurredAt time.Time `json:"occurredAt"`
-	// このイベントで変わった、描画に要る core の決まりで決まる値
-	Changes *MatchEventChanges `json:"changes"`
-	// 使った参加者（Match.participants の何番目か）
-	Participant int `json:"participant"`
-	// 対象のクリーチャーがいる領地の位置
-	Position *BoardPosition `json:"position"`
-	// 対象のクリーチャー（MatchPlacedCreature.id）
-	Creature int `json:"creature"`
-	// 与えたダメージ
-	Damage int `json:"damage"`
-	// 残りの HP（0 なら破壊される）
-	RemainingHitPoints int `json:"remainingHitPoints"`
-}
-
-func (MatchCreatureDamagedEvent) IsMatchEvent() {}
-
-// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
-func (this MatchCreatureDamagedEvent) GetRevision() int { return this.Revision }
-
-// 起きた時刻
-func (this MatchCreatureDamagedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
-
-// このイベントで変わった、描画に要る core の決まりで決まる値
-func (this MatchCreatureDamagedEvent) GetChanges() *MatchEventChanges { return this.Changes }
-
 // 領地のクリーチャーを手札のクリーチャーと入れ替えた
 type MatchCreatureExchangedEvent struct {
 	// 対戦の版
@@ -2421,6 +2390,41 @@ func (this MatchLapCompletedEvent) GetOccurredAt() time.Time { return this.Occur
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchLapCompletedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 周回回復で、周回を終えた人の領地のクリーチャーの HP が回復した（回復したクリーチャーごとに 1 つ。HP が変わらないクリーチャーには出ない）
+type MatchLapCreatureHitPointsRecoveredEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 周回を終えた参加者（Match.participants の何番目か。クリーチャーの持ち主）
+	Participant int `json:"participant"`
+	// 回復したクリーチャーがいる領地の位置
+	Position *BoardPosition `json:"position"`
+	// 回復したクリーチャー（MatchPlacedCreature.id）
+	Creature int `json:"creature"`
+	// 回復したクリーチャーのカード
+	Card CardInfo `json:"card"`
+	// 回復した量（カードの HP で止まった後の実際の量）
+	Amount int `json:"amount"`
+	// 回復した後の HP（回復する前は hitPoints - amount）
+	HitPoints int `json:"hitPoints"`
+}
+
+func (MatchLapCreatureHitPointsRecoveredEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchLapCreatureHitPointsRecoveredEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchLapCreatureHitPointsRecoveredEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchLapCreatureHitPointsRecoveredEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
+}
+
 // 参加者に続いているスペルの効果（ターンをまたいで効き続けるもの。1 人に 1 つまでで、新しく使うと上書きする）
 type MatchLastingSpellEffect struct {
 	// 使ったスペルの効果（種類は __typename で見分ける）
@@ -2841,6 +2845,37 @@ type MatchSpellChoice struct {
 	// 選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ中身がある。自分の領地を含む。領地ができた順）
 	TargetPositions []*BoardPosition `json:"targetPositions"`
 }
+
+// スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）
+type MatchSpellCreatureDamagedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 使った参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 対象のクリーチャーがいる領地の位置
+	Position *BoardPosition `json:"position"`
+	// 対象のクリーチャー（MatchPlacedCreature.id）
+	Creature int `json:"creature"`
+	// 与えたダメージ
+	Damage int `json:"damage"`
+	// 残りの HP（0 なら破壊される）
+	RemainingHitPoints int `json:"remainingHitPoints"`
+}
+
+func (MatchSpellCreatureDamagedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchSpellCreatureDamagedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchSpellCreatureDamagedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchSpellCreatureDamagedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 自分のターンを終えて、続いていたスペルの効果が終わった
 type MatchSpellEffectEndedEvent struct {

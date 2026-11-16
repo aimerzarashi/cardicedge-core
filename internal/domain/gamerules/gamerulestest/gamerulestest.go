@@ -31,7 +31,7 @@ func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards
 	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1),
 		LandLevelMultipliers: gamerules.Defaults().Match.LandLevelMultipliers, ChainMultipliers: gamerules.Defaults().Match.ChainMultipliers,
 		TollPercentage: gamerules.Defaults().Match.TollPercentage, RelinquishPercentage: gamerules.Defaults().Match.RelinquishPercentage,
-		TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel, AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus,
+		TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel, AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus, LapHitPointsRecovery: gamerules.Defaults().Match.LapHitPointsRecovery,
 		LandElementChangeMultiplier: gamerules.Defaults().Match.LandElementChangeMultiplier, MultiLandElementChangeMultiplier: gamerules.Defaults().Match.MultiLandElementChangeMultiplier}
 }
 

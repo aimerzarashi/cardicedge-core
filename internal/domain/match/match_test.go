@@ -229,7 +229,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.MagicGainedEvent{EventMeta: meta, Participant: by, Magic: 600},
 		&match.SpellEffectStartedEvent{EventMeta: meta, Participant: by, Target: matchtest.Index(t, 0), Effect: *lasting(spelltest.FixedDice(t, 6, 1), 1)},
 		&match.SpellEffectEndedEvent{EventMeta: meta, Participant: by},
-		&match.CreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.SpellCreatureDamagedEvent{EventMeta: meta, Participant: by, Position: boardtest.Position(t, 1, 0), Damage: 20, RemainingHitPoints: creaturetest.HitPoints(t, 10)},
+		&match.LapCreatureHitPointsRecoveredEvent{EventMeta: meta, Participant: by, Creature: matchtest.PlacedCreatureID(t, 1), Amount: 10},
 		&match.BoardCreatureDestroyedEvent{EventMeta: meta, Participant: by},
 		&match.InvadingCreatureDestroyedEvent{EventMeta: meta, Participant: by},
 		&match.DefendingCreatureDestroyedEvent{EventMeta: meta, Participant: by},
@@ -736,6 +737,42 @@ func TestDecide_LapBonusAddsTheAmountPerOwnTerritory(t *testing.T) {
 
 	require.Equal(t, 300+2*20, eventOf[*match.LapCompletedEvent](t, events).Magic)
 	require.Equal(t, 600+100+100+300+2*20, state.Participants[1].Magic)
+}
+
+func TestDecide_CompletingALapRecoversTheHitPointsOfOwnDamagedCreaturesUpToTheCard(t *testing.T) {
+	state := newMatch(t, ringBoard(t), defaultRules(t))
+	// 自分の領地 3 つ（傷 15・傷 5・傷なし）と、他人の傷のある領地 1 つ（数えるだけなので、ボードの外の位置に置く）
+	state = withTerritory(t, withTerritory(t, withTerritory(t, withTerritory(t, state, 1, 7, 1), 1, 8, 1), 1, 9, 1), 0, 10, 1)
+	full := state.PlacedCreatures[0].Base.HitPoints.Int()
+	state.PlacedCreatures = slices.Clone(state.PlacedCreatures)
+	state.PlacedCreatures[0].HitPoints = creaturetest.HitPoints(t, full-15)
+	state.PlacedCreatures[1].HitPoints = creaturetest.HitPoints(t, full-5)
+	state.PlacedCreatures[3].HitPoints = creaturetest.HitPoints(t, full-15)
+	state, _ = drawAndRoll(t, state, 1, 6)
+
+	state, events := choose(t, state, 1, 1, 0)
+
+	var recovered []match.LapCreatureHitPointsRecoveredEvent
+	lapAt := -1
+	for i, event := range events {
+		switch e := event.(type) {
+		case *match.LapCompletedEvent:
+			lapAt = i
+		case *match.LapCreatureHitPointsRecoveredEvent:
+			require.Greater(t, i, lapAt)
+			require.GreaterOrEqual(t, lapAt, 0)
+			recovered = append(recovered, match.LapCreatureHitPointsRecoveredEvent{Participant: e.Participant, Creature: e.Creature, Amount: e.Amount})
+		}
+	}
+	// 周回回復の量は 10。カードの HP で止まり、傷の無いクリーチャーと他人のクリーチャーには出ない
+	require.Equal(t, []match.LapCreatureHitPointsRecoveredEvent{
+		{Participant: matchtest.Index(t, 1), Creature: matchtest.PlacedCreatureID(t, 1), Amount: 10},
+		{Participant: matchtest.Index(t, 1), Creature: matchtest.PlacedCreatureID(t, 2), Amount: 5},
+	}, recovered)
+	require.Equal(t, full-5, state.PlacedCreatures[0].HitPoints.Int())
+	require.Equal(t, full, state.PlacedCreatures[1].HitPoints.Int())
+	require.Equal(t, full, state.PlacedCreatures[2].HitPoints.Int())
+	require.Equal(t, full-15, state.PlacedCreatures[3].HitPoints.Int())
 }
 
 func TestDecide_NoLapBonusOnTheBaseWhileACheckpointIsUnmarked(t *testing.T) {
@@ -3663,7 +3700,7 @@ func TestDecide_DamageSpellLowersTheHitPointsOfTheCreature(t *testing.T) {
 
 	state, events := useDamage(t, state, 1)
 
-	damaged := eventOf[*match.CreatureDamagedEvent](t, events)
+	damaged := eventOf[*match.SpellCreatureDamagedEvent](t, events)
 	require.Equal(t, 20, damaged.Damage)
 	require.Equal(t, creaturetest.HitPoints(t, 10), damaged.RemainingHitPoints)
 	require.Zero(t, countOf[*match.BoardCreatureDestroyedEvent](events))
@@ -3712,7 +3749,7 @@ func TestDecide_DamageSpellCanTargetYourOwnCreature(t *testing.T) {
 
 	state, events := useDamage(t, state, 2)
 
-	require.Equal(t, pos(t, 2, 0), eventOf[*match.CreatureDamagedEvent](t, events).Position)
+	require.Equal(t, pos(t, 2, 0), eventOf[*match.SpellCreatureDamagedEvent](t, events).Position)
 	require.Equal(t, 1, countOf[*match.BoardCreatureDestroyedEvent](events))
 	require.Equal(t, []card.Ref{cardtest.Ref(t, card.SpellEntityType, 406), cardtest.CreatureRef(t, 201)}, state.Participants[1].DiscardPile)
 }

@@ -403,7 +403,8 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 				... on MatchMagicGainedEvent { participant magic laps magicPerLap }
 				... on MatchSpellEffectStartedEvent { participant target effect { remainingTurns effect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } } }
 				... on MatchSpellEffectEndedEvent { participant }
-				... on MatchCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
+				... on MatchSpellCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
+				... on MatchLapCreatureHitPointsRecoveredEvent { participant position { x y } creature card { __typename id name cost rarity } amount hitPoints }
 				... on MatchInvadingCreatureDestroyedEvent { participant card { id name } position { x y } }
 				... on MatchDefendingCreatureDestroyedEvent { participant card { id name } position { x y } }
 				... on MatchBoardCreatureDestroyedEvent { participant card { id name } position { x y } }
@@ -978,6 +979,14 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			require.Equal(t, (event["laps"].(float64)+1)*event["magicPerLap"].(float64), event["magic"])
 		case "MatchHandLimitExceededEvent":
 			require.Greater(t, event["handCount"], event["maxHandCards"])
+		case "MatchLapCreatureHitPointsRecoveredEvent":
+			// 周回回復で回復するのは周回を終えた人の領地のクリーチャーで、位置とカードは直前の領地から引く（core#114）
+			territory := expected[key(event["position"])]
+			require.Equal(t, event["participant"], territory.owner)
+			require.Equal(t, event["creature"], territory.creature)
+			require.Equal(t, territory.card, event["card"].(map[string]any)["id"])
+			require.Positive(t, event["amount"])
+			require.GreaterOrEqual(t, event["hitPoints"], event["amount"])
 		case "MatchLapCompletedEvent":
 			// 内訳は、周回を終えたときの自分の領地の数から作る（core#170）
 			owned := 0
