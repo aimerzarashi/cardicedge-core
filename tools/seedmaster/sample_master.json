@@ -142,7 +142,7 @@
       "hit_points": 30,
       "item_restrictions": ["weapon"],
       "placement_restrictions": [],
-      "effects": []
+      "effects": [{ "kind": "use_creature_as_item", "elements": ["fire", "earth", "water", "wind", "neutral"] }]
     },
     {
       "type": "creature",

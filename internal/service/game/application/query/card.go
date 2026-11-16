@@ -93,6 +93,13 @@ type Effect struct {
 	ReturnToHandOnDestruction *EffectReturnToHandOnDestruction
 	// 破壊されたら魔力を得る（発動する破壊と額）。持っていなければ nil
 	GainMagicOnDestruction *EffectGainMagicOnDestruction
+	// 手札のクリーチャーをアイテムとして使える（使えるクリーチャーの属性）。持っていなければ nil
+	UseCreatureAsItem *EffectUseCreatureAsItem
+}
+
+// 手札のクリーチャーをアイテムとして使える。属性はクリーチャーの属性と同じ名前（火・地・水・風・無の順）
+type EffectUseCreatureAsItem struct {
+	Elements []string
 }
 
 // 破壊されたら手札に戻る。発動する破壊は invading・defending・board

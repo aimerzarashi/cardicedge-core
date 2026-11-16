@@ -1410,7 +1410,7 @@ type EffectConstraintInput struct {
 	Elements []CreatureElement `json:"elements,omitempty"`
 }
 
-// 効果の入力（種類に要る値だけを入れる。増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount）
+// 効果の入力（種類に要る値だけを入れる。増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount、手札のクリーチャーをアイテムとして使えるは elements）
 type EffectInput struct {
 	// 効果の種類
 	Kind EffectKind `json:"kind"`
@@ -1428,6 +1428,8 @@ type EffectInput struct {
 	Destructions []EffectDestruction `json:"destructions,omitempty"`
 	// 受け取る魔力の額
 	Amount *int `json:"amount,omitempty"`
+	// アイテムとして使えるクリーチャーの属性（1 つ以上・重複なし）
+	Elements []CreatureElement `json:"elements,omitempty"`
 }
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
@@ -3390,6 +3392,19 @@ func (UnreachableTilesProblem) IsBoardPublishProblem() {}
 // 開発者向けの説明（画面にそのまま出す文言ではない）
 func (this UnreachableTilesProblem) GetMessage() string { return this.Message }
 
+// 手札のクリーチャーをアイテムとして使える
+type UseCreatureAsItemEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// アイテムとして使えるクリーチャーの属性（属性のどれかが合えば使える。火・地・水・風・無の順。1 つ以上。指定の無い援護はすべての属性）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (UseCreatureAsItemEffect) IsEffect() {}
+
+// 効果の種類
+func (this UseCreatureAsItemEffect) GetKind() EffectKind { return this.Kind }
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -4039,6 +4054,8 @@ const (
 	EffectKindReturnToHandOnDestruction EffectKind = "RETURN_TO_HAND_ON_DESTRUCTION"
 	// 破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）
 	EffectKindGainMagicOnDestruction EffectKind = "GAIN_MAGIC_ON_DESTRUCTION"
+	// 手札のクリーチャーをアイテムとして使える（戦闘でアイテムの代わりに、属性が合う手札のクリーチャーを 1 枚出し、そのカードの AT・HP を足す。画面のラベルは援護）
+	EffectKindUseCreatureAsItem EffectKind = "USE_CREATURE_AS_ITEM"
 )
 
 var AllEffectKind = []EffectKind{
@@ -4056,11 +4073,12 @@ var AllEffectKind = []EffectKind{
 	EffectKindForbidMovement,
 	EffectKindReturnToHandOnDestruction,
 	EffectKindGainMagicOnDestruction,
+	EffectKindUseCreatureAsItem,
 }
 
 func (e EffectKind) IsValid() bool {
 	switch e {
-	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction:
+	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction, EffectKindUseCreatureAsItem:
 		return true
 	}
 	return false

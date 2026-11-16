@@ -126,6 +126,12 @@ type EffectMetadata struct {
 	ForbidMovement            *EmptyEffectMetadata       `json:"forbid_movement,omitempty"`
 	ReturnToHandOnDestruction *DestructionEffectMetadata `json:"return_to_hand_on_destruction,omitempty"`
 	GainMagicOnDestruction    *DestructionEffectMetadata `json:"gain_magic_on_destruction,omitempty"`
+	UseCreatureAsItem         *ElementsEffectMetadata    `json:"use_creature_as_item,omitempty"`
+}
+
+// 属性の集合を持つ効果（手札のクリーチャーをアイテムとして使える）。属性はクリーチャーの属性と同じ名前（火・地・水・風・無の順）
+type ElementsEffectMetadata struct {
+	Elements []string `json:"elements"`
 }
 
 // 破壊されたときの効果（発動する破壊と、魔力を得るは額。手札に戻るは額を持たないので省く）。破壊は invading・defending・board
@@ -204,6 +210,12 @@ func effectsMetadata(effects effect.Effects) []EffectMetadata {
 			values[i].GainMagicOnDestruction = &DestructionEffectMetadata{
 				Destructions: destructionsMetadata(value.GainMagicOnDestruction.Destructions), Amount: value.GainMagicOnDestruction.Amount.Int(),
 			}
+		case value.UseCreatureAsItem != nil:
+			elements := make([]string, len(value.UseCreatureAsItem.Elements))
+			for j, creatureElement := range value.UseCreatureAsItem.Elements {
+				elements[j] = creatureElement.String()
+			}
+			values[i].UseCreatureAsItem = &ElementsEffectMetadata{Elements: elements}
 		}
 	}
 	return values

@@ -251,6 +251,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&match.CreaturePlacedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Creature: matchtest.PlacedCreatureID(t, 1), Cost: cardtest.Cost(t, 10)},
 		&match.TerritoryInvadedEvent{EventMeta: meta, Participant: by, HandIndex: 2, Cost: cardtest.Cost(t, 10)},
 		&match.ItemUsedEvent{EventMeta: meta, Participant: by, HandIndex: 0, Cost: cardtest.Cost(t, 20)},
+		&match.CreatureUsedAsItemEvent{EventMeta: meta, Participant: by, HandIndex: 1, Cost: cardtest.Cost(t, 50)},
 		&match.CreatureStruckEvent{EventMeta: meta, Striker: match.BattleSideAttacker, Damage: creaturetest.Attack(t, 10), RemainingHitPoints: creaturetest.HitPoints(t, 5)},
 		&match.InvasionSucceededEvent{EventMeta: meta, Participant: by, Creature: matchtest.PlacedCreatureID(t, 2), TerritoryHitPoints: creaturetest.HitPoints(t, 20)},
 		&match.InvasionFailedEvent{EventMeta: meta, Participant: by, TerritoryHitPoints: creaturetest.HitPoints(t, 15)},
@@ -1856,6 +1857,91 @@ func TestDecide_AttackWithAnItemPaysItAndAsksTheOwner(t *testing.T) {
 	require.Equal(t, matchtest.Index(t, 0), awaiting)
 }
 
+// 手札の最後に、属性・AT・HP を決めたクリーチャーを足す（デッキの写しにも足す。性能は写しから読むため）
+func withCreatureInHand(t *testing.T, state match.Match, participant int, id int64, cost, attack, hitPoints int, elements ...string) match.Match {
+	t.Helper()
+	ref := cardtest.CreatureRef(t, id)
+	creatureSpec := &match.CreatureSpec{
+		Elements: creaturetest.Elements(t, elements...), Attack: creaturetest.Attack(t, attack), HitPoints: creaturetest.HitPoints(t, hitPoints),
+		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Effects: effect.DefaultEffects(),
+	}
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Creature: creatureSpec}
+	state.Participants = slices.Clone(state.Participants)
+	target := state.Participants[participant]
+	target.Hand = append(slices.Clone(target.Hand), ref)
+	target.Participant.Cards = append(slices.Clone(target.Participant.Cards), match.DeckCard{
+		Card: ref, Quantity: cardtest.DeckQuantity(t, 1), Spec: spec,
+	})
+	state.Participants[participant] = target
+	return state
+}
+
+func TestDecide_AttackWithACreatureAsItemPaysItAndAsksTheOwner(t *testing.T) {
+	// 手札の残りは無属性なので、地属性だけを受け付ける援護で出せるのは足したクリーチャーだけ
+	state := withCreatureEffects(t, attacking(t, invadingMatch(t)), []effect.Effect{effecttest.UseCreatureAsItem(t, "earth")}, nil)
+	state = withCreatureInHand(t, state, 1, 151, 20, 30, 30, "earth")
+	creatureIndex := len(state.Participants[1].Hand) - 1
+	require.Equal(t, []int{creatureIndex}, state.CreatureAsItemChoices())
+	require.Empty(t, state.ItemChoices())
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseCreatureAsItemCommand{By: matchtest.Index(t, 1), HandIndex: creatureIndex})
+
+	used := eventOf[*match.CreatureUsedAsItemEvent](t, events)
+	require.Equal(t, match.CreatureUsedAsItemEvent{EventMeta: used.EventMeta, Participant: matchtest.Index(t, 1), HandIndex: creatureIndex, Cost: cardtest.Cost(t, 20)}, *used)
+	require.Equal(t, 600-10-20, state.Participants[1].Magic)
+	require.Equal(t, []card.Ref{cardtest.CreatureRef(t, 151)}, state.Participants[1].DiscardPile)
+	require.Equal(t, match.PhaseDefending, state.Phase)
+}
+
+// 出せるのは、戦うクリーチャーの援護が属性を受け付け、コストを払える手札のクリーチャーだけ（アイテム制限は当てない。core#114）
+func TestMatch_CreatureAsItemChoicesFollowTheElementsAndTheMagic(t *testing.T) {
+	// 手札の残り（無属性）を外すため、地属性と水属性だけを受け付ける援護にする
+	dryad := []effect.Effect{effecttest.UseCreatureAsItem(t, "earth", "water")}
+	state := withCreatureEffects(t, attacking(t, invadingMatch(t)), dryad, nil)
+	state = withItemInHand(t, state, 1, 301, 10)
+	state = withCreatureInHand(t, state, 1, 151, 20, 30, 30, "earth")
+	state = withCreatureInHand(t, state, 1, 152, 20, 30, 30, "fire")
+	state = withCreatureInHand(t, state, 1, 153, 40, 30, 30, "water")
+	hand := len(state.Participants[1].Hand)
+	restricted := state
+	invasion := *restricted.Invasion
+	invasion.Base.ItemRestrictions = creaturetest.ItemRestrictions(t, "weapon", "armor", "scroll")
+	restricted.Invasion = &invasion
+
+	require.Equal(t, []int{hand - 3, hand - 1}, state.CreatureAsItemChoices())
+	require.Equal(t, []int{hand - 3}, withMagic(state, 1, 30).CreatureAsItemChoices())
+	require.Equal(t, []int{hand - 3, hand - 1}, restricted.CreatureAsItemChoices())
+	require.Empty(t, withCreatureEffects(t, state, nil, nil).CreatureAsItemChoices())
+	require.Empty(t, invadingMatch(t).CreatureAsItemChoices())
+
+	for _, index := range []int{hand - 4, hand - 2, 99} {
+		err := decideErr(t, state, &match.UseCreatureAsItemCommand{By: matchtest.Index(t, 1), HandIndex: index})
+		require.ErrorIs(t, err, match.ErrCreatureNotUsableAsItem)
+	}
+	require.ErrorIs(t, decideErr(t, invadingMatch(t), &match.UseCreatureAsItemCommand{By: matchtest.Index(t, 1), HandIndex: 0}), match.ErrPhaseNotAllowed)
+}
+
+// 守る側が出すと戦闘に進む。足した HP はダメージで先に減り、残りは戦闘の後に消える（2026-11-16 オーナー。core#114）
+func TestDecide_DefendWithACreatureAsItemFightsAndLeavesOnlyTheDamageBeyondTheAddedHitPoints(t *testing.T) {
+	state := withBattlers(t, invade(t, invadingMatch(t)), 30, 40, 10, 30)
+	state = withCreatureEffects(t, state, nil, []effect.Effect{effecttest.UseCreatureAsItem(t)})
+	state = withCreatureInHand(t, state, 0, 151, 20, 0, 20, "earth")
+	creatureIndex := len(state.Participants[0].Hand) - 1
+
+	state, events := apply(t, state, matchtest.NewRandom(), &match.UseCreatureAsItemCommand{By: matchtest.Index(t, 0), HandIndex: creatureIndex})
+
+	require.Equal(t, matchtest.Index(t, 0), eventOf[*match.CreatureUsedAsItemEvent](t, events).Participant)
+	activated := eventOf[*match.BattleCreatureEffectActivatedEvent](t, events)
+	require.Equal(t, match.BattleCreatureEffectActivatedEvent{
+		EventMeta: activated.EventMeta, Side: match.BattleSideDefender, Effect: effect.KindUseCreatureAsItem, Change: &match.BattleStatChange{HitPointsDelta: 20},
+	}, *activated)
+	started := eventOf[*match.BattleStartedEvent](t, events)
+	require.Equal(t, cardtest.CreatureRef(t, 151), started.Input.Defender.CreatureAsItem.Card)
+	require.Nil(t, started.Input.Defender.Item)
+	// 守る側の HP 30 に 20 を足して 50、攻撃の 30 を受けて残り 20。足した 20 を超えたダメージは 10 なので、領地には 20 が残る
+	require.Equal(t, creaturetest.HitPoints(t, 20), eventOf[*match.InvasionFailedEvent](t, events).TerritoryHitPoints)
+}
+
 func TestDecide_AttackWithoutAnItemLeavesTheFactAndAsksTheOwner(t *testing.T) {
 	state, events := apply(t, attacking(t, invadingMatch(t)), matchtest.NewRandom(), &match.AttackCommand{By: matchtest.Index(t, 1)})
 
@@ -2242,6 +2328,17 @@ func TestResolveBattle_ProducesTheEventsFromTheInput(t *testing.T) {
 				"defender creature:attack_modifier AT+100 HP+0 → 110/40", "defender creature:hit_points_modifier AT+0 HP+100 → 110/140",
 				"attacker strikes 10 → 130", "defender strikes 110 → 0",
 			}},
+		// 援護は、アイテムの位置でアイテムとして出したクリーチャーのカードの AT・HP を足し、出した側のクリーチャーの効果として発動する（core#114）
+		{name: "creature_as_item_adds_the_card_stats_at_the_item_position",
+			input: matchtest.Battle(t).AdjacentTerritories(attacker, 1).Effects(attacker, attackModifier(5), effecttest.UseCreatureAsItem(t)).CreatureAsItem(attacker, 30, 20),
+			want: []string{
+				"attacker creature:attack_modifier AT+5 HP+0 → 15/40", "attacker adjacent_territories AT+10 HP+0 → 25/40",
+				"attacker creature:use_creature_as_item AT+30 HP+20 → 55/60", "attacker strikes 55 → 0",
+			}},
+		// 出したクリーチャーの効果（ここでは先に攻撃する）は使わない
+		{name: "effects_of_the_creature_as_item_do_not_activate",
+			input: matchtest.Battle(t).Effects(defender, effecttest.UseCreatureAsItem(t)).CreatureAsItem(defender, 10, 20, first),
+			want:  []string{"defender creature:use_creature_as_item AT+10 HP+20 → 20/60", "attacker strikes 10 → 50", "defender strikes 20 → 20"}},
 		// 固定の上書き（巻物）は乱数を引かない（引けば乱数の元が尽きて落ちる）
 		{name: "fixed_override_does_not_roll", input: matchtest.Battle(t).Effects(defender, effecttest.AttackOverride(t, 30)),
 			want: []string{"defender creature:attack_override AT+20 HP+0 → 30/40", "attacker strikes 10 → 30", "defender strikes 30 → 10"}},
@@ -2313,7 +2410,9 @@ func TestDecide_FailedInvasionThatCannotPayTheTollDepletesTheMagic(t *testing.T)
 func goldenBattleInput(t *testing.T) match.BattleInput {
 	t.Helper()
 	input := battleInput(t, 30, 40, 20, 35)
-	input.Attacker.Item = battleItem(t, 301, card.ItemCategoryWeapon, effect.NewAttackModifierEffect(effect.NewAttackModifier(20)))
+	// 攻める側はアイテムの代わりにクリーチャーを出した（援護。アイテムの枠は 1 つなので、守る側のアイテムと分けて形を確かめる）
+	input.Attacker.Spec.Effects = effecttest.Effects(t, effecttest.UseCreatureAsItem(t, "earth", "neutral"))
+	input.Attacker.CreatureAsItem = &match.BattleCreatureAsItem{Card: cardtest.CreatureRef(t, 151), Spec: *creatureSpec(t, 151)}
 	input.Defender.Item = battleItem(t, 302, card.ItemCategoryScroll, effecttest.AttackOverride(t, 30), effect.NewIgnoreTerrainEffect(), effecttest.AttackMultiplier(t, 150, "fire"))
 	input.Defender.Spec.Effects = effecttest.Effects(t, effecttest.HitPointsModifier(20))
 	input.Attacker.AdjacentTerritories = []board.Position{boardtest.Position(t, 0, 0), boardtest.Position(t, 2, 0)}

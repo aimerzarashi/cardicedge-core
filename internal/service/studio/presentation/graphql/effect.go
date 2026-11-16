@@ -26,6 +26,7 @@ var effectKinds = map[model.EffectKind]string{
 	model.EffectKindForbidMovement:            command.EffectForbidMovement,
 	model.EffectKindReturnToHandOnDestruction: command.EffectReturnToHandOnDestruction,
 	model.EffectKindGainMagicOnDestruction:    command.EffectGainMagicOnDestruction,
+	model.EffectKindUseCreatureAsItem:         command.EffectUseCreatureAsItem,
 }
 
 var effectDestructions = map[model.EffectDestruction]string{
@@ -112,9 +113,16 @@ func toEffects(effects []*model.EffectInput) ([]command.Effect, error) {
 		if err != nil {
 			return nil, err
 		}
+		// 入れていない（nil）と空を分けて渡す（種類と値の組み合わせを command が確かめるため）
+		var elements []string
+		if effect.Elements != nil {
+			if elements, err = toElements(effect.Elements); err != nil {
+				return nil, err
+			}
+		}
 		values[i] = command.Effect{
 			Kind: kind, Value: effect.Value, Minimum: effect.Minimum, Maximum: effect.Maximum, Percent: effect.Percent, Constraints: constraints,
-			Destructions: destructions, Amount: effect.Amount,
+			Destructions: destructions, Amount: effect.Amount, Elements: elements,
 		}
 	}
 	return values, nil
@@ -180,6 +188,12 @@ func fromEffect(effect command.Effect) (model.Effect, error) {
 			return nil, err
 		}
 		return &model.GainMagicOnDestructionEffect{Kind: kind, Destructions: destructions, Amount: *effect.Amount}, nil
+	case command.EffectUseCreatureAsItem:
+		elements, err := fromElements(effect.Elements)
+		if err != nil {
+			return nil, err
+		}
+		return &model.UseCreatureAsItemEffect{Kind: kind, Elements: elements}, nil
 	}
 	return &model.ForbidMovementEffect{Kind: kind}, nil
 }
@@ -242,6 +256,8 @@ func effectOfMetadata(metadata readmodel.EffectMetadata) (command.Effect, error)
 		return command.Effect{Kind: command.EffectReturnToHandOnDestruction, Destructions: metadata.ReturnToHandOnDestruction.Destructions}, nil
 	case metadata.GainMagicOnDestruction != nil:
 		return command.Effect{Kind: command.EffectGainMagicOnDestruction, Destructions: metadata.GainMagicOnDestruction.Destructions, Amount: &metadata.GainMagicOnDestruction.Amount}, nil
+	case metadata.UseCreatureAsItem != nil:
+		return command.Effect{Kind: command.EffectUseCreatureAsItem, Elements: metadata.UseCreatureAsItem.Elements}, nil
 	}
 	return command.Effect{}, fmt.Errorf("graphql: effect has no kind")
 }

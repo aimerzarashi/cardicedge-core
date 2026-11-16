@@ -102,6 +102,16 @@ type DefendCommand struct {
 
 func (*DefendCommand) isMatchCommand() {}
 
+// アイテムを選んでいる人（攻める段階は攻める側、守る段階は守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。
+// 戦うクリーチャーが手札のクリーチャーをアイテムとして使える効果を持つときだけ）。守る側が出したら戦闘に進む。
+// AttackCommand・DefendCommand に手札の番号を足さないのは、アイテムの番号と並ぶ null を許す項目にしないため
+type UseCreatureAsItemCommand struct {
+	By        ParticipantIndex
+	HandIndex int
+}
+
+func (*UseCreatureAsItemCommand) isMatchCommand() {}
+
 // 魔力が負の間に、自分の領地を 1 つ手放す
 type RelinquishTerritoryCommand struct {
 	By       ParticipantIndex

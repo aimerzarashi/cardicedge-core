@@ -349,6 +349,9 @@ func masterEffects(effects []query.Effect) []master.Effect {
 		if value.GainMagicOnDestruction != nil {
 			values[i].GainMagicOnDestruction = &master.EffectGainMagicOnDestruction{Destructions: value.GainMagicOnDestruction.Destructions, Amount: value.GainMagicOnDestruction.Amount}
 		}
+		if value.UseCreatureAsItem != nil {
+			values[i].UseCreatureAsItem = &master.EffectUseCreatureAsItem{Elements: value.UseCreatureAsItem.Elements}
+		}
 		if value.NullifyReceivedDamage != nil {
 			values[i].NullifyReceivedDamage = &master.EffectNullifyReceivedDamage{Constraints: masterConstraints(value.NullifyReceivedDamage.Constraints)}
 		}

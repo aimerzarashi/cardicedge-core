@@ -68,6 +68,12 @@ func fromEffect(effect query.Effect) (model.Effect, error) {
 			return nil, err
 		}
 		return &model.GainMagicOnDestructionEffect{Kind: model.EffectKindGainMagicOnDestruction, Destructions: destructions, Amount: effect.GainMagicOnDestruction.Amount}, nil
+	case effect.UseCreatureAsItem != nil:
+		elements, err := fromElements(effect.UseCreatureAsItem.Elements)
+		if err != nil {
+			return nil, err
+		}
+		return &model.UseCreatureAsItemEffect{Kind: model.EffectKindUseCreatureAsItem, Elements: elements}, nil
 	}
 	return nil, errors.New("graphql: effect has no kind")
 }

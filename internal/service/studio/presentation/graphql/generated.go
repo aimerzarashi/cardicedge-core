@@ -1001,6 +1001,11 @@ type ComplexityRoot struct {
 		Positions func(childComplexity int) int
 	}
 
+	UseCreatureAsItemEffect struct {
+		Elements func(childComplexity int) int
+		Kind     func(childComplexity int) int
+	}
+
 	ValidationErrors struct {
 		Errors func(childComplexity int) int
 	}
@@ -4323,6 +4328,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.UnreachableTilesProblem.Positions(childComplexity), true
+
+	case "UseCreatureAsItemEffect.elements":
+		if e.ComplexityRoot.UseCreatureAsItemEffect.Elements == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UseCreatureAsItemEffect.Elements(childComplexity), true
+	case "UseCreatureAsItemEffect.kind":
+		if e.ComplexityRoot.UseCreatureAsItemEffect.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UseCreatureAsItemEffect.Kind(childComplexity), true
 
 	case "ValidationErrors.errors":
 		if e.ComplexityRoot.ValidationErrors.Errors == nil {
@@ -18541,6 +18559,52 @@ func (ec *executionContext) fieldContext_UnreachableTilesProblem_positions(_ con
 	return fc, nil
 }
 
+func (ec *executionContext) _UseCreatureAsItemEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.UseCreatureAsItemEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UseCreatureAsItemEffect_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.EffectKind) graphql.Marshaler {
+			return ec.marshalNEffectKind2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐEffectKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UseCreatureAsItemEffect_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UseCreatureAsItemEffect", field, false, false, "EffectKind")
+}
+
+func (ec *executionContext) _UseCreatureAsItemEffect_elements(ctx context.Context, field graphql.CollectedField, obj *model.UseCreatureAsItemEffect) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UseCreatureAsItemEffect_elements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Elements, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.CreatureElement) graphql.Marshaler {
+			return ec.marshalNCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UseCreatureAsItemEffect_elements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UseCreatureAsItemEffect", field, false, false, "CreatureElement")
+}
+
 func (ec *executionContext) _ValidationErrors_errors(ctx context.Context, field graphql.CollectedField, obj *model.ValidationErrors) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -21362,7 +21426,7 @@ func (ec *executionContext) unmarshalInputEffectInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"kind", "value", "minimum", "maximum", "percent", "constraints", "destructions", "amount"}
+	fieldsInOrder := [...]string{"kind", "value", "minimum", "maximum", "percent", "constraints", "destructions", "amount", "elements"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -21425,6 +21489,13 @@ func (ec *executionContext) unmarshalInputEffectInput(ctx context.Context, obj a
 				return it, err
 			}
 			it.Amount = data
+		case "elements":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("elements"))
+			data, err := ec.unmarshalOCreatureElement2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋstudioᚋpresentationᚋgraphqlᚋmodelᚐCreatureElementᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Elements = data
 		}
 	}
 	return it, nil
@@ -25078,6 +25149,13 @@ func (ec *executionContext) _Effect(ctx context.Context, sel ast.SelectionSet, o
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.UseCreatureAsItemEffect:
+		return ec._UseCreatureAsItemEffect(ctx, sel, &obj)
+	case *model.UseCreatureAsItemEffect:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._UseCreatureAsItemEffect(ctx, sel, obj)
 	case model.TollMultiplierEffect:
 		return ec._TollMultiplierEffect(ctx, sel, &obj)
 	case *model.TollMultiplierEffect:
@@ -34704,6 +34782,44 @@ func (ec *executionContext) _UnreachableTilesProblem(ctx context.Context, sel as
 			}
 		case "positions":
 			out.Values[i] = ec._UnreachableTilesProblem_positions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var useCreatureAsItemEffectImplementors = []string{"UseCreatureAsItemEffect", "Effect"}
+
+func (ec *executionContext) _UseCreatureAsItemEffect(ctx context.Context, sel ast.SelectionSet, obj *model.UseCreatureAsItemEffect) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, useCreatureAsItemEffectImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UseCreatureAsItemEffect")
+		case "kind":
+			out.Values[i] = ec._UseCreatureAsItemEffect_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "elements":
+			out.Values[i] = ec._UseCreatureAsItemEffect_elements(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -219,6 +219,24 @@ func (b *BattleInputBuilder) Item(side match.BattleSide, category card.ItemCateg
 	return b
 }
 
+// アイテムの代わりに出したクリーチャー（援護。攻める側はカード 151、守る側は 251。カードの AT・HP と効果）。出した側が援護の効果を
+// 持つかは確かめない（戦闘の決まりだけを確かめるため）
+func (b *BattleInputBuilder) CreatureAsItem(side match.BattleSide, attack, hitPoints int, effects ...effect.Effect) *BattleInputBuilder {
+	b.t.Helper()
+	id := int64(151)
+	if side == match.BattleSideDefender {
+		id = 251
+	}
+	values, err := effect.NewEffects(effects)
+	require.NoError(b.t, err)
+	spec := match.CreatureSpec{
+		Elements: creature.DefaultElements(), Attack: creaturetest.Attack(b.t, attack), HitPoints: creaturetest.HitPoints(b.t, hitPoints),
+		ItemRestrictions: creature.DefaultItemRestrictions(), PlacementRestrictions: creature.DefaultPlacementRestrictions(), Effects: values,
+	}
+	b.combatant(side).CreatureAsItem = &match.BattleCreatureAsItem{Card: cardtest.CreatureRef(b.t, id), Spec: spec}
+	return b
+}
+
 func (b *BattleInputBuilder) Land(element element.Land, level int) *BattleInputBuilder {
 	b.input.Land.Element, b.input.Land.Level = element, level
 	return b

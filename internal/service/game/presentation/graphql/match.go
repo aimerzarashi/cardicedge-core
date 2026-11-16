@@ -126,7 +126,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
 		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
-		SpellChoices: fromSpellChoices(match.SpellChoices), PlaceChoices: match.PlaceChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices,
+		SpellChoices: fromSpellChoices(match.SpellChoices), PlaceChoices: match.PlaceChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices, CreatureAsItemChoices: match.CreatureAsItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 		LandLevels: fromQueryLandLevels(match.LandLevels), MoveChoices: fromQueryMoveChoices(match.MoveChoices), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
 		ElementChangeChoices: elementChangeChoices,
@@ -413,6 +413,12 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 			return nil, err
 		}
 		return &model.MatchItemUsedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card, Cost: e.Cost}, nil
+	case query.MatchCreatureUsedAsItemEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCreatureUsedAsItemEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandIndex: e.HandIndex, Card: card, Cost: e.Cost}, nil
 	case query.MatchItemSkippedEvent:
 		return &model.MatchItemSkippedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant}, nil
 	case query.MatchLandLeveledUpEvent:

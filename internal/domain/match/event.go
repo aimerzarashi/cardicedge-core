@@ -179,6 +179,17 @@ type ItemUsedEvent struct {
 	Cost        card.Cost        `json:"cost"`
 }
 
+// 戦闘に、アイテムの代わりに手札のクリーチャーを出した（援護。手札の何番目か。0 始まり）。ItemUsedEvent と同じく、コストの分の魔力を払い、
+// 手札から捨て札に移る。アイテムと分けるのは、出したものがアイテムでなく、足すのがカードの AT・HP で、発動がクリーチャーの効果のため
+// （2026-11-16 オーナー。core#114）。足した AT・HP は続く戦闘で BattleCreatureEffectActivatedEvent になる
+type CreatureUsedAsItemEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Participant ParticipantIndex `json:"participant"`
+	HandIndex   int              `json:"hand_index"`
+	Cost        card.Cost        `json:"cost"`
+}
+
 // サイコロを振る前に、手札のスペルを使った（手札の何番目か。0 始まり）。コストの分の魔力を払い、手札から捨て札に移る。効果は続くイベントになる
 type SpellUsedEvent struct {
 	EventMeta   `json:"-"`
@@ -522,6 +533,7 @@ var (
 	magicDepletedEventType                      = domain.NewEventName("MagicDepletedEvent")
 	territoryInvadedEventType                   = domain.NewEventName("TerritoryInvadedEvent")
 	itemUsedEventType                           = domain.NewEventName("ItemUsedEvent")
+	creatureUsedAsItemEventType                 = domain.NewEventName("CreatureUsedAsItemEvent")
 	creatureStruckEventType                     = domain.NewEventName("CreatureStruckEvent")
 	invasionSucceededEventType                  = domain.NewEventName("InvasionSucceededEvent")
 	invasionFailedEventType                     = domain.NewEventName("InvasionFailedEvent")
@@ -711,6 +723,14 @@ func (*ItemUsedEvent) EventType() domain.EventName {
 }
 
 func (*ItemUsedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*CreatureUsedAsItemEvent) EventType() domain.EventName {
+	return creatureUsedAsItemEventType
+}
+
+func (*CreatureUsedAsItemEvent) SchemaVersion() int {
 	return 1
 }
 
@@ -935,7 +955,7 @@ func Types() domain.AggregateTypes {
 		spellCreatureDamagedEventType, boardCreatureDestroyedEventType, tollCreatureEffectActivatedEventType,
 		invadingCreatureDestroyedEventType, defendingCreatureDestroyedEventType,
 		destructionCreatureEffectActivatedEventType, cardReturnedToHandEventType, magicReceivedEventType,
-		lapCreatureHitPointsRecoveredEventType,
+		lapCreatureHitPointsRecoveredEventType, creatureUsedAsItemEventType,
 	}}
 }
 
@@ -988,6 +1008,8 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &TerritoryInvadedEvent{EventMeta: meta}
 	case EventType(itemUsedEventType):
 		event = &ItemUsedEvent{EventMeta: meta}
+	case EventType(creatureUsedAsItemEventType):
+		event = &CreatureUsedAsItemEvent{EventMeta: meta}
 	case EventType(creatureStruckEventType):
 		event = &CreatureStruckEvent{EventMeta: meta}
 	case EventType(invasionSucceededEventType):

@@ -20,6 +20,8 @@ var (
 	ErrCreatureNotInvadable = errors.New("match: creature not invadable")
 	// 出せない手札（無い・アイテムでない・コストが払えない）
 	ErrItemNotUsable = errors.New("match: item not usable")
+	// アイテムとして出せない手札（戦うクリーチャーが援護を持たない・クリーチャーでない・属性が合わない・コストが払えない）
+	ErrCreatureNotUsableAsItem = errors.New("match: creature not usable as item")
 	// 自分の領地でない位置は手放せない
 	ErrTerritoryNotRelinquishable = errors.New("match: territory not relinquishable")
 	ErrTerritoryNotLevelUpable    = errors.New("match: territory not level-upable")

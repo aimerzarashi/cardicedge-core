@@ -279,6 +279,11 @@ type SpellEffect interface {
 	IsSpellEffect()
 }
 
+// useMatchCreatureAsItem の結果（ATTACKING・DEFENDING の段階の、操作を待っている人だけ。ほかの人は MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
+type UseMatchCreatureAsItemResult interface {
+	IsUseMatchCreatureAsItemResult()
+}
+
 // useMatchSpell の結果（ROLLING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）
 type UseMatchSpellResult interface {
 	IsUseMatchSpellResult()
@@ -1358,6 +1363,8 @@ type Match struct {
 	InvadeChoices []int `json:"invadeChoices"`
 	// 操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）
 	ItemChoices []int `json:"itemChoices"`
+	// 操作を待っている人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（援護。0 始まり。手札の順。ATTACKING と DEFENDING のときだけ、戦うクリーチャーが援護を持つときに中身がある。useMatchCreatureAsItem で出す）
+	CreatureAsItemChoices []int `json:"creatureAsItemChoices"`
 	// 今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）
 	RelinquishChoices []*BoardPosition `json:"relinquishChoices"`
 	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）
@@ -1881,6 +1888,35 @@ func (this MatchCreatureStruckEvent) GetOccurredAt() time.Time { return this.Occ
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCreatureStruckEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 戦闘に、アイテムの代わりに手札のクリーチャーを出した（援護。攻める側も守る側も同じ。足す AT・HP は続く MatchBattleCreatureEffectActivatedEvent）
+type MatchCreatureUsedAsItemEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 出した参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 出した手札の番号（0 始まり）
+	HandIndex int `json:"handIndex"`
+	// 出したクリーチャーのカード（性能は対戦を始めたときの写し）
+	Card CardInfo `json:"card"`
+	// 払った魔力
+	Cost int `json:"cost"`
+}
+
+func (MatchCreatureUsedAsItemEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCreatureUsedAsItemEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCreatureUsedAsItemEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCreatureUsedAsItemEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // 戦闘で、守るクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）
 type MatchDefendingCreatureDestroyedEvent struct {
@@ -2560,6 +2596,8 @@ func (MatchNotFoundError) IsPayMatchTollResult() {}
 
 func (MatchNotFoundError) IsDefendMatchTerritoryResult() {}
 
+func (MatchNotFoundError) IsUseMatchCreatureAsItemResult() {}
+
 func (MatchNotFoundError) IsRelinquishMatchTerritoryResult() {}
 
 func (MatchNotFoundError) IsLevelUpMatchLandResult() {}
@@ -2603,6 +2641,8 @@ func (MatchNotYourTurnError) IsAttackMatchTerritoryResult() {}
 func (MatchNotYourTurnError) IsPayMatchTollResult() {}
 
 func (MatchNotYourTurnError) IsDefendMatchTerritoryResult() {}
+
+func (MatchNotYourTurnError) IsUseMatchCreatureAsItemResult() {}
 
 func (MatchNotYourTurnError) IsRelinquishMatchTerritoryResult() {}
 
@@ -2683,6 +2723,8 @@ func (MatchPhaseNotAllowedError) IsAttackMatchTerritoryResult() {}
 func (MatchPhaseNotAllowedError) IsPayMatchTollResult() {}
 
 func (MatchPhaseNotAllowedError) IsDefendMatchTerritoryResult() {}
+
+func (MatchPhaseNotAllowedError) IsUseMatchCreatureAsItemResult() {}
 
 func (MatchPhaseNotAllowedError) IsRelinquishMatchTerritoryResult() {}
 
@@ -3412,6 +3454,8 @@ func (PlayerNotRegisteredError) IsPayMatchTollResult() {}
 
 func (PlayerNotRegisteredError) IsDefendMatchTerritoryResult() {}
 
+func (PlayerNotRegisteredError) IsUseMatchCreatureAsItemResult() {}
+
 func (PlayerNotRegisteredError) IsRelinquishMatchTerritoryResult() {}
 
 func (PlayerNotRegisteredError) IsLevelUpMatchLandResult() {}
@@ -3614,6 +3658,8 @@ func (RevisionConflictError) IsAttackMatchTerritoryResult() {}
 func (RevisionConflictError) IsPayMatchTollResult() {}
 
 func (RevisionConflictError) IsDefendMatchTerritoryResult() {}
+
+func (RevisionConflictError) IsUseMatchCreatureAsItemResult() {}
 
 func (RevisionConflictError) IsRelinquishMatchTerritoryResult() {}
 
@@ -4001,6 +4047,39 @@ func (TollMultiplierEffect) IsEffect() {}
 // 効果の種類
 func (this TollMultiplierEffect) GetKind() EffectKind { return this.Kind }
 
+// 手札のクリーチャーをアイテムとして使える
+type UseCreatureAsItemEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// アイテムとして使えるクリーチャーの属性（属性のどれかが合えば使える。火・地・水・風・無の順。1 つ以上。指定の無い援護はすべての属性）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (UseCreatureAsItemEffect) IsEffect() {}
+
+// 効果の種類
+func (this UseCreatureAsItemEffect) GetKind() EffectKind { return this.Kind }
+
+// アイテムの代わりに手札のクリーチャーを出す入力（援護）
+type UseMatchCreatureAsItemInput struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた対戦の revision
+	Revision int `json:"revision"`
+	// 出すクリーチャーの手札の番号（0 始まり。Match.creatureAsItemChoices の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）
+	HandIndex int `json:"handIndex"`
+}
+
+// クリーチャーを出した（守る側なら戦闘まで終わった。成功したら対戦の revision が進む）
+type UseMatchCreatureAsItemSuccess struct {
+	// 対戦の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の対戦の revision
+	Revision int `json:"revision"`
+}
+
+func (UseMatchCreatureAsItemSuccess) IsUseMatchCreatureAsItemResult() {}
+
 // サイコロを振る前にスペルを使う入力
 type UseMatchSpellInput struct {
 	// 対戦の公開用の ID
@@ -4050,6 +4129,8 @@ func (ValidationErrors) IsInvadeMatchTerritoryResult() {}
 func (ValidationErrors) IsAttackMatchTerritoryResult() {}
 
 func (ValidationErrors) IsDefendMatchTerritoryResult() {}
+
+func (ValidationErrors) IsUseMatchCreatureAsItemResult() {}
 
 func (ValidationErrors) IsRelinquishMatchTerritoryResult() {}
 
@@ -4502,6 +4583,8 @@ const (
 	EffectKindReturnToHandOnDestruction EffectKind = "RETURN_TO_HAND_ON_DESTRUCTION"
 	// 破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）
 	EffectKindGainMagicOnDestruction EffectKind = "GAIN_MAGIC_ON_DESTRUCTION"
+	// 手札のクリーチャーをアイテムとして使える（戦闘でアイテムの代わりに、属性が合う手札のクリーチャーを 1 枚出し、そのカードの AT・HP を足す。画面のラベルは援護）
+	EffectKindUseCreatureAsItem EffectKind = "USE_CREATURE_AS_ITEM"
 )
 
 var AllEffectKind = []EffectKind{
@@ -4519,11 +4602,12 @@ var AllEffectKind = []EffectKind{
 	EffectKindForbidMovement,
 	EffectKindReturnToHandOnDestruction,
 	EffectKindGainMagicOnDestruction,
+	EffectKindUseCreatureAsItem,
 }
 
 func (e EffectKind) IsValid() bool {
 	switch e {
-	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction:
+	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction, EffectKindUseCreatureAsItem:
 		return true
 	}
 	return false

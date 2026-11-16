@@ -138,6 +138,8 @@ type BattleCombatant struct {
 	HitPoints creature.HitPoints `json:"hit_points"`
 	// 出したアイテム。出さなければ nil
 	Item *BattleItem `json:"item,omitempty"`
+	// アイテムの代わりに出した手札のクリーチャー（援護）。出さなければ nil。Item と一緒には持たない（アイテムの枠は 1 つのため）
+	CreatureAsItem *BattleCreatureAsItem `json:"creature_as_item,omitempty"`
 	// 支援効果に数える、戦場の隣にあるその側の領地。攻める側が移動で侵略したときの元の領地は入らない（2026-11-10 オーナー）。
 	// 守る側にも付く（2026-11-15 オーナー。core#178）
 	AdjacentTerritories []board.Position `json:"adjacent_territories"`
@@ -146,6 +148,12 @@ type BattleCombatant struct {
 type BattleItem struct {
 	Card card.Ref `json:"card"`
 	Spec ItemSpec `json:"spec"`
+}
+
+// アイテムとして出したクリーチャー。性能は戦闘で使わない項目も含めてまるごと持つ（BattleCombatant と同じ）
+type BattleCreatureAsItem struct {
+	Card card.Ref     `json:"card"`
+	Spec CreatureSpec `json:"spec"`
 }
 
 // 戦う土地（地形効果の根拠）
@@ -257,6 +265,17 @@ type CreatureSpec struct {
 // アイテム制限。性能の無いアイテムは分類が無いので制限に当たらない
 func (s CreatureSpec) canUseItem(candidate CardSpec) bool {
 	return candidate.Item == nil || !s.ItemRestrictions.Forbids(candidate.Item.Category)
+}
+
+// 手札のクリーチャーをアイテムとして使える効果（援護）のどれかが、候補のクリーチャーの属性を受け付けるか。アイテム制限は当てない
+// （アイテム制限は武器・防具・巻物の分類を縛るもので、クリーチャーには分類が無いため。2026-11-16 オーナー）
+func (s CreatureSpec) canUseCreatureAsItem(candidate CardSpec) bool {
+	if candidate.Creature == nil {
+		return false
+	}
+	return slices.ContainsFunc(s.Effects, func(value effect.Effect) bool {
+		return value.AcceptsCreatureAsItem(candidate.Creature.Elements)
+	})
 }
 
 // 配置制限。配置・侵略・交換・移動の行き先と、土地の属性の変更の後の属性のどれにも、この 1 つで答える

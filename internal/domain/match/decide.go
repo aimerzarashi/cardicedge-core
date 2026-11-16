@@ -49,6 +49,8 @@ func Decide(state State, cmd Command, now time.Time, random Random) ([]Event, er
 		return playTurn(state, c.By, PhaseInvading, now, payToll)
 	case *DefendCommand:
 		return playTurn(state, c.By, PhaseDefending, now, func(r *recorder) error { return defend(r, c.By, c.ItemHandIndex, random) })
+	case *UseCreatureAsItemCommand:
+		return playTurn(state, c.By, PhaseAttacking, now, func(r *recorder) error { return useCreatureAsItem(r, c.By, c.HandIndex, random) }, PhaseDefending)
 	case *RelinquishTerritoryCommand:
 		return playTurn(state, c.By, PhaseRelinquishing, now, func(r *recorder) error { return relinquish(r, c.Position) })
 	case *EndTurnCommand:
@@ -481,6 +483,25 @@ func chooseItem(r *recorder, by ParticipantIndex, itemHandIndex *int) error {
 	})
 }
 
+// アイテムの代わりに手札のクリーチャーを出す（援護）。守る側が出したら、アイテムを選んだときと同じく戦闘に進む
+func useCreatureAsItem(r *recorder, by ParticipantIndex, handIndex int, random Random) error {
+	if !slices.Contains(r.state.CreatureAsItemChoices(), handIndex) {
+		return ErrCreatureNotUsableAsItem
+	}
+	defending := r.state.Phase == PhaseDefending
+	ref := r.state.Participants[by].Hand[handIndex]
+	cost := r.state.CardSpecs()[ref].Cost
+	if err := r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &CreatureUsedAsItemEvent{EventMeta: meta, Participant: by, HandIndex: handIndex, Cost: cost}
+	}); err != nil {
+		return err
+	}
+	if !defending {
+		return nil
+	}
+	return battle(r, random)
+}
+
 func defend(r *recorder, by ParticipantIndex, itemHandIndex *int, random Random) error {
 	if err := chooseItem(r, by, itemHandIndex); err != nil {
 		return err
@@ -521,11 +542,11 @@ func (m Match) battleInput() (BattleInput, error) {
 		return BattleInput{}, ErrInvalidState
 	}
 	invasion := *m.Invasion
-	attackerItem, err := m.battleItem(invasion.AttackerItem)
+	attackerItem, attackerCreatureAsItem, err := m.battleItem(invasion.AttackerItem)
 	if err != nil {
 		return BattleInput{}, err
 	}
-	defenderItem, err := m.battleItem(invasion.DefenderItem)
+	defenderItem, defenderCreatureAsItem, err := m.battleItem(invasion.DefenderItem)
 	if err != nil {
 		return BattleInput{}, err
 	}
@@ -534,22 +555,32 @@ func (m Match) battleInput() (BattleInput, error) {
 		return invasion.From != nil && position == *invasion.From
 	})
 	return BattleInput{
-		Attacker: BattleCombatant{Card: invasion.Card, Spec: invasion.Base, Attack: invasion.Attack, HitPoints: invasion.HitPoints, Item: attackerItem, AdjacentTerritories: adjacent},
-		Defender: BattleCombatant{Card: defending.Card, Spec: defending.Base, Attack: defending.Attack, HitPoints: defending.HitPoints, Item: defenderItem, AdjacentTerritories: m.adjacentTerritoriesOf(territory.Position, defending.Owner)},
-		Land:     BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
-		Rules:    BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
+		Attacker: BattleCombatant{
+			Card: invasion.Card, Spec: invasion.Base, Attack: invasion.Attack, HitPoints: invasion.HitPoints, Item: attackerItem, CreatureAsItem: attackerCreatureAsItem,
+			AdjacentTerritories: adjacent,
+		},
+		Defender: BattleCombatant{
+			Card: defending.Card, Spec: defending.Base, Attack: defending.Attack, HitPoints: defending.HitPoints, Item: defenderItem, CreatureAsItem: defenderCreatureAsItem,
+			AdjacentTerritories: m.adjacentTerritoriesOf(territory.Position, defending.Owner),
+		},
+		Land:  BattleLand{Element: m.landElement(territory.Position), Level: m.LandLevel(territory.Position)},
+		Rules: BattleRules{AdjacentTerritoryBonus: m.Rules.AdjacentTerritoryBonus, TerrainBonusPerLevel: m.Rules.TerrainBonusPerLevel},
 	}, nil
 }
 
-func (m Match) battleItem(used *card.Ref) (*BattleItem, error) {
+// アイテムの枠に出したカード。アイテムならアイテム、クリーチャー（援護）ならアイテムとして出したクリーチャーとして返す
+func (m Match) battleItem(used *card.Ref) (*BattleItem, *BattleCreatureAsItem, error) {
 	if used == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	spec := m.CardSpecs()[*used].Item
-	if spec == nil {
-		return nil, ErrInvalidState
+	spec := m.CardSpecs()[*used]
+	switch {
+	case spec.Item != nil:
+		return &BattleItem{Card: *used, Spec: *spec.Item}, nil, nil
+	case spec.Creature != nil:
+		return nil, &BattleCreatureAsItem{Card: *used, Spec: *spec.Creature}, nil
 	}
-	return &BattleItem{Card: *used, Spec: *spec}, nil
+	return nil, nil, ErrInvalidState
 }
 
 // 戦闘を、入力と乱数の元だけで決める。効果を順に当て、残っていれば先に攻撃する側（strikeOrder）が攻撃し、相手が生きていれば反撃する。
@@ -706,6 +737,9 @@ func terrainMatches(land element.Land, elements creature.Elements) bool {
 // アイテムの位置。効果を並びの順に、増減・上書きだけ当てる（増減が 0 でも発動を表すので出す。倍率は倍率の段階、
 // 地形効果を無視するは攻撃の直前に発動する）
 func (b *battleResolver) applyItem(side BattleSide, random Random) error {
+	if creatureAsItem := b.input.Combatant(side).CreatureAsItem; creatureAsItem != nil {
+		return b.applyCreatureAsItem(side, *creatureAsItem)
+	}
 	used := b.input.Combatant(side).Item
 	if used == nil {
 		return nil
@@ -723,6 +757,13 @@ func (b *battleResolver) applyItem(side BattleSide, random Random) error {
 		}
 	}
 	return nil
+}
+
+// アイテムの位置で、アイテムとして出したクリーチャーのカードの AT・HP を足す（援護。出したクリーチャーの属性・効果は使わない。
+// 2026-11-16 オーナー）。発動は戦うクリーチャーの効果なので、クリーチャーの効果の発動のイベントで出す
+func (b *battleResolver) applyCreatureAsItem(side BattleSide, used BattleCreatureAsItem) error {
+	change := b.actualChange(side, used.Spec.Attack.Int(), used.Spec.HitPoints.Int())
+	return b.emit(&BattleCreatureEffectActivatedEvent{Side: side, Effect: effect.KindUseCreatureAsItem, Change: &change})
 }
 
 // 倍率の段階。制約を満たす AT の倍率のうち一番高いものを 1 回だけ掛け（切り捨て）、掛けたものだけが発動を出す。採られなかった

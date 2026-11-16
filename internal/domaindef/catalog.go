@@ -194,6 +194,7 @@ var Types = Catalog{
 			{ID: 3047, Name: "CardReturnedToHandEvent"},
 			{ID: 3048, Name: "MagicReceivedEvent"},
 			{ID: 3049, Name: "LapCreatureHitPointsRecoveredEvent"},
+			{ID: 3050, Name: "CreatureUsedAsItemEvent"},
 		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{

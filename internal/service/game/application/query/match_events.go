@@ -312,6 +312,16 @@ type MatchItemUsedEvent struct {
 	Cost      int
 }
 
+// 戦闘に、アイテムの代わりに手札のクリーチャーを出した（援護。攻める側も守る側も同じ）。Cost は払った魔力
+type MatchCreatureUsedAsItemEvent struct {
+	MatchEventMeta
+	Participant int
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+	Card      MatchCard
+	Cost      int
+}
+
 // 戦闘にアイテムを出さなかった（攻める側も守る側も同じ）
 type MatchItemSkippedEvent struct {
 	MatchEventMeta
@@ -410,6 +420,7 @@ const (
 	EffectKindForbidMovement            EffectKind = "forbid_movement"
 	EffectKindReturnToHandOnDestruction EffectKind = "return_to_hand_on_destruction"
 	EffectKindGainMagicOnDestruction    EffectKind = "gain_magic_on_destruction"
+	EffectKindUseCreatureAsItem         EffectKind = "use_creature_as_item"
 )
 
 // 破壊されたクリーチャーの「破壊されたとき」の効果が発動した。Owner は持ち主、ActivatedEffect は発動したカードの効果（core#182）
@@ -772,6 +783,8 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		return []card.Ref{creatureAt(previous, e.From).Card, creatureAt(previous, e.Position).Card}
 	case *match.ItemUsedEvent:
 		return []card.Ref{handCard(previous, e.Participant, e.HandIndex)}
+	case *match.CreatureUsedAsItemEvent:
+		return []card.Ref{handCard(previous, e.Participant, e.HandIndex)}
 	case *match.SpellUsedEvent:
 		return []card.Ref{handCard(previous, e.Participant, e.HandIndex)}
 	case *match.InvasionFailedEvent:
@@ -1035,6 +1048,8 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchSpellUsedEvent{meta, e.Participant.Int(), e.HandIndex, cardOf(handCard(previous, e.Participant, e.HandIndex), cards), e.Cost.Int()}, nil
 	case *match.ItemUsedEvent:
 		return MatchItemUsedEvent{meta, e.Participant.Int(), e.HandIndex, cardOf(handCard(previous, e.Participant, e.HandIndex), cards), e.Cost.Int()}, nil
+	case *match.CreatureUsedAsItemEvent:
+		return MatchCreatureUsedAsItemEvent{meta, e.Participant.Int(), e.HandIndex, cardOf(handCard(previous, e.Participant, e.HandIndex), cards), e.Cost.Int()}, nil
 	case *match.ItemSkippedEvent:
 		return MatchItemSkippedEvent{meta, e.Participant.Int()}, nil
 	case *match.LandLeveledUpEvent:

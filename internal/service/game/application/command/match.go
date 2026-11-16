@@ -316,6 +316,12 @@ func newEffect(copied master.Effect) (effect.Effect, error) {
 			return effect.Effect{}, err
 		}
 		return effect.NewGainMagicOnDestructionEffect(destructions, amount), nil
+	case copied.UseCreatureAsItem != nil:
+		elements, err := effect.NewCreatureElements(copied.UseCreatureAsItem.Elements)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewUseCreatureAsItemEffect(elements), nil
 	case copied.IgnoreTerrainEffect:
 		return effect.NewIgnoreTerrainEffect(), nil
 	case copied.StrikeFirst:
@@ -530,6 +536,14 @@ func (c *MatchHandler) Defend(ctx context.Context, id uuid.UUID, revision int64,
 	})
 }
 
+// アイテムを選んでいる人（攻める側・守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。守る側なら戦闘に進む）。
+// 出せない手札は input.Errors（NotFound・項目名 handIndex）
+func (c *MatchHandler) UseCreatureAsItem(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.UseCreatureAsItemCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
 // 魔力が負の間に、自分の領地を 1 つ手放す。手放せない位置（自分の領地でない）は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
 func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
 	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
@@ -695,7 +709,7 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return ErrMatchPhaseNotAllowed
 	case errors.Is(err, match.ErrHandIndexOutOfRange):
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
-	case errors.Is(err, match.ErrCreatureNotPlaceable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable):
+	case errors.Is(err, match.ErrCreatureNotPlaceable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable), errors.Is(err, match.ErrCreatureNotUsableAsItem):
 		return input.Errors{&input.NotFound{Field: "handIndex"}}
 	case errors.Is(err, match.ErrSpellTargetRequired):
 		return input.Errors{&input.Required{Field: "target"}}

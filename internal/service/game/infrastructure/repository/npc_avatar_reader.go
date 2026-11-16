@@ -127,6 +127,9 @@ type effectMetadata struct {
 	ForbidMovement            *struct{}                  `json:"forbid_movement"`
 	ReturnToHandOnDestruction *destructionEffectMetadata `json:"return_to_hand_on_destruction"`
 	GainMagicOnDestruction    *destructionEffectMetadata `json:"gain_magic_on_destruction"`
+	UseCreatureAsItem         *struct {
+		Elements []string `json:"elements"`
+	} `json:"use_creature_as_item"`
 }
 
 // 破壊されたときの効果（studio の readmodel.DestructionEffectMetadata と同じ形。手札に戻るは額を持たない）
@@ -168,6 +171,9 @@ func queryEffects(effects []effectMetadata) []query.Effect {
 		}
 		if destruction := metadata.GainMagicOnDestruction; destruction != nil {
 			value.GainMagicOnDestruction = &query.EffectGainMagicOnDestruction{Destructions: destruction.Destructions, Amount: destruction.Amount}
+		}
+		if creatureAsItem := metadata.UseCreatureAsItem; creatureAsItem != nil {
+			value.UseCreatureAsItem = &query.EffectUseCreatureAsItem{Elements: creatureAsItem.Elements}
 		}
 		values[i] = value
 	}
