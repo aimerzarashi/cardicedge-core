@@ -28,6 +28,20 @@ enum EffectKind {
   FORBID_INVASION
   "移動できない（領地コマンドで動けない）"
   FORBID_MOVEMENT
+  "破壊されたら手札に戻る（選んだ破壊のとき、捨て札に入ったカードが持ち主の手札に戻る。手札が上限なら戻れない）"
+  RETURN_TO_HAND_ON_DESTRUCTION
+  "破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）"
+  GAIN_MAGIC_ON_DESTRUCTION
+}
+
+"破壊されたときの効果が発動する破壊（対戦の 3 つの破壊のイベントと対応する）"
+enum EffectDestruction {
+  "戦闘で、侵略したクリーチャーとして破壊された"
+  INVADING
+  "戦闘で、領地を守るクリーチャーとして破壊された"
+  DEFENDING
+  "戦闘の外（スペルのダメージ等）で破壊された"
+  BOARD
 }
 
 # 種類ごとに型を分ける。union にしないのは、値の無い効果の型に項目が 1 つは要るため、すべての効果に共通の kind を持たせて interface にする
@@ -127,6 +141,24 @@ type ForbidInvasionEffect implements Effect {
 type ForbidMovementEffect implements Effect {
   "効果の種類"
   kind: EffectKind!
+}
+
+"破壊されたら手札に戻る"
+type ReturnToHandOnDestructionEffect implements Effect {
+  "効果の種類"
+  kind: EffectKind!
+  "発動する破壊（侵略・守る・ボードの順。1 つ以上）"
+  destructions: [EffectDestruction!]!
+}
+
+"破壊されたら魔力を得る"
+type GainMagicOnDestructionEffect implements Effect {
+  "効果の種類"
+  kind: EffectKind!
+  "発動する破壊（侵略・守る・ボードの順。1 つ以上）"
+  destructions: [EffectDestruction!]!
+  "受け取る魔力の額（1 以上）"
+  amount: Int!
 }
 
 "効果の制約の種類"

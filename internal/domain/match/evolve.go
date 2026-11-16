@@ -472,6 +472,38 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		current.Battle = battle
+	case *DestructionCreatureEffectActivatedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if !current.validParticipant(e.Owner) {
+			return state, ErrInvalidState
+		}
+	case *CardReturnedToHandEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if !current.validParticipant(e.Owner) {
+			return state, ErrInvalidState
+		}
+		// 破壊で捨て札に入ったそのカード（最後に入ったもの）を手札の最後へ移す
+		discardPile := current.Participants[e.Owner].DiscardPile
+		last := len(discardPile) - 1
+		if last < 0 || discardPile[last] != e.Card {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Owner].DiscardPile = slices.Clone(discardPile[:last])
+		current.Participants[e.Owner].Hand = append(slices.Clone(current.Participants[e.Owner].Hand), e.Card)
+	case *MagicReceivedEvent:
+		if _, err := current.actor(e.Participant); err != nil {
+			return state, err
+		}
+		if !current.validParticipant(e.Owner) || e.Magic < 1 {
+			return state, ErrInvalidState
+		}
+		current.Participants = slices.Clone(current.Participants)
+		current.Participants[e.Owner].Magic += e.Magic
 	case *TollCreatureEffectActivatedEvent:
 		territory, ok := current.invadedTerritory()
 		if !ok {

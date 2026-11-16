@@ -12,18 +12,57 @@ import (
 // 効果の変換はアイテムとクリーチャーで共有する（core#178）
 
 var effectKinds = map[model.EffectKind]string{
-	model.EffectKindAttackModifier:        command.EffectAttackModifier,
-	model.EffectKindHitPointsModifier:     command.EffectHitPointsModifier,
-	model.EffectKindAttackOverride:        command.EffectAttackOverride,
-	model.EffectKindHitPointsOverride:     command.EffectHitPointsOverride,
-	model.EffectKindAttackMultiplier:      command.EffectAttackMultiplier,
-	model.EffectKindIgnoreTerrainEffect:   command.EffectIgnoreTerrainEffect,
-	model.EffectKindStrikeFirst:           command.EffectStrikeFirst,
-	model.EffectKindStrikeLast:            command.EffectStrikeLast,
-	model.EffectKindNullifyReceivedDamage: command.EffectNullifyReceivedDamage,
-	model.EffectKindTollMultiplier:        command.EffectTollMultiplier,
-	model.EffectKindForbidInvasion:        command.EffectForbidInvasion,
-	model.EffectKindForbidMovement:        command.EffectForbidMovement,
+	model.EffectKindAttackModifier:            command.EffectAttackModifier,
+	model.EffectKindHitPointsModifier:         command.EffectHitPointsModifier,
+	model.EffectKindAttackOverride:            command.EffectAttackOverride,
+	model.EffectKindHitPointsOverride:         command.EffectHitPointsOverride,
+	model.EffectKindAttackMultiplier:          command.EffectAttackMultiplier,
+	model.EffectKindIgnoreTerrainEffect:       command.EffectIgnoreTerrainEffect,
+	model.EffectKindStrikeFirst:               command.EffectStrikeFirst,
+	model.EffectKindStrikeLast:                command.EffectStrikeLast,
+	model.EffectKindNullifyReceivedDamage:     command.EffectNullifyReceivedDamage,
+	model.EffectKindTollMultiplier:            command.EffectTollMultiplier,
+	model.EffectKindForbidInvasion:            command.EffectForbidInvasion,
+	model.EffectKindForbidMovement:            command.EffectForbidMovement,
+	model.EffectKindReturnToHandOnDestruction: command.EffectReturnToHandOnDestruction,
+	model.EffectKindGainMagicOnDestruction:    command.EffectGainMagicOnDestruction,
+}
+
+var effectDestructions = map[model.EffectDestruction]string{
+	model.EffectDestructionInvading:  "invading",
+	model.EffectDestructionDefending: "defending",
+	model.EffectDestructionBoard:     "board",
+}
+
+func toDestructions(values []model.EffectDestruction) ([]string, error) {
+	if values == nil {
+		return nil, nil
+	}
+	destructions := make([]string, len(values))
+	for i, value := range values {
+		name, ok := effectDestructions[value]
+		if !ok {
+			return nil, fmt.Errorf("graphql: unknown effect destruction %q", value)
+		}
+		destructions[i] = name
+	}
+	return destructions, nil
+}
+
+func fromDestructions(values []string) ([]model.EffectDestruction, error) {
+	destructions := make([]model.EffectDestruction, len(values))
+	for i, value := range values {
+		found := false
+		for destruction, name := range effectDestructions {
+			if name == value {
+				destructions[i], found = destruction, true
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("graphql: unknown effect destruction %q", value)
+		}
+	}
+	return destructions, nil
 }
 
 func fromEffectKind(kind string) (model.EffectKind, error) {
@@ -69,7 +108,14 @@ func toEffects(effects []*model.EffectInput) ([]command.Effect, error) {
 				constraints[j] = command.EffectConstraint{Kind: command.EffectConstraintOpponentCreatureElement, Elements: elements}
 			}
 		}
-		values[i] = command.Effect{Kind: kind, Value: effect.Value, Minimum: effect.Minimum, Maximum: effect.Maximum, Percent: effect.Percent, Constraints: constraints}
+		destructions, err := toDestructions(effect.Destructions)
+		if err != nil {
+			return nil, err
+		}
+		values[i] = command.Effect{
+			Kind: kind, Value: effect.Value, Minimum: effect.Minimum, Maximum: effect.Maximum, Percent: effect.Percent, Constraints: constraints,
+			Destructions: destructions, Amount: effect.Amount,
+		}
 	}
 	return values, nil
 }
@@ -122,6 +168,18 @@ func fromEffect(effect command.Effect) (model.Effect, error) {
 		return &model.TollMultiplierEffect{Kind: kind, Percent: *effect.Percent}, nil
 	case command.EffectForbidInvasion:
 		return &model.ForbidInvasionEffect{Kind: kind}, nil
+	case command.EffectReturnToHandOnDestruction:
+		destructions, err := fromDestructions(effect.Destructions)
+		if err != nil {
+			return nil, err
+		}
+		return &model.ReturnToHandOnDestructionEffect{Kind: kind, Destructions: destructions}, nil
+	case command.EffectGainMagicOnDestruction:
+		destructions, err := fromDestructions(effect.Destructions)
+		if err != nil {
+			return nil, err
+		}
+		return &model.GainMagicOnDestructionEffect{Kind: kind, Destructions: destructions, Amount: *effect.Amount}, nil
 	}
 	return &model.ForbidMovementEffect{Kind: kind}, nil
 }
@@ -180,6 +238,10 @@ func effectOfMetadata(metadata readmodel.EffectMetadata) (command.Effect, error)
 		return command.Effect{Kind: command.EffectForbidInvasion}, nil
 	case metadata.ForbidMovement != nil:
 		return command.Effect{Kind: command.EffectForbidMovement}, nil
+	case metadata.ReturnToHandOnDestruction != nil:
+		return command.Effect{Kind: command.EffectReturnToHandOnDestruction, Destructions: metadata.ReturnToHandOnDestruction.Destructions}, nil
+	case metadata.GainMagicOnDestruction != nil:
+		return command.Effect{Kind: command.EffectGainMagicOnDestruction, Destructions: metadata.GainMagicOnDestruction.Destructions, Amount: &metadata.GainMagicOnDestruction.Amount}, nil
 	}
 	return command.Effect{}, fmt.Errorf("graphql: effect has no kind")
 }

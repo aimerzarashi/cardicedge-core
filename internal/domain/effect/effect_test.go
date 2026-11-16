@@ -102,3 +102,29 @@ func TestEffects_AreComparedByValueAndFoundByKind(t *testing.T) {
 	require.True(t, spectre.Has(effect.KindHitPointsOverride))
 	require.False(t, spectre.Has(effect.KindStrikeFirst))
 }
+
+func TestNewDestructions_SortsAndRejectsEmptyUnknownAndDuplicated(t *testing.T) {
+	destructions, err := effect.NewDestructions([]string{"board", "invading"})
+	require.NoError(t, err)
+	require.Equal(t, effect.Destructions{effect.DestructionInvading, effect.DestructionBoard}, destructions)
+
+	_, emptyErr := effect.NewDestructions(nil)
+	_, unknownErr := effect.NewDestructions([]string{"spell"})
+	_, duplicatedErr := effect.NewDestructions([]string{"board", "board"})
+	require.ErrorIs(t, emptyErr, effect.ErrDestructionsEmpty)
+	require.ErrorIs(t, unknownErr, effect.ErrDestructionUnknown)
+	require.ErrorIs(t, duplicatedErr, effect.ErrDestructionsDuplicated)
+	_, amountErr := effect.NewDestructionMagicAmount(0)
+	require.ErrorIs(t, amountErr, effect.ErrDestructionMagicAmountTooSmall)
+}
+
+func TestEffect_ActivatesOnlyOnTheChosenDestructions(t *testing.T) {
+	phoenix := effecttest.ReturnToHandOnDestruction(t, effect.DestructionInvading, effect.DestructionDefending)
+	cornfolk := effecttest.GainMagicOnDestruction(t, 200, effect.DestructionInvading, effect.DestructionDefending, effect.DestructionBoard)
+
+	require.True(t, phoenix.ActivatesOn(effect.DestructionDefending))
+	require.False(t, phoenix.ActivatesOn(effect.DestructionBoard))
+	require.True(t, cornfolk.ActivatesOn(effect.DestructionBoard))
+	require.False(t, effecttest.AttackModifier(10).ActivatesOn(effect.DestructionBoard))
+	require.False(t, effecttest.Effects(t, cornfolk).Equal(effecttest.Effects(t, effecttest.GainMagicOnDestruction(t, 100, effect.DestructionInvading, effect.DestructionDefending, effect.DestructionBoard))))
+}

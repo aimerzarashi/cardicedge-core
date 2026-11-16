@@ -765,8 +765,22 @@ func queryEffect(value effect.Effect) Effect {
 		converted.NullifyReceivedDamage = &EffectNullifyReceivedDamage{Constraints: queryConstraints(value.NullifyReceivedDamage.Constraints)}
 	case value.TollMultiplier != nil:
 		converted.TollMultiplierPercent = new(value.TollMultiplier.Percent.Int())
+	case value.ReturnToHandOnDestruction != nil:
+		converted.ReturnToHandOnDestruction = &EffectReturnToHandOnDestruction{Destructions: queryDestructions(value.ReturnToHandOnDestruction.Destructions)}
+	case value.GainMagicOnDestruction != nil:
+		converted.GainMagicOnDestruction = &EffectGainMagicOnDestruction{
+			Destructions: queryDestructions(value.GainMagicOnDestruction.Destructions), Amount: value.GainMagicOnDestruction.Amount.Int(),
+		}
 	}
 	return converted
+}
+
+func queryDestructions(destructions effect.Destructions) []string {
+	values := make([]string, len(destructions))
+	for i, destruction := range destructions {
+		values[i] = string(destruction)
+	}
+	return values
 }
 
 func queryConstraints(constraints effect.Constraints) []EffectConstraint {

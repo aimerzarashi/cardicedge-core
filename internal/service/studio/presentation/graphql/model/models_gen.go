@@ -1406,7 +1406,7 @@ type EffectConstraintInput struct {
 	Elements []CreatureElement `json:"elements,omitempty"`
 }
 
-// 効果の入力（種類に要る値だけを入れる。増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、受けるダメージを 0 にするは constraints）
+// 効果の入力（種類に要る値だけを入れる。増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount）
 type EffectInput struct {
 	// 効果の種類
 	Kind EffectKind `json:"kind"`
@@ -1420,6 +1420,10 @@ type EffectInput struct {
 	Percent *int `json:"percent,omitempty"`
 	// 制約（すべてを満たすときに発動する）
 	Constraints []*EffectConstraintInput `json:"constraints,omitempty"`
+	// 発動する破壊（1 つ以上・重複なし）
+	Destructions []EffectDestruction `json:"destructions,omitempty"`
+	// 受け取る魔力の額
+	Amount *int `json:"amount,omitempty"`
 }
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
@@ -1788,6 +1792,21 @@ func (ForbiddenError) IsPublishStarterSetResult() {}
 func (ForbiddenError) IsRetireStarterSetResult() {}
 
 func (ForbiddenError) IsStudioRulesResult() {}
+
+// 破壊されたら魔力を得る
+type GainMagicOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+	// 受け取る魔力の額（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (GainMagicOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this GainMagicOnDestructionEffect) GetKind() EffectKind { return this.Kind }
 
 // 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
 type GainMagicSpellEffect struct {
@@ -2857,6 +2876,19 @@ type RetireStarterSetSuccess struct {
 
 func (RetireStarterSetSuccess) IsRetireStarterSetResult() {}
 
+// 破壊されたら手札に戻る
+type ReturnToHandOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+}
+
+func (ReturnToHandOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this ReturnToHandOnDestructionEffect) GetKind() EffectKind { return this.Kind }
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -3910,6 +3942,67 @@ func (e EffectConstraintKind) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// 破壊されたときの効果が発動する破壊（対戦の 3 つの破壊のイベントと対応する）
+type EffectDestruction string
+
+const (
+	// 戦闘で、侵略したクリーチャーとして破壊された
+	EffectDestructionInvading EffectDestruction = "INVADING"
+	// 戦闘で、領地を守るクリーチャーとして破壊された
+	EffectDestructionDefending EffectDestruction = "DEFENDING"
+	// 戦闘の外（スペルのダメージ等）で破壊された
+	EffectDestructionBoard EffectDestruction = "BOARD"
+)
+
+var AllEffectDestruction = []EffectDestruction{
+	EffectDestructionInvading,
+	EffectDestructionDefending,
+	EffectDestructionBoard,
+}
+
+func (e EffectDestruction) IsValid() bool {
+	switch e {
+	case EffectDestructionInvading, EffectDestructionDefending, EffectDestructionBoard:
+		return true
+	}
+	return false
+}
+
+func (e EffectDestruction) String() string {
+	return string(e)
+}
+
+func (e *EffectDestruction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EffectDestruction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EffectDestruction", str)
+	}
+	return nil
+}
+
+func (e EffectDestruction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EffectDestruction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EffectDestruction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // 効果の種類
 type EffectKind string
 
@@ -3938,6 +4031,10 @@ const (
 	EffectKindForbidInvasion EffectKind = "FORBID_INVASION"
 	// 移動できない（領地コマンドで動けない）
 	EffectKindForbidMovement EffectKind = "FORBID_MOVEMENT"
+	// 破壊されたら手札に戻る（選んだ破壊のとき、捨て札に入ったカードが持ち主の手札に戻る。手札が上限なら戻れない）
+	EffectKindReturnToHandOnDestruction EffectKind = "RETURN_TO_HAND_ON_DESTRUCTION"
+	// 破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）
+	EffectKindGainMagicOnDestruction EffectKind = "GAIN_MAGIC_ON_DESTRUCTION"
 )
 
 var AllEffectKind = []EffectKind{
@@ -3953,11 +4050,13 @@ var AllEffectKind = []EffectKind{
 	EffectKindTollMultiplier,
 	EffectKindForbidInvasion,
 	EffectKindForbidMovement,
+	EffectKindReturnToHandOnDestruction,
+	EffectKindGainMagicOnDestruction,
 }
 
 func (e EffectKind) IsValid() bool {
 	switch e {
-	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement:
+	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction:
 		return true
 	}
 	return false

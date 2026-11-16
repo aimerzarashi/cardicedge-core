@@ -56,8 +56,38 @@ func fromEffect(effect query.Effect) (model.Effect, error) {
 		return &model.ForbidInvasionEffect{Kind: model.EffectKindForbidInvasion}, nil
 	case effect.ForbidMovement:
 		return &model.ForbidMovementEffect{Kind: model.EffectKindForbidMovement}, nil
+	case effect.ReturnToHandOnDestruction != nil:
+		destructions, err := fromDestructions(effect.ReturnToHandOnDestruction.Destructions)
+		if err != nil {
+			return nil, err
+		}
+		return &model.ReturnToHandOnDestructionEffect{Kind: model.EffectKindReturnToHandOnDestruction, Destructions: destructions}, nil
+	case effect.GainMagicOnDestruction != nil:
+		destructions, err := fromDestructions(effect.GainMagicOnDestruction.Destructions)
+		if err != nil {
+			return nil, err
+		}
+		return &model.GainMagicOnDestructionEffect{Kind: model.EffectKindGainMagicOnDestruction, Destructions: destructions, Amount: effect.GainMagicOnDestruction.Amount}, nil
 	}
 	return nil, errors.New("graphql: effect has no kind")
+}
+
+var effectDestructions = map[string]model.EffectDestruction{
+	"invading":  model.EffectDestructionInvading,
+	"defending": model.EffectDestructionDefending,
+	"board":     model.EffectDestructionBoard,
+}
+
+func fromDestructions(values []string) ([]model.EffectDestruction, error) {
+	destructions := make([]model.EffectDestruction, len(values))
+	for i, value := range values {
+		destruction, ok := effectDestructions[value]
+		if !ok {
+			return nil, fmt.Errorf("graphql: unknown effect destruction %q", value)
+		}
+		destructions[i] = destruction
+	}
+	return destructions, nil
 }
 
 func fromEffectConstraints(constraints []query.EffectConstraint) ([]model.EffectConstraint, error) {

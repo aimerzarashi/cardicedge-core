@@ -87,3 +87,26 @@ func opponentCreatureElements(t testing.TB, values []string) effect.Constraints 
 	require.NoError(t, err)
 	return built
 }
+
+func Destructions(t testing.TB, values ...effect.Destruction) effect.Destructions {
+	t.Helper()
+	raw := make([]string, len(values))
+	for i, value := range values {
+		raw[i] = string(value)
+	}
+	destructions, err := effect.NewDestructions(raw)
+	require.NoError(t, err)
+	return destructions
+}
+
+func ReturnToHandOnDestruction(t testing.TB, destructions ...effect.Destruction) effect.Effect {
+	t.Helper()
+	return effect.NewReturnToHandOnDestructionEffect(Destructions(t, destructions...))
+}
+
+func GainMagicOnDestruction(t testing.TB, amount int, destructions ...effect.Destruction) effect.Effect {
+	t.Helper()
+	value, err := effect.NewDestructionMagicAmount(amount)
+	require.NoError(t, err)
+	return effect.NewGainMagicOnDestructionEffect(Destructions(t, destructions...), value)
+}

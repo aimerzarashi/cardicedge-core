@@ -351,6 +351,26 @@ func fromQueryMatchEvent(event query.MatchEvent) (model.MatchEvent, error) {
 		return &model.MatchCardDrawnEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Card: card}, nil
 	case query.MatchDiscardPileShuffledEvent:
 		return &model.MatchDiscardPileShuffledEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, DrawPileCount: e.DrawPileCount}, nil
+	case query.MatchDestructionCreatureEffectActivatedEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		activated, err := fromEffect(e.ActivatedEffect)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchDestructionCreatureEffectActivatedEvent{
+			Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Owner: e.Owner, Card: card, ActivatedEffect: activated,
+		}, nil
+	case query.MatchCardReturnedToHandEvent:
+		card, err := fromMatchCard(e.Card)
+		if err != nil {
+			return nil, err
+		}
+		return &model.MatchCardReturnedToHandEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Owner: e.Owner, Card: card}, nil
+	case query.MatchMagicReceivedEvent:
+		return &model.MatchMagicReceivedEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, Owner: e.Owner, Magic: e.Magic}, nil
 	case query.MatchHandLimitExceededEvent:
 		return &model.MatchHandLimitExceededEvent{Revision: revision, OccurredAt: meta.OccurredAt, Changes: changes, Participant: e.Participant, HandCount: e.HandCount, MaxHandCards: e.MaxHandCards}, nil
 	case query.MatchCardDiscardedEvent:

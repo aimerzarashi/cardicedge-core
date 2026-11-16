@@ -86,6 +86,18 @@ type Effect struct {
 	TollMultiplierPercent *int
 	ForbidInvasion        bool
 	ForbidMovement        bool
+	// 発動する破壊（invading・defending・board）
+	ReturnToHandOnDestruction *EffectReturnToHandOnDestruction
+	GainMagicOnDestruction    *EffectGainMagicOnDestruction
+}
+
+type EffectReturnToHandOnDestruction struct {
+	Destructions []string
+}
+
+type EffectGainMagicOnDestruction struct {
+	Destructions []string
+	Amount       int
 }
 
 // 上書きの範囲（固定は最小と最大が同じ）

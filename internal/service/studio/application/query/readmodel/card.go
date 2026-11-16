@@ -112,18 +112,26 @@ type ItemMetadata struct {
 
 // 効果（アイテムとクリーチャーで共有する。core#178）。domain の effect.Effect と同じ形（持っている種類の名前の下に値を置く）
 type EffectMetadata struct {
-	AttackModifier        *ValueEffectMetadata       `json:"attack_modifier,omitempty"`
-	HitPointsModifier     *ValueEffectMetadata       `json:"hit_points_modifier,omitempty"`
-	AttackOverride        *RangeEffectMetadata       `json:"attack_override,omitempty"`
-	HitPointsOverride     *RangeEffectMetadata       `json:"hit_points_override,omitempty"`
-	AttackMultiplier      *PercentEffectMetadata     `json:"attack_multiplier,omitempty"`
-	IgnoreTerrainEffect   *EmptyEffectMetadata       `json:"ignore_terrain_effect,omitempty"`
-	StrikeFirst           *EmptyEffectMetadata       `json:"strike_first,omitempty"`
-	StrikeLast            *EmptyEffectMetadata       `json:"strike_last,omitempty"`
-	NullifyReceivedDamage *ConstrainedEffectMetadata `json:"nullify_received_damage,omitempty"`
-	TollMultiplier        *PercentEffectMetadata     `json:"toll_multiplier,omitempty"`
-	ForbidInvasion        *EmptyEffectMetadata       `json:"forbid_invasion,omitempty"`
-	ForbidMovement        *EmptyEffectMetadata       `json:"forbid_movement,omitempty"`
+	AttackModifier            *ValueEffectMetadata       `json:"attack_modifier,omitempty"`
+	HitPointsModifier         *ValueEffectMetadata       `json:"hit_points_modifier,omitempty"`
+	AttackOverride            *RangeEffectMetadata       `json:"attack_override,omitempty"`
+	HitPointsOverride         *RangeEffectMetadata       `json:"hit_points_override,omitempty"`
+	AttackMultiplier          *PercentEffectMetadata     `json:"attack_multiplier,omitempty"`
+	IgnoreTerrainEffect       *EmptyEffectMetadata       `json:"ignore_terrain_effect,omitempty"`
+	StrikeFirst               *EmptyEffectMetadata       `json:"strike_first,omitempty"`
+	StrikeLast                *EmptyEffectMetadata       `json:"strike_last,omitempty"`
+	NullifyReceivedDamage     *ConstrainedEffectMetadata `json:"nullify_received_damage,omitempty"`
+	TollMultiplier            *PercentEffectMetadata     `json:"toll_multiplier,omitempty"`
+	ForbidInvasion            *EmptyEffectMetadata       `json:"forbid_invasion,omitempty"`
+	ForbidMovement            *EmptyEffectMetadata       `json:"forbid_movement,omitempty"`
+	ReturnToHandOnDestruction *DestructionEffectMetadata `json:"return_to_hand_on_destruction,omitempty"`
+	GainMagicOnDestruction    *DestructionEffectMetadata `json:"gain_magic_on_destruction,omitempty"`
+}
+
+// 破壊されたときの効果（発動する破壊と、魔力を得るは額。手札に戻るは額を持たないので省く）。破壊は invading・defending・board
+type DestructionEffectMetadata struct {
+	Destructions []string `json:"destructions"`
+	Amount       int      `json:"amount,omitempty"`
 }
 
 // 値を 1 つだけ持つ効果（AT・HP の増減）
@@ -190,6 +198,12 @@ func effectsMetadata(effects effect.Effects) []EffectMetadata {
 			values[i].ForbidInvasion = &EmptyEffectMetadata{}
 		case value.ForbidMovement != nil:
 			values[i].ForbidMovement = &EmptyEffectMetadata{}
+		case value.ReturnToHandOnDestruction != nil:
+			values[i].ReturnToHandOnDestruction = &DestructionEffectMetadata{Destructions: destructionsMetadata(value.ReturnToHandOnDestruction.Destructions)}
+		case value.GainMagicOnDestruction != nil:
+			values[i].GainMagicOnDestruction = &DestructionEffectMetadata{
+				Destructions: destructionsMetadata(value.GainMagicOnDestruction.Destructions), Amount: value.GainMagicOnDestruction.Amount.Int(),
+			}
 		}
 	}
 	return values
@@ -398,4 +412,12 @@ func (state Card) changed(revision int64, occurredAt time.Time, by operator.ID) 
 
 func (state Card) IsTerminal() bool {
 	return state.IsDeleted
+}
+
+func destructionsMetadata(destructions effect.Destructions) []string {
+	values := make([]string, len(destructions))
+	for i, destruction := range destructions {
+		values[i] = string(destruction)
+	}
+	return values
 }

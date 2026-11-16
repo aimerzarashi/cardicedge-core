@@ -9,32 +9,37 @@ import (
 
 // 効果の種類（domain の種類の名前と同じ）。アイテムとクリーチャーで共有する（効果の型を共有するため。core#178）
 const (
-	EffectAttackModifier        = "attack_modifier"
-	EffectHitPointsModifier     = "hit_points_modifier"
-	EffectAttackOverride        = "attack_override"
-	EffectHitPointsOverride     = "hit_points_override"
-	EffectAttackMultiplier      = "attack_multiplier"
-	EffectIgnoreTerrainEffect   = "ignore_terrain_effect"
-	EffectStrikeFirst           = "strike_first"
-	EffectStrikeLast            = "strike_last"
-	EffectNullifyReceivedDamage = "nullify_received_damage"
-	EffectTollMultiplier        = "toll_multiplier"
-	EffectForbidInvasion        = "forbid_invasion"
-	EffectForbidMovement        = "forbid_movement"
+	EffectAttackModifier            = "attack_modifier"
+	EffectHitPointsModifier         = "hit_points_modifier"
+	EffectAttackOverride            = "attack_override"
+	EffectHitPointsOverride         = "hit_points_override"
+	EffectAttackMultiplier          = "attack_multiplier"
+	EffectIgnoreTerrainEffect       = "ignore_terrain_effect"
+	EffectStrikeFirst               = "strike_first"
+	EffectStrikeLast                = "strike_last"
+	EffectNullifyReceivedDamage     = "nullify_received_damage"
+	EffectTollMultiplier            = "toll_multiplier"
+	EffectForbidInvasion            = "forbid_invasion"
+	EffectForbidMovement            = "forbid_movement"
+	EffectReturnToHandOnDestruction = "return_to_hand_on_destruction"
+	EffectGainMagicOnDestruction    = "gain_magic_on_destruction"
 )
 
 // 効果の制約の種類（domain の種類の名前と同じ）
 const EffectConstraintOpponentCreatureElement = "opponent_creature_element"
 
 // 効果の入力と出力。種類と、種類に要る値（増減は Value、上書きは Minimum と Maximum、AT の倍率は Percent と Constraints、
-// 通行料の倍率は Percent、受けるダメージを 0 にするは Constraints）
+// 通行料の倍率は Percent、受けるダメージを 0 にするは Constraints、破壊されたら手札に戻るは Destructions、
+// 破壊されたら魔力を得るは Destructions と Amount）
 type Effect struct {
-	Kind        string
-	Value       *int
-	Minimum     *int
-	Maximum     *int
-	Percent     *int
-	Constraints []EffectConstraint
+	Kind         string
+	Value        *int
+	Minimum      *int
+	Maximum      *int
+	Percent      *int
+	Constraints  []EffectConstraint
+	Destructions []string
+	Amount       *int
 }
 
 // 効果の制約の入力と出力。種類と、種類に要る値（相手のクリーチャーの属性は Elements）
@@ -66,27 +71,30 @@ func newEffects(inputs []Effect) (effect.Effects, input.Errors) {
 
 // 種類ごとに要る値の組（ほかの値が入っていれば形の誤り）
 type effectValues struct {
-	value, rangeValues, percent, constraints bool
+	value, rangeValues, percent, constraints, destructions, amount bool
 }
 
 var effectShapes = map[string]effectValues{
-	EffectAttackModifier:        {value: true},
-	EffectHitPointsModifier:     {value: true},
-	EffectAttackOverride:        {rangeValues: true},
-	EffectHitPointsOverride:     {rangeValues: true},
-	EffectAttackMultiplier:      {percent: true, constraints: true},
-	EffectIgnoreTerrainEffect:   {},
-	EffectStrikeFirst:           {},
-	EffectStrikeLast:            {},
-	EffectNullifyReceivedDamage: {constraints: true},
-	EffectTollMultiplier:        {percent: true},
-	EffectForbidInvasion:        {},
-	EffectForbidMovement:        {},
+	EffectAttackModifier:            {value: true},
+	EffectHitPointsModifier:         {value: true},
+	EffectAttackOverride:            {rangeValues: true},
+	EffectHitPointsOverride:         {rangeValues: true},
+	EffectAttackMultiplier:          {percent: true, constraints: true},
+	EffectIgnoreTerrainEffect:       {},
+	EffectStrikeFirst:               {},
+	EffectStrikeLast:                {},
+	EffectNullifyReceivedDamage:     {constraints: true},
+	EffectTollMultiplier:            {percent: true},
+	EffectForbidInvasion:            {},
+	EffectForbidMovement:            {},
+	EffectReturnToHandOnDestruction: {destructions: true},
+	EffectGainMagicOnDestruction:    {destructions: true, amount: true},
 }
 
 func (e Effect) matches(shape effectValues) bool {
 	return (e.Value != nil) == shape.value && (e.Minimum != nil) == shape.rangeValues && (e.Maximum != nil) == shape.rangeValues &&
-		(e.Percent != nil) == shape.percent && (shape.constraints || e.Constraints == nil)
+		(e.Percent != nil) == shape.percent && (shape.constraints || e.Constraints == nil) &&
+		(e.Destructions != nil) == shape.destructions && (e.Amount != nil) == shape.amount
 }
 
 func (e Effect) domain(field string) (effect.Effect, input.Errors) {
@@ -126,6 +134,14 @@ func (e Effect) domain(field string) (effect.Effect, input.Errors) {
 			return effect.Effect{}, input.Errors{&input.TooSmall{Field: field + ".percent", Min: 1}}
 		}
 		return effect.NewTollMultiplierEffect(percent), nil
+	case EffectReturnToHandOnDestruction:
+		destructions, err := effect.NewDestructions(e.Destructions)
+		if err != nil {
+			return effect.Effect{}, input.Errors{&input.InvalidFormat{Field: field + ".destructions"}}
+		}
+		return effect.NewReturnToHandOnDestructionEffect(destructions), nil
+	case EffectGainMagicOnDestruction:
+		return e.gainMagicOnDestruction(field)
 	case EffectIgnoreTerrainEffect:
 		return effect.NewIgnoreTerrainEffect(), nil
 	case EffectStrikeFirst:
@@ -136,6 +152,23 @@ func (e Effect) domain(field string) (effect.Effect, input.Errors) {
 		return effect.NewForbidInvasionEffect(), nil
 	}
 	return effect.NewForbidMovementEffect(), nil
+}
+
+// 発動する破壊の誤り（空・知らない破壊・重複）は destructions の 1 つの誤り、額の下限の誤りは amount の誤りにし、まとめて返す
+func (e Effect) gainMagicOnDestruction(field string) (effect.Effect, input.Errors) {
+	invalid := input.Errors{}
+	destructions, err := effect.NewDestructions(e.Destructions)
+	if err != nil {
+		invalid = append(invalid, &input.InvalidFormat{Field: field + ".destructions"})
+	}
+	amount, err := effect.NewDestructionMagicAmount(*e.Amount)
+	if err != nil {
+		invalid = append(invalid, &input.TooSmall{Field: field + ".amount", Min: 1})
+	}
+	if len(invalid) > 0 {
+		return effect.Effect{}, invalid
+	}
+	return effect.NewGainMagicOnDestructionEffect(destructions, amount), nil
 }
 
 // 最小の下限の誤りと、最大が最小より小さい誤りは、それぞれの項目に返す（最大の下限は最小）
@@ -227,8 +260,21 @@ func effectOf(value effect.Effect) Effect {
 		converted.Constraints = constraintsOf(value.NullifyReceivedDamage.Constraints)
 	case value.TollMultiplier != nil:
 		converted.Percent = new(value.TollMultiplier.Percent.Int())
+	case value.ReturnToHandOnDestruction != nil:
+		converted.Destructions = destructionsOf(value.ReturnToHandOnDestruction.Destructions)
+	case value.GainMagicOnDestruction != nil:
+		converted.Destructions = destructionsOf(value.GainMagicOnDestruction.Destructions)
+		converted.Amount = new(value.GainMagicOnDestruction.Amount.Int())
 	}
 	return converted
+}
+
+func destructionsOf(destructions effect.Destructions) []string {
+	values := make([]string, len(destructions))
+	for i, destruction := range destructions {
+		values[i] = string(destruction)
+	}
+	return values
 }
 
 func constraintsOf(constraints effect.Constraints) []EffectConstraint {

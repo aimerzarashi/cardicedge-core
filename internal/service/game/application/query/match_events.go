@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -378,19 +379,47 @@ type MatchBattleItemEffectActivatedEvent struct {
 type EffectKind string
 
 const (
-	EffectKindAttackModifier        EffectKind = "attack_modifier"
-	EffectKindHitPointsModifier     EffectKind = "hit_points_modifier"
-	EffectKindAttackOverride        EffectKind = "attack_override"
-	EffectKindHitPointsOverride     EffectKind = "hit_points_override"
-	EffectKindAttackMultiplier      EffectKind = "attack_multiplier"
-	EffectKindIgnoreTerrainEffect   EffectKind = "ignore_terrain_effect"
-	EffectKindStrikeFirst           EffectKind = "strike_first"
-	EffectKindStrikeLast            EffectKind = "strike_last"
-	EffectKindNullifyReceivedDamage EffectKind = "nullify_received_damage"
-	EffectKindTollMultiplier        EffectKind = "toll_multiplier"
-	EffectKindForbidInvasion        EffectKind = "forbid_invasion"
-	EffectKindForbidMovement        EffectKind = "forbid_movement"
+	EffectKindAttackModifier            EffectKind = "attack_modifier"
+	EffectKindHitPointsModifier         EffectKind = "hit_points_modifier"
+	EffectKindAttackOverride            EffectKind = "attack_override"
+	EffectKindHitPointsOverride         EffectKind = "hit_points_override"
+	EffectKindAttackMultiplier          EffectKind = "attack_multiplier"
+	EffectKindIgnoreTerrainEffect       EffectKind = "ignore_terrain_effect"
+	EffectKindStrikeFirst               EffectKind = "strike_first"
+	EffectKindStrikeLast                EffectKind = "strike_last"
+	EffectKindNullifyReceivedDamage     EffectKind = "nullify_received_damage"
+	EffectKindTollMultiplier            EffectKind = "toll_multiplier"
+	EffectKindForbidInvasion            EffectKind = "forbid_invasion"
+	EffectKindForbidMovement            EffectKind = "forbid_movement"
+	EffectKindReturnToHandOnDestruction EffectKind = "return_to_hand_on_destruction"
+	EffectKindGainMagicOnDestruction    EffectKind = "gain_magic_on_destruction"
 )
+
+// 破壊されたクリーチャーの「破壊されたとき」の効果が発動した。Owner は持ち主、ActivatedEffect は発動したカードの効果（core#182）
+type MatchDestructionCreatureEffectActivatedEvent struct {
+	MatchEventMeta
+	Participant     int
+	Owner           int
+	Card            MatchCard
+	Effect          EffectKind
+	ActivatedEffect Effect
+}
+
+// 破壊されたカードが、持ち主の手札に戻った
+type MatchCardReturnedToHandEvent struct {
+	MatchEventMeta
+	Participant int
+	Owner       int
+	Card        MatchCard
+}
+
+// 持ち主が魔力を受け取った（破壊されたら魔力を得るの結果）
+type MatchMagicReceivedEvent struct {
+	MatchEventMeta
+	Participant int
+	Owner       int
+	Magic       int
+}
 
 // 戦闘の攻撃が 1 回当たった。Attack は攻撃した側のそのときの戦闘中の AT、Damage は受けた側が受けた量（攻撃無効なら 0）。
 // RemainingHitPoints は受けた側の、効果で増えた分も含む残りの体力で、0 なら倒れた
@@ -736,6 +765,10 @@ func cardsOfEvent(event match.Event, previous match.Match, input match.BattleInp
 		if previous.Invasion != nil {
 			return []card.Ref{previous.Invasion.Card}
 		}
+	case *match.DestructionCreatureEffectActivatedEvent:
+		return []card.Ref{e.Card}
+	case *match.CardReturnedToHandEvent:
+		return []card.Ref{e.Card}
 	case *match.DefendingCreatureDestroyedEvent:
 		if previous.Invasion != nil {
 			return []card.Ref{creatureAt(previous, previous.Invasion.Position).Card}
@@ -857,6 +890,22 @@ func fromMatchEvent(event match.Event, previous match.Match, cards map[domain.En
 		return MatchCardDrawnEvent{meta, e.Participant.Int(), cardOf(topOfDrawPile(previous, e.Participant), cards)}, nil
 	case *match.DiscardPileShuffledEvent:
 		return MatchDiscardPileShuffledEvent{meta, e.Participant.Int(), len(e.DrawPile)}, nil
+	case *match.DestructionCreatureEffectActivatedEvent:
+		kind, err := fromEffectKind(e.Effect)
+		if err != nil {
+			return nil, err
+		}
+		var activated Effect
+		if spec := previous.CardSpecs()[e.Card].Creature; spec != nil {
+			if index := slices.IndexFunc(spec.Effects, func(value effect.Effect) bool { return value.Kind() == e.Effect }); index >= 0 {
+				activated = queryEffect(spec.Effects[index])
+			}
+		}
+		return MatchDestructionCreatureEffectActivatedEvent{meta, e.Participant.Int(), e.Owner.Int(), cardOf(e.Card, cards), kind, activated}, nil
+	case *match.CardReturnedToHandEvent:
+		return MatchCardReturnedToHandEvent{meta, e.Participant.Int(), e.Owner.Int(), cardOf(e.Card, cards)}, nil
+	case *match.MagicReceivedEvent:
+		return MatchMagicReceivedEvent{meta, e.Participant.Int(), e.Owner.Int(), e.Magic}, nil
 	case *match.HandLimitExceededEvent:
 		handCount := 0
 		if int(e.Participant) < len(previous.Participants) {

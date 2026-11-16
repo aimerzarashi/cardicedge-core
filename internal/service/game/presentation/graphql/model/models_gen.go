@@ -1157,6 +1157,21 @@ func (ForbidMovementEffect) IsEffect() {}
 // 効果の種類
 func (this ForbidMovementEffect) GetKind() EffectKind { return this.Kind }
 
+// 破壊されたら魔力を得る
+type GainMagicOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+	// 受け取る魔力の額（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (GainMagicOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this GainMagicOnDestructionEffect) GetKind() EffectKind { return this.Kind }
+
 // 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
 type GainMagicSpellEffect struct {
 	// 周回数 1 つあたりの魔力（1 以上）
@@ -1662,6 +1677,33 @@ func (this MatchCardDrawnEvent) GetOccurredAt() time.Time { return this.Occurred
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchCardDrawnEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
+// 破壊されて捨て札に入ったカードが、持ち主の手札の最後に戻った（手札の上限は持ち主のターンの終わりに合わせる）
+type MatchCardReturnedToHandEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// カードの持ち主（Match.participants の何番目か）
+	Owner int `json:"owner"`
+	// 戻ったカード
+	Card CardInfo `json:"card"`
+}
+
+func (MatchCardReturnedToHandEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchCardReturnedToHandEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchCardReturnedToHandEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchCardReturnedToHandEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
 // まだ印の無いチェックポイントに入り、印を付けて魔力が増えた
 type MatchCheckpointPassedEvent struct {
 	// 対戦の版
@@ -1893,6 +1935,39 @@ func (this MatchDefendingCreatureDestroyedEvent) GetOccurredAt() time.Time { ret
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchDefendingCreatureDestroyedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 破壊されたクリーチャーの「破壊されたとき」の効果が発動した（破壊のイベントの直後。結果は続く MatchCardReturnedToHandEvent・MatchMagicReceivedEvent）
+type MatchDestructionCreatureEffectActivatedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 破壊されたクリーチャーの持ち主（Match.participants の何番目か）
+	Owner int `json:"owner"`
+	// 破壊されたクリーチャーのカード
+	Card CardInfo `json:"card"`
+	// 発動したカードの効果
+	ActivatedEffect Effect `json:"activatedEffect"`
+}
+
+func (MatchDestructionCreatureEffectActivatedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchDestructionCreatureEffectActivatedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchDestructionCreatureEffectActivatedEvent) GetOccurredAt() time.Time {
+	return this.OccurredAt
+}
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchDestructionCreatureEffectActivatedEvent) GetChanges() *MatchEventChanges {
+	return this.Changes
+}
 
 // サイコロを振った
 type MatchDiceRolledEvent struct {
@@ -2405,6 +2480,33 @@ func (this MatchMagicGainedEvent) GetOccurredAt() time.Time { return this.Occurr
 
 // このイベントで変わった、描画に要る core の決まりで決まる値
 func (this MatchMagicGainedEvent) GetChanges() *MatchEventChanges { return this.Changes }
+
+// 持ち主が魔力を受け取った（破壊されたら魔力を得る効果の結果）
+type MatchMagicReceivedEvent struct {
+	// 対戦の版
+	Revision int `json:"revision"`
+	// 起きた時刻
+	OccurredAt time.Time `json:"occurredAt"`
+	// このイベントで変わった、描画に要る core の決まりで決まる値
+	Changes *MatchEventChanges `json:"changes"`
+	// 今の番の参加者（Match.participants の何番目か）
+	Participant int `json:"participant"`
+	// 受け取った参加者（Match.participants の何番目か）
+	Owner int `json:"owner"`
+	// 受け取った魔力
+	Magic int `json:"magic"`
+}
+
+func (MatchMagicReceivedEvent) IsMatchEvent() {}
+
+// 対戦の版（このイベントまで進んだ版。抜けなく 1 から続く）
+func (this MatchMagicReceivedEvent) GetRevision() int { return this.Revision }
+
+// 起きた時刻
+func (this MatchMagicReceivedEvent) GetOccurredAt() time.Time { return this.OccurredAt }
+
+// このイベントで変わった、描画に要る core の決まりで決まる値
+func (this MatchMagicReceivedEvent) GetChanges() *MatchEventChanges { return this.Changes }
 
 // クリーチャーを動かす選択肢 1 つ
 type MatchMoveChoice struct {
@@ -3425,6 +3527,19 @@ type ResumeRoomSuccess struct {
 
 func (ResumeRoomSuccess) IsResumeRoomResult() {}
 
+// 破壊されたら手札に戻る
+type ReturnToHandOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+}
+
+func (ReturnToHandOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this ReturnToHandOnDestructionEffect) GetKind() EffectKind { return this.Kind }
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -4243,6 +4358,67 @@ func (e EffectConstraintKind) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// 破壊されたときの効果が発動する破壊（対戦の 3 つの破壊のイベントと対応する）
+type EffectDestruction string
+
+const (
+	// 戦闘で、侵略したクリーチャーとして破壊された
+	EffectDestructionInvading EffectDestruction = "INVADING"
+	// 戦闘で、領地を守るクリーチャーとして破壊された
+	EffectDestructionDefending EffectDestruction = "DEFENDING"
+	// 戦闘の外（スペルのダメージ等）で破壊された
+	EffectDestructionBoard EffectDestruction = "BOARD"
+)
+
+var AllEffectDestruction = []EffectDestruction{
+	EffectDestructionInvading,
+	EffectDestructionDefending,
+	EffectDestructionBoard,
+}
+
+func (e EffectDestruction) IsValid() bool {
+	switch e {
+	case EffectDestructionInvading, EffectDestructionDefending, EffectDestructionBoard:
+		return true
+	}
+	return false
+}
+
+func (e EffectDestruction) String() string {
+	return string(e)
+}
+
+func (e *EffectDestruction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EffectDestruction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EffectDestruction", str)
+	}
+	return nil
+}
+
+func (e EffectDestruction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EffectDestruction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EffectDestruction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // 効果の種類
 type EffectKind string
 
@@ -4271,6 +4447,10 @@ const (
 	EffectKindForbidInvasion EffectKind = "FORBID_INVASION"
 	// 移動できない（領地コマンドで動けない）
 	EffectKindForbidMovement EffectKind = "FORBID_MOVEMENT"
+	// 破壊されたら手札に戻る（選んだ破壊のとき、捨て札に入ったカードが持ち主の手札に戻る。手札が上限なら戻れない）
+	EffectKindReturnToHandOnDestruction EffectKind = "RETURN_TO_HAND_ON_DESTRUCTION"
+	// 破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）
+	EffectKindGainMagicOnDestruction EffectKind = "GAIN_MAGIC_ON_DESTRUCTION"
 )
 
 var AllEffectKind = []EffectKind{
@@ -4286,11 +4466,13 @@ var AllEffectKind = []EffectKind{
 	EffectKindTollMultiplier,
 	EffectKindForbidInvasion,
 	EffectKindForbidMovement,
+	EffectKindReturnToHandOnDestruction,
+	EffectKindGainMagicOnDestruction,
 }
 
 func (e EffectKind) IsValid() bool {
 	switch e {
-	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement:
+	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction:
 		return true
 	}
 	return false
