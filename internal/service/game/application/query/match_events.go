@@ -453,7 +453,7 @@ type MatchInvasionFailedEvent struct {
 	ReturnedHitPoints *int
 }
 
-// 通った自分の領地のレベルを上げた
+// 領地コマンドを使える自分の領地のレベルを上げた
 type MatchLandLeveledUpEvent struct {
 	MatchEventMeta
 	Participant int
@@ -462,7 +462,7 @@ type MatchLandLeveledUpEvent struct {
 	Magic       int
 }
 
-// 通った自分の領地のクリーチャーを空き地へ動かした
+// 領地コマンドを使える自分の領地のクリーチャーを空き地へ動かした
 type MatchCreatureMovedEvent struct {
 	MatchEventMeta
 	Participant int
@@ -471,7 +471,7 @@ type MatchCreatureMovedEvent struct {
 	Creature    int
 }
 
-// 通った自分の領地のクリーチャーを他人の領地へ動かし、侵略した
+// 領地コマンドを使える自分の領地のクリーチャーを他人の領地へ動かし、侵略した
 type MatchTerritoryInvadedByMoveEvent struct {
 	MatchEventMeta
 	Participant int
@@ -484,7 +484,7 @@ type MatchTerritoryInvadedByMoveEvent struct {
 	DefendingCreatureCard MatchCard
 }
 
-// 通った自分の領地の土地の属性を変えた
+// 領地コマンドを使える自分の領地の土地の属性を変えた
 type MatchLandElementChangedEvent struct {
 	MatchEventMeta
 	Participant int

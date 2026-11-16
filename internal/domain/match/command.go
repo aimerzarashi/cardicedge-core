@@ -110,7 +110,7 @@ type RelinquishTerritoryCommand struct {
 
 func (*RelinquishTerritoryCommand) isMatchCommand() {}
 
-// 通った自分の領地の土地のレベルを Level に上げる（飛ばして上げられる）
+// 領地コマンドを使える自分の領地の土地のレベルを Level に上げる（飛ばして上げられる）
 type LevelUpLandCommand struct {
 	By       ParticipantIndex
 	Position board.Position
@@ -119,7 +119,7 @@ type LevelUpLandCommand struct {
 
 func (*LevelUpLandCommand) isMatchCommand() {}
 
-// 通った自分の領地のクリーチャーを、手札のクリーチャーと入れ替える（HandIndex は手札の何番目か。0 始まり）
+// 領地コマンドを使える自分の領地のクリーチャーを、手札のクリーチャーと入れ替える（HandIndex は手札の何番目か。0 始まり）
 type ExchangeCreatureCommand struct {
 	By        ParticipantIndex
 	Position  board.Position
@@ -128,7 +128,7 @@ type ExchangeCreatureCommand struct {
 
 func (*ExchangeCreatureCommand) isMatchCommand() {}
 
-// 通った自分の領地のクリーチャーを From から To へ動かす（To が他人の領地なら戦闘）
+// 領地コマンドを使える自分の領地のクリーチャーを From から To へ動かす（To が他人の領地なら戦闘）
 type MoveCreatureCommand struct {
 	By   ParticipantIndex
 	From board.Position
@@ -137,7 +137,7 @@ type MoveCreatureCommand struct {
 
 func (*MoveCreatureCommand) isMatchCommand() {}
 
-// 通った自分の領地の土地の属性を Element に変える
+// 領地コマンドを使える自分の領地の土地の属性を Element に変える
 type ChangeLandElementCommand struct {
 	By       ParticipantIndex
 	Position board.Position

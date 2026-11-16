@@ -741,10 +741,10 @@ func (m Match) debtPhase(index ParticipantIndex) Phase {
 	return PhaseEnding
 }
 
-// 止まった後の段階。止まったマスに行動が無くても、通った自分の領地があれば領地コマンドを選ぶ（止まったマスの行動と同じ選択肢に並ぶ。2026-11-09 オーナー）
+// 止まった後の段階。止まったマスに行動が無くても、領地コマンドを使える自分の領地（通った領地。拠点・チェックポイントにちょうど止まったらすべて）があれば領地コマンドを選ぶ（止まったマスの行動と同じ選択肢に並ぶ。2026-11-09 オーナー）
 func (m Match) stopPhase() Phase {
 	phase := m.stopActionPhase()
-	if phase == PhaseEnding && len(m.passedOwnTerritories()) > 0 {
+	if phase == PhaseEnding && len(m.commandableTerritories()) > 0 {
 		return PhaseTerritoryCommanding
 	}
 	return phase
