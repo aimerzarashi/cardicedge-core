@@ -663,7 +663,7 @@ type ChangeRoomSeatsInput struct {
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていた部屋の revision
 	Revision int `json:"revision"`
-	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる
+	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 0〜1 つで、多ければ FieldTooMany の max。0 は全員 NPC の部屋で、作った人は参加せずに対戦を見る）。並びを変えたら、席の選択はすべて外れる
 	Seats []RoomSeatKind `json:"seats"`
 }
 
@@ -1034,19 +1034,6 @@ type ExchangeMatchCreatureSuccess struct {
 
 func (ExchangeMatchCreatureSuccess) IsExchangeMatchCreatureResult() {}
 
-// 入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）
-type FieldCountMismatch struct {
-	// 誤りのある入力の項目
-	Field string `json:"field"`
-	// 決まりの個数
-	Expected int `json:"expected"`
-}
-
-func (FieldCountMismatch) IsFieldError() {}
-
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
-func (this FieldCountMismatch) GetField() string { return this.Field }
-
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -1120,6 +1107,19 @@ func (FieldTooLong) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 入力の一覧の中の、ある種類の個数が上限より多い（例: 部屋のプレイヤーの席）
+type FieldTooMany struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 上限の個数
+	Max int `json:"max"`
+}
+
+func (FieldTooMany) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooMany) GetField() string { return this.Field }
 
 // 入力が下限より小さい（上限は無い）
 type FieldTooSmall struct {

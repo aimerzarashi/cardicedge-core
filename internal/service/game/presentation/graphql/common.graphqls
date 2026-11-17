@@ -72,12 +72,12 @@ type FieldNotFound implements FieldError {
   field: String!
 }
 
-"入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）"
-type FieldCountMismatch implements FieldError {
+"入力の一覧の中の、ある種類の個数が上限より多い（例: 部屋のプレイヤーの席）"
+type FieldTooMany implements FieldError {
   "誤りのある入力の項目"
   field: String!
-  "決まりの個数"
-  expected: Int!
+  "上限の個数"
+  max: Int!
 }
 
 "入力の形が正しくない（ページの位置（カーソル）が読めない等）"

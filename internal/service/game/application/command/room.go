@@ -147,8 +147,8 @@ func (c *RoomHandler) Create(ctx context.Context, name string) (ChangedRoom, err
 }
 
 // 席の並びを決める（公開前だけ）。席の並びを変えたら、席ごとの選択はすべて外れる。
-// 入力の誤りは input.Errors（段階ごと。席の数が全体のルールの範囲の外なら OutOfRange、範囲の中でプレイヤーの席の数が決まりと違えば
-// CountMismatch。項目名は seats）。ほかのエラーは ErrRoomNotFound（無い・入っていない部屋）、ErrRevisionConflict、
+// 入力の誤りは input.Errors（段階ごと。席の数が全体のルールの範囲の外なら OutOfRange、範囲の中でプレイヤーの席が上限より多ければ
+// TooMany。項目名は seats）。ほかのエラーは ErrRoomNotFound（無い・入っていない部屋）、ErrRevisionConflict、
 // ErrRoomStatusNotAllowed、ErrRoomNotResponsible
 func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision int64, seats []RoomSeatKind) (ChangedRoom, error) {
 	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
@@ -170,8 +170,8 @@ func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision in
 		switch {
 		case errors.Is(err, room.ErrTooFewSeats), errors.Is(err, room.ErrTooManySeats):
 			return nil, input.Errors{&input.OutOfRange{Field: "seats", Min: minPlayers.Int(), Max: maxPlayers.Int()}}
-		case errors.Is(err, room.ErrPlayerSeatCount):
-			return nil, input.Errors{&input.CountMismatch{Field: "seats", Expected: room.PlayerSeatCount}}
+		case errors.Is(err, room.ErrTooManyPlayerSeats):
+			return nil, input.Errors{&input.TooMany{Field: "seats", Max: room.MaxPlayerSeats}}
 		case err != nil:
 			return nil, err
 		}

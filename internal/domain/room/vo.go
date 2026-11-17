@@ -130,12 +130,13 @@ func (i SeatIndex) Int() int {
 var (
 	ErrTooFewSeats  = errors.New("room: too few seats")
 	ErrTooManySeats = errors.New("room: too many seats")
-	// プレイヤーの席の数が決まりと違う
-	ErrPlayerSeatCount = errors.New("room: player seat count mismatch")
+	// プレイヤーの席が上限より多い
+	ErrTooManyPlayerSeats = errors.New("room: too many player seats")
 )
 
-// このマイルストーンのプレイヤーの席の数。作った人だけが座る。ほかの人が参加できるようになるときに、範囲に変える
-const PlayerSeatCount = 1
+// プレイヤーの席の上限。座るのは作った人だけ。0 は全員 NPC の部屋で、作った人は参加せずに対戦を見る
+// （2026-11-17 オーナー。core#179）。ほかの人が参加できるようになるときに、上限を変える
+const MaxPlayerSeats = 1
 
 // 席の種類の並び。席の数は全体のルール（game_rules.match）の人数の範囲で、範囲は型で受け取る（値を確かめずに作れないように）。
 // 段階ごとに確かめ、席の数が範囲の外ならプレイヤーの席の数は確かめない
@@ -154,8 +155,8 @@ func NewSeatKinds(kinds []SeatKind, minPlayers gamerules.MinPlayers, maxPlayers 
 			playerSeats++
 		}
 	}
-	if playerSeats != PlayerSeatCount {
-		return nil, ErrPlayerSeatCount
+	if playerSeats > MaxPlayerSeats {
+		return nil, ErrTooManyPlayerSeats
 	}
 	return SeatKinds(kinds), nil
 }

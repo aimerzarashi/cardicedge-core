@@ -294,8 +294,7 @@ func TestRoomChangeSeats_ReturnsInputErrorsInStages(t *testing.T) {
 	}{
 		{name: "too_few_seats", seats: []command.RoomSeatKind{player}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
 		{name: "too_many_seats", seats: []command.RoomSeatKind{player, npc, npc, npc, npc}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
-		{name: "no_player_seat", seats: []command.RoomSeatKind{npc, npc}, want: []input.Error{&input.CountMismatch{Field: "seats", Expected: 1}}},
-		{name: "two_player_seats", seats: []command.RoomSeatKind{player, player, npc}, want: []input.Error{&input.CountMismatch{Field: "seats", Expected: 1}}},
+		{name: "two_player_seats", seats: []command.RoomSeatKind{player, player, npc}, want: []input.Error{&input.TooMany{Field: "seats", Max: 1}}},
 		// 席の数が範囲の外なら、プレイヤーの席の数は確かめない
 		{name: "seat_count_is_checked_first", seats: []command.RoomSeatKind{npc, npc, npc, npc, npc}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
 		{name: "unknown_kind", seats: []command.RoomSeatKind{player, "team"}, want: []input.Error{&input.InvalidFormat{Field: "seats.1"}}},

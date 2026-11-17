@@ -91,17 +91,17 @@ func (e *NotFound) InputField() string {
 	return e.Field
 }
 
-// 一覧の個数が、決まった個数と違う（部屋のプレイヤーの席の数等）。Expected は決まりの個数
-type CountMismatch struct {
-	Field    string
-	Expected int
+// 一覧の中の、ある種類の個数が上限より多い（部屋のプレイヤーの席等）。Max は上限の個数
+type TooMany struct {
+	Field string
+	Max   int
 }
 
-func (e *CountMismatch) Error() string {
-	return fmt.Sprintf("%s does not have %d", e.Field, e.Expected)
+func (e *TooMany) Error() string {
+	return fmt.Sprintf("%s has more than %d", e.Field, e.Max)
 }
 
-func (e *CountMismatch) InputField() string {
+func (e *TooMany) InputField() string {
 	return e.Field
 }
 

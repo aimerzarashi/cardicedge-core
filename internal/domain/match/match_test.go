@@ -1654,21 +1654,6 @@ func TestDecide_RelinquishingTheLastTerritoryWhileNegativeDepletesTheMagic(t *te
 	require.Len(t, state.Territories, 1)
 }
 
-func TestMatch_LowestValueRelinquishChoiceTakesTheCheapestThenTheEarliest(t *testing.T) {
-	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
-	state = withTerritory(t, state, 1, 2, 2)
-	state = withTerritory(t, state, 1, 4, 1)
-	state = withTerritory(t, state, 1, 5, 1)
-	state = withMagic(state, 1, 10)
-	state, _ = drawAndRoll(t, state, 1, 1)
-	state, _ = payToll(t, state, 1)
-
-	position, ok := state.LowestValueRelinquishChoice()
-
-	require.True(t, ok)
-	require.Equal(t, pos(t, 4, 0), position)
-}
-
 func TestDecide_TargetMagicCountsTheValueOfTerritories(t *testing.T) {
 	rules := matchtest.RulesOf(t, 700, 600, 0, 0, 30, 1, 6, 1)
 	b := territoryBoard(t)

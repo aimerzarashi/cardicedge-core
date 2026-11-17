@@ -791,21 +791,6 @@ func (m Match) RelinquishChoices() []board.Position {
 	return choices
 }
 
-// 手放せる領地のうち、価値が最も低いものの位置。同じ価値なら先にできた領地（2026-11-08 オーナー。NPC の選び方）
-func (m Match) LowestValueRelinquishChoice() (board.Position, bool) {
-	var lowest *Territory
-	for _, position := range m.RelinquishChoices() {
-		territory, ok := m.TerritoryAt(position)
-		if ok && (lowest == nil || m.TerritoryValue(territory) < m.TerritoryValue(*lowest)) {
-			lowest = &territory
-		}
-	}
-	if lowest == nil {
-		return board.Position{}, false
-	}
-	return lowest.Position, true
-}
-
 // 操作を待っている人が今選べる行動の種類。対象の選択肢が空の種類は入れない（ターンを終える・通行料を払う・アイテムを出さないは、
 // 受け付ける段階ならいつも入る）。止まった後は、画面の並び（止まったマスの行動 → 領地コマンド → ターンを終える）の順
 func (m Match) ActionChoices() []Action {

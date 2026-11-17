@@ -87,7 +87,7 @@ const roomValidationFragment = `... on ValidationErrors {
 	errors {
 		__typename field
 		... on FieldOutOfRange { min max }
-		... on FieldCountMismatch { expected }
+		... on FieldTooMany { max }
 		... on FieldTooSmall { min }
 		... on FieldNotGreaterThan { than }
 	}
@@ -457,16 +457,14 @@ func TestRoom_ChangeSeatsReturnsValidationErrorsInStages(t *testing.T) {
 
 	tooFew := change("PLAYER")
 	tooMany := change("PLAYER", "NPC", "NPC", "NPC", "NPC")
-	noPlayerSeat := change("NPC", "NPC")
 	twoPlayerSeats := change("PLAYER", "PLAYER", "NPC")
 
 	outOfRange := []any{map[string]any{"__typename": "FieldOutOfRange", "field": "seats", "min": float64(2), "max": float64(4)}}
-	mismatch := []any{map[string]any{"__typename": "FieldCountMismatch", "field": "seats", "expected": float64(1)}}
+	tooManyPlayers := []any{map[string]any{"__typename": "FieldTooMany", "field": "seats", "max": float64(1)}}
 	require.Equal(t, "ValidationErrors", tooFew["__typename"])
 	require.Equal(t, outOfRange, tooFew["errors"])
 	require.Equal(t, outOfRange, tooMany["errors"])
-	require.Equal(t, mismatch, noPlayerSeat["errors"])
-	require.Equal(t, mismatch, twoPlayerSeats["errors"])
+	require.Equal(t, tooManyPlayers, twoPlayerSeats["errors"])
 }
 
 func TestRoom_ChangeMatchRulesReturnsValidationErrorsForValuesAndUnselectableBoard(t *testing.T) {

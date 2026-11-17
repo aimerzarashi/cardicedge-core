@@ -52,8 +52,18 @@ const roomMatchQuery = `query ($id: UUID!) {
 // 席 0 がプレイヤー、続く npcs 個の席が NPC（どの NPC の席も同じ NPC とデッキ）
 func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[string]any)) string {
 	t.Helper()
+	matchID, _ := startMatchWithSeats(t, p, true, npcs, adjustRules)
+	return matchID
+}
+
+// 席の並びを決めて対戦を始める。withPlayer が false なら全員 NPC の部屋で、作った人は参加しない。部屋の ID も返す
+func startMatchWithSeats(t *testing.T, p roomPlayer, withPlayer bool, npcs int, adjustRules func(map[string]any)) (matchID, roomID string) {
+	t.Helper()
 	id, revision := createRoom(t, p.token)
-	seats := []string{"PLAYER"}
+	var seats []string
+	if withPlayer {
+		seats = append(seats, "PLAYER")
+	}
 	for range npcs {
 		seats = append(seats, "NPC")
 	}
@@ -63,10 +73,14 @@ func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[strin
 		adjustRules(rules)
 	}
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomMatchRules", rules), "changeRoomMatchRules")
-	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-		"id": id, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.deck["id"],
-	}), "changeRoomSeatChoice")
-	for seat := 1; seat <= npcs; seat++ {
+	firstNPCSeat := 0
+	if withPlayer {
+		revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
+			"id": id, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.deck["id"],
+		}), "changeRoomSeatChoice")
+		firstNPCSeat = 1
+	}
+	for seat := firstNPCSeat; seat < firstNPCSeat+npcs; seat++ {
 		revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
 			"id": id, "revision": revision, "seat": seat, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"],
 		}), "changeRoomSeatChoice")
@@ -74,10 +88,10 @@ func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[strin
 	revision = roomRevision(t, roomOperation(t, p.token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
 	roomOperation(t, p.token, "declareRoomReady", map[string]any{"id": id, "revision": revision})
 
-	var matchID string
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		result, err := client.TryData(t.Context(), p.token, roomMatchQuery, map[string]any{"id": id}, "room")
-		if !assert.NoError(c, err) || !assert.Equal(c, "PLAYING", result["status"]) {
+		// 全員 NPC の対戦はすぐ終わって次を決める状態に進むことがあるので、対戦が結び付いていれば状態は問わない
+		if !assert.NoError(c, err) || !assert.NotEqual(c, "PREPARING", result["status"]) {
 			return
 		}
 		linked, ok := result["match"].(map[string]any)
@@ -86,7 +100,38 @@ func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[strin
 		}
 		matchID = linked["id"].(string)
 	})
-	return matchID
+	return matchID, id
+}
+
+// プレイヤーの席の無い部屋では、NPC だけの対戦を思考パターンが最後まで進め、戦利品を選ぶ人がいないので部屋は次を決める状態に進む。
+// 作った人は参加していなくても対戦を読め、ほかのプレイヤーは読めない（2026-11-17 オーナー。core#179）
+func TestMatch_OwnerWatchesTheMatchOfOnlyNPCsToTheEnd(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID, roomID := startMatchWithSeats(t, p, false, 2, func(rules map[string]any) { rules["roundLimit"] = 2 })
+
+	ended := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+	stranger := newPlayerToken(t)
+	registerPlayer(t, stranger)
+	hidden := client.Data(t, stranger, matchQuery, map[string]any{"id": matchID}, "match")
+	events := matchEvents(t, p.token, matchID, 0)
+
+	participants := ended["participants"].([]any)
+	require.Len(t, participants, 2)
+	for _, participant := range participants {
+		require.Equal(t, "NPC", participant.(map[string]any)["kind"])
+	}
+	require.NotNil(t, ended["outcome"])
+	require.Empty(t, ended["rewardPacks"])
+	require.Equal(t, "MatchEventList", events["__typename"])
+	require.NotEmpty(t, events["events"])
+	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		result, err := client.TryData(t.Context(), p.token, roomMatchQuery, map[string]any{"id": roomID}, "room")
+		if assert.NoError(c, err) {
+			assert.Equal(c, "DECIDING_NEXT", result["status"])
+		}
+	})
 }
 
 // 部屋の最後の準備完了で、ポリシーが部屋の条件の写しから対戦を作る。参加者のプレイヤーだけが読め、山札の並びは見せない

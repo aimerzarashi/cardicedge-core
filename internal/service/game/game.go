@@ -93,7 +93,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	roomReader := repository.NewRoomReader()
 	matchSources := repository.NewMatchSourceReader(entityRefs)
 	matchStore := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
-	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID))
+	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID), roomReader.OwnsMatch)
 	matchEventLoader := eventstore.NewEventLoader(registry, match.NewID, match.NewEventType)
 	matchNames := repository.NewMatchNameReader()
 	collections := command.NewCollectionHandler(
@@ -180,6 +180,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			entityRefs,
 			repository.NewMatchNameReader().Load,
 			roomReader.FindByMatch,
+			roomReader.OwnsMatch,
 		),
 		matchEvents: query.NewMatchEventsHandler(matchAccess.Authorize, func(ctx context.Context, id match.ID) ([]match.Event, error) {
 			loaded, err := matchEventLoader.LoadEvents(ctx, id.Int64())
