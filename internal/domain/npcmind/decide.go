@@ -9,20 +9,40 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 )
 
-// 完全ランダム型。操作を待っている参加者が今選べる行動の種類から 1 つを均等に選び、その種類の対象も均等に選ぶ
-// （2026-11-17 オーナー。core#179）。選べるものを全部 1 列に並べて引かないのは、候補の多い種類（レベルアップ・移動等）ばかりが
-// 選ばれないようにするため。重み付き（core#187）は、種類を選ぶところを重みで選ぶ形に替える
-func Choose(current match.Match, by match.ParticipantIndex, random match.Random) (match.Command, error) {
+// 操作を待っている参加者が今選べる行動の種類から、重みに比例して 1 つを選び、その種類の対象は均等に選ぶ（2026-11-17 オーナー。
+// core#179・core#187）。選べるものを全部 1 列に並べて引かないのは、候補の多い種類（レベルアップ・移動等）ばかりが選ばれないようにするため。
+// 重みがどれも同じなら完全ランダム（DefaultWeights）
+func Choose(current match.Match, by match.ParticipantIndex, weights Weights, random match.Random) (match.Command, error) {
 	actions := current.ActionChoices()
 	if len(actions) == 0 {
 		return nil, fmt.Errorf("npcmind: no action choices: %w", match.ErrInvalidState)
 	}
-	action := actions[random.IntN(len(actions))]
+	action := chooseAction(actions, weights, random)
 	cmd, ok := command(current, by, action, random)
 	if !ok {
 		return nil, fmt.Errorf("npcmind: no targets for action %q: %w", action, match.ErrInvalidState)
 	}
 	return cmd, nil
+}
+
+// 重みの合計から 1 つ引き、並びの順に重みを積んで当たった種類を選ぶ。選べる種類の重みがすべて 0 なら均等に選ぶ
+// （通行料を払うしか選べない場面で払うの重みが 0 でも、止まらないようにするため）
+func chooseAction(actions []match.Action, weights Weights, random match.Random) match.Action {
+	total := 0
+	for _, action := range actions {
+		total += weights[action].Int()
+	}
+	if total == 0 {
+		return actions[random.IntN(len(actions))]
+	}
+	drawn := random.IntN(total)
+	for _, action := range actions {
+		drawn -= weights[action].Int()
+		if drawn < 0 {
+			return action
+		}
+	}
+	return actions[len(actions)-1]
 }
 
 func pick[T any](random match.Random, choices []T) (T, bool) {

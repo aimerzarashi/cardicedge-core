@@ -781,7 +781,8 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		if !ok || current.Participants[by].Participant.NPC == nil {
 			return struct{}{}, nil
 		}
-		cmd, err := npcmind.Choose(current, by, random)
+		// 重みは当面コードの既定値（すべて 1）。マスタにして対戦に写すのは core#188
+		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), random)
 		if err != nil {
 			return struct{}{}, err
 		}

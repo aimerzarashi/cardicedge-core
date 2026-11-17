@@ -4026,14 +4026,6 @@ func commandOf(t *testing.T, state match.Match, action match.Action) match.Comma
 	return nil
 }
 
-var allActions = []match.Action{
-	match.ActionDrawCard, match.ActionDiscardCard, match.ActionUseSpell, match.ActionRollDice, match.ActionChoosePath,
-	match.ActionPlaceCreature, match.ActionInvadeTerritory, match.ActionPayToll, match.ActionLevelUpLand,
-	match.ActionExchangeCreature, match.ActionChangeLandElement, match.ActionMoveCreature,
-	match.ActionAttackWithItem, match.ActionAttackWithoutItem, match.ActionDefendWithItem, match.ActionDefendWithoutItem,
-	match.ActionUseCreatureAsItem, match.ActionRelinquishTerritory, match.ActionEndTurn,
-}
-
 // 段階ごとの代表の状態
 func actionStates(t *testing.T) []struct {
 	name  string
@@ -4107,7 +4099,7 @@ func TestDecide_AcceptsExactlyTheActionChoices(t *testing.T) {
 	for _, tt := range actionStates(t) {
 		t.Run(tt.name, func(t *testing.T) {
 			choices := tt.state.ActionChoices()
-			for _, action := range allActions {
+			for _, action := range match.Actions() {
 				t.Run(string(action), func(t *testing.T) {
 					_, err := match.Decide(tt.state, commandOf(t, tt.state, action), startedAt, matchtest.NewRandom())
 					if slices.Contains(choices, action) {
