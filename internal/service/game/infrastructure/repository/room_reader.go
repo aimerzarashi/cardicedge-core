@@ -324,6 +324,25 @@ func (r *RoomReader) FindByMatch(ctx context.Context, matchID uuid.UUID) (uuid.U
 	return roomID, index + 1, true, nil
 }
 
+// その人が作った部屋で始めた対戦か（部屋を作った人は、参加していない全員 NPC の対戦も見られるため。2026-11-17 オーナー。core#179）。
+// 索引（idx_rooms_matches）に合わせ、FindByMatch と同じ包含で探す
+func (r *RoomReader) OwnsMatch(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (bool, error) {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return false, err
+	}
+	contained, err := json.Marshal([]uuid.UUID{matchID})
+	if err != nil {
+		return false, err
+	}
+	var owns bool
+	err = exec.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM rooms WHERE owner_player_id = $1 AND metadata -> 'matches' @> $2::jsonb)", playerID.String(), string(contained)).Scan(&owns)
+	if err != nil {
+		return false, err
+	}
+	return owns, nil
+}
+
 func toRoomStatus(status readmodel.RoomStatus) (query.RoomStatus, error) {
 	switch status {
 	case readmodel.RoomStatusDraft:

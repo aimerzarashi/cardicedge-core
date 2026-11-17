@@ -307,11 +307,6 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
-	FieldCountMismatch struct {
-		Expected func(childComplexity int) int
-		Field    func(childComplexity int) int
-	}
-
 	FieldInvalidFormat struct {
 		Field func(childComplexity int) int
 	}
@@ -336,6 +331,11 @@ type ComplexityRoot struct {
 	}
 
 	FieldTooLong struct {
+		Field func(childComplexity int) int
+		Max   func(childComplexity int) int
+	}
+
+	FieldTooMany struct {
 		Field func(childComplexity int) int
 		Max   func(childComplexity int) int
 	}
@@ -2331,19 +2331,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ExchangeMatchCreatureSuccess.Revision(childComplexity), true
 
-	case "FieldCountMismatch.expected":
-		if e.ComplexityRoot.FieldCountMismatch.Expected == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldCountMismatch.Expected(childComplexity), true
-	case "FieldCountMismatch.field":
-		if e.ComplexityRoot.FieldCountMismatch.Field == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldCountMismatch.Field(childComplexity), true
-
 	case "FieldInvalidFormat.field":
 		if e.ComplexityRoot.FieldInvalidFormat.Field == nil {
 			break
@@ -2409,6 +2396,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
+
+	case "FieldTooMany.field":
+		if e.ComplexityRoot.FieldTooMany.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooMany.Field(childComplexity), true
+	case "FieldTooMany.max":
+		if e.ComplexityRoot.FieldTooMany.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooMany.Max(childComplexity), true
 
 	case "FieldTooSmall.field":
 		if e.ComplexityRoot.FieldTooSmall.Field == nil {
@@ -11574,52 +11574,6 @@ func (ec *executionContext) fieldContext_ExchangeMatchCreatureSuccess_revision(_
 	return graphql.NewScalarFieldContext("ExchangeMatchCreatureSuccess", field, false, false, "Int")
 }
 
-func (ec *executionContext) _FieldCountMismatch_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldCountMismatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldCountMismatch_field(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Field, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldCountMismatch_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldCountMismatch", field, false, false, "String")
-}
-
-func (ec *executionContext) _FieldCountMismatch_expected(ctx context.Context, field graphql.CollectedField, obj *model.FieldCountMismatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldCountMismatch_expected(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Expected, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldCountMismatch_expected(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldCountMismatch", field, false, false, "Int")
-}
-
 func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldInvalidFormat) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11848,6 +11802,52 @@ func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, "Int")
+}
+
+func (ec *executionContext) _FieldTooMany_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooMany) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooMany_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooMany_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooMany", field, false, false, "String")
+}
+
+func (ec *executionContext) _FieldTooMany_max(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooMany) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooMany_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooMany_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooMany", field, false, false, "Int")
 }
 
 func (ec *executionContext) _FieldTooSmall_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooSmall) (ret graphql.Marshaler) {
@@ -33627,6 +33627,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldTooSmall(ctx, sel, obj)
+	case model.FieldTooMany:
+		return ec._FieldTooMany(ctx, sel, &obj)
+	case *model.FieldTooMany:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTooMany(ctx, sel, obj)
 	case model.FieldTooLong:
 		return ec._FieldTooLong(ctx, sel, &obj)
 	case *model.FieldTooLong:
@@ -33669,13 +33676,6 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldInvalidFormat(ctx, sel, obj)
-	case model.FieldCountMismatch:
-		return ec._FieldCountMismatch(ctx, sel, &obj)
-	case *model.FieldCountMismatch:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._FieldCountMismatch(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -37072,44 +37072,6 @@ func (ec *executionContext) _ExchangeMatchCreatureSuccess(ctx context.Context, s
 	return out
 }
 
-var fieldCountMismatchImplementors = []string{"FieldCountMismatch", "FieldError"}
-
-func (ec *executionContext) _FieldCountMismatch(ctx context.Context, sel ast.SelectionSet, obj *model.FieldCountMismatch) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, fieldCountMismatchImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("FieldCountMismatch")
-		case "field":
-			out.Values[i] = ec._FieldCountMismatch_field(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "expected":
-			out.Values[i] = ec._FieldCountMismatch_expected(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var fieldInvalidFormatImplementors = []string{"FieldInvalidFormat", "FieldError"}
 
 func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.SelectionSet, obj *model.FieldInvalidFormat) graphql.Marshaler {
@@ -37308,6 +37270,44 @@ func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.Selection
 			}
 		case "max":
 			out.Values[i] = ec._FieldTooLong_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var fieldTooManyImplementors = []string{"FieldTooMany", "FieldError"}
+
+func (ec *executionContext) _FieldTooMany(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTooMany) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTooManyImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTooMany")
+		case "field":
+			out.Values[i] = ec._FieldTooMany_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._FieldTooMany_max(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmind"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -780,7 +781,7 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		if !ok || current.Participants[by].Participant.NPC == nil {
 			return struct{}{}, nil
 		}
-		cmd, err := npcCommand(current, by, random)
+		cmd, err := npcmind.Choose(current, by, random)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -794,51 +795,4 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		return nil
 	}
 	return err
-}
-
-// 段階に合う操作を 1 つ選ぶ。手札と行き先は無作為に選ぶ
-func npcCommand(current match.Match, by match.ParticipantIndex, random match.Random) (match.Command, error) {
-	switch current.Phase {
-	case match.PhaseDrawing:
-		return &match.DrawCommand{By: by}, nil
-	case match.PhaseDiscarding:
-		return &match.DiscardCommand{By: by, HandIndex: random.IntN(len(current.Participants[by].Hand))}, nil
-	case match.PhaseRolling:
-		return &match.RollCommand{By: by}, nil
-	case match.PhaseChoosingPath:
-		choices := current.PathChoices()
-		if len(choices) == 0 {
-			return nil, fmt.Errorf("match npc turn: no path choices: %w", match.ErrInvalidState)
-		}
-		return &match.ChoosePathCommand{By: by, To: choices[random.IntN(len(choices))]}, nil
-	case match.PhasePlacing:
-		// 払える最初のクリーチャーを配置し、無ければ配置せずにターンを終える（2026-11-08 オーナー。考え方の部品にするのは core#117 以降）
-		if choices := current.PlaceChoices(); len(choices) > 0 {
-			return &match.PlaceCreatureCommand{By: by, HandIndex: choices[0]}, nil
-		}
-		return &match.EndTurnCommand{By: by}, nil
-	case match.PhaseTerritoryCommanding:
-		// NPC は領地コマンドを使わない（考え方の部品にするのは core#117）
-		return &match.EndTurnCommand{By: by}, nil
-	case match.PhaseInvading:
-		// 出せる最初のクリーチャーで侵略し、無ければ通行料を払う。アイテムは使わない（2026-11-09 オーナー。考え方の部品にするのは core#117 以降）
-		if choices := current.InvadeChoices(); len(choices) > 0 {
-			return &match.InvadeCommand{By: by, HandIndex: choices[0]}, nil
-		}
-		return &match.PayTollCommand{By: by}, nil
-	case match.PhaseAttacking:
-		return &match.AttackCommand{By: by}, nil
-	case match.PhaseDefending:
-		return &match.DefendCommand{By: by}, nil
-	case match.PhaseRelinquishing:
-		position, ok := current.LowestValueRelinquishChoice()
-		if !ok {
-			return nil, fmt.Errorf("match npc turn: no territories to relinquish: %w", match.ErrInvalidState)
-		}
-		return &match.RelinquishTerritoryCommand{By: by, Position: position}, nil
-	case match.PhaseEnding:
-		return &match.EndTurnCommand{By: by}, nil
-	default:
-		return nil, fmt.Errorf("match npc turn: phase %q: %w", current.Phase, match.ErrInvalidState)
-	}
 }

@@ -280,7 +280,7 @@ input ChangeRoomSeatsInput {
   id: UUID!
   "画面が見ていた部屋の revision"
   revision: Int!
-  "席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる"
+  "席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 0〜1 つで、多ければ FieldTooMany の max。0 は全員 NPC の部屋で、作った人は参加せずに対戦を見る）。並びを変えたら、席の選択はすべて外れる"
   seats: [RoomSeatKind!]!
 }
 

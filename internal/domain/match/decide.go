@@ -1065,8 +1065,22 @@ func enterBase(r *recorder) error {
 	if r.state.TotalMagics()[winner] < r.state.Rules.TargetMagic {
 		return nil
 	}
-	return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+	return endMatch(r, func(meta EventMeta, by ParticipantIndex) Event {
 		return &MatchEndedEvent{EventMeta: meta, Winners: []ParticipantIndex{by}, Ranks: ranksWithWinner(r.state.TotalMagics(), by), Reason: EndReasonTargetMagic}
+	})
+}
+
+// 対戦を終える。プレイヤーがいない（全員 NPC の）対戦は戦利品を選ぶ人がいないので、続けて全員が受け取ったことにする
+// （部屋が次を決める状態に進むのは AllRewardsReceivedEvent を受けたときのため。2026-11-17 オーナー。core#179）
+func endMatch(r *recorder, build func(meta EventMeta, by ParticipantIndex) Event) error {
+	if err := r.record(build); err != nil {
+		return err
+	}
+	if !r.state.allPlayersRewarded() {
+		return nil
+	}
+	return r.record(func(meta EventMeta, _ ParticipantIndex) Event {
+		return &AllRewardsReceivedEvent{EventMeta: meta}
 	})
 }
 
@@ -1123,7 +1137,7 @@ func endTurn(r *recorder) error {
 				winners = append(winners, ParticipantIndex(i))
 			}
 		}
-		return r.record(func(meta EventMeta, by ParticipantIndex) Event {
+		return endMatch(r, func(meta EventMeta, by ParticipantIndex) Event {
 			return &MatchEndedEvent{EventMeta: meta, Winners: winners, Ranks: ranksByMagic(totals), Reason: EndReasonRoundLimit}
 		})
 	}

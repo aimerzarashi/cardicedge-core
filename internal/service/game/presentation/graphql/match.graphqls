@@ -1,5 +1,5 @@
 # 対戦（部屋の全員が準備完了を申告すると、部屋の条件の写しで始まる集約）。始まった時点で、順番が決まり、山札が混ざり、手札が配られている。
-# read model を持たず、集約の状態から返す。参加者のプレイヤーだけが読める。
+# read model を持たず、集約の状態から返す。参加者のプレイヤーと、対戦を始めた部屋を作った人（全員 NPC の部屋で見るだけの人。core#179）だけが読める。
 # 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ →
 # 空いている土地に止まったらクリーチャーを配置するか配置せずにターンを終える／他人の領地なら通行料を払うか侵略する／ほかのマスならターンを終える）。
 # 侵略されたときだけは、番でない領地の持ち主がアイテムを選ぶ（awaitingParticipant）。
@@ -324,7 +324,7 @@ type MatchNotFoundError {
 union MatchResult = Match | MatchNotFoundError | PlayerNotRegisteredError
 
 extend type Query {
-  "自分が参加している対戦の詳細（登録済みのプレイヤーだけ）。無い・参加していない対戦は MatchNotFoundError"
+  "自分が参加している対戦か、自分が作った部屋で始めた対戦の詳細（登録済みのプレイヤーだけ）。無い・どちらでもない対戦は MatchNotFoundError"
   match(
     "対戦の公開用の ID"
     id: UUID!
@@ -974,10 +974,10 @@ union MatchProgressResult = MatchProgress | MatchNotFoundError | PlayerNotRegist
 
 extend type Subscription {
   """
-  自分が参加している対戦の進み（登録済みのプレイヤーだけ）。つないだ直後に今の版を送り、版が進んだらすぐ、
+  自分が参加している対戦か、自分が作った部屋で始めた対戦の進み（登録済みのプレイヤーだけ）。つないだ直後に今の版を送り、版が進んだらすぐ、
   変わらなくても数秒ごとに送る（つながっていることの確認も兼ねる）。全員が戦利品を受け取り終えたら、その版を送ってから閉じる
   （対戦が終わっただけでは閉じない。受け取らないまま離れた人がいると閉じない）。
-  無い・参加していない対戦は MatchNotFoundError を 1 回送って閉じる。SSE（graphql-sse）でつなぐ
+  無い・どちらでもない対戦は MatchNotFoundError を 1 回送って閉じる。SSE（graphql-sse）でつなぐ
   """
   matchProgress(
     "対戦の公開用の ID"
@@ -1928,7 +1928,7 @@ type MatchEventList {
 union MatchEventsResult = MatchEventList | MatchNotFoundError | PlayerNotRegisteredError
 
 extend type Query {
-  "自分が参加している対戦の、指した版より後のイベント（登録済みのプレイヤーだけ）。無い・参加していない対戦は MatchNotFoundError"
+  "自分が参加している対戦か、自分が作った部屋で始めた対戦の、指した版より後のイベント（登録済みのプレイヤーだけ）。無い・どちらでもない対戦は MatchNotFoundError"
   matchEvents(
     "対戦の公開用の ID"
     id: UUID!

@@ -157,8 +157,8 @@ func TestNewSeatKinds_ChecksSeatCountThenPlayerSeatCount(t *testing.T) {
 		{name: "four_seats", kinds: []room.SeatKind{player, npc, npc, npc}},
 		{name: "too_few_seats", kinds: []room.SeatKind{player}, want: room.ErrTooFewSeats},
 		{name: "too_many_seats", kinds: []room.SeatKind{player, npc, npc, npc, npc}, want: room.ErrTooManySeats},
-		{name: "no_player_seat", kinds: []room.SeatKind{npc, npc}, want: room.ErrPlayerSeatCount},
-		{name: "two_player_seats", kinds: []room.SeatKind{player, player}, want: room.ErrPlayerSeatCount},
+		{name: "no_player_seat", kinds: []room.SeatKind{npc, npc}},
+		{name: "two_player_seats", kinds: []room.SeatKind{player, player}, want: room.ErrTooManyPlayerSeats},
 		// 席の数が範囲の外なら、プレイヤーの席の数は確かめない
 		{name: "seat_count_is_checked_first", kinds: []room.SeatKind{npc, npc, npc, npc, npc}, want: room.ErrTooManySeats},
 	}

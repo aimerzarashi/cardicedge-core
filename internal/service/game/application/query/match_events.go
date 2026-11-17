@@ -548,7 +548,7 @@ type MatchRewardDrawnEvent struct {
 type MatchAllRewardsReceivedEvent struct{ MatchEventMeta }
 
 // 「この版より後のイベント」を返す差分の query。対戦は read model を作らず、イベントストアから読んで写す。
-// 参加者のプレイヤーだけが読める
+// 参加者のプレイヤーと、対戦を始めた部屋を作った人だけが読める（MatchAccess）
 type MatchEventsHandler struct {
 	authorize  AuthorizeMatchFunc
 	loadEvents LoadMatchEventsFunc

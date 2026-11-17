@@ -302,6 +302,25 @@ func (f matchTurnFixture) load(t *testing.T) match.Match {
 	return current
 }
 
+// NPC の番の操作を、ポリシー（思考パターン）に選ばせずテストから直接送る。場面の決まりを確かめるテストで、NPC の選び方に
+// 左右されないため（NPC の選び方は npcmind のテストで確かめる。2026-11-17 オーナー。core#179）
+func (f matchTurnFixture) npcDo(t *testing.T, cmd match.Command) {
+	t.Helper()
+	events, err := match.Decide(f.load(t), cmd, time.Now().UTC().Truncate(time.Microsecond), orderedRandom{roll: 1})
+	require.NoError(t, err)
+	require.NoError(t, f.store.Save(f.ctx, events))
+}
+
+// NPC の番で、振って (1,0) の分かれ道から (1,1) に進み、手札の最初のクリーチャーを配置してターンを終える
+func (f matchTurnFixture) npcPlacesOnTheFork(t *testing.T) {
+	t.Helper()
+	npc := matchtest.Index(t, 1)
+	f.npcDo(t, &match.RollCommand{By: npc})
+	f.npcDo(t, &match.ChoosePathCommand{By: npc, To: boardtest.Position(t, 1, 1)})
+	f.npcDo(t, &match.PlaceCreatureCommand{By: npc, HandIndex: 0})
+	requireTurnOf(t, f.load(t), 0)
+}
+
 // プレイヤーの番で、引いて振り、分かれ道で止まるところまで進める（手札は上限を 1 枚超えた 7 枚）
 func (f matchTurnFixture) playUntilChoosingPath(t *testing.T) command.ChangedMatch {
 	t.Helper()
@@ -492,31 +511,24 @@ func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 	})
 }
 
-func TestMatchNPCTurn_PlaysOneOperationPerPhaseOfTheNPCTurn(t *testing.T) {
+// 1 回のポリシーで操作を 1 つだけ行い、その操作で出たイベントがまたポリシーを動かすので、NPC の番が終わるまで続く。
+// どの操作を選ぶかは思考パターン（npcmind）のテストで確かめる
+func TestMatchNPCTurn_PlaysOneOperationPerEventUntilTheTurnOfThePlayer(t *testing.T) {
 	f := newMatchTurnFixture(t, matchtest.NewRandom())
 	start := f.load(t)
-	require.Equal(t, match.PhaseRolling, start.Phase)
+	requireTurnOf(t, start, 1)
 
 	require.NoError(t, f.npc.Play(f.ctx, f.id, start.Version))
-	rolled := f.load(t)
-	require.Equal(t, match.PhaseChoosingPath, rolled.Phase)
-	require.Equal(t, 2, rolled.Dice)
-
-	require.NoError(t, f.npc.Play(f.ctx, f.id, rolled.Version))
-	chosen := f.load(t)
-	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目。止まった (1,1) は空いている土地
-	require.Equal(t, boardtest.Position(t, 1, 1), chosen.Participants[1].Position)
-	require.Equal(t, match.PhasePlacing, chosen.Phase)
-
-	// 払える最初のクリーチャーを配置し、そのままターンを終える
-	require.NoError(t, f.npc.Play(f.ctx, f.id, chosen.Version))
-	ended := f.load(t)
-	require.Len(t, ended.Territories, 1)
-	require.Equal(t, boardtest.Position(t, 1, 1), ended.Territories[0].Position)
-	require.Equal(t, matchtest.Index(t, 1), ended.PlacedCreatures[0].Owner)
-	require.Equal(t, match.PhaseDrawing, ended.Phase)
-	current, _ := ended.CurrentParticipant()
-	require.Equal(t, matchtest.Index(t, 0), current)
+	require.Greater(t, f.load(t).Version, start.Version)
+	for i := 0; ; i++ {
+		require.Less(t, i, 10)
+		current := f.load(t)
+		if participant, _ := current.CurrentParticipant(); participant.Int() == 0 {
+			break
+		}
+		require.NoError(t, f.npc.Play(f.ctx, f.id, current.Version))
+		require.Greater(t, f.load(t).Version, current.Version)
+	}
 }
 
 func TestMatchNPCTurn_DoesNothingWhenItIsNotTheTurnOfAnNPCOrTheEventIsOld(t *testing.T) {
@@ -589,9 +601,7 @@ func TestMatchNPCTurn_HandleReadsEntityAndVersionFromTheEvent(t *testing.T) {
 // NPC が (1,1) に配置した後、プレイヤーが同じ (1,1) に止まって、侵略か通行料かを選ぶところまで進める
 func (f matchTurnFixture) playUntilPlayerStopsOnTheTerritoryOfTheNPC(t *testing.T) command.ChangedMatch {
 	t.Helper()
-	for range 3 {
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
+	f.npcPlacesOnTheFork(t)
 	changed := f.playUntilChoosingPath(t)
 	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
 	require.NoError(t, err)
@@ -679,47 +689,35 @@ func (f matchTurnFixture) playUntilNPCStopsOnTheTerritoryOfThePlayer(t *testing.
 	placeable, _ := handIndexes(t, f.load(t))
 	_, err = f.handler.Place(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
-	for range 2 {
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
+	npc := matchtest.Index(t, 1)
+	f.npcDo(t, &match.RollCommand{By: npc})
+	f.npcDo(t, &match.ChoosePathCommand{By: npc, To: boardtest.Position(t, 1, 1)})
 	require.Equal(t, match.PhaseInvading, f.load(t).Phase)
 }
 
-func TestMatchNPCTurn_InvadesWithTheFirstCreatureThatCanBePaidAndWaitsForTheOwner(t *testing.T) {
-	f := newMatchTurnFixture(t, orderedRandom{})
+// NPC の番をテストから送り、手札の最初で侵略してアイテムを出さず、プレイヤーの守る選びを待つところまで進める
+func (f matchTurnFixture) npcInvadesTheTerritoryOfThePlayer(t *testing.T) {
+	t.Helper()
 	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
-
-	// 侵略を確定する操作と、アイテムを出さない操作の 2 回
-	for range 2 {
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
-
-	invaded := f.load(t)
-	require.Equal(t, match.PhaseDefending, invaded.Phase)
-	require.Equal(t, cardtest.CreatureRef(t, 3), invaded.Invasion.Card)
-	// プレイヤーの選びを待っている間、ポリシーは何もしない
-	require.NoError(t, f.npc.Play(f.ctx, f.id, invaded.Version))
-	require.Equal(t, invaded.Version, f.load(t).Version)
+	npc := matchtest.Index(t, 1)
+	f.npcDo(t, &match.InvadeCommand{By: npc, HandIndex: 0})
+	f.npcDo(t, &match.AttackCommand{By: npc})
+	require.Equal(t, match.PhaseDefending, f.load(t).Phase)
 }
 
-func TestMatchNPCTurn_PaysTheTollWhenNoCreatureCanBePaid(t *testing.T) {
-	f := newMatchTurnFixtureWithNPCCost(t, orderedRandom{}, 30, 990)
-	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+func TestMatchNPCTurn_DoesNothingWhileWaitingForThePlayerToDefend(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	f.npcInvadesTheTerritoryOfThePlayer(t)
+	invaded := f.load(t)
 
-	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	require.NoError(t, f.npc.Play(f.ctx, f.id, invaded.Version))
 
-	paid := f.load(t)
-	requireTurnOf(t, paid, 0)
-	require.Nil(t, paid.Invasion)
-	require.Equal(t, 600-60, paid.Participants[1].Magic)
+	require.Equal(t, invaded.Version, f.load(t).Version)
 }
 
 func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testing.T) {
 	f := newMatchTurnFixture(t, orderedRandom{})
-	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
-	for range 2 {
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
+	f.npcInvadesTheTerritoryOfThePlayer(t)
 	revision := f.load(t).Version
 
 	_, err := f.handler.Defend(f.player, f.publicID, revision, nil)
@@ -792,9 +790,7 @@ func TestMatchHandler_UseSpellReportsTheTargetPositionOfDamage(t *testing.T) {
 	damage := match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, 7), Quantity: cardtest.DeckQuantity(t, 3), Spec: spec}
 	// NPC が先に動く乱数（playUntilPlayerStopsOnTheTerritoryOfTheNPC と同じ）。NPC が (1,1) に配置するまで進めてから、プレイヤーが引いて振る段階にする
 	f := newMatchTurnFixtureWithPlayerCards(t, matchtest.NewRandom(), 30, 30, matchDeckCard(t, 1, 4, 10), damage)
-	for range 3 {
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
+	f.npcPlacesOnTheFork(t)
 	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
 	require.NoError(t, err)
 	choices := f.load(t).SpellChoices()

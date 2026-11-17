@@ -17,7 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
-// 公開 ID に当たる対戦が、そのプレイヤーの対戦として無い（無い・参加していない対戦。存在を明かさないため区別しない）
+// 公開 ID に当たる対戦が、そのプレイヤーの読める対戦として無い（無い・参加も部屋の持ち主でもない対戦。存在を明かさないため区別しない）
 var ErrMatchNotFound = errors.New("query: match not found")
 
 type MatchParticipantKind string
@@ -305,7 +305,7 @@ type MatchNames struct {
 type LoadMatchNamesFunc func(ctx context.Context, avatarIDs, npcAvatarIDs, cardIDs []uuid.UUID) (MatchNames, error)
 
 // 対戦を、read model ではなくイベントストアから読み直した集約の状態から返す（対戦に read model を作らない。組み立ての決まりを 1 か所にするため）。
-// 参加者のプレイヤーだけが読める
+// 参加者のプレイヤーと、対戦を始めた部屋を作った人だけが読める（MatchAccess）
 type MatchHandler struct {
 	access     *MatchAccess
 	entityRefs domain.EntityRefResolver
@@ -320,8 +320,9 @@ func NewMatchHandler(
 	entityRefs domain.EntityRefResolver,
 	loadNames LoadMatchNamesFunc,
 	findRoom FindRoomByMatchFunc,
+	ownsRoomOfMatch OwnsRoomOfMatchFunc,
 ) *MatchHandler {
-	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players), entityRefs: entityRefs, loadNames: loadNames, findRoom: findRoom}
+	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players, ownsRoomOfMatch), entityRefs: entityRefs, loadNames: loadNames, findRoom: findRoom}
 }
 
 // 参加していない対戦も、無いのと同じ ErrMatchNotFound にする
