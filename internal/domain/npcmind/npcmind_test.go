@@ -1,6 +1,7 @@
 package npcmind_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"testing"
@@ -86,7 +87,7 @@ func npcParticipant(t *testing.T, avatar int64) match.Participant {
 }
 
 // 全員 NPC の対戦を、完全ランダム型の選んだコマンドだけで終わりまで進める。選んだコマンドの型を数えて返す
-func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights) (match.Match, map[string]int) {
+func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights, criterionWeights npcmind.CriterionWeights) (match.Match, map[string]int) {
 	t.Helper()
 	random := rand.New(rand.NewPCG(seed, seed))
 	cmd := &match.StartCommand{
@@ -109,7 +110,7 @@ func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights) (match.Match,
 		}
 		by, ok := current.AwaitingParticipant()
 		require.True(t, ok)
-		decided, err = npcmind.Choose(current, by, weights, random)
+		decided, err = npcmind.Choose(current, by, weights, criterionWeights, random)
 		require.NoError(t, err)
 		chosen[fmt.Sprintf("%T", decided)]++
 	}
@@ -120,7 +121,7 @@ func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights) (match.Match,
 func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testing.T) {
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
 		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
-			ended, _ := playToEnd(t, seed, npcmind.DefaultWeights())
+			ended, _ := playToEnd(t, seed, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights())
 
 			require.NotNil(t, ended.Result)
 			// 戦利品を選ぶプレイヤーがいないので、終わった時点で全員が受け取ったことになる
@@ -129,11 +130,13 @@ func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testi
 	}
 }
 
-// 割合は見ず、どの種類も選ばれうることだけを確かめる（2026-11-17 オーナー。core#179）
-func TestChoose_ChoosesEveryKindOfCommandAcrossMatches(t *testing.T) {
+// 割合は見ず、どの種類も NPC の選択肢として届くことだけを確かめる（2026-11-17 オーナー。core#179）。
+// 採点基準の重みをすべて 0 にするのは、既定の重みでは交換のように 4 つの基準で点の付かない種類が選ばれず（core#190）、
+// 採点の振る舞いは仕様のテストで見るため。重みがすべて 0 なら候補はどれも同じ点になり、均等に選ぶ（完全ランダム）
+func TestChoose_ChoosesEveryKindOfCommandAcrossMatchesWhenCriteriaAreWeightedZero(t *testing.T) {
 	chosen := map[string]int{}
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
-		_, counts := playToEnd(t, seed, npcmind.DefaultWeights())
+		_, counts := playToEnd(t, seed, npcmind.DefaultWeights(), npcmind.CriterionWeights{})
 		for kind, count := range counts {
 			chosen[kind] += count
 		}
@@ -158,38 +161,25 @@ func TestChoose_ChoosesEveryKindOfCommandAcrossMatches(t *testing.T) {
 	}
 }
 
-// 重みが 0 の種類は、ほかに選べる種類があれば選ばない（配置の段階はターンを終えるも、侵略の段階は通行料を払うもいつも選べる）
+// 重みが 0 の種類は、ほかに選べる種類があれば選ばない。点の付かない段階（振る段階はスペルを使う・振る）で効く
+// （配置・侵略の段階は採点するので、種類の重みは効かない。TestChoose_ScoredPhasesIgnoreWeightsOfActionKinds）
 func TestChoose_NeverChoosesActionsWeightedZeroWhenOthersCanBeChosen(t *testing.T) {
-	tests := []struct {
-		name        string
-		zero        match.Action
-		neverChosen string
-		alternative string
-	}{
-		{name: "place_creature", zero: match.ActionPlaceCreature, neverChosen: "*match.PlaceCreatureCommand", alternative: "*match.EndTurnCommand"},
-		{name: "invade_territory", zero: match.ActionInvadeTerritory, neverChosen: "*match.InvadeCommand", alternative: "*match.PayTollCommand"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			weights := npcmind.DefaultWeights()
-			weights[tt.zero] = 0
-			chosen := map[string]int{}
-			for _, seed := range []uint64{1, 2, 3, 4, 5} {
-				_, counts := playToEnd(t, seed, weights)
-				for kind, count := range counts {
-					chosen[kind] += count
-				}
-			}
+	rolling := rollingWithSpell(t)
+	by, _ := rolling.AwaitingParticipant()
+	weights := npcmind.DefaultWeights()
+	weights[match.ActionUseSpell] = 0
 
-			require.Zero(t, chosen[tt.neverChosen])
-			require.Positive(t, chosen[tt.alternative])
-		})
+	for seed := range uint64(20) {
+		cmd, err := npcmind.Choose(rolling, by, weights, npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		require.Equal(t, "*match.RollCommand", kindOf(cmd))
 	}
 }
 
 // 選べる種類の重みがすべて 0 でも、均等に選んで止まらない
 func TestChoose_ChoosesEvenlyWhenEveryWeightIsZero(t *testing.T) {
-	ended, _ := playToEnd(t, 1, npcmind.Weights{})
+	ended, _ := playToEnd(t, 1, npcmind.Weights{}, npcmind.DefaultCriterionWeights())
 
 	require.NotNil(t, ended.Result)
 }
@@ -212,7 +202,7 @@ func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1 つ目は種類、続く値はスペルの対象を選ぶのに使う
-			cmd, err := npcmind.Choose(rolling, by, weights, matchtest.NewSequenceRandom(tt.drawn, 0, 0))
+			cmd, err := npcmind.Choose(rolling, by, weights, npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(tt.drawn, 0, 0))
 
 			require.NoError(t, err)
 			require.Equal(t, tt.want, fmt.Sprintf("%T", cmd))
@@ -251,9 +241,202 @@ func rollingWithSpell(t *testing.T) match.Match {
 			return current
 		}
 		by, _ := current.AwaitingParticipant()
-		decided, err = npcmind.Choose(current, by, npcmind.Weights{match.ActionDrawCard: 1, match.ActionRollDice: 1, match.ActionEndTurn: 1, match.ActionPayToll: 1}, random)
+		decided, err = npcmind.Choose(current, by, npcmind.Weights{match.ActionDrawCard: 1, match.ActionRollDice: 1, match.ActionEndTurn: 1, match.ActionPayToll: 1}, npcmind.DefaultCriterionWeights(), random)
 		require.NoError(t, err)
 	}
 	require.FailNow(t, "no rolling phase with a spell")
 	return match.Match{}
+}
+
+// 全員 NPC の 2 人の対戦を、条件に合う状態まで進める（種を変えながら探す）
+func advanceUntil(t *testing.T, found func(current match.Match, by match.ParticipantIndex) bool) match.Match {
+	t.Helper()
+	for seed := uint64(1); seed <= 300; seed++ {
+		random := rand.New(rand.NewPCG(seed, seed))
+		cmd := &match.StartCommand{
+			ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipant(t, 1), npcParticipant(t, 2)},
+			Board: ringBoard(t), Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
+		}
+		var state match.State = match.InitialState()
+		var decided match.Command = cmd
+		for range 400 {
+			events, err := match.Decide(state, decided, startedAt, random)
+			require.NoError(t, err)
+			for _, event := range events {
+				state, err = match.Evolve(state, event)
+				require.NoError(t, err)
+			}
+			current := state.(match.Match)
+			if current.Phase == match.PhaseEnded {
+				break
+			}
+			by, _ := current.AwaitingParticipant()
+			if found(current, by) {
+				return current
+			}
+			decided, err = npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), random)
+			require.NoError(t, err)
+		}
+	}
+	require.FailNow(t, "no state found")
+	return match.Match{}
+}
+
+func kindOf(cmd match.Command) string {
+	return fmt.Sprintf("%T", cmd)
+}
+
+// 侵略する側が止まっている他人の領地の、クリーチャーの性能を差し替える（侵略の結果を確実にするため）
+func withDefender(t *testing.T, current match.Match, attack, hitPoints int) match.Match {
+	t.Helper()
+	territory, ok := current.TerritoryAt(current.Participants[current.TurnOrder[current.Turn]].Position)
+	require.True(t, ok)
+	current.PlacedCreatures = append([]match.PlacedCreature(nil), current.PlacedCreatures...)
+	for i := range current.PlacedCreatures {
+		if current.PlacedCreatures[i].ID == territory.Creature {
+			current.PlacedCreatures[i].Attack = creaturetest.Attack(t, attack)
+			current.PlacedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
+		}
+	}
+	return current
+}
+
+func invadingWithPlainCreatures(current match.Match, _ match.ParticipantIndex) bool {
+	return current.Phase == match.PhaseInvading && len(current.InvadeChoices()) > 0
+}
+
+func TestChoose_PlacesACreatureOnAVacantLandItCanAfford(t *testing.T) {
+	current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool {
+		return current.Phase == match.PhasePlacing && len(current.PlaceChoices()) > 0 && len(current.ActionChoices()) == 2
+	})
+	by, _ := current.AwaitingParticipant()
+
+	cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(0, 0, 0))
+
+	require.NoError(t, err)
+	require.Equal(t, "*match.PlaceCreatureCommand", kindOf(cmd))
+}
+
+func TestChoose_PaysTheTollInsteadOfInvadingWithACreatureThatCertainlyLoses(t *testing.T) {
+	current := advanceUntil(t, invadingWithPlainCreatures)
+	current = withDefender(t, current, 500, 500)
+	by, _ := current.AwaitingParticipant()
+
+	for seed := range uint64(8) {
+		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		require.Equal(t, "*match.PayTollCommand", kindOf(cmd))
+	}
+}
+
+func TestChoose_InvadesWhenTheInvasionCertainlyWins(t *testing.T) {
+	current := advanceUntil(t, invadingWithPlainCreatures)
+	current = withDefender(t, current, 0, 1)
+	by, _ := current.AwaitingParticipant()
+
+	for seed := range uint64(8) {
+		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		require.Equal(t, "*match.InvadeCommand", kindOf(cmd))
+	}
+}
+
+// 同じカードが 2 枚ある手札の、どちらを置いても点は同じ
+func placingWithTwinCards(t *testing.T) (match.Match, match.ParticipantIndex) {
+	t.Helper()
+	current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool {
+		return current.Phase == match.PhasePlacing && len(current.PlaceChoices()) > 0 && len(current.ActionChoices()) == 2
+	})
+	by, _ := current.AwaitingParticipant()
+	twin := cardtest.CreatureRef(t, 201)
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	current.Participants[by].Hand = []card.Ref{twin, twin}
+	require.Equal(t, []int{0, 1}, current.PlaceChoices())
+	return current, by
+}
+
+func TestChoose_ChoosesEvenlyAmongCandidatesWithTheSameScore(t *testing.T) {
+	current, by := placingWithTwinCards(t)
+
+	chosen := map[int]bool{}
+	for _, drawn := range []int{0, 1} {
+		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(drawn))
+
+		require.NoError(t, err)
+		place, ok := cmd.(*match.PlaceCreatureCommand)
+		require.True(t, ok)
+		chosen[place.HandIndex] = true
+	}
+	require.Equal(t, map[int]bool{0: true, 1: true}, chosen)
+}
+
+func TestChoose_IgnoresCriteriaWeightedZero(t *testing.T) {
+	current, by := placingWithTwinCards(t)
+	tests := []struct {
+		name    string
+		weights npcmind.CriterionWeights
+		draws   []int
+		kinds   map[string]bool
+	}{
+		// 3 つの候補（配置 2 つと終わり）が同じ点になり、均等に選ばれる
+		{name: "all_zero", weights: weightsOnly(), draws: []int{0, 1, 2}, kinds: map[string]bool{"*match.PlaceCreatureCommand": true, "*match.EndTurnCommand": true}},
+		// 領地の数だけを見れば、置くほうが必ず選ばれる
+		{name: "only_territory_count", weights: weightsOnly(npcmind.CriterionTerritoryCount), draws: []int{0, 1}, kinds: map[string]bool{"*match.PlaceCreatureCommand": true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chosen := map[string]bool{}
+			for _, drawn := range tt.draws {
+				cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), tt.weights, matchtest.NewSequenceRandom(drawn))
+
+				require.NoError(t, err)
+				chosen[kindOf(cmd)] = true
+			}
+			require.Equal(t, tt.kinds, chosen)
+		})
+	}
+}
+
+// 重みの種類は、点の付かない段階（ここでは振る段階）だけで効く。採点する段階では、種類の重みが 0 でも点の高い候補を選ぶ
+func TestChoose_ScoredPhasesIgnoreWeightsOfActionKinds(t *testing.T) {
+	current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool {
+		return current.Phase == match.PhasePlacing && len(current.PlaceChoices()) > 0 && len(current.ActionChoices()) == 2
+	})
+	by, _ := current.AwaitingParticipant()
+
+	cmd, err := npcmind.Choose(current, by, npcmind.Weights{}, npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(0))
+
+	require.NoError(t, err)
+	require.Equal(t, "*match.PlaceCreatureCommand", kindOf(cmd))
+}
+
+// 候補を試すために当てた状態は、元の状態を変えない（match.Evolve が参照型を壊さない前提を、ここで固める）
+func TestChoose_DoesNotChangeTheCurrentState(t *testing.T) {
+	phases := []match.Phase{match.PhasePlacing, match.PhaseInvading, match.PhaseAttacking, match.PhaseDefending, match.PhaseTerritoryCommanding, match.PhaseEnding}
+	for _, phase := range phases {
+		t.Run(string(phase), func(t *testing.T) {
+			current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool { return current.Phase == phase })
+			by, _ := current.AwaitingParticipant()
+			before, err := json.Marshal(current)
+			require.NoError(t, err)
+
+			_, err = npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(1, 1)))
+
+			require.NoError(t, err)
+			after, err := json.Marshal(current)
+			require.NoError(t, err)
+			require.JSONEq(t, string(before), string(after))
+		})
+	}
+}
+
+// 指定した基準だけ重みが 1 で、ほかは 0 の重み
+func weightsOnly(criteria ...npcmind.Criterion) npcmind.CriterionWeights {
+	weights := npcmind.CriterionWeights{}
+	for _, criterion := range criteria {
+		weights[criterion] = 1
+	}
+	return weights
 }
