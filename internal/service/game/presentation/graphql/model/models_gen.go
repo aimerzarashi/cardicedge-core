@@ -1349,6 +1349,8 @@ type Match struct {
 	AwaitingParticipant *int `json:"awaitingParticipant,omitempty"`
 	// 対戦の段階。今の番の人が次にする操作を表す
 	Phase MatchPhase `json:"phase"`
+	// 操作を待っている人が今選べる行動の種類（awaitingParticipant の操作。対象の選択肢が空の種類は入らない。終わった後は空）
+	ActionChoices []MatchAction `json:"actionChoices"`
 	// このターンに振ったサイコロの目（振る前は null）
 	Dice *int `json:"dice,omitempty"`
 	// このターンに残っている歩数
@@ -4704,6 +4706,115 @@ func (e *ItemCategory) UnmarshalJSON(b []byte) error {
 }
 
 func (e ItemCategory) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 操作を待っている人が今選べる行動の種類。対象（手札・領地・行き先）は種類ごとの選択肢（placeChoices 等）から選ぶ。種類と mutation は 1 対 1
+type MatchAction string
+
+const (
+	// カードを引く（drawMatchCard）
+	MatchActionDrawCard MatchAction = "DRAW_CARD"
+	// 手札を捨てる（discardMatchCard。手札のどれでも）
+	MatchActionDiscardCard MatchAction = "DISCARD_CARD"
+	// スペルを使う（useMatchSpell。spellChoices から選ぶ）
+	MatchActionUseSpell MatchAction = "USE_SPELL"
+	// サイコロを振る（rollMatchDice）
+	MatchActionRollDice MatchAction = "ROLL_DICE"
+	// 行き先を選ぶ（chooseMatchPath。pathChoices から選ぶ）
+	MatchActionChoosePath MatchAction = "CHOOSE_PATH"
+	// クリーチャーを配置する（placeMatchCreature。placeChoices から選ぶ）
+	MatchActionPlaceCreature MatchAction = "PLACE_CREATURE"
+	// 侵略する（invadeMatchTerritory。invadeChoices から選ぶ）
+	MatchActionInvadeTerritory MatchAction = "INVADE_TERRITORY"
+	// 通行料を払う（payMatchToll。払うとターンを終える）
+	MatchActionPayToll MatchAction = "PAY_TOLL"
+	// 土地のレベルを上げる（levelUpMatchLand。levelUpChoices から選ぶ）
+	MatchActionLevelUpLand MatchAction = "LEVEL_UP_LAND"
+	// クリーチャーを交換する（exchangeMatchCreature。exchangeChoices から選ぶ）
+	MatchActionExchangeCreature MatchAction = "EXCHANGE_CREATURE"
+	// 土地の属性を変える（changeMatchLandElement。elementChangeChoices から選ぶ）
+	MatchActionChangeLandElement MatchAction = "CHANGE_LAND_ELEMENT"
+	// クリーチャーを移動する（moveMatchCreature。moveChoices から選ぶ）
+	MatchActionMoveCreature MatchAction = "MOVE_CREATURE"
+	// アイテムを出して攻める（attackMatchTerritory の itemHandIndex を itemChoices から選ぶ）
+	MatchActionAttackWithItem MatchAction = "ATTACK_WITH_ITEM"
+	// アイテムを出さずに攻める（attackMatchTerritory の itemHandIndex を null）
+	MatchActionAttackWithoutItem MatchAction = "ATTACK_WITHOUT_ITEM"
+	// アイテムを出して守る（defendMatchTerritory の itemHandIndex を itemChoices から選ぶ）
+	MatchActionDefendWithItem MatchAction = "DEFEND_WITH_ITEM"
+	// アイテムを出さずに守る（defendMatchTerritory の itemHandIndex を null）
+	MatchActionDefendWithoutItem MatchAction = "DEFEND_WITHOUT_ITEM"
+	// アイテムの代わりに手札のクリーチャーを出す（援護。useMatchCreatureAsItem。creatureAsItemChoices から選ぶ。攻める段階と守る段階）
+	MatchActionUseCreatureAsItem MatchAction = "USE_CREATURE_AS_ITEM"
+	// 領地を手放す（relinquishMatchTerritory。relinquishChoices から選ぶ）
+	MatchActionRelinquishTerritory MatchAction = "RELINQUISH_TERRITORY"
+	// ターンを終える（endMatchTurn。配置の段階では配置しない、領地コマンドの段階では何もしない）
+	MatchActionEndTurn MatchAction = "END_TURN"
+)
+
+var AllMatchAction = []MatchAction{
+	MatchActionDrawCard,
+	MatchActionDiscardCard,
+	MatchActionUseSpell,
+	MatchActionRollDice,
+	MatchActionChoosePath,
+	MatchActionPlaceCreature,
+	MatchActionInvadeTerritory,
+	MatchActionPayToll,
+	MatchActionLevelUpLand,
+	MatchActionExchangeCreature,
+	MatchActionChangeLandElement,
+	MatchActionMoveCreature,
+	MatchActionAttackWithItem,
+	MatchActionAttackWithoutItem,
+	MatchActionDefendWithItem,
+	MatchActionDefendWithoutItem,
+	MatchActionUseCreatureAsItem,
+	MatchActionRelinquishTerritory,
+	MatchActionEndTurn,
+}
+
+func (e MatchAction) IsValid() bool {
+	switch e {
+	case MatchActionDrawCard, MatchActionDiscardCard, MatchActionUseSpell, MatchActionRollDice, MatchActionChoosePath, MatchActionPlaceCreature, MatchActionInvadeTerritory, MatchActionPayToll, MatchActionLevelUpLand, MatchActionExchangeCreature, MatchActionChangeLandElement, MatchActionMoveCreature, MatchActionAttackWithItem, MatchActionAttackWithoutItem, MatchActionDefendWithItem, MatchActionDefendWithoutItem, MatchActionUseCreatureAsItem, MatchActionRelinquishTerritory, MatchActionEndTurn:
+		return true
+	}
+	return false
+}
+
+func (e MatchAction) String() string {
+	return string(e)
+}
+
+func (e *MatchAction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchAction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchAction", str)
+	}
+	return nil
+}
+
+func (e MatchAction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchAction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchAction) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
