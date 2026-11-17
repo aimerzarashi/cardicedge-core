@@ -114,6 +114,16 @@ const (
 	ActionEndTurn             Action = "end_turn"
 )
 
+// 行動の種類のすべて（ActionChoices が返しうるもの。種類ごとに値を持たせる側（NPC の思考パターンの重み等）が、足し忘れずに並べるため）
+func Actions() []Action {
+	return []Action{
+		ActionDrawCard, ActionDiscardCard, ActionUseSpell, ActionRollDice, ActionChoosePath, ActionPlaceCreature,
+		ActionInvadeTerritory, ActionPayToll, ActionLevelUpLand, ActionExchangeCreature, ActionChangeLandElement,
+		ActionMoveCreature, ActionAttackWithItem, ActionAttackWithoutItem, ActionDefendWithItem, ActionDefendWithoutItem,
+		ActionUseCreatureAsItem, ActionRelinquishTerritory, ActionEndTurn,
+	}
+}
+
 // 誰かの操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動と戦闘の途中は待っていない
 func (p Phase) AwaitsOperation() bool {
 	var notStarted Phase

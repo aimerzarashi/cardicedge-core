@@ -86,7 +86,7 @@ func npcParticipant(t *testing.T, avatar int64) match.Participant {
 }
 
 // 全員 NPC の対戦を、完全ランダム型の選んだコマンドだけで終わりまで進める。選んだコマンドの型を数えて返す
-func playToEnd(t *testing.T, seed uint64) (match.Match, map[string]int) {
+func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights) (match.Match, map[string]int) {
 	t.Helper()
 	random := rand.New(rand.NewPCG(seed, seed))
 	cmd := &match.StartCommand{
@@ -109,7 +109,7 @@ func playToEnd(t *testing.T, seed uint64) (match.Match, map[string]int) {
 		}
 		by, ok := current.AwaitingParticipant()
 		require.True(t, ok)
-		decided, err = npcmind.Choose(current, by, random)
+		decided, err = npcmind.Choose(current, by, weights, random)
 		require.NoError(t, err)
 		chosen[fmt.Sprintf("%T", decided)]++
 	}
@@ -120,7 +120,7 @@ func playToEnd(t *testing.T, seed uint64) (match.Match, map[string]int) {
 func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testing.T) {
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
 		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
-			ended, _ := playToEnd(t, seed)
+			ended, _ := playToEnd(t, seed, npcmind.DefaultWeights())
 
 			require.NotNil(t, ended.Result)
 			// 戦利品を選ぶプレイヤーがいないので、終わった時点で全員が受け取ったことになる
@@ -133,7 +133,7 @@ func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testi
 func TestChoose_ChoosesEveryKindOfCommandAcrossMatches(t *testing.T) {
 	chosen := map[string]int{}
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
-		_, counts := playToEnd(t, seed)
+		_, counts := playToEnd(t, seed, npcmind.DefaultWeights())
 		for kind, count := range counts {
 			chosen[kind] += count
 		}
@@ -156,4 +156,104 @@ func TestChoose_ChoosesEveryKindOfCommandAcrossMatches(t *testing.T) {
 			require.Positive(t, chosen[tt.kind])
 		})
 	}
+}
+
+// 重みが 0 の種類は、ほかに選べる種類があれば選ばない（配置の段階はターンを終えるも、侵略の段階は通行料を払うもいつも選べる）
+func TestChoose_NeverChoosesActionsWeightedZeroWhenOthersCanBeChosen(t *testing.T) {
+	tests := []struct {
+		name        string
+		zero        match.Action
+		neverChosen string
+		alternative string
+	}{
+		{name: "place_creature", zero: match.ActionPlaceCreature, neverChosen: "*match.PlaceCreatureCommand", alternative: "*match.EndTurnCommand"},
+		{name: "invade_territory", zero: match.ActionInvadeTerritory, neverChosen: "*match.InvadeCommand", alternative: "*match.PayTollCommand"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			weights := npcmind.DefaultWeights()
+			weights[tt.zero] = 0
+			chosen := map[string]int{}
+			for _, seed := range []uint64{1, 2, 3, 4, 5} {
+				_, counts := playToEnd(t, seed, weights)
+				for kind, count := range counts {
+					chosen[kind] += count
+				}
+			}
+
+			require.Zero(t, chosen[tt.neverChosen])
+			require.Positive(t, chosen[tt.alternative])
+		})
+	}
+}
+
+// 選べる種類の重みがすべて 0 でも、均等に選んで止まらない
+func TestChoose_ChoosesEvenlyWhenEveryWeightIsZero(t *testing.T) {
+	ended, _ := playToEnd(t, 1, npcmind.Weights{})
+
+	require.NotNil(t, ended.Result)
+}
+
+// 重みの合計から引いた値を、並びの順に重みを積んで当てる。振る段階の並びはスペルを使う → 振る
+func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing.T) {
+	weights := npcmind.Weights{match.ActionUseSpell: 1, match.ActionRollDice: 3}
+	rolling := rollingWithSpell(t)
+	require.Equal(t, []match.Action{match.ActionUseSpell, match.ActionRollDice}, rolling.ActionChoices())
+	by, _ := rolling.AwaitingParticipant()
+	tests := []struct {
+		name  string
+		drawn int
+		want  string
+	}{
+		{name: "first_range", drawn: 0, want: "*match.UseSpellCommand"},
+		{name: "second_range_start", drawn: 1, want: "*match.RollCommand"},
+		{name: "second_range_end", drawn: 3, want: "*match.RollCommand"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 1 つ目は種類、続く値はスペルの対象を選ぶのに使う
+			cmd, err := npcmind.Choose(rolling, by, weights, matchtest.NewSequenceRandom(tt.drawn, 0, 0))
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, fmt.Sprintf("%T", cmd))
+		})
+	}
+}
+
+func TestNewWeight_RejectsNegativeValues(t *testing.T) {
+	_, negative := npcmind.NewWeight(-1)
+	zero, err := npcmind.NewWeight(0)
+
+	require.ErrorIs(t, negative, npcmind.ErrNegativeWeight)
+	require.NoError(t, err)
+	require.Equal(t, 0, zero.Int())
+}
+
+// 全員 NPC の対戦を始め、振る段階で使えるスペルが手札にある状態まで進める
+func rollingWithSpell(t *testing.T) match.Match {
+	t.Helper()
+	random := rand.New(rand.NewPCG(1, 1))
+	cmd := &match.StartCommand{
+		ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipant(t, 1), npcParticipant(t, 2)},
+		Board: ringBoard(t), Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
+	}
+	var state match.State = match.InitialState()
+	var decided match.Command = cmd
+	for range 200 {
+		events, err := match.Decide(state, decided, startedAt, random)
+		require.NoError(t, err)
+		for _, event := range events {
+			state, err = match.Evolve(state, event)
+			require.NoError(t, err)
+		}
+		current := state.(match.Match)
+		if current.Phase == match.PhaseRolling && len(current.SpellChoices()) > 0 {
+			return current
+		}
+		by, _ := current.AwaitingParticipant()
+		decided, err = npcmind.Choose(current, by, npcmind.Weights{match.ActionDrawCard: 1, match.ActionRollDice: 1, match.ActionEndTurn: 1, match.ActionPayToll: 1}, random)
+		require.NoError(t, err)
+	}
+	require.FailNow(t, "no rolling phase with a spell")
+	return match.Match{}
 }
