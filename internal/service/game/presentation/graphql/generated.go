@@ -413,6 +413,7 @@ type ComplexityRoot struct {
 	}
 
 	Match struct {
+		ActionChoices         func(childComplexity int) int
 		AwaitingParticipant   func(childComplexity int) int
 		Board                 func(childComplexity int) int
 		CreatureAsItemChoices func(childComplexity int) int
@@ -2603,6 +2604,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LevelUpMatchLandSuccess.Revision(childComplexity), true
 
+	case "Match.actionChoices":
+		if e.ComplexityRoot.Match.ActionChoices == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.ActionChoices(childComplexity), true
 	case "Match.awaitingParticipant":
 		if e.ComplexityRoot.Match.AwaitingParticipant == nil {
 			break
@@ -7083,6 +7090,8 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_awaitingParticipant(ctx, field)
 	case "phase":
 		return ec.fieldContext_Match_phase(ctx, field)
+	case "actionChoices":
+		return ec.fieldContext_Match_actionChoices(ctx, field)
 	case "dice":
 		return ec.fieldContext_Match_dice(ctx, field)
 	case "remainingSteps":
@@ -12781,6 +12790,29 @@ func (ec *executionContext) _Match_phase(ctx context.Context, field graphql.Coll
 }
 func (ec *executionContext) fieldContext_Match_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Match", field, false, false, "MatchPhase")
+}
+
+func (ec *executionContext) _Match_actionChoices(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_actionChoices(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ActionChoices, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.MatchAction) graphql.Marshaler {
+			return ec.marshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_actionChoices(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Match", field, false, false, "MatchAction")
 }
 
 func (ec *executionContext) _Match_dice(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
@@ -37894,6 +37926,11 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "actionChoices":
+			out.Values[i] = ec._Match_actionChoices(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "dice":
 			out.Values[i] = ec._Match_dice(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -46100,6 +46137,46 @@ func (ec *executionContext) marshalNLevelUpMatchLandResult2gitlabᚗcomᚋaimerz
 		return graphql.Null
 	}
 	return ec._LevelUpMatchLandResult(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx context.Context, v any) (model.MatchAction, error) {
+	var res model.MatchAction
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx context.Context, sel ast.SelectionSet, v model.MatchAction) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx context.Context, v any) ([]model.MatchAction, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.MatchAction, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx context.Context, sel ast.SelectionSet, v []model.MatchAction) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNMatchAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAvatar(ctx context.Context, sel ast.SelectionSet, v *model.MatchAvatar) graphql.Marshaler {
