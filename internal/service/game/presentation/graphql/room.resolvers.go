@@ -81,7 +81,7 @@ func (r *mutationResolver) ChangeRoomMatchRules(ctx context.Context, input model
 	}
 	changed, err := r.rooms.ChangeMatchRules(ctx, input.ID, int64(input.Revision), command.RoomMatchRulesInput{
 		BoardID: input.BoardID, TargetMagic: input.TargetMagic, StartingMagic: input.StartingMagic, LapBonus: input.LapBonus,
-		CheckpointBonus: input.CheckpointBonus, RoundLimit: input.RoundLimit, DiceMin: input.DiceMin, DiceMax: input.DiceMax,
+		CheckpointBonus: input.CheckpointBonus, RoundLimit: input.RoundLimit, DiceMin: input.DiceMin, DiceMax: input.DiceMax, BaseLandValue: input.BaseLandValue, LapBonusPerTerritory: input.LapBonusPerTerritory,
 	})
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil

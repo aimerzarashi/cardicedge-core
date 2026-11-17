@@ -13,6 +13,56 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/presentation/graphql/model"
 )
 
+// ChangeItemCategory is the resolver for the changeItemCategory field.
+func (r *mutationResolver) ChangeItemCategory(ctx context.Context, input model.ChangeItemCategoryInput) (model.ChangeItemCategoryResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	category, err := toItemCategory(input.Category)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.items.ChangeCategory(ctx, input.ID, int64(input.Revision), category)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if errors.Is(err, command.ErrItemEffectNotAllowed) {
+		return &model.ItemEffectNotAllowedError{Message: "item effect not allowed in the category"}, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeItemCategorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChangeItemEffects is the resolver for the changeItemEffects field.
+func (r *mutationResolver) ChangeItemEffects(ctx context.Context, input model.ChangeItemEffectsInput) (model.ChangeItemEffectsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	effects, err := toEffects(input.Effects)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := r.items.ChangeEffects(ctx, input.ID, int64(input.Revision), effects)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if errors.Is(err, command.ErrItemEffectNotAllowed) {
+		return &model.ItemEffectNotAllowedError{Message: "item effect not allowed in the category"}, nil
+	}
+	if result := cardChangeError(err); result != nil {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeItemEffectsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // RegisterItem is the resolver for the registerItem field.
 func (r *mutationResolver) RegisterItem(ctx context.Context, input model.RegisterItemInput) (model.RegisterItemResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -28,8 +78,26 @@ func (r *mutationResolver) RegisterItem(ctx context.Context, input model.Registe
 	if err != nil {
 		return nil, err
 	}
+	rarity, err := fromCardRarity(registered.Rarity)
+	if err != nil {
+		return nil, err
+	}
+	category, err := fromItemCategory(registered.Category)
+	if err != nil {
+		return nil, err
+	}
+	effects, err := fromEffects(registered.Effects)
+	if err != nil {
+		return nil, err
+	}
+	allowed, err := allowedItemEffectKinds(registered.Category)
+	if err != nil {
+		return nil, err
+	}
 	return &model.RegisterItemSuccess{Item: &model.Item{
-		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Revision: int(registered.Revision),
+		ID: registered.ID, Name: registered.Name, Status: model.CardStatusDraft, Cost: registered.Cost, Rarity: rarity,
+		Category: category, Effects: effects, AllowedEffectKinds: allowed,
+		Revision:     int(registered.Revision),
 		RegisteredAt: registered.RegisteredAt, UpdatedAt: registered.UpdatedAt,
 	}}, nil
 }

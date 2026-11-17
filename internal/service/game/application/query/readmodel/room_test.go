@@ -73,7 +73,7 @@ func TestRoom_EvolvesThroughEveryEventToPreparingAndReady(t *testing.T) {
 		Name: "部屋", Status: readmodel.RoomStatusPreparing, Revision: 8, RegisteredAt: roomCreatedAt, UpdatedAt: roomChangedAt,
 		MatchRules: &readmodel.RoomMatchRulesMetadata{
 			TargetMagic: matchRules.TargetMagic, StartingMagic: matchRules.StartingMagic, LapBonus: matchRules.LapBonus,
-			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax,
+			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax, BaseLandValue: matchRules.BaseLandValue, LapBonusPerTerritory: matchRules.LapBonusPerTerritory,
 		},
 	}, ready.Metadata())
 }

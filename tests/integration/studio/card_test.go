@@ -15,7 +15,7 @@ const cardsQuery = `query ($filter: CardFilter, $first: Int, $after: String) {
 	cards(filter: $filter, first: $first, after: $after) {
 		__typename
 		... on CardConnection {
-			edges { cursor node { __typename id name status revision registeredAt updatedAt } }
+			edges { cursor node { __typename id name status cost rarity revision registeredAt updatedAt } }
 			pageInfo { hasNextPage hasPreviousPage startCursor endCursor }
 		}
 		... on ValidationErrors { errors { __typename field ... on FieldTooLong { max } ... on FieldOutOfRange { min max } } }
@@ -65,6 +65,8 @@ func TestCards_ListsRegisteredCreature(t *testing.T) {
 		"id":           registered["id"],
 		"name":         registered["name"],
 		"status":       "DRAFT",
+		"cost":         float64(10),
+		"rarity":       "NORMAL",
 		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],
@@ -92,6 +94,8 @@ func TestCards_ListsRegisteredItem(t *testing.T) {
 		"id":           registered["id"],
 		"name":         registered["name"],
 		"status":       "DRAFT",
+		"cost":         float64(10),
+		"rarity":       "NORMAL",
 		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],
@@ -112,6 +116,8 @@ func TestCards_ListsRegisteredSpell(t *testing.T) {
 		"id":           registered["id"],
 		"name":         registered["name"],
 		"status":       "DRAFT",
+		"cost":         float64(10),
+		"rarity":       "NORMAL",
 		"revision":     float64(1),
 		"registeredAt": registered["registeredAt"],
 		"updatedAt":    registered["updatedAt"],

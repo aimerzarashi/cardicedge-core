@@ -1,3 +1,13 @@
+"アイテムの分類"
+enum ItemCategory {
+  "武器"
+  WEAPON
+  "防具"
+  ARMOR
+  "巻物"
+  SCROLL
+}
+
 "アイテム（カードの種類の 1 つ）"
 type Item implements Card {
   "公開用の ID"
@@ -6,6 +16,16 @@ type Item implements Card {
   name: String!
   "状態（準備中・公開中・使用不可）"
   status: CardStatus!
+  "使うのに払う魔力（0 以上）"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "分類"
+  category: ItemCategory!
+  "効果の並び（入れた順。無ければ空）"
+  effects: [Effect!]!
+  "今の分類で持てる効果の種類（画面が選べるものだけを出すため。分類ごとの決まりは core が持つ）"
+  allowedEffectKinds: [EffectKind!]!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -29,7 +49,65 @@ type RegisterItemSuccess {
 "アイテムの登録の結果"
 union RegisterItemResult = RegisterItemSuccess | ValidationErrors | CardNameAlreadyInUseError | ForbiddenError
 
+"アイテムの分類を変える入力"
+input ChangeItemCategoryInput {
+  "変えるアイテムの公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの更新の番号"
+  revision: Int!
+  "変えた後の分類"
+  category: ItemCategory!
+}
+
+"アイテムの分類を変えた（同じ値なら revision は進まない）"
+type ChangeItemCategorySuccess {
+  "変えたアイテムの公開用の ID"
+  id: UUID!
+  "操作した後の更新の番号"
+  revision: Int!
+}
+
+"アイテムの分類を変える操作の結果（カードでない ID・アイテム以外のカードの ID は CardNotFoundError）"
+union ChangeItemCategoryResult = ChangeItemCategorySuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ItemEffectNotAllowedError | ForbiddenError
+
+"アイテムの効果の並びを変える入力"
+input ChangeItemEffectsInput {
+  "変えるアイテムの公開用の ID"
+  id: UUID!
+  "画面が見ていたカードの更新の番号"
+  revision: Int!
+  "変えた後の効果の並び（全体。並びの順に当てる）"
+  effects: [EffectInput!]!
+}
+
+"アイテムの効果の並びを変えた（同じ並びなら revision は進まない）"
+type ChangeItemEffectsSuccess {
+  "変えたアイテムの公開用の ID"
+  id: UUID!
+  "操作した後の更新の番号"
+  revision: Int!
+}
+
+"アイテムの分類で持てない効果がある（効果を変えるとき・分類を変えるとき。持てる効果は分類ごとに決まっている）"
+type ItemEffectNotAllowedError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"アイテムの効果の並びを変える操作の結果（入力の誤りの項目は effects.N・effects.N.value・effects.N.minimum・effects.N.maximum・effects.N.percent・effects.N.constraints.M・effects.N.constraints.M.elements。カードでない ID・アイテム以外のカードの ID は CardNotFoundError）"
+union ChangeItemEffectsResult = ChangeItemEffectsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ItemEffectNotAllowedError | ForbiddenError
+
 extend type Mutation {
+  "アイテムの分類を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeItemCategory(
+    "変えるアイテムと分類"
+    input: ChangeItemCategoryInput!
+  ): ChangeItemCategoryResult!
+  "アイテムの効果の並びを変える（紐づいたオペレーターだけ。準備中だけ。分類で持てる効果だけ）"
+  changeItemEffects(
+    "変えるアイテムと効果の並び"
+    input: ChangeItemEffectsInput!
+  ): ChangeItemEffectsResult!
   "アイテムを登録する（紐づいたオペレーターだけ）"
   registerItem(
     "登録するアイテム"

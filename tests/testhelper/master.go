@@ -139,7 +139,7 @@ func publishCards(ctx context.Context, gameDB *sql.DB) (Master, error) {
 		StarterSets: StarterSets{Published: uuid.New(), Draft: uuid.New(), Retired: uuid.New()},
 	}
 	for _, id := range []uuid.UUID{master.CardA, master.CardB, master.CardC} {
-		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String()})
+		metadata, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: id.String(), Cost: 10, Rarity: "normal", Creature: &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}})
 		if err != nil {
 			return Master{}, err
 		}
@@ -274,17 +274,17 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
 		},
 		Pairs:        []readmodel.BoardPair{},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6, 100, 20),
 		TileCounts:   readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 	}
 	b := readmodel.BoardMetadata{
 		ID: boards.PublishedB, Name: "公開中B", Status: readmodel.BoardStatusPublished, Width: 3, Height: 2,
 		Tiles: []readmodel.BoardTile{
 			{X: 0, Y: 0, Kind: readmodel.BoardTileKindBase},
-			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
+			{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementFire},
 			{X: 2, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
 			{X: 0, Y: 1, Kind: readmodel.BoardTileKindWarp},
-			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeMulti},
+			{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementMulti},
 			{X: 2, Y: 1, Kind: readmodel.BoardTileKindWarp},
 		},
 		Connections: []readmodel.BoardConnection{
@@ -294,7 +294,7 @@ func PublishBoards(ctx context.Context, gameDB *sql.DB) (Boards, error) {
 			{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(1, 1)},
 		},
 		Pairs:        []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}},
-		DefaultRules: readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8),
+		DefaultRules: readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8, 100, 40),
 		TileCounts:   readmodel.NewBoardTileCounts(2, 1, 1, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0),
 	}
 	// 公開中でなければ出ないことだけを確かめるので、中身は A と同じにする
@@ -343,17 +343,31 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 		DeckPublished1: uuid.New(), DeckPublished2: uuid.New(), DeckDraft: uuid.New(), DeckRetired: uuid.New(), DeckUnassigned: uuid.New(),
 		Creature: uuid.New(), Item: uuid.New(), Spell: uuid.New(),
 	}
+	// 性能は種類ごとに変え、写した値がそのカードのものかを確かめられるようにする
 	cards := []struct {
 		id       uuid.UUID
 		cardType readmodel.CardType
 		name     string
+		cost     int
+		rarity   string
 	}{
-		{n.Creature, readmodel.CardTypeCreature, "ゴブリン"},
-		{n.Item, readmodel.CardTypeItem, "あいてむ"},
-		{n.Spell, readmodel.CardTypeSpell, "ファイア"},
+		{n.Creature, readmodel.CardTypeCreature, "ゴブリン", 20, "normal"},
+		{n.Item, readmodel.CardTypeItem, "あいてむ", 30, "strange"},
+		{n.Spell, readmodel.CardTypeSpell, "ファイア", 40, "rare"},
 	}
 	for _, c := range cards {
-		metadata, err := json.Marshal(readmodel.CardMetadata{ID: c.id, Name: c.name, Status: readmodel.CardStatusPublished})
+		cardMetadata := readmodel.CardMetadata{ID: c.id, Name: c.name, Status: readmodel.CardStatusPublished, Cost: c.cost, Rarity: c.rarity}
+		if c.cardType == readmodel.CardTypeCreature {
+			cardMetadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"fire", "wind"}, Attack: 25, HitPoints: 45, ItemRestrictions: []string{"armor", "scroll"}, PlacementRestrictions: []string{"earth", "wind"}, Effects: []readmodel.EffectMetadata{{ForbidInvasion: &readmodel.EmptyEffectMetadata{}}, {ForbidMovement: &readmodel.EmptyEffectMetadata{}}}}
+		}
+		if c.cardType == readmodel.CardTypeItem {
+			cardMetadata.Item = &readmodel.ItemMetadata{Category: "armor", Effects: []readmodel.EffectMetadata{{HitPointsModifier: &readmodel.ValueEffectMetadata{Value: 15}}}}
+		}
+		if c.cardType == readmodel.CardTypeSpell {
+			effect := readmodel.SpellEffectMetadata{DrawCards: &readmodel.SpellDrawCardsMetadata{Count: 2}}
+			cardMetadata.Spell = &readmodel.SpellMetadata{Effect: effect}
+		}
+		metadata, err := json.Marshal(cardMetadata)
 		if err != nil {
 			return NPCAvatars{}, err
 		}

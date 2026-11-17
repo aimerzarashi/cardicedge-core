@@ -1,0 +1,1307 @@
+{
+  "uid": "entry-normal",
+  "title": "入口 · 正常",
+  "description": "開発の環境で、いつもの量と時間を、サービスをまたいで並べる入口（core#111・core#110。行は 4 つのゴールデンシグナルの Traffic・Latency・Saturation と、届いている）",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "diecardomain",
+    "entry"
+  ],
+  "links": [
+    {
+      "title": "ダッシュボード",
+      "type": "dashboards",
+      "tags": [
+        "diecardomain"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "サービス",
+        "type": "custom",
+        "query": "core,core-db,studio,game",
+        "multi": true,
+        "includeAll": true,
+        "allValue": "core|core-db|studio|game",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      },
+      {
+        "name": "env",
+        "label": "環境",
+        "type": "custom",
+        "query": "development,test",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "development",
+          "value": "development"
+        },
+        "options": [],
+        "description": "開発の環境（development）とテスト用の環境（test。make test）のどちらを見るか（core#120）。ハートビートと受け手（Collector）の欄は、この選択によらない"
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "届いている",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "state-timeline",
+      "title": "ハートビート",
+      "description": "決まった間隔で必ず届く信号が、直近 3 分に届いているか。途切れたら、そのサービスが止まっているか、受け手に届いていない。core は指標（60 秒ごと）、studio・game は healthcheck のリクエストのスパン、core-db は受け手が読んでいるログのファイル。動かしていないサービスは途切れたと出る 開発の環境の分だけを見る（テスト用の環境が同じサービス名で送っても、届いているにならない。core#120）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "途切れた",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "届いている",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(count_over_time(target_info{job=\"core\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
+          "legendFormat": "core"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(min(otelcol_fileconsumer_open_files) > bool 0) or vector(0)",
+          "legendFormat": "core-db"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"studio\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
+          "legendFormat": "studio"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(increase(traces_spanmetrics_calls_total{service=\"game\", deployment_environment_name=\"development\"}[3m])) > bool 0) or vector(0)",
+          "legendFormat": "game"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "ログの届いた数",
+      "description": "サービスごとに Loki に届いたログの数。操作したのに伸びなければ、届いていない。core は操作が無いと出さず、core-db は遅い SQL・エラーのときだけ出す",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (service_name) (count_over_time({service_name=~\"$service\", deployment_environment_name=~\"$env\"}[$__auto]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "スパンの届いた数",
+      "description": "サービスごとに Tempo に届いたスパンの数（Tempo が数えた traces_spanmetrics_calls_total）。core-db はスパンを出さない",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service) (increase(traces_spanmetrics_calls_total{deployment_environment_name=~\"$env\", service=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 70,
+      "type": "table",
+      "title": "ページの回数と時間（studio・game）",
+      "description": "studio・game のページごと・HTTP の番号ごとの回数と、時間の 95 パーセンタイル（時間の範囲の中）。多い順。行からそのページのトレースへ移れる。詳しくは詳細 · studio・game",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 16,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ページ"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "このページのトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.service}%5C%22%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%20%26%26%20name%3D%5C%22${__data.fields.span_name:percentencode}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "95%"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.5
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HTTP"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "―"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "回数",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service": "画面",
+              "span_name": "ページ",
+              "Value #A": "回数",
+              "Value #B": "95%",
+              "http_response_status_code": "HTTP"
+            },
+            "indexByName": {
+              "service": 0,
+              "span_name": 1,
+              "http_response_status_code": 2,
+              "Value #A": 3,
+              "Value #B": 4
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service, span_name, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, service, span_name, http_response_status_code) (increase(traces_spanmetrics_latency_bucket{service=~\"studio|game\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", span_name=~\"(RSC )?[A-Z]+ /.*\"}[$__range])))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "links": [
+        {
+          "title": "詳細 · studio・game",
+          "url": "/d/detail-studio-game?${__url_time_range}&${env:queryparam}"
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "type": "table",
+      "title": "HTTP の番号ごとの応答",
+      "description": "studio・game・core が返した HTTP の番号ごとの数（SERVER のスパン。時間の範囲の中）。4xx（ログインが切れた 401、無いページの 404 等）もここで番号ごとに見る（異常の入口は 5xx だけ）。どのページかは左の表",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service, http_response_status_code) (increase(traces_spanmetrics_calls_total{service=~\"studio|game|core\", deployment_environment_name=~\"$env\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code!=\"\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service": "サービス",
+              "http_response_status_code": "HTTP",
+              "Value": "回数"
+            },
+            "indexByName": {
+              "service": 0,
+              "http_response_status_code": 1,
+              "Value": 2
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "HTTP",
+            "desc": false
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 51,
+      "type": "table",
+      "title": "つながりごとの呼び出し",
+      "description": "サービスのあいだの呼び出しの数と失敗の数（Tempo がスパンから作るつながりの指標。時間の範囲の中）。多い順。呼ばれる側の名前から、そのトレースを Tempo で探せる。user は計装していない呼び出し元（ブラウザ・テストの前準備）。つながりの図は欄の上のリンクから（Tempo の Service Graph）。数は時間の範囲の中の増え方で数える（その時点の値で数えると、終わったテストのつながりを見落とす）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "呼ばれる側のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "失敗"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "noValue",
+                "value": "0"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "回数",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "links": [
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "client": "呼ぶ側",
+              "server": "呼ばれる側",
+              "Value #A": "回数",
+              "Value #B": "失敗"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (client, server) (increase(traces_service_graph_request_total{deployment_environment_name=~\"$env\"}[$__range])) > 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (client, server) (increase(traces_service_graph_request_failed_total{deployment_environment_name=~\"$env\"}[$__range]))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "type": "row",
+      "title": "Latency",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 53,
+      "type": "table",
+      "title": "つながりごとの時間",
+      "description": "つながりごとの、呼ばれる側の時間の 95 パーセンタイル（時間の範囲の中）。遅い順。0.5 秒で黄色、1 秒で赤。呼ぶ側の時間（呼ぶ側から見た時間。間の envoy を含む）も並べる",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "呼ばれる側のトレースを Tempo で探す",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22%7Bresource.service.name%3D%5C%22${__data.fields.server:percentencode}%5C%22%20%26%26%20kind%3Dserver%20%26%26%20resource.deployment.environment.name%3D%5C%22${env}%5C%22%7D%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ばれる側の時間（95%）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.5
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "呼ぶ側から見た時間（95%）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "呼ばれる側の時間（95%）",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "links": [
+        {
+          "title": "つながりの図（Tempo の Service Graph）",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22serviceMap%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-1h%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "client": "呼ぶ側",
+              "server": "呼ばれる側",
+              "Value #A": "呼ばれる側の時間（95%）",
+              "Value #B": "呼ぶ側から見た時間（95%）"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_server_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, client, server) (increase(traces_service_graph_request_client_seconds_bucket{deployment_environment_name=~\"$env\"}[$__range])))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "type": "row",
+      "title": "Saturation",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 91,
+      "type": "timeseries",
+      "title": "WSL の CPU と負荷",
+      "description": "WSL 全体の CPU の使用率（1 分の平均）と、負荷（実行を待っているプロセスの数の 1 分の平均。論理 CPU の数を超えると待ちが出る）。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(1 - sum(rate(system_cpu_time_seconds_total{state=\"idle\"}[1m])) / sum(rate(system_cpu_time_seconds_total[1m])))",
+          "legendFormat": "CPU の使用率"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "system_cpu_load_average_1m / scalar(max(system_cpu_logical_count))",
+          "legendFormat": "負荷 ÷ 論理 CPU の数"
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "type": "timeseries",
+      "title": "WSL のメモリとスワップ",
+      "description": "WSL 全体のメモリの使用中・キャッシュの割合と、スワップの使用の割合。キャッシュは足りなくなれば手放されるので、詰まりは使用中とスワップで見る。WSL 全体の値なので、変数「環境」によらず、開発・テスト・ほかのアプリの分がすべて入る",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(system_memory_utilization_ratio{state=\"used\"})",
+          "legendFormat": "使用中"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(system_memory_utilization_ratio{state=~\"cached|buffered\"})",
+          "legendFormat": "キャッシュ"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(system_paging_usage_bytes{state=\"used\"}) / sum(system_paging_usage_bytes))",
+          "legendFormat": "スワップ"
+        }
+      ]
+    },
+    {
+      "id": 93,
+      "type": "timeseries",
+      "title": "CPU を使っているプロセス（上位 8）",
+      "description": "WSL のプロセスの名前ごとの CPU の使用（コアの数。1 で 1 コア分）。同じ名前のプロセスはまとめる（next-server は studio・game の開発のサーバー、postgres は DB の接続ごとのプロセス、chrome・headless_shell はテストのブラウザ）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(8, sum by (process_name) (rate(process_cpu_time_seconds_total[2m])))",
+          "legendFormat": "{{process_name}}"
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "type": "timeseries",
+      "title": "メモリを使っているプロセス（上位 8）",
+      "description": "WSL のプロセスの名前ごとのメモリ（RSS）。同じ名前のプロセスはまとめる",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(8, sum by (process_name) (process_memory_usage_bytes))",
+          "legendFormat": "{{process_name}}"
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "type": "timeseries",
+      "title": "core-db の接続",
+      "description": "開発の core-db の DB ごとの接続の数と、上限（max_connections）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (postgresql_database_name) (postgresql_backends)",
+          "legendFormat": "{{postgresql_database_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(postgresql_connection_max)",
+          "legendFormat": "上限"
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "type": "timeseries",
+      "title": "core のメモリと goroutine",
+      "description": "core の Go のメモリの使用量と goroutine の数（core が 60 秒ごとに送る）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 61,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_instance_id) (go_memory_used_bytes{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "メモリ"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (service_instance_id) (go_goroutine_count{service_name=\"core\", deployment_environment_name=~\"$env\"})",
+          "legendFormat": "goroutine"
+        }
+      ]
+    }
+  ]
+}

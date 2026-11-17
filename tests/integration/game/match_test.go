@@ -3,6 +3,7 @@ package game_test
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -24,11 +25,17 @@ const matchQuery = `query ($id: UUID!) {
 		__typename
 		... on Match {
 			id revision round
-			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax maxHandCards startingHandCards }
+			rules { targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue lapBonusPerTerritory maxHandCards startingHandCards }
 			board { width height tiles { __typename x y } connections { a { x y } b { x y } } pairs { a { x y } } }
-			participants { kind playerId avatar { id name } position { x y } magic hand { id name type } drawPileCount turnOrder passedCheckpoints { x y } rewardReceived rewardCards { id name type } }
+			participants { kind playerId avatar { id name } position { x y } magic totalMagic hand { __typename id name cost rarity } drawPileCount discardPile { __typename id name } lastingSpellEffect { remainingTurns effect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } } turnOrder passedCheckpoints { x y } rewardReceived rewardCards { __typename id name cost rarity } }
 			currentParticipant
-			phase dice remainingSteps pathChoices { x y } outcome { winners ranks reason } rewardPacks { key name }
+			awaitingParticipant
+			invadeChoices
+			itemChoices
+			creatureAsItemChoices
+			invasion { position { x y } card { id name } hitPoints }
+			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } placeChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
+			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
@@ -87,7 +94,7 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	p := newRoomPlayer(t)
 	matchID := startMatch(t, p, 1, nil)
 	// NPC が先の順番なら、NPC のターンが済んでプレイヤーの番になるのを待つ（NPC は対戦が始まるとすぐ動く）
-	found := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["currentParticipant"] == float64(0) })
+	found := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["awaitingParticipant"] == float64(0) })
 	stranger := newPlayerToken(t)
 	registerPlayer(t, stranger)
 	hidden := client.Data(t, stranger, matchQuery, map[string]any{"id": matchID}, "match")
@@ -99,7 +106,7 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(1), found["round"])
 	require.Equal(t, map[string]any{
 		"targetMagic": float64(5000), "startingMagic": float64(300), "lapBonus": float64(200), "checkpointBonus": float64(50),
-		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "maxHandCards": float64(6), "startingHandCards": float64(5),
+		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "baseLandValue": float64(100), "lapBonusPerTerritory": float64(20), "maxHandCards": float64(6), "startingHandCards": float64(5),
 	}, found["rules"])
 	board := found["board"].(map[string]any)
 	require.NotEmpty(t, board["tiles"])
@@ -122,6 +129,9 @@ func TestMatch_StartsFromRoomConditionsAndIsReadableOnlyByParticipants(t *testin
 	require.Equal(t, float64(2), player["drawPileCount"])
 	require.NotEmpty(t, npc["hand"])
 	require.Equal(t, float64(0), npc["drawPileCount"])
+	// 捨て札は、まだ何も使っていないので空。続いているスペルの効果も無い
+	require.Empty(t, player["discardPile"])
+	require.Nil(t, player["lastingSpellEffect"])
 	// 順番は 0 と 1 の並べ替えで、先頭の人の番から始まる
 	require.ElementsMatch(t, []any{float64(0), float64(1)}, []any{player["turnOrder"], npc["turnOrder"]})
 	require.Equal(t, "DRAWING", found["phase"])
@@ -155,7 +165,7 @@ func waitMatch(t *testing.T, token, matchID string, condition func(map[string]an
 func matchOperationQuery(name string) string {
 	upper := strings.ToUpper(name[:1]) + name[1:]
 	validation := ""
-	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" {
+	if name == "discardMatchCard" || name == "chooseMatchPath" || name == "chooseMatchRewardPack" || name == "placeMatchCreature" || name == "relinquishMatchTerritory" || name == "levelUpMatchLand" || name == "exchangeMatchCreature" || name == "changeMatchLandElement" || name == "moveMatchCreature" || name == "invadeMatchTerritory" || name == "attackMatchTerritory" || name == "defendMatchTerritory" || name == "useMatchSpell" || name == "useMatchCreatureAsItem" {
 		validation = "... on ValidationErrors { errors { __typename field ... on FieldOutOfRange { min max } } }"
 	}
 	// 戦利品のパックを選ぶ結果は、番を問わない代わりに、受け取り済みの誤りを持つ
@@ -209,6 +219,54 @@ func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
 		require.NotEmpty(t, choices)
 		input["to"] = choices[0]
 		return matchRevision(t, matchOperation(t, token, "chooseMatchPath", input), "chooseMatchPath")
+	case "PLACING":
+		// 配置できるものがあれば core が出す placeChoices の最初を配置し（そのままターンを終える）、無ければ配置せずにターンを終える
+		if choices := m["placeChoices"].([]any); len(choices) > 0 {
+			input["handIndex"] = choices[0]
+			return matchRevision(t, matchOperation(t, token, "placeMatchCreature", input), "placeMatchCreature")
+		}
+		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
+	case "INVADING":
+		// 出せるものがあれば core が出す invadeChoices の最初で侵略し、無ければ通行料を払う
+		if choices := m["invadeChoices"].([]any); len(choices) > 0 {
+			input["handIndex"] = choices[0]
+			return matchRevision(t, matchOperation(t, token, "invadeMatchTerritory", input), "invadeMatchTerritory")
+		}
+		return matchRevision(t, matchOperation(t, token, "payMatchToll", input), "payMatchToll")
+	case "ATTACKING":
+		require.NotNil(t, m["invasion"])
+		return matchRevision(t, matchOperation(t, token, "attackMatchTerritory", input), "attackMatchTerritory")
+	case "DEFENDING":
+		require.NotNil(t, m["invasion"])
+		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
+	case "TERRITORY_COMMANDING":
+		// 版を 4 で割った余りで移動・属性の変更・交換・レベルアップを分けて、どの操作も通す。選べるものが無ければ何もしない
+		if choices := m["moveChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%4 == 2 {
+			choice := choices[0].(map[string]any)
+			input["from"], input["to"] = choice["from"], choice["to"]
+			return matchRevision(t, matchOperation(t, token, "moveMatchCreature", input), "moveMatchCreature")
+		}
+		if choices := m["elementChangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%3 == 1 {
+			choice := choices[0].(map[string]any)
+			input["position"], input["element"] = choice["position"], choice["element"]
+			return matchRevision(t, matchOperation(t, token, "changeMatchLandElement", input), "changeMatchLandElement")
+		}
+		if choices := m["exchangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%3 == 0 {
+			choice := choices[0].(map[string]any)
+			input["position"], input["handIndex"] = choice["position"], choice["handIndex"]
+			return matchRevision(t, matchOperation(t, token, "exchangeMatchCreature", input), "exchangeMatchCreature")
+		}
+		if choices := m["levelUpChoices"].([]any); len(choices) > 0 {
+			choice := choices[0].(map[string]any)
+			input["position"], input["level"] = choice["position"], choice["level"]
+			return matchRevision(t, matchOperation(t, token, "levelUpMatchLand", input), "levelUpMatchLand")
+		}
+		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
+	case "RELINQUISHING":
+		choices := m["relinquishChoices"].([]any)
+		require.NotEmpty(t, choices)
+		input["position"] = choices[0]
+		return matchRevision(t, matchOperation(t, token, "relinquishMatchTerritory", input), "relinquishMatchTerritory")
 	case "ENDING":
 		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
 	}
@@ -229,14 +287,15 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == playerSeat
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == playerSeat
 		})
 		if m["phase"] == "ENDED" {
 			break
 		}
 		assertOperationsAreRejected(t, p.token, stranger, matchID, m)
 		next := playMatchPhase(t, p.token, matchID, m)
-		if m["phase"] != "ENDING" {
+		// 配置の段階は、配置しても配置しなくてもターンが終わる
+		if m["phase"] != "ENDING" && m["phase"] != "PLACING" {
 			continue
 		}
 		// ターンを終えた直後は NPC の番（上限のラウンドの最後のプレイヤーなら対戦が終わっている）。番でない操作は断られ、何も変わらない。
@@ -253,7 +312,7 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 	var best float64 = -1
 	var expected []any
 	for i, participant := range final["participants"].([]any) {
-		magic := participant.(map[string]any)["magic"].(float64)
+		magic := participant.(map[string]any)["totalMagic"].(float64)
 		switch {
 		case magic > best:
 			best, expected = magic, []any{float64(i)}
@@ -300,6 +359,15 @@ func assertOperationsAreRejected(t *testing.T, token, strangerToken, matchID str
 	} else {
 		require.Equal(t, "MatchPhaseNotAllowedError", invalid["__typename"])
 	}
+	// 見本のデッキにはスペルが無いので、振る段階でも手札の範囲の外になる
+	spell := matchOperation(t, token, "useMatchSpell", map[string]any{"id": matchID, "revision": revision, "handIndex": 99})
+	if m["phase"] == "ROLLING" {
+		require.Equal(t, "ValidationErrors", spell["__typename"])
+		require.Equal(t, []any{map[string]any{"__typename": "FieldOutOfRange", "field": "handIndex", "min": float64(0), "max": float64(len(m["participants"].([]any)[0].(map[string]any)["hand"].([]any)) - 1)}}, spell["errors"])
+		require.Empty(t, m["spellChoices"])
+	} else {
+		require.Equal(t, "MatchPhaseNotAllowedError", spell["__typename"])
+	}
 	// (9,9) は盤面に無く、選べる行き先の中に無い
 	unselectable := matchOperation(t, token, "chooseMatchPath", map[string]any{"id": matchID, "revision": revision, "to": map[string]any{"x": 9, "y": 9}})
 	if m["phase"] == "CHOOSING_PATH" {
@@ -325,22 +393,72 @@ const matchEventsQuery = `query ($id: UUID!, $after: Int!) {
 		... on MatchEventList {
 			events {
 				__typename revision occurredAt
+				changes { phase totalMagics { participant totalMagic } territoryValues { position { x y } value toll level chainCount } }
 				... on MatchTurnOrderDecidedEvent { order }
 				... on MatchHandsDealtEvent { cards }
-				... on MatchCardDrawnEvent { participant card { id name type } }
-				... on MatchCardDiscardedEvent { participant handIndex card { id name type } }
-				... on MatchDiceRolledEvent { participant value }
-				... on MatchMovedEvent { participant to { x y } }
+				... on MatchCardDrawnEvent { participant card { __typename id name cost rarity } }
+				... on MatchCardDiscardedEvent { participant handIndex card { __typename id name cost rarity } }
+				... on MatchDiscardPileShuffledEvent { participant drawPileCount }
+				... on MatchHandLimitExceededEvent { participant handCount maxHandCards }
+				... on MatchSpellUsedEvent { participant handIndex card { id name } cost }
+				... on MatchMagicGainedEvent { participant magic laps magicPerLap }
+				... on MatchSpellEffectStartedEvent { participant target effect { remainingTurns effect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } } }
+				... on MatchSpellEffectEndedEvent { participant }
+				... on MatchSpellCreatureDamagedEvent { participant position { x y } creature damage remainingHitPoints }
+				... on MatchLapCreatureHitPointsRecoveredEvent { participant position { x y } creature card { __typename id name cost rarity } amount hitPoints }
+				... on MatchInvadingCreatureDestroyedEvent { participant card { id name } position { x y } }
+				... on MatchDefendingCreatureDestroyedEvent { participant card { id name } position { x y } }
+				... on MatchBoardCreatureDestroyedEvent { participant card { id name } position { x y } }
+				... on MatchCreaturePlacedEvent { participant handIndex card { __typename id name cost rarity } creature position { x y } cost }
+				... on MatchTollCreatureEffectActivatedEvent { position { x y } percent toll multipliedToll }
+				... on MatchDestructionCreatureEffectActivatedEvent { participant owner card { id name } activatedEffect { kind } }
+				... on MatchCardReturnedToHandEvent { participant owner card { id name } }
+				... on MatchMagicReceivedEvent { participant owner magic }
+				... on MatchTollPaidEvent { participant owner position { x y } magic }
+				... on MatchTerritoryInvadedEvent { participant handIndex card { id name } position { x y } cost defendingCreatureCard { id name } }
+				... on MatchItemUsedEvent { participant handIndex card { id name } cost }
+				... on MatchCreatureUsedAsItemEvent { participant handIndex card { id name } cost }
+				... on MatchItemSkippedEvent { participant }
+				... on MatchLandLeveledUpEvent { participant position { x y } level magic }
+				... on MatchLandElementChangedEvent { participant position { x y } element magic baseLandValue multiplier }
+				... on MatchCreatureMovedEvent { participant from { x y } to { x y } creature }
+				... on MatchTerritoryInvadedByMoveEvent { participant from { x y } position { x y } creature card { id name } defendingCreatureCard { id name } }
+				... on MatchCreatureExchangedEvent { participant position { x y } handIndex card { id name } creature cost returnedCard { id name } }
+				... on MatchBattleStartedEvent { attacker { attack hitPoints } defender { attack hitPoints } }
+				... on MatchBattleSupportEffectActivatedEvent { side positions { x y } bonusPerTerritory change { attackDelta hitPointsDelta attack hitPoints } }
+				... on MatchBattleTerrainEffectActivatedEvent { side element level bonusPerLevel change { attackDelta hitPointsDelta attack hitPoints } }
+				... on MatchBattleCreatureEffectActivatedEvent {
+					side card { id name } change { attackDelta hitPointsDelta attack hitPoints }
+					activatedEffect { ...activatedEffectFields }
+				}
+				... on MatchBattleItemEffectActivatedEvent {
+					side card { id name } change { attackDelta hitPointsDelta attack hitPoints } opponentChange { attackDelta hitPointsDelta attack hitPoints }
+					activatedEffect { ...activatedEffectFields }
+				}
+				... on MatchCreatureStruckEvent { striker damage remainingHitPoints }
+				... on MatchInvasionSucceededEvent { participant position { x y } creature territoryHitPoints }
+				... on MatchInvasionFailedEvent { participant position { x y } card { id name } returnedToHand territoryHitPoints returnedTo { x y } returnedHitPoints }
+				... on MatchTerritoryRelinquishedEvent { participant position { x y } creature magic }
+				... on MatchMagicDepletedEvent { participant magic }
+				... on MatchDiceRolledEvent { participant value dice spellEffect { __typename ... on MultipleDiceSpellEffect { count turns } ... on FixedDiceSpellEffect { value turns } } }
+				... on MatchPieceMovedEvent { participant to { x y } }
 				... on MatchCheckpointPassedEvent { participant checkpoint { x y } magic }
-				... on MatchLapCompletedEvent { participant magic }
+				... on MatchLapCompletedEvent { participant magic lapBonus territoryBonus territoryCount lapBonusPerTerritory }
 				... on MatchTurnEndedEvent { participant }
 				... on MatchEndedEvent { winners ranks reason }
-				... on MatchRewardDrawnEvent { participant pack rewardCards { id name type } }
+				... on MatchRewardDrawnEvent { participant pack rewardCards { __typename id name cost rarity } }
 			}
 		}
 		... on MatchNotFoundError { message }
 		... on PlayerNotRegisteredError { message }
 	}
+}
+
+fragment activatedEffectFields on Effect {
+	__typename kind
+	... on AttackModifierEffect { value } ... on HitPointsModifierEffect { value }
+	... on AttackOverrideEffect { minimum maximum } ... on HitPointsOverrideEffect { minimum maximum }
+	... on AttackMultiplierEffect { percent }
 }`
 
 func matchEvents(t *testing.T, token, matchID string, after int) map[string]any {
@@ -351,7 +469,7 @@ func matchEvents(t *testing.T, token, matchID string, after int) map[string]any 
 // 自分の番まで進める（NPC が先なら、その番が済むのを待つ）
 func waitMyTurn(t *testing.T, token, matchID string) map[string]any {
 	t.Helper()
-	return waitMatch(t, token, matchID, func(m map[string]any) bool { return m["currentParticipant"] == float64(0) })
+	return waitMatch(t, token, matchID, func(m map[string]any) bool { return m["awaitingParticipant"] == float64(0) })
 }
 
 // つないだ直後に今の版が届き、プレイヤーの操作で版が進めばすぐ届き、変わらなくても間隔ごとに届く
@@ -461,7 +579,7 @@ func playUntilEnded(t *testing.T, p roomPlayer, matchID string) map[string]any {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			return m
@@ -514,7 +632,7 @@ func TestMatch_PlayerChoosesRewardPackAfterTheMatchAndReceivesTheCardsInTheColle
 	require.Equal(t, float64(0), drawn["participant"])
 	require.Equal(t, "default", drawn["pack"])
 	require.Len(t, drawn["rewardCards"], wantCards)
-	require.Equal(t, "MatchRewardsCompletedEvent", events[1].(map[string]any)["__typename"])
+	require.Equal(t, "MatchAllRewardsReceivedEvent", events[1].(map[string]any)["__typename"])
 
 	requireCollectionReceived(t, p, matchID, wantCards)
 }
@@ -565,7 +683,7 @@ func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing
 	events := all["events"].([]any)
 	require.GreaterOrEqual(t, len(events), 4)
 	// 始まりの 4 つ（版は 1 から抜けなく続く）
-	for i, name := range []string{"MatchCreatedEvent", "MatchTurnOrderDecidedEvent", "MatchDecksShuffledEvent", "MatchHandsDealtEvent"} {
+	for i, name := range []string{"MatchCreatedEvent", "MatchTurnOrderDecidedEvent", "MatchDrawPilesShuffledEvent", "MatchHandsDealtEvent"} {
 		event := events[i].(map[string]any)
 		require.Equal(t, name, event["__typename"])
 		require.Equal(t, float64(i+1), event["revision"])
@@ -587,19 +705,22 @@ func TestMatchEvents_ReturnsEventsAfterTheRevisionInOrderWithWhoDidIt(t *testing
 	card := event["card"].(map[string]any)
 	require.NotEmpty(t, card["id"])
 	require.NotEmpty(t, card["name"])
-	require.NotEmpty(t, card["type"])
+	require.Equal(t, "CreatureCardInfo", card["__typename"])
+	// 対戦の中のカードは、始めたときの写しの性能
+	require.Equal(t, float64(10), card["cost"])
+	require.Equal(t, "NORMAL", card["rarity"])
 	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
 	require.Empty(t, nothing["events"])
 }
 
 // 山札の並びは見せない（イベントの型が項目を持たないので、読もうとすると問い合わせが検証で断られる）
-func TestMatchEvents_DecksShuffledEventHasNoFieldsToShow(t *testing.T) {
+func TestMatchEvents_DrawPilesShuffledEventHasNoFieldsToShow(t *testing.T) {
 	t.Parallel()
 	token := newPlayerToken(t)
 	registerPlayer(t, token)
 
 	status, body := client.Post(t, token, `query ($id: UUID!) {
-		matchEvents(id: $id, after: 0) { ... on MatchEventList { events { ... on MatchDecksShuffledEvent { drawPiles } } } }
+		matchEvents(id: $id, after: 0) { ... on MatchEventList { events { ... on MatchDrawPilesShuffledEvent { drawPiles } } } }
 	}`, map[string]any{"id": "00000000-0000-4000-8000-000000000000"})
 
 	require.Equal(t, 422, status)
@@ -614,7 +735,7 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 	for step := 0; ; step++ {
 		require.Less(t, step, 300)
 		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
-			return m["phase"] == "ENDED" || m["currentParticipant"] == float64(0)
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
 		})
 		if m["phase"] == "ENDED" {
 			break
@@ -639,4 +760,332 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 	require.Equal(t, "MatchEndedEvent", last["__typename"])
 	require.Equal(t, "ROUND_LIMIT", last["reason"])
 	require.Len(t, last["ranks"], 2)
+}
+
+// 空いている土地に止まると配置の段階になり、配置したクリーチャーが領地になる（プレイヤーは GraphQL の操作で、NPC はポリシーで配置する）。
+// 止まる場所はサイコロしだいなので、最後まで進めてから、配置のイベントと盤面の領地が一致することを確かめる
+// 画面がイベントの再生で最後に出す値が、match の今の状態とずれない
+func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	// 領地ができるように、土地が 2 つある公開中B を選ぶ
+	boards, err := meBoards(t, p.token)
+	require.NoError(t, err)
+	for _, raw := range boards {
+		if found := raw.(map[string]any); found["name"] == "公開中B" {
+			p.board = map[string]any{"id": found["id"], "name": found["name"]}
+		}
+	}
+	require.Equal(t, "公開中B", p.board["name"])
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 5 })
+	for step := 0; ; step++ {
+		require.Less(t, step, 200)
+		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
+		})
+		if m["phase"] == "ENDED" {
+			break
+		}
+		playMatchPhase(t, p.token, matchID, m)
+	}
+
+	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+	var phase any
+	totals := map[any]any{}
+	values := map[string]map[string]any{}
+	key := func(position any) string {
+		at := position.(map[string]any)
+		return fmt.Sprint(at["x"], ",", at["y"])
+	}
+	// 領地が無くなった位置は changes に出ないので、イベントの事実から消す（移動で侵略した元の領地は、奪っても倒れても空く）
+	var movedFrom any
+	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
+		event := raw.(map[string]any)
+		if event["revision"].(float64) > final["revision"].(float64) {
+			break
+		}
+		switch event["__typename"] {
+		case "MatchTerritoryRelinquishedEvent":
+			delete(values, key(event["position"]))
+		case "MatchInvadingCreatureDestroyedEvent":
+			// 侵略したクリーチャーは戦場の領地にいないので、移動で侵略していたら元の領地が空く
+			if movedFrom != nil {
+				delete(values, key(movedFrom))
+			}
+		case "MatchDefendingCreatureDestroyedEvent", "MatchBoardCreatureDestroyedEvent":
+			delete(values, key(event["position"]))
+		case "MatchCreatureMovedEvent":
+			delete(values, key(event["from"]))
+		case "MatchTerritoryInvadedByMoveEvent":
+			movedFrom = event["from"]
+		case "MatchInvasionSucceededEvent":
+			if movedFrom != nil {
+				delete(values, key(movedFrom))
+			}
+			movedFrom = nil
+		case "MatchInvasionFailedEvent":
+			movedFrom = nil
+		}
+		changes := event["changes"].(map[string]any)
+		phase = changes["phase"]
+		for _, changed := range changes["totalMagics"].([]any) {
+			totals[changed.(map[string]any)["participant"]] = changed.(map[string]any)["totalMagic"]
+		}
+		for _, changed := range changes["territoryValues"].([]any) {
+			territory := changed.(map[string]any)
+			values[key(territory["position"])] = territory
+		}
+	}
+
+	require.Equal(t, final["phase"], phase)
+	for i, raw := range final["participants"].([]any) {
+		require.Equal(t, raw.(map[string]any)["totalMagic"], totals[float64(i)])
+	}
+	require.NotEmpty(t, final["territories"])
+	require.Len(t, values, len(final["territories"].([]any)))
+	for _, raw := range final["territories"].([]any) {
+		territory := raw.(map[string]any)
+		found := values[key(territory["position"])]
+		require.Equal(t, territory["value"], found["value"])
+		require.Equal(t, territory["toll"], found["toll"])
+		require.Equal(t, territory["level"], found["level"])
+		require.GreaterOrEqual(t, found["chainCount"], float64(1))
+	}
+}
+
+func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	// 見本の部屋のボード（公開中A）には土地が無いので、土地が 2 つある公開中B を選ぶ
+	boards, err := meBoards(t, p.token)
+	require.NoError(t, err)
+	for _, raw := range boards {
+		if found := raw.(map[string]any); found["name"] == "公開中B" {
+			p.board = map[string]any{"id": found["id"], "name": found["name"]}
+		}
+	}
+	require.Equal(t, "公開中B", p.board["name"])
+	matchID := startMatch(t, p, 1, func(rules map[string]any) { rules["roundLimit"] = 10 })
+	for step := 0; ; step++ {
+		require.Less(t, step, 300)
+		m := waitMatch(t, p.token, matchID, func(m map[string]any) bool {
+			return m["phase"] == "ENDED" || m["awaitingParticipant"] == float64(0)
+		})
+		if m["phase"] == "ENDED" {
+			break
+		}
+		if m["phase"] == "PLACING" {
+			// 手札の範囲の外は入力の誤りで、何も変わらない
+			hand := m["participants"].([]any)[0].(map[string]any)["hand"].([]any)
+			invalid := matchOperation(t, p.token, "placeMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 99})
+			require.Equal(t, "ValidationErrors", invalid["__typename"])
+			require.Equal(t, []any{map[string]any{"__typename": "FieldOutOfRange", "field": "handIndex", "min": float64(0), "max": float64(len(hand) - 1)}}, invalid["errors"])
+		} else {
+			// 配置の段階でなければ、配置できない
+			wrong := matchOperation(t, p.token, "placeMatchCreature", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
+		}
+		if m["phase"] != "RELINQUISHING" {
+			// 手放す段階でなければ、手放せない
+			wrong := matchOperation(t, p.token, "relinquishMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "position": map[string]any{"x": 0, "y": 0}})
+			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
+		}
+		playMatchPhase(t, p.token, matchID, m)
+	}
+
+	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+	territories := map[string]map[string]any{}
+	for _, raw := range final["territories"].([]any) {
+		territory := raw.(map[string]any)
+		position := territory["position"].(map[string]any)
+		territories[fmt.Sprint(position["x"], ",", position["y"])] = territory
+	}
+	totals := map[any]float64{}
+	for _, territory := range territories {
+		value := territory["value"].(float64)
+		// 領地コマンドでレベルを上げられるので、1 とは限らない
+		require.GreaterOrEqual(t, territory["level"], float64(1))
+		require.GreaterOrEqual(t, value, float64(100))
+		require.Equal(t, float64(int(value)*60/100), territory["toll"])
+		require.Equal(t, float64(int(value)*80/100), territory["relinquishMagic"])
+		totals[territory["owner"]] += value
+	}
+	for i, raw := range final["participants"].([]any) {
+		participant := raw.(map[string]any)
+		require.Equal(t, participant["magic"].(float64)+totals[float64(i)], participant["totalMagic"])
+	}
+	// イベントを順に当てて、領地ごとの持ち主・クリーチャー・カードを作る（奪われた領地は最後に奪った人のもの）
+	type expectedTerritory struct{ owner, creature, card any }
+	expected := map[string]expectedTerritory{}
+	key := func(position any) string {
+		at := position.(map[string]any)
+		return fmt.Sprint(at["x"], ",", at["y"])
+	}
+	var invadingCard any
+	var lastCreature float64
+	var movingFrom any
+	for _, raw := range matchEvents(t, p.token, matchID, 0)["events"].([]any) {
+		event := raw.(map[string]any)
+		switch event["__typename"] {
+		case "MatchCreaturePlacedEvent":
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
+			// 盤面から外れたクリーチャーの ID も使い回さない
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchCreatureExchangedEvent":
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], event["card"].(map[string]any)["id"]}
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchCreatureMovedEvent":
+			expected[key(event["to"])] = expected[key(event["from"])]
+			delete(expected, key(event["from"]))
+		case "MatchTerritoryInvadedEvent":
+			invadingCard, movingFrom = event["card"].(map[string]any)["id"], nil
+			require.Equal(t, expected[key(event["position"])].card, event["defendingCreatureCard"].(map[string]any)["id"])
+		case "MatchTerritoryInvadedByMoveEvent":
+			movingFrom = event["from"]
+			require.Equal(t, expected[key(event["position"])].card, event["defendingCreatureCard"].(map[string]any)["id"])
+			require.Equal(t, expected[key(event["from"])].creature, event["creature"])
+			require.Equal(t, expected[key(event["from"])].card, event["card"].(map[string]any)["id"])
+		case "MatchInvasionSucceededEvent":
+			if movingFrom != nil {
+				// 動いたクリーチャーは同じ ID のまま移り、元の土地は空き地になる
+				expected[key(event["position"])] = expected[key(movingFrom)]
+				delete(expected, key(movingFrom))
+				movingFrom = nil
+				break
+			}
+			expected[key(event["position"])] = expectedTerritory{event["participant"], event["creature"], invadingCard}
+			require.Equal(t, lastCreature+1, event["creature"])
+			lastCreature = event["creature"].(float64)
+		case "MatchInvasionFailedEvent":
+			movingFrom = nil
+		case "MatchInvadingCreatureDestroyedEvent":
+			// 侵略したクリーチャーは戦場の領地にいないので、移動で侵略していたら元の領地が空く（core#181）
+			if movingFrom != nil {
+				require.Equal(t, expected[key(movingFrom)].card, event["card"].(map[string]any)["id"])
+				delete(expected, key(movingFrom))
+				break
+			}
+			require.Equal(t, invadingCard, event["card"].(map[string]any)["id"])
+		case "MatchDefendingCreatureDestroyedEvent", "MatchBoardCreatureDestroyedEvent":
+			require.Equal(t, expected[key(event["position"])].card, event["card"].(map[string]any)["id"])
+			delete(expected, key(event["position"]))
+		case "MatchTerritoryRelinquishedEvent":
+			delete(expected, key(event["position"]))
+		case "MatchBattleSupportEffectActivatedEvent", "MatchBattleTerrainEffectActivatedEvent", "MatchBattleCreatureEffectActivatedEvent", "MatchBattleItemEffectActivatedEvent":
+			requireStatDeltaMatchesBasis(t, event)
+		case "MatchLandElementChangedEvent":
+			require.Equal(t, event["baseLandValue"].(float64)*event["multiplier"].(float64), event["magic"])
+		case "MatchMagicGainedEvent":
+			require.Equal(t, (event["laps"].(float64)+1)*event["magicPerLap"].(float64), event["magic"])
+		case "MatchHandLimitExceededEvent":
+			require.Greater(t, event["handCount"], event["maxHandCards"])
+		case "MatchLapCreatureHitPointsRecoveredEvent":
+			// 周回回復で回復するのは周回を終えた人の領地のクリーチャーで、位置とカードは直前の領地から引く（core#114）
+			territory := expected[key(event["position"])]
+			require.Equal(t, event["participant"], territory.owner)
+			require.Equal(t, event["creature"], territory.creature)
+			require.Equal(t, territory.card, event["card"].(map[string]any)["id"])
+			require.Positive(t, event["amount"])
+			require.GreaterOrEqual(t, event["hitPoints"], event["amount"])
+		case "MatchLapCompletedEvent":
+			// 内訳は、周回を終えたときの自分の領地の数から作る（core#170）
+			owned := 0
+			for _, territory := range expected {
+				if territory.owner == event["participant"] {
+					owned++
+				}
+			}
+			require.Equal(t, float64(owned), event["territoryCount"])
+			require.Equal(t, event["territoryCount"].(float64)*event["lapBonusPerTerritory"].(float64), event["territoryBonus"])
+			require.Equal(t, event["lapBonus"].(float64)+event["territoryBonus"].(float64), event["magic"])
+		}
+	}
+	// 土地が 2 つあるボードで 10 ラウンド進めるので、誰かが配置している
+	require.Positive(t, lastCreature)
+	require.Len(t, territories, len(expected))
+	for position, want := range expected {
+		territory, ok := territories[position]
+		require.True(t, ok)
+		creature := territory["creature"].(map[string]any)
+		card := creature["card"].(map[string]any)
+		require.Equal(t, want.owner, territory["owner"])
+		require.Equal(t, want.creature, creature["id"])
+		require.Equal(t, want.card, card["id"])
+		// 戦闘の傷は残るので、カードの体力以下
+		require.LessOrEqual(t, creature["hitPoints"], card["hitPoints"])
+	}
+}
+
+// 侵略の操作は、侵略を選ぶ段階・守る段階の外では断られる
+func TestMatch_InvasionOperationsAreRejectedOutsideTheirPhases(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID := startMatch(t, p, 1, nil)
+	m := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "DRAWING" && m["awaitingParticipant"] == float64(0) })
+	input := map[string]any{"id": matchID, "revision": m["revision"]}
+
+	invade := matchOperation(t, p.token, "invadeMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+	attack := matchOperation(t, p.token, "attackMatchTerritory", input)
+	toll := matchOperation(t, p.token, "payMatchToll", input)
+	defend := matchOperation(t, p.token, "defendMatchTerritory", input)
+	creatureAsItem := matchOperation(t, p.token, "useMatchCreatureAsItem", map[string]any{"id": matchID, "revision": m["revision"], "handIndex": 0})
+
+	require.Equal(t, "MatchPhaseNotAllowedError", invade["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", creatureAsItem["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", attack["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", toll["__typename"])
+	require.Equal(t, "MatchPhaseNotAllowedError", defend["__typename"])
+	require.Empty(t, m["invadeChoices"])
+	require.Empty(t, m["itemChoices"])
+	require.Empty(t, m["creatureAsItemChoices"])
+	require.Nil(t, m["invasion"])
+}
+
+// 増減が出どころの根拠から説明できる（下限の 0 で止まったときは、根拠の値より小さくなる）
+// 発動のイベントの増減が、添えた根拠の値から決まる量と合う（AT・HP を変えない能力は増減を持たない）
+func requireStatDeltaMatchesBasis(t *testing.T, event map[string]any) {
+	t.Helper()
+	change, ok := event["change"].(map[string]any)
+	if !ok {
+		return
+	}
+	attackDelta, hitPointsDelta := change["attackDelta"].(float64), change["hitPointsDelta"].(float64)
+	switch event["__typename"] {
+	case "MatchBattleSupportEffectActivatedEvent":
+		require.Equal(t, float64(len(event["positions"].([]any)))*event["bonusPerTerritory"].(float64), attackDelta)
+	case "MatchBattleTerrainEffectActivatedEvent":
+		require.Equal(t, event["level"].(float64)*event["bonusPerLevel"].(float64), hitPointsDelta)
+	case "MatchBattleCreatureEffectActivatedEvent", "MatchBattleItemEffectActivatedEvent":
+		// クリーチャーとアイテムで同じ効果の型を共有する（core#178）
+		effect := event["activatedEffect"].(map[string]any)
+		switch effect["__typename"] {
+		case "AttackModifierEffect":
+			requireDeltaWithinModifier(t, map[string]any{"attackModifier": effect["value"], "hitPointsModifier": float64(0)}, attackDelta, hitPointsDelta)
+		case "HitPointsModifierEffect":
+			requireDeltaWithinModifier(t, map[string]any{"attackModifier": float64(0), "hitPointsModifier": effect["value"]}, attackDelta, hitPointsDelta)
+		case "AttackOverrideEffect":
+			require.GreaterOrEqual(t, change["attack"], effect["minimum"])
+			require.LessOrEqual(t, change["attack"], effect["maximum"])
+		case "HitPointsOverrideEffect":
+			require.GreaterOrEqual(t, change["hitPoints"], effect["minimum"])
+			require.LessOrEqual(t, change["hitPoints"], effect["maximum"])
+		case "AttackMultiplierEffect":
+			before := change["attack"].(float64) - attackDelta
+			require.Equal(t, math.Floor(before*effect["percent"].(float64)/100), change["attack"])
+		}
+	}
+}
+
+func requireDeltaWithinModifier(t *testing.T, basis map[string]any, attackDelta, hitPointsDelta float64) {
+	t.Helper()
+	require.LessOrEqual(t, math.Abs(attackDelta), math.Abs(basis["attackModifier"].(float64)))
+	require.LessOrEqual(t, math.Abs(hitPointsDelta), math.Abs(basis["hitPointsModifier"].(float64)))
+	if basis["attackModifier"].(float64) >= 0 {
+		require.Equal(t, basis["attackModifier"], attackDelta)
+	}
+	if basis["hitPointsModifier"].(float64) >= 0 {
+		require.Equal(t, basis["hitPointsModifier"], hitPointsDelta)
+	}
 }

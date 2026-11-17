@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -28,6 +29,55 @@ type RetireCommand struct {
 	RetiredBy operator.ID
 }
 
-func (*RegisterCommand) isCreatureCommand() {}
-func (*PublishCommand) isCreatureCommand()  {}
-func (*RetireCommand) isCreatureCommand()   {}
+// コストを変える（準備中だけ）。同じ値なら何も変えない
+type ChangeCostCommand struct {
+	Cost      card.Cost
+	ChangedBy operator.ID
+}
+
+// 希少度を変える（準備中だけ）。同じ値なら何も変えない
+type ChangeRarityCommand struct {
+	Rarity    card.Rarity
+	ChangedBy operator.ID
+}
+
+// 属性を変える（準備中だけ）。同じ集合なら何も変えない
+type ChangeElementsCommand struct {
+	Elements  Elements
+	ChangedBy operator.ID
+}
+
+// 攻撃力と体力を変える（準備中だけ）。どちらも同じ値なら何も変えない。画面で 2 つを並べて直すため、1 つの操作にまとめる
+type ChangeStatsCommand struct {
+	Attack    Attack
+	HitPoints HitPoints
+	ChangedBy operator.ID
+}
+
+// 効果の並びを変える（準備中だけ。変えた後の並びの全体）。持てない効果は ErrEffectNotAllowed、先に攻撃すると後に攻撃するを一緒に持つのは
+// ErrEffectsConflicted。同じ並びなら何も変えない
+type ChangeEffectsCommand struct {
+	Effects   effect.Effects
+	ChangedBy operator.ID
+}
+
+type ChangeItemRestrictionsCommand struct {
+	ItemRestrictions ItemRestrictions
+	ChangedBy        operator.ID
+}
+
+type ChangePlacementRestrictionsCommand struct {
+	PlacementRestrictions PlacementRestrictions
+	ChangedBy             operator.ID
+}
+
+func (*RegisterCommand) isCreatureCommand()                    {}
+func (*PublishCommand) isCreatureCommand()                     {}
+func (*RetireCommand) isCreatureCommand()                      {}
+func (*ChangeCostCommand) isCreatureCommand()                  {}
+func (*ChangeRarityCommand) isCreatureCommand()                {}
+func (*ChangeElementsCommand) isCreatureCommand()              {}
+func (*ChangeStatsCommand) isCreatureCommand()                 {}
+func (*ChangeEffectsCommand) isCreatureCommand()               {}
+func (*ChangeItemRestrictionsCommand) isCreatureCommand()      {}
+func (*ChangePlacementRestrictionsCommand) isCreatureCommand() {}

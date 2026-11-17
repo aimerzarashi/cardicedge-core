@@ -83,14 +83,14 @@ func TestDeckReader_ListsOwnDecksInRegistrationOrderWithCardsInTypeThenNameOrder
 
 	require.Equal(t, []query.Deck{
 		{ID: olderPublicID, Name: "先", Cards: []query.DeckCard{
-			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 3},
-			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Count: 4},
-			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Count: 2},
-			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Count: 1},
+			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
+			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 4},
+			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 2},
+			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 		}},
-		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 4}}},
+		{ID: newerPublicID, Name: "後", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 4}}},
 	}, got)
-	require.Equal(t, []query.Deck{{ID: othersPublicID, Name: "他", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 1}}}}, gotOther)
+	require.Equal(t, []query.Deck{{ID: othersPublicID, Name: "他", Cards: []query.DeckCard{{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 1}}}}, gotOther)
 }
 
 func TestDeckReader_GetReturnsOwnDeckWithCardsInTypeThenNameOrder(t *testing.T) {
@@ -108,8 +108,8 @@ func TestDeckReader_GetReturnsOwnDeckWithCardsInTypeThenNameOrder(t *testing.T) 
 
 	require.NoError(t, err)
 	require.Equal(t, query.Deck{ID: deckPublicID, Name: "火", Cards: []query.DeckCard{
-		{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 3},
-		{CardID: spell, Name: "a", Type: query.CardTypeSpell, Count: 1},
+		{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
+		{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 	}}, got)
 }
 

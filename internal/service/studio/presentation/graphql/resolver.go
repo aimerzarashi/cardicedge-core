@@ -10,25 +10,36 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
 )
 
-// 実装は command.CreatureHandler
+// 実装は command.CreatureHandler。登録のほかに、クリーチャーだけが持つ性能（属性・攻撃力・体力）の変更を持つ
+// （3 種類に共通の操作は CardCommandHandler が振り分ける）
 type CreatureRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredCreature, error)
+	ChangeElements(ctx context.Context, id uuid.UUID, revision int64, elements []string) (command.ChangedCard, error)
+	ChangeStats(ctx context.Context, id uuid.UUID, revision int64, attack, hitPoints int) (command.ChangedCard, error)
+	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.Effect) (command.ChangedCard, error)
+	ChangeItemRestrictions(ctx context.Context, id uuid.UUID, revision int64, itemRestrictions []string) (command.ChangedCard, error)
+	ChangePlacementRestrictions(ctx context.Context, id uuid.UUID, revision int64, placementRestrictions []string) (command.ChangedCard, error)
 }
 
 // 実装は command.ItemHandler
 type ItemRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredItem, error)
+	ChangeCategory(ctx context.Context, id uuid.UUID, revision int64, category string) (command.ChangedCard, error)
+	ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []command.Effect) (command.ChangedCard, error)
 }
 
 // 実装は command.SpellHandler
 type SpellRegistrar interface {
 	Register(ctx context.Context, name string) (command.RegisteredSpell, error)
+	ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect command.SpellEffect) (command.ChangedCard, error)
 }
 
 // 実装は command.CardHandler
-type CardStatusHandler interface {
+type CardCommandHandler interface {
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedCard, error)
 	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedCard, error)
+	ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (command.ChangedCard, error)
+	ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (command.ChangedCard, error)
 }
 
 // 実装は command.PresetDeckHandler
@@ -151,7 +162,7 @@ type Resolver struct {
 	creatures      CreatureRegistrar
 	items          ItemRegistrar
 	spells         SpellRegistrar
-	cardStatuses   CardStatusHandler
+	cardCommands   CardCommandHandler
 	presetDecks    PresetDeckHandler
 	cards          CardLister
 	presetDeckList PresetDeckLister
@@ -173,7 +184,7 @@ func NewResolver(
 	creatures CreatureRegistrar,
 	items ItemRegistrar,
 	spells SpellRegistrar,
-	cardStatuses CardStatusHandler,
+	cardCommands CardCommandHandler,
 	presetDecks PresetDeckHandler,
 	cards CardLister,
 	presetDeckList PresetDeckLister,
@@ -191,7 +202,7 @@ func NewResolver(
 	starterSetList StarterSetLister,
 ) *Resolver {
 	return &Resolver{
-		creatures: creatures, items: items, spells: spells, cardStatuses: cardStatuses, presetDecks: presetDecks,
+		creatures: creatures, items: items, spells: spells, cardCommands: cardCommands, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, grantDecks: grantDecks, grantDeckList: grantDeckList,
 		boards: boards, boardList: boardList, studioRules: studioRules, gameRules: gameRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
 		npcDecks: npcDecks, npcDeckList: npcDeckList, starterSets: starterSets, starterSetList: starterSetList,

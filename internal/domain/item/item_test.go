@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect/effecttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item/itemtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
@@ -62,6 +65,10 @@ func TestDecide_RegisterEmitsRegisteredEvent(t *testing.T) {
 		EventMeta:    item.EventMeta{EntityID: f.id, AggregateVersion: 1, OccurredAt: registeredAt},
 		PublicID:     publicID,
 		Name:         f.name,
+		Cost:         card.DefaultCost,
+		Rarity:       card.DefaultRarity,
+		Category:     item.DefaultCategory,
+		Effects:      effect.DefaultEffects(),
 		RegisteredBy: f.registeredBy,
 	}, event)
 }
@@ -76,12 +83,14 @@ func TestDecide_RejectsRegisterWhenAlreadyRegistered(t *testing.T) {
 }
 
 func TestEvolve_RegisteredEventMakesItem(t *testing.T) {
+	noEffects := effect.DefaultEffects()
 	f := newFixture(t)
 
 	registered, _ := f.register(t)
 
 	require.Equal(t, item.Item{
 		ID: f.id, Version: 1, PublicID: publicID, Status: card.StatusDraft,
+		Cost: card.DefaultCost, Rarity: card.DefaultRarity, Category: item.DefaultCategory, Effects: noEffects,
 	}, registered)
 }
 
@@ -101,6 +110,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 	state, _ := f.register(t)
 	_, published := f.publish(t, state)
 	_, retired := f.retire(t, f.publishedState(t))
+	_, costChanged := f.decide(t, state, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	_, rarityChanged := f.decide(t, state, &item.ChangeRarityCommand{Rarity: card.RarityStrange, ChangedBy: f.registeredBy})
+	_, categoryChanged := f.decide(t, state, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy})
+	_, effectsChanged := f.decide(t, state, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(30)), effecttest.AttackMultiplier(t, 150, "water")), ChangedBy: f.registeredBy})
 	tests := []struct {
 		name  string
 		event item.Event
@@ -108,6 +121,10 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		{name: "registered", event: registered},
 		{name: "published", event: published},
 		{name: "retired", event: retired},
+		{name: "cost_changed", event: costChanged[0]},
+		{name: "rarity_changed", event: rarityChanged[0]},
+		{name: "category_changed", event: categoryChanged[0]},
+		{name: "effects_changed", event: effectsChanged[0]},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -254,6 +271,173 @@ func TestDecide_RejectsStatusCommandsBeforeRegistered(t *testing.T) {
 			_, err := item.Decide(item.InitialState(), tt.cmd, changedAt)
 
 			require.ErrorIs(t, err, item.ErrInvalidState)
+		})
+	}
+}
+
+func TestDecide_SpecChangesEmitChangedEventsWhenDraft(t *testing.T) {
+	noEffects := effect.DefaultEffects()
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	afterCost, costEvents := f.decide(t, registered, &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30), ChangedBy: f.registeredBy})
+	afterRarity, rarityEvents := f.decide(t, afterCost, &item.ChangeRarityCommand{Rarity: card.RarityRare, ChangedBy: f.registeredBy})
+
+	require.Equal(t, []item.Event{&item.CostChangedEvent{
+		EventMeta: item.EventMeta{EntityID: f.id, AggregateVersion: 2, OccurredAt: changedAt},
+		Cost:      cardtest.Cost(t, 30),
+		ChangedBy: f.registeredBy,
+	}}, costEvents)
+	require.Equal(t, []item.Event{&item.RarityChangedEvent{
+		EventMeta: item.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Rarity:    card.RarityRare,
+		ChangedBy: f.registeredBy,
+	}}, rarityEvents)
+	require.Equal(t, item.Item{
+		ID: f.id, Version: 3, PublicID: publicID, Status: card.StatusDraft,
+		Cost: cardtest.Cost(t, 30), Rarity: card.RarityRare, Category: item.DefaultCategory, Effects: noEffects,
+	}, afterRarity)
+}
+
+// 同じ値への変更は、イベントを作らない（版を進めず、画面の版を古くしないため）
+func TestDecide_SpecChangesEmitNothingWhenUnchanged(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  item.Command
+	}{
+		{name: "same_cost", cmd: &item.ChangeCostCommand{Cost: card.DefaultCost}},
+		{name: "same_rarity", cmd: &item.ChangeRarityCommand{Rarity: card.DefaultRarity}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			registered, _ := f.register(t)
+
+			events, err := item.Decide(registered, tt.cmd, changedAt)
+
+			require.NoError(t, err)
+			require.Empty(t, events)
+		})
+	}
+}
+
+// 公開中・使用不可の性能は変えられない（デッキに入れた・game に写した性能が途中で変わるため）
+func TestDecide_RejectsSpecChangesWhenNotDraft(t *testing.T) {
+	tests := []struct {
+		name  string
+		state func(t *testing.T, f fixture) item.State
+		cmd   item.Command
+	}{
+		{name: "cost_published", state: func(t *testing.T, f fixture) item.State { return f.publishedState(t) }, cmd: &item.ChangeCostCommand{Cost: cardtest.Cost(t, 30)}},
+		{name: "rarity_retired", state: func(t *testing.T, f fixture) item.State { return f.retiredState(t) }, cmd: &item.ChangeRarityCommand{Rarity: card.RarityRare}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+
+			_, err := item.Decide(tt.state(t, f), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, card.ErrNotDraft)
+		})
+	}
+}
+
+func TestDecide_RejectsSpecChangesBeforeRegistered(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  item.Command
+	}{
+		{name: "cost", cmd: &item.ChangeCostCommand{}},
+		{name: "rarity", cmd: &item.ChangeRarityCommand{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := item.Decide(item.InitialState(), tt.cmd, changedAt)
+
+			require.ErrorIs(t, err, item.ErrInvalidState)
+		})
+	}
+}
+
+func TestDecide_RegisterGivesTheDefaultCategoryAndNoEffects(t *testing.T) {
+	state, _ := newFixture(t).register(t)
+	registered := state.(item.Item)
+
+	require.Equal(t, card.ItemCategoryWeapon, registered.Category)
+	require.Equal(t, effect.DefaultEffects(), registered.Effects)
+}
+
+func TestDecide_CategoryAndEffectsChangeWhileDraft(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+	effects := effecttest.Effects(t, effecttest.AttackOverride(t, 30), effect.NewIgnoreTerrainEffect(), effecttest.AttackMultiplier(t, 150, "fire"))
+
+	categorized, _ := f.decide(t, registered, &item.ChangeCategoryCommand{Category: card.ItemCategoryScroll, ChangedBy: f.registeredBy})
+	state, _ := f.decide(t, categorized, &item.ChangeEffectsCommand{Effects: effects, ChangedBy: f.registeredBy})
+	changed := state.(item.Item)
+
+	require.Equal(t, card.ItemCategoryScroll, changed.Category)
+	require.True(t, effects.Equal(changed.Effects))
+	require.Equal(t, int64(3), changed.Version)
+}
+
+func TestDecide_CategoryAndEffectsEmitNothingWhenUnchanged(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	_, categoryEvents := f.decide(t, registered, &item.ChangeCategoryCommand{Category: item.DefaultCategory, ChangedBy: f.registeredBy})
+	_, effectEvents := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t), ChangedBy: f.registeredBy})
+
+	require.Empty(t, categoryEvents)
+	require.Empty(t, effectEvents)
+}
+
+func TestDecide_RejectsCategoryAndEffectsWhenNotDraft(t *testing.T) {
+	f := newFixture(t)
+	published := f.publishedState(t)
+
+	_, categoryErr := item.Decide(published, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy}, changedAt)
+	_, effectsErr := item.Decide(published, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(5))), ChangedBy: f.registeredBy}, changedAt)
+
+	require.ErrorIs(t, categoryErr, card.ErrNotDraft)
+	require.ErrorIs(t, effectsErr, card.ErrNotDraft)
+}
+
+func TestDecide_RejectsEffectsTheCategoryDoesNotAllow(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+
+	_, err := item.Decide(registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewHitPointsModifierEffect(effect.NewHitPointsModifier(10))), ChangedBy: f.registeredBy}, changedAt)
+
+	require.ErrorIs(t, err, item.ErrEffectNotAllowed)
+}
+
+func TestDecide_RejectsCategoryThatDoesNotAllowTheCurrentEffects(t *testing.T) {
+	f := newFixture(t)
+	registered, _ := f.register(t)
+	withEffects, _ := f.decide(t, registered, &item.ChangeEffectsCommand{Effects: effecttest.Effects(t, effect.NewAttackModifierEffect(effect.NewAttackModifier(10))), ChangedBy: f.registeredBy})
+
+	_, err := item.Decide(withEffects, &item.ChangeCategoryCommand{Category: card.ItemCategoryArmor, ChangedBy: f.registeredBy}, changedAt)
+
+	require.ErrorIs(t, err, item.ErrEffectNotAllowed)
+}
+
+func TestCategory_AllowsTheEffectKindsOfTheTable(t *testing.T) {
+	tests := []struct {
+		name     string
+		category card.ItemCategory
+		allowed  []effect.Kind
+	}{
+		{name: "weapon", category: card.ItemCategoryWeapon, allowed: []effect.Kind{effect.KindAttackModifier, effect.KindAttackMultiplier}},
+		{name: "armor", category: card.ItemCategoryArmor, allowed: []effect.Kind{effect.KindHitPointsModifier}},
+		{name: "scroll", category: card.ItemCategoryScroll, allowed: []effect.Kind{effect.KindAttackOverride, effect.KindAttackMultiplier, effect.KindIgnoreTerrainEffect}},
+	}
+	kinds := []effect.Kind{effect.KindAttackModifier, effect.KindHitPointsModifier, effect.KindAttackOverride, effect.KindAttackMultiplier, effect.KindIgnoreTerrainEffect}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, kind := range kinds {
+				require.Equal(t, slices.Contains(tt.allowed, kind), item.Allows(tt.category, kind))
+			}
 		})
 	}
 }

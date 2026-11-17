@@ -1,5 +1,13 @@
 {
   "public_id": "11111111-2222-3333-4444-555555555555",
   "name": "ドラゴン",
+  "cost": 10,
+  "rarity": "normal",
+  "elements": ["neutral"],
+  "attack": 10,
+  "hit_points": 10,
+  "item_restrictions": [],
+  "placement_restrictions": [],
+  "effects": [],
   "registered_by": 10
 }

@@ -1,0 +1,872 @@
+{
+  "uid": "detail-core-db",
+  "title": "詳細 · core-db",
+  "description": "開発の環境の core-db を詳しく調べる（core#83・core#106）。行は 4 つのゴールデンシグナルの Errors・Latency・Traffic・Saturation。遅い SQL は 100ms 以上（log_min_duration_statement）で、core が SQL に足した traceparent のコメントから、その SQL を出したリクエストのトレースへ移れる。DB（ログ）で core_studio・core_game・テスト（test_*）を絞り、DB（重い SQL）で pg_stat_statements を読む DB を選ぶ",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "diecardomain",
+    "detail",
+    "core-db"
+  ],
+  "links": [
+    {
+      "title": "ダッシュボード",
+      "type": "dashboards",
+      "tags": [
+        "diecardomain"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "dbname",
+        "label": "DB（ログ）",
+        "type": "custom",
+        "query": "core_studio : core_studio, core_game : core_game, テスト : (test_.*|core_test|core_template)",
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "description": "遅い SQL・実行計画・ERROR のログを、どの DB のもので絞るか。テストはテストごとの DB（test_*）とテンプレート"
+      },
+      {
+        "name": "db",
+        "label": "DB（重い SQL）",
+        "type": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": "/^core-db/",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "description": "重い SQL（pg_stat_statements）を読む DB"
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Errors",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "logs",
+      "title": "ERROR のログ",
+      "description": "core-db の ERROR・FATAL・PANIC のログ（新しい順）。SQL のエラー・接続の失敗など",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "なし（0 件）"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=\"core-db\"} | dbname=~\"$dbname\" | error_severity=~\"ERROR|FATAL|PANIC\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "Latency",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "遅い SQL（SQL の形ごと）",
+      "description": "100ms 以上かかった SQL を、SQL の形（pg_stat_statements の queryid と同じ）ごとにまとめた回数・最大・95 パーセンタイル（時間の範囲の中）。回数が多ければいつも遅い、1 回だけなら一時的。SQL の形の番号から、その SQL の 1 件ずつの遅い SQL・実行計画を Loki で見られる",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SQL の形の番号"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "この SQL の遅い SQL・実行計画を Loki で見る",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core-db%5C%22%7D%20%7C%20query_id%3D%5C%22${__data.fields.query_id}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SQL"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 700
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "回数"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "最大"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "95%"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "最大",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "db": 0,
+              "query_id": 1,
+              "sql_shape": 2,
+              "Value #A": 3,
+              "Value #B": 4,
+              "Value #C": 5
+            },
+            "renameByName": {
+              "db": "DB",
+              "query_id": "SQL の形の番号",
+              "sql_shape": "SQL",
+              "Value #A": "回数",
+              "Value #B": "最大",
+              "Value #C": "95%"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (db, query_id, sql_shape) (count_over_time({service_name=\"core-db\"} | dbname=~\"$dbname\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | plan!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | kind=~\"statement|execute .*\" | label_format db=`{{ if hasPrefix \"test_\" .dbname }}テスト{{ else }}{{ .dbname }}{{ end }}`, sql_shape=`{{ regexReplaceAll \"\\\\s*/\\\\*traceparent=[^*]*\\\\*/\" .sql \"\" | trunc 300 }}` [$__range]))",
+          "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "max by (db, query_id, sql_shape) (max_over_time({service_name=\"core-db\"} | dbname=~\"$dbname\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | plan!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | kind=~\"statement|execute .*\" | label_format db=`{{ if hasPrefix \"test_\" .dbname }}テスト{{ else }}{{ .dbname }}{{ end }}`, sql_shape=`{{ regexReplaceAll \"\\\\s*/\\\\*traceparent=[^*]*\\\\*/\" .sql \"\" | trunc 300 }}` | unwrap duration_ms [$__range]))",
+          "queryType": "instant"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "quantile_over_time(0.95, {service_name=\"core-db\"} | dbname=~\"$dbname\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | plan!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | kind=~\"statement|execute .*\" | label_format db=`{{ if hasPrefix \"test_\" .dbname }}テスト{{ else }}{{ .dbname }}{{ end }}`, sql_shape=`{{ regexReplaceAll \"\\\\s*/\\\\*traceparent=[^*]*\\\\*/\" .sql \"\" | trunc 300 }}` | unwrap duration_ms [$__range]) by (db, query_id, sql_shape)",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "遅い SQL（1 件ずつ）",
+      "description": "100ms 以上かかった SQL の 1 件ずつ（新しい順）。trace_id から、その SQL を出したリクエストのトレースを Tempo で開ける（core が足した traceparent のコメントから。core#106。足す前の SQL と、core 以外（Grafana・道具）の SQL には無い）",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SQL"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 800
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trace_id"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "この SQL を出したリクエストのトレースを Tempo で開く",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22tempo%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22tempo%22%2C%20%22uid%22%3A%20%22tempo%22%7D%2C%20%22queryType%22%3A%20%22traceql%22%2C%20%22query%22%3A%20%22${__value.raw}%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              },
+              {
+                "id": "noValue",
+                "value": "―"
+              },
+              {
+                "id": "custom.width",
+                "value": 290
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "時間"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "時刻",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "Time": true,
+              "duration_ms": true,
+              "dbname": true,
+              "sql": true,
+              "trace_id": true
+            },
+            "indexByName": {
+              "Time": 0,
+              "duration_ms": 1,
+              "dbname": 2,
+              "trace_id": 3,
+              "sql": 4
+            },
+            "renameByName": {
+              "Time": "時刻",
+              "duration_ms": "時間",
+              "dbname": "DB",
+              "sql": "SQL"
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "時間",
+                "destinationType": "number"
+              }
+            ]
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=\"core-db\"} | dbname=~\"$dbname\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | plan!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | kind=~\"statement|execute .*\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "実行計画",
+      "description": "auto_explain の実行計画（遅い SQL と同じ 100ms 以上の SQL。実際の行数・時間つき）。1 行目は時間・DB・SQL の形の番号・trace_id。ログを開くと trace_id からトレースに移れる",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "なし（0 件）"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=\"core-db\"} | dbname=~\"$dbname\" | ps!~\"CREATE DATABASE|DROP DATABASE\" | sql!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | plan!~\"(?is).*(pg_stat_statements|information_schema|pg_catalog).*\" | kind=\"plan\" | line_format `{{.duration_ms}} ms  {{.dbname}}  query_id={{.query_id}}  trace_id={{.trace_id}}\n{{.plan}}`",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "重い SQL（pg_stat_statements）",
+      "description": "上の DB（重い SQL）の DB で、core-db を起動してからの SQL の形ごとの回数・合計・平均・最大（pg_stat_statements の累計）。合計の多い順。テストの DB の作成・削除と、システムの表を読む SQL は外す。SQL の形の番号から、その SQL の遅い SQL・実行計画を Loki で見られる（番号は遅い SQL のログの query_id と同じ）",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${db}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "inspect": true
+          },
+          "noValue": "なし（0 件）"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "queryid"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "SQL の形の番号"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "この SQL の遅い SQL・実行計画を Loki で見る",
+                    "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22loki%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22loki%22%2C%20%22uid%22%3A%20%22loki%22%7D%2C%20%22expr%22%3A%20%22%7Bservice_name%3D%5C%22core-db%5C%22%7D%20%7C%20query_id%3D%5C%22${__data.fields.queryid}%5C%22%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22${__from}%22%2C%20%22to%22%3A%20%22${__to}%22%7D%7D%7D"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "SQL"
+              },
+              {
+                "id": "custom.width",
+                "value": 600
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "calls"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "回数"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rows"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "行数"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_ms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "合計"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mean_ms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "平均"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_ms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "最大"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "合計",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${db}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "-- queryid は文字にする（Grafana が 64 ビットの整数を小数で読み、下の桁が丸まって Loki の query_id と合わなくなるため。core#106）\nSELECT queryid::text AS queryid,\n       left(query, 400) AS query,\n       calls,\n       round(total_exec_time::numeric, 1) AS total_ms,\n       round(mean_exec_time::numeric, 2) AS mean_ms,\n       round(max_exec_time::numeric, 1) AS max_ms,\n       rows\nFROM pg_stat_statements\nWHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())\n  AND query !~* '(pg_stat_statements|information_schema|pg_catalog)'\n  AND query !~* '^\\s*(CREATE|DROP) DATABASE'\nORDER BY total_ms DESC\nLIMIT 200"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Saturation",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "接続",
+      "description": "開発の core-db の DB ごとの接続の数と、上限（max_connections）。上限に届くと、新しい接続を断る（Collector が 15 秒ごとに読む）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (postgresql_database_name) (postgresql_backends)",
+          "legendFormat": "{{postgresql_database_name}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(postgresql_connection_max)",
+          "legendFormat": "上限"
+        }
+      ]
+    }
+  ]
+}

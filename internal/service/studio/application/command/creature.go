@@ -3,6 +3,8 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,10 +35,18 @@ func NewCreatureHandler(
 
 // presentation 層にドメインの型（creature.Creature・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredCreature struct {
-	ID           uuid.UUID
-	Name         string
-	RegisteredAt time.Time
-	UpdatedAt    time.Time
+	ID                    uuid.UUID
+	Name                  string
+	Cost                  int
+	Rarity                string
+	Elements              []string
+	Attack                int
+	HitPoints             int
+	ItemRestrictions      []string
+	PlacementRestrictions []string
+	Effects               []Effect
+	RegisteredAt          time.Time
+	UpdatedAt             time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
 	Revision int64
 }
@@ -86,7 +96,8 @@ func (c *CreatureHandler) Register(ctx context.Context, name string) (Registered
 	}
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredCreature{
-		ID: registered.PublicID, Name: cardName.String(),
+		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
+		Elements: registered.Elements.Strings(), Attack: registered.Attack.Int(), HitPoints: registered.HitPoints.Int(), ItemRestrictions: registered.ItemRestrictions.Strings(), PlacementRestrictions: registered.PlacementRestrictions.Strings(), Effects: effectsOf(registered.Effects),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -98,7 +109,7 @@ func (c *CreatureHandler) Publish(ctx context.Context, id uuid.UUID, revision in
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &creature.PublishCommand{PublishedBy: publishedBy})
+	return c.change(ctx, id, revision, &creature.PublishCommand{PublishedBy: publishedBy})
 }
 
 // 使用不可にする（公開中から）。使用不可にもう一度しても変わらない。準備中からは ErrInvalidCardStatusTransition。
@@ -108,10 +119,131 @@ func (c *CreatureHandler) Retire(ctx context.Context, id uuid.UUID, revision int
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &creature.RetireCommand{RetiredBy: retiredBy})
+	return c.change(ctx, id, revision, &creature.RetireCommand{RetiredBy: retiredBy})
 }
 
-func (c *CreatureHandler) changeStatus(ctx context.Context, publicID uuid.UUID, revision int64, cmd creature.Command) (ChangedCard, error) {
+// コストを変える（準備中だけ）。同じ値なら変わらず、revision も進まない。0 未満は input.Errors、準備中でなければ ErrCardNotDraft。
+// ほかのエラーは Publish と同じ
+func (c *CreatureHandler) ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardCost("cost", cost)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &creature.ChangeCostCommand{Cost: value, ChangedBy: changedBy})
+}
+
+// 希少度を変える（準備中だけ）。エラーは ChangeCost と同じ
+func (c *CreatureHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardRarity("rarity", rarity)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &creature.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
+}
+
+// 属性を変える（準備中だけ）。同じ集合なら変わらず、revision も進まない。属性は 1 つ以上（無いときは Required）で、
+// 知らない値・無と他の属性の組み合わせ・重複は InvalidFormat。ほかのエラーは ChangeCost と同じ。
+// 属性はクリーチャーだけが持つので、CardHandler を通さずここで受ける
+func (c *CreatureHandler) ChangeElements(ctx context.Context, id uuid.UUID, revision int64, elements []string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := creature.NewElements(elements)
+	switch {
+	case errors.Is(err, creature.ErrElementsEmpty):
+		return ChangedCard{}, input.Errors{&input.Required{Field: "elements"}}
+	case err != nil:
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "elements"}}
+	}
+	return c.change(ctx, id, revision, &creature.ChangeElementsCommand{Elements: value, ChangedBy: changedBy})
+}
+
+// 攻撃力と体力を変える（準備中だけ）。どちらも同じ値なら変わらず、revision も進まない。攻撃力は 0 未満、体力は 1 未満が input.Errors
+// （両方が誤りならどちらも返す）。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangeStats(ctx context.Context, id uuid.UUID, revision int64, attack, hitPoints int) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	invalid := input.Errors{}
+	attackValue, err := creature.NewAttack(attack)
+	if err != nil {
+		invalid = append(invalid, &input.TooSmall{Field: "attack", Min: 0})
+	}
+	hitPointsValue, err := creature.NewHitPoints(hitPoints)
+	if err != nil {
+		invalid = append(invalid, &input.TooSmall{Field: "hitPoints", Min: 1})
+	}
+	if len(invalid) > 0 {
+		return ChangedCard{}, invalid
+	}
+	return c.change(ctx, id, revision, &creature.ChangeStatsCommand{Attack: attackValue, HitPoints: hitPointsValue, ChangedBy: changedBy})
+}
+
+// 配置制限を変える（準備中だけ）。同じ集合なら変わらず、revision も進まない。知らない属性・重複は input.Errors。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangePlacementRestrictions(ctx context.Context, id uuid.UUID, revision int64, placementRestrictions []string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := creature.NewPlacementRestrictions(placementRestrictions)
+	if err != nil {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "placementRestrictions"}}
+	}
+	return c.change(ctx, id, revision, &creature.ChangePlacementRestrictionsCommand{PlacementRestrictions: value, ChangedBy: changedBy})
+}
+
+// アイテム制限を変える（準備中だけ）。同じ集合なら変わらず、revision も進まない。知らない分類・重複は input.Errors。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangeItemRestrictions(ctx context.Context, id uuid.UUID, revision int64, itemRestrictions []string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := creature.NewItemRestrictions(itemRestrictions)
+	if err != nil {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "itemRestrictions"}}
+	}
+	return c.change(ctx, id, revision, &creature.ChangeItemRestrictionsCommand{ItemRestrictions: value, ChangedBy: changedBy})
+}
+
+// 効果の並びを変える（準備中だけ。変えた後の並びの全体）。同じ並びなら変わらず、revision も進まない。種類と値の組み合わせの誤り・値の範囲・
+// クリーチャーが持てない種類（effects.N）・先に攻撃すると後に攻撃するの同時の指定（effects）は input.Errors（項目は ItemHandler.ChangeEffects と同じ）。
+// 持てる種類は studio の画面が出すものだけだが、決まりは domain に置き、ここは入力の項目に写すだけにする。ほかのエラーは ChangeElements と同じ
+func (c *CreatureHandler) ChangeEffects(ctx context.Context, id uuid.UUID, revision int64, effects []Effect) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newEffects(effects)
+	if len(invalid) > 0 {
+		return ChangedCard{}, invalid
+	}
+	allowed := creature.AllowedEffectKinds()
+	for i, candidate := range value {
+		if !slices.Contains(allowed, candidate.Kind()) {
+			invalid = append(invalid, &input.InvalidFormat{Field: fmt.Sprintf("effects.%d", i)})
+		}
+	}
+	if len(invalid) > 0 {
+		return ChangedCard{}, invalid
+	}
+	changed, err := c.change(ctx, id, revision, &creature.ChangeEffectsCommand{Effects: value, ChangedBy: changedBy})
+	if errors.Is(err, creature.ErrEffectsConflicted) {
+		return ChangedCard{}, input.Errors{&input.InvalidFormat{Field: "effects"}}
+	}
+	return changed, err
+}
+
+func (c *CreatureHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd creature.Command) (ChangedCard, error) {
 	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedCard, error) {
 		loaded, err := c.load(ctx, publicID, revision)
 		if err != nil {
@@ -132,10 +264,7 @@ func (c *CreatureHandler) changeStatus(ctx context.Context, publicID uuid.UUID, 
 		}
 		return ChangedCard{ID: publicID, Revision: state.(creature.Creature).Version}, nil
 	})
-	if errors.Is(err, card.ErrInvalidStatusTransition) {
-		return ChangedCard{}, ErrInvalidCardStatusTransition
-	}
-	return changed, revisionConflict(err)
+	return changed, cardChangeError(err)
 }
 
 // revision を Load の直後に比べる理由は PresetDeckHandler.load と同じ

@@ -124,7 +124,7 @@ func TestRoomWriter_WritesPublicIDsOfEveryInternalIDInColumnsAndMetadata(t *test
 		},
 		MatchRules: &readmodel.RoomMatchRulesMetadata{
 			Board: seeded.boardPublicID, TargetMagic: matchRules.TargetMagic, StartingMagic: matchRules.StartingMagic, LapBonus: matchRules.LapBonus,
-			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax,
+			CheckpointBonus: matchRules.CheckpointBonus, RoundLimit: matchRules.RoundLimit, DiceMin: matchRules.DiceMin, DiceMax: matchRules.DiceMax, BaseLandValue: matchRules.BaseLandValue, LapBonusPerTerritory: matchRules.LapBonusPerTerritory,
 		},
 		ReadyPlayers: []uuid.UUID{ownerPublicID}, Matches: []uuid.UUID{}, NextDeclarations: []readmodel.RoomNextDeclarationMetadata{},
 		RegisteredAt: roomBase, UpdatedAt: roomBase.Add(time.Minute), RegisteredBy: ownerPublicID, UpdatedBy: ownerPublicID,
@@ -214,7 +214,7 @@ func TestRoomReader_GetReturnsRoomWithNamesJoinedAtReadTime(t *testing.T) {
 		MatchRules: &query.RoomMatchRules{
 			Board:       boardNamed,
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+			RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 		},
 	}, got)
 }

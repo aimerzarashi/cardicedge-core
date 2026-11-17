@@ -1,0 +1,99 @@
+# otel-lgtm の中の Collector に重ねる設定（core#119）。compose.yaml の OTELCOL_EXTRA_ARGS で --config に足す。
+# 資源の詰まり（飽和）を見るため、WSL 全体・プロセスごとの CPU・メモリと、core-db の接続の数を読んで Prometheus に送る。
+# 2026-11-07 にテストが落ちたとき、PC が重かったせいかを確かめられなかったため。
+# コンテナごとの値（docker_stats・cAdvisor・Alloy）は採らなかった: コンテナを名前で分けるには Docker の口（docker.sock）を渡すことになり、
+# 読み取り専用でも Docker を操作できる権限になるため（core#83 でも同じ理由で採らなかった）。WSL の /proc・/sys だけを読み取り専用で受ける
+# （/ ごと渡すと、その中の docker.sock につなげてしまう）。
+# 元の設定の名前に頼るところ: processor の batch、exporter の otlp_http/metrics（Prometheus）。otel-lgtm の版を上げたら、名前が変わっていないかを確かめる
+
+receivers:
+  hostmetrics/wsl:
+    root_path: /hostfs
+    collection_interval: 15s
+    scrapers:
+      cpu:
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      load:
+      paging:
+  # プロセスは PID ごとの系列になり、テストの間は Chromium・postgres の接続ごとのプロセスで増えるので、間隔を延ばし、CPU とメモリ（RSS）だけを取る
+  hostmetrics/processes:
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      process:
+        # コンテナの root でも、ほかの利用者のプロセスの実行ファイルの場所は読めない（読めなくても名前・CPU・メモリは取れる）
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+        mute_process_cgroup_error: true
+        mute_process_name_error: true
+        metrics:
+          process.disk.io:
+            enabled: false
+          process.memory.virtual:
+            enabled: false
+        resource_attributes:
+          process.command:
+            enabled: false
+          process.command_line:
+            enabled: false
+          process.executable.path:
+            enabled: false
+          process.owner:
+            enabled: false
+          process.parent_pid:
+            enabled: false
+  # core-db の接続の数と上限。認証の情報は開発の環境だけのもの（compose.yaml の core-db、Grafana のデータソースと同じ）
+  postgresql/core-db:
+    endpoint: core-db:5432
+    username: core_user
+    password: core_password
+    databases: [core_studio, core_game]
+    collection_interval: 15s
+    tls:
+      insecure: true
+
+processors:
+  # Prometheus は、プロセスの名前・PID（リソースの属性）をラベルにしないので、値の属性に写す（写さないと、どのプロセスの値も同じ系列になってぶつかる）
+  transform/processes:
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["process_name"], resource.attributes["process.executable.name"])
+          - set(attributes["process_pid"], Format("%d", [resource.attributes["process.pid"]]))
+          # Chromium 等は名前に起動の引数まで入り、長いうえに系列が増えるので、最初の空白の前だけにする（next-server (v16.4.3) も next-server になる）
+          - replace_pattern(attributes["process_name"], "^([^ ]+) .*$", "$$1")
+  resource/wsl:
+    attributes:
+      - key: service.name
+        value: wsl
+        action: upsert
+  # 接続の数・上限だけを残す（PostgreSQL の受け手は表・索引ごとの値も多く出す）
+  filter/core-db:
+    metrics:
+      include:
+        match_type: strict
+        metric_names: [postgresql.backends, postgresql.connection.max]
+  resource/core-db:
+    attributes:
+      - key: service.name
+        value: core-db
+        action: upsert
+
+service:
+  pipelines:
+    metrics/wsl:
+      receivers: [hostmetrics/wsl]
+      processors: [resource/wsl, batch]
+      exporters: [otlp_http/metrics]
+    metrics/processes:
+      receivers: [hostmetrics/processes]
+      processors: [transform/processes, resource/wsl, batch]
+      exporters: [otlp_http/metrics]
+    metrics/core-db:
+      receivers: [postgresql/core-db]
+      processors: [filter/core-db, resource/core-db, batch]
+      exporters: [otlp_http/metrics]

@@ -54,8 +54,8 @@ func newRoomMatchFinishFixture(t *testing.T, found bool) *roomMatchFinishFixture
 	return f
 }
 
-func (f *roomMatchFinishFixture) rewardsCompleted() *match.RewardsCompletedEvent {
-	return &match.RewardsCompletedEvent{EventMeta: match.EventMeta{EntityID: f.matchID, AggregateVersion: 30}}
+func (f *roomMatchFinishFixture) rewardsCompleted() *match.AllRewardsReceivedEvent {
+	return &match.AllRewardsReceivedEvent{EventMeta: match.EventMeta{EntityID: f.matchID, AggregateVersion: 30}}
 }
 
 func TestRoomMatchFinishHandler_MovesRoomOfTheMatchToDecidingNextOnRewardsCompleted(t *testing.T) {

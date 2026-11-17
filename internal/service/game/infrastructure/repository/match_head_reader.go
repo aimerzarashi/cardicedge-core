@@ -41,6 +41,6 @@ func (r *MatchHeadReader) Load(ctx context.Context, id match.ID) (query.MatchHea
 	if err != nil {
 		return query.MatchHead{}, err
 	}
-	head.RewardsCompleted = eventName == (&match.RewardsCompletedEvent{}).EventType().String()
+	head.RewardsCompleted = eventName == (&match.AllRewardsReceivedEvent{}).EventType().String()
 	return head, nil
 }

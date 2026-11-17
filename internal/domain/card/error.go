@@ -14,4 +14,9 @@ var (
 	ErrNotCard             = errors.New("card: not a card")
 	// 準備中のカードを使用不可にしようとした
 	ErrInvalidStatusTransition = errors.New("card: invalid status transition")
+	// 準備中でないカードの性能を変えようとした
+	ErrNotDraft            = errors.New("card: not draft")
+	ErrCostNegative        = errors.New("card: cost is negative")
+	ErrRarityUnknown       = errors.New("card: unknown rarity")
+	ErrItemCategoryUnknown = errors.New("card: unknown item category")
 )

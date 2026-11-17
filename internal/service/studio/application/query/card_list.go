@@ -13,6 +13,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/pagination"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
@@ -24,6 +26,15 @@ type Card struct {
 	Type   readmodel.CardType
 	Name   string
 	Status readmodel.CardStatus
+	Cost   int
+	// 希少度（readmodel.CardMetadata.Rarity の値）
+	Rarity string
+	// クリーチャーだけの性能（クリーチャー以外は nil）
+	Creature *readmodel.CreatureMetadata
+	// アイテムだけの性能（アイテム以外は nil）
+	Item *readmodel.ItemMetadata
+	// スペルだけの性能（スペル以外は nil）
+	Spell *readmodel.SpellMetadata
 	// 画面が操作（公開する・使用不可にする）の入力に渡す、集約の版
 	Revision     int64
 	RegisteredAt time.Time
@@ -32,6 +43,31 @@ type Card struct {
 	// この変更の前に投影した行は、次のイベントで投影し直すまでゼロ値
 	RegisteredBy uuid.UUID
 	UpdatedBy    uuid.UUID
+}
+
+// クリーチャーが持てる効果の種類（effect.Kind の値。選べる効果の表は creature に 1 つだけ置き、画面に書き写さないため。core#178）
+func CreatureAllowedEffectKinds() []string {
+	kinds := creature.AllowedEffectKinds()
+	values := make([]string, len(kinds))
+	for i, kind := range kinds {
+		values[i] = kind.String()
+	}
+	return values
+}
+
+// その分類のアイテムが持てる効果の種類（effect.Kind の値。選べる効果の表は item に 1 つだけ置き、画面に書き写さないため。core#177）。
+// 知らない分類は read model の不整合なので誤りにする
+func ItemAllowedEffectKinds(category string) ([]string, error) {
+	value, err := card.NewItemCategory(category)
+	if err != nil {
+		return nil, err
+	}
+	kinds := item.AllowedEffectKinds(value)
+	values := make([]string, len(kinds))
+	for i, kind := range kinds {
+		values[i] = kind.String()
+	}
+	return values, nil
 }
 
 // Types・Statuses が nil なら絞り込まない。空のリストは入力の誤り（何も選ばないのは、0 件を返すより選び忘れと考える）

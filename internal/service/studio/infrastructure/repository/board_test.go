@@ -31,7 +31,7 @@ func (f boardFixture) boardState(sortName, name string, status readmodel.BoardSt
 	metadata := readmodel.BoardMetadata{
 		ID: id, Name: name, Status: status, Revision: 3, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{}, RegisteredAt: at, UpdatedAt: at,
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6), PublishProblems: []readmodel.BoardPublishProblem{},
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6, 100, 20), PublishProblems: []readmodel.BoardPublishProblem{},
 	}
 	return readmodel.Board{
 		BoardID: id, SortName: sortName, Status: status, Metadata: metadata,
@@ -75,7 +75,7 @@ func TestBoard_GetsUpsertedBoardWithLayout(t *testing.T) {
 	board.Metadata.Connections = []readmodel.BoardConnection{{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)}}
 	board.Metadata.Pairs = []readmodel.BoardPair{{A: readmodel.NewBoardPosition(0, 1), B: readmodel.NewBoardPosition(2, 1)}}
 	board.Metadata.TileCounts = readmodel.NewBoardTileCounts(0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0)
-	board.Metadata.DefaultRules = readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8)
+	board.Metadata.DefaultRules = readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8, 100, 40)
 	board.Metadata.PublishProblems = []readmodel.BoardPublishProblem{
 		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
 		readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemUnreachableTiles, readmodel.NewBoardPosition(2, 1)),

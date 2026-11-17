@@ -6,6 +6,24 @@ type Creature implements Card {
   name: String!
   "状態（準備中・公開中・使用不可）"
   status: CardStatus!
+  "使うのに払う魔力（0 以上）"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "属性（1〜4 つ。無は単独。火・地・水・風の順に並べる）"
+  elements: [CreatureElement!]!
+  "攻撃力（AT。0 以上）"
+  attack: Int!
+  "体力（HP。1 以上）"
+  hitPoints: Int!
+  "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
+  itemRestrictions: [ItemCategory!]!
+  "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
+  placementRestrictions: [BoardTileElement!]!
+  "効果の並び（入れた順。無ければ空）"
+  effects: [Effect!]!
+  "クリーチャーが持てる効果の種類（画面が選べるものだけを出すため。決まりは core が持つ）"
+  allowedEffectKinds: [EffectKind!]!
   "更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -29,7 +47,153 @@ type RegisterCreatureSuccess {
 "クリーチャーの登録の結果"
 union RegisterCreatureResult = RegisterCreatureSuccess | ValidationErrors | CardNameAlreadyInUseError | ForbiddenError
 
+"クリーチャーの属性。火・地・水・風のうち 1〜4 つか、無の単独（無は火・地・水・風と組み合わせない）"
+enum CreatureElement {
+  "火"
+  FIRE
+  "地"
+  EARTH
+  "水"
+  WATER
+  "風"
+  WIND
+  "無"
+  NEUTRAL
+}
+
+"クリーチャーの属性を変える入力"
+input ChangeCreatureElementsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の属性（1〜4 つ。重複は入力の誤り。無は単独。並びは問わず、保存は火・地・水・風の順にそろえる）"
+  elements: [CreatureElement!]!
+}
+
+"クリーチャーの属性を変えた（同じ集合なら何も変えず、revision も進まない）"
+type ChangeCreatureElementsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの属性を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureElementsResult = ChangeCreatureElementsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
+"クリーチャーの攻撃力と体力を変える入力"
+input ChangeCreatureStatsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の攻撃力（AT。0 以上。上限は無い）"
+  attack: Int!
+  "変えた後の体力（HP。1 以上。上限は無い）"
+  hitPoints: Int!
+}
+
+"クリーチャーの攻撃力と体力を変えた（どちらも同じ値なら何も変えず、revision も進まない）"
+type ChangeCreatureStatsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureStatsResult = ChangeCreatureStatsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
+"クリーチャーの効果の並びを変える入力"
+input ChangeCreatureEffectsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の効果の並び（全体。並びの順に当てる。同じ種類を重ねてよい。クリーチャーが持てない種類は FieldInvalidFormat（effects.N）、先に攻撃すると後に攻撃するを一緒に持つのは FieldInvalidFormat（effects）。無しは空）"
+  effects: [EffectInput!]!
+}
+
+"クリーチャーの効果の並びを変えた（同じ並びなら何も変えず、revision も進まない）"
+type ChangeCreatureEffectsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの効果の並びを変える操作の結果（入力の誤りの項目は changeItemEffects と同じ。カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureEffectsResult = ChangeCreatureEffectsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
+"クリーチャーのアイテム制限を変える入力"
+input ChangeCreatureItemRestrictionsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後のアイテム制限（持てないアイテムの分類。重複なし。無しは空）"
+  itemRestrictions: [ItemCategory!]!
+}
+
+"クリーチャーのアイテム制限を変えた（同じ集合なら何も変えず、revision も進まない）"
+type ChangeCreatureItemRestrictionsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーのアイテム制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreatureItemRestrictionsResult = ChangeCreatureItemRestrictionsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
+"クリーチャーの配置制限を変える入力"
+input ChangeCreaturePlacementRestrictionsInput {
+  "クリーチャーの公開用の ID"
+  id: UUID!
+  "画面が見ていたクリーチャーの revision"
+  revision: Int!
+  "変えた後の配置制限（置けない土地の属性。火・地・水・風で重複なし。無しは空）"
+  placementRestrictions: [BoardTileElement!]!
+}
+
+"クリーチャーの配置制限を変えた（同じ集合なら何も変えず、revision も進まない）"
+type ChangeCreaturePlacementRestrictionsSuccess {
+  "変えたクリーチャーの公開用の ID"
+  id: UUID!
+  "変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）"
+  revision: Int!
+}
+
+"クリーチャーの配置制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）"
+union ChangeCreaturePlacementRestrictionsResult = ChangeCreaturePlacementRestrictionsSuccess | ValidationErrors | CardNotFoundError | RevisionConflictError | CardNotDraftError | ForbiddenError
+
 extend type Mutation {
+  "クリーチャーの属性を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCreatureElements(
+    "変えるクリーチャーと属性"
+    input: ChangeCreatureElementsInput!
+  ): ChangeCreatureElementsResult!
+  "クリーチャーの攻撃力と体力を変える（紐づいたオペレーターだけ。準備中だけ。2 つは一緒に変える）"
+  changeCreatureStats(
+    "変えるクリーチャーと攻撃力・体力"
+    input: ChangeCreatureStatsInput!
+  ): ChangeCreatureStatsResult!
+  "クリーチャーの効果の並びを変える（紐づいたオペレーターだけ。準備中だけ。並びを全体で入れ替える）"
+  changeCreatureEffects(
+    "変えるクリーチャーと効果の並び"
+    input: ChangeCreatureEffectsInput!
+  ): ChangeCreatureEffectsResult!
+  "クリーチャーのアイテム制限を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCreatureItemRestrictions(
+    "変えるクリーチャーとアイテム制限"
+    input: ChangeCreatureItemRestrictionsInput!
+  ): ChangeCreatureItemRestrictionsResult!
+  "クリーチャーの配置制限を変える（紐づいたオペレーターだけ。準備中だけ）"
+  changeCreaturePlacementRestrictions(
+    "変えるクリーチャーと配置制限"
+    input: ChangeCreaturePlacementRestrictionsInput!
+  ): ChangeCreaturePlacementRestrictionsResult!
   "クリーチャーを登録する（紐づいたオペレーターだけ）"
   registerCreature(
     "登録するクリーチャー"

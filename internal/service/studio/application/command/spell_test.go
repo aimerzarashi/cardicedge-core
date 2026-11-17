@@ -186,3 +186,101 @@ func TestRegisterSpell_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	require.Equal(t, 1, succeeded)
 	spellIDByName(t, ctx, name)
 }
+
+func TestChangeSpellEffect_ChangesDraftAndRejectsCountLessThanOne(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホープ")
+	require.NoError(t, err)
+	require.Equal(t, command.SpellEffect{}, registered.Effect)
+	drawOne := command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 1}}
+
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, drawOne)
+	require.NoError(t, err)
+	require.Equal(t, command.ChangedCard{ID: registered.ID, Revision: registered.Revision + 1}, changed)
+	unchanged, err := commands.ChangeEffect(ctx, changed.ID, changed.Revision, drawOne)
+	require.NoError(t, err)
+	require.Equal(t, changed, unchanged)
+	cleared, err := commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{})
+	require.NoError(t, err)
+	require.Equal(t, changed.Revision+1, cleared.Revision)
+	_, err = commands.ChangeEffect(ctx, cleared.ID, cleared.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 0}})
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}, err)
+}
+
+func TestChangeSpellEffect_RejectsNotDraft(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホープ")
+	require.NoError(t, err)
+	effective, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 2}})
+	require.NoError(t, err)
+	published, err := commands.Publish(ctx, effective.ID, effective.Revision)
+	require.NoError(t, err)
+
+	_, err = commands.ChangeEffect(ctx, published.ID, published.Revision, command.SpellEffect{DrawCards: &command.SpellDrawCards{Count: 1}})
+
+	require.ErrorIs(t, err, command.ErrCardNotDraft)
+}
+
+func TestChangeSpellEffect_ChangesToEachKindAndRejectsTooSmallValues(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "マナ")
+	require.NoError(t, err)
+
+	gained, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 100}})
+	require.NoError(t, err)
+	rolled, err := commands.ChangeEffect(ctx, gained.ID, gained.Revision, command.SpellEffect{MultipleDice: &command.SpellMultipleDice{Count: 2, Turns: 1}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+2, rolled.Revision)
+
+	_, perLapErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{GainMagic: &command.SpellGainMagic{PerLap: 0}})
+	_, diceErr := commands.ChangeEffect(ctx, rolled.ID, rolled.Revision, command.SpellEffect{MultipleDice: &command.SpellMultipleDice{Count: 1, Turns: 0}})
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}, perLapErr)
+	require.Equal(t, input.Errors{
+		&input.TooSmall{Field: "effect.multipleDice.count", Min: 2},
+		&input.TooSmall{Field: "effect.multipleDice.turns", Min: 1},
+	}, diceErr)
+}
+
+func TestChangeSpellEffect_ChangesToFixedDiceAndRejectsTooSmallValuesTogether(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ホーリーワード6")
+	require.NoError(t, err)
+
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{FixedDice: &command.SpellFixedDice{Value: 6, Turns: 1}})
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+1, changed.Revision)
+
+	_, err = commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{FixedDice: &command.SpellFixedDice{Value: 0, Turns: 0}})
+	require.Equal(t, input.Errors{
+		&input.TooSmall{Field: "effect.fixedDice.value", Min: 1},
+		&input.TooSmall{Field: "effect.fixedDice.turns", Min: 1},
+	}, err)
+}
+
+func TestPublishSpell_RejectsASpellWithoutEffect(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "マジックボルト")
+	require.NoError(t, err)
+
+	_, err = commands.Publish(ctx, registered.ID, registered.Revision)
+
+	require.ErrorIs(t, err, command.ErrSpellEffectRequired)
+}
+
+func TestChangeSpellEffect_ChangesToDamageAndRejectsTooSmallAmount(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newSpellHandler(t, ctx)
+	registered, err := commands.Register(ctx, "マジックボルト")
+	require.NoError(t, err)
+
+	changed, err := commands.ChangeEffect(ctx, registered.ID, registered.Revision, command.SpellEffect{Damage: &command.SpellDamage{Amount: 20}})
+	require.NoError(t, err)
+	_, err = commands.ChangeEffect(ctx, changed.ID, changed.Revision, command.SpellEffect{Damage: &command.SpellDamage{Amount: 0}})
+
+	require.Equal(t, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}, err)
+}

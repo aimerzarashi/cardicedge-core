@@ -112,16 +112,18 @@ type RoomSeatMetadata struct {
 	Deck   *uuid.UUID    `json:"deck,omitempty"`
 }
 
-// 対戦ルール。ボードは公開 ID、7 つの値は room.MatchRules と同じ名前
+// 対戦ルール。ボードは公開 ID、8 つの値は room.MatchRules と同じ名前
 type RoomMatchRulesMetadata struct {
-	Board           uuid.UUID `json:"board"`
-	TargetMagic     int       `json:"target_magic"`
-	StartingMagic   int       `json:"starting_magic"`
-	LapBonus        int       `json:"lap_bonus"`
-	CheckpointBonus int       `json:"checkpoint_bonus"`
-	RoundLimit      int       `json:"round_limit"`
-	DiceMin         int       `json:"dice_min"`
-	DiceMax         int       `json:"dice_max"`
+	Board                uuid.UUID `json:"board"`
+	TargetMagic          int       `json:"target_magic"`
+	StartingMagic        int       `json:"starting_magic"`
+	LapBonus             int       `json:"lap_bonus"`
+	CheckpointBonus      int       `json:"checkpoint_bonus"`
+	RoundLimit           int       `json:"round_limit"`
+	DiceMin              int       `json:"dice_min"`
+	DiceMax              int       `json:"dice_max"`
+	BaseLandValue        int       `json:"base_land_value"`
+	LapBonusPerTerritory int       `json:"lap_bonus_per_territory"`
 }
 
 // 公開 ID に引き直す部分（ID・席・ボード・人）は空のまま返す
@@ -133,7 +135,7 @@ func (state Room) Metadata() RoomMetadata {
 		rules := state.MatchRules
 		metadata.MatchRules = &RoomMatchRulesMetadata{
 			TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus,
-			CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+			CheckpointBonus: rules.CheckpointBonus, RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 		}
 	}
 	return metadata

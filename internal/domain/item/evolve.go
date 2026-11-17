@@ -1,6 +1,8 @@
 package item
 
-import "gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+import (
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+)
 
 func Evolve(state State, event Event) (State, error) {
 	switch e := event.(type) {
@@ -14,6 +16,10 @@ func Evolve(state State, event Event) (State, error) {
 			Version:  meta.AggregateVersion,
 			PublicID: e.PublicID,
 			Status:   card.StatusDraft,
+			Cost:     e.Cost,
+			Rarity:   e.Rarity,
+			Category: e.Category,
+			Effects:  e.Effects,
 		}, nil
 	case *PublishedEvent:
 		item, ok := state.(Item)
@@ -37,6 +43,38 @@ func Evolve(state State, event Event) (State, error) {
 			return state, err
 		}
 		item.Status = status
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *CostChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Cost = e.Cost
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *RarityChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Rarity = e.Rarity
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *CategoryChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Category = e.Category
+		item.Version = e.GetMeta().AggregateVersion
+		return item, nil
+	case *EffectsChangedEvent:
+		item, ok := state.(Item)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		item.Effects = e.Effects
 		item.Version = e.GetMeta().AggregateVersion
 		return item, nil
 	default:

@@ -15,7 +15,7 @@ import (
 const roomFields = `id name revision status
 	participants { playerId owner ready }
 	seats { kind playerId avatar { id name } deck { id name } }
-	matchRules { board { id name } targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax }`
+	matchRules { board { id name } targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue lapBonusPerTerritory }`
 
 // 見ている人にできる操作（部屋の詳細だけが返す）
 const roomCapabilityFields = `capabilities { changeSeats changeMatchRules publish declareReady close rename }
@@ -225,14 +225,14 @@ func newRoomPlayer(t *testing.T) roomPlayer {
 func (p roomPlayer) rulesInput(id string, revision int, boardID any) map[string]any {
 	return map[string]any{
 		"id": id, "revision": revision, "boardId": boardID,
-		"targetMagic": 5000, "startingMagic": 300, "lapBonus": 200, "checkpointBonus": 50, "roundLimit": 20, "diceMin": 1, "diceMax": 8,
+		"targetMagic": 5000, "startingMagic": 300, "lapBonus": 200, "checkpointBonus": 50, "roundLimit": 20, "diceMin": 1, "diceMax": 8, "baseLandValue": 100, "lapBonusPerTerritory": 20,
 	}
 }
 
 func rulesResult(board map[string]any) map[string]any {
 	return map[string]any{
 		"board": board, "targetMagic": float64(5000), "startingMagic": float64(300), "lapBonus": float64(200), "checkpointBonus": float64(50),
-		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8),
+		"roundLimit": float64(20), "diceMin": float64(1), "diceMax": float64(8), "baseLandValue": float64(100), "lapBonusPerTerritory": float64(20),
 	}
 }
 

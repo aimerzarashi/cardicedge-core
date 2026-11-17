@@ -48,6 +48,16 @@ type DeckQueries interface {
 	Get(ctx context.Context, playerID uuid.UUID, deckID uuid.UUID) (query.Deck, error)
 }
 
+// 実装は query.CollectionHandler
+type CollectionQueries interface {
+	List(ctx context.Context, playerID uuid.UUID, filter query.CollectionFilter, first *int, after *string) (pagination.Connection[query.CollectionCard], error)
+}
+
+// 実装は query.CardHandler
+type CardQueries interface {
+	Get(ctx context.Context, id uuid.UUID) (query.Card, error)
+}
+
 // 実装は query.NPCAvatarHandler
 type NPCAvatarQueries interface {
 	ListUnlockedByPlayer(ctx context.Context, playerID uuid.UUID) ([]query.NPCAvatar, error)
@@ -81,6 +91,18 @@ type Matches interface {
 	Discard(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
 	Roll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChoosePath(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
+	Place(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int, targetPosition *command.SpellTargetPosition) (command.ChangedMatch, error)
+	Attack(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (command.ChangedMatch, error)
+	PayToll(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
+	Defend(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (command.ChangedMatch, error)
+	UseCreatureAsItem(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (command.ChangedMatch, error)
+	RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (command.ChangedMatch, error)
+	LevelUpLand(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (command.ChangedMatch, error)
+	ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, element string) (command.ChangedMatch, error)
+	MoveCreature(ctx context.Context, id uuid.UUID, revision int64, fromX, fromY, toX, toY int) (command.ChangedMatch, error)
+	ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (command.ChangedMatch, error)
 	EndTurn(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedMatch, error)
 	ChooseRewardPack(ctx context.Context, id uuid.UUID, revision int64, pack string) (command.ChangedMatch, error)
 }
@@ -106,23 +128,25 @@ type GameRulesQueries interface {
 }
 
 type Resolver struct {
-	players        Players
-	playerQuery    PlayerQueries
-	avatars        Avatars
-	avatarQuery    AvatarQueries
-	deckQuery      DeckQueries
-	unlockQuery    UnlockQueries
-	boardQuery     BoardQueries
-	npcAvatarQuery NPCAvatarQueries
-	gameRuleQuery  GameRulesQueries
-	rooms          Rooms
-	roomQuery      RoomQueries
-	matches        Matches
-	matchQuery     MatchQueries
-	matchEvents    MatchEventQueries
-	matchProgress  MatchProgressSubscriptions
+	players         Players
+	playerQuery     PlayerQueries
+	avatars         Avatars
+	avatarQuery     AvatarQueries
+	deckQuery       DeckQueries
+	collectionQuery CollectionQueries
+	cardQuery       CardQueries
+	unlockQuery     UnlockQueries
+	boardQuery      BoardQueries
+	npcAvatarQuery  NPCAvatarQueries
+	gameRuleQuery   GameRulesQueries
+	rooms           Rooms
+	roomQuery       RoomQueries
+	matches         Matches
+	matchQuery      MatchQueries
+	matchEvents     MatchEventQueries
+	matchProgress   MatchProgressSubscriptions
 }
 
-func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries, matchEvents MatchEventQueries, matchProgress MatchProgressSubscriptions) *Resolver {
-	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery, matchEvents: matchEvents, matchProgress: matchProgress}
+func NewResolver(players Players, playerQuery PlayerQueries, avatars Avatars, avatarQuery AvatarQueries, deckQuery DeckQueries, collectionQuery CollectionQueries, cardQuery CardQueries, unlockQuery UnlockQueries, boardQuery BoardQueries, npcAvatarQuery NPCAvatarQueries, gameRuleQuery GameRulesQueries, rooms Rooms, roomQuery RoomQueries, matches Matches, matchQuery MatchQueries, matchEvents MatchEventQueries, matchProgress MatchProgressSubscriptions) *Resolver {
+	return &Resolver{players: players, playerQuery: playerQuery, avatars: avatars, avatarQuery: avatarQuery, deckQuery: deckQuery, collectionQuery: collectionQuery, cardQuery: cardQuery, unlockQuery: unlockQuery, boardQuery: boardQuery, npcAvatarQuery: npcAvatarQuery, gameRuleQuery: gameRuleQuery, rooms: rooms, roomQuery: roomQuery, matches: matches, matchQuery: matchQuery, matchEvents: matchEvents, matchProgress: matchProgress}
 }

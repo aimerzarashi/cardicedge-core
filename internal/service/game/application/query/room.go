@@ -59,16 +59,18 @@ type RoomSeat struct {
 	Deck   *RoomNamed
 }
 
-// 対戦ルール。ボードの名前と、7 つの値（ボードの既定のルールと同じ名前と決まり）
+// 対戦ルール。ボードの名前と、8 つの値（ボードの既定のルールと同じ名前と決まり）
 type RoomMatchRules struct {
-	Board           RoomNamed
-	TargetMagic     int
-	StartingMagic   int
-	LapBonus        int
-	CheckpointBonus int
-	RoundLimit      int
-	DiceMin         int
-	DiceMax         int
+	Board                RoomNamed
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
 }
 
 // プレイヤーの部屋。Revision は画面が見ていた版（変える操作に渡す）。席が 0 の間は Seats が空、対戦ルールをまだ決めていなければ MatchRules は nil

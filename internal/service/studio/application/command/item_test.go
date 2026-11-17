@@ -148,3 +148,81 @@ func TestRegisterItem_RegistersOnceWhenCalledConcurrently(t *testing.T) {
 	require.Equal(t, 1, succeeded)
 	itemIDByName(t, ctx, name)
 }
+
+func TestChangeItemCategoryAndEffects_ChangeSpecOfDraft(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "まきもの")
+	require.NoError(t, err)
+
+	categorized, err := commands.ChangeCategory(ctx, registered.ID, registered.Revision, "scroll")
+	require.NoError(t, err)
+	changed, err := commands.ChangeEffects(ctx, categorized.ID, categorized.Revision, []command.Effect{
+		{Kind: command.EffectAttackOverride, Minimum: new(30), Maximum: new(30)},
+		{Kind: command.EffectIgnoreTerrainEffect},
+		{Kind: command.EffectAttackMultiplier, Percent: new(150), Constraints: []command.EffectConstraint{{Kind: command.EffectConstraintOpponentCreatureElement, Elements: []string{"fire"}}}},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, registered.Revision+2, changed.Revision)
+}
+
+func TestChangeItemEffects_RejectsInvalidInputAtEachField(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "まきもの")
+	require.NoError(t, err)
+
+	_, err = commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{
+		{Kind: command.EffectAttackModifier},
+		{Kind: command.EffectAttackOverride, Minimum: new(-1), Maximum: new(30)},
+		{Kind: command.EffectAttackMultiplier, Percent: new(0), Constraints: []command.EffectConstraint{{Kind: command.EffectConstraintOpponentCreatureElement, Elements: []string{"multi"}}, {Kind: "unknown"}}},
+	})
+
+	require.Equal(t, input.Errors{
+		&input.InvalidFormat{Field: "effects.0"},
+		&input.TooSmall{Field: "effects.1.minimum", Min: 0},
+		&input.TooSmall{Field: "effects.2.percent", Min: 1},
+		&input.InvalidFormat{Field: "effects.2.constraints.0.elements"},
+		&input.InvalidFormat{Field: "effects.2.constraints.1"},
+	}, err)
+}
+
+func TestChangeItemEffectsAndCategory_RejectEffectsTheCategoryDoesNotAllow(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "ぶき")
+	require.NoError(t, err)
+	changed, err := commands.ChangeEffects(ctx, registered.ID, registered.Revision, []command.Effect{{Kind: command.EffectAttackModifier, Value: new(10)}})
+	require.NoError(t, err)
+
+	_, effectErr := commands.ChangeEffects(ctx, changed.ID, changed.Revision, []command.Effect{{Kind: command.EffectHitPointsModifier, Value: new(10)}})
+	_, categoryErr := commands.ChangeCategory(ctx, changed.ID, changed.Revision, "armor")
+
+	require.ErrorIs(t, effectErr, command.ErrItemEffectNotAllowed)
+	require.ErrorIs(t, categoryErr, command.ErrItemEffectNotAllowed)
+}
+
+func TestChangeItemCategory_RejectsUnknownValue(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "かぶと")
+	require.NoError(t, err)
+
+	_, err = commands.ChangeCategory(ctx, registered.ID, registered.Revision, "shield")
+
+	require.Equal(t, input.Errors{&input.InvalidFormat{Field: "category"}}, err)
+}
+
+func TestChangeItemEffects_RejectsPublishedItem(t *testing.T) {
+	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
+	commands := newItemHandler(t, ctx)
+	registered, err := commands.Register(ctx, "かぶと")
+	require.NoError(t, err)
+	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
+	require.NoError(t, err)
+
+	_, err = commands.ChangeEffects(ctx, published.ID, published.Revision, []command.Effect{{Kind: command.EffectAttackModifier, Value: new(5)}})
+
+	require.ErrorIs(t, err, command.ErrCardNotDraft)
+}

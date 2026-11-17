@@ -22,7 +22,7 @@ type FindRoomByMatchFunc func(ctx context.Context, matchID uuid.UUID) (roomID uu
 // （握りつぶすと、部屋が次を決める状態に進まないまま残る）
 var ErrRoomOfMatchNotFound = errors.New("command: room of match not found")
 
-// 対戦の RewardsCompletedEvent（全員が戦利品を受け取り終えた）を受けて、その対戦の部屋を次を決める状態に進めるポリシー。
+// 対戦の AllRewardsReceivedEvent（全員が戦利品を受け取り終えた）を受けて、その対戦の部屋を次を決める状態に進めるポリシー。
 // 対戦の操作の中で部屋を変えない（1 つのトランザクションで変える集約を 1 つにするため）
 type RoomMatchFinishHandler struct {
 	rooms      domain.EventStore[room.ID, room.Event, room.State]
@@ -44,7 +44,7 @@ func NewRoomMatchFinishHandler(
 
 // 購読する対戦のほかのイベントは何もしない
 func (c *RoomMatchFinishHandler) Handle(ctx context.Context, event any) error {
-	if e, ok := event.(*match.RewardsCompletedEvent); ok {
+	if e, ok := event.(*match.AllRewardsReceivedEvent); ok {
 		return c.Finish(ctx, e.GetMeta().EntityID)
 	}
 	return nil

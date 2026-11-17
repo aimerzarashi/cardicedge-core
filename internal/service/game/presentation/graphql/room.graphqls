@@ -87,7 +87,7 @@ type RoomCapabilities {
 }
 
 """
-部屋の対戦ルール。ボードと 7 つの値で、7 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
+部屋の対戦ルール。ボードと 8 つの値で、8 つの値はボードの既定のルール（BoardDefaultRules）と同じ名前と決まり。
 部屋では既定ではなく、ボードごと決める値なので、入れ子にせず並べる
 """
 type RoomMatchRules {
@@ -107,6 +107,10 @@ type RoomMatchRules {
   diceMin: Int!
   "サイコロの目の最大（最小以上）"
   diceMax: Int!
+  "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）"
+  baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 "この部屋で始めた対戦 1 つ（中身は match(id) で読む）"
@@ -298,7 +302,7 @@ union ChangeRoomSeatsResult =
   | RoomNotResponsibleError
   | PlayerNotRegisteredError
 
-"対戦ルールを決める入力。7 つの値の名前と決まりは、ボードの既定のルールと同じ"
+"対戦ルールを決める入力。8 つの値の名前と決まりは、ボードの既定のルールと同じ"
 input ChangeRoomMatchRulesInput {
   "部屋の公開用の ID"
   id: UUID!
@@ -320,6 +324,10 @@ input ChangeRoomMatchRulesInput {
   diceMin: Int!
   "サイコロの目の最大（最小以上）"
   diceMax: Int!
+  "土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元）"
+  baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
 }
 
 "対戦ルールを決めた（同じ値なら何も変えず、revision も進まない）"
@@ -332,7 +340,7 @@ type ChangeRoomMatchRulesSuccess {
 
 """
 changeRoomMatchRules の結果（公開前、または公開前に決めていなければ準備中。決めるのは作った人）。
-入力の誤りは ValidationErrors（段階ごと。7 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
+入力の誤りは ValidationErrors（段階ごと。8 つの値は targetMagic 等の項目名、ボードが選べなければ boardId の FieldNotFound）
 """
 union ChangeRoomMatchRulesResult =
     ChangeRoomMatchRulesSuccess
@@ -554,7 +562,7 @@ extend type Mutation {
   renameRoom(input: RenameRoomInput!): RenameRoomResult!
   "席の並びを決める（公開前だけ）。並びを変えたら、席ごとの選択はすべて外れる"
   changeRoomSeats(input: ChangeRoomSeatsInput!): ChangeRoomSeatsResult!
-  "対戦ルール（ボードと 7 つの値）を決める"
+  "対戦ルール（ボードと 8 つの値）を決める"
   changeRoomMatchRules(input: ChangeRoomMatchRulesInput!): ChangeRoomMatchRulesResult!
   "席のアバターとデッキを選ぶ"
   changeRoomSeatChoice(input: ChangeRoomSeatChoiceInput!): ChangeRoomSeatChoiceResult!

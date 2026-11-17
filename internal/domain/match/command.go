@@ -3,6 +3,7 @@ package match
 import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 type Command interface {
@@ -46,6 +47,114 @@ type ChoosePathCommand struct {
 }
 
 func (*ChoosePathCommand) isMatchCommand() {}
+
+// 止まった空き地に、手札のクリーチャーを配置する。配置したらそのままターンを終える。配置しないときは EndTurnCommand
+type PlaceCreatureCommand struct {
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+}
+
+func (*PlaceCreatureCommand) isMatchCommand() {}
+
+// サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで。2026-11-10 オーナー。core#149）。コストを払い、効果を当て、スペルは捨て札に入る
+type UseSpellCommand struct {
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+	// 対象のプレイヤー（対象のプレイヤーを選ぶスペルだけ。ほかのスペルは nil）
+	Target *ParticipantIndex
+	// 対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ。ほかのスペルは nil）
+	TargetPosition *board.Position
+}
+
+func (*UseSpellCommand) isMatchCommand() {}
+
+// 止まった他人の領地を、手札のクリーチャーで侵略する。選んだ時点で確定し、コストを払う
+type InvadeCommand struct {
+	By ParticipantIndex
+	// 手札の何番目か（0 始まり）
+	HandIndex int
+}
+
+func (*InvadeCommand) isMatchCommand() {}
+
+// 侵略を確定した人が、アイテムを選ぶ。出さなければ nil
+type AttackCommand struct {
+	By            ParticipantIndex
+	ItemHandIndex *int
+}
+
+func (*AttackCommand) isMatchCommand() {}
+
+// 止まった他人の領地の通行料を払う
+type PayTollCommand struct {
+	By ParticipantIndex
+}
+
+func (*PayTollCommand) isMatchCommand() {}
+
+// 侵略された領地の持ち主が、アイテムを選んで戦闘に進める。出さなければ nil
+type DefendCommand struct {
+	By            ParticipantIndex
+	ItemHandIndex *int
+}
+
+func (*DefendCommand) isMatchCommand() {}
+
+// アイテムを選んでいる人（攻める段階は攻める側、守る段階は守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。
+// 戦うクリーチャーが手札のクリーチャーをアイテムとして使える効果を持つときだけ）。守る側が出したら戦闘に進む。
+// AttackCommand・DefendCommand に手札の番号を足さないのは、アイテムの番号と並ぶ null を許す項目にしないため
+type UseCreatureAsItemCommand struct {
+	By        ParticipantIndex
+	HandIndex int
+}
+
+func (*UseCreatureAsItemCommand) isMatchCommand() {}
+
+// 魔力が負の間に、自分の領地を 1 つ手放す
+type RelinquishTerritoryCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+}
+
+func (*RelinquishTerritoryCommand) isMatchCommand() {}
+
+// 領地コマンドを使える自分の領地の土地のレベルを Level に上げる（飛ばして上げられる）
+type LevelUpLandCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+	Level    int
+}
+
+func (*LevelUpLandCommand) isMatchCommand() {}
+
+// 領地コマンドを使える自分の領地のクリーチャーを、手札のクリーチャーと入れ替える（HandIndex は手札の何番目か。0 始まり）
+type ExchangeCreatureCommand struct {
+	By        ParticipantIndex
+	Position  board.Position
+	HandIndex int
+}
+
+func (*ExchangeCreatureCommand) isMatchCommand() {}
+
+// 領地コマンドを使える自分の領地のクリーチャーを From から To へ動かす（To が他人の領地なら戦闘）
+type MoveCreatureCommand struct {
+	By   ParticipantIndex
+	From board.Position
+	To   board.Position
+}
+
+func (*MoveCreatureCommand) isMatchCommand() {}
+
+// 領地コマンドを使える自分の領地の土地の属性を Element に変える
+type ChangeLandElementCommand struct {
+	By       ParticipantIndex
+	Position board.Position
+	Element  element.Land
+}
+
+func (*ChangeLandElementCommand) isMatchCommand() {}
 
 type EndTurnCommand struct {
 	By ParticipantIndex

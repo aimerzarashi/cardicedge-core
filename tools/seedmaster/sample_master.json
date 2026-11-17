@@ -2,147 +2,432 @@
   "cards": [
     {
       "type": "creature",
-      "name": "ウルフ"
+      "name": "ウルフ",
+      "cost": 10,
+      "rarity": "normal",
+      "elements": ["neutral"],
+      "attack": 20,
+      "hit_points": 40,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "ファイター"
+      "name": "ファイター",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["neutral"],
+      "attack": 40,
+      "hit_points": 40,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "コボルド"
+      "name": "コボルド",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 20,
+      "hit_points": 30,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "ミノタウロス"
+      "name": "ミノタウロス",
+      "cost": 60,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 40,
+      "hit_points": 40,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "ドラゴンフライ"
+      "name": "ドラゴンフライ",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 20,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
-      "name": "ピラーフレイム"
+      "name": "ピラーフレイム",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 50,
+      "item_restrictions": ["armor", "scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }]
     },
     {
       "type": "creature",
-      "name": "フェニックス"
+      "name": "フェニックス",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["fire"],
+      "attack": 30,
+      "hit_points": 30,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "return_to_hand_on_destruction", "destructions": ["invading", "defending"] }]
     },
     {
       "type": "creature",
-      "name": "タイガービートル"
+      "name": "タイガービートル",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 20,
+      "hit_points": 30,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "ドワーフ"
+      "name": "ドワーフ",
+      "cost": 70,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 30,
+      "hit_points": 50,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "ストーンウォール"
+      "name": "ストーンウォール",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 0,
+      "hit_points": 60,
+      "item_restrictions": ["armor", "scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }]
     },
     {
       "type": "creature",
-      "name": "ノーム"
+      "name": "ノーム",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 20,
+      "hit_points": 40,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "toll_multiplier", "percent": 150 }]
     },
     {
       "type": "creature",
-      "name": "ウッドフォーク"
+      "name": "ウッドフォーク",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["earth"],
+      "attack": 30,
+      "hit_points": 30,
+      "item_restrictions": ["weapon"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "use_creature_as_item", "elements": ["fire", "earth", "water", "wind", "neutral"] }]
     },
     {
       "type": "creature",
-      "name": "マーフォーク"
+      "name": "マーフォーク",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 20,
+      "hit_points": 30,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "アイスウォール"
+      "name": "アイスウォール",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 0,
+      "hit_points": 40,
+      "item_restrictions": ["armor", "scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }, { "kind": "hit_points_modifier", "value": 20 }]
     },
     {
       "type": "creature",
-      "name": "キングトータス"
+      "name": "キングトータス",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 10,
+      "hit_points": 50,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "strike_last" }]
     },
     {
       "type": "creature",
-      "name": "ジャイアントアメーバ"
+      "name": "ジャイアントアメーバ",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 30,
+      "hit_points": 30,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "nullify_received_damage", "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire", "earth"] }] }]
     },
     {
       "type": "creature",
-      "name": "リザードマン"
+      "name": "リザードマン",
+      "cost": 70,
+      "rarity": "normal",
+      "elements": ["water"],
+      "attack": 30,
+      "hit_points": 40,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
-      "name": "ジャイアントバット"
+      "name": "ジャイアントバット",
+      "cost": 20,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 20,
+      "hit_points": 30,
+      "item_restrictions": ["scroll"],
+      "placement_restrictions": [],
+      "effects": []
     },
     {
       "type": "creature",
-      "name": "スペクター"
+      "name": "スペクター",
+      "cost": 30,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 0,
+      "hit_points": 30,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "attack_override", "minimum": 10, "maximum": 70 }, { "kind": "hit_points_override", "minimum": 10, "maximum": 70 }]
     },
     {
       "type": "creature",
-      "name": "ハリケーン"
+      "name": "ハリケーン",
+      "cost": 40,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 20,
+      "hit_points": 50,
+      "item_restrictions": ["armor", "scroll"],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "forbid_invasion" }, { "kind": "forbid_movement" }, { "kind": "strike_first" }]
     },
     {
       "type": "creature",
-      "name": "ハーピー"
+      "name": "ハーピー",
+      "cost": 50,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 30,
+      "hit_points": 30,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "strike_first" }]
     },
     {
       "type": "creature",
-      "name": "コーンフォーク"
+      "name": "コーンフォーク",
+      "cost": 60,
+      "rarity": "normal",
+      "elements": ["wind"],
+      "attack": 30,
+      "hit_points": 40,
+      "item_restrictions": [],
+      "placement_restrictions": [],
+      "effects": [{ "kind": "gain_magic_on_destruction", "destructions": ["invading", "defending", "board"], "amount": 200 }]
     },
     {
       "type": "item",
-      "name": "ロングソード"
+      "name": "アイアンソード",
+      "cost": 15,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 30 }]
     },
     {
       "type": "item",
-      "name": "バトルアックス"
+      "name": "ウォーハンマー",
+      "cost": 35,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 45 }]
     },
     {
       "type": "item",
-      "name": "フレイムタン"
+      "name": "ファイアダガー",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["water"] }] }]
     },
     {
       "type": "item",
-      "name": "エアスラッシャー"
+      "name": "ウィンドボウ",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["earth"] }] }]
     },
     {
       "type": "item",
-      "name": "チェインメイル"
+      "name": "レザーアーマー",
+      "cost": 15,
+      "rarity": "normal",
+      "category": "armor",
+      "effects": [{ "kind": "hit_points_modifier", "value": 25 }]
     },
     {
       "type": "item",
-      "name": "スケールアーマー"
+      "name": "アイアンシールド",
+      "cost": 35,
+      "rarity": "normal",
+      "category": "armor",
+      "effects": [{ "kind": "hit_points_modifier", "value": 45 }]
     },
     {
       "type": "item",
-      "name": "アイシクル"
+      "name": "アイススピア",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire"] }] }]
     },
     {
       "type": "item",
-      "name": "ロックバイター"
+      "name": "ストーンアックス",
+      "cost": 20,
+      "rarity": "normal",
+      "category": "weapon",
+      "effects": [{ "kind": "attack_modifier", "value": 25 }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["wind"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "アクアブラスト",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["fire"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "ゲイルカッター",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["earth"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "ストーンバレット",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["wind"] }] }]
+    },
+    {
+      "type": "item",
+      "name": "フレアバースト",
+      "cost": 30,
+      "rarity": "normal",
+      "category": "scroll",
+      "effects": [{ "kind": "attack_override", "minimum": 30, "maximum": 30 }, { "kind": "ignore_terrain_effect" }, { "kind": "attack_multiplier", "percent": 150, "constraints": [{ "kind": "opponent_creature_element", "elements": ["water"] }] }]
     },
     {
       "type": "spell",
-      "name": "ホーリーワード1"
+      "name": "ホーリーワード1",
+      "cost": 30,
+      "rarity": "normal",
+      "effect": {
+        "fixed_dice": {
+          "value": 1,
+          "turns": 1
+        }
+      }
     },
     {
       "type": "spell",
-      "name": "ホーリーワード6"
+      "name": "ホーリーワード6",
+      "cost": 50,
+      "rarity": "normal",
+      "effect": {
+        "fixed_dice": {
+          "value": 6,
+          "turns": 1
+        }
+      }
     },
     {
       "type": "spell",
-      "name": "フライ"
+      "name": "フライ",
+      "cost": 50,
+      "rarity": "strange",
+      "effect": {
+        "multiple_dice": {
+          "count": 2,
+          "turns": 1
+        }
+      }
     },
     {
       "type": "spell",
-      "name": "ホープ"
+      "name": "ホープ",
+      "cost": 40,
+      "rarity": "strange",
+      "effect": {
+        "draw_cards": {
+          "count": 2
+        }
+      }
     },
     {
       "type": "spell",
-      "name": "マナ"
+      "name": "マナ",
+      "cost": 0,
+      "rarity": "normal",
+      "effect": {
+        "gain_magic": {
+          "per_lap": 100
+        }
+      }
     },
     {
       "type": "spell",
-      "name": "マジックボルト"
+      "name": "マジックボルト",
+      "cost": 50,
+      "rarity": "normal",
+      "effect": {
+        "damage": {
+          "amount": 20
+        }
+      }
     }
   ],
   "preset_decks": [
@@ -198,27 +483,27 @@
           "count": 2
         },
         {
-          "card": "ロングソード",
+          "card": "アイアンソード",
           "count": 1
         },
         {
-          "card": "バトルアックス",
+          "card": "ウォーハンマー",
           "count": 1
         },
         {
-          "card": "フレイムタン",
+          "card": "ファイアダガー",
           "count": 1
         },
         {
-          "card": "エアスラッシャー",
+          "card": "ストーンバレット",
           "count": 1
         },
         {
-          "card": "チェインメイル",
+          "card": "レザーアーマー",
           "count": 2
         },
         {
-          "card": "スケールアーマー",
+          "card": "アイアンシールド",
           "count": 2
         },
         {
@@ -299,27 +584,27 @@
           "count": 2
         },
         {
-          "card": "ロングソード",
+          "card": "アイアンソード",
           "count": 1
         },
         {
-          "card": "バトルアックス",
+          "card": "ウォーハンマー",
           "count": 1
         },
         {
-          "card": "アイシクル",
+          "card": "アイススピア",
           "count": 1
         },
         {
-          "card": "ロックバイター",
+          "card": "ゲイルカッター",
           "count": 1
         },
         {
-          "card": "チェインメイル",
+          "card": "レザーアーマー",
           "count": 2
         },
         {
-          "card": "スケールアーマー",
+          "card": "アイアンシールド",
           "count": 2
         },
         {
@@ -358,31 +643,31 @@
       "name": "見本の周回ボード",
       "width": 8,
       "height": 8,
-      "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 20, "dice_min": 1, "dice_max": 8},
+      "default_rules": {"target_magic": 5000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 20, "dice_min": 1, "dice_max": 8, "base_land_value": 100, "lap_bonus_per_territory": 30},
       "tiles": [
         {"x": 1, "y": 1, "kind": "base"},
-        {"x": 2, "y": 1, "kind": "land", "attribute": "fire"},
-        {"x": 3, "y": 1, "kind": "land", "attribute": "earth"},
-        {"x": 4, "y": 1, "kind": "land", "attribute": "water"},
-        {"x": 5, "y": 1, "kind": "land", "attribute": "wind"},
+        {"x": 2, "y": 1, "kind": "land", "element": "fire"},
+        {"x": 3, "y": 1, "kind": "land", "element": "earth"},
+        {"x": 4, "y": 1, "kind": "land", "element": "water"},
+        {"x": 5, "y": 1, "kind": "land", "element": "wind"},
         {"x": 6, "y": 1, "kind": "checkpoint"},
-        {"x": 1, "y": 2, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 2, "kind": "land", "attribute": "multi"},
-        {"x": 6, "y": 2, "kind": "land", "attribute": "fire"},
-        {"x": 1, "y": 3, "kind": "land", "attribute": "earth"},
-        {"x": 3, "y": 3, "kind": "land", "attribute": "water"},
-        {"x": 6, "y": 3, "kind": "land", "attribute": "wind"},
-        {"x": 1, "y": 4, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 4, "kind": "land", "attribute": "multi"},
-        {"x": 6, "y": 4, "kind": "land", "attribute": "fire"},
-        {"x": 1, "y": 5, "kind": "land", "attribute": "earth"},
-        {"x": 3, "y": 5, "kind": "land", "attribute": "water"},
-        {"x": 6, "y": 5, "kind": "land", "attribute": "wind"},
+        {"x": 1, "y": 2, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 2, "kind": "land", "element": "multi"},
+        {"x": 6, "y": 2, "kind": "land", "element": "fire"},
+        {"x": 1, "y": 3, "kind": "land", "element": "earth"},
+        {"x": 3, "y": 3, "kind": "land", "element": "water"},
+        {"x": 6, "y": 3, "kind": "land", "element": "wind"},
+        {"x": 1, "y": 4, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 4, "kind": "land", "element": "multi"},
+        {"x": 6, "y": 4, "kind": "land", "element": "fire"},
+        {"x": 1, "y": 5, "kind": "land", "element": "earth"},
+        {"x": 3, "y": 5, "kind": "land", "element": "water"},
+        {"x": 6, "y": 5, "kind": "land", "element": "wind"},
         {"x": 1, "y": 6, "kind": "checkpoint"},
-        {"x": 2, "y": 6, "kind": "land", "attribute": "neutral"},
-        {"x": 3, "y": 6, "kind": "land", "attribute": "multi"},
-        {"x": 4, "y": 6, "kind": "land", "attribute": "fire"},
-        {"x": 5, "y": 6, "kind": "land", "attribute": "earth"},
+        {"x": 2, "y": 6, "kind": "land", "element": "neutral"},
+        {"x": 3, "y": 6, "kind": "land", "element": "multi"},
+        {"x": 4, "y": 6, "kind": "land", "element": "fire"},
+        {"x": 5, "y": 6, "kind": "land", "element": "earth"},
         {"x": 6, "y": 6, "kind": "checkpoint"},
         {"x": 2, "y": 2, "kind": "warp"},
         {"x": 5, "y": 5, "kind": "warp"},
@@ -437,25 +722,25 @@
       "name": "チュートリアル",
       "width": 5,
       "height": 6,
-      "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6},
+      "default_rules": {"target_magic": 8000, "starting_magic": 600, "lap_bonus": 300, "checkpoint_bonus": 100, "round_limit": 30, "dice_min": 1, "dice_max": 6, "base_land_value": 100, "lap_bonus_per_territory": 20},
       "tiles": [
         {"x": 0, "y": 0, "kind": "base"},
-        {"x": 1, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 2, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 3, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 4, "y": 0, "kind": "land", "attribute": "water"},
-        {"x": 0, "y": 1, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 1, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 2, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 2, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 3, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 3, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 4, "kind": "land", "attribute": "fire"},
-        {"x": 4, "y": 4, "kind": "land", "attribute": "earth"},
-        {"x": 0, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 1, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 2, "y": 5, "kind": "land", "attribute": "wind"},
-        {"x": 3, "y": 5, "kind": "land", "attribute": "wind"},
+        {"x": 1, "y": 0, "kind": "land", "element": "water"},
+        {"x": 2, "y": 0, "kind": "land", "element": "water"},
+        {"x": 3, "y": 0, "kind": "land", "element": "water"},
+        {"x": 4, "y": 0, "kind": "land", "element": "water"},
+        {"x": 0, "y": 1, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 1, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 2, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 2, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 3, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 3, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 4, "kind": "land", "element": "fire"},
+        {"x": 4, "y": 4, "kind": "land", "element": "earth"},
+        {"x": 0, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 1, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 2, "y": 5, "kind": "land", "element": "wind"},
+        {"x": 3, "y": 5, "kind": "land", "element": "wind"},
         {"x": 4, "y": 5, "kind": "checkpoint"}
       ],
       "connections": [

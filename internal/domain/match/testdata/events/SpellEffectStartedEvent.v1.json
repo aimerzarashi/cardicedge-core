@@ -1,0 +1,13 @@
+{
+  "participant": 1,
+  "target": 0,
+  "effect": {
+    "effect": {
+      "fixed_dice": {
+        "value": 6,
+        "turns": 1
+      }
+    },
+    "remaining_turns": 1
+  }
+}

@@ -1,0 +1,174 @@
+# カードを見せる型。デッキ・NPC のデッキ・対戦の手札・引いた／捨てたカード・戦利品で共通にする（core#112）。
+# 種類は __typename で見分け、種類ごとの性能は断片（... on CreatureCardInfo 等）で取る。
+# 見せるのに要る項目だけにする（一覧の query は無く、詳細は Query.card、所持カードは Player.collection）。対戦の中（手札・引いた・捨てた）は対戦を始めたときの
+# 写しの性能、それ以外は写した cards の性能を返す
+"カードの、見せるのに要る項目"
+interface CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+}
+
+"クリーチャー"
+type CreatureCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "属性（1〜4 つ。無は単独。火・地・水・風の順に並べる）"
+  elements: [CreatureElement!]!
+  "攻撃力（AT）"
+  attack: Int!
+  "体力（HP）"
+  hitPoints: Int!
+  "アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）"
+  itemRestrictions: [ItemCategory!]!
+  "配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）"
+  placementRestrictions: [BoardTileElement!]!
+  "効果の並び（並びの順に当てる。無ければ空）"
+  effects: [Effect!]!
+}
+
+"アイテム"
+type ItemCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "分類"
+  category: ItemCategory!
+  "効果の並び（並びの順に当てる。無ければ空）"
+  effects: [Effect!]!
+}
+
+"アイテムの分類"
+enum ItemCategory {
+  "武器"
+  WEAPON
+  "防具"
+  ARMOR
+  "巻物"
+  SCROLL
+}
+
+"スペル"
+type SpellCardInfo implements CardInfo {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
+  "使うのに払う魔力"
+  cost: Int!
+  "希少度"
+  rarity: CardRarity!
+  "効果（効果が無ければ null。効果の無いスペルは、対戦で使えない）"
+  effect: SpellEffect
+}
+
+# 効果は種類ごとに型を分ける（2026-11-10 オーナー）。種類どうしに共通の項目が無いので interface ではなく union にする。
+# 型の名前は XxxSpellEffect にそろえる（2026-11-13 オーナー。core#173）
+"スペルの効果（種類は __typename で見分ける。スペルは使ったときに発動する）"
+union SpellEffect = DrawCardsSpellEffect | GainMagicSpellEffect | MultipleDiceSpellEffect | FixedDiceSpellEffect | DamageSpellEffect
+
+"カードを引く効果（山札の先頭から引く。山札が空なら捨て札を混ぜてから）"
+type DrawCardsSpellEffect {
+  "引く枚数（1 以上）"
+  count: Int!
+}
+
+"魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）"
+type GainMagicSpellEffect {
+  "周回数 1 つあたりの魔力（1 以上）"
+  perLap: Int!
+}
+
+"サイコロを複数振る効果（対象のプレイヤーが振るとき、count 個を同時に振り、合計の分だけ進む。turns ターン効き続ける）"
+type MultipleDiceSpellEffect {
+  "振るサイコロの個数（2 以上）"
+  count: Int!
+  "効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）"
+  turns: Int!
+}
+
+"サイコロの目を固定する効果（対象のプレイヤーが振るとき、目は value になる。turns ターン効き続ける）"
+type FixedDiceSpellEffect {
+  "固定する目（1 以上）"
+  value: Int!
+  "効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）"
+  turns: Int!
+}
+
+"対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）"
+type DamageSpellEffect {
+  "ダメージ（1 以上）"
+  amount: Int!
+}
+
+# 画面の略称（N・S・R・E）は game が作る。上下の順は戦利品のパックで使うときに決める
+"カードの希少度"
+enum CardRarity {
+  "画面では N"
+  NORMAL
+  "画面では S"
+  STRANGE
+  "画面では R"
+  RARE
+  "画面では E"
+  EXTRA
+}
+
+"クリーチャーの属性。火・地・水・風のうち 1〜4 つか、無の単独"
+enum CreatureElement {
+  "火"
+  FIRE
+  "地"
+  EARTH
+  "水"
+  WATER
+  "風"
+  WIND
+  "無"
+  NEUTRAL
+}
+
+# 種類は結果では __typename で見分けるので、この enum は絞り込みの入力にだけ使う（結果に出す値の型には使わない）
+"カードの種類。所持カードの絞り込みに使う（結果のカードの種類は __typename で見分ける）"
+enum CardType {
+  "クリーチャー"
+  CREATURE
+  "アイテム"
+  ITEM
+  "スペル"
+  SPELL
+}
+
+"カードが無い（無い ID・カードでない ID・準備中で写されていないカード）"
+type CardNotFoundError {
+  "開発者向けの説明（画面にそのまま出す文言ではない）"
+  message: String!
+}
+
+"カードの詳細の結果。種類ごとの型（__typename で見分ける）。ログイン中のプレイヤーが未登録なら PlayerNotRegisteredError"
+union CardResult = CreatureCardInfo | ItemCardInfo | SpellCardInfo | CardNotFoundError | PlayerNotRegisteredError
+
+extend type Query {
+  # 準備中のカードは game に写されていないので出ない。使用不可のカードは、プレイヤーが持っていることがあるので返す
+  "カードの詳細（登録済みのプレイヤーだけ）。公開中と使用不可のカードを返し、無い ID・カードでない ID は CardNotFoundError"
+  card(
+    "カードの公開用の ID"
+    id: UUID!
+  ): CardResult!
+}

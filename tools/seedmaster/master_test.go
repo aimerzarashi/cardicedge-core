@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -73,19 +74,19 @@ func TestSampleMaster_HasDefaultRulesDifferentFromInitialOnes(t *testing.T) {
 }
 
 // 6 つの属性が見本のどこかの土地に出てくる（studio・game の画面で、どの属性も見て確かめられるように）
-func TestSampleMaster_HasEveryLandAttribute(t *testing.T) {
+func TestSampleMaster_HasEveryLandElement(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
-	attributes := map[string]bool{}
+	elements := map[string]bool{}
 	for _, b := range m.Boards {
 		for _, tile := range b.Tiles {
-			attributes[tile.Attribute] = true
+			elements[tile.Element] = true
 		}
 	}
 
-	for _, attribute := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
-		require.True(t, attributes[attribute])
+	for _, element := range []string{"fire", "earth", "water", "wind", "neutral", "multi"} {
+		require.True(t, elements[element])
 	}
 }
 
@@ -225,10 +226,10 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "unknown_card_in_deck", json: `{"cards":[],"preset_decks":[{"name":"d","cards":[{"card":"x","count":4}]}]}`},
 		{name: "deck_total_not_forty", json: `{"cards":[{"type":"item","name":"a"}],"preset_decks":[{"name":"d","cards":[{"card":"a","count":4}]}]}`},
 		{name: "board_without_default_rules", json: boardWithRulesJSON(`{}`)},
-		{name: "board_with_target_magic_not_above_starting_magic", json: boardWithRulesJSON(`{"target_magic":600,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
-		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)},
-		{name: "board_with_zero_round_limit", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":0,"dice_min":1,"dice_max":6}`)},
-		{name: "board_with_dice_max_below_dice_min", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":4,"dice_max":3}`)},
+		{name: "board_with_target_magic_not_above_starting_magic", json: boardWithRulesJSON(`{"target_magic":600,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6,"base_land_value":100,"lap_bonus_per_territory":20}`)},
+		{name: "board_with_negative_lap_bonus", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":-1,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6,"base_land_value":100,"lap_bonus_per_territory":20}`)},
+		{name: "board_with_zero_round_limit", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":0,"dice_min":1,"dice_max":6,"base_land_value":100,"lap_bonus_per_territory":20}`)},
+		{name: "board_with_dice_max_below_dice_min", json: boardWithRulesJSON(`{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":4,"dice_max":3,"base_land_value":100,"lap_bonus_per_territory":20}`)},
 		{name: "no_grant_decks", json: `{"cards":[],"grant_decks":[]}`},
 		{name: "unknown_preset_deck_for_grant_deck", json: `{"cards":[],"grant_decks":["x"]}`},
 		{name: "blank_board_name", json: boardJSON("", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
@@ -236,9 +237,9 @@ func TestLoadMaster_RejectsInvalidMaster(t *testing.T) {
 		{name: "board_without_checkpoint", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"}`, ``)},
 		{name: "board_with_unreachable_tile", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"checkpoint"}`, ``)},
 		{name: "unknown_board_tile_kind", json: boardJSON("b", `{"x":0,"y":0,"kind":"water"}`, ``)},
-		{name: "land_without_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
-		{name: "base_with_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base","attribute":"fire"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
-		{name: "unknown_board_tile_attribute", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land","attribute":"light"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
+		{name: "land_without_element", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
+		{name: "base_with_element", json: boardJSON("b", `{"x":0,"y":0,"kind":"base","element":"fire"},{"x":1,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}}`)},
+		{name: "unknown_board_tile_element", json: boardJSON("b", `{"x":0,"y":0,"kind":"base"},{"x":1,"y":0,"kind":"land","element":"light"},{"x":2,"y":0,"kind":"checkpoint"}`, `{"a":{"x":0,"y":0},"b":{"x":1,"y":0}},{"a":{"x":1,"y":0},"b":{"x":2,"y":0}}`)},
 		{name: "duplicated_board_name", json: `{"cards":[],"grant_decks":[],"boards":[` + boardBody("b") + `,` + boardBody("b") + `]}`},
 	}
 	for _, tt := range tests {
@@ -265,9 +266,111 @@ func boardBody(name string) string {
 }
 
 func boardBodyWith(name, tiles, connections string) string {
-	return boardBodyWithRules(name, tiles, connections, `{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6}`)
+	return boardBodyWithRules(name, tiles, connections, `{"target_magic":8000,"starting_magic":600,"lap_bonus":300,"checkpoint_bonus":100,"round_limit":30,"dice_min":1,"dice_max":6,"base_land_value":100,"lap_bonus_per_territory":20}`)
 }
 
 func boardBodyWithRules(name, tiles, connections, defaultRules string) string {
 	return `{"name":"` + name + `","width":8,"height":8,"default_rules":` + defaultRules + `,"tiles":[` + tiles + `],"connections":[` + connections + `]}`
+}
+
+func TestLoadMaster_RejectsInvalidCardSpec(t *testing.T) {
+	tests := []struct {
+		name string
+		card func(c *masterCard)
+	}{
+		{name: "negative_cost", card: func(c *masterCard) { c.Cost = -1 }},
+		{name: "unknown_rarity", card: func(c *masterCard) { c.Rarity = "N" }},
+		{name: "missing_rarity", card: func(c *masterCard) { c.Rarity = "" }},
+		{name: "missing_elements", card: func(c *masterCard) { c.Elements = nil }},
+		{name: "unknown_element", card: func(c *masterCard) { c.Elements = []string{"light"} }},
+		{name: "neutral_mixed_elements", card: func(c *masterCard) { c.Elements = []string{"neutral", "fire"} }},
+		{name: "missing_attack", card: func(c *masterCard) { c.Attack = nil }},
+		{name: "negative_attack", card: func(c *masterCard) { attack := -1; c.Attack = &attack }},
+		{name: "missing_hit_points", card: func(c *masterCard) { c.HitPoints = nil }},
+		{name: "zero_hit_points", card: func(c *masterCard) { hitPoints := 0; c.HitPoints = &hitPoints }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			tt.card(&m.Cards[0])
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+func TestLoadMaster_RejectsCreatureSpecOnItemAndSpell(t *testing.T) {
+	for _, cardType := range []string{"item", "spell"} {
+		t.Run(cardType, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == cardType })
+			m.Cards[index].Elements = []string{"fire"}
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+func TestLoadMaster_RejectsInvalidItemSpec(t *testing.T) {
+	tests := []struct {
+		name string
+		card func(c *masterCard)
+	}{
+		{name: "missing_category", card: func(c *masterCard) { c.Category = "" }},
+		{name: "unknown_category", card: func(c *masterCard) { c.Category = "shield" }},
+		{name: "missing_effects", card: func(c *masterCard) { c.Effects = nil }},
+		{name: "effect_the_category_does_not_allow", card: func(c *masterCard) { c.Effects = []masterEffect{{Kind: "hit_points_modifier", Value: new(10)}} }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "item" })
+			require.GreaterOrEqual(t, index, 0)
+			tt.card(&m.Cards[index])
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+// クリーチャーも効果を必ず書き（無ければ []）、持てない種類は流す前に止める（core#178）
+func TestLoadMaster_RejectsInvalidCreatureEffects(t *testing.T) {
+	tests := []struct {
+		name    string
+		effects []masterEffect
+	}{
+		{name: "missing_effects", effects: nil},
+		{name: "unknown_kind", effects: []masterEffect{{Kind: "defensive"}}},
+		{name: "effect_creatures_cannot_have", effects: []masterEffect{{Kind: "ignore_terrain_effect"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "creature" })
+			m.Cards[index].Effects = tt.effects
+
+			require.Error(t, m.validate())
+		})
+	}
+}
+
+func TestLoadMaster_RejectsEffectsOnSpells(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+	index := slices.IndexFunc(m.Cards, func(c masterCard) bool { return c.Type == "spell" })
+	m.Cards[index].Effects = []masterEffect{}
+
+	require.Error(t, m.validate())
+}
+
+func TestLoadMaster_RejectsItemSpecOnOtherCards(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+	m.Cards[0].Category = "weapon"
+
+	require.Error(t, m.validate())
 }

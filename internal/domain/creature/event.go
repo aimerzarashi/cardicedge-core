@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -25,13 +26,22 @@ type Event interface {
 
 type EventMeta = domain.EventMeta[ID]
 
-// 登録した人は、ほかの集約を指すため内部 ID（operator.ID の数値）で持つ
+// 登録した人は、ほかの集約を指すため内部 ID（operator.ID の数値）で持つ。性能は登録の直後の値を明示して持つ
+// （既定の値を変えても、過去のカードの意味が変わらないため。ボードの大きさと同じ）
 type RegisteredEvent struct {
-	EventMeta    `json:"-"`
-	eventMarker  `json:"-"`
-	PublicID     uuid.UUID   `json:"public_id"`
-	Name         card.Name   `json:"name"`
-	RegisteredBy operator.ID `json:"registered_by"`
+	EventMeta             `json:"-"`
+	eventMarker           `json:"-"`
+	PublicID              uuid.UUID             `json:"public_id"`
+	Name                  card.Name             `json:"name"`
+	Cost                  card.Cost             `json:"cost"`
+	Rarity                card.Rarity           `json:"rarity"`
+	Elements              Elements              `json:"elements"`
+	Attack                Attack                `json:"attack"`
+	HitPoints             HitPoints             `json:"hit_points"`
+	ItemRestrictions      ItemRestrictions      `json:"item_restrictions"`
+	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
+	Effects               effect.Effects        `json:"effects"`
+	RegisteredBy          operator.ID           `json:"registered_by"`
 }
 
 var registeredEventType = domain.NewEventName("RegisteredEvent")
@@ -79,10 +89,140 @@ func (*RetiredEvent) SchemaVersion() int {
 	return 1
 }
 
+// コストを変えた（変えた後の値）
+type CostChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Cost        card.Cost   `json:"cost"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var costChangedEventType = domain.NewEventName("CostChangedEvent")
+
+func (*CostChangedEvent) EventType() domain.EventName {
+	return costChangedEventType
+}
+
+func (*CostChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 希少度を変えた（変えた後の値）
+type RarityChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Rarity      card.Rarity `json:"rarity"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var rarityChangedEventType = domain.NewEventName("RarityChangedEvent")
+
+func (*RarityChangedEvent) EventType() domain.EventName {
+	return rarityChangedEventType
+}
+
+func (*RarityChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 属性を変えた（変えた後の集合）
+type ElementsChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Elements    Elements    `json:"elements"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var elementsChangedEventType = domain.NewEventName("ElementsChangedEvent")
+
+func (*ElementsChangedEvent) EventType() domain.EventName {
+	return elementsChangedEventType
+}
+
+func (*ElementsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 攻撃力と体力を変えた（変えた後の 2 つの値。片方だけ変わるときも両方を持つ）
+type StatsChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Attack      Attack      `json:"attack"`
+	HitPoints   HitPoints   `json:"hit_points"`
+	ChangedBy   operator.ID `json:"changed_by"`
+}
+
+var statsChangedEventType = domain.NewEventName("StatsChangedEvent")
+
+func (*StatsChangedEvent) EventType() domain.EventName {
+	return statsChangedEventType
+}
+
+func (*StatsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 効果の並びを変えた（変えた後の並び）
+type EffectsChangedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Effects     effect.Effects `json:"effects"`
+	ChangedBy   operator.ID    `json:"changed_by"`
+}
+
+var effectsChangedEventType = domain.NewEventName("EffectsChangedEvent")
+
+func (*EffectsChangedEvent) EventType() domain.EventName {
+	return effectsChangedEventType
+}
+
+func (*EffectsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// アイテム制限を変えた（変えた後の値）
+type ItemRestrictionsChangedEvent struct {
+	EventMeta        `json:"-"`
+	eventMarker      `json:"-"`
+	ItemRestrictions ItemRestrictions `json:"item_restrictions"`
+	ChangedBy        operator.ID      `json:"changed_by"`
+}
+
+var itemRestrictionsChangedEventType = domain.NewEventName("ItemRestrictionsChangedEvent")
+
+func (*ItemRestrictionsChangedEvent) EventType() domain.EventName {
+	return itemRestrictionsChangedEventType
+}
+
+func (*ItemRestrictionsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
+// 配置制限を変えた（変えた後の値）
+type PlacementRestrictionsChangedEvent struct {
+	EventMeta             `json:"-"`
+	eventMarker           `json:"-"`
+	PlacementRestrictions PlacementRestrictions `json:"placement_restrictions"`
+	ChangedBy             operator.ID           `json:"changed_by"`
+}
+
+var placementRestrictionsChangedEventType = domain.NewEventName("PlacementRestrictionsChangedEvent")
+
+func (*PlacementRestrictionsChangedEvent) EventType() domain.EventName {
+	return placementRestrictionsChangedEventType
+}
+
+func (*PlacementRestrictionsChangedEvent) SchemaVersion() int {
+	return 1
+}
+
 func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
-		EventTypes: []domain.EventName{registeredEventType, publishedEventType, retiredEventType},
+		EventTypes: []domain.EventName{
+			registeredEventType, publishedEventType, retiredEventType, costChangedEventType, rarityChangedEventType,
+			elementsChangedEventType, statsChangedEventType, itemRestrictionsChangedEventType, placementRestrictionsChangedEventType, effectsChangedEventType,
+		},
 	}
 }
 
@@ -101,6 +241,20 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &PublishedEvent{EventMeta: meta}
 	case EventType(retiredEventType):
 		event = &RetiredEvent{EventMeta: meta}
+	case EventType(costChangedEventType):
+		event = &CostChangedEvent{EventMeta: meta}
+	case EventType(rarityChangedEventType):
+		event = &RarityChangedEvent{EventMeta: meta}
+	case EventType(elementsChangedEventType):
+		event = &ElementsChangedEvent{EventMeta: meta}
+	case EventType(statsChangedEventType):
+		event = &StatsChangedEvent{EventMeta: meta}
+	case EventType(effectsChangedEventType):
+		event = &EffectsChangedEvent{EventMeta: meta}
+	case EventType(itemRestrictionsChangedEventType):
+		event = &ItemRestrictionsChangedEvent{EventMeta: meta}
+	case EventType(placementRestrictionsChangedEventType):
+		event = &PlacementRestrictionsChangedEvent{EventMeta: meta}
 	default:
 		return nil, domain.ErrUnknownEventType
 	}

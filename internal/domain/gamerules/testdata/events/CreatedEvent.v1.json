@@ -3,6 +3,6 @@
   "rules": {
     "player": {"max_decks": 10, "max_avatars": 5},
     "deck": {"total_card_count": 40, "max_card_duplicates": 4},
-    "match": {"min_players": 2, "max_players": 4, "max_hand_cards": 6, "starting_hand_cards": 5, "reward_cards_by_rank": [3, 2, 1, 1]}
+    "match": {"min_players": 2, "max_players": 4, "max_hand_cards": 6, "starting_hand_cards": 5, "reward_cards_by_rank": [3, 2, 1, 1], "land_level_multipliers": [1, 2, 4, 8, 16], "chain_multipliers": [100, 150, 200, 250, 300], "toll_percentage": 60, "relinquish_percentage": 80, "terrain_bonus_per_level": 10, "adjacent_territory_bonus": 10, "land_element_change_multiplier": 2, "multi_land_element_change_multiplier": 1, "lap_hit_points_recovery": 10}
   }
 }

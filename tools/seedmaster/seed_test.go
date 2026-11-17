@@ -68,19 +68,19 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 		board := boards[domain.NormalizeName(b.Name)]
 		require.Equal(t, readmodel.BoardStatusPublished, board.Status)
 		require.Len(t, board.Tiles, len(b.Tiles))
-		attributes := map[masterBoardPosition]string{}
+		elements := map[masterBoardPosition]string{}
 		for _, tile := range b.Tiles {
-			attributes[masterBoardPosition{X: tile.X, Y: tile.Y}] = tile.Attribute
+			elements[masterBoardPosition{X: tile.X, Y: tile.Y}] = tile.Element
 		}
 		for _, tile := range board.Tiles {
-			require.Equal(t, attributes[masterBoardPosition{X: tile.X, Y: tile.Y}], string(tile.Attribute))
+			require.Equal(t, elements[masterBoardPosition{X: tile.X, Y: tile.Y}], string(tile.Element))
 		}
 		require.Len(t, board.Connections, len(b.Connections))
 		require.Len(t, board.Pairs, len(b.Pairs))
 		require.Equal(t, readmodel.BoardDefaultRules{
 			TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
 			LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
-			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax,
+			RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax, BaseLandValue: b.DefaultRules.BaseLandValue, LapBonusPerTerritory: b.DefaultRules.LapBonusPerTerritory,
 		}, board.DefaultRules)
 	}
 	npcAvatars, err := s.listNPCAvatars(ctx)
@@ -147,7 +147,7 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			for _, c := range m.Cards[:5] {
 				registered, err := s.registerCard(ctx, c)
 				require.NoError(t, err)
-				_, err = s.cardStatuses.Publish(ctx, registered.ID, registered.Revision)
+				_, err = s.cardCommands.Publish(ctx, registered.ID, registered.Revision)
 				require.NoError(t, err)
 			}
 			for _, c := range m.Cards[5:10] {

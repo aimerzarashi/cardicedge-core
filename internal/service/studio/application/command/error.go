@@ -67,6 +67,12 @@ var (
 	ErrCardNotFound = errors.New("command: card not found")
 	// 準備中のカードを使用不可にしようとした
 	ErrInvalidCardStatusTransition = errors.New("command: invalid card status transition")
+	// 効果の無いスペルを公開しようとした
+	ErrSpellEffectRequired = errors.New("command: spell effect required")
+	// 準備中でないカードの性能（コスト・希少度等）を変えようとした
+	ErrCardNotDraft = errors.New("command: card is not draft")
+	// アイテムの分類で持てない効果（効果を変えるとき・分類を変えるとき。core#177）
+	ErrItemEffectNotAllowed = errors.New("command: item effect not allowed in the category")
 	// ゲーム全体のルールがまだ作られていない（studio は起動時に作るので、起きないはずの状態）
 	ErrGameRulesNotCreated = errors.New("command: game rules not created")
 	// studio_rules がまだ作られていない（同じく、起きないはずの状態）

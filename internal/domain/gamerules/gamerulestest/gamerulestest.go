@@ -28,7 +28,18 @@ func Match(t testing.TB, minPlayers, maxPlayers, maxHandCards, startingHandCards
 	require.NoError(t, err)
 	starting, err := gamerules.NewStartingHandCards(startingHandCards)
 	require.NoError(t, err)
-	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1)}
+	return gamerules.Match{MinPlayers: min, MaxPlayers: max, MaxHandCards: hand, StartingHandCards: starting, RewardCardsByRank: RewardCardsByRank(t, 3, 2, 1, 1),
+		LandLevelMultipliers: gamerules.Defaults().Match.LandLevelMultipliers, ChainMultipliers: gamerules.Defaults().Match.ChainMultipliers,
+		TollPercentage: gamerules.Defaults().Match.TollPercentage, RelinquishPercentage: gamerules.Defaults().Match.RelinquishPercentage,
+		TerrainBonusPerLevel: gamerules.Defaults().Match.TerrainBonusPerLevel, AdjacentTerritoryBonus: gamerules.Defaults().Match.AdjacentTerritoryBonus, LapHitPointsRecovery: gamerules.Defaults().Match.LapHitPointsRecovery,
+		LandElementChangeMultiplier: gamerules.Defaults().Match.LandElementChangeMultiplier, MultiLandElementChangeMultiplier: gamerules.Defaults().Match.MultiLandElementChangeMultiplier}
+}
+
+func ChainMultipliers(t testing.TB, values ...int) gamerules.ChainMultipliers {
+	t.Helper()
+	multipliers, err := gamerules.NewChainMultipliers(values...)
+	require.NoError(t, err)
+	return multipliers
 }
 
 func RewardCardsByRank(t testing.TB, values ...int) gamerules.RewardCardsByRank {

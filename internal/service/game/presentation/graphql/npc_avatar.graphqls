@@ -27,27 +27,9 @@ type NpcDeck {
 "NPC のデッキに入っているカードと、その枚数"
 type NpcDeckCard {
   "カード"
-  card: NpcDeckCardInfo!
+  card: CardInfo!
   "枚数"
   count: Int!
-}
-
-# game にはカードの一覧・詳細の問い合わせが無いので、NPC のデッキを見せるのに要る項目だけにする
-"NPC のデッキに入っているカードの、見せるのに要る項目"
-type NpcDeckCardInfo {
-  "公開用の ID"
-  id: UUID!
-  "名前"
-  name: String!
-  "種類"
-  type: CardType!
-}
-
-"カードの種類"
-enum CardType {
-  CREATURE
-  ITEM
-  SPELL
 }
 
 "解放した公開中の NPC のアバターが無い（解放していない・公開中でないものを含む。区別しない）"

@@ -1,0 +1,22 @@
+{
+  "input": {
+    "attacker": {
+      "card": {"entity_type": "creature", "id": 101},
+      "spec": {"elements": ["neutral"], "attack": 30, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": [{"use_creature_as_item": {"elements": ["earth", "neutral"]}}]},
+      "attack": 30,
+      "hit_points": 40,
+      "creature_as_item": {"card": {"entity_type": "creature", "id": 151}, "spec": {"elements": ["neutral"], "attack": 255, "hit_points": 520, "item_restrictions": [], "placement_restrictions": [], "effects": []}},
+      "adjacent_territories": [{"x": 0, "y": 0}, {"x": 2, "y": 0}]
+    },
+    "defender": {
+      "card": {"entity_type": "creature", "id": 201},
+      "spec": {"elements": ["neutral"], "attack": 20, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": [{"hit_points_modifier": {"value": 20}}]},
+      "attack": 20,
+      "hit_points": 35,
+      "item": {"card": {"entity_type": "item", "id": 302}, "spec": {"category": "scroll", "effects": [{"attack_override": {"minimum": 30, "maximum": 30}}, {"ignore_terrain_effect": {}}, {"attack_multiplier": {"percent": 150, "constraints": [{"opponent_creature_element": {"elements": ["fire"]}}]}}]}},
+      "adjacent_territories": [{"x": 3, "y": 1}]
+    },
+    "land": {"element": "fire", "level": 1},
+    "rules": {"adjacent_territory_bonus": 10, "terrain_bonus_per_level": 10}
+  }
+}

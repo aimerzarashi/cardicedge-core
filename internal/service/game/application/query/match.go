@@ -11,6 +11,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
@@ -30,12 +31,18 @@ const (
 type MatchPhase string
 
 const (
-	MatchPhaseDrawing      MatchPhase = "drawing"
-	MatchPhaseDiscarding   MatchPhase = "discarding"
-	MatchPhaseRolling      MatchPhase = "rolling"
-	MatchPhaseChoosingPath MatchPhase = "choosing_path"
-	MatchPhaseEnding       MatchPhase = "ending"
-	MatchPhaseEnded        MatchPhase = "ended"
+	MatchPhaseDrawing             MatchPhase = "drawing"
+	MatchPhaseDiscarding          MatchPhase = "discarding"
+	MatchPhaseRolling             MatchPhase = "rolling"
+	MatchPhaseChoosingPath        MatchPhase = "choosing_path"
+	MatchPhasePlacing             MatchPhase = "placing"
+	MatchPhaseInvading            MatchPhase = "invading"
+	MatchPhaseAttacking           MatchPhase = "attacking"
+	MatchPhaseDefending           MatchPhase = "defending"
+	MatchPhaseRelinquishing       MatchPhase = "relinquishing"
+	MatchPhaseTerritoryCommanding MatchPhase = "territory_commanding"
+	MatchPhaseEnding              MatchPhase = "ending"
+	MatchPhaseEnded               MatchPhase = "ended"
 )
 
 type MatchEndReason string
@@ -52,11 +59,42 @@ type MatchOutcome struct {
 	Reason  MatchEndReason
 }
 
+// 使えるスペル 1 枚。Targets は選べる対象のプレイヤー（参加者の番号）で、対象を選ばないスペルは空
+type MatchSpellChoice struct {
+	HandIndex int
+	Targets   []int
+	// 選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ）
+	TargetPositions []BoardPosition
+}
+
+// 参加者に続いているスペルの効果。Effect は使ったスペルの効果（カードの効果と同じ形）
+type MatchLastingSpellEffect struct {
+	Effect SpellEffect
+	// 終わるまでのターン数
+	RemainingTurns int
+}
+
+func fromLastingSpellEffect(lasting *match.LastingSpellEffect) *MatchLastingSpellEffect {
+	if lasting == nil {
+		return nil
+	}
+	return &MatchLastingSpellEffect{Effect: fromSpellEffect(lasting.Effect), RemainingTurns: lasting.RemainingTurns}
+}
+
 // 手札のカード 1 枚。名前と種類は写した cards から引く
 type MatchCard struct {
 	ID   uuid.UUID
 	Name string
 	Type CardType
+	// 対戦の中（手札・引いた・捨てた）は始めたときの写しの性能、戦利品は写した cards の性能
+	Cost   int
+	Rarity string
+	// クリーチャーだけの性能（クリーチャー以外は nil）。コスト・希少度と同じく、対戦の中は写しの性能
+	Creature *CreatureSpec
+	// アイテムだけの性能（アイテム以外は nil）。クリーチャーと同じく、対戦の中は写しの性能
+	Item *ItemSpec
+	// スペルだけの性能（スペル以外は nil）。クリーチャーと同じく、対戦の中は写しの性能
+	Spell *SpellSpec
 }
 
 // 対戦の盤面の写し。始めた時点のボードの形（対戦が自分の写しを持つので、ボードのマスタが変わっても変わらない）
@@ -70,33 +108,105 @@ type MatchBoard struct {
 
 // 対戦のルール。始めた時点の写し（全体のルール MatchRules とは別の値）
 type MatchPlayRules struct {
-	TargetMagic       int
-	StartingMagic     int
-	LapBonus          int
-	CheckpointBonus   int
-	RoundLimit        int
-	DiceMin           int
-	DiceMax           int
-	MaxHandCards      int
-	StartingHandCards int
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
+	MaxHandCards         int
+	StartingHandCards    int
+	// 土地のレベル・連鎖の数ごとの倍率と、通行料・手放すときの割合
+	LandLevelMultipliers []int
+	ChainMultipliers     []int
+	TollPercentage       int
+	RelinquishPercentage int
 }
 
 // 参加者 1 人。山札は並びも中身も見せず、枚数だけを持つ。TurnOrder は順番の何番目か（0 始まり）
 type MatchParticipant struct {
-	Kind          MatchParticipantKind
-	Player        *uuid.UUID
-	Avatar        RoomNamed
-	Position      BoardPosition
-	Magic         int
+	Kind     MatchParticipantKind
+	Player   *uuid.UUID
+	Avatar   RoomNamed
+	Position BoardPosition
+	Magic    int
+	// 手持ちの魔力 ＋ 自分の領地の価値の合計
+	TotalMagic    int
 	Hand          []MatchCard
 	DrawPileCount int
-	TurnOrder     int
+	// 捨て札（入った順）。使った・捨てた・倒されたカードで、誰でも見られる
+	DiscardPile []MatchCard
+	TurnOrder   int
 	// 拠点を出てから印を付けたチェックポイントの位置
 	PassedCheckpoints []BoardPosition
+	// 続いているスペルの効果（無ければ nil）
+	LastingSpellEffect *MatchLastingSpellEffect
 	// 戦利品を受け取ったか（プレイヤーだけ。NPC は受け取らないので、いつも false）
 	RewardReceived bool
 	// 受け取った戦利品のカード（受け取るまでは空）
 	RewardCards []MatchCard
+}
+
+// 盤面に配置したクリーチャー 1 体。カードの性能は配置したときの写し、HitPoints は今の体力
+type MatchPlacedCreature struct {
+	ID        int
+	Card      MatchCard
+	HitPoints int
+}
+
+// 領地。Owner は持ち主の参加者の番号（Match.Participants の何番目か）
+type MatchTerritory struct {
+	Position BoardPosition
+	Owner    int
+	Creature MatchPlacedCreature
+	Level    int
+	// 今の価値（連鎖を含む）・他人が止まったときの通行料・手放したときに受け取る魔力
+	Value           int
+	Toll            int
+	RelinquishMagic int
+}
+
+// 戦闘が終わるまでの、侵略しているクリーチャー。カードの性能は出したときの写し、HitPoints は今の体力
+// 土地のレベル（空き地にも残る）
+type MatchLandLevel struct {
+	Position BoardPosition
+	Level    int
+}
+
+// 領地のレベルを上げる選択肢 1 つ。Level は上げた後のレベル、Magic は払う魔力
+type MatchLevelUpChoice struct {
+	Position BoardPosition
+	Level    int
+	Magic    int
+}
+
+// クリーチャーを交換する選択肢 1 つ。HandIndex は手札の番号、Magic は払う魔力
+type MatchExchangeChoice struct {
+	Position  BoardPosition
+	HandIndex int
+	Magic     int
+}
+
+// クリーチャーを動かす選択肢 1 つ（元の領地と行き先）
+type MatchMoveChoice struct {
+	From BoardPosition
+	To   BoardPosition
+}
+
+// 土地の属性を変える選択肢 1 つ。Element は変えた後の属性、Magic は払う魔力
+type MatchElementChangeChoice struct {
+	Position BoardPosition
+	Element  BoardTileElement
+	Magic    int
+}
+
+type MatchInvasion struct {
+	Position  BoardPosition
+	Card      MatchCard
+	HitPoints int
 }
 
 // 戦利品に選べるパック。キーを選ぶ操作に渡す
@@ -114,12 +224,40 @@ type Match struct {
 	Board              MatchBoard
 	Participants       []MatchParticipant
 	CurrentParticipant *int
-	Phase              MatchPhase
+	// 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
+	AwaitingParticipant *int
+	Phase               MatchPhase
 	// このターンに振った目。振る前は nil
 	Dice           *int
 	RemainingSteps int
 	// 今の番の人が選べる行き先。分かれ道で選ぶ段階のときだけ中身がある
 	PathChoices []BoardPosition
+	// 今の番の人が使えるスペルの手札の番号。振る段階で、このターンにまだ使っていないときだけ中身がある
+	SpellChoices []MatchSpellChoice
+	// 今の番の人が配置できる手札の番号。配置の段階のときだけ中身がある
+	PlaceChoices []int
+	// 今の番の人が侵略に出せる手札の番号。侵略を選ぶ段階のときだけ中身がある
+	InvadeChoices []int
+	// 操作を待っている人が戦闘に出せるアイテムの手札の番号。攻める段階と守る段階のときだけ中身がある
+	ItemChoices []int
+	// 操作を待っている人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（援護。手札の順）
+	CreatureAsItemChoices []int
+	// 今の番の人が手放せる領地の位置。手放す段階のときだけ中身がある
+	RelinquishChoices []BoardPosition
+	// レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1）
+	LandLevels []MatchLandLevel
+	// 今の番の人が選べるレベルアップ。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	LevelUpChoices []MatchLevelUpChoice
+	// 今の番の人が選べるクリーチャーの交換。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	ExchangeChoices []MatchExchangeChoice
+	// 今の番の人が選べる土地の属性の変更。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	ElementChangeChoices []MatchElementChangeChoice
+	// 今の番の人が選べるクリーチャーの移動。止まった後の段階（配置・侵略・領地コマンド）のときだけ中身がある
+	MoveChoices []MatchMoveChoice
+	// 侵略してから戦闘が終わるまでだけある
+	Invasion *MatchInvasion
+	// 領地（できた順）
+	Territories []MatchTerritory
 	// 終わるまでは nil
 	Outcome *MatchOutcome
 	// 見ているプレイヤーが今選べる戦利品のパック。終わった後で、まだ受け取っていないときだけ中身がある
@@ -192,11 +330,20 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		for _, hand := range participant.Hand {
 			refs = append(refs, domain.NewEntityRef(hand.EntityType, hand.ID))
 		}
+		for _, discarded := range participant.DiscardPile {
+			refs = append(refs, domain.NewEntityRef(discarded.EntityType, discarded.ID))
+		}
 		if participant.Reward != nil {
 			for _, reward := range participant.Reward.Cards {
 				refs = append(refs, domain.NewEntityRef(reward.EntityType, reward.ID))
 			}
 		}
+	}
+	for _, placed := range current.PlacedCreatures {
+		refs = append(refs, domain.NewEntityRef(placed.Card.EntityType, placed.Card.ID))
+	}
+	if current.Invasion != nil {
+		refs = append(refs, domain.NewEntityRef(current.Invasion.Card.EntityType, current.Invasion.Card.ID))
 	}
 	publicIDs, err := q.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
@@ -211,11 +358,14 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	}
 	var avatarIDs, npcAvatarIDs, cardIDs []uuid.UUID
 	participants := make([]MatchParticipant, len(current.Participants))
+	totals := current.TotalMagics()
 	for i, participant := range current.Participants {
 		converted := MatchParticipant{
-			Position: BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
-			Magic:    participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
-			PassedCheckpoints: fromBoardPositions(participant.PassedCheckpoints),
+			Position:   BoardPosition{X: participant.Position.X.Int(), Y: participant.Position.Y.Int()},
+			TotalMagic: totals[i],
+			Magic:      participant.Magic, DrawPileCount: len(participant.DrawPile), TurnOrder: turnOrderOf(current.TurnOrder, i),
+			PassedCheckpoints:  fromBoardPositions(participant.PassedCheckpoints),
+			LastingSpellEffect: fromLastingSpellEffect(participant.LastingSpellEffect),
 		}
 		switch {
 		case participant.Participant.Player != nil:
@@ -249,6 +399,15 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			converted.Hand[j].ID = cardID
 			cardIDs = append(cardIDs, cardID)
 		}
+		converted.DiscardPile = make([]MatchCard, len(participant.DiscardPile))
+		for j, discarded := range participant.DiscardPile {
+			cardID, err := publicIDOf(discarded.EntityType, discarded.ID)
+			if err != nil {
+				return Match{}, err
+			}
+			converted.DiscardPile[j].ID = cardID
+			cardIDs = append(cardIDs, cardID)
+		}
 		converted.RewardCards = []MatchCard{}
 		if participant.Reward != nil {
 			converted.RewardReceived = true
@@ -263,10 +422,28 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		}
 		participants[i] = converted
 	}
+	placedCardIDs := make(map[match.PlacedCreatureID]uuid.UUID, len(current.PlacedCreatures))
+	for _, placed := range current.PlacedCreatures {
+		cardID, err := publicIDOf(placed.Card.EntityType, placed.Card.ID)
+		if err != nil {
+			return Match{}, err
+		}
+		placedCardIDs[placed.ID] = cardID
+		cardIDs = append(cardIDs, cardID)
+	}
+	var invasionCardID uuid.UUID
+	if current.Invasion != nil {
+		if invasionCardID, err = publicIDOf(current.Invasion.Card.EntityType, current.Invasion.Card.ID); err != nil {
+			return Match{}, err
+		}
+		cardIDs = append(cardIDs, invasionCardID)
+	}
 	names, err := q.loadNames(ctx, avatarIDs, npcAvatarIDs, cardIDs)
 	if err != nil {
 		return Match{}, err
 	}
+	// 手札の性能は、始めたときの写し（判断と同じ値）。名前は今の read model から（戦闘に関わらないため）
+	specs := current.CardSpecs()
 	for i := range participants {
 		participant := &participants[i]
 		source := names.Avatars
@@ -283,7 +460,22 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 			if !ok {
 				return Match{}, fmt.Errorf("query: card %s of match is not found", participant.Hand[j].ID)
 			}
-			participant.Hand[j] = found
+			spec, ok := specs[current.Participants[i].Hand[j]]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match hand has no spec", found.ID)
+			}
+			participant.Hand[j] = withSpec(found, spec)
+		}
+		for j := range participant.DiscardPile {
+			found, ok := names.Cards[participant.DiscardPile[j].ID]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match is not found", participant.DiscardPile[j].ID)
+			}
+			spec, ok := specs[current.Participants[i].DiscardPile[j]]
+			if !ok {
+				return Match{}, fmt.Errorf("query: card %s of match discard pile has no spec", found.ID)
+			}
+			participant.DiscardPile[j] = withSpec(found, spec)
 		}
 		for j := range participant.RewardCards {
 			found, ok := names.Cards[participant.RewardCards[j].ID]
@@ -301,6 +493,53 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		ID: publicID, Revision: current.Version, Round: current.Round, Rules: fromMatchPlayRules(current.Rules),
 		Board: fromMatchBoard(current.Board), Participants: participants,
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
+		SpellChoices: []MatchSpellChoice{}, PlaceChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, CreatureAsItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
+		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
+		MoveChoices: []MatchMoveChoice{},
+	}
+	for _, choice := range current.MoveChoices() {
+		result.MoveChoices = append(result.MoveChoices, MatchMoveChoice{
+			From: NewBoardPosition(choice.From.X.Int(), choice.From.Y.Int()), To: NewBoardPosition(choice.To.X.Int(), choice.To.Y.Int()),
+		})
+	}
+	for _, land := range current.LandLevels {
+		result.LandLevels = append(result.LandLevels, MatchLandLevel{Position: NewBoardPosition(land.Position.X.Int(), land.Position.Y.Int()), Level: land.Level})
+	}
+	for _, choice := range current.ElementChangeChoices() {
+		element, err := NewBoardTileElement(choice.Element.String())
+		if err != nil {
+			return Match{}, err
+		}
+		result.ElementChangeChoices = append(result.ElementChangeChoices, MatchElementChangeChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), Element: element, Magic: choice.Magic,
+		})
+	}
+	for _, choice := range current.ExchangeChoices() {
+		result.ExchangeChoices = append(result.ExchangeChoices, MatchExchangeChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), HandIndex: choice.HandIndex, Magic: choice.Magic,
+		})
+	}
+	for _, choice := range current.LevelUpChoices() {
+		result.LevelUpChoices = append(result.LevelUpChoices, MatchLevelUpChoice{
+			Position: NewBoardPosition(choice.Position.X.Int(), choice.Position.Y.Int()), Level: choice.Level, Magic: choice.Magic,
+		})
+	}
+	for _, territory := range current.Territories {
+		placed, ok := current.PlacedCreature(territory.Creature)
+		if !ok {
+			return Match{}, fmt.Errorf("query: creature %d of territory is not placed", territory.Creature.Int())
+		}
+		found, ok := names.Cards[placedCardIDs[placed.ID]]
+		if !ok {
+			return Match{}, fmt.Errorf("query: card %s of placed creature is not found", placedCardIDs[placed.ID])
+		}
+		base := placed.Base
+		card := withSpec(found, match.CardSpec{Cost: current.CardSpecs()[placed.Card].Cost, Rarity: current.CardSpecs()[placed.Card].Rarity, Creature: &base})
+		result.Territories = append(result.Territories, MatchTerritory{
+			Position: NewBoardPosition(territory.Position.X.Int(), territory.Position.Y.Int()), Owner: placed.Owner.Int(),
+			Creature: MatchPlacedCreature{ID: placed.ID.Int(), Card: card, HitPoints: placed.HitPoints.Int()},
+			Level:    current.LandLevel(territory.Position), Value: current.TerritoryValue(territory), Toll: current.TerritoryToll(territory), RelinquishMagic: current.TerritoryRelinquishMagic(territory),
+		})
 	}
 	for i, participant := range current.Participants {
 		index, err := match.NewParticipantIndex(i)
@@ -317,12 +556,49 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		index := turn.Int()
 		result.CurrentParticipant = &index
 	}
+	if awaiting, ok := current.AwaitingParticipant(); ok {
+		index := awaiting.Int()
+		result.AwaitingParticipant = &index
+	}
+	if current.Invasion != nil {
+		found, ok := names.Cards[invasionCardID]
+		if !ok {
+			return Match{}, fmt.Errorf("query: card %s of invasion is not found", invasionCardID)
+		}
+		base := current.Invasion.Base
+		spec := current.CardSpecs()[current.Invasion.Card]
+		position := current.Invasion.Position
+		result.Invasion = &MatchInvasion{
+			Position:  NewBoardPosition(position.X.Int(), position.Y.Int()),
+			Card:      withSpec(found, match.CardSpec{Cost: spec.Cost, Rarity: spec.Rarity, Creature: &base}),
+			HitPoints: current.Invasion.HitPoints.Int(),
+		}
+	}
 	if current.Dice > 0 {
 		dice := current.Dice
 		result.Dice = &dice
 	}
 	if phase == MatchPhaseChoosingPath {
 		result.PathChoices = fromBoardPositions(current.PathChoices())
+	}
+	for _, choice := range current.SpellChoices() {
+		targets := make([]int, len(choice.Targets))
+		for i, target := range choice.Targets {
+			targets[i] = target.Int()
+		}
+		result.SpellChoices = append(result.SpellChoices, MatchSpellChoice{HandIndex: choice.HandIndex, Targets: targets, TargetPositions: fromBoardPositions(choice.TargetPositions)})
+	}
+	if choices := current.PlaceChoices(); len(choices) > 0 {
+		result.PlaceChoices = choices
+	}
+	if choices := current.InvadeChoices(); len(choices) > 0 {
+		result.InvadeChoices = choices
+	}
+	if choices := current.ItemChoices(); len(choices) > 0 {
+		result.ItemChoices = choices
+	}
+	if choices := current.CreatureAsItemChoices(); len(choices) > 0 {
+		result.CreatureAsItemChoices = choices
 	}
 	if current.Result != nil {
 		outcome, err := fromMatchResult(*current.Result)
@@ -334,7 +610,7 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 	return result, nil
 }
 
-// moving は Decide の途中だけの段階で、保存した状態には出ない。出たらコードの誤り
+// moving・battling は Decide の途中だけの段階で、対戦の最後の状態には出ない（版ごとの値は AwaitsOperation で先に除く）。出たらコードの誤り
 func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 	switch phase {
 	case match.PhaseDrawing:
@@ -345,6 +621,18 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseRolling, nil
 	case match.PhaseChoosingPath:
 		return MatchPhaseChoosingPath, nil
+	case match.PhasePlacing:
+		return MatchPhasePlacing, nil
+	case match.PhaseInvading:
+		return MatchPhaseInvading, nil
+	case match.PhaseAttacking:
+		return MatchPhaseAttacking, nil
+	case match.PhaseDefending:
+		return MatchPhaseDefending, nil
+	case match.PhaseRelinquishing:
+		return MatchPhaseRelinquishing, nil
+	case match.PhaseTerritoryCommanding:
+		return MatchPhaseTerritoryCommanding, nil
 	case match.PhaseEnding:
 		return MatchPhaseEnding, nil
 	case match.PhaseEnded:
@@ -382,8 +670,10 @@ func fromBoardPositions(positions []board.Position) []BoardPosition {
 func fromMatchPlayRules(rules match.Rules) MatchPlayRules {
 	return MatchPlayRules{
 		TargetMagic: rules.TargetMagic, StartingMagic: rules.StartingMagic, LapBonus: rules.LapBonus, CheckpointBonus: rules.CheckpointBonus,
-		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax,
+		RoundLimit: rules.RoundLimit, DiceMin: rules.DiceMin, DiceMax: rules.DiceMax, BaseLandValue: rules.BaseLandValue, LapBonusPerTerritory: rules.LapBonusPerTerritory,
 		MaxHandCards: rules.MaxHandCards.Int(), StartingHandCards: rules.StartingHandCards.Int(),
+		LandLevelMultipliers: slices.Clone(rules.LandLevelMultipliers), ChainMultipliers: slices.Clone(rules.ChainMultipliers),
+		TollPercentage: rules.TollPercentage.Int(), RelinquishPercentage: rules.RelinquishPercentage.Int(),
 	}
 }
 
@@ -394,7 +684,7 @@ func fromMatchBoard(source match.Board) MatchBoard {
 	result := MatchBoard{Width: source.Size.Width.Int(), Height: source.Size.Height.Int()}
 	result.Tiles = make([]BoardTile, len(source.Tiles))
 	for i, tile := range source.Tiles {
-		result.Tiles[i] = BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Attribute: BoardTileAttribute(tile.Attribute)}
+		result.Tiles[i] = BoardTile{X: tile.Position.X.Int(), Y: tile.Position.Y.Int(), Kind: BoardTileKind(tile.Kind), Element: BoardTileElement(tile.Element)}
 	}
 	result.Connections = make([]BoardConnection, len(source.Connections))
 	for i, connection := range source.Connections {
@@ -412,4 +702,107 @@ func turnOrderOf(order []match.ParticipantIndex, seat int) int {
 	return slices.IndexFunc(order, func(index match.ParticipantIndex) bool {
 		return index.Int() == seat
 	})
+}
+
+// 対戦の写しの性能で、read model から引いたカードの性能を置き換える
+func withSpec(found MatchCard, spec match.CardSpec) MatchCard {
+	found.Cost = spec.Cost.Int()
+	found.Rarity = spec.Rarity.String()
+	found.Creature = nil
+	if spec.Creature != nil {
+		found.Creature = &CreatureSpec{Elements: spec.Creature.Elements.Strings(), Attack: spec.Creature.Attack.Int(), HitPoints: spec.Creature.HitPoints.Int(), ItemRestrictions: spec.Creature.ItemRestrictions.Strings(), PlacementRestrictions: spec.Creature.PlacementRestrictions.Strings(), Effects: queryEffects(spec.Creature.Effects)}
+	}
+	found.Item = nil
+	if spec.Item != nil {
+		found.Item = &ItemSpec{Category: spec.Item.Category.String(), Effects: queryEffects(spec.Item.Effects)}
+	}
+	found.Spell = nil
+	if spec.Spell != nil {
+		found.Spell = &SpellSpec{Effect: fromSpellEffect(spec.Spell.Effect)}
+	}
+	return found
+}
+
+func fromSpellEffect(effect effect.SpellEffect) SpellEffect {
+	var converted SpellEffect
+	if effect.DrawCards != nil {
+		converted.DrawCards = &SpellDrawCards{Count: effect.DrawCards.Count.Int()}
+	}
+	if effect.GainMagic != nil {
+		converted.GainMagic = &SpellGainMagic{PerLap: effect.GainMagic.PerLap.Int()}
+	}
+	if effect.MultipleDice != nil {
+		converted.MultipleDice = &SpellMultipleDice{Count: effect.MultipleDice.Count.Int(), Turns: effect.MultipleDice.Turns.Int()}
+	}
+	if effect.FixedDice != nil {
+		converted.FixedDice = &SpellFixedDice{Value: effect.FixedDice.Value.Int(), Turns: effect.FixedDice.Turns.Int()}
+	}
+	if effect.Damage != nil {
+		converted.Damage = &SpellDamage{Amount: effect.Damage.Amount.Int()}
+	}
+	return converted
+}
+
+func queryEffects(effects effect.Effects) []Effect {
+	values := make([]Effect, len(effects))
+	for i, value := range effects {
+		values[i] = queryEffect(value)
+	}
+	return values
+}
+
+func queryEffect(value effect.Effect) Effect {
+	converted := Effect{
+		IgnoreTerrainEffect: value.IgnoreTerrainEffect != nil, StrikeFirst: value.StrikeFirst != nil, StrikeLast: value.StrikeLast != nil,
+		ForbidInvasion: value.ForbidInvasion != nil, ForbidMovement: value.ForbidMovement != nil,
+	}
+	switch {
+	case value.AttackModifier != nil:
+		converted.AttackModifier = new(value.AttackModifier.Value.Int())
+	case value.HitPointsModifier != nil:
+		converted.HitPointsModifier = new(value.HitPointsModifier.Value.Int())
+	case value.AttackOverride != nil:
+		converted.AttackOverride = &EffectRange{Minimum: value.AttackOverride.Minimum.Int(), Maximum: value.AttackOverride.Maximum.Int()}
+	case value.HitPointsOverride != nil:
+		converted.HitPointsOverride = &EffectRange{Minimum: value.HitPointsOverride.Minimum.Int(), Maximum: value.HitPointsOverride.Maximum.Int()}
+	case value.AttackMultiplier != nil:
+		converted.AttackMultiplier = &EffectAttackMultiplier{Percent: value.AttackMultiplier.Percent.Int(), Constraints: queryConstraints(value.AttackMultiplier.Constraints)}
+	case value.NullifyReceivedDamage != nil:
+		converted.NullifyReceivedDamage = &EffectNullifyReceivedDamage{Constraints: queryConstraints(value.NullifyReceivedDamage.Constraints)}
+	case value.TollMultiplier != nil:
+		converted.TollMultiplierPercent = new(value.TollMultiplier.Percent.Int())
+	case value.ReturnToHandOnDestruction != nil:
+		converted.ReturnToHandOnDestruction = &EffectReturnToHandOnDestruction{Destructions: queryDestructions(value.ReturnToHandOnDestruction.Destructions)}
+	case value.GainMagicOnDestruction != nil:
+		converted.GainMagicOnDestruction = &EffectGainMagicOnDestruction{
+			Destructions: queryDestructions(value.GainMagicOnDestruction.Destructions), Amount: value.GainMagicOnDestruction.Amount.Int(),
+		}
+	case value.UseCreatureAsItem != nil:
+		elements := make([]string, len(value.UseCreatureAsItem.Elements))
+		for i, creatureElement := range value.UseCreatureAsItem.Elements {
+			elements[i] = creatureElement.String()
+		}
+		converted.UseCreatureAsItem = &EffectUseCreatureAsItem{Elements: elements}
+	}
+	return converted
+}
+
+func queryDestructions(destructions effect.Destructions) []string {
+	values := make([]string, len(destructions))
+	for i, destruction := range destructions {
+		values[i] = string(destruction)
+	}
+	return values
+}
+
+func queryConstraints(constraints effect.Constraints) []EffectConstraint {
+	values := make([]EffectConstraint, len(constraints))
+	for i, constraint := range constraints {
+		elements := make([]string, len(constraint.OpponentCreatureElement.Elements))
+		for j, creatureElement := range constraint.OpponentCreatureElement.Elements {
+			elements[j] = creatureElement.String()
+		}
+		values[i].OpponentCreatureElements = elements
+	}
+	return values
 }

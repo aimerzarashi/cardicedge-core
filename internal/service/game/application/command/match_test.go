@@ -12,9 +12,12 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar/avatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
@@ -23,6 +26,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/eventstore"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
@@ -69,6 +73,13 @@ func newMatchStartFixture(t *testing.T) matchStartFixture {
 		func(context.Context, npcdeck.ID) ([]master.DeckCard, error) {
 			return []master.DeckCard{{Card: cardC, Count: 2}}, nil
 		},
+		func(_ context.Context, refs []card.Ref) (map[card.Ref]master.CardSpec, error) {
+			specs := map[card.Ref]master.CardSpec{}
+			for _, ref := range refs {
+				specs[ref] = cardSpecs[ref]
+			}
+			return specs, nil
+		},
 		func() match.Random {
 			return matchtest.NewRandom()
 		},
@@ -107,6 +118,22 @@ func TestMatchStart_CreatesMatchWithIDOfRoomEventFromRoomConditions(t *testing.T
 	require.Empty(t, started.Participants[1].DrawPile)
 }
 
+// 対戦は、始めたときのカードの性能をデッキの写しに持つ（判断と画面が同じ値を使うため）
+func TestMatchStart_CopiesCardSpecsIntoParticipantDecks(t *testing.T) {
+	f := newMatchStartFixture(t)
+
+	err := f.handler.Handle(f.ctx, &room.MatchStartedEvent{EventMeta: room.EventMeta{EntityID: f.room.ID}, Match: f.room.Match})
+
+	require.NoError(t, err)
+	started, ok := f.matches(t).(match.Match)
+	require.True(t, ok)
+	require.Equal(t, map[card.Ref]match.CardSpec{
+		cardA: {Cost: cardtest.Cost(t, 30), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 20), HitPoints: creaturetest.HitPoints(t, 30), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
+		cardB: {Cost: cardtest.Cost(t, 0), Rarity: card.RarityStrange, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "water", "earth"), Attack: creaturetest.Attack(t, 0), HitPoints: creaturetest.HitPoints(t, 60), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
+		cardC: {Cost: cardtest.Cost(t, 50), Rarity: card.RarityRare, Creature: &match.CreatureSpec{Elements: creaturetest.Elements(t, "neutral"), Attack: creaturetest.Attack(t, 40), HitPoints: creaturetest.HitPoints(t, 40), ItemRestrictions: creaturetest.ItemRestrictions(t), PlacementRestrictions: creaturetest.PlacementRestrictions(t), Effects: effect.DefaultEffects()}},
+	}, started.CardSpecs())
+}
+
 func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
 	f := newMatchStartFixture(t)
 	old := gamerules.Defaults()
@@ -115,7 +142,7 @@ func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
 		eventstore.New(f.registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 		eventstore.New(f.registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 		func(context.Context) (gamerules.Rules, bool, error) { return old, true, nil },
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil,
 	)
 
 	err := handler.Start(f.ctx, f.room.ID, f.room.Match)
@@ -201,6 +228,16 @@ func newMatchTurnFixture(t *testing.T, startRandom match.Random) matchTurnFixtur
 
 func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, roundLimit int) matchTurnFixture {
 	t.Helper()
+	return newMatchTurnFixtureWithNPCCost(t, startRandom, roundLimit, 30)
+}
+
+func newMatchTurnFixtureWithNPCCost(t *testing.T, startRandom match.Random, roundLimit, npcCost int) matchTurnFixture {
+	t.Helper()
+	return newMatchTurnFixtureWithPlayerCards(t, startRandom, roundLimit, npcCost, matchDeckCard(t, 1, 4, 10), matchDeckCard(t, 2, 3, 990))
+}
+
+func newMatchTurnFixtureWithPlayerCards(t *testing.T, startRandom match.Random, roundLimit, npcCost int, playerCards ...match.DeckCard) matchTurnFixture {
+	t.Helper()
 	ctx := isolatedDatabase(t)
 	registry, err := domaindef.Load(ctx)
 	require.NoError(t, err)
@@ -210,12 +247,12 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 	store := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
 	id, publicID, err := identifier.New(registry, match.NewID).Issue(ctx)
 	require.NoError(t, err)
-	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, roundLimit, 1, 6), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6), gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), match.DefaultRewardPacks())
+	rules := match.NewRules(boardtest.DefaultRules(t, 8000, 600, 300, 100, roundLimit, 1, 6, 100, 0), gamerulestest.MaxHandCards(t, 6), gamerulestest.StartingHandCards(t, 6), gamerulestest.RewardCardsByRank(t, 3, 2, 1, 1), match.DefaultRewardPacks(), gamerules.Defaults().Match.LandLevelMultipliers, gamerules.Defaults().Match.ChainMultipliers, gamerules.Defaults().Match.TollPercentage, gamerules.Defaults().Match.RelinquishPercentage, gamerules.Defaults().Match.TerrainBonusPerLevel, gamerules.Defaults().Match.AdjacentTerritoryBonus, gamerules.Defaults().Match.LandElementChangeMultiplier, gamerules.Defaults().Match.MultiLandElementChangeMultiplier, gamerules.Defaults().Match.LapHitPointsRecovery)
 	events, err := match.Decide(match.InitialState(), &match.StartCommand{
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
-			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 1, 4), matchDeckCard(t, 2, 3)}),
-			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2)}),
+			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), playerCards),
+			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, npcCost)}),
 		},
 	}, time.Now().UTC().Truncate(time.Microsecond), startRandom)
 	require.NoError(t, err)
@@ -230,9 +267,30 @@ func newMatchTurnFixtureWithRoundLimit(t *testing.T, startRandom match.Random, r
 	}
 }
 
-func matchDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
+// コストの付いたクリーチャー（開始時の魔力は 600 なので、990 は配置できない）
+func matchDeckCard(t *testing.T, id int64, quantity int, cost int) match.DeckCard {
 	t.Helper()
-	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity)}
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Creature: &match.CreatureSpec{
+		Elements: creaturetest.Elements(t, "fire"), Attack: creaturetest.Attack(t, 10), HitPoints: creaturetest.HitPoints(t, 20),
+	}}
+	return match.DeckCard{Card: cardtest.CreatureRef(t, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+// 配置できる手札（コスト 10 のカード 1）と、配置できない手札（コスト 990 のカード 2）の番号
+func handIndexes(t *testing.T, current match.Match) (placeable, notPlaceable int) {
+	t.Helper()
+	placeable, notPlaceable = -1, -1
+	for i, ref := range current.Participants[0].Hand {
+		switch ref {
+		case cardtest.CreatureRef(t, 1):
+			placeable = i
+		case cardtest.CreatureRef(t, 2):
+			notPlaceable = i
+		}
+	}
+	require.NotEqual(t, -1, placeable)
+	require.NotEqual(t, -1, notPlaceable)
+	return placeable, notPlaceable
 }
 
 func (f matchTurnFixture) load(t *testing.T) match.Match {
@@ -244,12 +302,10 @@ func (f matchTurnFixture) load(t *testing.T) match.Match {
 	return current
 }
 
-// プレイヤーの番で、引いて捨てて振り、分かれ道で止まるところまで進める
+// プレイヤーの番で、引いて振り、分かれ道で止まるところまで進める（手札は上限を 1 枚超えた 7 枚）
 func (f matchTurnFixture) playUntilChoosingPath(t *testing.T) command.ChangedMatch {
 	t.Helper()
 	changed, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
-	require.NoError(t, err)
-	changed, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
 	require.NoError(t, err)
 	changed, err = f.handler.Roll(f.player, f.publicID, changed.Revision)
 	require.NoError(t, err)
@@ -265,10 +321,6 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 	changed, err := f.handler.Draw(f.player, f.publicID, start.Version)
 	require.NoError(t, err)
 	require.Equal(t, command.ChangedMatch{ID: f.publicID, Revision: start.Version + 1}, changed)
-	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
-
-	changed, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
-	require.NoError(t, err)
 	require.Equal(t, match.PhaseRolling, f.load(t).Phase)
 
 	changed, err = f.handler.Roll(f.player, f.publicID, changed.Revision)
@@ -280,12 +332,52 @@ func TestMatchHandler_PlaysTheTurnOfThePlayerThroughEveryPhase(t *testing.T) {
 
 	changed, err = f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 2, 0)
 	require.NoError(t, err)
-	require.Equal(t, match.PhaseEnding, f.load(t).Phase)
+	// 止まった (2,0) は空いている土地
+	stopped := f.load(t)
+	require.Equal(t, match.PhasePlacing, stopped.Phase)
+	placeable, _ := handIndexes(t, stopped)
 
-	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	_, err = f.handler.Place(f.player, f.publicID, changed.Revision, placeable)
 	require.NoError(t, err)
 	next := f.load(t)
+	require.Equal(t, []match.Territory{{Position: boardtest.Position(t, 2, 0), Creature: matchtest.PlacedCreatureID(t, 1)}}, next.Territories)
+	require.Equal(t, 600-10, next.Participants[0].Magic)
+	// 配置したらターンが終わり、NPC の番になる
 	require.Equal(t, match.PhaseRolling, next.Phase)
+	current, _ := next.CurrentParticipant()
+	require.Equal(t, matchtest.Index(t, 1), current)
+}
+
+func TestMatchHandler_EndTurnWhilePlacingLeavesTheLandVacant(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	rolled := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+	require.NoError(t, err)
+
+	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+
+	require.NoError(t, err)
+	next := f.load(t)
+	require.Empty(t, next.Territories)
+	require.Equal(t, 600, next.Participants[0].Magic)
+}
+
+func TestMatchHandler_EndTurnOverTheHandLimitDiscardsBeforePassingTheTurn(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	rolled := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+	require.NoError(t, err)
+
+	changed, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
+
+	_, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
+
+	require.NoError(t, err)
+	next := f.load(t)
+	require.Len(t, next.Participants[0].Hand, 6)
+	require.Len(t, next.Participants[0].DiscardPile, 1)
 	current, _ := next.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 1), current)
 }
@@ -340,10 +432,13 @@ func TestMatchHandler_RejectsOperationsOfOtherThanTheParticipantsInTurn(t *testi
 func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 	t.Run("hand_index_out_of_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, orderedRandom{})
-		drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+		ending, err := f.handler.EndTurn(f.player, f.publicID, changed.Revision)
 		require.NoError(t, err)
 
-		_, err = f.handler.Discard(f.player, f.publicID, drawn.Revision, 7)
+		_, err = f.handler.Discard(f.player, f.publicID, ending.Revision, 7)
 
 		invalid, ok := input.AsErrors(err)
 		require.True(t, ok)
@@ -361,6 +456,32 @@ func TestMatchHandler_ReportsInputThatIsNotInTheRange(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, input.Errors{&input.NotFound{Field: "to"}}, invalid)
 		require.Equal(t, match.PhaseChoosingPath, f.load(t).Phase)
+	})
+	t.Run("creature_not_placeable", func(t *testing.T) {
+		f := newMatchTurnFixture(t, orderedRandom{})
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+		_, notPlaceable := handIndexes(t, f.load(t))
+
+		_, err = f.handler.Place(f.player, f.publicID, changed.Revision, notPlaceable)
+
+		invalid, ok := input.AsErrors(err)
+		require.True(t, ok)
+		require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
+		require.Empty(t, f.load(t).Territories)
+	})
+	t.Run("place_hand_index_out_of_range", func(t *testing.T) {
+		f := newMatchTurnFixture(t, orderedRandom{})
+		rolled := f.playUntilChoosingPath(t)
+		changed, err := f.handler.ChoosePath(f.player, f.publicID, rolled.Revision, 2, 0)
+		require.NoError(t, err)
+
+		_, err = f.handler.Place(f.player, f.publicID, changed.Revision, 99)
+
+		invalid, ok := input.AsErrors(err)
+		require.True(t, ok)
+		require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 6}}, invalid)
 	})
 	t.Run("not_your_turn_comes_before_range", func(t *testing.T) {
 		f := newMatchTurnFixture(t, matchtest.NewRandom())
@@ -383,12 +504,16 @@ func TestMatchNPCTurn_PlaysOneOperationPerPhaseOfTheNPCTurn(t *testing.T) {
 
 	require.NoError(t, f.npc.Play(f.ctx, f.id, rolled.Version))
 	chosen := f.load(t)
-	require.Equal(t, match.PhaseEnding, chosen.Phase)
-	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目
+	// 無作為の選びは固定の番号（1）なので、選べる行き先の 2 番目。止まった (1,1) は空いている土地
 	require.Equal(t, boardtest.Position(t, 1, 1), chosen.Participants[1].Position)
+	require.Equal(t, match.PhasePlacing, chosen.Phase)
 
+	// 払える最初のクリーチャーを配置し、そのままターンを終える
 	require.NoError(t, f.npc.Play(f.ctx, f.id, chosen.Version))
 	ended := f.load(t)
+	require.Len(t, ended.Territories, 1)
+	require.Equal(t, boardtest.Position(t, 1, 1), ended.Territories[0].Position)
+	require.Equal(t, matchtest.Index(t, 1), ended.PlacedCreatures[0].Owner)
 	require.Equal(t, match.PhaseDrawing, ended.Phase)
 	current, _ := ended.CurrentParticipant()
 	require.Equal(t, matchtest.Index(t, 0), current)
@@ -459,4 +584,231 @@ func TestMatchNPCTurn_HandleReadsEntityAndVersionFromTheEvent(t *testing.T) {
 	require.NoError(t, f.npc.Handle(f.ctx, event))
 
 	require.Equal(t, match.PhaseChoosingPath, f.load(t).Phase)
+}
+
+// NPC が (1,1) に配置した後、プレイヤーが同じ (1,1) に止まって、侵略か通行料かを選ぶところまで進める
+func (f matchTurnFixture) playUntilPlayerStopsOnTheTerritoryOfTheNPC(t *testing.T) command.ChangedMatch {
+	t.Helper()
+	for range 3 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	changed := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseInvading, f.load(t).Phase)
+	return changed
+}
+
+func TestMatchHandler_InvadedTerritoryOfAnNPCIsDefendedByThePolicyAndTheBattleEnds(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+	placeable, _ := handIndexes(t, f.load(t))
+
+	changed, err := f.handler.Invade(f.player, f.publicID, changed.Revision, placeable)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseAttacking, f.load(t).Phase)
+	changed, err = f.handler.Attack(f.player, f.publicID, changed.Revision, nil)
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseDefending, f.load(t).Phase)
+
+	require.NoError(t, f.npc.Play(f.ctx, f.id, changed.Revision))
+
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、手札に戻って通行料を払い、上限を超えた手札を捨ててターンが終わる
+	f.discardUntilTheTurnEnds(t)
+	ended := f.load(t)
+	requireTurnOf(t, ended, 1)
+	require.Nil(t, ended.Invasion)
+	require.Equal(t, 600-10-60, ended.Participants[0].Magic)
+	require.Equal(t, 10, ended.PlacedCreatures[0].HitPoints.Int())
+}
+
+// ターンの終わりに手札が上限を超えて捨てる段階に入っていれば、先頭から捨ててターンを終える
+func (f matchTurnFixture) discardUntilTheTurnEnds(t *testing.T) {
+	t.Helper()
+	for i := 0; f.load(t).Phase == match.PhaseDiscarding; i++ {
+		require.Less(t, i, 10)
+		_, err := f.handler.Discard(f.player, f.publicID, f.load(t).Version, 0)
+		require.NoError(t, err)
+	}
+}
+
+func requireTurnOf(t *testing.T, current match.Match, seat int) {
+	t.Helper()
+	participant, ok := current.CurrentParticipant()
+	require.True(t, ok)
+	require.Equal(t, seat, participant.Int())
+}
+
+func TestMatchHandler_PayTollPaysForTheTerritoryOfTheNPC(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+
+	_, err := f.handler.PayToll(f.player, f.publicID, changed.Revision)
+
+	require.NoError(t, err)
+	require.Equal(t, match.PhaseDiscarding, f.load(t).Phase)
+	f.discardUntilTheTurnEnds(t)
+	current := f.load(t)
+	requireTurnOf(t, current, 1)
+	require.Equal(t, 600-60, current.Participants[0].Magic)
+}
+
+func TestMatchHandler_ReportsInvasionInputThatCannotBeUsed(t *testing.T) {
+	f := newMatchTurnFixture(t, matchtest.NewRandom())
+	changed := f.playUntilPlayerStopsOnTheTerritoryOfTheNPC(t)
+	placeable, notPayable := handIndexes(t, f.load(t))
+	creatureAsItem := 0
+
+	_, outOfRange := f.handler.Invade(f.player, f.publicID, changed.Revision, 99)
+	_, notInvadable := f.handler.Invade(f.player, f.publicID, changed.Revision, notPayable)
+	invaded, err := f.handler.Invade(f.player, f.publicID, changed.Revision, placeable)
+	require.NoError(t, err)
+	_, notUsable := f.handler.Attack(f.player, f.publicID, invaded.Revision, &creatureAsItem)
+
+	require.Equal(t, input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: 6}}, outOfRange)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, notInvadable)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "itemHandIndex"}}, notUsable)
+}
+
+// プレイヤーが (1,1) に配置した後、NPC が同じ (1,1) に止まるところまで進める
+func (f matchTurnFixture) playUntilNPCStopsOnTheTerritoryOfThePlayer(t *testing.T) {
+	t.Helper()
+	changed := f.playUntilChoosingPath(t)
+	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 1, 1)
+	require.NoError(t, err)
+	placeable, _ := handIndexes(t, f.load(t))
+	_, err = f.handler.Place(f.player, f.publicID, changed.Revision, placeable)
+	require.NoError(t, err)
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	require.Equal(t, match.PhaseInvading, f.load(t).Phase)
+}
+
+func TestMatchNPCTurn_InvadesWithTheFirstCreatureThatCanBePaidAndWaitsForTheOwner(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+
+	// 侵略を確定する操作と、アイテムを出さない操作の 2 回
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+
+	invaded := f.load(t)
+	require.Equal(t, match.PhaseDefending, invaded.Phase)
+	require.Equal(t, cardtest.CreatureRef(t, 3), invaded.Invasion.Card)
+	// プレイヤーの選びを待っている間、ポリシーは何もしない
+	require.NoError(t, f.npc.Play(f.ctx, f.id, invaded.Version))
+	require.Equal(t, invaded.Version, f.load(t).Version)
+}
+
+func TestMatchNPCTurn_PaysTheTollWhenNoCreatureCanBePaid(t *testing.T) {
+	f := newMatchTurnFixtureWithNPCCost(t, orderedRandom{}, 30, 990)
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+
+	require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+
+	paid := f.load(t)
+	requireTurnOf(t, paid, 0)
+	require.Nil(t, paid.Invasion)
+	require.Equal(t, 600-60, paid.Participants[1].Magic)
+}
+
+func TestMatchHandler_OwnerOfTheInvadedTerritoryDefendsAndTheBattleEnds(t *testing.T) {
+	f := newMatchTurnFixture(t, orderedRandom{})
+	f.playUntilNPCStopsOnTheTerritoryOfThePlayer(t)
+	for range 2 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	revision := f.load(t).Version
+
+	_, err := f.handler.Defend(f.player, f.publicID, revision, nil)
+
+	require.NoError(t, err)
+	current := f.load(t)
+	// 攻撃 10・体力 20 どうしなのでどちらも倒れず、NPC は通行料を払ってターンが終わる
+	requireTurnOf(t, current, 0)
+	require.Equal(t, 600-30-60, current.Participants[1].Magic)
+}
+
+// カードを引くスペル
+func spellDeckCard(t *testing.T, id int64, quantity int, cost int, count int) match.DeckCard {
+	t.Helper()
+	spec := match.CardSpec{Cost: cardtest.Cost(t, cost), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.DrawCards(t, count)}}
+	return match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+func TestMatchHandler_UseSpellBeforeRollingPaysAndDraws(t *testing.T) {
+	// 並べ替えない乱数なので、手札はクリーチャー 4 枚とスペル 2 枚、山札はスペル 1 枚
+	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), spellDeckCard(t, 5, 3, 40, 1))
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	rolling := f.load(t)
+	choices := rolling.SpellChoices()
+	require.NotEmpty(t, choices)
+
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, 0, nil, nil)
+	invalid, ok := input.AsErrors(err)
+	require.True(t, ok)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "handIndex"}}, invalid)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choices[0].HandIndex, nil, nil)
+
+	require.NoError(t, err)
+	used := f.load(t)
+	// 山札が空なので、使ったスペルだけの捨て札を混ぜて 1 枚引く
+	require.Len(t, used.Participants[0].Hand, len(rolling.Participants[0].Hand))
+	require.Equal(t, 600-40, used.Participants[0].Magic)
+	require.Equal(t, match.PhaseRolling, used.Phase)
+	require.Empty(t, used.SpellChoices())
+}
+
+// 対象のプレイヤーを選ぶ、サイコロの目を固定するスペル
+func fixedDiceDeckCard(t *testing.T, id int64, quantity int) match.DeckCard {
+	t.Helper()
+	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.FixedDice(t, 6, 1)}}
+	return match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, id), Quantity: cardtest.DeckQuantity(t, quantity), Spec: spec}
+}
+
+func TestMatchHandler_UseSpellReportsTheTargetPlayer(t *testing.T) {
+	f := newMatchTurnFixtureWithPlayerCards(t, orderedRandom{}, 30, 30, matchDeckCard(t, 1, 4, 10), fixedDiceDeckCard(t, 6, 3))
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	choice := f.load(t).SpellChoices()[0]
+	outside := 9
+	npc := 1
+
+	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, nil)
+	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &outside, nil)
+	_, err = f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, &npc, nil)
+
+	require.Equal(t, input.Errors{&input.Required{Field: "target"}}, missing)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "target"}}, notFound)
+	require.NoError(t, err)
+	require.NotNil(t, f.load(t).Participants[1].LastingSpellEffect)
+}
+
+func TestMatchHandler_UseSpellReportsTheTargetPositionOfDamage(t *testing.T) {
+	spec := match.CardSpec{Cost: cardtest.Cost(t, 50), Rarity: card.RarityNormal, Spell: &match.SpellSpec{Effect: spelltest.Damage(t, 20)}}
+	damage := match.DeckCard{Card: cardtest.Ref(t, card.SpellEntityType, 7), Quantity: cardtest.DeckQuantity(t, 3), Spec: spec}
+	// NPC が先に動く乱数（playUntilPlayerStopsOnTheTerritoryOfTheNPC と同じ）。NPC が (1,1) に配置するまで進めてから、プレイヤーが引いて振る段階にする
+	f := newMatchTurnFixtureWithPlayerCards(t, matchtest.NewRandom(), 30, 30, matchDeckCard(t, 1, 4, 10), damage)
+	for range 3 {
+		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
+	}
+	drawn, err := f.handler.Draw(f.player, f.publicID, f.load(t).Version)
+	require.NoError(t, err)
+	choices := f.load(t).SpellChoices()
+	require.NotEmpty(t, choices)
+	choice := choices[0]
+	require.Equal(t, []board.Position{boardtest.Position(t, 1, 1)}, choice.TargetPositions)
+	noTerritory := command.SpellTargetPosition{X: 0, Y: 0}
+	negative := command.SpellTargetPosition{X: -1, Y: 0}
+
+	_, missing := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, nil)
+	_, notFound := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, &noTerritory)
+	_, negativeErr := f.handler.UseSpell(f.player, f.publicID, drawn.Revision, choice.HandIndex, nil, &negative)
+
+	require.Equal(t, input.Errors{&input.Required{Field: "targetPosition"}}, missing)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, notFound)
+	require.Equal(t, input.Errors{&input.NotFound{Field: "targetPosition"}}, negativeErr)
 }

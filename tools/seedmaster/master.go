@@ -3,11 +3,18 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
 	"unicode/utf8"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
@@ -50,9 +57,109 @@ type masterNPCAvatar struct {
 	Decks []string `json:"decks"`
 }
 
+// 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
+// （攻撃力は 0 が正しい値なので、書き忘れと見分けるためにポインタで受ける）
 type masterCard struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type                  string   `json:"type"`
+	Name                  string   `json:"name"`
+	Cost                  int      `json:"cost"`
+	Rarity                string   `json:"rarity"`
+	Elements              []string `json:"elements"`
+	Attack                *int     `json:"attack"`
+	HitPoints             *int     `json:"hit_points"`
+	ItemRestrictions      []string `json:"item_restrictions"`
+	PlacementRestrictions []string `json:"placement_restrictions"`
+	// クリーチャーとアイテムが持つ（効果が無ければ [] を書く。書き忘れと区別するため。core#178 でクリーチャーの能力も効果の並びにした）
+	Effects []masterEffect `json:"effects"`
+	// アイテムだけが持つ
+	Category string `json:"category"`
+	// スペルだけが持つ。書かなければ効果なし（効果の無いスペルを公開できない決まりは、効果の種類がそろうまで効かせない。core#149）。
+	// 形は studio の read model と同じく、種類の名前の下に値を入れる（{"draw_cards":{"count":1}}）
+	Effect *masterSpellEffect `json:"effect"`
+}
+
+type masterSpellEffect struct {
+	DrawCards *struct {
+		Count int `json:"count"`
+	} `json:"draw_cards"`
+	GainMagic *struct {
+		PerLap int `json:"per_lap"`
+	} `json:"gain_magic"`
+	MultipleDice *struct {
+		Count int `json:"count"`
+		Turns int `json:"turns"`
+	} `json:"multiple_dice"`
+	FixedDice *struct {
+		Value int `json:"value"`
+		Turns int `json:"turns"`
+	} `json:"fixed_dice"`
+	Damage *struct {
+		Amount int `json:"amount"`
+	} `json:"damage"`
+}
+
+// 種類がどれも無い効果は書き間違い（効果なしは effect を書かない）
+func (c masterCard) validateSpellSpec() error {
+	if c.Effect == nil {
+		return nil
+	}
+	if c.Type != "spell" {
+		return fmt.Errorf("%s cannot have effect", c.Type)
+	}
+	kinds := 0
+	var err error
+	if c.Effect.DrawCards != nil {
+		kinds++
+		_, err = effect.NewDrawCount(c.Effect.DrawCards.Count)
+	}
+	if c.Effect.GainMagic != nil {
+		kinds++
+		_, err = effect.NewMagicPerLap(c.Effect.GainMagic.PerLap)
+	}
+	if multiple := c.Effect.MultipleDice; multiple != nil {
+		kinds++
+		if _, err = effect.NewDiceCount(multiple.Count); err == nil {
+			_, err = effect.NewEffectTurns(multiple.Turns)
+		}
+	}
+	if fixed := c.Effect.FixedDice; fixed != nil {
+		kinds++
+		if _, err = effect.NewDiceFace(fixed.Value); err == nil {
+			_, err = effect.NewEffectTurns(fixed.Turns)
+		}
+	}
+	if c.Effect.Damage != nil {
+		kinds++
+		_, err = effect.NewDamageAmount(c.Effect.Damage.Amount)
+	}
+	if kinds != 1 {
+		return errors.New("spell effect needs exactly one kind")
+	}
+	return err
+}
+
+// 見本の効果を、コマンドの入力にする（書いていなければ効果なし）
+func (c masterCard) spellEffect() command.SpellEffect {
+	var effect command.SpellEffect
+	if c.Effect == nil {
+		return effect
+	}
+	if c.Effect.DrawCards != nil {
+		effect.DrawCards = &command.SpellDrawCards{Count: c.Effect.DrawCards.Count}
+	}
+	if c.Effect.GainMagic != nil {
+		effect.GainMagic = &command.SpellGainMagic{PerLap: c.Effect.GainMagic.PerLap}
+	}
+	if multiple := c.Effect.MultipleDice; multiple != nil {
+		effect.MultipleDice = &command.SpellMultipleDice{Count: multiple.Count, Turns: multiple.Turns}
+	}
+	if fixed := c.Effect.FixedDice; fixed != nil {
+		effect.FixedDice = &command.SpellFixedDice{Value: fixed.Value, Turns: fixed.Turns}
+	}
+	if c.Effect.Damage != nil {
+		effect.Damage = &command.SpellDamage{Amount: c.Effect.Damage.Amount}
+	}
+	return effect
 }
 
 type masterPresetDeck struct {
@@ -76,20 +183,22 @@ type masterBoard struct {
 }
 
 type masterBoardDefaultRules struct {
-	TargetMagic     int `json:"target_magic"`
-	StartingMagic   int `json:"starting_magic"`
-	LapBonus        int `json:"lap_bonus"`
-	CheckpointBonus int `json:"checkpoint_bonus"`
-	RoundLimit      int `json:"round_limit"`
-	DiceMin         int `json:"dice_min"`
-	DiceMax         int `json:"dice_max"`
+	TargetMagic          int `json:"target_magic"`
+	StartingMagic        int `json:"starting_magic"`
+	LapBonus             int `json:"lap_bonus"`
+	CheckpointBonus      int `json:"checkpoint_bonus"`
+	RoundLimit           int `json:"round_limit"`
+	DiceMin              int `json:"dice_min"`
+	DiceMax              int `json:"dice_max"`
+	BaseLandValue        int `json:"base_land_value"`
+	LapBonusPerTerritory int `json:"lap_bonus_per_territory"`
 }
 
 type masterBoardTile struct {
-	X         int    `json:"x"`
-	Y         int    `json:"y"`
-	Kind      string `json:"kind"`
-	Attribute string `json:"attribute"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Kind    string `json:"kind"`
+	Element string `json:"element"`
 }
 
 type masterBoardPosition struct {
@@ -107,6 +216,124 @@ const (
 	cardMaxCount   = 4
 	deckTotalCount = 40
 )
+
+// クリーチャーは属性・攻撃力・体力・アイテム制限・配置制限・効果（無ければ []）を必ず書き、アイテム・スペルは書かない（書いても入れる先が無く、黙って捨てることになるため。
+// 効果はアイテムも書くので validateEffects で確かめる）
+func (c masterCard) validateCreatureSpec() error {
+	if c.Type != "creature" {
+		if len(c.Elements) > 0 || c.Attack != nil || c.HitPoints != nil || c.ItemRestrictions != nil || c.PlacementRestrictions != nil {
+			return fmt.Errorf("%s cannot have elements, attack, hit_points, item_restrictions or placement_restrictions", c.Type)
+		}
+		return nil
+	}
+	if _, err := creature.NewElements(c.Elements); err != nil {
+		return err
+	}
+	if c.Attack == nil || c.HitPoints == nil || c.ItemRestrictions == nil || c.PlacementRestrictions == nil {
+		return errors.New("creature needs attack, hit_points, item_restrictions and placement_restrictions")
+	}
+	if _, err := creature.NewItemRestrictions(c.ItemRestrictions); err != nil {
+		return err
+	}
+	if _, err := creature.NewPlacementRestrictions(c.PlacementRestrictions); err != nil {
+		return err
+	}
+	if _, err := creature.NewAttack(*c.Attack); err != nil {
+		return err
+	}
+	_, err := creature.NewHitPoints(*c.HitPoints)
+	return err
+}
+
+// アイテムは分類を必ず書き、クリーチャー・スペルは書かない（validateCreatureSpec と同じ理由）
+func (c masterCard) validateItemSpec() error {
+	if c.Type != "item" {
+		if c.Category != "" {
+			return fmt.Errorf("%s cannot have category", c.Type)
+		}
+		return nil
+	}
+	_, err := card.NewItemCategory(c.Category)
+	return err
+}
+
+// クリーチャーとアイテムは効果（無ければ []）を必ず書き、スペルは書かない。持ち主が持てない種類は流す前に止める
+// （種類と値の組み合わせは studio の ChangeEffects が確かめる）
+func (c masterCard) validateEffects() error {
+	var allowed []effect.Kind
+	switch c.Type {
+	case "creature":
+		allowed = creature.AllowedEffectKinds()
+	case "item":
+		category, err := card.NewItemCategory(c.Category)
+		if err != nil {
+			return err
+		}
+		allowed = item.AllowedEffectKinds(category)
+	default:
+		if c.Effects != nil {
+			return fmt.Errorf("%s cannot have effects", c.Type)
+		}
+		return nil
+	}
+	if c.Effects == nil {
+		return fmt.Errorf("%s needs effects", c.Type)
+	}
+	for _, sample := range c.Effects {
+		kind, err := effect.NewKind(sample.Kind)
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(allowed, kind) {
+			return fmt.Errorf("%s cannot have the effect %q", c.Type, sample.Kind)
+		}
+	}
+	return nil
+}
+
+// 効果 1 つ。種類と、種類に要る値（増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、
+// 受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount、
+// 手札のクリーチャーをアイテムとして使えるは elements）。
+// アイテムとクリーチャーで共有する
+type masterEffect struct {
+	Kind         string                   `json:"kind"`
+	Value        *int                     `json:"value"`
+	Minimum      *int                     `json:"minimum"`
+	Maximum      *int                     `json:"maximum"`
+	Percent      *int                     `json:"percent"`
+	Constraints  []masterEffectConstraint `json:"constraints"`
+	Destructions []string                 `json:"destructions"`
+	Amount       *int                     `json:"amount"`
+	Elements     []string                 `json:"elements"`
+}
+
+// 効果の制約 1 つ。種類と、種類に要る値（相手のクリーチャーの属性は elements）
+type masterEffectConstraint struct {
+	Kind     string   `json:"kind"`
+	Elements []string `json:"elements"`
+}
+
+func (e masterEffect) command() command.Effect {
+	var constraints []command.EffectConstraint
+	if e.Constraints != nil {
+		constraints = make([]command.EffectConstraint, len(e.Constraints))
+		for i, constraint := range e.Constraints {
+			constraints[i] = command.EffectConstraint{Kind: constraint.Kind, Elements: constraint.Elements}
+		}
+	}
+	return command.Effect{
+		Kind: e.Kind, Value: e.Value, Minimum: e.Minimum, Maximum: e.Maximum, Percent: e.Percent, Constraints: constraints,
+		Destructions: e.Destructions, Amount: e.Amount, Elements: e.Elements,
+	}
+}
+
+func masterEffects(effects []masterEffect) []command.Effect {
+	values := make([]command.Effect, len(effects))
+	for i, value := range effects {
+		values[i] = value.command()
+	}
+	return values
+}
 
 func loadMaster(raw []byte) (master, error) {
 	var m master
@@ -132,6 +359,24 @@ func (m master) validate() error {
 			return fmt.Errorf("card %q: duplicated", c.Name)
 		}
 		cardNames[c.Name] = true
+		if _, err := card.NewCost(c.Cost); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if _, err := card.NewRarity(c.Rarity); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateItemSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateCreatureSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateSpellSpec(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
+		if err := c.validateEffects(); err != nil {
+			return fmt.Errorf("card %q: %w", c.Name, err)
+		}
 	}
 	deckNames := map[string]bool{}
 	for _, d := range m.PresetDecks {
@@ -257,7 +502,7 @@ func (m master) validateBoards() error {
 		names[b.Name] = true
 		// 決まりは domain の関数で確かめる。書き忘れ（0）もここで見つかる
 		if _, err := board.NewDefaultRules(b.DefaultRules.TargetMagic, b.DefaultRules.StartingMagic, b.DefaultRules.LapBonus, b.DefaultRules.CheckpointBonus,
-			b.DefaultRules.RoundLimit, b.DefaultRules.DiceMin, b.DefaultRules.DiceMax); err != nil {
+			b.DefaultRules.RoundLimit, b.DefaultRules.DiceMin, b.DefaultRules.DiceMax, b.DefaultRules.BaseLandValue, b.DefaultRules.LapBonusPerTerritory); err != nil {
 			return fmt.Errorf("board %q: %w", b.Name, err)
 		}
 		layout, err := b.layout()
@@ -340,8 +585,8 @@ func (b masterBoard) layout() (board.Layout, error) {
 			return board.Layout{}, err
 		}
 		tile := board.Tile{Position: position, Kind: kind}
-		if t.Attribute != "" {
-			tile.Attribute, err = board.NewAttribute(t.Attribute)
+		if t.Element != "" {
+			tile.Element, err = element.NewLand(t.Element)
 			if err != nil {
 				return board.Layout{}, err
 			}
@@ -391,14 +636,14 @@ func (b masterBoard) defaultRulesInput() command.BoardDefaultRulesInput {
 	return command.BoardDefaultRulesInput{
 		TargetMagic: b.DefaultRules.TargetMagic, StartingMagic: b.DefaultRules.StartingMagic,
 		LapBonus: b.DefaultRules.LapBonus, CheckpointBonus: b.DefaultRules.CheckpointBonus,
-		RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax,
+		RoundLimit: b.DefaultRules.RoundLimit, DiceMin: b.DefaultRules.DiceMin, DiceMax: b.DefaultRules.DiceMax, BaseLandValue: b.DefaultRules.BaseLandValue, LapBonusPerTerritory: b.DefaultRules.LapBonusPerTerritory,
 	}
 }
 
 func (b masterBoard) layoutInput() command.BoardLayoutInput {
 	tiles := make([]command.BoardTileInput, 0, len(b.Tiles))
 	for _, t := range b.Tiles {
-		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind, Attribute: t.Attribute})
+		tiles = append(tiles, command.BoardTileInput{X: t.X, Y: t.Y, Kind: t.Kind, Element: t.Element})
 	}
 	connections := make([]command.BoardConnectionInput, 0, len(b.Connections))
 	for _, c := range b.Connections {

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 // テストでも値の型は生成関数で作る（検証を通らない値でテストしないため。factory_enforcer）。
@@ -76,9 +77,9 @@ func Size(t testing.TB, width, height int) board.Size {
 	return board.Size{Width: Width(t, width), Height: Height(t, height)}
 }
 
-func DefaultRules(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) board.DefaultRules {
+func DefaultRules(t testing.TB, targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) board.DefaultRules {
 	t.Helper()
-	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax)
+	rules, err := board.NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory)
 	require.NoError(t, err)
 	return rules
 }
@@ -90,19 +91,19 @@ func TileKind(t testing.TB, value string) board.TileKind {
 	return kind
 }
 
-func Attribute(t testing.TB, value string) board.Attribute {
+func Element(t testing.TB, value string) element.Land {
 	t.Helper()
-	attribute, err := board.NewAttribute(value)
+	element, err := element.NewLand(value)
 	require.NoError(t, err)
-	return attribute
+	return element
 }
 
 // 属性は土地のときだけ渡す（拠点・チェックポイントは空にする）
-func Tile(t testing.TB, x, y int, kind, attribute string) board.Tile {
+func Tile(t testing.TB, x, y int, kind, element string) board.Tile {
 	t.Helper()
 	tile := board.Tile{Position: Position(t, x, y), Kind: TileKind(t, kind)}
-	if attribute != "" {
-		tile.Attribute = Attribute(t, attribute)
+	if element != "" {
+		tile.Element = Element(t, element)
 	}
 	return tile
 }

@@ -41,25 +41,25 @@ func NewBoardTileKind(value string) (BoardTileKind, error) {
 	}
 }
 
-// 写した boards.metadata の tiles の attribute の値（土地のときだけある）
-type BoardTileAttribute string
+// 写した boards.metadata の tiles の element の値（土地のときだけある）
+type BoardTileElement string
 
 const (
-	BoardTileAttributeFire    BoardTileAttribute = "fire"
-	BoardTileAttributeEarth   BoardTileAttribute = "earth"
-	BoardTileAttributeWater   BoardTileAttribute = "water"
-	BoardTileAttributeWind    BoardTileAttribute = "wind"
-	BoardTileAttributeNeutral BoardTileAttribute = "neutral"
-	BoardTileAttributeMulti   BoardTileAttribute = "multi"
+	BoardTileElementFire    BoardTileElement = "fire"
+	BoardTileElementEarth   BoardTileElement = "earth"
+	BoardTileElementWater   BoardTileElement = "water"
+	BoardTileElementWind    BoardTileElement = "wind"
+	BoardTileElementNeutral BoardTileElement = "neutral"
+	BoardTileElementMulti   BoardTileElement = "multi"
 )
 
-func NewBoardTileAttribute(value string) (BoardTileAttribute, error) {
-	attribute := BoardTileAttribute(value)
-	switch attribute {
-	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
-		return attribute, nil
+func NewBoardTileElement(value string) (BoardTileElement, error) {
+	element := BoardTileElement(value)
+	switch element {
+	case BoardTileElementFire, BoardTileElementEarth, BoardTileElementWater, BoardTileElementWind, BoardTileElementNeutral, BoardTileElementMulti:
+		return element, nil
 	default:
-		return "", fmt.Errorf("query: unknown board tile attribute: %q", value)
+		return "", fmt.Errorf("query: unknown board tile element: %q", value)
 	}
 }
 
@@ -72,12 +72,12 @@ func NewBoardPosition(x, y int) BoardPosition {
 	return BoardPosition{X: x, Y: y}
 }
 
-// Attribute は土地のときだけ値があり、そうでなければ空
+// Element は土地のときだけ値があり、そうでなければ空
 type BoardTile struct {
-	X         int
-	Y         int
-	Kind      BoardTileKind
-	Attribute BoardTileAttribute
+	X       int
+	Y       int
+	Kind    BoardTileKind
+	Element BoardTileElement
 }
 
 type BoardConnection struct {
@@ -93,19 +93,21 @@ type BoardPair struct {
 
 // 写した boards.metadata の default_rules。対戦を始めるときの既定の値で、始めるときにここから変えられる前提
 type BoardDefaultRules struct {
-	TargetMagic     int
-	StartingMagic   int
-	LapBonus        int
-	CheckpointBonus int
-	RoundLimit      int
-	DiceMin         int
-	DiceMax         int
+	TargetMagic          int
+	StartingMagic        int
+	LapBonus             int
+	CheckpointBonus      int
+	RoundLimit           int
+	DiceMin              int
+	DiceMax              int
+	BaseLandValue        int
+	LapBonusPerTerritory int
 }
 
-func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) BoardDefaultRules {
+func NewBoardDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) BoardDefaultRules {
 	return BoardDefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}
 }
 

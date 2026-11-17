@@ -1,5 +1,9 @@
 {
   "public_id": "11111111-2222-3333-4444-555555555555",
   "name": "ポーション",
+  "cost": 10,
+  "rarity": "normal",
+  "category": "weapon",
+  "effects": [],
   "registered_by": 10
 }

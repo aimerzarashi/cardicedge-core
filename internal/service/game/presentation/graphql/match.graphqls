@@ -1,7 +1,9 @@
 # 対戦（部屋の全員が準備完了を申告すると、部屋の条件の写しで始まる集約）。始まった時点で、順番が決まり、山札が混ざり、手札が配られている。
 # read model を持たず、集約の状態から返す。参加者のプレイヤーだけが読める。
-# 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ → ターンを終える）。
-# NPC の番はポリシーが進める。カードを使う操作は先のマイルストーンで足す。
+# 番の人は、段階（phase）に合う操作を 1 つずつ行う（引く → 手札が上限を超えたら捨てる → 振る → 分かれ道なら選ぶ →
+# 空いている土地に止まったらクリーチャーを配置するか配置せずにターンを終える／他人の領地なら通行料を払うか侵略する／ほかのマスならターンを終える）。
+# 侵略されたときだけは、番でない領地の持ち主がアイテムを選ぶ（awaitingParticipant）。
+# NPC の番はポリシーが進める。スペル等のカードを使う操作は、この後の Issue で足す。
 # 終わった後は、プレイヤーが戦利品のパックを選ぶ（chooseMatchRewardPack。番は無く、1 人 1 回）。引いたカードはポリシーが所持品に足す。
 # 全員が受け取るまで、段階は ENDED のまま
 
@@ -9,16 +11,66 @@
 enum MatchPhase {
   "カードを引く段階（drawMatchCard）"
   DRAWING
-  "手札が上限を超えているので捨てる段階（discardMatchCard）"
+  "ターンを終えるときに手札が上限を超えているので、上限まで捨てる段階（discardMatchCard）。捨て終えるとターンを終える"
   DISCARDING
   "サイコロを振る段階（rollMatchDice）"
   ROLLING
   "分かれ道で行き先を選ぶ段階（chooseMatchPath）"
   CHOOSING_PATH
+  "空いている土地に止まった後の段階。クリーチャーを配置する（placeMatchCreature。配置したらターンを終える）か、配置せずにターンを終える（endMatchTurn）"
+  PLACING
+  "止まったマスに行動が無く、領地コマンドを使える自分の領地（通った領地。拠点・チェックポイントにちょうど止まったらすべて）があるときの段階。領地コマンドを実行する（levelUpMatchLand・exchangeMatchCreature）か、何もしない（endMatchTurn）。行動があるマスでは PLACING・INVADING の中で領地コマンドを選ぶ"
+  TERRITORY_COMMANDING
+  "他人の領地に止まった後の段階。通行料を払う（payMatchToll）か、手札のクリーチャーで侵略する（invadeMatchTerritory）。侵略できる手札が無くても入る"
+  INVADING
+  "侵略を確定した後の段階。攻める側がアイテムを選ぶ（attackMatchTerritory。出さないことも選ぶ）。出せるアイテムが無くても入る"
+  ATTACKING
+  "侵略された領地の持ち主がアイテムを選ぶ段階（defendMatchTerritory。出さないことも選ぶ）。操作するのは番の人ではなく awaitingParticipant"
+  DEFENDING
+  "通行料を払って魔力が負になったので、自分の領地を手放す段階（relinquishMatchTerritory。0 以上になるまで続く）"
+  RELINQUISHING
   "ターンを終える段階（endMatchTurn）"
   ENDING
   "対戦が終わった（戦利品のパックを選ぶ段階も、全員が受け取るまでこのまま。chooseMatchRewardPack）"
   ENDED
+}
+
+"盤面に配置したクリーチャー 1 体（対戦の中の実体。戦闘の傷等はこの 1 体の今の状態として持つ）"
+type MatchPlacedCreature {
+  "配置したクリーチャーの ID（対戦の中の通し番号。1 始まり。移動・交換しても変わらない）"
+  id: Int!
+  "元のカード（性能は配置したときの写し）"
+  card: CreatureCardInfo!
+  "今の体力"
+  hitPoints: Int!
+}
+
+"領地（クリーチャーを配置した土地）"
+type MatchTerritory {
+  "領地の位置"
+  position: BoardPosition!
+  "持ち主の参加者（Match.participants の何番目か）"
+  owner: Int!
+  "そこにいるクリーチャー"
+  creature: MatchPlacedCreature!
+  "土地のレベル（1 始まり）"
+  level: Int!
+  "土地の今の価値（基本の値 × レベルの倍率 × 連鎖の倍率。端数は切り捨て）"
+  value: Int!
+  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））"
+  toll: Int!
+  "手放したときに受け取る魔力"
+  relinquishMagic: Int!
+}
+
+"戦闘が終わるまでの、侵略しているクリーチャー（領地には倒してから入るので、territories には含まない）"
+type MatchInvasion {
+  "攻められている領地の位置"
+  position: BoardPosition!
+  "元のカード（性能は対戦を始めたときの写し）"
+  card: CreatureCardInfo!
+  "今の体力"
+  hitPoints: Int!
 }
 
 "対戦が終わった理由"
@@ -38,7 +90,7 @@ enum MatchParticipantKind {
 }
 
 """
-対戦のルール。始めた時点の写し（部屋の対戦ルールの 7 つの値と、全体のルール MatchRules の手札の決まり）。
+対戦のルール。始めた時点の写し（部屋の対戦ルールの 8 つの値と、全体のルール MatchRules の手札の決まり）。
 始めた後にマスタや全体のルールを変えても、進行中の対戦には響かない
 """
 type MatchPlayRules {
@@ -56,10 +108,22 @@ type MatchPlayRules {
   diceMin: Int!
   "サイコロの目の最大"
   diceMax: Int!
+  "土地の基本の値。レベルと連鎖の倍率を掛ける元"
+  baseLandValue: Int!
+  "周回のボーナスに足す、自分の領地 1 つあたりの魔力（拠点に戻ったときの自分の領地の数だけ足す）"
+  lapBonusPerTerritory: Int!
   "手札の上限"
   maxHandCards: Int!
   "始めに配る手札の枚数"
   startingHandCards: Int!
+  "土地のレベルごとの倍率（レベル 1 から）"
+  landLevelMultipliers: [Int!]!
+  "連鎖の数ごとの倍率（百分率。1 つから。数が一覧より多ければ最後の値）"
+  chainMultipliers: [Int!]!
+  "通行料の割合（土地の価値に対する百分率）"
+  tollPercentage: Int!
+  "手放すときの割合（土地の価値に対する百分率）"
+  relinquishPercentage: Int!
 }
 
 """
@@ -97,20 +161,26 @@ type MatchParticipant {
   avatar: MatchAvatar!
   "今いるマスの位置（始めた時点は拠点）"
   position: BoardPosition!
-  "魔力"
+  "手持ちの魔力（通行料を払った直後は負になることがある）"
   magic: Int!
+  "総魔力（手持ちの魔力 ＋ 自分の領地の価値の合計。勝ちと順位はこれで決まる）"
+  totalMagic: Int!
   "手札（引いた順。同じカードが複数あれば、その枚数だけ並べる。カードの型はデッキのカードと同じ）"
-  hand: [DeckCardInfo!]!
+  hand: [CardInfo!]!
   "山札の残りの枚数。並びと中身は見せない"
   drawPileCount: Int!
+  "捨て札（入った順）。使った・捨てた・倒された・手放したカードで、誰でも見られる。山札が空のまま引くときに混ぜて山札にする"
+  discardPile: [CardInfo!]!
   "順番の何番目か（0 始まり）。順番が早い人ほど小さい"
   turnOrder: Int!
+  "続いているスペルの効果（無ければ null）"
+  lastingSpellEffect: MatchLastingSpellEffect
   "拠点を出てから印を付けたチェックポイントの位置（拠点に戻って周回を終えると空に戻る）"
   passedCheckpoints: [BoardPosition!]!
   "戦利品を受け取ったか（プレイヤーだけ。NPC には配らないので、いつも false）"
   rewardReceived: Boolean!
   "受け取った戦利品のカード（受け取るまでは空）。引いた順で、同じカードは重ならない"
-  rewardCards: [DeckCardInfo!]!
+  rewardCards: [CardInfo!]!
 }
 
 "戦利品に選べるパック"
@@ -150,6 +220,8 @@ type Match {
   participants: [MatchParticipant!]!
   "今の番の参加者（Match.participants の何番目か。順番が決まるまでは null）"
   currentParticipant: Int
+  "今操作を待っている参加者（Match.participants の何番目か）。DEFENDING の段階だけは領地の持ち主で、ほかは今の番の参加者"
+  awaitingParticipant: Int
   "対戦の段階。今の番の人が次にする操作を表す"
   phase: MatchPhase!
   "このターンに振ったサイコロの目（振る前は null）"
@@ -159,6 +231,34 @@ type Match {
   # 分かれ道の決まり（来たマスには戻らない等）を画面に持たせないため、core が選べる行き先を出す
   "今の番の人が選べる行き先（CHOOSING_PATH のときだけ中身がある。ほかの段階は空）"
   pathChoices: [BoardPosition!]!
+  # 使えるかの決まり（効果のあるスペルか・コストが払えるか・このターンにまだ使っていないか）を画面に持たせないため、core が選べる手札を出す
+  "今の番の人が使えるスペル（手札の順。ROLLING で、このターンにまだ使っていないときだけ中身がある）"
+  spellChoices: [MatchSpellChoice!]!
+  # 配置できるかの決まり（クリーチャーか・コストが払えるか）を画面に持たせないため、core が選べる手札を出す
+  "今の番の人が配置できる手札の番号（0 始まり。手札の順。PLACING のときだけ中身がある。PLACING でも配置できるものが無ければ空）"
+  placeChoices: [Int!]!
+  "今の番の人が侵略に出せる手札の番号（0 始まり。手札の順。INVADING のときだけ中身がある。INVADING でも出せるものが無ければ空）"
+  invadeChoices: [Int!]!
+  "操作を待っている人が戦闘に出せるアイテムの手札の番号（0 始まり。手札の順。ATTACKING と DEFENDING のときだけ中身がある）"
+  itemChoices: [Int!]!
+  "操作を待っている人が、アイテムの代わりに戦闘に出せる手札のクリーチャーの番号（援護。0 始まり。手札の順。ATTACKING と DEFENDING のときだけ、戦うクリーチャーが援護を持つときに中身がある。useMatchCreatureAsItem で出す）"
+  creatureAsItemChoices: [Int!]!
+  "今の番の人が手放せる領地の位置（できた順。RELINQUISHING のときだけ中身がある）"
+  relinquishChoices: [BoardPosition!]!
+  "レベルを上げた土地（空き地を含む。上げた順。無い土地はレベル 1。レベルは領地ではなく土地のもので、クリーチャーがいなくなっても残る）"
+  landLevels: [MatchLandLevel!]!
+  "今の番の人が選べるレベルアップ（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手持ちの魔力で払える分だけ）"
+  levelUpChoices: [MatchLevelUpChoice!]!
+  "今の番の人が選べるクリーチャーの交換（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。手札のクリーチャーで、手持ちの魔力で払える分だけ）"
+  exchangeChoices: [MatchExchangeChoice!]!
+  "今の番の人が選べる土地の属性の変更（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。今と同じ属性は選べず、手持ちの魔力で払える分だけ）"
+  elementChangeChoices: [MatchElementChangeChoice!]!
+  "今の番の人が選べるクリーチャーの移動（PLACING・INVADING・TERRITORY_COMMANDING のときだけ中身がある。ちょうど移動の歩数だけ進んで届く空き地か他人の領地）"
+  moveChoices: [MatchMoveChoice!]!
+  "侵略しているクリーチャー（侵略してから戦闘が終わるまでだけ。ほかは null）"
+  invasion: MatchInvasion
+  "盤面の領地（できた順）"
+  territories: [MatchTerritory!]!
   "対戦の結果（終わるまでは null）"
   outcome: MatchOutcome
   "自分が今選べる戦利品のパック（終わった後で、まだ受け取っていないときだけ中身がある。ほかは空）"
@@ -304,6 +404,415 @@ union ChooseMatchPathResult =
   | RevisionConflictError
   | PlayerNotRegisteredError
 
+"止まった空き地にクリーチャーを配置する入力"
+input PlaceMatchCreatureInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "配置する手札の番号（0 始まり。Match.placeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で配置できないものは FieldNotFound）"
+  handIndex: Int!
+}
+
+"クリーチャーを配置した（そのままターンを終える。成功したら対戦の revision が進む）"
+type PlaceMatchCreatureSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"placeMatchCreature の結果（PLACING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union PlaceMatchCreatureResult =
+    PlaceMatchCreatureSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"使えるスペル 1 枚"
+type MatchSpellChoice {
+  "手札の番号（0 始まり）"
+  handIndex: Int!
+  "選べる対象のプレイヤー（Match.participants の何番目か。対象のプレイヤーを選ぶスペルだけ中身があり、自分を含む。対象を選ばないスペルは空）"
+  targets: [Int!]!
+  "選べる対象のクリーチャーがいる領地の位置（クリーチャーを選ぶスペルだけ中身がある。自分の領地を含む。領地ができた順）"
+  targetPositions: [BoardPosition!]!
+}
+
+"参加者に続いているスペルの効果（ターンをまたいで効き続けるもの。1 人に 1 つまでで、新しく使うと上書きする）"
+type MatchLastingSpellEffect {
+  "使ったスペルの効果（種類は __typename で見分ける）"
+  effect: SpellEffect!
+  "終わるまでのターン数（かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）"
+  remainingTurns: Int!
+}
+
+"サイコロを振る前にスペルを使う入力"
+input UseMatchSpellInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "使うスペルの手札の番号（0 始まり。Match.spellChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で使えないものは FieldNotFound）"
+  handIndex: Int!
+  "対象のプレイヤー（Match.participants の何番目か。spellChoices の targets の中から選ぶ。対象のプレイヤーを選ぶスペルで無ければ FieldRequired、対象を選ばないスペルに付けた・選べない対象は FieldNotFound）"
+  target: Int
+  "対象のクリーチャーがいる領地の位置（spellChoices の targetPositions の中から選ぶ。クリーチャーを選ぶスペルで無ければ FieldRequired、それ以外のスペルに付けた・選べない位置は FieldNotFound）"
+  targetPosition: BoardPositionInput
+}
+
+"スペルを使った（コストを払い、効果を当て、スペルは捨て札に入る。続けてサイコロを振る。成功したら対戦の revision が進む）"
+type UseMatchSpellSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"useMatchSpell の結果（ROLLING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union UseMatchSpellResult =
+    UseMatchSpellSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"止まった他人の領地を侵略する入力"
+input InvadeMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "侵略に出す手札の番号（0 始まり。Match.invadeChoices の中から選ぶ。手札の範囲の外は ValidationErrors の FieldOutOfRange、範囲の中で出せないものは FieldNotFound）"
+  handIndex: Int!
+}
+
+"侵略を確定した（続けて攻める側がアイテムを選ぶ。成功したら対戦の revision が進む）"
+type InvadeMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"invadeMatchTerritory の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union InvadeMatchTerritoryResult =
+    InvadeMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"侵略を確定した人がアイテムを選ぶ入力"
+input AttackMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すアイテムの手札の番号（0 始まり。Match.itemChoices の中から選ぶ。出さなければ null。選べないものは ValidationErrors の FieldNotFound）"
+  itemHandIndex: Int
+}
+
+"アイテムを選んだ（続けて領地の持ち主がアイテムを選ぶ。成功したら対戦の revision が進む）"
+type AttackMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"attackMatchTerritory の結果（ATTACKING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union AttackMatchTerritoryResult =
+    AttackMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"止まった他人の領地の通行料を払う入力"
+input PayMatchTollInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+}
+
+"通行料を払った（成功したら対戦の revision が進む）"
+type PayMatchTollSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"payMatchToll の結果（INVADING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union PayMatchTollResult =
+    PayMatchTollSuccess
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"侵略された領地を守る入力"
+input DefendMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すアイテムの手札の番号（0 始まり。Match.itemChoices の中から選ぶ。出さなければ null。選べないものは ValidationErrors の FieldNotFound）"
+  itemHandIndex: Int
+}
+
+"アイテムを選び、戦闘が終わった（成功したら対戦の revision が進む）"
+type DefendMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"defendMatchTerritory の結果（DEFENDING の段階の、領地の持ち主だけ。ほかの人は MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union DefendMatchTerritoryResult =
+    DefendMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"アイテムの代わりに手札のクリーチャーを出す入力（援護）"
+input UseMatchCreatureAsItemInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "出すクリーチャーの手札の番号（0 始まり。Match.creatureAsItemChoices の中から選ぶ。選べないものは ValidationErrors の FieldNotFound）"
+  handIndex: Int!
+}
+
+"クリーチャーを出した（守る側なら戦闘まで終わった。成功したら対戦の revision が進む）"
+type UseMatchCreatureAsItemSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"useMatchCreatureAsItem の結果（ATTACKING・DEFENDING の段階の、操作を待っている人だけ。ほかの人は MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union UseMatchCreatureAsItemResult =
+    UseMatchCreatureAsItemSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"魔力が負の間に、自分の領地を手放す入力"
+input RelinquishMatchTerritoryInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "手放す領地の位置（Match.relinquishChoices の中から選ぶ。手放せないものは ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+}
+
+"領地を手放した（魔力が負のままで手放す領地が残っていれば、続けて手放す。成功したら対戦の revision が進む）"
+type RelinquishMatchTerritorySuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"relinquishMatchTerritory の結果（RELINQUISHING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union RelinquishMatchTerritoryResult =
+    RelinquishMatchTerritorySuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"土地のレベル"
+type MatchLandLevel {
+  "土地の位置"
+  position: BoardPosition!
+  "レベル（2 以上）"
+  level: Int!
+}
+
+"領地のレベルを上げる選択肢 1 つ"
+type MatchLevelUpChoice {
+  "領地の位置"
+  position: BoardPosition!
+  "上げた後のレベル"
+  level: Int!
+  "払う魔力"
+  magic: Int!
+}
+
+"領地コマンドを使える自分の領地のレベルを上げる入力"
+input LevelUpMatchLandInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "領地の位置（Match.levelUpChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+  "上げた後のレベル"
+  level: Int!
+}
+
+"領地のレベルを上げた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
+type LevelUpMatchLandSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"levelUpMatchLand の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+union LevelUpMatchLandResult =
+    LevelUpMatchLandSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"クリーチャーを動かす選択肢 1 つ"
+type MatchMoveChoice {
+  "動かすクリーチャーのいる領地の位置"
+  from: BoardPosition!
+  "行き先（空き地か他人の領地）"
+  to: BoardPosition!
+}
+
+"領地コマンドを使える自分の領地のクリーチャーを動かす入力"
+input MoveMatchCreatureInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "動かすクリーチャーのいる領地の位置"
+  from: BoardPositionInput!
+  "行き先（Match.moveChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound・項目名 to）"
+  to: BoardPositionInput!
+}
+
+"クリーチャーを動かした（他人の領地へなら続けて攻める段階になる。成功したら対戦の revision が進む）"
+type MoveMatchCreatureSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"moveMatchCreature の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）"
+union MoveMatchCreatureResult =
+    MoveMatchCreatureSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"土地の属性を変える選択肢 1 つ"
+type MatchElementChangeChoice {
+  "領地の位置"
+  position: BoardPosition!
+  "変えた後の属性（火・地・水・風のどれか）"
+  element: BoardTileElement!
+  "払う魔力"
+  magic: Int!
+}
+
+"領地コマンドを使える自分の領地の土地の属性を変える入力"
+input ChangeMatchLandElementInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "領地の位置（Match.elementChangeChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+  "変えた後の属性"
+  element: BoardTileElement!
+}
+
+"土地の属性を変えた（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
+type ChangeMatchLandElementSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"changeMatchLandElement の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）"
+union ChangeMatchLandElementResult =
+    ChangeMatchLandElementSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
+"クリーチャーを交換する選択肢 1 つ"
+type MatchExchangeChoice {
+  "領地の位置"
+  position: BoardPosition!
+  "出す手札の番号（0 始まり）"
+  handIndex: Int!
+  "払う魔力（出すクリーチャーのコスト）"
+  magic: Int!
+}
+
+"領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する入力"
+input ExchangeMatchCreatureInput {
+  "対戦の公開用の ID"
+  id: UUID!
+  "画面が見ていた対戦の revision"
+  revision: Int!
+  "領地の位置（Match.exchangeChoices の中から選ぶ。選べない組は ValidationErrors の FieldNotFound）"
+  position: BoardPositionInput!
+  "出す手札の番号（0 始まり）"
+  handIndex: Int!
+}
+
+"クリーチャーを交換した（続けて止まったマスの行動が決まる。成功したら対戦の revision が進む）"
+type ExchangeMatchCreatureSuccess {
+  "対戦の公開用の ID"
+  id: UUID!
+  "操作した後の対戦の revision"
+  revision: Int!
+}
+
+"exchangeMatchCreature の結果（PLACING・INVADING・TERRITORY_COMMANDING の段階の、今の番の参加者だけ）"
+union ExchangeMatchCreatureResult =
+    ExchangeMatchCreatureSuccess
+  | ValidationErrors
+  | MatchNotFoundError
+  | MatchNotYourTurnError
+  | MatchPhaseNotAllowedError
+  | RevisionConflictError
+  | PlayerNotRegisteredError
+
 "ターンを終える入力"
 input EndMatchTurnInput {
   "対戦の公開用の ID"
@@ -320,7 +829,7 @@ type EndMatchTurnSuccess {
   revision: Int!
 }
 
-"endMatchTurn の結果（ENDING の段階の、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
+"endMatchTurn の結果（ENDING と PLACING の段階の（PLACING では配置しないことになる）、今の番の参加者だけ。番でなければ MatchNotYourTurnError、段階が違えば MatchPhaseNotAllowedError。参加していない対戦は MatchNotFoundError）"
 union EndMatchTurnResult =
     EndMatchTurnSuccess
   | MatchNotFoundError
@@ -372,7 +881,31 @@ extend type Mutation {
   rollMatchDice(input: RollMatchDiceInput!): RollMatchDiceResult!
   "分かれ道で行き先を選ぶ"
   chooseMatchPath(input: ChooseMatchPathInput!): ChooseMatchPathResult!
-  "ターンを終える"
+  "止まった空き地に、手札のクリーチャーを配置する（配置したらターンを終える）"
+  placeMatchCreature(input: PlaceMatchCreatureInput!): PlaceMatchCreatureResult!
+  "魔力が負の間に、自分の領地を手放す"
+  relinquishMatchTerritory(input: RelinquishMatchTerritoryInput!): RelinquishMatchTerritoryResult!
+  "領地コマンドを使える自分の領地のレベルを上げる（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  levelUpMatchLand(input: LevelUpMatchLandInput!): LevelUpMatchLandResult!
+  "領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  exchangeMatchCreature(input: ExchangeMatchCreatureInput!): ExchangeMatchCreatureResult!
+  "領地コマンドを使える自分の領地のクリーチャーを動かす（領地コマンド。空き地へならそのまま止まったマスの決まりに進み、他人の領地へなら侵略と同じ戦闘をする）"
+  moveMatchCreature(input: MoveMatchCreatureInput!): MoveMatchCreatureResult!
+  "領地コマンドを使える自分の領地の土地の属性を変える（領地コマンド。他人の領地に止まっていれば続けて通行料を払い、ほかはターンを終える）"
+  changeMatchLandElement(input: ChangeMatchLandElementInput!): ChangeMatchLandElementResult!
+  "サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで。コストの分の魔力を払う）"
+  useMatchSpell(input: UseMatchSpellInput!): UseMatchSpellResult!
+  "止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定し、コストの分の魔力を払う）"
+  invadeMatchTerritory(input: InvadeMatchTerritoryInput!): InvadeMatchTerritoryResult!
+  "侵略を確定した人が、アイテムを選ぶ（出さないことも選ぶ）"
+  attackMatchTerritory(input: AttackMatchTerritoryInput!): AttackMatchTerritoryResult!
+  "止まった他人の領地の通行料を払う"
+  payMatchToll(input: PayMatchTollInput!): PayMatchTollResult!
+  "侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さないことも選ぶ）"
+  defendMatchTerritory(input: DefendMatchTerritoryInput!): DefendMatchTerritoryResult!
+  "アイテムを選んでいる人（攻める側・守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。コストの分の魔力を払う。守る側なら戦闘に進む）"
+  useMatchCreatureAsItem(input: UseMatchCreatureAsItemInput!): UseMatchCreatureAsItemResult!
+  "ターンを終える（PLACING では配置しない）"
   endMatchTurn(input: EndMatchTurnInput!): EndMatchTurnResult!
   "終わった後に、戦利品のパックを選ぶ（順位の枚数のカードを引く）"
   chooseMatchRewardPack(input: ChooseMatchRewardPackInput!): ChooseMatchRewardPackResult!
@@ -407,6 +940,44 @@ extend type Subscription {
   ): MatchProgressResult!
 }
 
+"領地の価値と通行料"
+type MatchTerritoryValue {
+  "領地の位置"
+  position: BoardPosition!
+  "土地の価値（連鎖を含む）"
+  value: Int!
+  "盤面の通行料（価値 × 通行料の割合。いるクリーチャーの通行料の倍率は掛けず、払うときに発動する（MatchTollCreatureEffectActivatedEvent））"
+  toll: Int!
+  "土地のレベル（価値の根拠。レベルの倍率は MatchPlayRules.landLevelMultipliers）"
+  level: Int!
+  "連鎖の数（同じ持ち主の同じ属性の土地の数。自分を含み、複の土地はいつも 1。価値の根拠で、倍率は MatchPlayRules.chainMultipliers）"
+  chainCount: Int!
+  "このイベントの前の連鎖の数（同じクリーチャーの前の領地、無ければ同じ位置で同じ持ち主の前の領地のもの）。この持ち主の連鎖に新しく入った（配置した・奪った）なら null"
+  previousChainCount: Int
+}
+
+"総魔力が変わった参加者"
+type MatchTotalMagicChange {
+  "参加者（Match.participants の何番目か）"
+  participant: Int!
+  "変わった後の総魔力"
+  totalMagic: Int!
+}
+
+"""
+このイベントで変わった、描画に要る値のうち、イベントの事実からは出せず core の決まりで決まるもの。
+画面がイベントの再生で描くときに、計算せずに当てられるように返す。
+保存するイベントの payload には持たない（読むときにイベントを順に当てて計算する）
+"""
+type MatchEventChanges {
+  "このイベントの後の段階。操作を待っていない間（始まる前・移動の途中）は null"
+  phase: MatchPhase
+  "総魔力が変わった参加者だけ"
+  totalMagics: [MatchTotalMagicChange!]!
+  "価値・通行料・土地のレベル・連鎖の数のどれかが変わった領地だけ（できた順。無くなった領地は入らない）"
+  territoryValues: [MatchTerritoryValue!]!
+}
+
 """
 対戦のイベント。種類ごとの型で見せ、見せないもの（山札の並び）は項目を持たない。
 誰が（participant）は Match.participants の何番目か
@@ -416,6 +987,8 @@ interface MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
 }
 
 "対戦が始まった（参加者・盤面・ルールは match で読む）"
@@ -424,6 +997,8 @@ type MatchCreatedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
 }
 
 "順番が決まった"
@@ -432,16 +1007,20 @@ type MatchTurnOrderDecidedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "参加者の番号（Match.participants の何番目か）を、順番の早い順に並べたもの"
   order: [Int!]!
 }
 
 "山札が混ざった（並びは見せないので、項目を持たない）"
-type MatchDecksShuffledEvent implements MatchEvent {
+type MatchDrawPilesShuffledEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
 }
 
 "全員に手札が配られた"
@@ -450,6 +1029,8 @@ type MatchHandsDealtEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "全員に配った枚数（山札が足りなければ、ある分だけ）"
   cards: Int!
 }
@@ -460,24 +1041,576 @@ type MatchCardDrawnEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "引いた参加者（Match.participants の何番目か）"
   participant: Int!
   "引いたカード"
-  card: DeckCardInfo!
+  card: CardInfo!
 }
 
-"手札を 1 枚捨てた"
+"山札が空のまま引くときに、捨て札を混ぜて山札にした（並びは見せない）"
+type MatchDiscardPileShuffledEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "混ぜた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "山札にした枚数（捨て札はこれで空になる）"
+  drawPileCount: Int!
+}
+
+"ターンを終えるときに、手札が上限を超えていた（上限まで捨ててからターンを終える）"
+type MatchHandLimitExceededEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "手札が上限を超えた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "上限を超えた時点の手札の枚数（捨てる枚数は handCount - maxHandCards）"
+  handCount: Int!
+  "手札の上限の枚数"
+  maxHandCards: Int!
+}
+
+"手札を 1 枚捨てた（捨て札に入る）"
 type MatchCardDiscardedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "捨てた参加者（Match.participants の何番目か）"
   participant: Int!
   "捨てた手札の番号（0 始まり）"
   handIndex: Int!
   "捨てたカード"
-  card: DeckCardInfo!
+  card: CardInfo!
+}
+
+"止まった空き地に、手札のクリーチャーを配置した（そのままターンを終える）"
+type MatchCreaturePlacedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "配置した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "配置した手札の番号（0 始まり）"
+  handIndex: Int!
+  "配置したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "配置したクリーチャーの ID（Match.territories の creature.id と同じ番号）"
+  creature: Int!
+  "配置した位置（領地になった）"
+  position: BoardPosition!
+  "払った魔力"
+  cost: Int!
+}
+
+"止まった他人の領地を、手札のクリーチャーで侵略した"
+type MatchTerritoryInvadedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "侵略した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "侵略した領地の位置"
+  position: BoardPosition!
+  "払った魔力"
+  cost: Int!
+  "領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
+  defendingCreatureCard: CardInfo!
+}
+
+"サイコロを振る前に、手札のスペルを使った（効果は続くイベント。スペルは捨て札に入る）"
+type MatchSpellUsedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "使った手札の番号（0 始まり）"
+  handIndex: Int!
+  "使ったカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘に、アイテムの代わりに手札のクリーチャーを出した（援護。攻める側も守る側も同じ。足す AT・HP は続く MatchBattleCreatureEffectActivatedEvent）"
+type MatchCreatureUsedAsItemEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したクリーチャーのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘に手札のアイテムを出した（攻める側も守る側も同じ。効果はまだ無い）"
+type MatchItemUsedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "出したカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "払った魔力"
+  cost: Int!
+}
+
+"戦闘にアイテムを出さなかった（攻める側も守る側も同じ）"
+type MatchItemSkippedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "出さなかった参加者（Match.participants の何番目か）"
+  participant: Int!
+}
+
+"戦闘のどちら側か"
+enum MatchBattleSide {
+  "攻める側（侵略した側）"
+  ATTACKER
+  "守る側（領地の持ち主）"
+  DEFENDER
+}
+
+"領地コマンドを使える自分の領地のレベルを上げた"
+type MatchLandLeveledUpEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "上げた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "領地の位置"
+  position: BoardPosition!
+  "上げた後のレベル"
+  level: Int!
+  "払った魔力"
+  magic: Int!
+}
+
+"領地コマンドを使える自分の領地のクリーチャーを空き地へ動かした（行き先が領地になり、元の土地は空き地になる。土地のレベルはどちらも土地に残る）"
+type MatchCreatureMovedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "動かした参加者（Match.participants の何番目か）"
+  participant: Int!
+  "元の領地の位置"
+  from: BoardPosition!
+  "行き先"
+  to: BoardPosition!
+  "動いたクリーチャーの ID（同じ 1 体のまま）"
+  creature: Int!
+}
+
+"領地コマンドを使える自分の領地のクリーチャーを他人の領地へ動かし、侵略した（続けてアイテムを選び、戦闘する）"
+type MatchTerritoryInvadedByMoveEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "動かした参加者（Match.participants の何番目か）"
+  participant: Int!
+  "元の領地の位置"
+  from: BoardPosition!
+  "攻める領地の位置"
+  position: BoardPosition!
+  "動いたクリーチャーの ID"
+  creature: Int!
+  "動いたクリーチャーのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "領地にいて、これから戦う守る側のクリーチャーのカード（性能は対戦を始めたときの写し）"
+  defendingCreatureCard: CardInfo!
+}
+
+"領地コマンドを使える自分の領地の土地の属性を変えた（土地のレベルとクリーチャーはそのまま）"
+type MatchLandElementChangedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "変えた参加者（Match.participants の何番目か）"
+  participant: Int!
+  "領地の位置"
+  position: BoardPosition!
+  "変えた後の属性"
+  element: BoardTileElement!
+  "払った魔力（baseLandValue × multiplier）"
+  magic: Int!
+  "払った魔力の根拠の、土地の基本の値"
+  baseLandValue: Int!
+  "払った魔力の根拠の、実際に掛けた倍率（複属性の土地からは安い倍率）"
+  multiplier: Int!
+}
+
+"領地のクリーチャーを手札のクリーチャーと入れ替えた"
+type MatchCreatureExchangedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "交換した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "領地の位置"
+  position: BoardPosition!
+  "出した手札の番号（0 始まり）"
+  handIndex: Int!
+  "領地に入ったカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）"
+  creature: Int!
+  "払った魔力"
+  cost: Int!
+  "手札の最後に戻ったカード（性能は対戦を始めたときの写し）"
+  returnedCard: CardInfo!
+}
+
+"戦闘の中の AT・HP"
+type MatchBattleStats {
+  "攻撃力"
+  attack: Int!
+  "体力"
+  hitPoints: Int!
+}
+
+"戦闘が始まった（効果を当てる前の両方の AT・HP。領地のクリーチャーは、ボード上の効果と傷が残った今の値）"
+type MatchBattleStartedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "攻める側"
+  attacker: MatchBattleStats!
+  "守る側"
+  defender: MatchBattleStats!
+}
+
+# 戦闘の発動のイベントは、core と同じく出どころ（支援効果・地形効果・クリーチャーの能力・アイテムの能力）ごとに型を分ける（core#175）。
+# どの型も change（増減と当てた後の値）を持つ。null を許すのは、同じ名前の項目の null の許し方が型ごとに食い違うと、画面が
+# 1 つの問い合わせで全部の型を読めなくなるため（支援効果・地形効果は必ず持つ）
+"戦闘の AT・HP の増減と、当てた後の値"
+type MatchBattleStatChange {
+  "AT の増減（下限の 0 で止まった後の実際の増減）"
+  attackDelta: Int!
+  "HP の増減（下限の 0 で止まった後の実際の増減）"
+  hitPointsDelta: Int!
+  "当てた後の AT"
+  attack: Int!
+  "当てた後の HP（0 ならその時点で破壊され、戦闘が終わる）"
+  hitPoints: Int!
+}
+
+"支援効果が発動した（戦場の隣にあるその側の領地の数 × 1 つあたりの値だけ AT が増える。攻める側にも守る側にも付き、隣の領地が無い側には出ない）"
+type MatchBattleSupportEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "効果を受けた側"
+  side: MatchBattleSide!
+  "戦場の隣にある、その側の領地の位置"
+  positions: [BoardPosition!]!
+  "隣の領地 1 つあたりの AT の増加"
+  bonusPerTerritory: Int!
+  "増減と当てた後の値（いつもある）"
+  change: MatchBattleStatChange
+}
+
+"守る側に地形効果が発動した（土地の属性がクリーチャーの属性と合えば、レベル × 1 レベルあたりの値だけ HP が増える。合わなければ出ない）"
+type MatchBattleTerrainEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "効果を受けた側（いつも DEFENDER）"
+  side: MatchBattleSide!
+  "土地の属性"
+  element: BoardTileElement!
+  "土地のレベル"
+  level: Int!
+  "レベル 1 つあたりの HP の増加"
+  bonusPerLevel: Int!
+  "増減と当てた後の値（いつもある）"
+  change: MatchBattleStatChange
+}
+
+# 発動したカードの効果を activatedEffect に入れ子で持つのは、value・percent・effect をほかの対戦のイベントと同じ名前の項目にすると、
+# 型が食い違って 1 つの問い合わせで読めなくなるため（core#177）。クリーチャーとアイテムで同じ形にする（core#178）
+"""
+クリーチャーの効果が発動した。先に・後に攻撃するは効き目が無いとき（両方が先に攻撃するで打ち消し合う等）も持っていれば出る。
+受けるダメージを 0 にするは、攻撃してきたクリーチャーが制約を満たしたときだけ、その攻撃の前に出る。AT・HP を変える効果（増減・上書き）は増減が 0 でも出る
+"""
+type MatchBattleCreatureEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "効果を持つクリーチャーの側"
+  side: MatchBattleSide!
+  "クリーチャーのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "発動したカードの効果（種類と、下限で止まる前の値・上書きの範囲。受けるダメージを 0 にするは相手が制約を満たす最初のもの）"
+  activatedEffect: Effect!
+  "増減と当てた後の値（AT・HP を変える効果のときだけ。ほかは null）"
+  change: MatchBattleStatChange
+}
+
+"出したアイテムの効果が発動した（増減・上書きは増減が 0 でも出る。倍率は掛けたものだけ、地形効果を無視するは相手に地形効果があるときだけ出る）"
+type MatchBattleItemEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "アイテムを出した側"
+  side: MatchBattleSide!
+  "アイテムのカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "発動したカードの効果（種類と、下限で止まる前の値。倍率は制約を満たす一番高いもの）"
+  activatedEffect: Effect!
+  "アイテムを出した側の増減と当てた後の値（AT・HP を変える効果のときだけ。地形効果を無視するは null）"
+  change: MatchBattleStatChange
+  "相手の増減と当てた後の値（地形効果を無視するときだけ。相手の HP が地形効果の分を除いた値になる。ほかは null）"
+  opponentChange: MatchBattleStatChange
+}
+
+"戦闘の攻撃が 1 回当たった"
+type MatchCreatureStruckEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "攻撃した側"
+  striker: MatchBattleSide!
+  "攻撃した側の、そのときの戦闘中の AT"
+  attack: Int!
+  "受けた側が受けた量（攻撃無効が発動したら 0）"
+  damage: Int!
+  "受けた側の、効果で増えた分も含む残りの体力（0 なら倒れた）"
+  remainingHitPoints: Int!
+}
+
+"守る側のクリーチャーを倒して土地を奪った（土地のレベルは引き継ぐ）"
+type MatchInvasionSucceededEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "奪った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "奪った領地の位置"
+  position: BoardPosition!
+  "領地に入ったクリーチャーの新しい ID（Match.territories の creature.id と同じ番号）"
+  creature: Int!
+  "領地に入ったクリーチャーの体力"
+  territoryHitPoints: Int!
+}
+
+"守る側のクリーチャーを倒せなかった（続けて通行料を払う）"
+type MatchInvasionFailedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "侵略した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "侵略した領地の位置"
+  position: BoardPosition!
+  "攻めたカード（性能は対戦を始めたときの写し）"
+  card: CardInfo!
+  "手札に戻ったか（生きていれば true。倒れていれば捨て札になり false）"
+  returnedToHand: Boolean!
+  "領地のクリーチャーに残る体力（増えた分を超えたダメージだけが傷になる）"
+  territoryHitPoints: Int!
+  "移動で侵略して生き残ったときだけ。戻った元の領地の位置（倒れたときは null で、元の土地は空き地になる）"
+  returnedTo: BoardPosition
+  "移動で侵略して生き残ったときだけ。戻ったクリーチャーの体力"
+  returnedHitPoints: Int
+}
+
+"破壊されたクリーチャーの「破壊されたとき」の効果が発動した（破壊のイベントの直後。結果は続く MatchCardReturnedToHandEvent・MatchMagicReceivedEvent）"
+type MatchDestructionCreatureEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーの持ち主（Match.participants の何番目か）"
+  owner: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "発動したカードの効果"
+  activatedEffect: Effect!
+}
+
+"破壊されて捨て札に入ったカードが、持ち主の手札の最後に戻った（手札の上限は持ち主のターンの終わりに合わせる）"
+type MatchCardReturnedToHandEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "カードの持ち主（Match.participants の何番目か）"
+  owner: Int!
+  "戻ったカード"
+  card: CardInfo!
+}
+
+"持ち主が魔力を受け取った（破壊されたら魔力を得る効果の結果）"
+type MatchMagicReceivedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "受け取った参加者（Match.participants の何番目か）"
+  owner: Int!
+  "受け取った魔力"
+  magic: Int!
+}
+
+"通行料を払う直前に、領地のクリーチャーの通行料の倍率が発動した（倍率を持っていれば、効き目が無くても出る）。続く MatchTollPaidEvent が multipliedToll を払う"
+type MatchTollCreatureEffectActivatedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "止まった領地の位置"
+  position: BoardPosition!
+  "倍率（百分率。150 で 1.5 倍）"
+  percent: Int!
+  "盤面の通行料（倍率を掛ける前）"
+  toll: Int!
+  "倍率を掛けて切り捨てた、払う通行料"
+  multipliedToll: Int!
+}
+
+"他人の領地に止まって通行料を払った（足りなくても全額を払い、魔力は負になる）"
+type MatchTollPaidEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "払った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "受け取った参加者（領地の持ち主）"
+  owner: Int!
+  "止まった領地の位置"
+  position: BoardPosition!
+  "払った魔力"
+  magic: Int!
+}
+
+"魔力が負の間に自分の領地を手放した（クリーチャーは盤面から外れ、土地は空いてレベル 1 に戻る）"
+type MatchTerritoryRelinquishedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "手放した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "手放した領地の位置"
+  position: BoardPosition!
+  "盤面から外れたクリーチャーの ID"
+  creature: Int!
+  "受け取った魔力"
+  magic: Int!
+}
+
+"領地が無くなっても魔力が負のままだったので、拠点からやり直す（手札と山札はそのまま）"
+type MatchMagicDepletedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "枯渇した参加者（Match.participants の何番目か）"
+  participant: Int!
+  "与えられた魔力（開始時の魔力）"
+  magic: Int!
 }
 
 "サイコロを振った"
@@ -486,18 +1619,162 @@ type MatchDiceRolledEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "振った参加者（Match.participants の何番目か）"
   participant: Int!
-  "出た目"
+  "出た目（複数のサイコロを同時に振ったときは合計。進む歩数）"
   value: Int!
+  "複数のサイコロを同時に振ったときの 1 個ずつの目（振った順。合計が value）。1 個のときは空"
+  dice: [Int!]!
+  "振った参加者に続いていたスペルの効果（振り方を決めたもの。無ければ null）"
+  spellEffect: SpellEffect
 }
 
-"1 マス進んだ"
-type MatchMovedEvent implements MatchEvent {
+"スペルを使い、対象のプレイヤーにターンをまたいで効き続ける効果がかかった（続いていた効果は上書きする）"
+type MatchSpellEffectStartedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "対象の参加者（Match.participants の何番目か）"
+  target: Int!
+  "かかった効果"
+  effect: MatchLastingSpellEffect!
+}
+
+"周回回復で、周回を終えた人の領地のクリーチャーの HP が回復した（回復したクリーチャーごとに 1 つ。HP が変わらないクリーチャーには出ない）"
+type MatchLapCreatureHitPointsRecoveredEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "周回を終えた参加者（Match.participants の何番目か。クリーチャーの持ち主）"
+  participant: Int!
+  "回復したクリーチャーがいる領地の位置"
+  position: BoardPosition!
+  "回復したクリーチャー（MatchPlacedCreature.id）"
+  creature: Int!
+  "回復したクリーチャーのカード"
+  card: CardInfo!
+  "回復した量（カードの HP で止まった後の実際の量）"
+  amount: Int!
+  "回復した後の HP（回復する前は hitPoints - amount）"
+  hitPoints: Int!
+}
+
+"スペルで、領地のクリーチャーにダメージを与えた（remainingHitPoints が 0 なら、続けて破壊される）"
+type MatchSpellCreatureDamagedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "使った参加者（Match.participants の何番目か）"
+  participant: Int!
+  "対象のクリーチャーがいる領地の位置"
+  position: BoardPosition!
+  "対象のクリーチャー（MatchPlacedCreature.id）"
+  creature: Int!
+  "与えたダメージ"
+  damage: Int!
+  "残りの HP（0 なら破壊される）"
+  remainingHitPoints: Int!
+}
+
+"戦闘で、侵略したクリーチャーが破壊された（カードは捨て札に入り、移動で侵略していたら元の土地が空く）"
+type MatchInvadingCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（戦場）"
+  position: BoardPosition!
+}
+
+"戦闘で、守るクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）"
+type MatchDefendingCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（戦場）"
+  position: BoardPosition!
+}
+
+"ボードで（今はスペルのダメージで）、領地のクリーチャーが破壊された（カードは持ち主の捨て札に入り、土地は空き地になる。レベルは土地に残る）"
+type MatchBoardCreatureDestroyedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "今の番の参加者（Match.participants の何番目か）"
+  participant: Int!
+  "破壊されたクリーチャーのカード"
+  card: CardInfo!
+  "破壊された場所（その領地）"
+  position: BoardPosition!
+}
+
+"自分のターンを終えて、続いていたスペルの効果が終わった"
+type MatchSpellEffectEndedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "効果が終わった参加者（Match.participants の何番目か）"
+  participant: Int!
+}
+
+"スペルの効果で魔力を得た"
+type MatchMagicGainedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
+  "得た参加者（Match.participants の何番目か）"
+  participant: Int!
+  "得た魔力（(laps + 1) × magicPerLap）"
+  magic: Int!
+  "得た時点でこの対戦で周回を終えた回数"
+  laps: Int!
+  "スペルの 1 周回あたりの魔力"
+  magicPerLap: Int!
+}
+
+"1 マス進んだ"
+type MatchPieceMovedEvent implements MatchEvent {
+  "対戦の版"
+  revision: Int!
+  "起きた時刻"
+  occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "進んだ参加者（Match.participants の何番目か）"
   participant: Int!
   "入ったマスの位置"
@@ -510,6 +1787,8 @@ type MatchCheckpointPassedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "通った参加者（Match.participants の何番目か）"
   participant: Int!
   "印を付けたチェックポイントの位置"
@@ -524,10 +1803,20 @@ type MatchLapCompletedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "周回を終えた参加者（Match.participants の何番目か）"
   participant: Int!
-  "増えた魔力"
+  "増えた魔力の合計（lapBonus + territoryBonus）"
   magic: Int!
+  "増えた魔力の根拠の、周回のボーナス（領地の数によらない決まった額）"
+  lapBonus: Int!
+  "増えた魔力の根拠の、領地の分の額（territoryCount × lapBonusPerTerritory）"
+  territoryBonus: Int!
+  "増えた魔力の根拠の、周回を終えたときの自分の領地の数"
+  territoryCount: Int!
+  "増えた魔力の根拠の、領地 1 つあたりの額"
+  lapBonusPerTerritory: Int!
 }
 
 "ターンを終えた"
@@ -536,6 +1825,8 @@ type MatchTurnEndedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "ターンを終えた参加者（Match.participants の何番目か）"
   participant: Int!
 }
@@ -546,6 +1837,8 @@ type MatchEndedEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "勝った参加者（Match.participants の何番目か）。魔力が同じならすべて"
   winners: [Int!]!
   "参加者ごとの順位（Match.participants の何番目かの順。1 が最上位）。魔力が同じなら同じ順位で、core が決める。目標の魔力で終わったときは勝った人が 1 位で、ほかの人は 2 位以下"
@@ -560,20 +1853,24 @@ type MatchRewardDrawnEvent implements MatchEvent {
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
   "引いた参加者（Match.participants の何番目か）"
   participant: Int!
   "選んだパックのキー"
   pack: String!
   "引いたカード（重ならない。候補が足りなければ順位の枚数より少ない）。cards にしないのは、MatchHandsDealtEvent.cards（Int）と同じ名前で型が食い違い、問い合わせを検証で断られるため"
-  rewardCards: [DeckCardInfo!]!
+  rewardCards: [CardInfo!]!
 }
 
 "プレイヤー全員が戦利品を受け取った（対戦の流れの終わり）"
-type MatchRewardsCompletedEvent implements MatchEvent {
+type MatchAllRewardsReceivedEvent implements MatchEvent {
   "対戦の版"
   revision: Int!
   "起きた時刻"
   occurredAt: DateTime!
+  "このイベントで変わった、描画に要る core の決まりで決まる値"
+  changes: MatchEventChanges!
 }
 
 "指した版より後の対戦のイベント"

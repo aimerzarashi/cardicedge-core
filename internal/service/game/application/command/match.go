@@ -11,6 +11,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
@@ -30,6 +33,7 @@ type MatchStartHandler struct {
 	getBoard        master.GetMatchBoardFunc
 	getDeckCards    master.GetPlayerDeckCardsFunc
 	getNPCDeckCards master.GetNPCDeckCardsFunc
+	getCardSpecs    master.GetCardSpecsFunc
 	// 乱数の元は対戦ごとに新しく作る（再実行で同じ並びになるとは限らないが、保存されるのは Decide が出したイベントだけで、
 	// 二重に動いても対戦は 1 つしかできない）。テストは固定した乱数を返す関数を渡す
 	newRandom func() match.Random
@@ -43,12 +47,13 @@ func NewMatchStartHandler(
 	getBoard master.GetMatchBoardFunc,
 	getDeckCards master.GetPlayerDeckCardsFunc,
 	getNPCDeckCards master.GetNPCDeckCardsFunc,
+	getCardSpecs master.GetCardSpecsFunc,
 	newRandom func() match.Random,
 	now func() time.Time,
 ) *MatchStartHandler {
 	return &MatchStartHandler{
 		rooms: rooms, matches: matches, getRules: getRules, getBoard: getBoard, getDeckCards: getDeckCards,
-		getNPCDeckCards: getNPCDeckCards, newRandom: newRandom, now: now,
+		getNPCDeckCards: getNPCDeckCards, getCardSpecs: getCardSpecs, newRandom: newRandom, now: now,
 	}
 }
 
@@ -83,6 +88,9 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	if len(gameRules.Match.RewardCardsByRank) == 0 {
 		return fmt.Errorf("match start: game rules have no reward cards by rank: %w", rules.ErrNotPublished)
 	}
+	if len(gameRules.Match.LandLevelMultipliers) == 0 || len(gameRules.Match.ChainMultipliers) == 0 {
+		return fmt.Errorf("match start: game rules have no land multipliers: %w", rules.ErrNotPublished)
+	}
 	participants := make([]match.Participant, len(current.Seats))
 	for i, seat := range current.Seats {
 		if participants[i], err = c.participant(ctx, seat, gameRules.Deck.MaxCardDuplicates); err != nil {
@@ -95,13 +103,16 @@ func (c *MatchStartHandler) Start(ctx context.Context, roomID room.ID, matchID m
 	}
 	values := current.MatchRules
 	defaultRules, err := board.NewDefaultRules(values.TargetMagic, values.StartingMagic, values.LapBonus, values.CheckpointBonus,
-		values.RoundLimit, values.DiceMin, values.DiceMax)
+		values.RoundLimit, values.DiceMin, values.DiceMax, values.BaseLandValue, values.LapBonusPerTerritory)
 	if err != nil {
 		return err
 	}
 	cmd := &match.StartCommand{
 		ID: matchID, Participants: participants, Board: snapshot,
-		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks()),
+		Rules: match.NewRules(defaultRules, gameRules.Match.MaxHandCards, gameRules.Match.StartingHandCards, gameRules.Match.RewardCardsByRank, match.DefaultRewardPacks(),
+			gameRules.Match.LandLevelMultipliers, gameRules.Match.ChainMultipliers, gameRules.Match.TollPercentage, gameRules.Match.RelinquishPercentage,
+			gameRules.Match.TerrainBonusPerLevel, gameRules.Match.AdjacentTerritoryBonus,
+			gameRules.Match.LandElementChangeMultiplier, gameRules.Match.MultiLandElementChangeMultiplier, gameRules.Match.LapHitPointsRecovery),
 	}
 	random := c.newRandom()
 	_, err = rdb.Transact(ctx, func(ctx context.Context) (struct{}, error) {
@@ -128,7 +139,7 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 		if err != nil {
 			return match.Participant{}, err
 		}
-		cards, err := deckCards(source, maxDuplicates)
+		cards, err := c.deckCards(ctx, source, maxDuplicates)
 		if err != nil {
 			return match.Participant{}, err
 		}
@@ -138,7 +149,7 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 		if err != nil {
 			return match.Participant{}, err
 		}
-		cards, err := deckCards(source, maxDuplicates)
+		cards, err := c.deckCards(ctx, source, maxDuplicates)
 		if err != nil {
 			return match.Participant{}, err
 		}
@@ -148,16 +159,252 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 	}
 }
 
-func deckCards(source []master.DeckCard, maxDuplicates card.MaxDeckQuantity) ([]match.DeckCard, error) {
+// デッキのカードに、そのときの性能を写す（studio の値をそのまま信じず、domain の値の決まりで確かめてから写す）
+func (c *MatchStartHandler) deckCards(ctx context.Context, source []master.DeckCard, maxDuplicates card.MaxDeckQuantity) ([]match.DeckCard, error) {
+	refs := make([]card.Ref, len(source))
+	for i, entry := range source {
+		refs[i] = entry.Card
+	}
+	specs, err := c.getCardSpecs(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
 	cards := make([]match.DeckCard, len(source))
 	for i, entry := range source {
 		quantity, err := card.NewDeckQuantity(entry.Count, maxDuplicates)
 		if err != nil {
 			return nil, fmt.Errorf("card %s/%d: %w", entry.Card.EntityType, entry.Card.ID, err)
 		}
-		cards[i] = match.DeckCard{Card: entry.Card, Quantity: quantity}
+		spec, err := cardSpec(entry.Card, specs)
+		if err != nil {
+			return nil, err
+		}
+		cards[i] = match.DeckCard{Card: entry.Card, Quantity: quantity, Spec: spec}
 	}
 	return cards, nil
+}
+
+func cardSpec(ref card.Ref, specs map[card.Ref]master.CardSpec) (match.CardSpec, error) {
+	source, ok := specs[ref]
+	if !ok {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d has no spec", ref.EntityType, ref.ID)
+	}
+	cost, err := card.NewCost(source.Cost)
+	if err != nil {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+	}
+	rarity, err := card.NewRarity(source.Rarity)
+	if err != nil {
+		return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+	}
+	spec := match.CardSpec{Cost: cost, Rarity: rarity}
+	// クリーチャーの性能が無いのは、cards.metadata の読み出しの誤り（読む側が弾く）だが、ここでも黙って空の性能を写さない
+	if ref.EntityType == card.CreatureEntityType {
+		if source.Creature == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no creature spec", ref.EntityType, ref.ID)
+		}
+		creatureSpec, err := newCreatureSpec(source.Creature)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Creature = &creatureSpec
+	}
+	// クリーチャーと同じく、アイテムの性能が無いのを黙って空の性能にしない
+	if ref.EntityType == card.ItemEntityType {
+		if source.Item == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no item spec", ref.EntityType, ref.ID)
+		}
+		category, err := card.NewItemCategory(source.Item.Category)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		effects, err := newEffects(source.Item.Effects)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Item = &match.ItemSpec{Category: category, Effects: effects}
+	}
+	// クリーチャーと同じく、スペルの性能が無いのを黙って効果なしにしない
+	if ref.EntityType == card.SpellEntityType {
+		if source.Spell == nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d has no spell spec", ref.EntityType, ref.ID)
+		}
+		effect, err := newSpellEffect(source.Spell)
+		if err != nil {
+			return match.CardSpec{}, fmt.Errorf("card %s/%d: %w", ref.EntityType, ref.ID, err)
+		}
+		spec.Spell = &match.SpellSpec{Effect: effect}
+	}
+	return spec, nil
+}
+
+// 写した効果を並びの順に domain の値にする。持ち主が持てる効果かは確かめない（書くときの決まりで、写した値を読むときは確かめない）。
+// アイテムとクリーチャーで共有する（core#178）
+func newEffects(source []master.Effect) (effect.Effects, error) {
+	values := make([]effect.Effect, 0, len(source))
+	for _, copied := range source {
+		value, err := newEffect(copied)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	return effect.NewEffects(values)
+}
+
+func newEffect(copied master.Effect) (effect.Effect, error) {
+	switch {
+	case copied.AttackModifier != nil:
+		return effect.NewAttackModifierEffect(effect.NewAttackModifier(*copied.AttackModifier)), nil
+	case copied.HitPointsModifier != nil:
+		return effect.NewHitPointsModifierEffect(effect.NewHitPointsModifier(*copied.HitPointsModifier)), nil
+	case copied.AttackOverride != nil:
+		minimum, err := effect.NewAttackOverride(copied.AttackOverride.Minimum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		maximum, err := effect.NewAttackOverride(copied.AttackOverride.Maximum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewAttackOverrideEffect(minimum, maximum)
+	case copied.HitPointsOverride != nil:
+		minimum, err := effect.NewHitPointsOverride(copied.HitPointsOverride.Minimum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		maximum, err := effect.NewHitPointsOverride(copied.HitPointsOverride.Maximum)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewHitPointsOverrideEffect(minimum, maximum)
+	case copied.AttackMultiplier != nil:
+		percent, err := effect.NewAttackMultiplierPercent(copied.AttackMultiplier.Percent)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		constraints, err := newConstraints(copied.AttackMultiplier.Constraints)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewAttackMultiplierEffect(percent, constraints), nil
+	case copied.NullifyReceivedDamage != nil:
+		constraints, err := newConstraints(copied.NullifyReceivedDamage.Constraints)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewNullifyReceivedDamageEffect(constraints), nil
+	case copied.TollMultiplierPercent != nil:
+		percent, err := effect.NewTollMultiplierPercent(*copied.TollMultiplierPercent)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewTollMultiplierEffect(percent), nil
+	case copied.ReturnToHandOnDestruction != nil:
+		destructions, err := effect.NewDestructions(copied.ReturnToHandOnDestruction.Destructions)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewReturnToHandOnDestructionEffect(destructions), nil
+	case copied.GainMagicOnDestruction != nil:
+		destructions, err := effect.NewDestructions(copied.GainMagicOnDestruction.Destructions)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		amount, err := effect.NewDestructionMagicAmount(copied.GainMagicOnDestruction.Amount)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewGainMagicOnDestructionEffect(destructions, amount), nil
+	case copied.UseCreatureAsItem != nil:
+		elements, err := effect.NewCreatureElements(copied.UseCreatureAsItem.Elements)
+		if err != nil {
+			return effect.Effect{}, err
+		}
+		return effect.NewUseCreatureAsItemEffect(elements), nil
+	case copied.IgnoreTerrainEffect:
+		return effect.NewIgnoreTerrainEffect(), nil
+	case copied.StrikeFirst:
+		return effect.NewStrikeFirstEffect(), nil
+	case copied.StrikeLast:
+		return effect.NewStrikeLastEffect(), nil
+	case copied.ForbidInvasion:
+		return effect.NewForbidInvasionEffect(), nil
+	case copied.ForbidMovement:
+		return effect.NewForbidMovementEffect(), nil
+	}
+	return effect.Effect{}, effect.ErrEffectEmpty
+}
+
+func newConstraints(source []master.EffectConstraint) (effect.Constraints, error) {
+	constraints := make([]effect.Constraint, 0, len(source))
+	for _, constraint := range source {
+		elements, err := effect.NewCreatureElements(constraint.OpponentCreatureElements)
+		if err != nil {
+			return nil, err
+		}
+		constraints = append(constraints, effect.NewOpponentCreatureElementConstraint(elements))
+	}
+	return effect.NewConstraints(constraints)
+}
+
+// 写した効果のどれか 1 つ（どれも無ければ効果なし）
+func newSpellEffect(source *master.SpellSpec) (effect.SpellEffect, error) {
+	switch {
+	case source.DrawCards != nil:
+		count, err := effect.NewDrawCount(source.DrawCards.Count)
+		return effect.NewDrawCardsSpellEffect(count), err
+	case source.GainMagic != nil:
+		perLap, err := effect.NewMagicPerLap(source.GainMagic.PerLap)
+		return effect.NewGainMagicSpellEffect(perLap), err
+	case source.MultipleDice != nil:
+		count, err := effect.NewDiceCount(source.MultipleDice.Count)
+		if err != nil {
+			return effect.SpellEffect{}, err
+		}
+		turns, err := effect.NewEffectTurns(source.MultipleDice.Turns)
+		return effect.NewMultipleDiceSpellEffect(count, turns), err
+	case source.FixedDice != nil:
+		value, err := effect.NewDiceFace(source.FixedDice.Value)
+		if err != nil {
+			return effect.SpellEffect{}, err
+		}
+		turns, err := effect.NewEffectTurns(source.FixedDice.Turns)
+		return effect.NewFixedDiceSpellEffect(value, turns), err
+	case source.Damage != nil:
+		amount, err := effect.NewDamageAmount(source.Damage.Amount)
+		return effect.NewDamageSpellEffect(amount), err
+	default:
+		return effect.NoSpellEffect(), nil
+	}
+}
+
+func newCreatureSpec(source *master.CreatureSpec) (match.CreatureSpec, error) {
+	elements, err := creature.NewElements(source.Elements)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	attack, err := creature.NewAttack(source.Attack)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	hitPoints, err := creature.NewHitPoints(source.HitPoints)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	itemRestrictions, err := creature.NewItemRestrictions(source.ItemRestrictions)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	placementRestrictions, err := creature.NewPlacementRestrictions(source.PlacementRestrictions)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	effects, err := newEffects(source.Effects)
+	if err != nil {
+		return match.CreatureSpec{}, err
+	}
+	return match.CreatureSpec{Elements: elements, Attack: attack, HitPoints: hitPoints, ItemRestrictions: itemRestrictions, PlacementRestrictions: placementRestrictions, Effects: effects}, nil
 }
 
 // 変える操作の結果は、公開 ID と新しい revision だけにする（部屋の ChangedRoom と同じ。内容は返さず、画面は対戦を読み直す）
@@ -215,6 +462,148 @@ func (c *MatchHandler) ChoosePath(ctx context.Context, id uuid.UUID, revision in
 			return nil, input.Errors{&input.NotFound{Field: "to"}}
 		}
 		return &match.ChoosePathCommand{By: by, To: to}, nil
+	})
+}
+
+// 止まった空き地に、手札のクリーチャーを配置する（配置したらターンを終える）。配置できない手札は input.Errors（NotFound・項目名 handIndex）、
+// 手札の範囲外は input.Errors（OutOfRange）
+func (c *MatchHandler) Place(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.PlaceCreatureCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+// 止まった他人の領地を、手札のクリーチャーで侵略する（選んだ時点で確定する）。侵略できない手札は input.Errors（NotFound・項目名 handIndex）、
+// 手札の範囲外は input.Errors（OutOfRange）
+func (c *MatchHandler) Invade(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.InvadeCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+// サイコロを振る前に、手札のスペルを使う（1 ターンに 1 枚まで）。使えないスペルは input.Errors（NotFound・項目名 handIndex）
+// スペルの対象の領地の位置
+type SpellTargetPosition struct {
+	X, Y int
+}
+
+// 対象のプレイヤーを選ぶスペルは target（参加者の番号）が要り、無ければ input.Errors（Required・項目名 target）、選べない対象は input.Errors（NotFound・target）
+// クリーチャーを選ぶスペルは targetPosition（対象の領地の位置）が要り、無ければ input.Errors（Required・targetPosition）、選べない位置は
+// input.Errors（NotFound・targetPosition。位置が負の値でも同じ）
+func (c *MatchHandler) UseSpell(ctx context.Context, id uuid.UUID, revision int64, handIndex int, target *int, targetPosition *SpellTargetPosition) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, current match.Match, by match.ParticipantIndex) (match.Command, error) {
+		cmd := &match.UseSpellCommand{By: by, HandIndex: handIndex}
+		if targetPosition != nil {
+			position, err := newPosition(targetPosition.X, targetPosition.Y)
+			if err != nil {
+				return nil, input.Errors{&input.NotFound{Field: "targetPosition"}}
+			}
+			cmd.TargetPosition = &position
+		}
+		if target != nil {
+			// 参加者の範囲の外は、ドメインの番号の型に入れずに選べない対象とする
+			if *target < 0 || *target >= len(current.Participants) {
+				return nil, input.Errors{&input.NotFound{Field: "target"}}
+			}
+			index, err := match.NewParticipantIndex(*target)
+			if err != nil {
+				return nil, err
+			}
+			cmd.Target = &index
+		}
+		return cmd, nil
+	})
+}
+
+// 侵略を確定した人が、アイテムを選ぶ（出さなければ nil）。出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
+func (c *MatchHandler) Attack(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.AttackCommand{By: by, ItemHandIndex: itemHandIndex}, nil
+	})
+}
+
+// 止まった他人の領地の通行料を払う
+func (c *MatchHandler) PayToll(ctx context.Context, id uuid.UUID, revision int64) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.PayTollCommand{By: by}, nil
+	})
+}
+
+// 侵略された領地の持ち主が、アイテムを選んで戦闘に進める（出さなければ nil）。出せないアイテムは input.Errors（NotFound・項目名 itemHandIndex）
+func (c *MatchHandler) Defend(ctx context.Context, id uuid.UUID, revision int64, itemHandIndex *int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.DefendCommand{By: by, ItemHandIndex: itemHandIndex}, nil
+	})
+}
+
+// アイテムを選んでいる人（攻める側・守る側）が、アイテムの代わりに手札のクリーチャーを出す（援護。守る側なら戦闘に進む）。
+// 出せない手札は input.Errors（NotFound・項目名 handIndex）
+func (c *MatchHandler) UseCreatureAsItem(ctx context.Context, id uuid.UUID, revision int64, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		return &match.UseCreatureAsItemCommand{By: by, HandIndex: handIndex}, nil
+	})
+}
+
+// 魔力が負の間に、自分の領地を 1 つ手放す。手放せない位置（自分の領地でない）は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) RelinquishTerritory(ctx context.Context, id uuid.UUID, revision int64, x, y int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.RelinquishTerritoryCommand{By: by, Position: position}, nil
+	})
+}
+
+// 領地コマンドを使える自分の領地のレベルを上げる。選べない位置とレベルの組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) LevelUpLand(ctx context.Context, id uuid.UUID, revision int64, x, y, level int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.LevelUpLandCommand{By: by, Position: position, Level: level}, nil
+	})
+}
+
+// 領地コマンドを使える自分の領地のクリーチャーを手札のクリーチャーと交換する。選べない組は input.Errors（NotFound・項目名 position。位置が負の値でも同じ）
+func (c *MatchHandler) ExchangeCreature(ctx context.Context, id uuid.UUID, revision int64, x, y, handIndex int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		return &match.ExchangeCreatureCommand{By: by, Position: position, HandIndex: handIndex}, nil
+	})
+}
+
+// 領地コマンドを使える自分の領地の土地の属性を変える。landElement は土地の属性の名前（fire 等）。選べない位置・属性の組は input.Errors（NotFound・項目名 position、属性の名前が無いものは項目名 element）
+func (c *MatchHandler) ChangeLandElement(ctx context.Context, id uuid.UUID, revision int64, x, y int, landElement string) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		position, err := newPosition(x, y)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "position"}}
+		}
+		parsed, err := element.NewLand(landElement)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "element"}}
+		}
+		return &match.ChangeLandElementCommand{By: by, Position: position, Element: parsed}, nil
+	})
+}
+
+// 領地コマンドを使える自分の領地のクリーチャーを動かす（他人の領地へなら続けて戦闘）。選べない組は input.Errors（NotFound・項目名 to。位置が負の値でも同じ）
+func (c *MatchHandler) MoveCreature(ctx context.Context, id uuid.UUID, revision int64, fromX, fromY, toX, toY int) (ChangedMatch, error) {
+	return c.change(ctx, id, revision, func(_ context.Context, _ match.Match, by match.ParticipantIndex) (match.Command, error) {
+		from, err := newPosition(fromX, fromY)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "to"}}
+		}
+		to, err := newPosition(toX, toY)
+		if err != nil {
+			return nil, input.Errors{&input.NotFound{Field: "to"}}
+		}
+		return &match.MoveCreatureCommand{By: by, From: from, To: to}, nil
 	})
 }
 
@@ -320,6 +709,22 @@ func mapMatchError(err error, current match.Match, by match.ParticipantIndex) er
 		return ErrMatchPhaseNotAllowed
 	case errors.Is(err, match.ErrHandIndexOutOfRange):
 		return input.Errors{&input.OutOfRange{Field: "handIndex", Min: 0, Max: len(current.Participants[by].Hand) - 1}}
+	case errors.Is(err, match.ErrCreatureNotPlaceable), errors.Is(err, match.ErrCreatureNotInvadable), errors.Is(err, match.ErrSpellNotUsable), errors.Is(err, match.ErrCreatureNotUsableAsItem):
+		return input.Errors{&input.NotFound{Field: "handIndex"}}
+	case errors.Is(err, match.ErrSpellTargetRequired):
+		return input.Errors{&input.Required{Field: "target"}}
+	case errors.Is(err, match.ErrSpellTargetNotAllowed):
+		return input.Errors{&input.NotFound{Field: "target"}}
+	case errors.Is(err, match.ErrSpellTargetPositionRequired):
+		return input.Errors{&input.Required{Field: "targetPosition"}}
+	case errors.Is(err, match.ErrSpellTargetPositionNotAllowed):
+		return input.Errors{&input.NotFound{Field: "targetPosition"}}
+	case errors.Is(err, match.ErrItemNotUsable):
+		return input.Errors{&input.NotFound{Field: "itemHandIndex"}}
+	case errors.Is(err, match.ErrTerritoryNotRelinquishable), errors.Is(err, match.ErrTerritoryNotLevelUpable), errors.Is(err, match.ErrCreatureNotExchangeable), errors.Is(err, match.ErrLandElementNotChangeable):
+		return input.Errors{&input.NotFound{Field: "position"}}
+	case errors.Is(err, match.ErrCreatureNotMovable):
+		return input.Errors{&input.NotFound{Field: "to"}}
 	case errors.Is(err, match.ErrPathNotAllowed):
 		return input.Errors{&input.NotFound{Field: "to"}}
 	case errors.Is(err, match.ErrRewardAlreadyReceived):
@@ -355,7 +760,7 @@ func (c *MatchNPCTurnHandler) Handle(ctx context.Context, event any) error {
 }
 
 // 受けたイベントの版が今の版と違えば何もしない（1 つの操作で出た複数のイベントのうち、最後のイベントでだけ動くため。
-// 前のイベントの分は、後のイベントで動く）。終わった対戦・プレイヤーの番も何もしない。
+// 前のイベントの分は、後のイベントで動く）。終わった対戦・プレイヤーの操作を待っている間も何もしない。
 // 保存の版の衝突は、ほかが先に進めたものとして成功で返す（ポリシーは二度動くことがある）
 func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventVersion int64) error {
 	random := c.newRandom()
@@ -371,7 +776,7 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		if current.Version != eventVersion || current.Phase == match.PhaseEnded {
 			return struct{}{}, nil
 		}
-		by, ok := current.CurrentParticipant()
+		by, ok := current.AwaitingParticipant()
 		if !ok || current.Participants[by].Participant.NPC == nil {
 			return struct{}{}, nil
 		}
@@ -406,6 +811,31 @@ func npcCommand(current match.Match, by match.ParticipantIndex, random match.Ran
 			return nil, fmt.Errorf("match npc turn: no path choices: %w", match.ErrInvalidState)
 		}
 		return &match.ChoosePathCommand{By: by, To: choices[random.IntN(len(choices))]}, nil
+	case match.PhasePlacing:
+		// 払える最初のクリーチャーを配置し、無ければ配置せずにターンを終える（2026-11-08 オーナー。考え方の部品にするのは core#117 以降）
+		if choices := current.PlaceChoices(); len(choices) > 0 {
+			return &match.PlaceCreatureCommand{By: by, HandIndex: choices[0]}, nil
+		}
+		return &match.EndTurnCommand{By: by}, nil
+	case match.PhaseTerritoryCommanding:
+		// NPC は領地コマンドを使わない（考え方の部品にするのは core#117）
+		return &match.EndTurnCommand{By: by}, nil
+	case match.PhaseInvading:
+		// 出せる最初のクリーチャーで侵略し、無ければ通行料を払う。アイテムは使わない（2026-11-09 オーナー。考え方の部品にするのは core#117 以降）
+		if choices := current.InvadeChoices(); len(choices) > 0 {
+			return &match.InvadeCommand{By: by, HandIndex: choices[0]}, nil
+		}
+		return &match.PayTollCommand{By: by}, nil
+	case match.PhaseAttacking:
+		return &match.AttackCommand{By: by}, nil
+	case match.PhaseDefending:
+		return &match.DefendCommand{By: by}, nil
+	case match.PhaseRelinquishing:
+		position, ok := current.LowestValueRelinquishChoice()
+		if !ok {
+			return nil, fmt.Errorf("match npc turn: no territories to relinquish: %w", match.ErrInvalidState)
+		}
+		return &match.RelinquishTerritoryCommand{By: by, Position: position}, nil
 	case match.PhaseEnding:
 		return &match.EndTurnCommand{By: by}, nil
 	default:

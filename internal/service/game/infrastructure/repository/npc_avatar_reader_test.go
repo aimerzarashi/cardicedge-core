@@ -57,9 +57,34 @@ func insertDeckCard(t *testing.T, ctx context.Context, name string, cardType que
 	return id
 }
 
+// insertCardRow が写すクリーチャーの性能
+func defaultCreatureSpec() *query.CreatureSpec {
+	return &query.CreatureSpec{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []query.Effect{}}
+}
+
+// insertCardRow が写すアイテムの性能
+func defaultItemSpec() *query.ItemSpec {
+	return &query.ItemSpec{Category: "weapon", Effects: []query.Effect{{AttackModifier: new(30)}}}
+}
+
+// insertCardRow が写すスペルの性能（効果なし）
+func defaultSpellSpec() *query.SpellSpec {
+	return &query.SpellSpec{}
+}
+
 func insertCardRow(t *testing.T, ctx context.Context, id uuid.UUID, name string, cardType query.CardType) {
 	t.Helper()
-	raw, err := json.Marshal(readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished})
+	metadata := readmodel.CardMetadata{ID: id, Name: name, Status: readmodel.CardStatusPublished, Cost: 10, Rarity: "normal"}
+	if cardType == query.CardTypeCreature {
+		metadata.Creature = &readmodel.CreatureMetadata{Elements: []string{"neutral"}, Attack: 10, HitPoints: 10, ItemRestrictions: []string{}, PlacementRestrictions: []string{}, Effects: []readmodel.EffectMetadata{}}
+	}
+	if cardType == query.CardTypeItem {
+		metadata.Item = &readmodel.ItemMetadata{Category: "weapon", Effects: []readmodel.EffectMetadata{{AttackModifier: &readmodel.ValueEffectMetadata{Value: 30}}}}
+	}
+	if cardType == query.CardTypeSpell {
+		metadata.Spell = &readmodel.SpellMetadata{}
+	}
+	raw, err := json.Marshal(metadata)
 	require.NoError(t, err)
 	row := models.Card{CardID: id.String(), CardType: int16(cardType), SortName: name, Status: string(readmodel.CardStatusPublished), Metadata: raw}
 	exec, err := rdb.GetExecutor(ctx)
@@ -158,10 +183,10 @@ func TestNPCAvatarReader_ListDecksReturnsOnlyPublishedRequestedDecksWithCardsInT
 	require.Equal(t, []query.NPCDeck{{
 		ID: published, Name: "公開中",
 		Cards: []query.DeckCard{
-			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Count: 3},
-			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Count: 4},
-			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Count: 2},
-			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Count: 1},
+			{CardID: creature, Name: "z", Type: query.CardTypeCreature, Cost: 10, Rarity: "normal", Creature: defaultCreatureSpec(), Count: 3},
+			{CardID: itemA, Name: "a", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 4},
+			{CardID: itemB, Name: "b", Type: query.CardTypeItem, Cost: 10, Rarity: "normal", Item: defaultItemSpec(), Count: 2},
+			{CardID: spell, Name: "a", Type: query.CardTypeSpell, Cost: 10, Rarity: "normal", Spell: defaultSpellSpec(), Count: 1},
 		},
 	}}, got)
 }
@@ -185,4 +210,22 @@ func TestNPCAvatarReader_ListDecksFailsForCardThatWasNotPublishedToGame(t *testi
 	_, err := repository.NewNPCAvatarReader().ListPublishedDecks(ctx, []uuid.UUID{deck})
 
 	require.ErrorContains(t, err, "is not published to game")
+}
+
+// 性能を足す前に投影した行は、0 や空にせず読み出しの誤りにする（投影を作り直して写し直せば入る）
+func TestNPCAvatarReader_ListDecksRejectsCardsWithoutSpec(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	id := uuid.New()
+	raw, err := json.Marshal(map[string]any{"id": id, "name": "古い行", "status": "published"})
+	require.NoError(t, err)
+	row := models.Card{CardID: id.String(), CardType: int16(query.CardTypeCreature), SortName: "古い行", Status: string(readmodel.CardStatusPublished), Metadata: raw}
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
+	deck := insertNPCDeck(t, ctx, "古いカードのデッキ", readmodel.NPCDeckStatusPublished, readmodel.DeckCard{CardID: id, Count: 1})
+
+	_, err = repository.NewNPCAvatarReader().ListPublishedDecks(ctx, []uuid.UUID{deck})
+
+	require.Error(t, err)
 }

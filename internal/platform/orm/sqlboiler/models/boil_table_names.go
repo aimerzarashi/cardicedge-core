@@ -7,6 +7,7 @@ var TableNames = struct {
 	Avatars                    string
 	Boards                     string
 	Cards                      string
+	Collections                string
 	Decks                      string
 	DomainEntities             string
 	DomainEntityTypes          string
@@ -37,6 +38,7 @@ var TableNames = struct {
 	Avatars:                    "avatars",
 	Boards:                     "boards",
 	Cards:                      "cards",
+	Collections:                "collections",
 	Decks:                      "decks",
 	DomainEntities:             "domain_entities",
 	DomainEntityTypes:          "domain_entity_types",

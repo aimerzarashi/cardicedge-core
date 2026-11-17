@@ -1,6 +1,6 @@
 module gitlab.com/aimerzarashi/diecardomain/core
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/99designs/gqlgen v0.17.98
@@ -18,11 +18,14 @@ require (
 	github.com/vikstrous/dataloadgen v0.0.10
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
+	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.23.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/sdk/log v1.47.0
+	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0

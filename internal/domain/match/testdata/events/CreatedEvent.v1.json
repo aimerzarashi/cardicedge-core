@@ -12,14 +12,24 @@
             "entity_type": "creature",
             "id": 101
           },
-          "quantity": 2
+          "quantity": 2,
+          "spec": {
+            "cost": 10,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": [] }
+          }
         },
         {
           "card": {
             "entity_type": "creature",
             "id": 102
           },
-          "quantity": 1
+          "quantity": 1,
+          "spec": {
+            "cost": 20,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 10, "hit_points": 30, "item_restrictions": [], "placement_restrictions": [], "effects": [] }
+          }
         }
       ]
     },
@@ -34,7 +44,12 @@
             "entity_type": "creature",
             "id": 201
           },
-          "quantity": 3
+          "quantity": 3,
+          "spec": {
+            "cost": 10,
+            "rarity": "normal",
+            "creature": { "elements": ["neutral"], "attack": 5, "hit_points": 20, "item_restrictions": [], "placement_restrictions": [], "effects": [] }
+          }
         }
       ]
     }
@@ -59,7 +74,7 @@
           "y": 0
         },
         "kind": "land",
-        "attribute": "fire"
+        "element": "fire"
       }
     ],
     "connections": [
@@ -83,6 +98,7 @@
     "round_limit": 30,
     "dice_min": 1,
     "dice_max": 6,
+    "base_land_value": 100, "lap_bonus_per_territory": 0,
     "max_hand_cards": 6,
     "starting_hand_cards": 5,
     "reward_cards_by_rank": [
@@ -96,6 +112,15 @@
         "key": "default",
         "name": "通常パック"
       }
-    ]
+    ],
+    "land_level_multipliers": [1, 2, 4, 8, 16],
+    "chain_multipliers": [100, 150, 200, 250, 300],
+    "toll_percentage": 60,
+    "relinquish_percentage": 80,
+    "terrain_bonus_per_level": 10,
+    "adjacent_territory_bonus": 10,
+    "land_element_change_multiplier": 2,
+    "multi_land_element_change_multiplier": 1,
+    "lap_hit_points_recovery": 10
   }
 }

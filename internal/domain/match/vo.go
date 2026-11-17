@@ -8,7 +8,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
@@ -64,11 +67,136 @@ const (
 	PhaseDiscarding   Phase = "discarding"
 	PhaseRolling      Phase = "rolling"
 	PhaseChoosingPath Phase = "choosing_path"
-	PhaseEnding       Phase = "ending"
-	PhaseEnded        Phase = "ended"
+	// 空いている土地に止まった後。クリーチャーを配置するか、配置せずにターンを終える
+	PhasePlacing Phase = "placing"
+	// 止まったマスに行動が無く、領地コマンドを使える自分の領地（通った領地。拠点・チェックポイントにちょうど止まったらすべて）があるとき、領地コマンドを実行するか何もしないかを選ぶ段階。
+	// 行動があるマス（配置・侵略の段階）でも領地コマンドは受け付けるので、これは行動が無いマスのためだけの段階
+	PhaseTerritoryCommanding Phase = "territory_commanding"
+	// 他人の領地に止まった後。通行料を払うか、手札のクリーチャーで侵略するかを選ぶ（侵略できる手札が無くても、払うを選ぶ段階に入る。2026-11-09 オーナー）
+	PhaseInvading Phase = "invading"
+	// 侵略を確定した後。攻める側がアイテムを選ぶ（出せるものが無くても、出さないを選ぶ段階に入る。守る段階と同じ）
+	PhaseAttacking Phase = "attacking"
+	// 侵略された領地の持ち主がアイテムを選ぶ。番の人でない参加者の操作を待つ、ただ 1 つの段階
+	PhaseDefending Phase = "defending"
+	// 通行料を払って魔力が負になった後。0 以上になるまで自分の領地を手放す
+	PhaseRelinquishing Phase = "relinquishing"
+	PhaseEnding        Phase = "ending"
+	PhaseEnded         Phase = "ended"
 	// 進む途中だけの段階。Decide は進み終えるまで続けるので、保存された最後の状態が moving になることは無い
 	PhaseMoving Phase = "moving"
+	// 戦闘の途中だけの段階。moving と同じく、保存された最後の状態にはならない
+	PhaseBattling Phase = "battling"
 )
+
+// 誰かの操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動と戦闘の途中は待っていない
+func (p Phase) AwaitsOperation() bool {
+	var notStarted Phase
+	return p != notStarted && p != PhaseMoving && p != PhaseBattling
+}
+
+// 戦闘のどちら側か
+type BattleSide string
+
+const (
+	BattleSideAttacker BattleSide = "attacker"
+	BattleSideDefender BattleSide = "defender"
+)
+
+func (s BattleSide) valid() bool {
+	return s == BattleSideAttacker || s == BattleSideDefender
+}
+
+func (s BattleSide) opponent() BattleSide {
+	if s == BattleSideAttacker {
+		return BattleSideDefender
+	}
+	return BattleSideAttacker
+}
+
+// 戦闘の中の AT・HP
+type BattleStats struct {
+	Attack    creature.Attack    `json:"attack"`
+	HitPoints creature.HitPoints `json:"hit_points"`
+}
+
+// 戦闘の入力。戦闘はこの入力と乱数の元だけで出来事の並びを決める（ResolveBattle）。BattleStartedEvent がまるごと持ち、
+// 続く出来事の根拠（支援効果の隣の領地・地形効果の土地・アイテムや能力の値）は、ここから読む（2026-11-13 オーナー。core#171）
+type BattleInput struct {
+	Attacker BattleCombatant `json:"attacker"`
+	Defender BattleCombatant `json:"defender"`
+	Land     BattleLand      `json:"land"`
+	Rules    BattleRules     `json:"rules"`
+}
+
+// 戦闘に出たクリーチャー。性能は戦闘で使わない項目も含めてまるごと持つ（2026-11-13 オーナー）
+type BattleCombatant struct {
+	Card card.Ref     `json:"card"`
+	Spec CreatureSpec `json:"spec"`
+	// 戦闘の前の AT（領地のクリーチャーは、ボード上の効果で増減した今の値。今は増減する効果が無いので性能の AT と同じ）
+	Attack creature.Attack `json:"attack"`
+	// 戦闘の前の HP（守る側は領地での傷が残った値）
+	HitPoints creature.HitPoints `json:"hit_points"`
+	// 出したアイテム。出さなければ nil
+	Item *BattleItem `json:"item,omitempty"`
+	// アイテムの代わりに出した手札のクリーチャー（援護）。出さなければ nil。Item と一緒には持たない（アイテムの枠は 1 つのため）
+	CreatureAsItem *BattleCreatureAsItem `json:"creature_as_item,omitempty"`
+	// 支援効果に数える、戦場の隣にあるその側の領地。攻める側が移動で侵略したときの元の領地は入らない（2026-11-10 オーナー）。
+	// 守る側にも付く（2026-11-15 オーナー。core#178）
+	AdjacentTerritories []board.Position `json:"adjacent_territories"`
+}
+
+type BattleItem struct {
+	Card card.Ref `json:"card"`
+	Spec ItemSpec `json:"spec"`
+}
+
+// アイテムとして出したクリーチャー。性能は戦闘で使わない項目も含めてまるごと持つ（BattleCombatant と同じ）
+type BattleCreatureAsItem struct {
+	Card card.Ref     `json:"card"`
+	Spec CreatureSpec `json:"spec"`
+}
+
+// 戦う土地（地形効果の根拠）
+type BattleLand struct {
+	Element element.Land `json:"element"`
+	Level   int          `json:"level"`
+}
+
+// 戦闘で使うルールの値
+type BattleRules struct {
+	AdjacentTerritoryBonus gamerules.AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
+}
+
+// その側の戦闘に出たクリーチャー（query が支援効果の根拠を側ごとに読む）
+func (i BattleInput) Combatant(side BattleSide) BattleCombatant {
+	if side == BattleSideAttacker {
+		return i.Attacker
+	}
+	return i.Defender
+}
+
+// 戦闘の AT・HP の増減（下限で止まった後の実際の量）。AT・HP を変える能力の発動のイベントが持つ
+type BattleStatChange struct {
+	AttackDelta    int `json:"attack_delta"`
+	HitPointsDelta int `json:"hit_points_delta"`
+}
+
+// 戦闘の中の値の層で、増減がどの発動のものか。発動のイベントの種類から決まるので、イベントには書かない
+type BattleModifierSourceKind string
+
+const (
+	BattleModifierSourceSupportEffect  BattleModifierSourceKind = "support_effect"
+	BattleModifierSourceTerrainEffect  BattleModifierSourceKind = "terrain_effect"
+	BattleModifierSourceCreatureEffect BattleModifierSourceKind = "creature_effect"
+	BattleModifierSourceItemEffect     BattleModifierSourceKind = "item_effect"
+)
+
+// 増減の出どころ。クリーチャー・アイテムの効果のときはどの効果か
+type BattleModifierSource struct {
+	Kind   BattleModifierSourceKind
+	Effect effect.Kind
+}
 
 type EndReason string
 
@@ -85,10 +213,125 @@ type Result struct {
 	Reason EndReason `json:"reason"`
 }
 
-// デッキのカード 1 種類。始めた時点のデッキの写し
+// デッキのカード 1 種類。始めた時点のデッキの写しで、性能も写す（始めた後にカードを変えても対戦に響かず、判断と画面が
+// 同じ値を使うため。2026-11-07 オーナー。core#112）
 type DeckCard struct {
 	Card     card.Ref          `json:"card"`
 	Quantity card.DeckQuantity `json:"quantity"`
+	Spec     CardSpec          `json:"spec"`
+}
+
+// 対戦で使うカードの性能の写し（始めた時点の studio のカードの性能）。項目はカードの性能を足すごとに増やす
+type CardSpec struct {
+	Cost   card.Cost   `json:"cost"`
+	Rarity card.Rarity `json:"rarity"`
+	// クリーチャーだけが持つ。アイテム・スペルは nil で、JSON にも出さない
+	Creature *CreatureSpec `json:"creature,omitempty"`
+	// アイテムだけが持つ。クリーチャー・スペルは nil で、JSON にも出さない
+	Item *ItemSpec `json:"item,omitempty"`
+	// スペルだけが持つ。クリーチャー・アイテムは nil で、JSON にも出さない
+	Spell *SpellSpec `json:"spell,omitempty"`
+}
+
+// 参加者に続いているスペルの効果（ターンをまたいで効き続けるもの。サイコロを複数振る・サイコロの目を固定する）。
+// Effect は使ったスペルの効果の写し、RemainingTurns は残りのターン数で、かかった人が自分のターンを終えるたびに 1 減り、0 で終わる（2026-11-13 オーナー。core#173）
+type LastingSpellEffect struct {
+	Effect         effect.SpellEffect `json:"effect"`
+	RemainingTurns int                `json:"remaining_turns"`
+}
+
+// スペルの性能の写し。値の型は CreatureSpec と同じ理由で spell パッケージのものをそのまま使う
+type SpellSpec struct {
+	Effect effect.SpellEffect `json:"effect"`
+}
+
+// アイテムの性能の写し。値の型は CreatureSpec と同じ理由で item パッケージのものをそのまま使う
+type ItemSpec struct {
+	Category card.ItemCategory `json:"category"`
+	Effects  effect.Effects    `json:"effects"`
+}
+
+// クリーチャーの性能の写し。値の型は creature パッケージのものをそのまま使う（match 側に同じ決まりの型を作ると、
+// 決まりが 2 か所になり、写すときに変換が要るだけで得るものが無いため）
+type CreatureSpec struct {
+	Elements              creature.Elements              `json:"elements"`
+	Attack                creature.Attack                `json:"attack"`
+	HitPoints             creature.HitPoints             `json:"hit_points"`
+	ItemRestrictions      creature.ItemRestrictions      `json:"item_restrictions"`
+	PlacementRestrictions creature.PlacementRestrictions `json:"placement_restrictions"`
+	Effects               effect.Effects                 `json:"effects"`
+}
+
+// アイテム制限。性能の無いアイテムは分類が無いので制限に当たらない
+func (s CreatureSpec) canUseItem(candidate CardSpec) bool {
+	return candidate.Item == nil || !s.ItemRestrictions.Forbids(candidate.Item.Category)
+}
+
+// 手札のクリーチャーをアイテムとして使える効果（援護）のどれかが、候補のクリーチャーの属性を受け付けるか。アイテム制限は当てない
+// （アイテム制限は武器・防具・巻物の分類を縛るもので、クリーチャーには分類が無いため。2026-11-16 オーナー）
+func (s CreatureSpec) canUseCreatureAsItem(candidate CardSpec) bool {
+	if candidate.Creature == nil {
+		return false
+	}
+	return slices.ContainsFunc(s.Effects, func(value effect.Effect) bool {
+		return value.AcceptsCreatureAsItem(candidate.Creature.Elements)
+	})
+}
+
+// 配置制限。配置・侵略・交換・移動の行き先と、土地の属性の変更の後の属性のどれにも、この 1 つで答える
+func (s CreatureSpec) canBeActiveOn(land element.Land) bool {
+	return !s.PlacementRestrictions.Forbids(land)
+}
+
+// 侵略できない（手札からの侵略にも、移動して侵略にも効く）
+func (s CreatureSpec) canInvade() bool {
+	return !s.Effects.Has(effect.KindForbidInvasion)
+}
+
+// 移動できない（空き地への移動にも効く）
+func (s CreatureSpec) canMove() bool {
+	return !s.Effects.Has(effect.KindForbidMovement)
+}
+
+// 攻撃の順に効く効果（先に攻撃するか後に攻撃する。両方は持てない決まり（creature）。持っていなければ無し）
+func (s CreatureSpec) strikeEffect() (effect.Kind, bool) {
+	for _, kind := range []effect.Kind{effect.KindStrikeFirst, effect.KindStrikeLast} {
+		if s.Effects.Has(kind) {
+			return kind, true
+		}
+	}
+	return "", false
+}
+
+// 受けるダメージを 0 にする（攻撃してきたクリーチャーが制約を満たせば効く）
+func (s CreatureSpec) nullifiesDamageFrom(striker CreatureSpec) bool {
+	return slices.ContainsFunc(s.Effects, func(candidate effect.Effect) bool {
+		return candidate.NullifyReceivedDamage != nil && candidate.NullifyReceivedDamage.Constraints.SatisfiedByOpponentCreatureElements(striker.Elements)
+	})
+}
+
+// 通行料の倍率。持っていなければ false。重ねて持つ見本は無いので最初のものを使う（query が発動の画面の値を作るのにも使う）（重ねるカードを作るときに見直す）
+func (s CreatureSpec) TollMultiplier() (effect.TollMultiplierPercent, bool) {
+	for _, candidate := range s.Effects {
+		if candidate.TollMultiplier != nil {
+			return candidate.TollMultiplier.Percent, true
+		}
+	}
+	return 0, false
+}
+
+// 配置したクリーチャーを指す、対戦の中の通し番号（1 始まり）。位置で指さないのは、領地コマンドで移動・交換しても同じ 1 体を指すため
+type PlacedCreatureID int
+
+func NewPlacedCreatureID(value int) (PlacedCreatureID, error) {
+	if value <= 0 {
+		return 0, errors.New("placed creature id must be positive")
+	}
+	return PlacedCreatureID(value), nil
+}
+
+func (id PlacedCreatureID) Int() int {
+	return int(id)
 }
 
 // 戦利品のパックを指す名前（キー）。パックのマスタ（次のマイルストーン）ができるまでは、決まった名前で表す
@@ -172,36 +415,65 @@ func (b Board) base() (board.Position, bool) {
 	return board.Position{}, false
 }
 
-// 対戦のルール。部屋の対戦ルール（ボードの既定のルールと同じ 7 つの値）と、全体のルールの手札の決まりの写し（始めた後にルールを変えても対戦に響かないため）。
-// 7 つの値は board.DefaultRules で受け取る（目の範囲が 2 種類以上であることなどを、確かめずに作れないように）
+// 対戦のルール。部屋の対戦ルール（ボードの既定のルールと同じ 8 つの値）と、全体のルールの手札の決まりの写し（始めた後にルールを変えても対戦に響かないため）。
+// 8 つの値は board.DefaultRules で受け取る（目の範囲が 2 種類以上であることなどを、確かめずに作れないように）
 type Rules struct {
-	TargetMagic       int                         `json:"target_magic"`
-	StartingMagic     int                         `json:"starting_magic"`
-	LapBonus          int                         `json:"lap_bonus"`
-	CheckpointBonus   int                         `json:"checkpoint_bonus"`
-	RoundLimit        int                         `json:"round_limit"`
-	DiceMin           int                         `json:"dice_min"`
-	DiceMax           int                         `json:"dice_max"`
-	MaxHandCards      gamerules.MaxHandCards      `json:"max_hand_cards"`
-	StartingHandCards gamerules.StartingHandCards `json:"starting_hand_cards"`
+	TargetMagic          int                         `json:"target_magic"`
+	StartingMagic        int                         `json:"starting_magic"`
+	LapBonus             int                         `json:"lap_bonus"`
+	CheckpointBonus      int                         `json:"checkpoint_bonus"`
+	RoundLimit           int                         `json:"round_limit"`
+	DiceMin              int                         `json:"dice_min"`
+	DiceMax              int                         `json:"dice_max"`
+	BaseLandValue        int                         `json:"base_land_value"`
+	LapBonusPerTerritory int                         `json:"lap_bonus_per_territory"`
+	MaxHandCards         gamerules.MaxHandCards      `json:"max_hand_cards"`
+	StartingHandCards    gamerules.StartingHandCards `json:"starting_hand_cards"`
 	// 順位（1 位から）ごとの戦利品の枚数。全体のルールの写しで、数え方は rewardCards の 1 か所
 	RewardCardsByRank gamerules.RewardCardsByRank `json:"reward_cards_by_rank"`
 	// 戦利品に選べるパック
 	RewardPacks []RewardPack `json:"reward_packs"`
+	// 土地の価値の決まり。全体のルールの写し
+	LandLevelMultipliers gamerules.LandLevelMultipliers `json:"land_level_multipliers"`
+	ChainMultipliers     gamerules.ChainMultipliers     `json:"chain_multipliers"`
+	TollPercentage       gamerules.TollPercentage       `json:"toll_percentage"`
+	RelinquishPercentage gamerules.RelinquishPercentage `json:"relinquish_percentage"`
+	// 戦闘の効果の決まり。全体のルールの写し
+	TerrainBonusPerLevel   gamerules.TerrainBonusPerLevel   `json:"terrain_bonus_per_level"`
+	AdjacentTerritoryBonus gamerules.AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	// 土地の属性を変える費用の決まり。全体のルールの写し
+	LandElementChangeMultiplier      gamerules.LandElementChangeMultiplier `json:"land_element_change_multiplier"`
+	MultiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier `json:"multi_land_element_change_multiplier"`
+	// 周回回復の量。全体のルールの写し
+	LapHitPointsRecovery gamerules.LapHitPointsRecovery `json:"lap_hit_points_recovery"`
 }
 
-func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack) Rules {
+func NewRules(values board.DefaultRules, maxHandCards gamerules.MaxHandCards, startingHandCards gamerules.StartingHandCards, rewardCardsByRank gamerules.RewardCardsByRank, rewardPacks []RewardPack, landLevelMultipliers gamerules.LandLevelMultipliers, chainMultipliers gamerules.ChainMultipliers, tollPercentage gamerules.TollPercentage, relinquishPercentage gamerules.RelinquishPercentage, terrainBonusPerLevel gamerules.TerrainBonusPerLevel, adjacentTerritoryBonus gamerules.AdjacentTerritoryBonus, landElementChangeMultiplier, multiLandElementChangeMultiplier gamerules.LandElementChangeMultiplier, lapHitPointsRecovery gamerules.LapHitPointsRecovery) Rules {
 	return Rules{
 		TargetMagic: values.TargetMagic, StartingMagic: values.StartingMagic, LapBonus: values.LapBonus,
-		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax,
+		CheckpointBonus: values.CheckpointBonus, RoundLimit: values.RoundLimit, DiceMin: values.DiceMin, DiceMax: values.DiceMax, BaseLandValue: values.BaseLandValue, LapBonusPerTerritory: values.LapBonusPerTerritory,
 		MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
 		RewardCardsByRank: rewardCardsByRank, RewardPacks: rewardPacks,
+		LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers, TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
+		TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus,
+		LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
+		LapHitPointsRecovery: lapHitPointsRecovery,
 	}
 }
 
 // 順位（1 位から）の戦利品の枚数。順位が一覧より下なら最後の値を使う（4 人より多い対戦でも、順位ごとの値を人数分そろえずに済むため）
 func (r Rules) rewardCards(rank int) int {
 	return r.RewardCardsByRank[min(max(rank, 1), len(r.RewardCardsByRank))-1].Int()
+}
+
+// レベルが一覧より上なら最後の値を使う（レベルの上げ下げは core#115。値の数を変えても、対戦中のレベルが範囲の外にならないように）
+func (r Rules) landLevelMultiplier(level int) int {
+	return r.LandLevelMultipliers[min(max(level, 1), len(r.LandLevelMultipliers))-1]
+}
+
+// 連鎖の数が一覧より多ければ最後の値を使う（2026-11-08 オーナー）
+func (r Rules) chainMultiplier(count int) int {
+	return r.ChainMultipliers[min(max(count, 1), len(r.ChainMultipliers))-1]
 }
 
 func (r Rules) hasRewardPack(key PackKey) bool {

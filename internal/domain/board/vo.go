@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 )
 
 type ID int64
@@ -107,13 +108,15 @@ func (s Status) Retire() (Status, bool, error) {
 // 登録の直後の既定のルール（対戦を始めるとき、ここから変えられる前提の値）。登録のイベントが値を明示して持つので、
 // 変えても過去のボードの値は変わらない。ラウンドの上限（30）は仮の値
 const (
-	DefaultTargetMagic     = 8000
-	DefaultStartingMagic   = 600
-	DefaultLapBonus        = 300
-	DefaultCheckpointBonus = 100
-	DefaultRoundLimit      = 30
-	DefaultDiceMin         = 1
-	DefaultDiceMax         = 6
+	DefaultTargetMagic          = 8000
+	DefaultStartingMagic        = 600
+	DefaultLapBonus             = 300
+	DefaultCheckpointBonus      = 100
+	DefaultRoundLimit           = 30
+	DefaultDiceMin              = 1
+	DefaultDiceMax              = 6
+	DefaultBaseLandValue        = 100
+	DefaultLapBonusPerTerritory = 20
 )
 
 // 対戦の既定のルール。効き方は対戦の決まりなので、ここでは値の形だけを決める
@@ -130,10 +133,14 @@ type DefaultRules struct {
 	// サイコロの目の最小・最大
 	DiceMin int `json:"dice_min"`
 	DiceMax int `json:"dice_max"`
+	// 土地の基本の値（レベルと連鎖の倍率を掛ける元）
+	BaseLandValue int `json:"base_land_value"`
+	// 拠点に戻ったときに、周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 なら足さない。core#170）
+	LapBonusPerTerritory int `json:"lap_bonus_per_territory"`
 }
 
 // 上限は持たない（要るなら studio_rules に入れる）。違反は errors.Join でまとめて返し、呼ぶ側が errors.Is で項目ごとに分ける
-func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax int) (DefaultRules, error) {
+func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roundLimit, diceMin, diceMax, baseLandValue, lapBonusPerTerritory int) (DefaultRules, error) {
 	var errs []error
 	if targetMagic < 1 {
 		errs = append(errs, ErrTargetMagicTooSmall)
@@ -153,6 +160,12 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	if diceMin < 1 {
 		errs = append(errs, ErrDiceMinTooSmall)
 	}
+	if baseLandValue < 1 {
+		errs = append(errs, ErrBaseLandValueTooSmall)
+	}
+	if lapBonusPerTerritory < 0 {
+		errs = append(errs, ErrLapBonusPerTerritoryTooSmall)
+	}
 	// 下限を割った値と比べても意味がないので、下限を満たすときだけ比べる
 	if startingMagic >= 0 && targetMagic <= startingMagic {
 		errs = append(errs, ErrTargetMagicNotGreaterThanStartingMagic)
@@ -166,7 +179,7 @@ func NewDefaultRules(targetMagic, startingMagic, lapBonus, checkpointBonus, roun
 	}
 	return DefaultRules{
 		TargetMagic: targetMagic, StartingMagic: startingMagic, LapBonus: lapBonus, CheckpointBonus: checkpointBonus,
-		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax,
+		RoundLimit: roundLimit, DiceMin: diceMin, DiceMax: diceMax, BaseLandValue: baseLandValue, LapBonusPerTerritory: lapBonusPerTerritory,
 	}, nil
 }
 
@@ -175,7 +188,7 @@ func InitialDefaultRules() DefaultRules {
 	return DefaultRules{
 		TargetMagic: DefaultTargetMagic, StartingMagic: DefaultStartingMagic,
 		LapBonus: DefaultLapBonus, CheckpointBonus: DefaultCheckpointBonus,
-		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax,
+		RoundLimit: DefaultRoundLimit, DiceMin: DefaultDiceMin, DiceMax: DefaultDiceMax, BaseLandValue: DefaultBaseLandValue, LapBonusPerTerritory: DefaultLapBonusPerTerritory,
 	}
 }
 
@@ -352,38 +365,11 @@ func (k TileKind) String() string {
 	return string(k)
 }
 
-// 土地の属性。火・地・水・風・無・複の 6 つで、複は火・地・水・風の 4 色のマークが描かれた特殊な土地を表す値の 1 つ
-// （組み合わせは持たない）。カードの属性とは型を分ける（カードの属性はこのボードの属性と決まりが別で、片方を変えたくなったときに分けられなくなるため）
-type Attribute string
-
-const (
-	AttributeFire    Attribute = "fire"
-	AttributeEarth   Attribute = "earth"
-	AttributeWater   Attribute = "water"
-	AttributeWind    Attribute = "wind"
-	AttributeNeutral Attribute = "neutral"
-	AttributeMulti   Attribute = "multi"
-)
-
-func NewAttribute(value string) (Attribute, error) {
-	attribute := Attribute(value)
-	switch attribute {
-	case AttributeFire, AttributeEarth, AttributeWater, AttributeWind, AttributeNeutral, AttributeMulti:
-		return attribute, nil
-	default:
-		return "", fmt.Errorf("%w: %q", ErrAttributeUnknown, value)
-	}
-}
-
-func (a Attribute) String() string {
-	return string(a)
-}
-
-// Attribute は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
+// Element は土地のときだけ値を持ち、そうでなければ空。属性の有無は種類と組で ValidateLayout が確かめる
 type Tile struct {
-	Position  Position  `json:"position"`
-	Kind      TileKind  `json:"kind"`
-	Attribute Attribute `json:"attribute,omitempty"`
+	Position Position     `json:"position"`
+	Kind     TileKind     `json:"kind"`
+	Element  element.Land `json:"element,omitempty"`
 }
 
 // 向きが無いので、並べ方の小さい方を A にそろえて 1 通りにする（a,b と b,a を同じつながりにし、map の key にできるように）
@@ -440,7 +426,7 @@ const (
 	PartA     Part = "a"
 	PartB     Part = "b"
 	// マスの属性
-	PartAttribute Part = "attribute"
+	PartElement Part = "element"
 )
 
 type Reason string
@@ -457,9 +443,9 @@ const (
 	// 同じつながり（a,b の順を入れ替えたものを含む）の 2 回目
 	ReasonDuplicatedConnection Reason = "duplicated_connection"
 	// 土地に属性が無い
-	ReasonAttributeRequired Reason = "attribute_required"
+	ReasonElementRequired Reason = "element_required"
 	// 拠点・チェックポイントに属性がある
-	ReasonAttributeNotAllowed Reason = "attribute_not_allowed"
+	ReasonElementNotAllowed Reason = "element_not_allowed"
 	// 対の端が転送円でも橋でもない
 	ReasonNotPairableTile Reason = "not_pairable_tile"
 	// 対の両端が転送円と橋（どちらの対かは端のマスの種類で決まるので、組めるのは同じ種類どうしだけ）
@@ -500,10 +486,10 @@ func ValidateLayout(size Size, tiles []Tile, connections []Connection, pairs []P
 		}
 		// 座標の誤りとは別に示せるよう、格子の外のマスでも調べる
 		switch {
-		case tile.Kind == TileKindLand && tile.Attribute == "":
-			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeRequired})
-		case tile.Kind != TileKindLand && tile.Attribute != "":
-			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartAttribute, Reason: ReasonAttributeNotAllowed})
+		case tile.Kind == TileKindLand && tile.Element == "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartElement, Reason: ReasonElementRequired})
+		case tile.Kind != TileKindLand && tile.Element != "":
+			violations = append(violations, LayoutViolation{Subject: SubjectTile, Index: i, Part: PartElement, Reason: ReasonElementNotAllowed})
 		}
 		if !inRange {
 			continue

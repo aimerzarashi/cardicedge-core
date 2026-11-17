@@ -68,7 +68,7 @@ func TestBoard_EvolvesFromRegistered(t *testing.T) {
 	require.Equal(t, readmodel.BoardMetadata{
 		ID: publicID, Name: "Ｆire 草原", Status: readmodel.BoardStatusDraft, Revision: 1, Width: 8, Height: 8,
 		Tiles: []readmodel.BoardTile{}, Connections: []readmodel.BoardConnection{}, Pairs: []readmodel.BoardPair{},
-		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+		DefaultRules: readmodel.NewBoardDefaultRules(8000, 600, 300, 100, 30, 1, 6, 100, 20), TileCounts: readmodel.NewBoardTileCounts(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 		PublishProblems: []readmodel.BoardPublishProblem{
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemBaseCount),
 			readmodel.NewBoardPublishProblem(readmodel.BoardPublishProblemNoCheckpoint),
@@ -97,11 +97,11 @@ func TestBoard_RenameChangesNameAndSortName(t *testing.T) {
 
 func TestBoard_DefaultRulesChangeReplacesAllValues(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
-	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8), ChangedBy: operatortest.ID(t, 12)}, boardChangedAt)
+	h.apply(&board.ChangeDefaultRulesCommand{DefaultRules: boardtest.DefaultRules(t, 5000, 0, 200, 50, 12, 2, 8, 100, 40), ChangedBy: operatortest.ID(t, 12)}, boardChangedAt)
 
 	state := h.project()
 
-	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8), state.Metadata.DefaultRules)
+	require.Equal(t, readmodel.NewBoardDefaultRules(5000, 0, 200, 50, 12, 2, 8, 100, 40), state.Metadata.DefaultRules)
 	require.Equal(t, int64(2), state.Metadata.Revision)
 	require.Equal(t, boardChangedAt, state.Metadata.UpdatedAt)
 	require.Equal(t, operatortest.ID(t, 12), state.UpdatedBy)
@@ -117,10 +117,10 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 	state := h.project()
 
 	require.Equal(t, []readmodel.BoardTile{
-		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
-		{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
+		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementFire},
+		{X: 1, Y: 0, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementFire},
 		{X: 2, Y: 0, Kind: readmodel.BoardTileKindBase},
-		{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeFire},
+		{X: 1, Y: 1, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementFire},
 	}, state.Metadata.Tiles)
 	require.Equal(t, []readmodel.BoardConnection{
 		{A: readmodel.NewBoardPosition(0, 0), B: readmodel.NewBoardPosition(1, 0)},
@@ -131,7 +131,7 @@ func TestBoard_LayoutChangeAppliesDifferenceInOrder(t *testing.T) {
 }
 
 // 差分を当てるたびに、置いてあるマス全体から数え直す（置く・消す・種類か属性を変えるのどれでも合う）
-func TestBoard_LayoutChangeRecountsTilesByKindAndAttribute(t *testing.T) {
+func TestBoard_LayoutChangeRecountsTilesByKindAndElement(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 4, 2),
 		[]board.Tile{
@@ -218,7 +218,7 @@ func TestBoard_LayoutChangeDropsPairOfRemovedTile(t *testing.T) {
 	require.Equal(t, []readmodel.BoardPair{}, state.Metadata.Pairs)
 }
 
-func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {
+func TestBoard_LayoutChangeReplacesElementOfChangedTile(t *testing.T) {
 	h := newBoardHistory(t, uuid.New(), "草原")
 	h.changeLayout(boardtest.Layout(t, boardtest.Size(t, 2, 1),
 		[]board.Tile{boardtest.Tile(t, 0, 0, "land", "fire"), boardtest.Tile(t, 1, 0, "land", "water")}, nil))
@@ -230,7 +230,7 @@ func TestBoard_LayoutChangeReplacesAttributeOfChangedTile(t *testing.T) {
 	state := h.project()
 
 	require.Equal(t, []readmodel.BoardTile{
-		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Attribute: readmodel.BoardTileAttributeMulti},
+		{X: 0, Y: 0, Kind: readmodel.BoardTileKindLand, Element: readmodel.BoardTileElementMulti},
 		{X: 1, Y: 0, Kind: readmodel.BoardTileKindCheckpoint},
 	}, state.Metadata.Tiles)
 }

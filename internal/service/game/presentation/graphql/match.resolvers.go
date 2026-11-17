@@ -81,6 +81,223 @@ func (r *mutationResolver) ChooseMatchPath(ctx context.Context, input model.Choo
 	return &model.ChooseMatchPathSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// PlaceMatchCreature is the resolver for the placeMatchCreature field.
+func (r *mutationResolver) PlaceMatchCreature(ctx context.Context, input model.PlaceMatchCreatureInput) (model.PlaceMatchCreatureResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Place(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.PlaceMatchCreatureResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.PlaceMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// RelinquishMatchTerritory is the resolver for the relinquishMatchTerritory field.
+func (r *mutationResolver) RelinquishMatchTerritory(ctx context.Context, input model.RelinquishMatchTerritoryInput) (model.RelinquishMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.RelinquishTerritory(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.RelinquishMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.RelinquishMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// LevelUpMatchLand is the resolver for the levelUpMatchLand field.
+func (r *mutationResolver) LevelUpMatchLand(ctx context.Context, input model.LevelUpMatchLandInput) (model.LevelUpMatchLandResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.LevelUpLand(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.Level)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.LevelUpMatchLandResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.LevelUpMatchLandSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ExchangeMatchCreature is the resolver for the exchangeMatchCreature field.
+func (r *mutationResolver) ExchangeMatchCreature(ctx context.Context, input model.ExchangeMatchCreatureInput) (model.ExchangeMatchCreatureResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ExchangeCreature(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ExchangeMatchCreatureResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ExchangeMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// MoveMatchCreature is the resolver for the moveMatchCreature field.
+func (r *mutationResolver) MoveMatchCreature(ctx context.Context, input model.MoveMatchCreatureInput) (model.MoveMatchCreatureResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.MoveCreature(ctx, input.ID, int64(input.Revision), input.From.X, input.From.Y, input.To.X, input.To.Y)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.MoveMatchCreatureResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.MoveMatchCreatureSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// ChangeMatchLandElement is the resolver for the changeMatchLandElement field.
+func (r *mutationResolver) ChangeMatchLandElement(ctx context.Context, input model.ChangeMatchLandElementInput) (model.ChangeMatchLandElementResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.ChangeLandElement(ctx, input.ID, int64(input.Revision), input.Position.X, input.Position.Y, toBoardElementName(input.Element))
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.ChangeMatchLandElementResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeMatchLandElementSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// UseMatchSpell is the resolver for the useMatchSpell field.
+func (r *mutationResolver) UseMatchSpell(ctx context.Context, input model.UseMatchSpellInput) (model.UseMatchSpellResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	var targetPosition *command.SpellTargetPosition
+	if input.TargetPosition != nil {
+		targetPosition = &command.SpellTargetPosition{X: input.TargetPosition.X, Y: input.TargetPosition.Y}
+	}
+	changed, err := r.matches.UseSpell(ctx, input.ID, int64(input.Revision), input.HandIndex, input.Target, targetPosition)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.UseMatchSpellResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.UseMatchSpellSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// InvadeMatchTerritory is the resolver for the invadeMatchTerritory field.
+func (r *mutationResolver) InvadeMatchTerritory(ctx context.Context, input model.InvadeMatchTerritoryInput) (model.InvadeMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Invade(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.InvadeMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.InvadeMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// AttackMatchTerritory is the resolver for the attackMatchTerritory field.
+func (r *mutationResolver) AttackMatchTerritory(ctx context.Context, input model.AttackMatchTerritoryInput) (model.AttackMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Attack(ctx, input.ID, int64(input.Revision), input.ItemHandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.AttackMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.AttackMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// PayMatchToll is the resolver for the payMatchToll field.
+func (r *mutationResolver) PayMatchToll(ctx context.Context, input model.PayMatchTollInput) (model.PayMatchTollResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.PayToll(ctx, input.ID, int64(input.Revision))
+	if result, ok := matchError(err).(model.PayMatchTollResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.PayMatchTollSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// DefendMatchTerritory is the resolver for the defendMatchTerritory field.
+func (r *mutationResolver) DefendMatchTerritory(ctx context.Context, input model.DefendMatchTerritoryInput) (model.DefendMatchTerritoryResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.Defend(ctx, input.ID, int64(input.Revision), input.ItemHandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.DefendMatchTerritoryResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.DefendMatchTerritorySuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
+// UseMatchCreatureAsItem is the resolver for the useMatchCreatureAsItem field.
+func (r *mutationResolver) UseMatchCreatureAsItem(ctx context.Context, input model.UseMatchCreatureAsItemInput) (model.UseMatchCreatureAsItemResult, error) {
+	if notRegistered := requirePlayer(ctx); notRegistered != nil {
+		return notRegistered, nil
+	}
+	changed, err := r.matches.UseCreatureAsItem(ctx, input.ID, int64(input.Revision), input.HandIndex)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	if result, ok := matchError(err).(model.UseMatchCreatureAsItemResult); ok {
+		return result, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &model.UseMatchCreatureAsItemSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // EndMatchTurn is the resolver for the endMatchTurn field.
 func (r *mutationResolver) EndMatchTurn(ctx context.Context, input model.EndMatchTurnInput) (model.EndMatchTurnResult, error) {
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {

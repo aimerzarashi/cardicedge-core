@@ -3,6 +3,7 @@ package gamerules
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
@@ -65,6 +66,24 @@ type Match struct {
 	StartingHandCards StartingHandCards `json:"starting_hand_cards"`
 	// 順位（1 位から）ごとの戦利品のカードの枚数。順位より値が少なければ、下の順位は最後の値を使う
 	RewardCardsByRank RewardCardsByRank `json:"reward_cards_by_rank"`
+	// 土地のレベルごとの倍率（レベル 1 から）
+	LandLevelMultipliers LandLevelMultipliers `json:"land_level_multipliers"`
+	// 連鎖の数ごとの倍率（百分率。1 つから）。数が一覧より多ければ最後の値を使う
+	ChainMultipliers ChainMultipliers `json:"chain_multipliers"`
+	// 土地の価値のうち、止まった人が払う割合（百分率）
+	TollPercentage TollPercentage `json:"toll_percentage"`
+	// 土地の価値のうち、手放したときに受け取る割合（百分率）
+	RelinquishPercentage RelinquishPercentage `json:"relinquish_percentage"`
+	// 地形効果で、土地のレベル 1 あたりに守る側の HP へ足す値
+	TerrainBonusPerLevel TerrainBonusPerLevel `json:"terrain_bonus_per_level"`
+	// 支援効果で、侵略先の隣の領地 1 つあたりに攻める側の AT へ足す値
+	AdjacentTerritoryBonus AdjacentTerritoryBonus `json:"adjacent_territory_bonus"`
+	// 周回回復の量（周回を終えたときに、その人の領地のクリーチャーの HP が回復する量。カードの HP まで）
+	LapHitPointsRecovery LapHitPointsRecovery `json:"lap_hit_points_recovery"`
+	// 土地の属性を変える費用の、基本の値に掛ける倍率
+	LandElementChangeMultiplier LandElementChangeMultiplier `json:"land_element_change_multiplier"`
+	// 複属性の土地から変えるときの倍率
+	MultiLandElementChangeMultiplier LandElementChangeMultiplier `json:"multi_land_element_change_multiplier"`
 }
 
 // 対戦の値の型は gamerules に置く。対戦の集約（match）は参加者のデッキを写すため npcdeck を読み、npcdeck が gamerules を読むので、match に置くとパッケージが循環する（core#71）
@@ -160,6 +179,124 @@ func NewRewardCardsByRank(values ...int) (RewardCardsByRank, error) {
 	return counts, nil
 }
 
+// 土地のレベルごとの倍率（レベル 1 から）。1 つ以上で、どれも 1 以上
+type LandLevelMultipliers []int
+
+var ErrLandLevelMultipliersEmpty = errors.New("game rules: land level multipliers must not be empty")
+
+func NewLandLevelMultipliers(values ...int) (LandLevelMultipliers, error) {
+	if len(values) == 0 {
+		return nil, ErrLandLevelMultipliersEmpty
+	}
+	for _, value := range values {
+		if value < 1 {
+			return nil, fmt.Errorf("%w: land level multiplier is %d", ErrMatchValueNotPositive, value)
+		}
+	}
+	return slices.Clone(LandLevelMultipliers(values)), nil
+}
+
+// 連鎖の数ごとの倍率（百分率。1 つから）。1 つ以上で、どれも 1 以上
+type ChainMultipliers []int
+
+var ErrChainMultipliersEmpty = errors.New("game rules: chain multipliers must not be empty")
+
+func NewChainMultipliers(values ...int) (ChainMultipliers, error) {
+	if len(values) == 0 {
+		return nil, ErrChainMultipliersEmpty
+	}
+	for _, value := range values {
+		if value < 1 {
+			return nil, fmt.Errorf("%w: chain multiplier is %d", ErrMatchValueNotPositive, value)
+		}
+	}
+	return slices.Clone(ChainMultipliers(values)), nil
+}
+
+// 通行料の割合（百分率）。1 以上
+type TollPercentage int
+
+func NewTollPercentage(value int) (TollPercentage, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: toll percentage is %d", ErrMatchValueNotPositive, value)
+	}
+	return TollPercentage(value), nil
+}
+
+func (t TollPercentage) Int() int {
+	return int(t)
+}
+
+// 手放すときの割合（百分率）。1 以上
+type RelinquishPercentage int
+
+func NewRelinquishPercentage(value int) (RelinquishPercentage, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: relinquish percentage is %d", ErrMatchValueNotPositive, value)
+	}
+	return RelinquishPercentage(value), nil
+}
+
+func (s RelinquishPercentage) Int() int {
+	return int(s)
+}
+
+// 地形効果の、土地のレベル 1 あたりの HP。1 以上
+type TerrainBonusPerLevel int
+
+func NewTerrainBonusPerLevel(value int) (TerrainBonusPerLevel, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: terrain bonus per level is %d", ErrMatchValueNotPositive, value)
+	}
+	return TerrainBonusPerLevel(value), nil
+}
+
+func (t TerrainBonusPerLevel) Int() int {
+	return int(t)
+}
+
+// 周回回復の量。1 以上
+type LapHitPointsRecovery int
+
+func NewLapHitPointsRecovery(value int) (LapHitPointsRecovery, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: lap hit points recovery is %d", ErrMatchValueNotPositive, value)
+	}
+	return LapHitPointsRecovery(value), nil
+}
+
+func (l LapHitPointsRecovery) Int() int {
+	return int(l)
+}
+
+// 支援効果の、隣の領地 1 つあたりの AT。1 以上
+type AdjacentTerritoryBonus int
+
+func NewAdjacentTerritoryBonus(value int) (AdjacentTerritoryBonus, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: adjacent territory bonus is %d", ErrMatchValueNotPositive, value)
+	}
+	return AdjacentTerritoryBonus(value), nil
+}
+
+func (a AdjacentTerritoryBonus) Int() int {
+	return int(a)
+}
+
+// 土地の属性を変える費用の、基本の値に掛ける倍率。1 以上
+type LandElementChangeMultiplier int
+
+func NewLandElementChangeMultiplier(value int) (LandElementChangeMultiplier, error) {
+	if value < 1 {
+		return 0, fmt.Errorf("%w: land element change multiplier is %d", ErrMatchValueNotPositive, value)
+	}
+	return LandElementChangeMultiplier(value), nil
+}
+
+func (l LandElementChangeMultiplier) Int() int {
+	return int(l)
+}
+
 var ErrInvalidRules = errors.New("game rules: a minimum must not exceed its maximum")
 
 // 項目をまたぐ決まり（人数の最小 ≤ 最大、配る手札 ≤ 手札の上限・デッキの枚数）があるため、生成関数を残す。1 以上は各値の生成関数が確かめる
@@ -177,6 +314,12 @@ func New(player Player, deck Deck, match Match) (Rules, error) {
 	// 保存済みの JSON を読むときは通らないので、足す前に作られた全体のルールは空のまま読める。使う側（対戦を始める）が空を断る
 	if len(match.RewardCardsByRank) == 0 {
 		errs = append(errs, ErrRewardCardsByRankEmpty)
+	}
+	if len(match.LandLevelMultipliers) == 0 {
+		errs = append(errs, ErrLandLevelMultipliersEmpty)
+	}
+	if len(match.ChainMultipliers) == 0 {
+		errs = append(errs, ErrChainMultipliersEmpty)
 	}
 	if len(errs) > 0 {
 		return Rules{}, errors.Join(errs...)
@@ -213,12 +356,35 @@ func Defaults() Rules {
 	// 仮の値（目標の魔力と順位で決める式は次のマイルストーン）。4 位以下は 1 枚
 	rewardCardsByRank, err := NewRewardCardsByRank(3, 2, 1, 1)
 	must(err)
+	landLevelMultipliers, err := NewLandLevelMultipliers(1, 2, 4, 8, 16)
+	must(err)
+	chainMultipliers, err := NewChainMultipliers(100, 150, 200, 250, 300)
+	must(err)
+	tollPercentage, err := NewTollPercentage(60)
+	must(err)
+	relinquishPercentage, err := NewRelinquishPercentage(80)
+	must(err)
+	terrainBonusPerLevel, err := NewTerrainBonusPerLevel(10)
+	must(err)
+	adjacentTerritoryBonus, err := NewAdjacentTerritoryBonus(10)
+	must(err)
+	// 2026-11-16 オーナー（参考サイトに量の記載が無く、決めた値）
+	lapHitPointsRecovery, err := NewLapHitPointsRecovery(10)
+	must(err)
+	// 仮の値（2026-11-10 オーナー）
+	landElementChangeMultiplier, err := NewLandElementChangeMultiplier(2)
+	must(err)
+	multiLandElementChangeMultiplier, err := NewLandElementChangeMultiplier(1)
+	must(err)
 	return Rules{
 		Player: Player{MaxDecks: maxDecks, MaxAvatars: maxAvatars},
 		Deck:   Deck{TotalCardCount: totalCardCount, MaxCardDuplicates: maxCardDuplicates},
 		Match: Match{
 			MinPlayers: minPlayers, MaxPlayers: maxPlayers, MaxHandCards: maxHandCards, StartingHandCards: startingHandCards,
-			RewardCardsByRank: rewardCardsByRank,
+			RewardCardsByRank: rewardCardsByRank, LandLevelMultipliers: landLevelMultipliers, ChainMultipliers: chainMultipliers,
+			TollPercentage: tollPercentage, RelinquishPercentage: relinquishPercentage,
+			TerrainBonusPerLevel: terrainBonusPerLevel, AdjacentTerritoryBonus: adjacentTerritoryBonus, LapHitPointsRecovery: lapHitPointsRecovery,
+			LandElementChangeMultiplier: landElementChangeMultiplier, MultiLandElementChangeMultiplier: multiLandElementChangeMultiplier,
 		},
 	}
 }

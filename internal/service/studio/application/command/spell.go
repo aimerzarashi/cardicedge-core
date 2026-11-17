@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
@@ -33,8 +34,12 @@ func NewSpellHandler(
 
 // presentation 層にドメインの型（spell.Spell・card.Name）を見せないため、表示に要る値だけを返す
 type RegisteredSpell struct {
-	ID           uuid.UUID
-	Name         string
+	ID     uuid.UUID
+	Name   string
+	Cost   int
+	Rarity string
+	// 登録の直後は効果なし
+	Effect       SpellEffect
 	RegisteredAt time.Time
 	UpdatedAt    time.Time
 	// 登録した直後の更新の番号。画面が公開する・使用不可にするときに、そのまま渡す
@@ -86,7 +91,7 @@ func (c *SpellHandler) Register(ctx context.Context, name string) (RegisteredSpe
 	}
 	// 登録した直後は変更が無いため、最後に変更した日時は登録した日時と同じ
 	return RegisteredSpell{
-		ID: registered.PublicID, Name: cardName.String(),
+		ID: registered.PublicID, Name: cardName.String(), Cost: registered.Cost.Int(), Rarity: registered.Rarity.String(),
 		RegisteredAt: now, UpdatedAt: now, Revision: registered.Version,
 	}, nil
 }
@@ -98,7 +103,7 @@ func (c *SpellHandler) Publish(ctx context.Context, id uuid.UUID, revision int64
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &spell.PublishCommand{PublishedBy: publishedBy})
+	return c.change(ctx, id, revision, &spell.PublishCommand{PublishedBy: publishedBy})
 }
 
 // 使用不可にする（公開中から）。使用不可にもう一度しても変わらない。準備中からは ErrInvalidCardStatusTransition。
@@ -108,10 +113,137 @@ func (c *SpellHandler) Retire(ctx context.Context, id uuid.UUID, revision int64)
 	if !ok {
 		return ChangedCard{}, ErrNotOperator
 	}
-	return c.changeStatus(ctx, id, revision, &spell.RetireCommand{RetiredBy: retiredBy})
+	return c.change(ctx, id, revision, &spell.RetireCommand{RetiredBy: retiredBy})
 }
 
-func (c *SpellHandler) changeStatus(ctx context.Context, publicID uuid.UUID, revision int64, cmd spell.Command) (ChangedCard, error) {
+// コストを変える（準備中だけ）。同じ値なら変わらず、revision も進まない。0 未満は input.Errors、準備中でなければ ErrCardNotDraft。
+// ほかのエラーは Publish と同じ
+func (c *SpellHandler) ChangeCost(ctx context.Context, id uuid.UUID, revision int64, cost int) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardCost("cost", cost)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &spell.ChangeCostCommand{Cost: value, ChangedBy: changedBy})
+}
+
+// 希少度を変える（準備中だけ）。エラーは ChangeCost と同じ
+func (c *SpellHandler) ChangeRarity(ctx context.Context, id uuid.UUID, revision int64, rarity string) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, invalid := newCardRarity("rarity", rarity)
+	if invalid != nil {
+		return ChangedCard{}, input.Errors{invalid}
+	}
+	return c.change(ctx, id, revision, &spell.ChangeRarityCommand{Rarity: value, ChangedBy: changedBy})
+}
+
+// スペルの効果の入力・結果。種類ごとの値のどれか 1 つだけを持ち、どれも無ければ効果なし（domain の effect.SpellEffect と同じ形）
+type SpellEffect struct {
+	DrawCards    *SpellDrawCards
+	GainMagic    *SpellGainMagic
+	MultipleDice *SpellMultipleDice
+	FixedDice    *SpellFixedDice
+	Damage       *SpellDamage
+}
+
+type SpellDamage struct {
+	Amount int
+}
+
+type SpellFixedDice struct {
+	Value int
+	Turns int
+}
+
+type SpellDrawCards struct {
+	Count int
+}
+
+type SpellGainMagic struct {
+	PerLap int
+}
+
+type SpellMultipleDice struct {
+	Count int
+	Turns int
+}
+
+// 効果を変える（準備中だけ）。変えた後の効果の全体を受け取り、どの種類も無ければ効果なしにする。同じ値なら変わらず、revision も進まない。
+// 値が下限より小さいのは input.Errors（項目は effect.drawCards.count・effect.gainMagic.perLap・effect.multipleDice.count・
+// effect.multipleDice.turns・effect.fixedDice.value・effect.fixedDice.turns・effect.damage.amount）。
+// 種類が 2 つ以上あるのはコードの誤り（presentation 層が 1 つだけを渡す）。ほかのエラーは ChangeCost と同じ
+func (c *SpellHandler) ChangeEffect(ctx context.Context, id uuid.UUID, revision int64, effect SpellEffect) (ChangedCard, error) {
+	changedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedCard{}, ErrNotOperator
+	}
+	value, err := newSpellEffect(effect)
+	if err != nil {
+		return ChangedCard{}, err
+	}
+	return c.change(ctx, id, revision, &spell.ChangeEffectCommand{Effect: value, ChangedBy: changedBy})
+}
+
+func newSpellEffect(source SpellEffect) (effect.SpellEffect, error) {
+	switch {
+	case source.DrawCards != nil:
+		count, err := effect.NewDrawCount(source.DrawCards.Count)
+		if err != nil {
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.drawCards.count", Min: 1}}
+		}
+		return effect.NewDrawCardsSpellEffect(count), nil
+	case source.GainMagic != nil:
+		perLap, err := effect.NewMagicPerLap(source.GainMagic.PerLap)
+		if err != nil {
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.gainMagic.perLap", Min: 1}}
+		}
+		return effect.NewGainMagicSpellEffect(perLap), nil
+	case source.MultipleDice != nil:
+		invalid := input.Errors{}
+		count, countErr := effect.NewDiceCount(source.MultipleDice.Count)
+		if countErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.count", Min: 2})
+		}
+		turns, turnsErr := effect.NewEffectTurns(source.MultipleDice.Turns)
+		if turnsErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.multipleDice.turns", Min: 1})
+		}
+		if len(invalid) > 0 {
+			return effect.SpellEffect{}, invalid
+		}
+		return effect.NewMultipleDiceSpellEffect(count, turns), nil
+	case source.FixedDice != nil:
+		invalid := input.Errors{}
+		value, valueErr := effect.NewDiceFace(source.FixedDice.Value)
+		if valueErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.value", Min: 1})
+		}
+		turns, turnsErr := effect.NewEffectTurns(source.FixedDice.Turns)
+		if turnsErr != nil {
+			invalid = append(invalid, &input.TooSmall{Field: "effect.fixedDice.turns", Min: 1})
+		}
+		if len(invalid) > 0 {
+			return effect.SpellEffect{}, invalid
+		}
+		return effect.NewFixedDiceSpellEffect(value, turns), nil
+	case source.Damage != nil:
+		amount, err := effect.NewDamageAmount(source.Damage.Amount)
+		if err != nil {
+			return effect.SpellEffect{}, input.Errors{&input.TooSmall{Field: "effect.damage.amount", Min: 1}}
+		}
+		return effect.NewDamageSpellEffect(amount), nil
+	default:
+		return effect.NoSpellEffect(), nil
+	}
+}
+
+func (c *SpellHandler) change(ctx context.Context, publicID uuid.UUID, revision int64, cmd spell.Command) (ChangedCard, error) {
 	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedCard, error) {
 		loaded, err := c.load(ctx, publicID, revision)
 		if err != nil {
@@ -132,10 +264,7 @@ func (c *SpellHandler) changeStatus(ctx context.Context, publicID uuid.UUID, rev
 		}
 		return ChangedCard{ID: publicID, Revision: state.(spell.Spell).Version}, nil
 	})
-	if errors.Is(err, card.ErrInvalidStatusTransition) {
-		return ChangedCard{}, ErrInvalidCardStatusTransition
-	}
-	return changed, revisionConflict(err)
+	return changed, cardChangeError(err)
 }
 
 // revision を Load の直後に比べる理由は PresetDeckHandler.load と同じ

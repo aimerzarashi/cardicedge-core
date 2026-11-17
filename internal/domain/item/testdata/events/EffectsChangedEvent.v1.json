@@ -1,0 +1,1 @@
+{"effects":[{"attack_modifier":{"value":30}},{"attack_multiplier":{"percent":150,"constraints":[{"opponent_creature_element":{"elements":["water"]}}]}}],"changed_by":10}

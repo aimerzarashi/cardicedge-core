@@ -39,9 +39,16 @@ func newEndedMatchFixture(t *testing.T) matchTurnFixture {
 	changed := f.playUntilChoosingPath(t)
 	changed, err := f.handler.ChoosePath(f.player, f.publicID, changed.Revision, 2, 0)
 	require.NoError(t, err)
-	_, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
+	changed, err = f.handler.EndTurn(f.player, f.publicID, changed.Revision)
 	require.NoError(t, err)
-	for f.load(t).Phase != match.PhaseEnded {
+	// 引いた分で手札が上限を超えているので、ターンの終わりに 1 枚捨てる
+	if f.load(t).Phase == match.PhaseDiscarding {
+		_, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
+		require.NoError(t, err)
+	}
+	// NPC の番が進まなくなったときに、時間切れまで回り続けないように回数を区切る
+	for i := 0; f.load(t).Phase != match.PhaseEnded; i++ {
+		require.Less(t, i, 100)
 		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
 	}
 	return f
@@ -59,7 +66,9 @@ func TestMatchHandler_ChooseRewardPackDrawsTheCardsOfTheRankFromTheCandidates(t 
 	reward := after.Participants[0].Reward
 	require.NotNil(t, reward)
 	require.Equal(t, match.DefaultPackKey, reward.Pack)
-	require.Len(t, reward.Cards, 3)
+	// NPC が配置した領地の価値の分、総魔力で NPC が上になり、プレイヤーは 2 位の枚数を引く
+	require.Equal(t, []int{2, 1}, ended.Result.Ranks)
+	require.Len(t, reward.Cards, 2)
 	candidates, err := rewardCandidates(t)(f.ctx)
 	require.NoError(t, err)
 	for _, drawn := range reward.Cards {
@@ -205,7 +214,7 @@ func TestMatchReward_DoesNothingForOtherMatchEvents(t *testing.T) {
 	f := newMatchRewardFixture(t)
 	f.createCollection(t)
 
-	require.NoError(t, f.policy.Handle(f.ctx, &match.RewardsCompletedEvent{EventMeta: match.EventMeta{EntityID: f.id}}))
+	require.NoError(t, f.policy.Handle(f.ctx, &match.AllRewardsReceivedEvent{EventMeta: match.EventMeta{EntityID: f.id}}))
 
 	require.Equal(t, int64(1), f.loadCollection(t).Version)
 }

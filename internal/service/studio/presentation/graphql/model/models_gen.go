@@ -48,12 +48,21 @@ type Card interface {
 	GetName() string
 	// 状態（準備中・公開中・使用不可）
 	GetStatus() CardStatus
+	// 使うのに払う魔力（0 以上）
+	GetCost() int
+	// 希少度
+	GetRarity() CardRarity
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	GetRevision() int
 	// 登録した日時
 	GetRegisteredAt() time.Time
 	// 最後に変更した日時（変更していなければ登録した日時）
 	GetUpdatedAt() time.Time
+}
+
+// カードの詳細の結果
+type CardResult interface {
+	IsCardResult()
 }
 
 // カードの一覧の結果
@@ -69,6 +78,56 @@ type ChangeBoardDefaultRulesResult interface {
 // ボードのレイアウトの変更の結果（準備中のものだけ変えられる。どれか 1 つでも誤りがあれば、何も変えない）
 type ChangeBoardLayoutResult interface {
 	IsChangeBoardLayoutResult()
+}
+
+// カードのコストを変える操作の結果
+type ChangeCardCostResult interface {
+	IsChangeCardCostResult()
+}
+
+// カードの希少度を変える操作の結果
+type ChangeCardRarityResult interface {
+	IsChangeCardRarityResult()
+}
+
+// クリーチャーの効果の並びを変える操作の結果（入力の誤りの項目は changeItemEffects と同じ。カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureEffectsResult interface {
+	IsChangeCreatureEffectsResult()
+}
+
+// クリーチャーの属性を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureElementsResult interface {
+	IsChangeCreatureElementsResult()
+}
+
+// クリーチャーのアイテム制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureItemRestrictionsResult interface {
+	IsChangeCreatureItemRestrictionsResult()
+}
+
+// クリーチャーの配置制限を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreaturePlacementRestrictionsResult interface {
+	IsChangeCreaturePlacementRestrictionsResult()
+}
+
+// クリーチャーの攻撃力と体力を変える操作の結果（カードでない ID・クリーチャー以外のカードの ID は CardNotFoundError）
+type ChangeCreatureStatsResult interface {
+	IsChangeCreatureStatsResult()
+}
+
+// アイテムの分類を変える操作の結果（カードでない ID・アイテム以外のカードの ID は CardNotFoundError）
+type ChangeItemCategoryResult interface {
+	IsChangeItemCategoryResult()
+}
+
+// アイテムの効果の並びを変える操作の結果（入力の誤りの項目は effects.N・effects.N.value・effects.N.minimum・effects.N.maximum・effects.N.percent・effects.N.constraints.M・effects.N.constraints.M.elements。カードでない ID・アイテム以外のカードの ID は CardNotFoundError）
+type ChangeItemEffectsResult interface {
+	IsChangeItemEffectsResult()
+}
+
+// スペルの効果を変える操作の結果（カードでない ID・スペル以外のカードの ID は CardNotFoundError）
+type ChangeSpellEffectResult interface {
+	IsChangeSpellEffectResult()
 }
 
 // ボードのレイアウトの判定の結果
@@ -104,6 +163,20 @@ type DeletePresetDeckResult interface {
 // スターターセットの削除の結果（準備中のものだけ消せる）
 type DeleteStarterSetResult interface {
 	IsDeleteStarterSetResult()
+}
+
+// 効果（種類ごとの型）
+type Effect interface {
+	IsEffect()
+	// 効果の種類
+	GetKind() EffectKind
+}
+
+// 効果の制約（種類ごとの型）
+type EffectConstraint interface {
+	IsEffectConstraint()
+	// 制約の種類
+	GetKind() EffectConstraintKind
 }
 
 // 入力の項目ごとの誤り。理由は __typename で見分ける
@@ -351,6 +424,11 @@ type SetStarterSetUnlockNpcAvatarsResult interface {
 	IsSetStarterSetUnlockNpcAvatarsResult()
 }
 
+// スペルの効果（種類は __typename で見分ける。スペルは使ったときに発動する）
+type SpellEffect interface {
+	IsSpellEffect()
+}
+
 // スターターセットの詳細の結果
 type StarterSetResult interface {
 	IsStarterSetResult()
@@ -365,6 +443,49 @@ type StarterSetsResult interface {
 type StudioRulesResult interface {
 	IsStudioRulesResult()
 }
+
+// AT の増減
+type AttackModifierEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 増減の値（負は下げる）
+	Value int `json:"value"`
+}
+
+func (AttackModifierEffect) IsEffect() {}
+
+// 効果の種類
+func (this AttackModifierEffect) GetKind() EffectKind { return this.Kind }
+
+// AT の倍率
+type AttackMultiplierEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 倍率（百分率。150 で 1.5 倍。1 以上）
+	Percent int `json:"percent"`
+	// 発動する制約（すべてを満たすときに発動する。無ければ空でいつも発動する）
+	Constraints []EffectConstraint `json:"constraints"`
+}
+
+func (AttackMultiplierEffect) IsEffect() {}
+
+// 効果の種類
+func (this AttackMultiplierEffect) GetKind() EffectKind { return this.Kind }
+
+// AT の上書き
+type AttackOverrideEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 上書きした後の AT の最小（0 以上）
+	Minimum int `json:"minimum"`
+	// 上書きした後の AT の最大（最小以上）
+	Maximum int `json:"maximum"`
+}
+
+func (AttackOverrideEffect) IsEffect() {}
+
+// 効果の種類
+func (this AttackOverrideEffect) GetKind() EffectKind { return this.Kind }
 
 // 拠点がちょうど 1 つでない（公開するボードの拠点はちょうど 1 つ）
 type BaseCountProblem struct {
@@ -462,6 +583,10 @@ type BoardDefaultRules struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上。登録した直後は 6）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上。レベルと連鎖の倍率を掛ける元。登録した直後は 100）
+	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す。登録した直後は 20）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // ボードの一覧の絞り込み
@@ -697,15 +822,63 @@ func (CardNameAlreadyInUseError) IsRegisterItemResult() {}
 
 func (CardNameAlreadyInUseError) IsRegisterSpellResult() {}
 
+// 準備中でないカードの性能を変えようとした（性能を変えられるのは準備中だけ。公開中・使用不可は、デッキに入れた・game に写した性能が途中で変わるため）
+type CardNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (CardNotDraftError) IsChangeCardCostResult() {}
+
+func (CardNotDraftError) IsChangeCardRarityResult() {}
+
+func (CardNotDraftError) IsChangeCreatureElementsResult() {}
+
+func (CardNotDraftError) IsChangeCreatureStatsResult() {}
+
+func (CardNotDraftError) IsChangeCreatureEffectsResult() {}
+
+func (CardNotDraftError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (CardNotDraftError) IsChangeCreaturePlacementRestrictionsResult() {}
+
+func (CardNotDraftError) IsChangeItemCategoryResult() {}
+
+func (CardNotDraftError) IsChangeItemEffectsResult() {}
+
+func (CardNotDraftError) IsChangeSpellEffectResult() {}
+
 // カードが無い（公開用の ID に当たるカードが無い。カードでない ID を含む）
 type CardNotFoundError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
 }
 
+func (CardNotFoundError) IsCardResult() {}
+
 func (CardNotFoundError) IsPublishCardResult() {}
 
 func (CardNotFoundError) IsRetireCardResult() {}
+
+func (CardNotFoundError) IsChangeCardCostResult() {}
+
+func (CardNotFoundError) IsChangeCardRarityResult() {}
+
+func (CardNotFoundError) IsChangeCreatureElementsResult() {}
+
+func (CardNotFoundError) IsChangeCreatureStatsResult() {}
+
+func (CardNotFoundError) IsChangeCreatureEffectsResult() {}
+
+func (CardNotFoundError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (CardNotFoundError) IsChangeCreaturePlacementRestrictionsResult() {}
+
+func (CardNotFoundError) IsChangeItemCategoryResult() {}
+
+func (CardNotFoundError) IsChangeItemEffectsResult() {}
+
+func (CardNotFoundError) IsChangeSpellEffectResult() {}
 
 // カード屋（止まると、用意されたカードから 1 枚買える）。属性は持たない
 type CardShopTile struct {
@@ -723,7 +896,7 @@ func (this CardShopTile) GetX() int { return this.X }
 // 行
 func (this CardShopTile) GetY() int { return this.Y }
 
-// ボードの既定のルールを変える入力（変えた後の 7 つの値の全体）
+// ボードの既定のルールを変える入力（変えた後の 8 つの値の全体）
 type ChangeBoardDefaultRulesInput struct {
 	// ボードの公開用の ID
 	ID uuid.UUID `json:"id"`
@@ -743,6 +916,10 @@ type ChangeBoardDefaultRulesInput struct {
 	DiceMin int `json:"diceMin"`
 	// サイコロの目の最大（最小以上でなければ入力の誤り）
 	DiceMax int `json:"diceMax"`
+	// 土地の基本の値（1 以上）
+	BaseLandValue int `json:"baseLandValue"`
+	// 周回のボーナスに足す、自分の領地 1 つあたりの魔力（0 以上。拠点に戻ったときの自分の領地の数だけ足す）
+	LapBonusPerTerritory int `json:"lapBonusPerTerritory"`
 }
 
 // ボードの既定のルールを変えた（前と同じ値なら何も変えず、revision も進まない）
@@ -782,6 +959,208 @@ type ChangeBoardLayoutSuccess struct {
 }
 
 func (ChangeBoardLayoutSuccess) IsChangeBoardLayoutResult() {}
+
+// カードのコストを変える入力
+type ChangeCardCostInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+	// 変えた後のコスト（0 以上。上限は無い）
+	Cost int `json:"cost"`
+}
+
+// カードのコストを変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeCardCostSuccess struct {
+	// 変えたカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCardCostSuccess) IsChangeCardCostResult() {}
+
+// カードの希少度を変える入力
+type ChangeCardRarityInput struct {
+	// カード（Creature・Item・Spell）の公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの revision
+	Revision int `json:"revision"`
+	// 変えた後の希少度
+	Rarity CardRarity `json:"rarity"`
+}
+
+// カードの希少度を変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeCardRaritySuccess struct {
+	// 変えたカードの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたカードの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCardRaritySuccess) IsChangeCardRarityResult() {}
+
+// クリーチャーの効果の並びを変える入力
+type ChangeCreatureEffectsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の効果の並び（全体。並びの順に当てる。同じ種類を重ねてよい。クリーチャーが持てない種類は FieldInvalidFormat（effects.N）、先に攻撃すると後に攻撃するを一緒に持つのは FieldInvalidFormat（effects）。無しは空）
+	Effects []*EffectInput `json:"effects"`
+}
+
+// クリーチャーの効果の並びを変えた（同じ並びなら何も変えず、revision も進まない）
+type ChangeCreatureEffectsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureEffectsSuccess) IsChangeCreatureEffectsResult() {}
+
+// クリーチャーの属性を変える入力
+type ChangeCreatureElementsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の属性（1〜4 つ。重複は入力の誤り。無は単独。並びは問わず、保存は火・地・水・風の順にそろえる）
+	Elements []CreatureElement `json:"elements"`
+}
+
+// クリーチャーの属性を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreatureElementsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureElementsSuccess) IsChangeCreatureElementsResult() {}
+
+// クリーチャーのアイテム制限を変える入力
+type ChangeCreatureItemRestrictionsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後のアイテム制限（持てないアイテムの分類。重複なし。無しは空）
+	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
+}
+
+// クリーチャーのアイテム制限を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreatureItemRestrictionsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureItemRestrictionsSuccess) IsChangeCreatureItemRestrictionsResult() {}
+
+// クリーチャーの配置制限を変える入力
+type ChangeCreaturePlacementRestrictionsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の配置制限（置けない土地の属性。火・地・水・風で重複なし。無しは空）
+	PlacementRestrictions []BoardTileElement `json:"placementRestrictions"`
+}
+
+// クリーチャーの配置制限を変えた（同じ集合なら何も変えず、revision も進まない）
+type ChangeCreaturePlacementRestrictionsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreaturePlacementRestrictionsSuccess) IsChangeCreaturePlacementRestrictionsResult() {}
+
+// クリーチャーの攻撃力と体力を変える入力
+type ChangeCreatureStatsInput struct {
+	// クリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたクリーチャーの revision
+	Revision int `json:"revision"`
+	// 変えた後の攻撃力（AT。0 以上。上限は無い）
+	Attack int `json:"attack"`
+	// 変えた後の体力（HP。1 以上。上限は無い）
+	HitPoints int `json:"hitPoints"`
+}
+
+// クリーチャーの攻撃力と体力を変えた（どちらも同じ値なら何も変えず、revision も進まない）
+type ChangeCreatureStatsSuccess struct {
+	// 変えたクリーチャーの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたクリーチャーの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeCreatureStatsSuccess) IsChangeCreatureStatsResult() {}
+
+// アイテムの分類を変える入力
+type ChangeItemCategoryInput struct {
+	// 変えるアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの更新の番号
+	Revision int `json:"revision"`
+	// 変えた後の分類
+	Category ItemCategory `json:"category"`
+}
+
+// アイテムの分類を変えた（同じ値なら revision は進まない）
+type ChangeItemCategorySuccess struct {
+	// 変えたアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の更新の番号
+	Revision int `json:"revision"`
+}
+
+func (ChangeItemCategorySuccess) IsChangeItemCategoryResult() {}
+
+// アイテムの効果の並びを変える入力
+type ChangeItemEffectsInput struct {
+	// 変えるアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたカードの更新の番号
+	Revision int `json:"revision"`
+	// 変えた後の効果の並び（全体。並びの順に当てる）
+	Effects []*EffectInput `json:"effects"`
+}
+
+// アイテムの効果の並びを変えた（同じ並びなら revision は進まない）
+type ChangeItemEffectsSuccess struct {
+	// 変えたアイテムの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 操作した後の更新の番号
+	Revision int `json:"revision"`
+}
+
+func (ChangeItemEffectsSuccess) IsChangeItemEffectsResult() {}
+
+// スペルの効果を変える入力
+type ChangeSpellEffectInput struct {
+	// スペルの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていたスペルの revision
+	Revision int `json:"revision"`
+	// 変えた後の効果（null なら効果なし）
+	Effect *SpellEffectInput `json:"effect,omitempty"`
+}
+
+// スペルの効果を変えた（同じ値なら何も変えず、revision も進まない）
+type ChangeSpellEffectSuccess struct {
+	// 変えたスペルの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えたスペルの revision（内容は返さない。画面はカードを読み直し、その revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (ChangeSpellEffectSuccess) IsChangeSpellEffectResult() {}
 
 // ボードのレイアウトを保存せずに判定する入力（変えた後の全体。changeBoardLayout の入力から、ボードの id と revision を除いたもの）
 type CheckBoardLayoutInput struct {
@@ -829,6 +1208,24 @@ type Creature struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
+	// 属性（1〜4 つ。無は単独。火・地・水・風の順に並べる）
+	Elements []CreatureElement `json:"elements"`
+	// 攻撃力（AT。0 以上）
+	Attack int `json:"attack"`
+	// 体力（HP。1 以上）
+	HitPoints int `json:"hitPoints"`
+	// アイテム制限（持てないアイテムの分類。武器・防具・巻物の順。無ければ空）
+	ItemRestrictions []ItemCategory `json:"itemRestrictions"`
+	// 配置制限（置けない土地の属性。火・地・水・風の順。無ければ空）
+	PlacementRestrictions []BoardTileElement `json:"placementRestrictions"`
+	// 効果の並び（入れた順。無ければ空）
+	Effects []Effect `json:"effects"`
+	// クリーチャーが持てる効果の種類（画面が選べるものだけを出すため。決まりは core が持つ）
+	AllowedEffectKinds []EffectKind `json:"allowedEffectKinds"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -836,6 +1233,8 @@ type Creature struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Creature) IsCardResult() {}
 
 func (Creature) IsCard() {}
 
@@ -848,6 +1247,12 @@ func (this Creature) GetName() string { return this.Name }
 // 状態（準備中・公開中・使用不可）
 func (this Creature) GetStatus() CardStatus { return this.Status }
 
+// 使うのに払う魔力（0 以上）
+func (this Creature) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Creature) GetRarity() CardRarity { return this.Rarity }
+
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Creature) GetRevision() int { return this.Revision }
 
@@ -856,6 +1261,20 @@ func (this Creature) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Creature) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// 対象のクリーチャーにダメージ（今の HP から amount を引き、0 になれば破壊する）
+type DamageSpellEffect struct {
+	// ダメージ（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (DamageSpellEffect) IsSpellEffect() {}
+
+// 対象のクリーチャーにダメージの入力
+type DamageSpellEffectInput struct {
+	// ダメージ（1 以上。上限は無い）
+	Amount int `json:"amount"`
+}
 
 // デッキに入れたカードと枚数
 type DeckCard struct {
@@ -968,6 +1387,50 @@ type DeleteStarterSetSuccess struct {
 }
 
 func (DeleteStarterSetSuccess) IsDeleteStarterSetResult() {}
+
+// カードを引く効果（山札の先頭から引く）
+type DrawCardsSpellEffect struct {
+	// 引く枚数（1 以上）
+	Count int `json:"count"`
+}
+
+func (DrawCardsSpellEffect) IsSpellEffect() {}
+
+// カードを引く効果の入力
+type DrawCardsSpellEffectInput struct {
+	// 引く枚数（1 以上。上限は無い）
+	Count int `json:"count"`
+}
+
+// 効果の制約の入力
+type EffectConstraintInput struct {
+	// 制約の種類
+	Kind EffectConstraintKind `json:"kind"`
+	// 相手のクリーチャーの属性（1 つ以上・重複なし）
+	Elements []CreatureElement `json:"elements,omitempty"`
+}
+
+// 効果の入力（種類に要る値だけを入れる。増減は value、上書きは minimum と maximum、AT の倍率は percent と constraints、通行料の倍率は percent、受けるダメージを 0 にするは constraints、破壊されたら手札に戻るは destructions、破壊されたら魔力を得るは destructions と amount、手札のクリーチャーをアイテムとして使えるは elements）
+type EffectInput struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// AT・HP の増減の値
+	Value *int `json:"value,omitempty"`
+	// 上書きした後の値の最小
+	Minimum *int `json:"minimum,omitempty"`
+	// 上書きした後の値の最大
+	Maximum *int `json:"maximum,omitempty"`
+	// 倍率（百分率）
+	Percent *int `json:"percent,omitempty"`
+	// 制約（すべてを満たすときに発動する）
+	Constraints []*EffectConstraintInput `json:"constraints,omitempty"`
+	// 発動する破壊（1 つ以上・重複なし）
+	Destructions []EffectDestruction `json:"destructions,omitempty"`
+	// 受け取る魔力の額
+	Amount *int `json:"amount,omitempty"`
+	// アイテムとして使えるクリーチャーの属性（1 つ以上・重複なし）
+	Elements []CreatureElement `json:"elements,omitempty"`
+}
 
 // 一覧の中で、同じもの（同じカード等）がすでに出てきた（2 回目に付ける）
 type FieldDuplicated struct {
@@ -1148,6 +1611,46 @@ func (FieldUnavailable) IsFieldError() {}
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldUnavailable) GetField() string { return this.Field }
 
+// サイコロの目を固定する効果（対象のプレイヤーが振るとき、目は value になる。turns ターン効き続ける）
+type FixedDiceSpellEffect struct {
+	// 固定する目（1 以上）
+	Value int `json:"value"`
+	// 効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）
+	Turns int `json:"turns"`
+}
+
+func (FixedDiceSpellEffect) IsSpellEffect() {}
+
+// サイコロの目を固定する効果の入力
+type FixedDiceSpellEffectInput struct {
+	// 固定する目（1 以上）
+	Value int `json:"value"`
+	// 効き続けるターン数（1 以上）
+	Turns int `json:"turns"`
+}
+
+// 侵略できない
+type ForbidInvasionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+}
+
+func (ForbidInvasionEffect) IsEffect() {}
+
+// 効果の種類
+func (this ForbidInvasionEffect) GetKind() EffectKind { return this.Kind }
+
+// 移動できない
+type ForbidMovementEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+}
+
+func (ForbidMovementEffect) IsEffect() {}
+
+// 効果の種類
+func (this ForbidMovementEffect) GetKind() EffectKind { return this.Kind }
+
 // 操作する権限が無い（JWT は正しいが、core のオペレーターとして登録されていない等）
 type ForbiddenError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1176,11 +1679,27 @@ func (ForbiddenError) IsRetireBoardResult() {}
 
 func (ForbiddenError) IsCardsResult() {}
 
+func (ForbiddenError) IsCardResult() {}
+
 func (ForbiddenError) IsPublishCardResult() {}
 
 func (ForbiddenError) IsRetireCardResult() {}
 
+func (ForbiddenError) IsChangeCardCostResult() {}
+
+func (ForbiddenError) IsChangeCardRarityResult() {}
+
 func (ForbiddenError) IsRegisterCreatureResult() {}
+
+func (ForbiddenError) IsChangeCreatureElementsResult() {}
+
+func (ForbiddenError) IsChangeCreatureStatsResult() {}
+
+func (ForbiddenError) IsChangeCreatureEffectsResult() {}
+
+func (ForbiddenError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (ForbiddenError) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (ForbiddenError) IsGameRulesResult() {}
 
@@ -1203,6 +1722,10 @@ func (ForbiddenError) IsPublishGrantDeckResult() {}
 func (ForbiddenError) IsRetireGrantDeckResult() {}
 
 func (ForbiddenError) IsRegisterItemResult() {}
+
+func (ForbiddenError) IsChangeItemCategoryResult() {}
+
+func (ForbiddenError) IsChangeItemEffectsResult() {}
 
 func (ForbiddenError) IsNpcAvatarsResult() {}
 
@@ -1252,6 +1775,8 @@ func (ForbiddenError) IsDeletePresetDeckResult() {}
 
 func (ForbiddenError) IsRegisterSpellResult() {}
 
+func (ForbiddenError) IsChangeSpellEffectResult() {}
+
 func (ForbiddenError) IsStarterSetsResult() {}
 
 func (ForbiddenError) IsStarterSetResult() {}
@@ -1273,6 +1798,35 @@ func (ForbiddenError) IsPublishStarterSetResult() {}
 func (ForbiddenError) IsRetireStarterSetResult() {}
 
 func (ForbiddenError) IsStudioRulesResult() {}
+
+// 破壊されたら魔力を得る
+type GainMagicOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+	// 受け取る魔力の額（1 以上）
+	Amount int `json:"amount"`
+}
+
+func (GainMagicOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this GainMagicOnDestructionEffect) GetKind() EffectKind { return this.Kind }
+
+// 魔力を得る効果（使った人が（周回数 + 1）× perLap の魔力を得る。周回数はその対戦で周回を終えた回数）
+type GainMagicSpellEffect struct {
+	// 周回数 1 つあたりの魔力（1 以上）
+	PerLap int `json:"perLap"`
+}
+
+func (GainMagicSpellEffect) IsSpellEffect() {}
+
+// 魔力を得る効果の入力
+type GainMagicSpellEffectInput struct {
+	// 周回数 1 つあたりの魔力（1 以上。上限は無い）
+	PerLap int `json:"perLap"`
+}
 
 // ゲーム全体のルール
 type GameRules struct {
@@ -1350,6 +1904,45 @@ func (GrantDeckNotFoundError) IsPublishGrantDeckResult() {}
 
 func (GrantDeckNotFoundError) IsRetireGrantDeckResult() {}
 
+// HP の増減
+type HitPointsModifierEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 増減の値（負は下げる）
+	Value int `json:"value"`
+}
+
+func (HitPointsModifierEffect) IsEffect() {}
+
+// 効果の種類
+func (this HitPointsModifierEffect) GetKind() EffectKind { return this.Kind }
+
+// HP の上書き
+type HitPointsOverrideEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 上書きした後の HP の最小（1 以上）
+	Minimum int `json:"minimum"`
+	// 上書きした後の HP の最大（最小以上）
+	Maximum int `json:"maximum"`
+}
+
+func (HitPointsOverrideEffect) IsEffect() {}
+
+// 効果の種類
+func (this HitPointsOverrideEffect) GetKind() EffectKind { return this.Kind }
+
+// 地形効果を無視する
+type IgnoreTerrainEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+}
+
+func (IgnoreTerrainEffect) IsEffect() {}
+
+// 効果の種類
+func (this IgnoreTerrainEffect) GetKind() EffectKind { return this.Kind }
+
 // 準備中のボードを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidBoardStatusTransitionError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -1408,6 +2001,16 @@ type Item struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
+	// 分類
+	Category ItemCategory `json:"category"`
+	// 効果の並び（入れた順。無ければ空）
+	Effects []Effect `json:"effects"`
+	// 今の分類で持てる効果の種類（画面が選べるものだけを出すため。分類ごとの決まりは core が持つ）
+	AllowedEffectKinds []EffectKind `json:"allowedEffectKinds"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -1415,6 +2018,8 @@ type Item struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Item) IsCardResult() {}
 
 func (Item) IsCard() {}
 
@@ -1427,6 +2032,12 @@ func (this Item) GetName() string { return this.Name }
 // 状態（準備中・公開中・使用不可）
 func (this Item) GetStatus() CardStatus { return this.Status }
 
+// 使うのに払う魔力（0 以上）
+func (this Item) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Item) GetRarity() CardRarity { return this.Rarity }
+
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Item) GetRevision() int { return this.Revision }
 
@@ -1436,6 +2047,16 @@ func (this Item) GetRegisteredAt() time.Time { return this.RegisteredAt }
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Item) GetUpdatedAt() time.Time { return this.UpdatedAt }
 
+// アイテムの分類で持てない効果がある（効果を変えるとき・分類を変えるとき。持てる効果は分類ごとに決まっている）
+type ItemEffectNotAllowedError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (ItemEffectNotAllowedError) IsChangeItemCategoryResult() {}
+
+func (ItemEffectNotAllowedError) IsChangeItemEffectsResult() {}
+
 // 土地（ふつうのマス。公開するボードの、拠点・チェックポイント以外のマス）
 type LandTile struct {
 	// 列
@@ -1443,7 +2064,7 @@ type LandTile struct {
 	// 行
 	Y int `json:"y"`
 	// 属性
-	Attribute BoardTileAttribute `json:"attribute"`
+	Element BoardTileElement `json:"element"`
 }
 
 func (LandTile) IsBoardTile() {}
@@ -1461,7 +2082,7 @@ type LandTileInput struct {
 	// 行（0 以上、高さ − 1 以下）
 	Y int `json:"y"`
 	// 属性
-	Attribute BoardTileAttribute `json:"attribute"`
+	Element BoardTileElement `json:"element"`
 }
 
 // 対戦の決まり（盤面や部屋によらず、ゲーム全体で同じ値）
@@ -1474,6 +2095,24 @@ type MatchRules struct {
 	MaxHandCards int `json:"maxHandCards"`
 	// 対戦の始めに配る手札の枚数
 	StartingHandCards int `json:"startingHandCards"`
+}
+
+// サイコロを複数振る効果（対象のプレイヤーが振るとき、count 個を同時に振り、合計の分だけ進む。turns ターン効き続ける）
+type MultipleDiceSpellEffect struct {
+	// 振るサイコロの個数（2 以上）
+	Count int `json:"count"`
+	// 効き続けるターン数（1 以上。かかった人が自分のターンを終えるたびに 1 減り、0 で終わる）
+	Turns int `json:"turns"`
+}
+
+func (MultipleDiceSpellEffect) IsSpellEffect() {}
+
+// サイコロを複数振る効果の入力
+type MultipleDiceSpellEffectInput struct {
+	// 振るサイコロの個数（2 以上。上限は無い）
+	Count int `json:"count"`
+	// 効き続けるターン数（1 以上）
+	Turns int `json:"turns"`
 }
 
 type Mutation struct {
@@ -1623,6 +2262,32 @@ func (NpcDeckNotFoundError) IsDeleteNpcDeckResult() {}
 func (NpcDeckNotFoundError) IsPublishNpcDeckResult() {}
 
 func (NpcDeckNotFoundError) IsRetireNpcDeckResult() {}
+
+// 受けるダメージを 0 にする
+type NullifyReceivedDamageEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する制約（すべてを満たすときに発動する。無ければ空でいつも発動する）
+	Constraints []EffectConstraint `json:"constraints"`
+}
+
+func (NullifyReceivedDamageEffect) IsEffect() {}
+
+// 効果の種類
+func (this NullifyReceivedDamageEffect) GetKind() EffectKind { return this.Kind }
+
+// 相手のクリーチャーの属性の制約
+type OpponentCreatureElementConstraint struct {
+	// 制約の種類
+	Kind EffectConstraintKind `json:"kind"`
+	// 合えば満たす相手のクリーチャーの属性（火・地・水・風・無の順。1 つ以上）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (OpponentCreatureElementConstraint) IsEffectConstraint() {}
+
+// 制約の種類
+func (this OpponentCreatureElementConstraint) GetKind() EffectConstraintKind { return this.Kind }
 
 // ページの情報
 type PageInfo struct {
@@ -2217,6 +2882,19 @@ type RetireStarterSetSuccess struct {
 
 func (RetireStarterSetSuccess) IsRetireStarterSetResult() {}
 
+// 破壊されたら手札に戻る
+type ReturnToHandOnDestructionEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 発動する破壊（侵略・守る・ボードの順。1 つ以上）
+	Destructions []EffectDestruction `json:"destructions"`
+}
+
+func (ReturnToHandOnDestructionEffect) IsEffect() {}
+
+// 効果の種類
+func (this ReturnToHandOnDestructionEffect) GetKind() EffectKind { return this.Kind }
+
 // 先に変えられた（画面を開いた後に、ほかの操作でこの対象が変わった。操作は行われていない）。読み直してから操作し直す
 type RevisionConflictError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -2239,6 +2917,20 @@ func (RevisionConflictError) IsPublishCardResult() {}
 
 func (RevisionConflictError) IsRetireCardResult() {}
 
+func (RevisionConflictError) IsChangeCardCostResult() {}
+
+func (RevisionConflictError) IsChangeCardRarityResult() {}
+
+func (RevisionConflictError) IsChangeCreatureElementsResult() {}
+
+func (RevisionConflictError) IsChangeCreatureStatsResult() {}
+
+func (RevisionConflictError) IsChangeCreatureEffectsResult() {}
+
+func (RevisionConflictError) IsChangeCreatureItemRestrictionsResult() {}
+
+func (RevisionConflictError) IsChangeCreaturePlacementRestrictionsResult() {}
+
 func (RevisionConflictError) IsRenameGrantDeckResult() {}
 
 func (RevisionConflictError) IsSetGrantDeckCardCountsResult() {}
@@ -2248,6 +2940,10 @@ func (RevisionConflictError) IsDeleteGrantDeckResult() {}
 func (RevisionConflictError) IsPublishGrantDeckResult() {}
 
 func (RevisionConflictError) IsRetireGrantDeckResult() {}
+
+func (RevisionConflictError) IsChangeItemCategoryResult() {}
+
+func (RevisionConflictError) IsChangeItemEffectsResult() {}
 
 func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
@@ -2274,6 +2970,8 @@ func (RevisionConflictError) IsRenamePresetDeckResult() {}
 func (RevisionConflictError) IsSetPresetDeckCardCountsResult() {}
 
 func (RevisionConflictError) IsDeletePresetDeckResult() {}
+
+func (RevisionConflictError) IsChangeSpellEffectResult() {}
 
 func (RevisionConflictError) IsRenameStarterSetResult() {}
 
@@ -2469,6 +3167,12 @@ type Spell struct {
 	Name string `json:"name"`
 	// 状態（準備中・公開中・使用不可）
 	Status CardStatus `json:"status"`
+	// 使うのに払う魔力（0 以上）
+	Cost int `json:"cost"`
+	// 希少度
+	Rarity CardRarity `json:"rarity"`
+	// 効果（効果が無ければ null。効果の無いスペルは、対戦で使えない）
+	Effect SpellEffect `json:"effect,omitempty"`
 	// 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 	Revision int `json:"revision"`
 	// 登録した日時
@@ -2476,6 +3180,8 @@ type Spell struct {
 	// 最後に変更した日時（変更していなければ登録した日時）
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+func (Spell) IsCardResult() {}
 
 func (Spell) IsCard() {}
 
@@ -2488,6 +3194,12 @@ func (this Spell) GetName() string { return this.Name }
 // 状態（準備中・公開中・使用不可）
 func (this Spell) GetStatus() CardStatus { return this.Status }
 
+// 使うのに払う魔力（0 以上）
+func (this Spell) GetCost() int { return this.Cost }
+
+// 希少度
+func (this Spell) GetRarity() CardRarity { return this.Rarity }
+
 // 更新の番号（画面が見ていた版。公開する・使用不可にする操作の入力にそのまま渡す。利用者には見せない）
 func (this Spell) GetRevision() int { return this.Revision }
 
@@ -2496,6 +3208,28 @@ func (this Spell) GetRegisteredAt() time.Time { return this.RegisteredAt }
 
 // 最後に変更した日時（変更していなければ登録した日時）
 func (this Spell) GetUpdatedAt() time.Time { return this.UpdatedAt }
+
+// スペルの効果の入力（種類のどれか 1 つだけ）
+type SpellEffectInput struct {
+	// カードを引く
+	DrawCards *DrawCardsSpellEffectInput `json:"drawCards,omitempty"`
+	// 魔力を得る
+	GainMagic *GainMagicSpellEffectInput `json:"gainMagic,omitempty"`
+	// サイコロを複数振る
+	MultipleDice *MultipleDiceSpellEffectInput `json:"multipleDice,omitempty"`
+	// サイコロの目を固定する
+	FixedDice *FixedDiceSpellEffectInput `json:"fixedDice,omitempty"`
+	// 対象のクリーチャーにダメージ
+	Damage *DamageSpellEffectInput `json:"damage,omitempty"`
+}
+
+// 効果の無いスペルを公開しようとした（効果の無いスペルは対戦で使えないため、公開できない）
+type SpellEffectRequiredError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (SpellEffectRequiredError) IsPublishCardResult() {}
 
 // スターターセットの一覧の 1 ページ（名前の順）
 type StarterSetConnection struct {
@@ -2581,6 +3315,28 @@ func (StarterSetNotFoundError) IsPublishStarterSetResult() {}
 
 func (StarterSetNotFoundError) IsRetireStarterSetResult() {}
 
+// 先に攻撃する
+type StrikeFirstEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+}
+
+func (StrikeFirstEffect) IsEffect() {}
+
+// 効果の種類
+func (this StrikeFirstEffect) GetKind() EffectKind { return this.Kind }
+
+// 後に攻撃する
+type StrikeLastEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+}
+
+func (StrikeLastEffect) IsEffect() {}
+
+// 効果の種類
+func (this StrikeLastEffect) GetKind() EffectKind { return this.Kind }
+
 // studio でマスタを作るときの決まり
 type StudioRules struct {
 	// ボードの決まり
@@ -2596,6 +3352,19 @@ type TilePositionInput struct {
 	// 行（0 以上、高さ − 1 以下）
 	Y int `json:"y"`
 }
+
+// 通行料の倍率
+type TollMultiplierEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// 倍率（百分率。150 で 1.5 倍。1 以上）
+	Percent int `json:"percent"`
+}
+
+func (TollMultiplierEffect) IsEffect() {}
+
+// 効果の種類
+func (this TollMultiplierEffect) GetKind() EffectKind { return this.Kind }
 
 // 対の相手のいない転送円・橋がある（公開するボードのすべての転送円・橋に、対の相手がいる）。拠点の数によらず判定する
 type UnpairedTilesProblem struct {
@@ -2623,6 +3392,19 @@ func (UnreachableTilesProblem) IsBoardPublishProblem() {}
 // 開発者向けの説明（画面にそのまま出す文言ではない）
 func (this UnreachableTilesProblem) GetMessage() string { return this.Message }
 
+// 手札のクリーチャーをアイテムとして使える
+type UseCreatureAsItemEffect struct {
+	// 効果の種類
+	Kind EffectKind `json:"kind"`
+	// アイテムとして使えるクリーチャーの属性（属性のどれかが合えば使える。火・地・水・風・無の順。1 つ以上。指定の無い援護はすべての属性）
+	Elements []CreatureElement `json:"elements"`
+}
+
+func (UseCreatureAsItemEffect) IsEffect() {}
+
+// 効果の種類
+func (this UseCreatureAsItemEffect) GetKind() EffectKind { return this.Kind }
+
 // 入力の誤り（操作は行われていない）
 type ValidationErrors struct {
 	// 項目ごとの誤り（1 件以上）
@@ -2643,7 +3425,19 @@ func (ValidationErrors) IsChangeBoardDefaultRulesResult() {}
 
 func (ValidationErrors) IsCardsResult() {}
 
+func (ValidationErrors) IsChangeCardCostResult() {}
+
 func (ValidationErrors) IsRegisterCreatureResult() {}
+
+func (ValidationErrors) IsChangeCreatureElementsResult() {}
+
+func (ValidationErrors) IsChangeCreatureStatsResult() {}
+
+func (ValidationErrors) IsChangeCreatureEffectsResult() {}
+
+func (ValidationErrors) IsChangeCreatureItemRestrictionsResult() {}
+
+func (ValidationErrors) IsChangeCreaturePlacementRestrictionsResult() {}
 
 func (ValidationErrors) IsGrantDecksResult() {}
 
@@ -2658,6 +3452,10 @@ func (ValidationErrors) IsSetGrantDeckCardCountsResult() {}
 func (ValidationErrors) IsPublishGrantDeckResult() {}
 
 func (ValidationErrors) IsRegisterItemResult() {}
+
+func (ValidationErrors) IsChangeItemCategoryResult() {}
+
+func (ValidationErrors) IsChangeItemEffectsResult() {}
 
 func (ValidationErrors) IsNpcAvatarsResult() {}
 
@@ -2690,6 +3488,8 @@ func (ValidationErrors) IsRenamePresetDeckResult() {}
 func (ValidationErrors) IsSetPresetDeckCardCountsResult() {}
 
 func (ValidationErrors) IsRegisterSpellResult() {}
+
+func (ValidationErrors) IsChangeSpellEffectResult() {}
 
 func (ValidationErrors) IsStarterSetsResult() {}
 
@@ -2786,62 +3586,62 @@ func (e BoardStatus) MarshalJSON() ([]byte, error) {
 
 // 土地の属性。土地は必ずどれか 1 つを持つ（火属性の土地・地属性の土地 等）。拠点・チェックポイントは持たない。
 // 効き方（地形効果・連鎖・属性の変更のコスト等）は対戦の決まりで、ここでは決めない
-type BoardTileAttribute string
+type BoardTileElement string
 
 const (
 	// 火（火属性）
-	BoardTileAttributeFire BoardTileAttribute = "FIRE"
+	BoardTileElementFire BoardTileElement = "FIRE"
 	// 地（地属性）
-	BoardTileAttributeEarth BoardTileAttribute = "EARTH"
+	BoardTileElementEarth BoardTileElement = "EARTH"
 	// 水（水属性）
-	BoardTileAttributeWater BoardTileAttribute = "WATER"
+	BoardTileElementWater BoardTileElement = "WATER"
 	// 風（風属性）
-	BoardTileAttributeWind BoardTileAttribute = "WIND"
+	BoardTileElementWind BoardTileElement = "WIND"
 	// 無（無属性）
-	BoardTileAttributeNeutral BoardTileAttribute = "NEUTRAL"
+	BoardTileElementNeutral BoardTileElement = "NEUTRAL"
 	// 複（複属性）。火・地・水・風の 4 色のマークが描かれた特殊な土地。組み合わせは持たない（属性の値の 1 つ）
-	BoardTileAttributeMulti BoardTileAttribute = "MULTI"
+	BoardTileElementMulti BoardTileElement = "MULTI"
 )
 
-var AllBoardTileAttribute = []BoardTileAttribute{
-	BoardTileAttributeFire,
-	BoardTileAttributeEarth,
-	BoardTileAttributeWater,
-	BoardTileAttributeWind,
-	BoardTileAttributeNeutral,
-	BoardTileAttributeMulti,
+var AllBoardTileElement = []BoardTileElement{
+	BoardTileElementFire,
+	BoardTileElementEarth,
+	BoardTileElementWater,
+	BoardTileElementWind,
+	BoardTileElementNeutral,
+	BoardTileElementMulti,
 }
 
-func (e BoardTileAttribute) IsValid() bool {
+func (e BoardTileElement) IsValid() bool {
 	switch e {
-	case BoardTileAttributeFire, BoardTileAttributeEarth, BoardTileAttributeWater, BoardTileAttributeWind, BoardTileAttributeNeutral, BoardTileAttributeMulti:
+	case BoardTileElementFire, BoardTileElementEarth, BoardTileElementWater, BoardTileElementWind, BoardTileElementNeutral, BoardTileElementMulti:
 		return true
 	}
 	return false
 }
 
-func (e BoardTileAttribute) String() string {
+func (e BoardTileElement) String() string {
 	return string(e)
 }
 
-func (e *BoardTileAttribute) UnmarshalGQL(v any) error {
+func (e *BoardTileElement) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = BoardTileAttribute(str)
+	*e = BoardTileElement(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BoardTileAttribute", str)
+		return fmt.Errorf("%s is not a valid BoardTileElement", str)
 	}
 	return nil
 }
 
-func (e BoardTileAttribute) MarshalGQL(w io.Writer) {
+func (e BoardTileElement) MarshalGQL(w io.Writer) {
 	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
+func (e *BoardTileElement) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -2849,7 +3649,71 @@ func (e *BoardTileAttribute) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e BoardTileAttribute) MarshalJSON() ([]byte, error) {
+func (e BoardTileElement) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// カードの希少度
+type CardRarity string
+
+const (
+	// 画面では N
+	CardRarityNormal CardRarity = "NORMAL"
+	// 画面では S
+	CardRarityStrange CardRarity = "STRANGE"
+	// 画面では R
+	CardRarityRare CardRarity = "RARE"
+	// 画面では E
+	CardRarityExtra CardRarity = "EXTRA"
+)
+
+var AllCardRarity = []CardRarity{
+	CardRarityNormal,
+	CardRarityStrange,
+	CardRarityRare,
+	CardRarityExtra,
+}
+
+func (e CardRarity) IsValid() bool {
+	switch e {
+	case CardRarityNormal, CardRarityStrange, CardRarityRare, CardRarityExtra:
+		return true
+	}
+	return false
+}
+
+func (e CardRarity) String() string {
+	return string(e)
+}
+
+func (e *CardRarity) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CardRarity(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CardRarity", str)
+	}
+	return nil
+}
+
+func (e CardRarity) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CardRarity) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CardRarity) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -2975,6 +3839,286 @@ func (e CardType) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// クリーチャーの属性。火・地・水・風のうち 1〜4 つか、無の単独（無は火・地・水・風と組み合わせない）
+type CreatureElement string
+
+const (
+	// 火
+	CreatureElementFire CreatureElement = "FIRE"
+	// 地
+	CreatureElementEarth CreatureElement = "EARTH"
+	// 水
+	CreatureElementWater CreatureElement = "WATER"
+	// 風
+	CreatureElementWind CreatureElement = "WIND"
+	// 無
+	CreatureElementNeutral CreatureElement = "NEUTRAL"
+)
+
+var AllCreatureElement = []CreatureElement{
+	CreatureElementFire,
+	CreatureElementEarth,
+	CreatureElementWater,
+	CreatureElementWind,
+	CreatureElementNeutral,
+}
+
+func (e CreatureElement) IsValid() bool {
+	switch e {
+	case CreatureElementFire, CreatureElementEarth, CreatureElementWater, CreatureElementWind, CreatureElementNeutral:
+		return true
+	}
+	return false
+}
+
+func (e CreatureElement) String() string {
+	return string(e)
+}
+
+func (e *CreatureElement) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CreatureElement(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CreatureElement", str)
+	}
+	return nil
+}
+
+func (e CreatureElement) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CreatureElement) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CreatureElement) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 効果の制約の種類
+type EffectConstraintKind string
+
+const (
+	// 相手のクリーチャーの属性（戦う相手のクリーチャーの属性のどれかが合うとき）
+	EffectConstraintKindOpponentCreatureElement EffectConstraintKind = "OPPONENT_CREATURE_ELEMENT"
+)
+
+var AllEffectConstraintKind = []EffectConstraintKind{
+	EffectConstraintKindOpponentCreatureElement,
+}
+
+func (e EffectConstraintKind) IsValid() bool {
+	switch e {
+	case EffectConstraintKindOpponentCreatureElement:
+		return true
+	}
+	return false
+}
+
+func (e EffectConstraintKind) String() string {
+	return string(e)
+}
+
+func (e *EffectConstraintKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EffectConstraintKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EffectConstraintKind", str)
+	}
+	return nil
+}
+
+func (e EffectConstraintKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EffectConstraintKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EffectConstraintKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 破壊されたときの効果が発動する破壊（対戦の 3 つの破壊のイベントと対応する）
+type EffectDestruction string
+
+const (
+	// 戦闘で、侵略したクリーチャーとして破壊された
+	EffectDestructionInvading EffectDestruction = "INVADING"
+	// 戦闘で、領地を守るクリーチャーとして破壊された
+	EffectDestructionDefending EffectDestruction = "DEFENDING"
+	// 戦闘の外（スペルのダメージ等）で破壊された
+	EffectDestructionBoard EffectDestruction = "BOARD"
+)
+
+var AllEffectDestruction = []EffectDestruction{
+	EffectDestructionInvading,
+	EffectDestructionDefending,
+	EffectDestructionBoard,
+}
+
+func (e EffectDestruction) IsValid() bool {
+	switch e {
+	case EffectDestructionInvading, EffectDestructionDefending, EffectDestructionBoard:
+		return true
+	}
+	return false
+}
+
+func (e EffectDestruction) String() string {
+	return string(e)
+}
+
+func (e *EffectDestruction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EffectDestruction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EffectDestruction", str)
+	}
+	return nil
+}
+
+func (e EffectDestruction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EffectDestruction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EffectDestruction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 効果の種類
+type EffectKind string
+
+const (
+	// AT の増減（戦闘中、AT が決まった値だけ増減する）
+	EffectKindAttackModifier EffectKind = "ATTACK_MODIFIER"
+	// HP の増減（戦闘中、HP が決まった値だけ増減する）
+	EffectKindHitPointsModifier EffectKind = "HIT_POINTS_MODIFIER"
+	// AT の上書き（戦闘中、AT が最小〜最大のランダムな値になる。固定は最小と最大が同じ）
+	EffectKindAttackOverride EffectKind = "ATTACK_OVERRIDE"
+	// HP の上書き（戦闘中、HP が最小〜最大のランダムな値になる。固定は最小と最大が同じ）
+	EffectKindHitPointsOverride EffectKind = "HIT_POINTS_OVERRIDE"
+	// AT の倍率（制約を満たすとき、増減・上書きの後に AT に倍率を掛ける。発動したうち一番高い倍率を 1 回だけ）
+	EffectKindAttackMultiplier EffectKind = "ATTACK_MULTIPLIER"
+	// 地形効果を無視する（相手の地形効果を無視してダメージを与える）
+	EffectKindIgnoreTerrainEffect EffectKind = "IGNORE_TERRAIN_EFFECT"
+	// 先に攻撃する（戦闘で、先に攻撃する効果の無い相手より先に攻撃する。後に攻撃すると一緒には持てない）
+	EffectKindStrikeFirst EffectKind = "STRIKE_FIRST"
+	// 後に攻撃する（戦闘で、後に攻撃する効果の無い相手より後に攻撃する。先に攻撃すると一緒には持てない）
+	EffectKindStrikeLast EffectKind = "STRIKE_LAST"
+	// 受けるダメージを 0 にする（制約を満たす相手から攻撃を受けたとき、ダメージが 0 になる）
+	EffectKindNullifyReceivedDamage EffectKind = "NULLIFY_RECEIVED_DAMAGE"
+	// 通行料の倍率（いる領地の通行料を払うときに倍率を掛ける）
+	EffectKindTollMultiplier EffectKind = "TOLL_MULTIPLIER"
+	// 侵略できない（手札から侵略できず、移動で他人の領地にも入れない。守ることはできる）
+	EffectKindForbidInvasion EffectKind = "FORBID_INVASION"
+	// 移動できない（領地コマンドで動けない）
+	EffectKindForbidMovement EffectKind = "FORBID_MOVEMENT"
+	// 破壊されたら手札に戻る（選んだ破壊のとき、捨て札に入ったカードが持ち主の手札に戻る。手札が上限なら戻れない）
+	EffectKindReturnToHandOnDestruction EffectKind = "RETURN_TO_HAND_ON_DESTRUCTION"
+	// 破壊されたら魔力を得る（選んだ破壊のとき、持ち主が額の魔力を受け取る）
+	EffectKindGainMagicOnDestruction EffectKind = "GAIN_MAGIC_ON_DESTRUCTION"
+	// 手札のクリーチャーをアイテムとして使える（戦闘でアイテムの代わりに、属性が合う手札のクリーチャーを 1 枚出し、そのカードの AT・HP を足す。画面のラベルは援護）
+	EffectKindUseCreatureAsItem EffectKind = "USE_CREATURE_AS_ITEM"
+)
+
+var AllEffectKind = []EffectKind{
+	EffectKindAttackModifier,
+	EffectKindHitPointsModifier,
+	EffectKindAttackOverride,
+	EffectKindHitPointsOverride,
+	EffectKindAttackMultiplier,
+	EffectKindIgnoreTerrainEffect,
+	EffectKindStrikeFirst,
+	EffectKindStrikeLast,
+	EffectKindNullifyReceivedDamage,
+	EffectKindTollMultiplier,
+	EffectKindForbidInvasion,
+	EffectKindForbidMovement,
+	EffectKindReturnToHandOnDestruction,
+	EffectKindGainMagicOnDestruction,
+	EffectKindUseCreatureAsItem,
+}
+
+func (e EffectKind) IsValid() bool {
+	switch e {
+	case EffectKindAttackModifier, EffectKindHitPointsModifier, EffectKindAttackOverride, EffectKindHitPointsOverride, EffectKindAttackMultiplier, EffectKindIgnoreTerrainEffect, EffectKindStrikeFirst, EffectKindStrikeLast, EffectKindNullifyReceivedDamage, EffectKindTollMultiplier, EffectKindForbidInvasion, EffectKindForbidMovement, EffectKindReturnToHandOnDestruction, EffectKindGainMagicOnDestruction, EffectKindUseCreatureAsItem:
+		return true
+	}
+	return false
+}
+
+func (e EffectKind) String() string {
+	return string(e)
+}
+
+func (e *EffectKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = EffectKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid EffectKind", str)
+	}
+	return nil
+}
+
+func (e EffectKind) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *EffectKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e EffectKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // 配布デッキの状態。準備中は名前・カードを自由に変えられ、決まり（40 枚等）を満たさなくてよい。公開中は決まりを満たし、
 // 新しいプレイヤーに配る。使用不可は配らない（配り済みのデッキはプレイヤーの持ち物なので変わらない）
 type GrantDeckStatus string
@@ -3032,6 +4176,67 @@ func (e *GrantDeckStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e GrantDeckStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// アイテムの分類
+type ItemCategory string
+
+const (
+	// 武器
+	ItemCategoryWeapon ItemCategory = "WEAPON"
+	// 防具
+	ItemCategoryArmor ItemCategory = "ARMOR"
+	// 巻物
+	ItemCategoryScroll ItemCategory = "SCROLL"
+)
+
+var AllItemCategory = []ItemCategory{
+	ItemCategoryWeapon,
+	ItemCategoryArmor,
+	ItemCategoryScroll,
+}
+
+func (e ItemCategory) IsValid() bool {
+	switch e {
+	case ItemCategoryWeapon, ItemCategoryArmor, ItemCategoryScroll:
+		return true
+	}
+	return false
+}
+
+func (e ItemCategory) String() string {
+	return string(e)
+}
+
+func (e *ItemCategory) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ItemCategory(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ItemCategory", str)
+	}
+	return nil
+}
+
+func (e ItemCategory) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ItemCategory) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ItemCategory) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
