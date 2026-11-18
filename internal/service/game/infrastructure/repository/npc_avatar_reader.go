@@ -16,7 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/query"
 )
 
-// core_game の npc_avatars・npc_decks（make publish-master が studio の read model から写した表。アバターは公開中・使用不可、
+// core_game の npc_avatars・npc_decks・npc_mindsets（make publish-master が studio の read model から写した表。アバターと思考パターンは公開中・使用不可、
 // デッキは写したアバターに割り当てられたものだけ）のうち、公開中だけを読む。NPC のデッキは単独では使わず、アバターを通してだけ使う
 // （core#63）ので、デッキだけを問い合わせる入り口は持たない
 type NPCAvatarReader struct{}
@@ -32,6 +32,8 @@ type npcAvatarMetadata struct {
 	Name string `json:"name"`
 	// 無い行は、空にせず読み出しの誤りにするため、ポインターで受ける
 	Decks *[]uuid.UUID `json:"decks"`
+	// 思考パターンを足す前に投影した行には無い（Decks と同じ理由）
+	Mindsets *[]uuid.UUID `json:"mindsets"`
 }
 
 // 写した npc_decks.metadata のうち、読む項目
@@ -248,7 +250,10 @@ func toNPCAvatarRecord(id uuid.UUID, raw []byte) (query.NPCAvatarRecord, error) 
 	if metadata.Decks == nil {
 		return query.NPCAvatarRecord{}, fmt.Errorf("npc_avatars.metadata of %s: decks is missing", id)
 	}
-	return query.NPCAvatarRecord{ID: id, Name: metadata.Name, DeckIDs: *metadata.Decks}, nil
+	if metadata.Mindsets == nil {
+		return query.NPCAvatarRecord{}, fmt.Errorf("npc_avatars.metadata of %s: mindsets is missing (project the npc avatars again and publish the master)", id)
+	}
+	return query.NPCAvatarRecord{ID: id, Name: metadata.Name, DeckIDs: *metadata.Decks, MindsetIDs: *metadata.Mindsets}, nil
 }
 
 // 渡した ID のうち公開中のデッキを、カードの名前・種類つきで返す。デッキとカードを 1 回ずつ読む（アバターの数によらない）。
@@ -300,6 +305,37 @@ func (r *NPCAvatarReader) ListPublishedDecks(ctx context.Context, ids []uuid.UUI
 		decks = append(decks, query.NPCDeck{ID: deckID, Name: metadatas[i].Name, Cards: result})
 	}
 	return decks, nil
+}
+
+// 渡した ID のうち公開中の思考パターンを返す。名前だけを読む（重みは対戦を始めるときに MatchSourceReader が読む）
+func (r *NPCAvatarReader) ListPublishedMindsets(ctx context.Context, ids []uuid.UUID) ([]query.NPCMindset, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := models.NPCMindsets(
+		qm.WhereIn(models.NPCMindsetColumns.NPCMindsetID+" IN ?", uuidArgs(ids)...),
+		models.NPCMindsetWhere.Status.EQ(npcStatusPublished),
+	).All(ctx, exec)
+	if err != nil {
+		return nil, err
+	}
+	mindsets := make([]query.NPCMindset, 0, len(rows))
+	for _, row := range rows {
+		id, err := uuid.Parse(row.NPCMindsetID)
+		if err != nil {
+			return nil, fmt.Errorf("npc_mindsets.npc_mindset_id %q: %w", row.NPCMindsetID, err)
+		}
+		var metadata namedMetadata
+		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+			return nil, fmt.Errorf("npc_mindsets.metadata of %s: %w", id, err)
+		}
+		mindsets = append(mindsets, query.NPCMindset{ID: id, Name: metadata.Name})
+	}
+	return mindsets, nil
 }
 
 // デッキに入れたカードの公開 ID と枚数

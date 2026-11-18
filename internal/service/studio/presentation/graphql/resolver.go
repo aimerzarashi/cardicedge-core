@@ -102,9 +102,27 @@ type NPCAvatarHandler interface {
 	Register(ctx context.Context, name string) (command.ChangedNPCAvatar, error)
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedNPCAvatar, error)
 	SetDecks(ctx context.Context, id uuid.UUID, revision int64, deckIDs []uuid.UUID) (command.ChangedNPCAvatar, error)
+	SetMindsets(ctx context.Context, id uuid.UUID, revision int64, mindsetIDs []uuid.UUID) (command.ChangedNPCAvatar, error)
 	Delete(ctx context.Context, id uuid.UUID, revision int64) error
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCAvatar, error)
 	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCAvatar, error)
+}
+
+// 実装は command.NPCMindsetHandler
+type NPCMindsetHandler interface {
+	Register(ctx context.Context, name string) (command.ChangedNPCMindset, error)
+	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedNPCMindset, error)
+	SetActionWeights(ctx context.Context, id uuid.UUID, revision int64, weights []command.ActionWeightInput) (command.ChangedNPCMindset, error)
+	SetCriterionWeights(ctx context.Context, id uuid.UUID, revision int64, weights []command.CriterionWeightInput) (command.ChangedNPCMindset, error)
+	Delete(ctx context.Context, id uuid.UUID, revision int64) error
+	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCMindset, error)
+	Retire(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedNPCMindset, error)
+}
+
+// 実装は query.NPCMindsetHandler
+type NPCMindsetLister interface {
+	List(ctx context.Context, filter query.NPCMindsetFilter, first *int, after *string) (pagination.Connection[query.NPCMindset], error)
+	Get(ctx context.Context, id uuid.UUID) (query.NPCMindset, error)
 }
 
 // 実装は query.NPCAvatarHandler
@@ -174,6 +192,8 @@ type Resolver struct {
 	gameRules      GameRulesGetter
 	npcAvatars     NPCAvatarHandler
 	npcAvatarList  NPCAvatarLister
+	npcMindsets    NPCMindsetHandler
+	npcMindsetList NPCMindsetLister
 	npcDecks       NPCDeckHandler
 	npcDeckList    NPCDeckLister
 	starterSets    StarterSetHandler
@@ -196,6 +216,8 @@ func NewResolver(
 	gameRules GameRulesGetter,
 	npcAvatars NPCAvatarHandler,
 	npcAvatarList NPCAvatarLister,
+	npcMindsets NPCMindsetHandler,
+	npcMindsetList NPCMindsetLister,
 	npcDecks NPCDeckHandler,
 	npcDeckList NPCDeckLister,
 	starterSets StarterSetHandler,
@@ -205,6 +227,6 @@ func NewResolver(
 		creatures: creatures, items: items, spells: spells, cardCommands: cardCommands, presetDecks: presetDecks,
 		cards: cards, presetDeckList: presetDeckList, grantDecks: grantDecks, grantDeckList: grantDeckList,
 		boards: boards, boardList: boardList, studioRules: studioRules, gameRules: gameRules, npcAvatars: npcAvatars, npcAvatarList: npcAvatarList,
-		npcDecks: npcDecks, npcDeckList: npcDeckList, starterSets: starterSets, starterSetList: starterSetList,
+		npcMindsets: npcMindsets, npcMindsetList: npcMindsetList, npcDecks: npcDecks, npcDeckList: npcDeckList, starterSets: starterSets, starterSetList: starterSetList,
 	}
 }

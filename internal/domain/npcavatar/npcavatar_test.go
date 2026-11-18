@@ -16,6 +16,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 )
@@ -70,6 +72,20 @@ func (f fixture) renameCommand(t *testing.T, name string) *npcavatar.RenameComma
 func (f fixture) setDecksCommand(t *testing.T, decks ...int64) *npcavatar.SetDecksCommand {
 	t.Helper()
 	return &npcavatar.SetDecksCommand{Decks: deckIDs(t, decks...), ChangedBy: f.operatorID}
+}
+
+func (f fixture) setMindsetsCommand(t *testing.T, mindsets ...int64) *npcavatar.SetMindsetsCommand {
+	t.Helper()
+	return &npcavatar.SetMindsetsCommand{Mindsets: mindsetIDs(t, mindsets...), ChangedBy: f.operatorID}
+}
+
+func mindsetIDs(t *testing.T, values ...int64) []npcmindset.ID {
+	t.Helper()
+	ids := make([]npcmindset.ID, 0, len(values))
+	for _, value := range values {
+		ids = append(ids, npcmindsettest.ID(t, value))
+	}
+	return ids
 }
 
 func deckIDs(t *testing.T, values ...int64) []npcdeck.ID {
@@ -154,6 +170,9 @@ func TestDecide_EmitsNothingWhenNothingChanges(t *testing.T) {
 		{name: "same_decks", state: withDecks(t, f, 40, 41), cmd: f.setDecksCommand(t, 40, 41)},
 		{name: "same_decks_in_other_order", state: withDecks(t, f, 40, 41), cmd: f.setDecksCommand(t, 41, 40)},
 		{name: "no_decks_to_no_decks", state: f.register(t), cmd: f.setDecksCommand(t)},
+		{name: "same_mindsets", state: withMindsets(t, f, 60, 61), cmd: f.setMindsetsCommand(t, 60, 61)},
+		{name: "same_mindsets_in_other_order", state: withMindsets(t, f, 60, 61), cmd: f.setMindsetsCommand(t, 61, 60)},
+		{name: "no_mindsets_to_no_mindsets", state: f.register(t), cmd: f.setMindsetsCommand(t)},
 		{name: "publish_published", state: f.published(t), cmd: f.publishCommand()},
 		{name: "retire_retired", state: f.retired(t), cmd: f.retireCommand()},
 	}
@@ -223,6 +242,62 @@ func TestDecide_SetDecksCanClearList(t *testing.T) {
 	require.Empty(t, state.(npcavatar.NPCAvatar).Decks)
 }
 
+func withMindsets(t *testing.T, f fixture, mindsets ...int64) npcavatar.State {
+	t.Helper()
+	state, _ := apply(t, f.register(t), f.setMindsetsCommand(t, mindsets...), changedAt)
+	return state
+}
+
+// 割り当て方は SetDecks と同じ。外す → 割り当てるの順に出し、版はイベントの数だけ進む。デッキの割り当てとは独立している
+func TestDecide_SetMindsetsUnassignsMissingAndAssignsNewMindsets(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withMindsets(t, f, 60, 61), f.setMindsetsCommand(t, 62, 60), changedAt)
+
+	require.Equal(t, []npcavatar.Event{
+		&npcavatar.MindsetsUnassignedEvent{
+			EventMeta:    npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+			Mindsets:     mindsetIDs(t, 61),
+			UnassignedBy: f.operatorID,
+		},
+		&npcavatar.MindsetsAssignedEvent{
+			EventMeta:  npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 4, OccurredAt: changedAt},
+			Mindsets:   mindsetIDs(t, 62),
+			AssignedBy: f.operatorID,
+		},
+	}, events)
+	npcAvatar := state.(npcavatar.NPCAvatar)
+	require.Equal(t, mindsetIDs(t, 60, 62), npcAvatar.Mindsets)
+	require.Empty(t, npcAvatar.Decks)
+	require.Equal(t, int64(4), npcAvatar.Version)
+}
+
+func TestDecide_SetMindsetsOnlyAssignsWhenNothingIsRemoved(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withMindsets(t, f, 60), f.setMindsetsCommand(t, 60, 61), changedAt)
+
+	require.Equal(t, []npcavatar.Event{&npcavatar.MindsetsAssignedEvent{
+		EventMeta:  npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Mindsets:   mindsetIDs(t, 61),
+		AssignedBy: f.operatorID,
+	}}, events)
+	require.Equal(t, mindsetIDs(t, 60, 61), state.(npcavatar.NPCAvatar).Mindsets)
+}
+
+func TestDecide_SetMindsetsCanClearList(t *testing.T) {
+	f := newFixture(t)
+
+	state, events := apply(t, withMindsets(t, f, 60, 61), f.setMindsetsCommand(t), changedAt)
+
+	require.Equal(t, []npcavatar.Event{&npcavatar.MindsetsUnassignedEvent{
+		EventMeta:    npcavatar.EventMeta{EntityID: f.id, AggregateVersion: 3, OccurredAt: changedAt},
+		Mindsets:     mindsetIDs(t, 60, 61),
+		UnassignedBy: f.operatorID,
+	}}, events)
+	require.Empty(t, state.(npcavatar.NPCAvatar).Mindsets)
+}
+
 func TestDecide_PublishMakesPublished(t *testing.T) {
 	f := newFixture(t)
 
@@ -259,7 +334,7 @@ func TestDecide_RetireMakesRetiredOnlyFromPublished(t *testing.T) {
 	require.ErrorIs(t, err, npcavatar.ErrInvalidStatusTransition)
 }
 
-// 使われている間に名前・使うデッキが変わらないよう、準備中以外では変えられず、消せない。準備中に戻す操作も無い
+// 使われている間に名前・使うデッキと思考パターンが変わらないよう、準備中以外では変えられず、消せない。準備中に戻す操作も無い
 func TestDecide_RejectsRenameAndDeleteUnlessDraft(t *testing.T) {
 	f := newFixture(t)
 	commands := []struct {
@@ -268,6 +343,7 @@ func TestDecide_RejectsRenameAndDeleteUnlessDraft(t *testing.T) {
 	}{
 		{name: "rename", cmd: f.renameCommand(t, "森の番人")},
 		{name: "set_decks", cmd: f.setDecksCommand(t, 40)},
+		{name: "set_mindsets", cmd: f.setMindsetsCommand(t, 60)},
 		{name: "delete", cmd: f.deleteCommand()},
 	}
 	states := []struct {
@@ -309,6 +385,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 	}{
 		{name: "rename", cmd: f.renameCommand(t, "森の番人")},
 		{name: "set_decks", cmd: f.setDecksCommand(t, 40)},
+		{name: "set_mindsets", cmd: f.setMindsetsCommand(t, 60)},
 		{name: "publish", cmd: f.publishCommand()},
 		{name: "retire", cmd: f.retireCommand()},
 		{name: "delete", cmd: f.deleteCommand()},
@@ -395,6 +472,8 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&npcavatar.RenamedEvent{EventMeta: meta, Name: npcavatartest.Name(t, "森の番人"), RenamedBy: f.operatorID},
 		&npcavatar.DecksAssignedEvent{EventMeta: meta, Decks: deckIDs(t, 40, 41), AssignedBy: f.operatorID},
 		&npcavatar.DecksUnassignedEvent{EventMeta: meta, Decks: deckIDs(t, 40), UnassignedBy: f.operatorID},
+		&npcavatar.MindsetsAssignedEvent{EventMeta: meta, Mindsets: mindsetIDs(t, 60, 61), AssignedBy: f.operatorID},
+		&npcavatar.MindsetsUnassignedEvent{EventMeta: meta, Mindsets: mindsetIDs(t, 60), UnassignedBy: f.operatorID},
 		&npcavatar.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
 		&npcavatar.RetiredEvent{EventMeta: meta, RetiredBy: f.operatorID},
 		&npcavatar.DeletedEvent{EventMeta: meta, DeletedBy: f.operatorID},

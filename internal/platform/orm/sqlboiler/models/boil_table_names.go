@@ -28,6 +28,7 @@ var TableNames = struct {
 	GrantDecks                 string
 	NPCAvatars                 string
 	NPCDecks                   string
+	NPCMindsets                string
 	Players                    string
 	PresetDecks                string
 	Rooms                      string
@@ -59,6 +60,7 @@ var TableNames = struct {
 	GrantDecks:                 "grant_decks",
 	NPCAvatars:                 "npc_avatars",
 	NPCDecks:                   "npc_decks",
+	NPCMindsets:                "npc_mindsets",
 	Players:                    "players",
 	PresetDecks:                "preset_decks",
 	Rooms:                      "rooms",

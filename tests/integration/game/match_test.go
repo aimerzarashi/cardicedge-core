@@ -82,7 +82,7 @@ func startMatchWithSeats(t *testing.T, p roomPlayer, withPlayer bool, npcs int, 
 	}
 	for seat := firstNPCSeat; seat < firstNPCSeat+npcs; seat++ {
 		revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-			"id": id, "revision": revision, "seat": seat, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"],
+			"id": id, "revision": revision, "seat": seat, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"], "mindsetId": p.npcMindset()["id"],
 		}), "changeRoomSeatChoice")
 	}
 	revision = roomRevision(t, roomOperation(t, p.token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
@@ -1133,4 +1133,39 @@ func requireDeltaWithinModifier(t *testing.T, basis map[string]any, attackDelta,
 	if basis["hitPointsModifier"].(float64) >= 0 {
 		require.Equal(t, basis["hitPointsModifier"], hitPointsDelta)
 	}
+}
+
+// 始めた後に studio で重みを変えても同じ対戦を再生できるよう、NPC の席が選んだ思考パターンの ID と重みの値が、
+// 始まった対戦の NPC の参加者に写る（対戦の作成のイベントを、保存された payload で確かめる）
+func TestMatch_CopiesTheMindsetOfTheChosenNPCSeatToTheNPCParticipant(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID, _ := startMatchWithSeats(t, p, true, 1, nil)
+
+	var raw []byte
+	err := gameDB.QueryRowContext(t.Context(),
+		`SELECT e.payload FROM domain_events e JOIN domain_entities d ON d.id = e.entity_id WHERE d.public_id = $1 AND e.aggregate_version = 1`, matchID).Scan(&raw)
+
+	require.NoError(t, err)
+	var created struct {
+		Participants []struct {
+			NPC *struct {
+				Mindset struct {
+					ID               int64          `json:"id"`
+					ActionWeights    map[string]int `json:"action_weights"`
+					CriterionWeights map[string]int `json:"criterion_weights"`
+				} `json:"mindset"`
+			} `json:"npc"`
+		} `json:"participants"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &created))
+	require.Len(t, created.Participants, 2)
+	require.Nil(t, created.Participants[0].NPC)
+	copied := created.Participants[1].NPC.Mindset
+	require.Equal(t, master.NPCAvatars.InternalMindsetPublished1.Int64(), copied.ID)
+	require.Len(t, copied.ActionWeights, 19)
+	for _, weight := range copied.ActionWeights {
+		require.Equal(t, 2, weight)
+	}
+	require.Equal(t, map[string]int{"total_magic_lead": 3, "territory_count": 1, "battle_hold": 1, "magic_reserve": 1}, copied.CriterionWeights)
 }

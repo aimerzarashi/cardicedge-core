@@ -12,6 +12,8 @@ type NpcAvatar {
   status: NpcAvatarStatus!
   "使う NPC のデッキ（割り当てた順。準備中のあいだは 0 件でもよく、公開中にするには公開中のデッキが 1 つ以上要る。使用不可にしたデッキも、外すまで含まれる）"
   decks: [NpcDeck!]!
+  "使う NPC の思考パターン（割り当てた順。0 件でもよく、アバターの公開に条件は無い。使用不可にした思考パターンも、外すまで含まれる）。部屋の NPC の席で、デッキと一緒にこの中から 1 つ選ぶ"
+  mindsets: [NpcMindset!]!
   "更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）"
   revision: Int!
   "登録した日時"
@@ -53,7 +55,7 @@ type InvalidNpcAvatarStatusTransitionError {
   message: String!
 }
 
-"準備中でない NPC のアバターの名前・使うデッキを変える、または削除しようとした（準備中のものだけ変えられる）"
+"準備中でない NPC のアバターの名前・使うデッキ・使う思考パターンを変える、または削除しようとした（準備中のものだけ変えられる）"
 type NpcAvatarNotDraftError {
   "開発者向けの説明（画面にそのまま出す文言ではない）"
   message: String!
@@ -183,6 +185,37 @@ union SetNpcAvatarDecksResult =
   | RevisionConflictError
   | ForbiddenError
 
+"NPC のアバターに使う思考パターンを割り当てる入力"
+input SetNpcAvatarMindsetsInput {
+  "NPC のアバターの公開用の ID"
+  id: UUID!
+  "画面が見ていた NPC のアバターの revision"
+  revision: Int!
+  "使う NPC の思考パターンの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じ思考パターンは 2 回入れられない。新しく入れる思考パターンは公開中のものだけ）"
+  mindsetIds: [UUID!]!
+}
+
+"NPC のアバターに使う思考パターンを割り当てた（同じ思考パターンの集まりなら何も変えず、revision も進まない）"
+type SetNpcAvatarMindsetsSuccess {
+  "変えた NPC のアバターの公開用の ID"
+  id: UUID!
+  "変えた NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）"
+  revision: Int!
+}
+
+"""
+NPC のアバターへの使う思考パターンの割り当ての結果（準備中のものだけ変えられる）。
+入力の誤りは ValidationErrors（項目名は mindsetIds.<番号>。同じ思考パターンの 2 つ目以降は重複、無い・削除した思考パターンは存在しない、
+新しく入れる公開中でない思考パターンは使えない）
+"""
+union SetNpcAvatarMindsetsResult =
+    SetNpcAvatarMindsetsSuccess
+  | ValidationErrors
+  | NpcAvatarNotFoundError
+  | NpcAvatarNotDraftError
+  | RevisionConflictError
+  | ForbiddenError
+
 "NPC のアバターを削除する入力"
 input DeleteNpcAvatarInput {
   "NPC のアバターの公開用の ID"
@@ -273,6 +306,11 @@ extend type Mutation {
     "変える内容"
     input: SetNpcAvatarDecksInput!
   ): SetNpcAvatarDecksResult!
+  "NPC のアバターに使う思考パターンを割り当てる（今の割り当てを、渡した一覧に置き換える。外すのも同じ操作。準備中のものだけ。紐づいたオペレーターだけ）"
+  setNpcAvatarMindsets(
+    "変える内容"
+    input: SetNpcAvatarMindsetsInput!
+  ): SetNpcAvatarMindsetsResult!
   "NPC のアバターを削除する（準備中のものだけ。紐づいたオペレーターだけ）"
   deleteNpcAvatar(
     "削除する NPC のアバター"

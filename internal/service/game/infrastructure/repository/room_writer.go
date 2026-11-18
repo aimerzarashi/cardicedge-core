@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
@@ -112,7 +113,8 @@ func roomRefs(state readmodel.Room) []domain.EntityRef {
 		if seat.Choice.NPC != nil {
 			refs = append(refs,
 				domain.NewEntityRef(npcavatar.Types().EntityType, seat.Choice.NPC.Avatar.Int64()),
-				domain.NewEntityRef(npcdeck.Types().EntityType, seat.Choice.NPC.Deck.Int64()))
+				domain.NewEntityRef(npcdeck.Types().EntityType, seat.Choice.NPC.Deck.Int64()),
+				domain.NewEntityRef(npcmindset.Types().EntityType, seat.Choice.NPC.Mindset.Int64()))
 		}
 	}
 	if state.MatchRules != nil {
@@ -164,6 +166,10 @@ func roomMetadata(state readmodel.Room, lookup func(domain.EntityRef) (uuid.UUID
 				deckID = publicID(npcdeck.Types().EntityType, choice.NPC.Deck.Int64())
 			}
 			seatMetadata.Avatar, seatMetadata.Deck = &avatarID, &deckID
+			if choice.NPC != nil {
+				mindsetID := publicID(npcmindset.Types().EntityType, choice.NPC.Mindset.Int64())
+				seatMetadata.Mindset = &mindsetID
+			}
 		}
 		metadata.Seats[i] = seatMetadata
 	}

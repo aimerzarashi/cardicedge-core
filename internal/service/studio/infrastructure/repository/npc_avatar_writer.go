@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -33,10 +34,13 @@ func (w *NPCAvatarWriter) Upsert(ctx context.Context, npcAvatar readmodel.NPCAva
 	}
 	registeredByRef := domain.NewEntityRef(operator.Types().EntityType, npcAvatar.RegisteredBy.Int64())
 	updatedByRef := domain.NewEntityRef(operator.Types().EntityType, npcAvatar.UpdatedBy.Int64())
-	refs := make([]domain.EntityRef, 0, len(npcAvatar.Decks)+2)
+	refs := make([]domain.EntityRef, 0, len(npcAvatar.Decks)+len(npcAvatar.Mindsets)+2)
 	refs = append(refs, registeredByRef, updatedByRef)
 	for _, deck := range npcAvatar.Decks {
 		refs = append(refs, domain.NewEntityRef(npcdeck.Types().EntityType, deck.Int64()))
+	}
+	for _, mindset := range npcAvatar.Mindsets {
+		refs = append(refs, domain.NewEntityRef(npcmindset.Types().EntityType, mindset.Int64()))
 	}
 	publicIDs, err := w.entityRefs.PublicIDs(ctx, refs)
 	if err != nil {
@@ -50,6 +54,14 @@ func (w *NPCAvatarWriter) Upsert(ctx context.Context, npcAvatar readmodel.NPCAva
 			return errors.New("repository: deck of npc avatar has no public id")
 		}
 		metadata.Decks = append(metadata.Decks, publicID)
+	}
+	metadata.Mindsets = make([]uuid.UUID, 0, len(npcAvatar.Mindsets))
+	for _, mindset := range npcAvatar.Mindsets {
+		publicID, ok := publicIDs[domain.NewEntityRef(npcmindset.Types().EntityType, mindset.Int64())]
+		if !ok {
+			return errors.New("repository: mindset of npc avatar has no public id")
+		}
+		metadata.Mindsets = append(metadata.Mindsets, publicID)
 	}
 	var registeredOK, updatedOK bool
 	metadata.RegisteredBy, registeredOK = publicIDs[registeredByRef]

@@ -14,7 +14,7 @@ import (
 
 const roomFields = `id name revision status
 	participants { playerId owner ready }
-	seats { kind playerId avatar { id name } deck { id name } }
+	seats { kind playerId avatar { id name } deck { id name } mindset { id name } }
 	matchRules { board { id name } targetMagic startingMagic lapBonus checkpointBonus roundLimit diceMin diceMax baseLandValue lapBonusPerTerritory }`
 
 // 見ている人にできる操作（部屋の詳細だけが返す）
@@ -222,6 +222,11 @@ func newRoomPlayer(t *testing.T) roomPlayer {
 	return player
 }
 
+// 選んだ NPC のアバターに割り当てた公開中の思考パターンの先頭（割り当てた順）
+func (p roomPlayer) npcMindset() map[string]any {
+	return p.npc["mindsets"].([]any)[0].(map[string]any)
+}
+
 func (p roomPlayer) rulesInput(id string, revision int, boardID any) map[string]any {
 	return map[string]any{
 		"id": id, "revision": revision, "boardId": boardID,
@@ -253,7 +258,7 @@ func TestRoom_CreatesDecidesConditionsPublishesAndDeclaresReady(t *testing.T) {
 		"id": id, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.deck["id"],
 	}), "changeRoomSeatChoice")
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-		"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"],
+		"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"], "mindsetId": p.npcMindset()["id"],
 	}), "changeRoomSeatChoice")
 	decided := waitRoom(t, p.token, id, revision)
 	published := roomRevision(t, roomOperation(t, p.token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
@@ -268,8 +273,8 @@ func TestRoom_CreatesDecidesConditionsPublishesAndDeclaresReady(t *testing.T) {
 	}, created)
 	npcDeck := p.npc["decks"].([]any)[0].(map[string]any)
 	require.Equal(t, []any{
-		map[string]any{"kind": "PLAYER", "playerId": p.playerID, "avatar": idAndName(p.avatar), "deck": idAndName(p.deck)},
-		map[string]any{"kind": "NPC", "playerId": nil, "avatar": idAndName(p.npc), "deck": idAndName(npcDeck)},
+		map[string]any{"kind": "PLAYER", "playerId": p.playerID, "avatar": idAndName(p.avatar), "deck": idAndName(p.deck), "mindset": nil},
+		map[string]any{"kind": "NPC", "playerId": nil, "avatar": idAndName(p.npc), "deck": idAndName(npcDeck), "mindset": idAndName(p.npcMindset())},
 	}, decided["seats"])
 	require.Equal(t, rulesResult(p.board), decided["matchRules"])
 	require.Equal(t, "PREPARING", preparing["status"])
@@ -292,7 +297,7 @@ func TestRoom_DecidesWhatWasNotDecidedBeforePublishInPreparingAndLocksAfterReady
 	}), "changeRoomSeatChoice")
 	revision = roomRevision(t, roomOperation(t, p.token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
 	npcChoice := func(revision int) map[string]any {
-		return map[string]any{"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"]}
+		return map[string]any{"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"], "mindsetId": p.npcMindset()["id"]}
 	}
 
 	notDecided := roomOperation(t, p.token, "declareRoomReady", map[string]any{"id": id, "revision": revision})
@@ -417,7 +422,7 @@ func TestRoom_CapabilitiesFollowWhatTheOwnerCanDoThroughTheLifecycle(t *testing.
 	// 公開前に決めた席は固定され、決めなかった席と対戦ルールは準備中に決められる。担当の分が決まるまで、準備完了は押せない
 	require.Equal(t, want(false, true, false, false, true, true), capabilities(revision, false, true))
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-		"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"],
+		"id": id, "revision": revision, "seat": 1, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"], "mindsetId": p.npcMindset()["id"],
 	}), "changeRoomSeatChoice")
 	require.Equal(t, want(false, true, false, false, true, true), capabilities(revision, false, true))
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomMatchRules", p.rulesInput(id, revision, p.board["id"])), "changeRoomMatchRules")
@@ -494,10 +499,12 @@ func TestRoom_ChangeSeatChoiceReturnsValidationErrorsForValuesThatAreNotSelectab
 	stranger := newRoomPlayer(t)
 	id, revision := createRoom(t, p.token)
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeats", map[string]any{"id": id, "revision": revision, "seats": []string{"PLAYER", "NPC"}}), "changeRoomSeats")
-	choose := func(seat int, avatarID, deckID any) []any {
-		result := roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-			"id": id, "revision": revision, "seat": seat, "avatarId": avatarID, "deckId": deckID,
-		})
+	choose := func(seat int, avatarID, deckID any, mindsetID ...any) []any {
+		input := map[string]any{"id": id, "revision": revision, "seat": seat, "avatarId": avatarID, "deckId": deckID}
+		if len(mindsetID) > 0 {
+			input["mindsetId"] = mindsetID[0]
+		}
+		result := roomOperation(t, p.token, "changeRoomSeatChoice", input)
 		require.Equal(t, "ValidationErrors", result["__typename"])
 		return result["errors"].([]any)
 	}
@@ -512,8 +519,19 @@ func TestRoom_ChangeSeatChoiceReturnsValidationErrorsForValuesThatAreNotSelectab
 	// 解放していない NPC は、公開中でも選べない。アバターが選べないときは、デッキを確かめない
 	require.Equal(t, []any{notFound("avatarId")}, choose(1, master.NPCAvatars.PublishedLocked.String(), master.NPCAvatars.DeckPublished1.String()))
 	// 割り当てていない（公開中でも）・割り当てたが準備中のデッキは選べない
-	require.Equal(t, []any{notFound("deckId")}, choose(1, p.npc["id"], master.NPCAvatars.DeckUnassigned.String()))
-	require.Equal(t, []any{notFound("deckId")}, choose(1, p.npc["id"], p.deck["id"]))
+	require.Equal(t, []any{notFound("deckId")}, choose(1, p.npc["id"], master.NPCAvatars.DeckUnassigned.String(), p.npcMindset()["id"]))
+	require.Equal(t, []any{notFound("deckId")}, choose(1, p.npc["id"], p.deck["id"], p.npcMindset()["id"]))
+	// NPC の席は思考パターンが必須。割り当てていない（公開中でも）・割り当てたが準備中・使用不可・無い思考パターンは選べない
+	required := map[string]any{"__typename": "FieldRequired", "field": "mindsetId"}
+	require.Equal(t, []any{required}, choose(1, p.npc["id"], npcDeck))
+	notAssigned := []string{master.NPCAvatars.MindsetUnassigned.String(), master.NPCAvatars.MindsetDraft.String(), master.NPCAvatars.MindsetRetired.String(), uuid.NewString()}
+	for _, mindsetID := range notAssigned {
+		require.Equal(t, []any{notFound("mindsetId")}, choose(1, p.npc["id"], npcDeck, mindsetID))
+	}
+	// デッキも思考パターンも選べないときは、両方の誤りを返す
+	require.Equal(t, []any{notFound("deckId"), notFound("mindsetId")}, choose(1, p.npc["id"], p.deck["id"], uuid.NewString()))
+	// プレイヤーの席に思考パターンは付けられない
+	require.Equal(t, []any{map[string]any{"__typename": "FieldInvalidFormat", "field": "mindsetId"}}, choose(0, p.avatar["id"], p.deck["id"], p.npcMindset()["id"]))
 	require.Equal(t, []any{map[string]any{"__typename": "FieldOutOfRange", "field": "seat", "min": float64(0), "max": float64(1)}},
 		choose(2, p.avatar["id"], p.deck["id"]))
 }

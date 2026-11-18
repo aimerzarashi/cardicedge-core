@@ -100,7 +100,7 @@ func (r *mutationResolver) ChangeRoomSeatChoice(ctx context.Context, input model
 	if notRegistered := requirePlayer(ctx); notRegistered != nil {
 		return notRegistered, nil
 	}
-	changed, err := r.rooms.ChangeSeatChoice(ctx, input.ID, int64(input.Revision), input.Seat, input.AvatarID, input.DeckID)
+	changed, err := r.rooms.ChangeSeatChoice(ctx, input.ID, int64(input.Revision), input.Seat, input.AvatarID, input.DeckID, input.MindsetID)
 	if invalid := validationErrors(err); invalid != nil {
 		return invalid, nil
 	}

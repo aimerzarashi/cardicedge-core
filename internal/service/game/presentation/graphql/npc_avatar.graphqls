@@ -10,6 +10,19 @@ type NpcAvatar {
   name: String!
   "使うデッキ（割り当てた順。公開中のものだけ）"
   decks: [NpcDeck!]!
+  "使う思考パターン（割り当てた順。公開中のものだけ）。部屋の NPC の席で、デッキと一緒にこの中から 1 つ選ぶ"
+  mindsets: [NpcMindset!]!
+}
+
+"""
+NPC の思考パターン（公開中のもの）。NPC のアバターを通してだけ出る。行動の種類ごとの重みと採点基準ごとの重みは、
+対戦を始めるときに NPC の参加者へ写され、NPC が選ぶのに使う（game の画面には出さない）
+"""
+type NpcMindset {
+  "公開用の ID"
+  id: UUID!
+  "名前"
+  name: String!
 }
 
 "NPC のデッキ（公開中のもの）。NPC のアバターを通してだけ出る"

@@ -16,6 +16,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 )
 
 // テストでも値の型は生成関数で作る（factory_enforcer）
@@ -266,4 +268,14 @@ func (b *BattleInputBuilder) Rules(adjacentTerritoryBonus, terrainBonusPerLevel 
 
 func (b *BattleInputBuilder) Input() match.BattleInput {
 	return b.input
+}
+
+// 既定の重み（すべて 1）の思考パターンの写し。重みを変えるテストは、返した値の項目を書き換える（map は新しく作って返す）
+func NPCMindset(t testing.TB, id int64) match.NPCMindset {
+	t.Helper()
+	return match.NPCMindset{
+		ID:               npcmindsettest.ID(t, id),
+		ActionWeights:    npcmindset.DefaultActionWeights(),
+		CriterionWeights: npcmindset.DefaultCriterionWeights(),
+	}
 }

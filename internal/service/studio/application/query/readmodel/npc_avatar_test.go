@@ -11,6 +11,8 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -127,6 +129,21 @@ func TestNPCAvatar_DecksAssignedAndUnassignedChangeDecksRevisionAndUpdater(t *te
 	require.Equal(t, npcAvatarChangedAt, replaced.Metadata.UpdatedAt)
 	require.Equal(t, operatortest.ID(t, 12), replaced.UpdatedBy)
 	require.Equal(t, operatortest.ID(t, 10), replaced.RegisteredBy)
+}
+
+// 思考パターンもデッキと同じ。割り当てると割り当てた順に後ろへ足し、外すと除く。どちらも版と更新した人・日時を変える
+func TestNPCAvatar_MindsetsAssignedAndUnassignedChangeMindsetsRevisionAndUpdater(t *testing.T) {
+	h := newNPCAvatarHistory(t, uuid.New(), "森の番人")
+	h.apply(&npcavatar.SetMindsetsCommand{Mindsets: []npcmindset.ID{npcmindsettest.ID(t, 61), npcmindsettest.ID(t, 60)}, ChangedBy: operatortest.ID(t, 11)}, npcAvatarChangedAt)
+	assigned := h.project()
+	h.apply(&npcavatar.SetMindsetsCommand{Mindsets: []npcmindset.ID{npcmindsettest.ID(t, 62)}, ChangedBy: operatortest.ID(t, 12)}, npcAvatarChangedAt)
+	replaced := h.project()
+
+	require.Equal(t, []npcmindset.ID{npcmindsettest.ID(t, 61), npcmindsettest.ID(t, 60)}, assigned.Mindsets)
+	require.Equal(t, []npcmindset.ID{npcmindsettest.ID(t, 62)}, replaced.Mindsets)
+	require.Empty(t, replaced.Decks)
+	require.Equal(t, int64(4), replaced.Metadata.Revision)
+	require.Equal(t, operatortest.ID(t, 12), replaced.UpdatedBy)
 }
 
 func TestNPCAvatar_DeletedEventMakesTerminal(t *testing.T) {

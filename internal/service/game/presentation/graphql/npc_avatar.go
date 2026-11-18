@@ -18,5 +18,9 @@ func fromQueryNPCAvatar(avatar query.NPCAvatar) (*model.NpcAvatar, error) {
 		}
 		decks = append(decks, &model.NpcDeck{ID: deck.ID, Name: deck.Name, Cards: cards, TotalCount: deck.TotalCount()})
 	}
-	return &model.NpcAvatar{ID: avatar.ID, Name: avatar.Name, Decks: decks}, nil
+	mindsets := make([]*model.NpcMindset, 0, len(avatar.Mindsets))
+	for _, mindset := range avatar.Mindsets {
+		mindsets = append(mindsets, &model.NpcMindset{ID: mindset.ID, Name: mindset.Name})
+	}
+	return &model.NpcAvatar{ID: avatar.ID, Name: avatar.Name, Decks: decks, Mindsets: mindsets}, nil
 }

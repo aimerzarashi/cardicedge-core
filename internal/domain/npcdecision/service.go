@@ -1,7 +1,7 @@
-// NPC の思考パターン（考え方）。対戦の状態と選べるものから、NPC が送るコマンドを 1 つ選ぶ。
+// NPC の判断。対戦の状態と選べるものから、NPC が送るコマンドを 1 つ選ぶ（選ぶ重みは、NPC の参加者に写した思考パターン npcmindset から読む）。
 // 決まり（できるか）は match の Decide と選択肢（ActionChoices 等）だけが持ち、ここは選べるものの中から選ぶだけにする
 // （決まりを NPC の側に書き写さないため。設計メモ「NPC の考え方」）
-package npcmind
+package npcdecision
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
 // 引く・捨てる・振る前・行き先は、山札の順とサイコロ（隠れた情報）で結果が変わり、後の状態を当てると先に見ることになるので、採点せず
@@ -26,34 +28,39 @@ func scored(phase match.Phase) bool {
 
 // 点の付かない段階では、操作を待っている参加者が今選べる行動の種類から、重みに比例して 1 つを選び、その種類の対象は均等に選ぶ（2026-11-17 オーナー。
 // core#179・core#187）。選べるものを全部 1 列に並べて引かないのは、候補の多い種類（レベルアップ・移動等）ばかりが選ばれないようにするため。
-// 重みがどれも同じなら完全ランダム（DefaultWeights）
-func Choose(current match.Match, by match.ParticipantIndex, weights Weights, criterionWeights CriterionWeights, random match.Random) (match.Command, error) {
+// 重みがどれも同じなら完全ランダム。
+// 重みは引数で受けず、NPC の参加者に写した思考パターンから読む（studio のマスタを直接読むと、記録したイベントだけで同じ対戦を再生できなくなるため）
+func Choose(current match.Match, by match.ParticipantIndex, random match.Random) (match.Command, error) {
+	if by.Int() >= len(current.Participants) || current.Participants[by].Participant.NPC == nil {
+		return nil, fmt.Errorf("npcdecision: participant %d: %w", by, ErrNotNPC)
+	}
+	mindset := current.Participants[by].Participant.NPC.Mindset
 	actions := current.ActionChoices()
 	if len(actions) == 0 {
-		return nil, fmt.Errorf("npcmind: no action choices: %w", match.ErrInvalidState)
+		return nil, fmt.Errorf("npcdecision: no action choices: %w", match.ErrInvalidState)
 	}
 	if scored(current.Phase) {
 		candidates, err := candidatesOf(current, by, actions)
 		if err != nil {
 			return nil, err
 		}
-		scores, err := scoreCandidates(current, by, candidates, criterionWeights, random)
+		scores, err := scoreCandidates(current, by, candidates, mindset.CriterionWeights, random)
 		if err != nil {
 			return nil, err
 		}
 		return pickBest(candidates, scores, random), nil
 	}
-	action := chooseAction(actions, weights, random)
+	action := chooseAction(actions, mindset.ActionWeights, random)
 	cmd, ok := command(current, by, action, random)
 	if !ok {
-		return nil, fmt.Errorf("npcmind: no targets for action %q: %w", action, match.ErrInvalidState)
+		return nil, fmt.Errorf("npcdecision: no targets for action %q: %w", action, match.ErrInvalidState)
 	}
 	return cmd, nil
 }
 
 // 重みの合計から 1 つ引き、並びの順に重みを積んで当たった種類を選ぶ。選べる種類の重みがすべて 0 なら均等に選ぶ
 // （通行料を払うしか選べない場面で払うの重みが 0 でも、止まらないようにするため）
-func chooseAction(actions []match.Action, weights Weights, random match.Random) match.Action {
+func chooseAction(actions []matchaction.Action, weights npcmindset.ActionWeights, random match.Random) matchaction.Action {
 	total := 0
 	for _, action := range actions {
 		total += weights[action].Int()
@@ -81,18 +88,18 @@ func pick[T any](random match.Random, choices []T) (T, bool) {
 
 // 種類ごとに対象を選んでコマンドを作る。一覧にある種類なら対象は空でない（match の ActionChoices の決まり）ので、
 // 空なら false を返して誤りにする
-func command(current match.Match, by match.ParticipantIndex, action match.Action, random match.Random) (match.Command, bool) {
+func command(current match.Match, by match.ParticipantIndex, action matchaction.Action, random match.Random) (match.Command, bool) {
 	switch action {
-	case match.ActionDrawCard:
+	case matchaction.ActionDrawCard:
 		return &match.DrawCommand{By: by}, true
-	case match.ActionDiscardCard:
+	case matchaction.ActionDiscardCard:
 		// 捨てる手札には選択肢の関数が無い（手札のどれでも捨てられる）
 		hand := current.Participants[by].Hand
 		if len(hand) == 0 {
 			return nil, false
 		}
 		return &match.DiscardCommand{By: by, HandIndex: random.IntN(len(hand))}, true
-	case match.ActionUseSpell:
+	case matchaction.ActionUseSpell:
 		choice, ok := pick(random, current.SpellChoices())
 		if !ok {
 			return nil, false
@@ -105,48 +112,48 @@ func command(current match.Match, by match.ParticipantIndex, action match.Action
 			cmd.TargetPosition = &position
 		}
 		return cmd, true
-	case match.ActionRollDice:
+	case matchaction.ActionRollDice:
 		return &match.RollCommand{By: by}, true
-	case match.ActionChoosePath:
+	case matchaction.ActionChoosePath:
 		to, ok := pick(random, current.PathChoices())
 		return &match.ChoosePathCommand{By: by, To: to}, ok
-	case match.ActionPlaceCreature:
+	case matchaction.ActionPlaceCreature:
 		handIndex, ok := pick(random, current.PlaceChoices())
 		return &match.PlaceCreatureCommand{By: by, HandIndex: handIndex}, ok
-	case match.ActionInvadeTerritory:
+	case matchaction.ActionInvadeTerritory:
 		handIndex, ok := pick(random, current.InvadeChoices())
 		return &match.InvadeCommand{By: by, HandIndex: handIndex}, ok
-	case match.ActionPayToll:
+	case matchaction.ActionPayToll:
 		return &match.PayTollCommand{By: by}, true
-	case match.ActionLevelUpLand:
+	case matchaction.ActionLevelUpLand:
 		choice, ok := pick(random, current.LevelUpChoices())
 		return &match.LevelUpLandCommand{By: by, Position: choice.Position, Level: choice.Level}, ok
-	case match.ActionExchangeCreature:
+	case matchaction.ActionExchangeCreature:
 		choice, ok := pick(random, current.ExchangeChoices())
 		return &match.ExchangeCreatureCommand{By: by, Position: choice.Position, HandIndex: choice.HandIndex}, ok
-	case match.ActionChangeLandElement:
+	case matchaction.ActionChangeLandElement:
 		choice, ok := pick(random, current.ElementChangeChoices())
 		return &match.ChangeLandElementCommand{By: by, Position: choice.Position, Element: choice.Element}, ok
-	case match.ActionMoveCreature:
+	case matchaction.ActionMoveCreature:
 		choice, ok := pick(random, current.MoveChoices())
 		return &match.MoveCreatureCommand{By: by, From: choice.From, To: choice.To}, ok
-	case match.ActionAttackWithItem:
+	case matchaction.ActionAttackWithItem:
 		handIndex, ok := pick(random, current.ItemChoices())
 		return &match.AttackCommand{By: by, ItemHandIndex: &handIndex}, ok
-	case match.ActionAttackWithoutItem:
+	case matchaction.ActionAttackWithoutItem:
 		return &match.AttackCommand{By: by}, true
-	case match.ActionDefendWithItem:
+	case matchaction.ActionDefendWithItem:
 		handIndex, ok := pick(random, current.ItemChoices())
 		return &match.DefendCommand{By: by, ItemHandIndex: &handIndex}, ok
-	case match.ActionDefendWithoutItem:
+	case matchaction.ActionDefendWithoutItem:
 		return &match.DefendCommand{By: by}, true
-	case match.ActionUseCreatureAsItem:
+	case matchaction.ActionUseCreatureAsItem:
 		handIndex, ok := pick(random, current.CreatureAsItemChoices())
 		return &match.UseCreatureAsItemCommand{By: by, HandIndex: handIndex}, ok
-	case match.ActionRelinquishTerritory:
+	case matchaction.ActionRelinquishTerritory:
 		position, ok := pick(random, current.RelinquishChoices())
 		return &match.RelinquishTerritoryCommand{By: by, Position: position}, ok
-	case match.ActionEndTurn:
+	case matchaction.ActionEndTurn:
 		return &match.EndTurnCommand{By: by}, true
 	default:
 		return nil, false
@@ -159,7 +166,7 @@ const battleSamples = 8
 // 候補ごとに、今の状態の写しにコマンドを当てた後の状態で測る（決まりを NPC の側に書き写さないため）。
 // match.Evolve は変えるスライスと map を先に Clone してから変えるので、Match の値のまま渡せば元の状態は変わらない（テストで確かめる）。
 // Decide に渡す now はイベントの発生時刻にしか使われず、ここで出すイベントは捨てるので、ゼロ値でよい
-func scoreCandidates(current match.Match, by match.ParticipantIndex, candidates []match.Command, weights CriterionWeights, random match.Random) ([]float64, error) {
+func scoreCandidates(current match.Match, by match.ParticipantIndex, candidates []match.Command, weights npcmindset.CriterionWeights, random match.Random) ([]float64, error) {
 	floor := 0
 	for _, territory := range current.Territories {
 		floor = max(floor, current.TerritoryToll(territory))
@@ -173,7 +180,7 @@ func scoreCandidates(current match.Match, by match.ParticipantIndex, candidates 
 		values[i] = samples
 	}
 	scores := make([]float64, len(candidates))
-	for c, criterion := range Criteria() {
+	for c, criterion := range npcmindset.Criteria() {
 		low, high := values[0][c], values[0][c]
 		for _, v := range values {
 			low, high = min(low, v[c]), max(high, v[c])
@@ -201,7 +208,7 @@ func measure(current match.Match, by match.ParticipantIndex, cmd match.Command, 
 			return values(after, by, floor, nil), nil
 		}
 	}
-	total := make([]float64, len(Criteria()))
+	total := make([]float64, len(npcmindset.Criteria()))
 	for range battleSamples {
 		// 選択肢どうしを同じ乱数の列で比べるため、乱数の元から種だけ引く
 		seed := uint64(random.IntN(1 << 30))
@@ -238,13 +245,13 @@ func battlePosition(states ...match.Match) *match.Territory {
 func apply(current match.Match, cmd match.Command, random match.Random) (match.Match, error) {
 	events, err := match.Decide(current, cmd, time.Time{}, random)
 	if err != nil {
-		return match.Match{}, fmt.Errorf("npcmind: candidate %T is rejected: %w", cmd, err)
+		return match.Match{}, fmt.Errorf("npcdecision: candidate %T is rejected: %w", cmd, err)
 	}
 	var state match.State = current
 	for _, event := range events {
 		state, err = match.Evolve(state, event)
 		if err != nil {
-			return match.Match{}, fmt.Errorf("npcmind: candidate %T cannot be applied: %w", cmd, err)
+			return match.Match{}, fmt.Errorf("npcdecision: candidate %T cannot be applied: %w", cmd, err)
 		}
 	}
 	return state.(match.Match), nil
@@ -275,7 +282,7 @@ func settle(current match.Match, by match.ParticipantIndex, seed uint64) (match.
 		}
 	}
 	if !found {
-		return match.Match{}, fmt.Errorf("npcmind: no battle options: %w", match.ErrInvalidState)
+		return match.Match{}, fmt.Errorf("npcdecision: no battle options: %w", match.ErrInvalidState)
 	}
 	return best, nil
 }
@@ -324,16 +331,16 @@ func values(state match.Match, by match.ParticipantIndex, floor int, position *m
 			}
 		}
 	}
-	result := make([]float64, len(Criteria()))
-	for c, criterion := range Criteria() {
+	result := make([]float64, len(npcmindset.Criteria()))
+	for c, criterion := range npcmindset.Criteria() {
 		switch criterion {
-		case CriterionTotalMagicLead:
+		case npcmindset.CriterionTotalMagicLead:
 			result[c] = totalMagicLead(state, by)
-		case CriterionTerritoryCount:
+		case npcmindset.CriterionTerritoryCount:
 			result[c] = float64(state.TerritoryCount(by))
-		case CriterionBattleHold:
+		case npcmindset.CriterionBattleHold:
 			result[c] = hold
-		case CriterionMagicReserve:
+		case npcmindset.CriterionMagicReserve:
 			result[c] = float64(min(state.Participants[by].Magic, floor))
 		}
 	}
@@ -341,64 +348,64 @@ func values(state match.Match, by match.ParticipantIndex, floor int, position *m
 }
 
 // 場面の候補を全部並べる。対象のある種類は、対象のすべての組みを並べる
-func candidatesOf(current match.Match, by match.ParticipantIndex, actions []match.Action) ([]match.Command, error) {
+func candidatesOf(current match.Match, by match.ParticipantIndex, actions []matchaction.Action) ([]match.Command, error) {
 	var candidates []match.Command
 	for _, action := range actions {
 		switch action {
-		case match.ActionPlaceCreature:
+		case matchaction.ActionPlaceCreature:
 			for _, handIndex := range current.PlaceChoices() {
 				candidates = append(candidates, &match.PlaceCreatureCommand{By: by, HandIndex: handIndex})
 			}
-		case match.ActionInvadeTerritory:
+		case matchaction.ActionInvadeTerritory:
 			for _, handIndex := range current.InvadeChoices() {
 				candidates = append(candidates, &match.InvadeCommand{By: by, HandIndex: handIndex})
 			}
-		case match.ActionPayToll:
+		case matchaction.ActionPayToll:
 			candidates = append(candidates, &match.PayTollCommand{By: by})
-		case match.ActionLevelUpLand:
+		case matchaction.ActionLevelUpLand:
 			for _, choice := range current.LevelUpChoices() {
 				candidates = append(candidates, &match.LevelUpLandCommand{By: by, Position: choice.Position, Level: choice.Level})
 			}
-		case match.ActionExchangeCreature:
+		case matchaction.ActionExchangeCreature:
 			for _, choice := range current.ExchangeChoices() {
 				candidates = append(candidates, &match.ExchangeCreatureCommand{By: by, Position: choice.Position, HandIndex: choice.HandIndex})
 			}
-		case match.ActionChangeLandElement:
+		case matchaction.ActionChangeLandElement:
 			for _, choice := range current.ElementChangeChoices() {
 				candidates = append(candidates, &match.ChangeLandElementCommand{By: by, Position: choice.Position, Element: choice.Element})
 			}
-		case match.ActionMoveCreature:
+		case matchaction.ActionMoveCreature:
 			for _, choice := range current.MoveChoices() {
 				candidates = append(candidates, &match.MoveCreatureCommand{By: by, From: choice.From, To: choice.To})
 			}
-		case match.ActionAttackWithItem:
+		case matchaction.ActionAttackWithItem:
 			for _, handIndex := range current.ItemChoices() {
 				candidates = append(candidates, &match.AttackCommand{By: by, ItemHandIndex: &handIndex})
 			}
-		case match.ActionAttackWithoutItem:
+		case matchaction.ActionAttackWithoutItem:
 			candidates = append(candidates, &match.AttackCommand{By: by})
-		case match.ActionDefendWithItem:
+		case matchaction.ActionDefendWithItem:
 			for _, handIndex := range current.ItemChoices() {
 				candidates = append(candidates, &match.DefendCommand{By: by, ItemHandIndex: &handIndex})
 			}
-		case match.ActionDefendWithoutItem:
+		case matchaction.ActionDefendWithoutItem:
 			candidates = append(candidates, &match.DefendCommand{By: by})
-		case match.ActionUseCreatureAsItem:
+		case matchaction.ActionUseCreatureAsItem:
 			for _, handIndex := range current.CreatureAsItemChoices() {
 				candidates = append(candidates, &match.UseCreatureAsItemCommand{By: by, HandIndex: handIndex})
 			}
-		case match.ActionRelinquishTerritory:
+		case matchaction.ActionRelinquishTerritory:
 			for _, position := range current.RelinquishChoices() {
 				candidates = append(candidates, &match.RelinquishTerritoryCommand{By: by, Position: position})
 			}
-		case match.ActionEndTurn:
+		case matchaction.ActionEndTurn:
 			candidates = append(candidates, &match.EndTurnCommand{By: by})
 		default:
-			return nil, fmt.Errorf("npcmind: action %q is not scored: %w", action, match.ErrInvalidState)
+			return nil, fmt.Errorf("npcdecision: action %q is not scored: %w", action, match.ErrInvalidState)
 		}
 	}
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("npcmind: no candidates: %w", match.ErrInvalidState)
+		return nil, fmt.Errorf("npcdecision: no candidates: %w", match.ErrInvalidState)
 	}
 	return candidates, nil
 }

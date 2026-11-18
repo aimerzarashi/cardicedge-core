@@ -145,7 +145,7 @@ func sampleEvents(t *testing.T) []match.Event {
 	return []match.Event{
 		&match.CreatedEvent{EventMeta: eventMeta(t, 1), Board: lineBoard(t), Rules: matchtest.Rules(t, 1, 6, 1), Participants: []match.Participant{
 			match.NewPlayerParticipant(playertest.ID(t, 10), avatartest.ID(t, 1), decktest.ID(t, 2), dragonCard(t)),
-			match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), dragonCard(t)),
+			match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), dragonCard(t)),
 		}},
 		&match.TurnOrderDecidedEvent{EventMeta: eventMeta(t, 2), Order: []match.ParticipantIndex{by, matchtest.Index(t, 0)}},
 		&match.DrawPilesShuffledEvent{EventMeta: eventMeta(t, 3), DrawPiles: [][]card.Ref{{dragon, dragon, dragon}, {dragon, dragon, dragon}}},

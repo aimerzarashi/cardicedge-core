@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 )
 
@@ -66,9 +67,9 @@ func PlayerChoice(t testing.TB, avatarID, deckID int64) room.SeatChoice {
 	return room.NewPlayerSeatChoice(avatartest.ID(t, avatarID), decktest.ID(t, deckID))
 }
 
-func NPCChoice(t testing.TB, npcAvatarID, npcDeckID int64) room.SeatChoice {
+func NPCChoice(t testing.TB, npcAvatarID, npcDeckID, npcMindsetID int64) room.SeatChoice {
 	t.Helper()
-	return room.NewNPCSeatChoice(npcavatartest.ID(t, npcAvatarID), npcdecktest.ID(t, npcDeckID))
+	return room.NewNPCSeatChoice(npcavatartest.ID(t, npcAvatarID), npcdecktest.ID(t, npcDeckID), npcmindsettest.ID(t, npcMindsetID))
 }
 
 // ボードの既定のルールの登録の直後の値

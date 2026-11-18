@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -58,6 +59,23 @@ type DecksUnassignedEvent struct {
 	UnassignedBy operator.ID  `json:"unassigned_by"`
 }
 
+// 割り当てた思考パターン（今の一覧に無かったもの）。DecksAssignedEvent と同じ形で、一覧の後ろに足す。
+// 思考パターンは別の集約を指すため内部 ID で持つ
+type MindsetsAssignedEvent struct {
+	EventMeta   `json:"-"`
+	eventMarker `json:"-"`
+	Mindsets    []npcmindset.ID `json:"mindsets"`
+	AssignedBy  operator.ID     `json:"assigned_by"`
+}
+
+// 割り当てを外した思考パターン（今の一覧にあったもの）
+type MindsetsUnassignedEvent struct {
+	EventMeta    `json:"-"`
+	eventMarker  `json:"-"`
+	Mindsets     []npcmindset.ID `json:"mindsets"`
+	UnassignedBy operator.ID     `json:"unassigned_by"`
+}
+
 type PublishedEvent struct {
 	EventMeta   `json:"-"`
 	eventMarker `json:"-"`
@@ -77,13 +95,15 @@ type DeletedEvent struct {
 }
 
 var (
-	registeredEventType      = domain.NewEventName("RegisteredEvent")
-	renamedEventType         = domain.NewEventName("RenamedEvent")
-	decksAssignedEventType   = domain.NewEventName("DecksAssignedEvent")
-	decksUnassignedEventType = domain.NewEventName("DecksUnassignedEvent")
-	publishedEventType       = domain.NewEventName("PublishedEvent")
-	retiredEventType         = domain.NewEventName("RetiredEvent")
-	deletedEventType         = domain.NewEventName("DeletedEvent")
+	registeredEventType         = domain.NewEventName("RegisteredEvent")
+	renamedEventType            = domain.NewEventName("RenamedEvent")
+	decksAssignedEventType      = domain.NewEventName("DecksAssignedEvent")
+	decksUnassignedEventType    = domain.NewEventName("DecksUnassignedEvent")
+	mindsetsAssignedEventType   = domain.NewEventName("MindsetsAssignedEvent")
+	mindsetsUnassignedEventType = domain.NewEventName("MindsetsUnassignedEvent")
+	publishedEventType          = domain.NewEventName("PublishedEvent")
+	retiredEventType            = domain.NewEventName("RetiredEvent")
+	deletedEventType            = domain.NewEventName("DeletedEvent")
 )
 
 func (*RegisteredEvent) EventType() domain.EventName {
@@ -100,6 +120,14 @@ func (*DecksAssignedEvent) EventType() domain.EventName {
 
 func (*DecksUnassignedEvent) EventType() domain.EventName {
 	return decksUnassignedEventType
+}
+
+func (*MindsetsAssignedEvent) EventType() domain.EventName {
+	return mindsetsAssignedEventType
+}
+
+func (*MindsetsUnassignedEvent) EventType() domain.EventName {
+	return mindsetsUnassignedEventType
 }
 
 func (*PublishedEvent) EventType() domain.EventName {
@@ -131,6 +159,14 @@ func (*DecksUnassignedEvent) SchemaVersion() int {
 	return 1
 }
 
+func (*MindsetsAssignedEvent) SchemaVersion() int {
+	return 1
+}
+
+func (*MindsetsUnassignedEvent) SchemaVersion() int {
+	return 1
+}
+
 func (*PublishedEvent) SchemaVersion() int {
 	return 1
 }
@@ -147,7 +183,7 @@ func Types() domain.AggregateTypes {
 	return domain.AggregateTypes{
 		EntityType: entityType,
 		EventTypes: []domain.EventName{
-			registeredEventType, renamedEventType, deletedEventType, publishedEventType, retiredEventType, decksAssignedEventType, decksUnassignedEventType,
+			registeredEventType, renamedEventType, deletedEventType, publishedEventType, retiredEventType, decksAssignedEventType, decksUnassignedEventType, mindsetsAssignedEventType, mindsetsUnassignedEventType,
 		},
 	}
 }
@@ -169,6 +205,10 @@ func (t EventType) Unmarshal(meta EventMeta, _ int, payload []byte) (Event, erro
 		event = &DecksAssignedEvent{EventMeta: meta}
 	case EventType(decksUnassignedEventType):
 		event = &DecksUnassignedEvent{EventMeta: meta}
+	case EventType(mindsetsAssignedEventType):
+		event = &MindsetsAssignedEvent{EventMeta: meta}
+	case EventType(mindsetsUnassignedEventType):
+		event = &MindsetsUnassignedEvent{EventMeta: meta}
 	case EventType(publishedEventType):
 		event = &PublishedEvent{EventMeta: meta}
 	case EventType(retiredEventType):

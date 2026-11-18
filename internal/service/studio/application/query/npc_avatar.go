@@ -29,6 +29,8 @@ type NPCAvatar struct {
 	UpdatedBy    uuid.UUID
 	// 使う NPC のデッキの公開 ID（集約が持つ順）
 	Decks []uuid.UUID
+	// 使う NPC の思考パターンの公開 ID（集約が持つ順）
+	Mindsets []uuid.UUID
 }
 
 // Statuses が nil なら絞り込まない。空のリストは入力の誤り（CardFilter と同じ）

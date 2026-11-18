@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room/roomtest"
@@ -36,9 +37,9 @@ func issueEntity[I domain.ID](t *testing.T, f playerFixture, newID domain.NewIDF
 
 // 部屋の read model の状態と、席・対戦ルールが指す公開 ID。名前を引く元の行（avatars・decks・npc_avatars・npc_decks・boards）も入れてある
 type seededRoom struct {
-	state                                                                           readmodel.Room
-	roomPublicID, ownerPublicID                                                     uuid.UUID
-	avatarPublicID, deckPublicID, npcAvatarPublicID, npcDeckPublicID, boardPublicID uuid.UUID
+	state                                                                                               readmodel.Room
+	roomPublicID, ownerPublicID                                                                         uuid.UUID
+	avatarPublicID, deckPublicID, npcAvatarPublicID, npcDeckPublicID, npcMindsetPublicID, boardPublicID uuid.UUID
 }
 
 // 準備中で、プレイヤーの席（アリスと火のデッキ）と NPC の席（ゴリガンとゴリガンのデッキ）を選び、対戦ルール（ボードはチュートリアル）を決め、
@@ -61,11 +62,13 @@ func seedRoom(t *testing.T, f playerFixture, owner player.ID, ownerPublicID uuid
 	insertNamedNPCAvatar(t, f.ctx, npcAvatarPublicID, "ゴリガン")
 	npcDeckID, npcDeckPublicID := issueEntity(t, f, npcdeck.NewID)
 	insertNamedNPCDeck(t, f.ctx, npcDeckPublicID, "ゴリガンのデッキ")
+	npcMindsetID, npcMindsetPublicID := issueEntity(t, f, npcmindset.NewID)
+	insertNamedNPCMindset(t, f.ctx, npcMindsetPublicID, "攻めがち")
 	boardID, boardPublicID := issueBoardEntity(t, f.ctx)
 	insertNamedBoard(t, f.ctx, boardPublicID, "チュートリアル")
 
 	playerChoice := room.NewPlayerSeatChoice(avatarID, deckID)
-	npcChoice := room.NewNPCSeatChoice(npcAvatarID, npcDeckID)
+	npcChoice := room.NewNPCSeatChoice(npcAvatarID, npcDeckID, npcMindsetID)
 	matchRules := roomtest.MatchRules(t, boardID)
 	state := readmodel.Room{
 		Room: roomID, Owner: owner, Name: roomtest.Name(t, "ゴリガンと対戦"), Status: readmodel.RoomStatusPreparing, Revision: 8,
@@ -79,7 +82,7 @@ func seedRoom(t *testing.T, f playerFixture, owner player.ID, ownerPublicID uuid
 	return seededRoom{
 		state:        state,
 		roomPublicID: roomPublicID, ownerPublicID: ownerPublicID,
-		avatarPublicID: avatarPublicID, deckPublicID: deckPublicID, npcAvatarPublicID: npcAvatarPublicID, npcDeckPublicID: npcDeckPublicID, boardPublicID: boardPublicID,
+		avatarPublicID: avatarPublicID, deckPublicID: deckPublicID, npcAvatarPublicID: npcAvatarPublicID, npcDeckPublicID: npcDeckPublicID, npcMindsetPublicID: npcMindsetPublicID, boardPublicID: boardPublicID,
 	}
 }
 
@@ -120,7 +123,7 @@ func TestRoomWriter_WritesPublicIDsOfEveryInternalIDInColumnsAndMetadata(t *test
 		ID: seeded.roomPublicID, Name: "ゴリガンと対戦", Status: readmodel.RoomStatusPreparing, Revision: 8, Owner: ownerPublicID,
 		Seats: []readmodel.RoomSeatMetadata{
 			{Kind: room.SeatKindPlayer, Player: &ownerPublicID, Avatar: &seeded.avatarPublicID, Deck: &seeded.deckPublicID},
-			{Kind: room.SeatKindNPC, Avatar: &seeded.npcAvatarPublicID, Deck: &seeded.npcDeckPublicID},
+			{Kind: room.SeatKindNPC, Avatar: &seeded.npcAvatarPublicID, Deck: &seeded.npcDeckPublicID, Mindset: &seeded.npcMindsetPublicID},
 		},
 		MatchRules: &readmodel.RoomMatchRulesMetadata{
 			Board: seeded.boardPublicID, TargetMagic: matchRules.TargetMagic, StartingMagic: matchRules.StartingMagic, LapBonus: matchRules.LapBonus,
@@ -209,7 +212,7 @@ func TestRoomReader_GetReturnsRoomWithNamesJoinedAtReadTime(t *testing.T) {
 		Participants: []query.RoomParticipant{{PlayerID: ownerPublicID, Owner: true, Ready: true}}, Matches: []uuid.UUID{},
 		Seats: []query.RoomSeat{
 			{Kind: query.RoomSeatKindPlayer, Player: &ownerPublicID, Avatar: &query.RoomNamed{ID: seeded.avatarPublicID, Name: "アリス"}, Deck: &query.RoomNamed{ID: seeded.deckPublicID, Name: "火のデッキ"}},
-			{Kind: query.RoomSeatKindNPC, Avatar: &query.RoomNamed{ID: seeded.npcAvatarPublicID, Name: "ゴリガン"}, Deck: &query.RoomNamed{ID: seeded.npcDeckPublicID, Name: "ゴリガンのデッキ"}},
+			{Kind: query.RoomSeatKindNPC, Avatar: &query.RoomNamed{ID: seeded.npcAvatarPublicID, Name: "ゴリガン"}, Deck: &query.RoomNamed{ID: seeded.npcDeckPublicID, Name: "ゴリガンのデッキ"}, Mindset: &query.RoomNamed{ID: seeded.npcMindsetPublicID, Name: "攻めがち"}},
 		},
 		MatchRules: &query.RoomMatchRules{
 			Board:       boardNamed,
