@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -173,10 +174,11 @@ type PlayerSeatChoice struct {
 	Deck   deck.ID   `json:"deck"`
 }
 
-// NPC の席の選択。デッキは、そのアバターに割り当てた NPC のデッキ
+// NPC の席の選択。デッキと思考パターンは、そのアバターに割り当てたもの。NPC は必ず思考パターンを持つ
 type NPCSeatChoice struct {
-	Avatar npcavatar.ID `json:"avatar"`
-	Deck   npcdeck.ID   `json:"deck"`
+	Avatar  npcavatar.ID  `json:"avatar"`
+	Deck    npcdeck.ID    `json:"deck"`
+	Mindset npcmindset.ID `json:"mindset"`
 }
 
 // 席のアバターとデッキの選択。席の種類に合う側 1 つだけを持つ（項目をまたぐ決まりがあるので生成関数でだけ作る）。
@@ -190,8 +192,8 @@ func NewPlayerSeatChoice(avatarID avatar.ID, deckID deck.ID) SeatChoice {
 	return SeatChoice{Player: &PlayerSeatChoice{Avatar: avatarID, Deck: deckID}}
 }
 
-func NewNPCSeatChoice(npcAvatarID npcavatar.ID, npcDeckID npcdeck.ID) SeatChoice {
-	return SeatChoice{NPC: &NPCSeatChoice{Avatar: npcAvatarID, Deck: npcDeckID}}
+func NewNPCSeatChoice(npcAvatarID npcavatar.ID, npcDeckID npcdeck.ID, npcMindsetID npcmindset.ID) SeatChoice {
+	return SeatChoice{NPC: &NPCSeatChoice{Avatar: npcAvatarID, Deck: npcDeckID, Mindset: npcMindsetID}}
 }
 
 // どの席の種類の選択か。どちらも持たない値は読み直しでしか起きないので、プレイヤーの席の選択とみなさない（空にする）

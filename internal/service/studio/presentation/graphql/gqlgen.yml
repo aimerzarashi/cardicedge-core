@@ -46,6 +46,8 @@ models:
     fields:
       decks:
         resolver: true
+      mindsets:
+        resolver: true
   # grantDecks・unlockBoards は resolver で返す（公開 ID から配布デッキ・ボードを引いてから並べるため。core#92）
   StarterSet:
     model:

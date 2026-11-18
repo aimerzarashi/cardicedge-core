@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/studiorules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
@@ -34,7 +35,9 @@ type master struct {
 	GrantDecks []string `json:"grant_decks"`
 	// 登録してレイアウトを入れ、公開する。公開の条件を満たすボードだけを書く
 	Boards []masterBoard `json:"boards"`
-	// 登録して使う NPC のデッキを割り当て、公開する NPC のアバター
+	// 登録して採点基準ごとの重みを入れ、公開する NPC の思考パターン。行動の種類ごとの重みは登録のときの値（すべて 1）のまま
+	NPCMindsets []masterNPCMindset `json:"npc_mindsets"`
+	// 登録して使う NPC のデッキと思考パターンを割り当て、公開する NPC のアバター
 	NPCAvatars []masterNPCAvatar `json:"npc_avatars"`
 	// プリセットデッキから、元と同じ名前を指定して写して、公開する NPC のデッキ。プリセットデッキの名前で書く
 	NPCDecks []string `json:"npc_decks"`
@@ -55,6 +58,15 @@ type masterStarterSet struct {
 type masterNPCAvatar struct {
 	Name  string   `json:"name"`
 	Decks []string `json:"decks"`
+	// npc_mindsets に書いた名前。公開するのに思考パターンは要らないので、無くてもよい
+	Mindsets []string `json:"mindsets"`
+}
+
+// 採点基準ごとの重み。キーは採点基準の値（total_magic_lead・territory_count・battle_hold・magic_reserve）で、すべてを書く。
+// 重みの範囲と基準の名前は domain の関数で確かめる
+type masterNPCMindset struct {
+	Name             string         `json:"name"`
+	CriterionWeights map[string]int `json:"criterion_weights"`
 }
 
 // 性能は準備中の間に入れてから公開する（公開した後は変えられないため）。属性・攻撃力・体力はクリーチャーだけが持つ
@@ -426,7 +438,11 @@ func (m master) validate() error {
 	if err != nil {
 		return err
 	}
-	if err := m.validateNPCAvatars(npcDeckNames); err != nil {
+	npcMindsetNames, err := m.validateNPCMindsets()
+	if err != nil {
+		return err
+	}
+	if err := m.validateNPCAvatars(npcDeckNames, npcMindsetNames); err != nil {
 		return err
 	}
 	return m.validateStarterSets(starterNames)
@@ -517,7 +533,7 @@ func (m master) validateBoards() error {
 }
 
 // 名前の決まりは domain の npcavatar.NewName で確かめる（ここに長さを書き写さない）。重なりは登録の入口と同じ比べ方で見つける
-func (m master) validateNPCAvatars(npcDeckNames map[string]bool) error {
+func (m master) validateNPCAvatars(npcDeckNames, npcMindsetNames map[string]bool) error {
 	names := map[string]bool{}
 	for _, a := range m.NPCAvatars {
 		validName, err := npcavatar.NewName(a.Name)
@@ -542,8 +558,51 @@ func (m master) validateNPCAvatars(npcDeckNames map[string]bool) error {
 			}
 			decks[deck] = true
 		}
+		mindsets := map[string]bool{}
+		for _, mindset := range a.Mindsets {
+			if !npcMindsetNames[mindset] {
+				return fmt.Errorf("npc avatar %q: unknown npc mindset %q", a.Name, mindset)
+			}
+			if mindsets[mindset] {
+				return fmt.Errorf("npc avatar %q: mindset %q is duplicated", a.Name, mindset)
+			}
+			mindsets[mindset] = true
+		}
 	}
 	return nil
+}
+
+// 名前と重みの決まりは domain の npcmindset の関数で確かめる。確かめた名前（そのままの表記）の集まりを返す（NPC のアバターが指すため）
+func (m master) validateNPCMindsets() (map[string]bool, error) {
+	names := map[string]bool{}
+	keys := map[string]bool{}
+	for _, mindset := range m.NPCMindsets {
+		validName, err := npcmindset.NewName(mindset.Name)
+		if err != nil {
+			return nil, fmt.Errorf("npc mindset %q: %w", mindset.Name, err)
+		}
+		key := domain.NormalizeName(validName.String())
+		if keys[key] {
+			return nil, fmt.Errorf("npc mindset %q: duplicated", mindset.Name)
+		}
+		keys[key] = true
+		names[mindset.Name] = true
+		for _, criterion := range npcmindset.Criteria() {
+			value, ok := mindset.CriterionWeights[string(criterion)]
+			if !ok {
+				return nil, fmt.Errorf("npc mindset %q: no weight of criterion %q", mindset.Name, criterion)
+			}
+			if _, err := npcmindset.NewWeight(value); err != nil {
+				return nil, fmt.Errorf("npc mindset %q: criterion %q: %w", mindset.Name, criterion, err)
+			}
+		}
+		for key := range mindset.CriterionWeights {
+			if _, err := npcmindset.NewCriterion(key); err != nil {
+				return nil, fmt.Errorf("npc mindset %q: %w", mindset.Name, err)
+			}
+		}
+	}
+	return names, nil
 }
 
 // 確かめた NPC のデッキの名前の集まりを返す（NPC のアバターが指すため）

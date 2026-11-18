@@ -30,6 +30,9 @@ func selectableOf(avatars []query.Avatar, decks []query.Deck, npcAvatars []query
 					for _, deck := range avatar.Decks {
 						record.DeckIDs = append(record.DeckIDs, deck.ID)
 					}
+					for _, mindset := range avatar.Mindsets {
+						record.MindsetIDs = append(record.MindsetIDs, mindset.ID)
+					}
 					records = append(records, record)
 				}
 				return records, nil
@@ -47,6 +50,19 @@ func selectableOf(avatars []query.Avatar, decks []query.Deck, npcAvatars []query
 				}
 				return found, nil
 			},
+			func(_ context.Context, ids []uuid.UUID) ([]query.NPCMindset, error) {
+				found := []query.NPCMindset{}
+				for _, avatar := range npcAvatars {
+					for _, mindset := range avatar.Mindsets {
+						for _, id := range ids {
+							if mindset.ID == id {
+								found = append(found, mindset)
+							}
+						}
+					}
+				}
+				return found, nil
+			},
 		),
 		query.NewUnlockHandler(func(context.Context, uuid.UUID) ([]query.Board, error) { return boards, nil }),
 	)
@@ -56,7 +72,8 @@ func TestRoomSelectable_AcceptsOnlyWhatTheSelectionQueriesShow(t *testing.T) {
 	avatar := query.Avatar{ID: uuid.New(), Name: "アリス"}
 	deck := query.Deck{ID: uuid.New(), Name: "火"}
 	npcDeck := query.NPCDeck{ID: uuid.New(), Name: "ゴリガンのデッキ"}
-	npcAvatar := query.NPCAvatar{ID: uuid.New(), Name: "ゴリガン", Decks: []query.NPCDeck{npcDeck}}
+	npcMindset := query.NPCMindset{ID: uuid.New(), Name: "攻めがち"}
+	npcAvatar := query.NPCAvatar{ID: uuid.New(), Name: "ゴリガン", Decks: []query.NPCDeck{npcDeck}, Mindsets: []query.NPCMindset{npcMindset}}
 	board := query.Board{ID: uuid.New(), Name: "チュートリアル"}
 	selectable := selectableOf([]query.Avatar{avatar}, []query.Deck{deck}, []query.NPCAvatar{npcAvatar}, []query.Board{board})
 	playerID := uuid.New()
@@ -75,6 +92,11 @@ func TestRoomSelectable_AcceptsOnlyWhatTheSelectionQueriesShow(t *testing.T) {
 		{name: "assigned_npc_deck", call: func() (bool, error) { return selectable.HasNPCDeck(t.Context(), playerID, npcAvatar.ID, npcDeck.ID) }, want: true},
 		{name: "npc_deck_of_unknown_avatar", call: func() (bool, error) { return selectable.HasNPCDeck(t.Context(), playerID, unknown, npcDeck.ID) }},
 		{name: "own_deck_as_npc_deck", call: func() (bool, error) { return selectable.HasNPCDeck(t.Context(), playerID, npcAvatar.ID, deck.ID) }},
+		{name: "assigned_npc_mindset", call: func() (bool, error) {
+			return selectable.HasNPCMindset(t.Context(), playerID, npcAvatar.ID, npcMindset.ID)
+		}, want: true},
+		{name: "npc_mindset_of_unknown_avatar", call: func() (bool, error) { return selectable.HasNPCMindset(t.Context(), playerID, unknown, npcMindset.ID) }},
+		{name: "unknown_npc_mindset", call: func() (bool, error) { return selectable.HasNPCMindset(t.Context(), playerID, npcAvatar.ID, unknown) }},
 		{name: "unlocked_board", call: func() (bool, error) { return selectable.HasBoard(t.Context(), playerID, board.ID) }, want: true},
 		{name: "unknown_board", call: func() (bool, error) { return selectable.HasBoard(t.Context(), playerID, unknown) }},
 	}

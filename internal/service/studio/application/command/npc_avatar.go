@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/input"
@@ -25,7 +26,10 @@ type NPCAvatarHandler struct {
 	// 使うデッキを参照する（参照されている間はデッキの識別子を消せない）
 	updateDeckReferences npcavatar.UpdateDeckReferencesFunc
 	deckStatuses         NPCDeckStatusesFunc
-	now                  func() time.Time
+	// 使う思考パターンも同じ作りで参照する
+	updateMindsetReferences npcavatar.UpdateMindsetReferencesFunc
+	mindsetStatuses         NPCMindsetStatusesFunc
+	now                     func() time.Time
 }
 
 func NewNPCAvatarHandler(
@@ -35,11 +39,14 @@ func NewNPCAvatarHandler(
 	updateName npcavatar.UpdateNameFunc,
 	updateDeckReferences npcavatar.UpdateDeckReferencesFunc,
 	deckStatuses NPCDeckStatusesFunc,
+	updateMindsetReferences npcavatar.UpdateMindsetReferencesFunc,
+	mindsetStatuses NPCMindsetStatusesFunc,
 	now func() time.Time,
 ) *NPCAvatarHandler {
 	return &NPCAvatarHandler{
 		eventStore: eventStore, identifier: identifier, entityRefs: entityRefs, updateName: updateName,
-		updateDeckReferences: updateDeckReferences, deckStatuses: deckStatuses, now: now,
+		updateDeckReferences: updateDeckReferences, deckStatuses: deckStatuses,
+		updateMindsetReferences: updateMindsetReferences, mindsetStatuses: mindsetStatuses, now: now,
 	}
 }
 
@@ -64,6 +71,32 @@ func (r *NPCDeckStatusReader) Statuses(ctx context.Context, ids []npcdeck.ID) (m
 			return nil, err
 		}
 		if loaded, ok := state.(npcdeck.NPCDeck); ok {
+			statuses[id] = loaded.Status
+		}
+	}
+	return statuses, nil
+}
+
+// NPC の思考パターンの状態を返す。無い（削除したものを含む）思考パターンは結果に含めない
+type NPCMindsetStatusesFunc func(ctx context.Context, ids []npcmindset.ID) (map[npcmindset.ID]npcmindset.Status, error)
+
+// NPC の思考パターンの状態を、NPCDeckStatusReader と同じ理由でイベントストアで読んで確かめる。読むだけで書かない
+type NPCMindsetStatusReader struct {
+	eventStore domain.EventStore[npcmindset.ID, npcmindset.Event, npcmindset.State]
+}
+
+func NewNPCMindsetStatusReader(eventStore domain.EventStore[npcmindset.ID, npcmindset.Event, npcmindset.State]) *NPCMindsetStatusReader {
+	return &NPCMindsetStatusReader{eventStore: eventStore}
+}
+
+func (r *NPCMindsetStatusReader) Statuses(ctx context.Context, ids []npcmindset.ID) (map[npcmindset.ID]npcmindset.Status, error) {
+	statuses := make(map[npcmindset.ID]npcmindset.Status, len(ids))
+	for _, id := range ids {
+		state, err := r.eventStore.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if loaded, ok := state.(npcmindset.NPCMindset); ok {
 			statuses[id] = loaded.Status
 		}
 	}
@@ -224,6 +257,92 @@ func (c *NPCAvatarHandler) requirePublished(ctx context.Context, current, reques
 	for i, deck := range requested {
 		if statuses[deck] != npcdeck.StatusPublished && !slices.Contains(current, deck) {
 			invalid = append(invalid, &input.Unavailable{Field: fmt.Sprintf("deckIds.%d", i)})
+		}
+	}
+	if len(invalid) > 0 {
+		return invalid
+	}
+	return nil
+}
+
+// 使う思考パターンの一覧を mindsetIDs（NPC の思考パターンの公開 ID）に置き換える。SetDecks と同じ作りと誤りで、項目名は mindsetIds.<番号>
+// （同じものの 2 つ目以降は input.Duplicated、無い・削除した・NPC の思考パターンでないものは input.NotFound、新しく入れるもので
+// 公開中でないものは input.Unavailable）。0 件でもよい（アバターの公開に割り当ては要らない）。準備中でなければ ErrNPCAvatarNotDraft。
+// 同じ集まりなら（順番だけ違っても）変えずに成功する。ほかのエラーは Rename と同じ
+func (c *NPCAvatarHandler) SetMindsets(ctx context.Context, id uuid.UUID, revision int64, mindsetIDs []uuid.UUID) (ChangedNPCAvatar, error) {
+	assignedBy, ok := authentication.Operator(ctx)
+	if !ok {
+		return ChangedNPCAvatar{}, ErrNotOperator
+	}
+	mindsets, err := c.parseMindsets(ctx, mindsetIDs)
+	if err != nil {
+		return ChangedNPCAvatar{}, err
+	}
+	changed, err := rdb.Transact(ctx, func(ctx context.Context) (ChangedNPCAvatar, error) {
+		current, err := c.load(ctx, id, revision)
+		if err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		if current.Status != npcavatar.StatusDraft {
+			return ChangedNPCAvatar{}, npcavatar.ErrNotDraft
+		}
+		if err := c.requirePublishedMindsets(ctx, current.Mindsets, mindsets); err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		changed, err := c.decideAndSave(ctx, current, &npcavatar.SetMindsetsCommand{Mindsets: mindsets, ChangedBy: assignedBy})
+		if err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		if err := c.updateMindsetReferences(ctx, changed.ID, changed.Mindsets); err != nil {
+			return ChangedNPCAvatar{}, err
+		}
+		return changedNPCAvatar(changed), nil
+	})
+	return changed, mapNPCAvatarError(err)
+}
+
+// 公開 ID を内部 ID にする。誤りは最初の 1 つで止めず、まとめて返す（parseDecks と同じ）
+func (c *NPCAvatarHandler) parseMindsets(ctx context.Context, mindsetIDs []uuid.UUID) ([]npcmindset.ID, error) {
+	refs, err := c.entityRefs.ResolveAll(ctx, mindsetIDs)
+	if err != nil {
+		return nil, err
+	}
+	invalid := input.Errors{}
+	mindsets := make([]npcmindset.ID, 0, len(mindsetIDs))
+	seen := make(map[uuid.UUID]bool, len(mindsetIDs))
+	for i, mindsetID := range mindsetIDs {
+		field := fmt.Sprintf("mindsetIds.%d", i)
+		if seen[mindsetID] {
+			invalid = append(invalid, &input.Duplicated{Field: field})
+		}
+		seen[mindsetID] = true
+		ref, found := refs[mindsetID]
+		if !found || ref.EntityType() != npcmindset.Types().EntityType {
+			invalid = append(invalid, &input.NotFound{Field: field})
+			continue
+		}
+		mindset, err := npcmindset.NewID(ref.ID())
+		if err != nil {
+			return nil, err
+		}
+		mindsets = append(mindsets, mindset)
+	}
+	if len(invalid) > 0 {
+		return nil, invalid
+	}
+	return mindsets, nil
+}
+
+// 新しく入れる思考パターン（今の一覧に無いもの）が公開中か確かめる。確かめない範囲と競合を許す理由は requirePublished と同じ
+func (c *NPCAvatarHandler) requirePublishedMindsets(ctx context.Context, current, requested []npcmindset.ID) error {
+	statuses, err := c.mindsetStatuses(ctx, requested)
+	if err != nil {
+		return err
+	}
+	invalid := input.Errors{}
+	for i, mindset := range requested {
+		if statuses[mindset] != npcmindset.StatusPublished && !slices.Contains(current, mindset) {
+			invalid = append(invalid, &input.Unavailable{Field: fmt.Sprintf("mindsetIds.%d", i)})
 		}
 	}
 	if len(invalid) > 0 {

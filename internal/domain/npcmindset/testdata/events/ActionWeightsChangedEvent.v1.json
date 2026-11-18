@@ -1,0 +1,24 @@
+{
+  "weights": {
+    "draw_card": 1,
+    "discard_card": 1,
+    "use_spell": 1,
+    "roll_dice": 1,
+    "choose_path": 1,
+    "place_creature": 1,
+    "invade_territory": 100,
+    "pay_toll": 0,
+    "level_up_land": 1,
+    "exchange_creature": 1,
+    "change_land_element": 1,
+    "move_creature": 1,
+    "attack_with_item": 1,
+    "attack_without_item": 1,
+    "defend_with_item": 1,
+    "defend_without_item": 1,
+    "use_creature_as_item": 1,
+    "relinquish_territory": 1,
+    "end_turn": 1
+  },
+  "changed_by": 10
+}

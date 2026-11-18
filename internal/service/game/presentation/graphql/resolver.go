@@ -70,7 +70,7 @@ type Rooms interface {
 	Rename(ctx context.Context, id uuid.UUID, revision int64, name string) (command.ChangedRoom, error)
 	ChangeSeats(ctx context.Context, id uuid.UUID, revision int64, seats []command.RoomSeatKind) (command.ChangedRoom, error)
 	ChangeMatchRules(ctx context.Context, id uuid.UUID, revision int64, rules command.RoomMatchRulesInput) (command.ChangedRoom, error)
-	ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID) (command.ChangedRoom, error)
+	ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID, mindsetID *uuid.UUID) (command.ChangedRoom, error)
 	Publish(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
 	DeclareReady(ctx context.Context, id uuid.UUID, revision int64) (command.ChangedRoom, error)
 	DeclareNext(ctx context.Context, id uuid.UUID, revision int64, continues bool) (command.ChangedRoom, error)

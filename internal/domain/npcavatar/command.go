@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 )
 
@@ -31,6 +32,12 @@ type SetDecksCommand struct {
 	ChangedBy operator.ID
 }
 
+// 思考パターンの割り当て。SetDecksCommand と同じ形（画面が一覧を持って送り、差分は Decide が計算する。同じ思考パターンを 2 回入れないことは application が確かめる）
+type SetMindsetsCommand struct {
+	Mindsets  []npcmindset.ID
+	ChangedBy operator.ID
+}
+
 type PublishCommand struct {
 	PublishedBy operator.ID
 }
@@ -43,9 +50,10 @@ type DeleteCommand struct {
 	DeletedBy operator.ID
 }
 
-func (*RegisterCommand) isNPCAvatarCommand() {}
-func (*RenameCommand) isNPCAvatarCommand()   {}
-func (*SetDecksCommand) isNPCAvatarCommand() {}
-func (*PublishCommand) isNPCAvatarCommand()  {}
-func (*RetireCommand) isNPCAvatarCommand()   {}
-func (*DeleteCommand) isNPCAvatarCommand()   {}
+func (*RegisterCommand) isNPCAvatarCommand()    {}
+func (*RenameCommand) isNPCAvatarCommand()      {}
+func (*SetDecksCommand) isNPCAvatarCommand()    {}
+func (*SetMindsetsCommand) isNPCAvatarCommand() {}
+func (*PublishCommand) isNPCAvatarCommand()     {}
+func (*RetireCommand) isNPCAvatarCommand()      {}
+func (*DeleteCommand) isNPCAvatarCommand()      {}

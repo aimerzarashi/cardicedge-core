@@ -22,9 +22,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -43,6 +45,18 @@ type matchStartFixture struct {
 	room    room.Room
 	handler *command.MatchStartHandler
 	matches func(t *testing.T) match.State
+}
+
+// 写す元の思考パターンの重み。どの値が写ったか分かるよう、種類・基準ごとに変える
+func npcMindsetSource() master.NPCMindset {
+	source := master.NPCMindset{ActionWeights: map[string]int{}, CriterionWeights: map[string]int{}}
+	for i, action := range matchaction.Actions() {
+		source.ActionWeights[string(action)] = i
+	}
+	for i, criterion := range npcmindset.Criteria() {
+		source.CriterionWeights[string(criterion)] = 10 + i
+	}
+	return source
 }
 
 func newMatchStartFixture(t *testing.T) matchStartFixture {
@@ -73,6 +87,9 @@ func newMatchStartFixture(t *testing.T) matchStartFixture {
 		func(context.Context, npcdeck.ID) ([]master.DeckCard, error) {
 			return []master.DeckCard{{Card: cardC, Count: 2}}, nil
 		},
+		func(context.Context, npcmindset.ID) (master.NPCMindset, error) {
+			return npcMindsetSource(), nil
+		},
 		func(_ context.Context, refs []card.Ref) (map[card.Ref]master.CardSpec, error) {
 			specs := map[card.Ref]master.CardSpec{}
 			for _, ref := range refs {
@@ -92,6 +109,29 @@ func newMatchStartFixture(t *testing.T) matchStartFixture {
 		return state
 	}
 	return f
+}
+
+// 始めた後に studio で重みを変えても、記録したイベントだけで同じ対戦を再生できるよう、部屋の NPC の席が選んだ思考パターンの ID と、
+// 引いた重みの値を NPC の参加者に写す
+func TestMatchStart_CopiesTheMindsetOfTheNPCSeatToTheNPCParticipant(t *testing.T) {
+	f := newMatchStartFixture(t)
+
+	err := f.handler.Handle(f.ctx, &room.MatchStartedEvent{EventMeta: room.EventMeta{EntityID: f.room.ID}, Match: f.room.Match})
+
+	require.NoError(t, err)
+	started, ok := f.matches(t).(match.Match)
+	require.True(t, ok)
+	copied := started.Participants[1].Participant.NPC.Mindset
+	require.Equal(t, f.room.Seats[1].Choice.NPC.Mindset, copied.ID)
+	source := npcMindsetSource()
+	require.Len(t, copied.ActionWeights, len(source.ActionWeights))
+	for action, weight := range copied.ActionWeights {
+		require.Equal(t, source.ActionWeights[string(action)], weight.Int())
+	}
+	require.Len(t, copied.CriterionWeights, len(source.CriterionWeights))
+	for criterion, weight := range copied.CriterionWeights {
+		require.Equal(t, source.CriterionWeights[string(criterion)], weight.Int())
+	}
 }
 
 func TestMatchStart_CreatesMatchWithIDOfRoomEventFromRoomConditions(t *testing.T) {
@@ -142,7 +182,7 @@ func TestMatchStart_FailsWhenTheGameRulesHaveNoRewardCardsByRank(t *testing.T) {
 		eventstore.New(f.registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 		eventstore.New(f.registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve),
 		func(context.Context) (gamerules.Rules, bool, error) { return old, true, nil },
-		nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	err := handler.Start(f.ctx, f.room.ID, f.room.Match)
@@ -252,7 +292,7 @@ func newMatchTurnFixtureWithPlayerCards(t *testing.T, startRandom match.Random, 
 		ID: id, Board: forkBoard(t), Rules: rules,
 		Participants: []match.Participant{
 			match.NewPlayerParticipant(playerID, avatartest.ID(t, 1), decktest.ID(t, 1), playerCards),
-			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, npcCost)}),
+			match.NewNPCParticipant(npcavatartest.ID(t, 1), npcdecktest.ID(t, 1), matchtest.NPCMindset(t, 1), []match.DeckCard{matchDeckCard(t, 3, 2, npcCost)}),
 		},
 	}, time.Now().UTC().Truncate(time.Microsecond), startRandom)
 	require.NoError(t, err)

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -87,42 +88,6 @@ const (
 	// 戦闘の途中だけの段階。moving と同じく、保存された最後の状態にはならない
 	PhaseBattling Phase = "battling"
 )
-
-// 今選べる行動の種類。対象（手札・領地・行き先）は持たず、種類ごとの選択肢（PlaceChoices 等）から選ぶ。
-// 種類は操作（Command）と 1 対 1 にし、攻める・守るのアイテムを出す・出さないも分ける（画面と NPC が段階を見ずに、どの操作を送るかを決められるようにするため。2026-11-17 オーナー。core#186）
-type Action string
-
-const (
-	ActionDrawCard            Action = "draw_card"
-	ActionDiscardCard         Action = "discard_card"
-	ActionUseSpell            Action = "use_spell"
-	ActionRollDice            Action = "roll_dice"
-	ActionChoosePath          Action = "choose_path"
-	ActionPlaceCreature       Action = "place_creature"
-	ActionInvadeTerritory     Action = "invade_territory"
-	ActionPayToll             Action = "pay_toll"
-	ActionLevelUpLand         Action = "level_up_land"
-	ActionExchangeCreature    Action = "exchange_creature"
-	ActionChangeLandElement   Action = "change_land_element"
-	ActionMoveCreature        Action = "move_creature"
-	ActionAttackWithItem      Action = "attack_with_item"
-	ActionAttackWithoutItem   Action = "attack_without_item"
-	ActionDefendWithItem      Action = "defend_with_item"
-	ActionDefendWithoutItem   Action = "defend_without_item"
-	ActionUseCreatureAsItem   Action = "use_creature_as_item"
-	ActionRelinquishTerritory Action = "relinquish_territory"
-	ActionEndTurn             Action = "end_turn"
-)
-
-// 行動の種類のすべて（ActionChoices が返しうるもの。種類ごとに値を持たせる側（NPC の思考パターンの重み等）が、足し忘れずに並べるため）
-func Actions() []Action {
-	return []Action{
-		ActionDrawCard, ActionDiscardCard, ActionUseSpell, ActionRollDice, ActionChoosePath, ActionPlaceCreature,
-		ActionInvadeTerritory, ActionPayToll, ActionLevelUpLand, ActionExchangeCreature, ActionChangeLandElement,
-		ActionMoveCreature, ActionAttackWithItem, ActionAttackWithoutItem, ActionDefendWithItem, ActionDefendWithoutItem,
-		ActionUseCreatureAsItem, ActionRelinquishTerritory, ActionEndTurn,
-	}
-}
 
 // 誰かの操作を待っている段階か。始まる前（段階が無い）と、版ごとに見たときの移動と戦闘の途中は待っていない
 func (p Phase) AwaitsOperation() bool {
@@ -403,6 +368,16 @@ type PlayerParticipant struct {
 type NPCParticipant struct {
 	Avatar npcavatar.ID `json:"avatar"`
 	Deck   npcdeck.ID   `json:"deck"`
+	// NPC は必ず思考パターンを持つ（持たない NPC を作れないようにするため、null を許さない）
+	Mindset NPCMindset `json:"mindset"`
+}
+
+// 始めた時点の思考パターンの写し。重みの値も写す（始めた後に studio で重みを変えても、記録したイベントだけで同じ対戦を再生できるようにするため。
+// カードの性能の写し CardSpec と同じ理由）。値の型は npcmindset パッケージのものをそのまま使う
+type NPCMindset struct {
+	ID               npcmindset.ID               `json:"id"`
+	ActionWeights    npcmindset.ActionWeights    `json:"action_weights"`
+	CriterionWeights npcmindset.CriterionWeights `json:"criterion_weights"`
 }
 
 // 参加者 1 人。プレイヤーか NPC かのどちらか 1 つだけを持つ（項目をまたぐ決まりがあるので生成関数でだけ作る）。
@@ -417,8 +392,8 @@ func NewPlayerParticipant(playerID player.ID, avatarID avatar.ID, deckID deck.ID
 	return Participant{Player: &PlayerParticipant{Player: playerID, Avatar: avatarID, Deck: deckID}, Cards: cards}
 }
 
-func NewNPCParticipant(avatarID npcavatar.ID, deckID npcdeck.ID, cards []DeckCard) Participant {
-	return Participant{NPC: &NPCParticipant{Avatar: avatarID, Deck: deckID}, Cards: cards}
+func NewNPCParticipant(avatarID npcavatar.ID, deckID npcdeck.ID, mindset NPCMindset, cards []DeckCard) Participant {
+	return Participant{NPC: &NPCParticipant{Avatar: avatarID, Deck: deckID, Mindset: mindset}, Cards: cards}
 }
 
 // 山札にする並び（カードを枚数の分だけ並べる。混ぜる前）

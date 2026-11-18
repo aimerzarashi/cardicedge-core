@@ -35,7 +35,7 @@ const (
 	RoomSeatKindNPC    RoomSeatKind = "npc"
 )
 
-// 公開 ID と、その場で見せる名前（名前は読むときに avatars・decks・npc_avatars・npc_decks・boards から引く）
+// 公開 ID と、その場で見せる名前（名前は読むときに avatars・decks・npc_avatars・npc_decks・npc_mindsets・boards から引く）
 type RoomNamed struct {
 	ID   uuid.UUID
 	Name string
@@ -57,6 +57,8 @@ type RoomSeat struct {
 	Player *uuid.UUID
 	Avatar *RoomNamed
 	Deck   *RoomNamed
+	// NPC の席の思考パターン。プレイヤーの席と、NPC の席でまだ選んでいなければ nil
+	Mindset *RoomNamed
 }
 
 // 対戦ルール。ボードの名前と、8 つの値（ボードの既定のルールと同じ名前と決まり）

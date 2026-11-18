@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
 // 対戦を始めるときに写す、ボード・デッキの中身。部屋が選んだ時点のものではなく、始める時点で game に写してあるものを読む。
@@ -22,6 +23,16 @@ type GetPlayerDeckCardsFunc func(ctx context.Context, id deck.ID) ([]DeckCard, e
 
 // NPC のデッキのカード（プレイヤーのデッキと同じ）
 type GetNPCDeckCardsFunc func(ctx context.Context, id npcdeck.ID) ([]DeckCard, error)
+
+// NPC の思考パターンの重み（写した npc_mindsets.metadata の値）。値の範囲と種類・基準のすべてがそろっているかは確かめず、
+// domain の値にするのは呼ぶ側（対戦を始めるときの写し）。キーは行動の種類・採点基準の値の文字列
+type NPCMindset struct {
+	ActionWeights    map[string]int
+	CriterionWeights map[string]int
+}
+
+// NPC の思考パターンの重み。公開中かは見ない（選んだ後に使用不可になっても、対戦は始めた時点の写しで進むため）
+type GetNPCMindsetFunc func(ctx context.Context, id npcmindset.ID) (NPCMindset, error)
 
 // 対戦を始めるときに写すカードの性能（写した cards.metadata の値。確かめるのは呼ぶ側で、domain の値にするとき）
 type CardSpec struct {

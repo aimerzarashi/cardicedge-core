@@ -15,7 +15,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmind"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdecision"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -34,6 +36,7 @@ type MatchStartHandler struct {
 	getBoard        master.GetMatchBoardFunc
 	getDeckCards    master.GetPlayerDeckCardsFunc
 	getNPCDeckCards master.GetNPCDeckCardsFunc
+	getNPCMindset   master.GetNPCMindsetFunc
 	getCardSpecs    master.GetCardSpecsFunc
 	// 乱数の元は対戦ごとに新しく作る（再実行で同じ並びになるとは限らないが、保存されるのは Decide が出したイベントだけで、
 	// 二重に動いても対戦は 1 つしかできない）。テストは固定した乱数を返す関数を渡す
@@ -48,13 +51,14 @@ func NewMatchStartHandler(
 	getBoard master.GetMatchBoardFunc,
 	getDeckCards master.GetPlayerDeckCardsFunc,
 	getNPCDeckCards master.GetNPCDeckCardsFunc,
+	getNPCMindset master.GetNPCMindsetFunc,
 	getCardSpecs master.GetCardSpecsFunc,
 	newRandom func() match.Random,
 	now func() time.Time,
 ) *MatchStartHandler {
 	return &MatchStartHandler{
 		rooms: rooms, matches: matches, getRules: getRules, getBoard: getBoard, getDeckCards: getDeckCards,
-		getNPCDeckCards: getNPCDeckCards, getCardSpecs: getCardSpecs, newRandom: newRandom, now: now,
+		getNPCDeckCards: getNPCDeckCards, getNPCMindset: getNPCMindset, getCardSpecs: getCardSpecs, newRandom: newRandom, now: now,
 	}
 }
 
@@ -154,10 +158,51 @@ func (c *MatchStartHandler) participant(ctx context.Context, seat room.SeatState
 		if err != nil {
 			return match.Participant{}, err
 		}
-		return match.NewNPCParticipant(seat.Choice.NPC.Avatar, seat.Choice.NPC.Deck, cards), nil
+		mindset, err := c.npcMindset(ctx, seat.Choice.NPC.Mindset)
+		if err != nil {
+			return match.Participant{}, err
+		}
+		return match.NewNPCParticipant(seat.Choice.NPC.Avatar, seat.Choice.NPC.Deck, mindset, cards), nil
 	default:
 		return match.Participant{}, room.ErrConditionsNotDecided
 	}
+}
+
+// 思考パターンの重みを、そのときの値で写す（studio の値をそのまま信じず、domain の値の決まり（範囲・種類と基準のすべて）で確かめてから写す。
+// 確かめに通らないのは写し方の誤りなので、待っても直らない失敗として返す）
+func (c *MatchStartHandler) npcMindset(ctx context.Context, id npcmindset.ID) (match.NPCMindset, error) {
+	source, err := c.getNPCMindset(ctx, id)
+	if err != nil {
+		return match.NPCMindset{}, err
+	}
+	actionWeights := make(npcmindset.ActionWeights, len(source.ActionWeights))
+	for key, value := range source.ActionWeights {
+		action, err := matchaction.NewAction(key)
+		if err != nil {
+			return match.NPCMindset{}, fmt.Errorf("npc mindset %d: %w", id, err)
+		}
+		weight, err := npcmindset.NewWeight(value)
+		if err != nil {
+			return match.NPCMindset{}, fmt.Errorf("npc mindset %d: action %q: %w", id, key, err)
+		}
+		actionWeights[action] = weight
+	}
+	criterionWeights := make(npcmindset.CriterionWeights, len(source.CriterionWeights))
+	for key, value := range source.CriterionWeights {
+		criterion, err := npcmindset.NewCriterion(key)
+		if err != nil {
+			return match.NPCMindset{}, fmt.Errorf("npc mindset %d: %w", id, err)
+		}
+		weight, err := npcmindset.NewWeight(value)
+		if err != nil {
+			return match.NPCMindset{}, fmt.Errorf("npc mindset %d: criterion %q: %w", id, key, err)
+		}
+		criterionWeights[criterion] = weight
+	}
+	if len(actionWeights) != len(matchaction.Actions()) || len(criterionWeights) != len(npcmindset.Criteria()) {
+		return match.NPCMindset{}, fmt.Errorf("npc mindset %d: weights do not cover every action and criterion (project the mindsets again and publish the master)", id)
+	}
+	return match.NPCMindset{ID: id, ActionWeights: actionWeights, CriterionWeights: criterionWeights}, nil
 }
 
 // デッキのカードに、そのときの性能を写す（studio の値をそのまま信じず、domain の値の決まりで確かめてから写す）
@@ -781,8 +826,7 @@ func (c *MatchNPCTurnHandler) Play(ctx context.Context, matchID match.ID, eventV
 		if !ok || current.Participants[by].Participant.NPC == nil {
 			return struct{}{}, nil
 		}
-		// 重みは当面コードの既定値（すべて 1）。マスタにして対戦に写すのは core#188
-		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), random)
+		cmd, err := npcdecision.Choose(current, by, random)
 		if err != nil {
 			return struct{}{}, err
 		}

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -793,50 +794,50 @@ func (m Match) RelinquishChoices() []board.Position {
 
 // 操作を待っている人が今選べる行動の種類。対象の選択肢が空の種類は入れない（ターンを終える・通行料を払う・アイテムを出さないは、
 // 受け付ける段階ならいつも入る）。止まった後は、画面の並び（止まったマスの行動 → 領地コマンド → ターンを終える）の順
-func (m Match) ActionChoices() []Action {
+func (m Match) ActionChoices() []matchaction.Action {
 	if _, ok := m.AwaitingParticipant(); !ok {
 		return nil
 	}
-	var actions []Action
-	add := func(action Action, available bool) {
+	var actions []matchaction.Action
+	add := func(action matchaction.Action, available bool) {
 		if available {
 			actions = append(actions, action)
 		}
 	}
 	switch m.Phase {
 	case PhaseDrawing:
-		add(ActionDrawCard, true)
+		add(matchaction.ActionDrawCard, true)
 	case PhaseDiscarding:
-		add(ActionDiscardCard, true)
+		add(matchaction.ActionDiscardCard, true)
 	case PhaseRolling:
-		add(ActionUseSpell, len(m.SpellChoices()) > 0)
-		add(ActionRollDice, true)
+		add(matchaction.ActionUseSpell, len(m.SpellChoices()) > 0)
+		add(matchaction.ActionRollDice, true)
 	case PhaseChoosingPath:
-		add(ActionChoosePath, len(m.PathChoices()) > 0)
+		add(matchaction.ActionChoosePath, len(m.PathChoices()) > 0)
 	case PhasePlacing:
-		add(ActionPlaceCreature, len(m.PlaceChoices()) > 0)
+		add(matchaction.ActionPlaceCreature, len(m.PlaceChoices()) > 0)
 	case PhaseInvading:
-		add(ActionInvadeTerritory, len(m.InvadeChoices()) > 0)
-		add(ActionPayToll, true)
+		add(matchaction.ActionInvadeTerritory, len(m.InvadeChoices()) > 0)
+		add(matchaction.ActionPayToll, true)
 	case PhaseAttacking:
-		add(ActionAttackWithItem, len(m.ItemChoices()) > 0)
-		add(ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
-		add(ActionAttackWithoutItem, true)
+		add(matchaction.ActionAttackWithItem, len(m.ItemChoices()) > 0)
+		add(matchaction.ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
+		add(matchaction.ActionAttackWithoutItem, true)
 	case PhaseDefending:
-		add(ActionDefendWithItem, len(m.ItemChoices()) > 0)
-		add(ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
-		add(ActionDefendWithoutItem, true)
+		add(matchaction.ActionDefendWithItem, len(m.ItemChoices()) > 0)
+		add(matchaction.ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
+		add(matchaction.ActionDefendWithoutItem, true)
 	case PhaseRelinquishing:
-		add(ActionRelinquishTerritory, len(m.RelinquishChoices()) > 0)
+		add(matchaction.ActionRelinquishTerritory, len(m.RelinquishChoices()) > 0)
 	}
 	if m.acceptsTerritoryCommand() {
-		add(ActionLevelUpLand, len(m.LevelUpChoices()) > 0)
-		add(ActionExchangeCreature, len(m.ExchangeChoices()) > 0)
-		add(ActionChangeLandElement, len(m.ElementChangeChoices()) > 0)
-		add(ActionMoveCreature, len(m.MoveChoices()) > 0)
+		add(matchaction.ActionLevelUpLand, len(m.LevelUpChoices()) > 0)
+		add(matchaction.ActionExchangeCreature, len(m.ExchangeChoices()) > 0)
+		add(matchaction.ActionChangeLandElement, len(m.ElementChangeChoices()) > 0)
+		add(matchaction.ActionMoveCreature, len(m.MoveChoices()) > 0)
 	}
 	// 侵略の段階で終えられないのは、止まった他人の領地では通行料を払うか侵略するかを必ず選ぶため（払うがターンを終えるを兼ねる）
-	add(ActionEndTurn, m.Phase == PhasePlacing || m.Phase == PhaseTerritoryCommanding || m.Phase == PhaseEnding)
+	add(matchaction.ActionEndTurn, m.Phase == PhasePlacing || m.Phase == PhaseTerritoryCommanding || m.Phase == PhaseEnding)
 	return actions
 }
 

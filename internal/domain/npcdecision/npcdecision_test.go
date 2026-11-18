@@ -1,4 +1,4 @@
-package npcmind_test
+package npcdecision_test
 
 import (
 	"encoding/json"
@@ -9,19 +9,25 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/avatar/avatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature/creaturetest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/deck/decktest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect/effecttest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdecision"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
-	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmind"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 )
 
@@ -75,7 +81,14 @@ func spellCard(t *testing.T, id int64, spellEffect effect.SpellEffect) match.Dec
 // クリーチャー（援護を持つものを含む）・アイテム・スペル（対象を選ばない・プレイヤーを選ぶ・クリーチャーを選ぶ）の入ったデッキ
 func npcParticipant(t *testing.T, avatar int64) match.Participant {
 	t.Helper()
-	return match.NewNPCParticipant(npcavatartest.ID(t, avatar), npcdecktest.ID(t, avatar+100), []match.DeckCard{
+	return npcParticipantWith(t, avatar, npcmindset.DefaultActionWeights(), npcmindset.DefaultCriterionWeights())
+}
+
+// 思考パターンの写しの重みを指定した NPC の参加者。重みは Choose がここから読む
+func npcParticipantWith(t *testing.T, avatar int64, weights npcmindset.ActionWeights, criterionWeights npcmindset.CriterionWeights) match.Participant {
+	t.Helper()
+	mindset := match.NPCMindset{ID: npcmindsettest.ID(t, avatar+200), ActionWeights: weights, CriterionWeights: criterionWeights}
+	return match.NewNPCParticipant(npcavatartest.ID(t, avatar), npcdecktest.ID(t, avatar+100), mindset, []match.DeckCard{
 		creatureCard(t, 201, 20, 30, 40),
 		creatureCard(t, 202, 40, 50, 30),
 		creatureCard(t, 203, 30, 20, 50, effecttest.UseCreatureAsItem(t)),
@@ -87,11 +100,11 @@ func npcParticipant(t *testing.T, avatar int64) match.Participant {
 }
 
 // 全員 NPC の対戦を、完全ランダム型の選んだコマンドだけで終わりまで進める。選んだコマンドの型を数えて返す
-func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights, criterionWeights npcmind.CriterionWeights) (match.Match, map[string]int) {
+func playToEnd(t *testing.T, seed uint64, weights npcmindset.ActionWeights, criterionWeights npcmindset.CriterionWeights) (match.Match, map[string]int) {
 	t.Helper()
 	random := rand.New(rand.NewPCG(seed, seed))
 	cmd := &match.StartCommand{
-		ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipant(t, 1), npcParticipant(t, 2), npcParticipant(t, 3)},
+		ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipantWith(t, 1, weights, criterionWeights), npcParticipantWith(t, 2, weights, criterionWeights), npcParticipantWith(t, 3, weights, criterionWeights)},
 		Board: ringBoard(t), Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
 	}
 	var state match.State = match.InitialState()
@@ -110,7 +123,7 @@ func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights, criterionWeig
 		}
 		by, ok := current.AwaitingParticipant()
 		require.True(t, ok)
-		decided, err = npcmind.Choose(current, by, weights, criterionWeights, random)
+		decided, err = npcdecision.Choose(current, by, random)
 		require.NoError(t, err)
 		chosen[fmt.Sprintf("%T", decided)]++
 	}
@@ -121,7 +134,7 @@ func playToEnd(t *testing.T, seed uint64, weights npcmind.Weights, criterionWeig
 func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testing.T) {
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
 		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
-			ended, _ := playToEnd(t, seed, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights())
+			ended, _ := playToEnd(t, seed, npcmindset.DefaultActionWeights(), npcmindset.DefaultCriterionWeights())
 
 			require.NotNil(t, ended.Result)
 			// 戦利品を選ぶプレイヤーがいないので、終わった時点で全員が受け取ったことになる
@@ -136,7 +149,7 @@ func TestChoose_PlaysMatchesOfOnlyNPCsToTheEndWithCommandsDecideAccepts(t *testi
 func TestChoose_ChoosesEveryKindOfCommandAcrossMatchesWhenCriteriaAreWeightedZero(t *testing.T) {
 	chosen := map[string]int{}
 	for _, seed := range []uint64{1, 2, 3, 4, 5} {
-		_, counts := playToEnd(t, seed, npcmind.DefaultWeights(), npcmind.CriterionWeights{})
+		_, counts := playToEnd(t, seed, npcmindset.DefaultActionWeights(), npcmindset.CriterionWeights{})
 		for kind, count := range counts {
 			chosen[kind] += count
 		}
@@ -166,11 +179,12 @@ func TestChoose_ChoosesEveryKindOfCommandAcrossMatchesWhenCriteriaAreWeightedZer
 func TestChoose_NeverChoosesActionsWeightedZeroWhenOthersCanBeChosen(t *testing.T) {
 	rolling := rollingWithSpell(t)
 	by, _ := rolling.AwaitingParticipant()
-	weights := npcmind.DefaultWeights()
-	weights[match.ActionUseSpell] = 0
+	weights := npcmindset.DefaultActionWeights()
+	weights[matchaction.ActionUseSpell] = 0
+	rolling = withMindset(rolling, by, weights, npcmindset.DefaultCriterionWeights())
 
 	for seed := range uint64(20) {
-		cmd, err := npcmind.Choose(rolling, by, weights, npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+		cmd, err := npcdecision.Choose(rolling, by, rand.New(rand.NewPCG(seed, seed)))
 
 		require.NoError(t, err)
 		require.Equal(t, "*match.RollCommand", kindOf(cmd))
@@ -179,17 +193,17 @@ func TestChoose_NeverChoosesActionsWeightedZeroWhenOthersCanBeChosen(t *testing.
 
 // 選べる種類の重みがすべて 0 でも、均等に選んで止まらない
 func TestChoose_ChoosesEvenlyWhenEveryWeightIsZero(t *testing.T) {
-	ended, _ := playToEnd(t, 1, npcmind.Weights{}, npcmind.DefaultCriterionWeights())
+	ended, _ := playToEnd(t, 1, npcmindset.ActionWeights{}, npcmindset.DefaultCriterionWeights())
 
 	require.NotNil(t, ended.Result)
 }
 
 // 重みの合計から引いた値を、並びの順に重みを積んで当てる。振る段階の並びはスペルを使う → 振る
 func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing.T) {
-	weights := npcmind.Weights{match.ActionUseSpell: 1, match.ActionRollDice: 3}
 	rolling := rollingWithSpell(t)
-	require.Equal(t, []match.Action{match.ActionUseSpell, match.ActionRollDice}, rolling.ActionChoices())
+	require.Equal(t, []matchaction.Action{matchaction.ActionUseSpell, matchaction.ActionRollDice}, rolling.ActionChoices())
 	by, _ := rolling.AwaitingParticipant()
+	rolling = withMindset(rolling, by, npcmindset.ActionWeights{matchaction.ActionUseSpell: 1, matchaction.ActionRollDice: 3}, npcmindset.DefaultCriterionWeights())
 	tests := []struct {
 		name  string
 		drawn int
@@ -202,7 +216,7 @@ func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1 つ目は種類、続く値はスペルの対象を選ぶのに使う
-			cmd, err := npcmind.Choose(rolling, by, weights, npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(tt.drawn, 0, 0))
+			cmd, err := npcdecision.Choose(rolling, by, matchtest.NewSequenceRandom(tt.drawn, 0, 0))
 
 			require.NoError(t, err)
 			require.Equal(t, tt.want, fmt.Sprintf("%T", cmd))
@@ -210,21 +224,14 @@ func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing
 	}
 }
 
-func TestNewWeight_RejectsNegativeValues(t *testing.T) {
-	_, negative := npcmind.NewWeight(-1)
-	zero, err := npcmind.NewWeight(0)
-
-	require.ErrorIs(t, negative, npcmind.ErrNegativeWeight)
-	require.NoError(t, err)
-	require.Equal(t, 0, zero.Int())
-}
-
 // 全員 NPC の対戦を始め、振る段階で使えるスペルが手札にある状態まで進める
 func rollingWithSpell(t *testing.T) match.Match {
 	t.Helper()
+	// スペルを使わずに進めるため、引く・振る・終わる・払うだけの重み
+	progressWeights := npcmindset.ActionWeights{matchaction.ActionDrawCard: 1, matchaction.ActionRollDice: 1, matchaction.ActionEndTurn: 1, matchaction.ActionPayToll: 1}
 	random := rand.New(rand.NewPCG(1, 1))
 	cmd := &match.StartCommand{
-		ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipant(t, 1), npcParticipant(t, 2)},
+		ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipantWith(t, 1, progressWeights, npcmindset.DefaultCriterionWeights()), npcParticipantWith(t, 2, progressWeights, npcmindset.DefaultCriterionWeights())},
 		Board: ringBoard(t), Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
 	}
 	var state match.State = match.InitialState()
@@ -241,7 +248,7 @@ func rollingWithSpell(t *testing.T) match.Match {
 			return current
 		}
 		by, _ := current.AwaitingParticipant()
-		decided, err = npcmind.Choose(current, by, npcmind.Weights{match.ActionDrawCard: 1, match.ActionRollDice: 1, match.ActionEndTurn: 1, match.ActionPayToll: 1}, npcmind.DefaultCriterionWeights(), random)
+		decided, err = npcdecision.Choose(current, by, random)
 		require.NoError(t, err)
 	}
 	require.FailNow(t, "no rolling phase with a spell")
@@ -274,7 +281,7 @@ func advanceUntil(t *testing.T, found func(current match.Match, by match.Partici
 			if found(current, by) {
 				return current
 			}
-			decided, err = npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), random)
+			decided, err = npcdecision.Choose(current, by, random)
 			require.NoError(t, err)
 		}
 	}
@@ -311,7 +318,7 @@ func TestChoose_PlacesACreatureOnAVacantLandItCanAfford(t *testing.T) {
 	})
 	by, _ := current.AwaitingParticipant()
 
-	cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(0, 0, 0))
+	cmd, err := npcdecision.Choose(current, by, matchtest.NewSequenceRandom(0, 0, 0))
 
 	require.NoError(t, err)
 	require.Equal(t, "*match.PlaceCreatureCommand", kindOf(cmd))
@@ -323,7 +330,7 @@ func TestChoose_PaysTheTollInsteadOfInvadingWithACreatureThatCertainlyLoses(t *t
 	by, _ := current.AwaitingParticipant()
 
 	for seed := range uint64(8) {
-		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+		cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(seed, seed)))
 
 		require.NoError(t, err)
 		require.Equal(t, "*match.PayTollCommand", kindOf(cmd))
@@ -336,7 +343,7 @@ func TestChoose_InvadesWhenTheInvasionCertainlyWins(t *testing.T) {
 	by, _ := current.AwaitingParticipant()
 
 	for seed := range uint64(8) {
-		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(seed, seed)))
+		cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(seed, seed)))
 
 		require.NoError(t, err)
 		require.Equal(t, "*match.InvadeCommand", kindOf(cmd))
@@ -362,7 +369,7 @@ func TestChoose_ChoosesEvenlyAmongCandidatesWithTheSameScore(t *testing.T) {
 
 	chosen := map[int]bool{}
 	for _, drawn := range []int{0, 1} {
-		cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(drawn))
+		cmd, err := npcdecision.Choose(current, by, matchtest.NewSequenceRandom(drawn))
 
 		require.NoError(t, err)
 		place, ok := cmd.(*match.PlaceCreatureCommand)
@@ -376,20 +383,20 @@ func TestChoose_IgnoresCriteriaWeightedZero(t *testing.T) {
 	current, by := placingWithTwinCards(t)
 	tests := []struct {
 		name    string
-		weights npcmind.CriterionWeights
+		weights npcmindset.CriterionWeights
 		draws   []int
 		kinds   map[string]bool
 	}{
 		// 3 つの候補（配置 2 つと終わり）が同じ点になり、均等に選ばれる
 		{name: "all_zero", weights: weightsOnly(), draws: []int{0, 1, 2}, kinds: map[string]bool{"*match.PlaceCreatureCommand": true, "*match.EndTurnCommand": true}},
 		// 領地の数だけを見れば、置くほうが必ず選ばれる
-		{name: "only_territory_count", weights: weightsOnly(npcmind.CriterionTerritoryCount), draws: []int{0, 1}, kinds: map[string]bool{"*match.PlaceCreatureCommand": true}},
+		{name: "only_territory_count", weights: weightsOnly(npcmindset.CriterionTerritoryCount), draws: []int{0, 1}, kinds: map[string]bool{"*match.PlaceCreatureCommand": true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			chosen := map[string]bool{}
 			for _, drawn := range tt.draws {
-				cmd, err := npcmind.Choose(current, by, npcmind.DefaultWeights(), tt.weights, matchtest.NewSequenceRandom(drawn))
+				cmd, err := npcdecision.Choose(withMindset(current, by, npcmindset.DefaultActionWeights(), tt.weights), by, matchtest.NewSequenceRandom(drawn))
 
 				require.NoError(t, err)
 				chosen[kindOf(cmd)] = true
@@ -406,7 +413,9 @@ func TestChoose_ScoredPhasesIgnoreWeightsOfActionKinds(t *testing.T) {
 	})
 	by, _ := current.AwaitingParticipant()
 
-	cmd, err := npcmind.Choose(current, by, npcmind.Weights{}, npcmind.DefaultCriterionWeights(), matchtest.NewSequenceRandom(0))
+	current = withMindset(current, by, npcmindset.ActionWeights{}, npcmindset.DefaultCriterionWeights())
+
+	cmd, err := npcdecision.Choose(current, by, matchtest.NewSequenceRandom(0))
 
 	require.NoError(t, err)
 	require.Equal(t, "*match.PlaceCreatureCommand", kindOf(cmd))
@@ -422,7 +431,7 @@ func TestChoose_DoesNotChangeTheCurrentState(t *testing.T) {
 			before, err := json.Marshal(current)
 			require.NoError(t, err)
 
-			_, err = npcmind.Choose(current, by, npcmind.DefaultWeights(), npcmind.DefaultCriterionWeights(), rand.New(rand.NewPCG(1, 1)))
+			_, err = npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
 
 			require.NoError(t, err)
 			after, err := json.Marshal(current)
@@ -433,10 +442,34 @@ func TestChoose_DoesNotChangeTheCurrentState(t *testing.T) {
 }
 
 // 指定した基準だけ重みが 1 で、ほかは 0 の重み
-func weightsOnly(criteria ...npcmind.Criterion) npcmind.CriterionWeights {
-	weights := npcmind.CriterionWeights{}
+func weightsOnly(criteria ...npcmindset.Criterion) npcmindset.CriterionWeights {
+	weights := npcmindset.CriterionWeights{}
 	for _, criterion := range criteria {
 		weights[criterion] = 1
 	}
 	return weights
+}
+
+// 重みは参加者に写した思考パターンから読むので、重みを変えるテストは、写しを変えた参加者で対戦を作る
+// （対戦の途中から変えるテストは、この関数で NPC の参加者の写しだけを差し替える）
+func withMindset(current match.Match, by match.ParticipantIndex, weights npcmindset.ActionWeights, criterionWeights npcmindset.CriterionWeights) match.Match {
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	npc := *current.Participants[by].Participant.NPC
+	npc.Mindset.ActionWeights = weights
+	npc.Mindset.CriterionWeights = criterionWeights
+	current.Participants[by].Participant.NPC = &npc
+	return current
+}
+
+func TestChoose_RejectsParticipantsThatAreNotNPCs(t *testing.T) {
+	current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool { return current.Phase == match.PhaseRolling })
+	by, _ := current.AwaitingParticipant()
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	current.Participants[by].Participant = match.NewPlayerParticipant(playertest.ID(t, 1), avatartest.ID(t, 2), decktest.ID(t, 3), nil)
+
+	_, notNPC := npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
+	_, outOfRange := npcdecision.Choose(current, matchtest.Index(t, 9), rand.New(rand.NewPCG(1, 1)))
+
+	require.ErrorIs(t, notNPC, npcdecision.ErrNotNPC)
+	require.ErrorIs(t, outOfRange, npcdecision.ErrNotNPC)
 }

@@ -13,7 +13,9 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 )
@@ -59,6 +61,13 @@ type NPCAvatars struct {
 	InternalPublishedA, InternalPublishedB, InternalRetired npcavatar.ID
 	DeckPublished1, DeckPublished2                          uuid.UUID
 	DeckDraft, DeckRetired, DeckUnassigned                  uuid.UUID
+	// アバターに割り当てた思考パターン。A は割り当てた順に 公開中 1・準備中・公開中 2・使用不可 を使い（公開中でないものは出ない）、
+	// B は公開中 1 だけを使う（同じ思考パターンを複数のアバターが使える）
+	MindsetPublished1, MindsetPublished2, MindsetDraft, MindsetRetired uuid.UUID
+	// 公開中だが、どのアバターにも割り当てていない思考パターン（割り当てていないものは選べないことを確かめる）
+	MindsetUnassigned uuid.UUID
+	// game の内部 ID（make publish-master が game の domain_entities に作る行の ID。部屋の席の選択が指す ID）
+	InternalMindsetPublished1 npcmindset.ID
 	// 公開中のデッキ 1 に入れたカード（種類は順に Creature・Item・Spell。名前の順は Item のほうが先だが、種類が優先される）
 	Creature, Item, Spell uuid.UUID
 }
@@ -341,6 +350,7 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 	n := NPCAvatars{
 		PublishedA: uuid.New(), PublishedB: uuid.New(), Draft: uuid.New(), Retired: uuid.New(), PublishedLocked: uuid.New(),
 		DeckPublished1: uuid.New(), DeckPublished2: uuid.New(), DeckDraft: uuid.New(), DeckRetired: uuid.New(), DeckUnassigned: uuid.New(),
+		MindsetPublished1: uuid.New(), MindsetPublished2: uuid.New(), MindsetDraft: uuid.New(), MindsetRetired: uuid.New(), MindsetUnassigned: uuid.New(),
 		Creature: uuid.New(), Item: uuid.New(), Spell: uuid.New(),
 	}
 	// 性能は種類ごとに変え、写した値がそのカードのものかを確かめられるようにする
@@ -401,13 +411,30 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 			return NPCAvatars{}, err
 		}
 	}
+	mindsets := []readmodel.NPCMindsetMetadata{
+		npcMindsetMetadata(n.MindsetPublished1, "公開中思考パターン1", readmodel.NPCMindsetStatusPublished, 2, 3),
+		npcMindsetMetadata(n.MindsetPublished2, "公開中思考パターン2", readmodel.NPCMindsetStatusPublished, 1, 1),
+		npcMindsetMetadata(n.MindsetDraft, "準備中思考パターン", readmodel.NPCMindsetStatusDraft, 1, 1),
+		npcMindsetMetadata(n.MindsetRetired, "使用不可思考パターン", readmodel.NPCMindsetStatusRetired, 1, 1),
+		npcMindsetMetadata(n.MindsetUnassigned, "割り当てなし思考パターン", readmodel.NPCMindsetStatusPublished, 1, 1),
+	}
+	for i, metadata := range mindsets {
+		raw, err := json.Marshal(metadata)
+		if err != nil {
+			return NPCAvatars{}, err
+		}
+		row := models.NPCMindset{NPCMindsetID: metadata.ID.String(), SortName: fmt.Sprint(i + 1), Status: string(metadata.Status), Metadata: raw}
+		if err := row.Insert(ctx, gameDB, boil.Infer()); err != nil {
+			return NPCAvatars{}, err
+		}
+	}
 	avatars := []readmodel.NPCAvatarMetadata{
-		npcAvatarMetadata(n.PublishedA, "公開中A", readmodel.NPCAvatarStatusPublished, n.DeckPublished2, n.DeckDraft, n.DeckPublished1, n.DeckRetired),
-		npcAvatarMetadata(n.PublishedB, "公開中B", readmodel.NPCAvatarStatusPublished, n.DeckPublished1),
+		npcAvatarMetadata(n.PublishedA, "公開中A", readmodel.NPCAvatarStatusPublished, []uuid.UUID{n.DeckPublished2, n.DeckDraft, n.DeckPublished1, n.DeckRetired}, n.MindsetPublished1, n.MindsetDraft, n.MindsetPublished2, n.MindsetRetired),
+		npcAvatarMetadata(n.PublishedB, "公開中B", readmodel.NPCAvatarStatusPublished, []uuid.UUID{n.DeckPublished1}, n.MindsetPublished1),
 		// 公開中でなければ出ないことだけを確かめるので、使うデッキは公開中のものにする
-		npcAvatarMetadata(n.Draft, "準備中", readmodel.NPCAvatarStatusDraft, n.DeckPublished1),
-		npcAvatarMetadata(n.Retired, "使用不可", readmodel.NPCAvatarStatusRetired, n.DeckPublished1),
-		npcAvatarMetadata(n.PublishedLocked, "未解放", readmodel.NPCAvatarStatusPublished, n.DeckPublished1),
+		npcAvatarMetadata(n.Draft, "準備中", readmodel.NPCAvatarStatusDraft, []uuid.UUID{n.DeckPublished1}),
+		npcAvatarMetadata(n.Retired, "使用不可", readmodel.NPCAvatarStatusRetired, []uuid.UUID{n.DeckPublished1}),
+		npcAvatarMetadata(n.PublishedLocked, "未解放", readmodel.NPCAvatarStatusPublished, []uuid.UUID{n.DeckPublished1}),
 	}
 	for i, metadata := range avatars {
 		raw, err := json.Marshal(metadata)
@@ -426,6 +453,18 @@ func PublishNPCAvatars(ctx context.Context, gameDB *sql.DB) (NPCAvatars, error) 
 	if _, err := gameDB.ExecContext(ctx, publishNPCDeckEntitiesSQL); err != nil {
 		return NPCAvatars{}, err
 	}
+	if _, err := gameDB.ExecContext(ctx, publishNPCMindsetEntitiesSQL); err != nil {
+		return NPCAvatars{}, err
+	}
+	var mindsetValue int64
+	if err := gameDB.QueryRowContext(ctx, `SELECT id FROM domain_entities WHERE public_id = $1`, n.MindsetPublished1).Scan(&mindsetValue); err != nil {
+		return NPCAvatars{}, err
+	}
+	mindsetID, err := npcmindset.NewID(mindsetValue)
+	if err != nil {
+		return NPCAvatars{}, err
+	}
+	n.InternalMindsetPublished1 = mindsetID
 	for publicID, internalID := range map[uuid.UUID]*npcavatar.ID{
 		n.PublishedA: &n.InternalPublishedA, n.PublishedB: &n.InternalPublishedB, n.Retired: &n.InternalRetired,
 	} {
@@ -448,10 +487,29 @@ const publishNPCAvatarEntitiesSQL = `INSERT INTO domain_entities (public_id, ent
 // Makefile の publish-master が、写した npc_decks について流す文と同じ（部屋の席の選択が NPC のデッキを game の内部 ID で指すため）
 const publishNPCDeckEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = 'npc_deck' ON CONFLICT DO NOTHING`
 
+// Makefile の publish-master が、写した npc_mindsets について流す文と同じ（部屋の席の選択が思考パターンを game の内部 ID で指すため）
+const publishNPCMindsetEntitiesSQL = `INSERT INTO domain_entities (public_id, entity_type_id) SELECT m.npc_mindset_id, t.id FROM npc_mindsets m JOIN domain_entity_types t ON t.name = 'npc_mindset' ON CONFLICT DO NOTHING`
+
+// 行動の種類ごとの重みはどれも actionWeight、採点基準ごとの重みは総魔力の差だけ criterionWeight で、ほかは 1（写した値が読み手に届くことを確かめる）
+func npcMindsetMetadata(id uuid.UUID, name string, status readmodel.NPCMindsetStatus, actionWeight, criterionWeight int) readmodel.NPCMindsetMetadata {
+	metadata := readmodel.NPCMindsetMetadata{
+		ID: id, Name: name, Status: status, Revision: 2,
+		ActionWeights: map[matchaction.Action]int{}, CriterionWeights: map[npcmindset.Criterion]int{},
+	}
+	for _, action := range matchaction.Actions() {
+		metadata.ActionWeights[action] = actionWeight
+	}
+	for _, criterion := range npcmindset.Criteria() {
+		metadata.CriterionWeights[criterion] = 1
+	}
+	metadata.CriterionWeights[npcmindset.CriterionTotalMagicLead] = criterionWeight
+	return metadata
+}
+
 func npcDeckMetadata(id uuid.UUID, name string, status readmodel.NPCDeckStatus, cards []readmodel.DeckCard) readmodel.NPCDeckMetadata {
 	return readmodel.NPCDeckMetadata{ID: id, Name: name, Status: status, Cards: cards}
 }
 
-func npcAvatarMetadata(id uuid.UUID, name string, status readmodel.NPCAvatarStatus, decks ...uuid.UUID) readmodel.NPCAvatarMetadata {
-	return readmodel.NPCAvatarMetadata{ID: id, Name: name, Status: status, Decks: decks}
+func npcAvatarMetadata(id uuid.UUID, name string, status readmodel.NPCAvatarStatus, decks []uuid.UUID, mindsets ...uuid.UUID) readmodel.NPCAvatarMetadata {
+	return readmodel.NPCAvatarMetadata{ID: id, Name: name, Status: status, Decks: decks, Mindsets: append([]uuid.UUID{}, mindsets...)}
 }

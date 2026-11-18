@@ -13,6 +13,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
@@ -45,7 +46,7 @@ const (
 	MatchPhaseEnded               MatchPhase = "ended"
 )
 
-// 操作を待っている人が今選べる行動の種類（match.Action）
+// 操作を待っている人が今選べる行動の種類（matchaction.Action）
 type MatchAction string
 
 const (
@@ -677,45 +678,45 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 	}
 }
 
-func fromMatchAction(action match.Action) (MatchAction, error) {
+func fromMatchAction(action matchaction.Action) (MatchAction, error) {
 	switch action {
-	case match.ActionDrawCard:
+	case matchaction.ActionDrawCard:
 		return MatchActionDrawCard, nil
-	case match.ActionDiscardCard:
+	case matchaction.ActionDiscardCard:
 		return MatchActionDiscardCard, nil
-	case match.ActionUseSpell:
+	case matchaction.ActionUseSpell:
 		return MatchActionUseSpell, nil
-	case match.ActionRollDice:
+	case matchaction.ActionRollDice:
 		return MatchActionRollDice, nil
-	case match.ActionChoosePath:
+	case matchaction.ActionChoosePath:
 		return MatchActionChoosePath, nil
-	case match.ActionPlaceCreature:
+	case matchaction.ActionPlaceCreature:
 		return MatchActionPlaceCreature, nil
-	case match.ActionInvadeTerritory:
+	case matchaction.ActionInvadeTerritory:
 		return MatchActionInvadeTerritory, nil
-	case match.ActionPayToll:
+	case matchaction.ActionPayToll:
 		return MatchActionPayToll, nil
-	case match.ActionLevelUpLand:
+	case matchaction.ActionLevelUpLand:
 		return MatchActionLevelUpLand, nil
-	case match.ActionExchangeCreature:
+	case matchaction.ActionExchangeCreature:
 		return MatchActionExchangeCreature, nil
-	case match.ActionChangeLandElement:
+	case matchaction.ActionChangeLandElement:
 		return MatchActionChangeLandElement, nil
-	case match.ActionMoveCreature:
+	case matchaction.ActionMoveCreature:
 		return MatchActionMoveCreature, nil
-	case match.ActionAttackWithItem:
+	case matchaction.ActionAttackWithItem:
 		return MatchActionAttackWithItem, nil
-	case match.ActionAttackWithoutItem:
+	case matchaction.ActionAttackWithoutItem:
 		return MatchActionAttackWithoutItem, nil
-	case match.ActionDefendWithItem:
+	case matchaction.ActionDefendWithItem:
 		return MatchActionDefendWithItem, nil
-	case match.ActionDefendWithoutItem:
+	case matchaction.ActionDefendWithoutItem:
 		return MatchActionDefendWithoutItem, nil
-	case match.ActionUseCreatureAsItem:
+	case matchaction.ActionUseCreatureAsItem:
 		return MatchActionUseCreatureAsItem, nil
-	case match.ActionRelinquishTerritory:
+	case matchaction.ActionRelinquishTerritory:
 		return MatchActionRelinquishTerritory, nil
-	case match.ActionEndTurn:
+	case matchaction.ActionEndTurn:
 		return MatchActionEndTurn, nil
 	default:
 		return "", fmt.Errorf("query: unexpected match action: %q", action)

@@ -35,7 +35,20 @@ func insertNPCAvatarRow(t *testing.T, ctx context.Context, id uuid.UUID, sortNam
 }
 
 func npcAvatarMetadata(name string, status readmodel.NPCAvatarStatus, decks ...uuid.UUID) readmodel.NPCAvatarMetadata {
-	return readmodel.NPCAvatarMetadata{ID: uuid.New(), Name: name, Status: status, Revision: 3, Decks: append([]uuid.UUID{}, decks...)}
+	return readmodel.NPCAvatarMetadata{ID: uuid.New(), Name: name, Status: status, Revision: 3, Decks: append([]uuid.UUID{}, decks...), Mindsets: []uuid.UUID{}}
+}
+
+// 思考パターンの行。書き手の型で JSON を作る（重みは写した値のまま、読み手は名前だけを読む）
+func insertNPCMindset(t *testing.T, ctx context.Context, name string, status readmodel.NPCMindsetStatus) uuid.UUID {
+	t.Helper()
+	metadata := readmodel.NPCMindsetMetadata{ID: uuid.New(), Name: name, Status: status, Revision: 2}
+	raw, err := json.Marshal(metadata)
+	require.NoError(t, err)
+	row := models.NPCMindset{NPCMindsetID: metadata.ID.String(), SortName: name, Status: string(status), Metadata: raw}
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
+	return metadata.ID
 }
 
 func insertNPCDeck(t *testing.T, ctx context.Context, name string, status readmodel.NPCDeckStatus, cards ...readmodel.DeckCard) uuid.UUID {
@@ -112,6 +125,8 @@ func TestNPCAvatarReader_ListsOwnUnlockedPublishedAvatarsInUnlockOrderWithDeckID
 	d1, d2 := uuid.New(), uuid.New()
 	b := npcAvatarMetadata("B", readmodel.NPCAvatarStatusPublished)
 	a := npcAvatarMetadata("A", readmodel.NPCAvatarStatusPublished, d2, d1)
+	m1, m2 := uuid.New(), uuid.New()
+	a.Mindsets = []uuid.UUID{m2, m1}
 	notUnlocked := npcAvatarMetadata("未解放", readmodel.NPCAvatarStatusPublished)
 	retired := npcAvatarMetadata("使用不可", readmodel.NPCAvatarStatusRetired)
 	draft := npcAvatarMetadata("準備中", readmodel.NPCAvatarStatusDraft)
@@ -127,8 +142,8 @@ func TestNPCAvatarReader_ListsOwnUnlockedPublishedAvatarsInUnlockOrderWithDeckID
 
 	require.NoError(t, err)
 	require.Equal(t, []query.NPCAvatarRecord{
-		{ID: b.ID, Name: "B", DeckIDs: []uuid.UUID{}},
-		{ID: a.ID, Name: "A", DeckIDs: []uuid.UUID{d2, d1}},
+		{ID: b.ID, Name: "B", DeckIDs: []uuid.UUID{}, MindsetIDs: []uuid.UUID{}},
+		{ID: a.ID, Name: "A", DeckIDs: []uuid.UUID{d2, d1}, MindsetIDs: []uuid.UUID{m2, m1}},
 	}, got)
 	require.NoError(t, otherErr)
 	require.Equal(t, []uuid.UUID{notUnlocked.ID}, []uuid.UUID{gotOther[0].ID})
@@ -161,6 +176,43 @@ func TestNPCAvatarReader_ListFailsWhenDecksIsMissing(t *testing.T) {
 	_, err := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, player)
 
 	require.ErrorContains(t, err, "decks is missing")
+}
+
+// mindsets が無い行（思考パターンを持たせる前に写した行）も、思考パターンが無いものとして返さず、読み出しを失敗させる
+func TestNPCAvatarReader_ListFailsWhenMindsetsIsMissing(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	id, player := uuid.New(), uuid.New()
+	insertNPCAvatarRow(t, ctx, id, "a", "published", []byte(`{"name":"A","decks":[]}`))
+	insertUnlockedNPCAvatars(t, ctx, player, id)
+
+	_, err := repository.NewNPCAvatarReader().ListUnlockedByPlayer(ctx, player)
+
+	require.ErrorContains(t, err, "mindsets is missing")
+}
+
+func TestNPCAvatarReader_ListMindsetsReturnsOnlyPublishedRequestedMindsetsWithNames(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+	published := insertNPCMindset(t, ctx, "攻めがち", readmodel.NPCMindsetStatusPublished)
+	draft := insertNPCMindset(t, ctx, "準備中", readmodel.NPCMindsetStatusDraft)
+	retired := insertNPCMindset(t, ctx, "使用不可", readmodel.NPCMindsetStatusRetired)
+	insertNPCMindset(t, ctx, "ほかの思考パターン", readmodel.NPCMindsetStatusPublished)
+
+	got, err := repository.NewNPCAvatarReader().ListPublishedMindsets(ctx, []uuid.UUID{published, draft, retired, uuid.New()})
+
+	require.NoError(t, err)
+	require.Equal(t, []query.NPCMindset{{ID: published, Name: "攻めがち"}}, got)
+}
+
+func TestNPCAvatarReader_ListMindsetsReturnsNothingForNoIDs(t *testing.T) {
+	db, _ := rdbtest.NewDatabase(t)
+	ctx := rdb.WithDB(t.Context(), db)
+
+	got, err := repository.NewNPCAvatarReader().ListPublishedMindsets(ctx, nil)
+
+	require.NoError(t, err)
+	require.Empty(t, got)
 }
 
 func TestNPCAvatarReader_ListDecksReturnsOnlyPublishedRequestedDecksWithCardsInTypeThenNameOrder(t *testing.T) {

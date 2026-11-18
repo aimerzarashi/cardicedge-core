@@ -19,6 +19,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator/operatortest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
@@ -278,6 +279,22 @@ func npcAvatarStore(registry *domaindef.Registry) domain.EventStore[npcavatar.ID
 	return eventstore.New(registry, npcavatar.NewID, npcavatar.NewEventType, npcavatar.InitialState, npcavatar.Evolve)
 }
 
+func npcMindsetStore(registry *domaindef.Registry) domain.EventStore[npcmindset.ID, npcmindset.Event, npcmindset.State] {
+	return eventstore.New(registry, npcmindset.NewID, npcmindset.NewEventType, npcmindset.InitialState, npcmindset.Evolve)
+}
+
+func newNPCMindsetHandler(t *testing.T, ctx context.Context) *command.NPCMindsetHandler {
+	t.Helper()
+	registry, err := domaindef.Load(ctx)
+	require.NoError(t, err)
+	return command.NewNPCMindsetHandler(
+		npcMindsetStore(registry),
+		identifier.New(registry, npcmindset.NewID),
+		constraint.UpdateNPCMindsetName,
+		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+	)
+}
+
 func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHandler {
 	t.Helper()
 	registry, err := domaindef.Load(ctx)
@@ -289,6 +306,8 @@ func newNPCAvatarHandler(t *testing.T, ctx context.Context) *command.NPCAvatarHa
 		constraint.UpdateNPCAvatarName,
 		constraint.UpdateNPCAvatarDeckReferences,
 		command.NewNPCDeckStatusReader(npcDeckStore(registry)).Statuses,
+		constraint.UpdateNPCAvatarMindsetReferences,
+		command.NewNPCMindsetStatusReader(npcMindsetStore(registry)).Statuses,
 		func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	)
 }

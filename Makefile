@@ -60,7 +60,7 @@ gen-api:
 seed-master:
 	docker compose exec core go run ./tools/seedmaster
 
-# マスタ（studio の read model の cards・grant_decks・starter_sets・game_rules・boards・npc_avatars・npc_decks）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
+# マスタ（studio の read model の cards・grant_decks・starter_sets・game_rules・boards・npc_avatars・npc_decks・npc_mindsets）を game の DB に公開する。core-db の中で、core_studio から \copy で読んだ行を
 # そのまま core_game の \copy に渡し、1 つのトランザクションで空にして流し込むので、失敗しても core_game は元のまま。
 # cards は公開中・使用不可のカードだけを写す（準備中は studio の中の作りかけで、game に出さない。使用不可はプレイヤーが持っているので写す）。
 # pg_dump は行で絞れないため使わない。流し込む前に全体を一時ファイルに作るのは、読む側が途中で失敗しても、書く側が途中までの入力で
@@ -80,12 +80,14 @@ seed-master:
 # NPC のデッキは単独では使わず、アバターを通してだけ使う（game が公開中のデッキだけを出す）ため、どのアバターにも使われていないデッキ
 # （準備中の作りかけを含む）を game に出す理由が無い。アバターを公開中・使用不可に絞った結果から導くので、写さないアバターのデッキも写らない。
 # 状態で絞らないのは、grant_decks と同じく状態つきで写して game が公開中だけを読めばよく、使用不可のデッキも後で表示したくなったときに表を作り直さずに済むため
-# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 7 つの表が公開用の ID だけで
+# npc_mindsets は npc_avatars と同じ選び方（公開中・使用不可だけ。game が一覧に出すのは公開中だけで、対戦を始めるときは、選んだ後に使用不可になっても
+# 写した重みを読む）。アバターの割り当て（npc_avatars の metadata の mindsets）は、アバターの行と一緒に写る（core#188）
+# イベントの仕組みで game に写さないのは、内部 ID が DB ごとに振られて重なるため。表の写しで足りるのは、この 8 つの表が公開用の ID だけで
 # 持ち、外部キーも無く、別の DB に入れても意味が変わらないため。両方の DB が同じマイグレーションまで適用済みであること（core#37）
 .PHONY: publish-master
 publish-master:
 	docker compose exec core-db sh -c 'set -e; f=$$(mktemp); trap "rm -f $$f" EXIT; { \
-	  printf "%s\n" "TRUNCATE cards, boards, grant_decks, starter_sets, game_rules, npc_avatars, npc_decks;" "\\copy cards FROM STDIN"; \
+	  printf "%s\n" "TRUNCATE cards, boards, grant_decks, starter_sets, game_rules, npc_avatars, npc_decks, npc_mindsets;" "\\copy cards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM cards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
 	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT c.card_id, t.id FROM cards c JOIN domain_entity_types t ON t.name = CASE c.card_type WHEN 1 THEN '"'"'creature'"'"' WHEN 2 THEN '"'"'item'"'"' WHEN 3 THEN '"'"'spell'"'"' END ON CONFLICT DO NOTHING;" "\\copy boards FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM boards WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
@@ -93,7 +95,9 @@ publish-master:
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_avatars WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
 	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT a.npc_avatar_id, t.id FROM npc_avatars a JOIN domain_entity_types t ON t.name = '"'"'npc_avatar'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_decks FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_decks WHERE npc_deck_id IN (SELECT deck_id::uuid FROM npc_avatars, jsonb_array_elements_text(metadata->'"'"'decks'"'"') AS deck_id WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"'))) TO STDOUT"; \
-	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = '"'"'npc_deck'"'"' ON CONFLICT DO NOTHING;" "\\copy grant_decks FROM STDIN"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT d.npc_deck_id, t.id FROM npc_decks d JOIN domain_entity_types t ON t.name = '"'"'npc_deck'"'"' ON CONFLICT DO NOTHING;" "\\copy npc_mindsets FROM STDIN"; \
+	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy (SELECT * FROM npc_mindsets WHERE status IN ('"'"'published'"'"', '"'"'retired'"'"')) TO STDOUT"; \
+	  printf "%s\n" "\\." "INSERT INTO domain_entities (public_id, entity_type_id) SELECT m.npc_mindset_id, t.id FROM npc_mindsets m JOIN domain_entity_types t ON t.name = '"'"'npc_mindset'"'"' ON CONFLICT DO NOTHING;" "\\copy grant_decks FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy grant_decks TO STDOUT"; \
 	  printf "%s\n" "\\." "\\copy starter_sets FROM STDIN"; \
 	  psql -U core_user -d core_studio -v ON_ERROR_STOP=1 -c "\\copy starter_sets TO STDOUT"; \

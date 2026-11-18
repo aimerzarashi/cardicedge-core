@@ -66,7 +66,7 @@ type ChangeRoomMatchRulesResult interface {
 }
 
 // changeRoomSeatChoice の結果（公開前、または公開前に決めていなければ準備中）。選んだ時の 1 回だけ、選べるものかを確かめる（準備完了の時には確かめ直さない）。
-// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキを確かめる）
+// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキと思考パターンを確かめる。mindsetId は NPC の席で無ければ FieldRequired、選べなければ FieldNotFound、プレイヤーの席に付けると FieldInvalidFormat）
 type ChangeRoomSeatChoiceResult interface {
 	IsChangeRoomSeatChoiceResult()
 }
@@ -645,6 +645,8 @@ type ChangeRoomSeatChoiceInput struct {
 	AvatarID uuid.UUID `json:"avatarId"`
 	// デッキの公開用の ID（プレイヤーの席は座っている人のデッキ（Player.decks に出るもの）、NPC の席は選んだ NPC のアバターに割り当てた公開中のデッキ（Player.npcAvatars の decks に出るもの））
 	DeckID uuid.UUID `json:"deckId"`
+	// 思考パターンの公開用の ID（NPC の席だけ必須で、選んだ NPC のアバターに割り当てた公開中の思考パターン（Player.npcAvatars の mindsets に出るもの）。プレイヤーの席に付けると入力の誤り）
+	MindsetID *uuid.UUID `json:"mindsetId,omitempty"`
 }
 
 // 席のアバターとデッキを選んだ（同じ選択なら何も変えず、revision も進まない）
@@ -3286,6 +3288,8 @@ type NpcAvatar struct {
 	Name string `json:"name"`
 	// 使うデッキ（割り当てた順。公開中のものだけ）
 	Decks []*NpcDeck `json:"decks"`
+	// 使う思考パターン（割り当てた順。公開中のものだけ）。部屋の NPC の席で、デッキと一緒にこの中から 1 つ選ぶ
+	Mindsets []*NpcMindset `json:"mindsets"`
 }
 
 func (NpcAvatar) IsNpcAvatarResult() {}
@@ -3316,6 +3320,15 @@ type NpcDeckCard struct {
 	Card CardInfo `json:"card"`
 	// 枚数
 	Count int `json:"count"`
+}
+
+// NPC の思考パターン（公開中のもの）。NPC のアバターを通してだけ出る。行動の種類ごとの重みと採点基準ごとの重みは、
+// 対戦を始めるときに NPC の参加者へ写され、NPC が選ぶのに使う（game の画面には出さない）
+type NpcMindset struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
 }
 
 // 受けるダメージを 0 にする
@@ -3893,6 +3906,8 @@ type RoomSeat struct {
 	Avatar *RoomNamed `json:"avatar,omitempty"`
 	// 選んだデッキ（プレイヤーの席は座っている人のデッキ、NPC の席は NPC のアバターに割り当てたデッキ。まだ選んでいなければ null）
 	Deck *RoomNamed `json:"deck,omitempty"`
+	// 選んだ思考パターン（NPC の席だけ。NPC のアバターに割り当てた思考パターン。プレイヤーの席と、まだ選んでいなければ null）
+	Mindset *RoomNamed `json:"mindset,omitempty"`
 	// 見ている人がこの席のアバターとデッキを選び直せるか（changeRoomSeatChoice）。部屋の詳細（room）だけが返し、一覧（myRooms）では null
 	ChoiceChangeable *bool `json:"choiceChangeable,omitempty"`
 }

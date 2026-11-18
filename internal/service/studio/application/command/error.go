@@ -55,6 +55,14 @@ var (
 	ErrInvalidNPCAvatarStatusTransition = errors.New("command: invalid npc avatar status transition")
 	// 準備中でない NPC のアバターの名前を変える、または削除しようとした
 	ErrNPCAvatarNotDraft = errors.New("command: npc avatar is not draft")
+	// ほかの NPC の思考パターンが同じ名前を使っている（状態によらない）
+	ErrNPCMindsetNameAlreadyInUse = errors.New("command: npc mindset name already in use")
+	// 公開 ID に当たる NPC の思考パターンが無い（削除したものを含む）
+	ErrNPCMindsetNotFound = errors.New("command: npc mindset not found")
+	// 準備中の NPC の思考パターンを使用不可にしようとした
+	ErrInvalidNPCMindsetStatusTransition = errors.New("command: invalid npc mindset status transition")
+	// 準備中でない NPC の思考パターンの名前・重みを変える、または削除しようとした
+	ErrNPCMindsetNotDraft = errors.New("command: npc mindset is not draft")
 	// ほかの NPC のデッキが同じ名前を使っている（状態によらない）
 	ErrNPCDeckNameAlreadyInUse = errors.New("command: npc deck name already in use")
 	// 公開 ID に当たる NPC のデッキが無い（削除したものを含む）

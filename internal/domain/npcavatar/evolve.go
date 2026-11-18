@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
 func Evolve(state State, event Event) (State, error) {
@@ -40,6 +41,20 @@ func Evolve(state State, event Event) (State, error) {
 			return state, ErrInvalidState
 		}
 		npcAvatar.Decks = slices.DeleteFunc(slices.Clone(npcAvatar.Decks), func(deck npcdeck.ID) bool { return slices.Contains(e.Decks, deck) })
+		return touched(npcAvatar, meta), nil
+	case *MindsetsAssignedEvent:
+		npcAvatar, ok := state.(NPCAvatar)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		npcAvatar.Mindsets = append(slices.Clone(npcAvatar.Mindsets), e.Mindsets...)
+		return touched(npcAvatar, meta), nil
+	case *MindsetsUnassignedEvent:
+		npcAvatar, ok := state.(NPCAvatar)
+		if !ok {
+			return state, ErrInvalidState
+		}
+		npcAvatar.Mindsets = slices.DeleteFunc(slices.Clone(npcAvatar.Mindsets), func(mindset npcmindset.ID) bool { return slices.Contains(e.Mindsets, mindset) })
 		return touched(npcAvatar, meta), nil
 	case *PublishedEvent:
 		npcAvatar, ok := state.(NPCAvatar)

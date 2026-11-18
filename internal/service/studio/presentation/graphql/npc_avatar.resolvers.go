@@ -79,6 +79,28 @@ func (r *mutationResolver) SetNpcAvatarDecks(ctx context.Context, input model.Se
 	return &model.SetNpcAvatarDecksSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
 }
 
+// SetNpcAvatarMindsets is the resolver for the setNpcAvatarMindsets field.
+func (r *mutationResolver) SetNpcAvatarMindsets(ctx context.Context, input model.SetNpcAvatarMindsetsInput) (model.SetNpcAvatarMindsetsResult, error) {
+	if forbidden := requireOperator(ctx); forbidden != nil {
+		return forbidden, nil
+	}
+	changed, err := r.npcAvatars.SetMindsets(ctx, input.ID, int64(input.Revision), input.MindsetIds)
+	if invalid := validationErrors(err); invalid != nil {
+		return invalid, nil
+	}
+	switch {
+	case errors.Is(err, command.ErrNPCAvatarNotFound):
+		return &model.NpcAvatarNotFoundError{Message: "npc avatar not found"}, nil
+	case errors.Is(err, command.ErrNPCAvatarNotDraft):
+		return &model.NpcAvatarNotDraftError{Message: "npc avatar is not draft"}, nil
+	case errors.Is(err, command.ErrRevisionConflict):
+		return &model.RevisionConflictError{Message: "revision conflict"}, nil
+	case err != nil:
+		return nil, err
+	}
+	return &model.SetNpcAvatarMindsetsSuccess{ID: changed.ID, Revision: int(changed.Revision)}, nil
+}
+
 // DeleteNpcAvatar is the resolver for the deleteNpcAvatar field.
 func (r *mutationResolver) DeleteNpcAvatar(ctx context.Context, input model.DeleteNpcAvatarInput) (model.DeleteNpcAvatarResult, error) {
 	if forbidden := requireOperator(ctx); forbidden != nil {
@@ -156,6 +178,27 @@ func (r *npcAvatarResolver) Decks(ctx context.Context, obj *model.NpcAvatar) ([]
 		decks = append(decks, deck)
 	}
 	return decks, nil
+}
+
+// Mindsets is the resolver for the mindsets field.
+func (r *npcAvatarResolver) Mindsets(ctx context.Context, obj *model.NpcAvatar) ([]*model.NpcMindset, error) {
+	mindsets := make([]*model.NpcMindset, 0, len(obj.MindsetIDs))
+	for _, id := range obj.MindsetIDs {
+		npcMindset, err := r.npcMindsetList.Get(ctx, id)
+		// 割り当てた思考パターンは公開中で、消せないため、無いのは投影が遅れているときだけ。画面を止めずに飛ばす
+		if errors.Is(err, query.ErrNPCMindsetNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		mindset, err := fromQueryNPCMindset(npcMindset)
+		if err != nil {
+			return nil, err
+		}
+		mindsets = append(mindsets, mindset)
+	}
+	return mindsets, nil
 }
 
 // NpcAvatars is the resolver for the npcAvatars field.

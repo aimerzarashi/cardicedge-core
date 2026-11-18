@@ -14,6 +14,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/authentication"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/command"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query/readmodel"
 	"gitlab.com/aimerzarashi/diecardomain/core/tests/testhelper"
 )
@@ -88,6 +89,9 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 	require.Len(t, npcAvatars, len(m.NPCAvatars))
 	npcDecks, err := s.listNPCDecks(ctx)
 	require.NoError(t, err)
+	npcMindsets, err := s.listNPCMindsets(ctx)
+	require.NoError(t, err)
+	require.Len(t, npcMindsets, len(m.NPCMindsets))
 	for _, avatar := range m.NPCAvatars {
 		npcAvatar := npcAvatars[domain.NormalizeName(avatar.Name)]
 		require.Equal(t, readmodel.NPCAvatarStatusPublished, npcAvatar.Status)
@@ -96,6 +100,22 @@ func requireSeeded(t *testing.T, ctx context.Context, s *seeder, m master) {
 			wantDecks = append(wantDecks, npcDecks[domain.NormalizeName(deck)].ID)
 		}
 		require.Equal(t, wantDecks, npcAvatar.Decks)
+		wantMindsets := make([]uuid.UUID, 0, len(avatar.Mindsets))
+		for _, mindset := range avatar.Mindsets {
+			wantMindsets = append(wantMindsets, npcMindsets[domain.NormalizeName(mindset)].ID)
+		}
+		require.Equal(t, wantMindsets, npcAvatar.Mindsets)
+	}
+	for _, mindset := range m.NPCMindsets {
+		published := npcMindsets[domain.NormalizeName(mindset.Name)]
+		require.Equal(t, readmodel.NPCMindsetStatusPublished, published.Status)
+		// 行動の種類ごとの重みは登録のときのすべて 1 のまま。採点基準ごとの重みは見本のファイルの値
+		for _, weight := range published.ActionWeights {
+			require.Equal(t, 1, weight.Weight)
+		}
+		for _, weight := range published.CriterionWeights {
+			require.Equal(t, mindset.CriterionWeights[weight.Criterion], weight.Weight)
+		}
 	}
 	starterSets, err := s.listStarterSets(ctx)
 	require.NoError(t, err)
@@ -219,6 +239,20 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			registered, err := s.npcAvatars.Register(ctx, m.NPCAvatars[0].Name)
 			require.NoError(t, err)
 			_, err = s.npcAvatars.SetDecks(ctx, registered.ID, registered.Revision, []uuid.UUID{npcDeckIDs[m.NPCAvatars[0].Decks[0]]})
+			require.NoError(t, err)
+		}},
+		{name: "npc_mindset_registered_without_weights", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			_, err := s.npcMindsets.Register(ctx, m.NPCMindsets[0].Name)
+			require.NoError(t, err)
+		}},
+		{name: "npc_mindset_weights_set_without_publish", prepare: func(t *testing.T, ctx context.Context, s *seeder) {
+			registered, err := s.npcMindsets.Register(ctx, m.NPCMindsets[1].Name)
+			require.NoError(t, err)
+			weights := []command.CriterionWeightInput{
+				{Criterion: "total_magic_lead", Weight: 3}, {Criterion: "territory_count", Weight: 1},
+				{Criterion: "battle_hold", Weight: 3}, {Criterion: "magic_reserve", Weight: 0},
+			}
+			_, err = s.npcMindsets.SetCriterionWeights(ctx, registered.ID, registered.Revision, weights)
 			require.NoError(t, err)
 		}},
 		{name: "starter_set_registered_without_contents", prepare: func(t *testing.T, ctx context.Context, s *seeder) {

@@ -67,7 +67,7 @@ func fromQueryRoom(room query.Room) (*model.Room, error) {
 		if err != nil {
 			return nil, err
 		}
-		seats[i] = &model.RoomSeat{Kind: kind, PlayerID: seat.Player, Avatar: fromRoomNamed(seat.Avatar), Deck: fromRoomNamed(seat.Deck)}
+		seats[i] = &model.RoomSeat{Kind: kind, PlayerID: seat.Player, Avatar: fromRoomNamed(seat.Avatar), Deck: fromRoomNamed(seat.Deck), Mindset: fromRoomNamed(seat.Mindset)}
 		// 投影が遅れて席の数がずれたときは、押せない（false）にする。操作は revision で弾かれ、読み直せば直る
 		if capabilities := room.Capabilities; capabilities != nil {
 			changeable := i < len(capabilities.ChangeSeatChoice) && capabilities.ChangeSeatChoice[i]

@@ -26,8 +26,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 )
@@ -68,7 +71,7 @@ func playerParticipant(t *testing.T) match.Participant {
 // NPC（カード 201 が 3 枚）
 func npcParticipant(t *testing.T) match.Participant {
 	t.Helper()
-	return match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 3)})
+	return match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 3)})
 }
 
 func startCommand(t *testing.T, rules match.Rules, participants ...match.Participant) *match.StartCommand {
@@ -122,6 +125,21 @@ func TestDecide_StartPutsEveryoneOnBaseWithStartingMagicAtRoundOne(t *testing.T)
 		require.Equal(t, boardtest.Position(t, 0, 0), participant.Position)
 		require.Equal(t, 600, participant.Magic)
 	}
+}
+
+// 始めた後に思考パターンのマスタを変えても対戦に響かないよう、ID と重みの値を参加者に写す
+func TestDecide_StartCopiesTheMindsetOfTheNPCParticipant(t *testing.T) {
+	mindset := matchtest.NPCMindset(t, 9)
+	mindset.ActionWeights[matchaction.ActionRollDice] = npcmindsettest.Weight(t, 50)
+	mindset.CriterionWeights[npcmindset.CriterionBattleHold] = npcmindsettest.Weight(t, 0)
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), mindset, []match.DeckCard{deckCard(t, 201, 3)})
+
+	state, _ := start(t, startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npc))
+
+	copied := state.Participants[1].Participant.NPC.Mindset
+	require.Equal(t, npcmindsettest.ID(t, 9), copied.ID)
+	require.Equal(t, 50, copied.ActionWeights[matchaction.ActionRollDice].Int())
+	require.Equal(t, 0, copied.CriterionWeights[npcmindset.CriterionBattleHold].Int())
 }
 
 // 順番は参加者の並びを乱数の元で混ぜたもの（テストの乱数の元は逆順にする）
@@ -1166,7 +1184,7 @@ func placingMatch(t *testing.T, participants ...match.Participant) match.Match {
 func TestDecide_StoppingOnVacantLandOffersTheCreaturesThatCanBePaid(t *testing.T) {
 	// NPC のデッキ: カード 201（コスト 10）と 299（コスト 990。開始時の魔力 600 では払えない）。山札は逆順に混ざるので、
 	// 配った 1 枚が 299、引いた 1 枚が 201
-	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
 	state := placingMatch(t, playerParticipant(t), npc)
 
 	require.Equal(t, refs(t, 299, 201), state.Participants[1].Hand)
@@ -1207,7 +1225,7 @@ func TestDecide_PlaceRejectsCardsThatCannotBePlaced(t *testing.T) {
 	itemSpec := match.CardSpec{Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal}
 	item := match.DeckCard{Card: cardtest.Ref(t, card.ItemEntityType, 250), Quantity: cardtest.DeckQuantity(t, 1), Spec: itemSpec}
 	// 山札は逆順に混ざるので、手札は先頭から 299・250（アイテム）・201
-	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
 	state := placingMatch(t, playerParticipant(t), npc)
 	hand := state.Participants[1].Hand
 	require.Equal(t, cardtest.CreatureRef(t, 299), hand[0])
@@ -3937,7 +3955,7 @@ func TestDecide_CreatureDestroyedOnTheBoardActivatesItsDestructionEffects(t *tes
 }
 
 // 行動の種類から、選択肢の最初の対象で操作を作る。選択肢が空なら手札の 0 番・(0,0) を当てる（受け付けられないことを確かめるため）
-func commandOf(t *testing.T, state match.Match, action match.Action) match.Command {
+func commandOf(t *testing.T, state match.Match, action matchaction.Action) match.Command {
 	t.Helper()
 	by, _ := state.AwaitingParticipant()
 	first := func(choices []int) int {
@@ -3947,11 +3965,11 @@ func commandOf(t *testing.T, state match.Match, action match.Action) match.Comma
 		return choices[0]
 	}
 	switch action {
-	case match.ActionDrawCard:
+	case matchaction.ActionDrawCard:
 		return &match.DrawCommand{By: by}
-	case match.ActionDiscardCard:
+	case matchaction.ActionDiscardCard:
 		return &match.DiscardCommand{By: by, HandIndex: 0}
-	case match.ActionUseSpell:
+	case matchaction.ActionUseSpell:
 		cmd := &match.UseSpellCommand{By: by}
 		if choices := state.SpellChoices(); len(choices) > 0 {
 			cmd.HandIndex = choices[0].HandIndex
@@ -3963,63 +3981,63 @@ func commandOf(t *testing.T, state match.Match, action match.Action) match.Comma
 			}
 		}
 		return cmd
-	case match.ActionRollDice:
+	case matchaction.ActionRollDice:
 		return &match.RollCommand{By: by}
-	case match.ActionChoosePath:
+	case matchaction.ActionChoosePath:
 		cmd := &match.ChoosePathCommand{By: by}
 		if choices := state.PathChoices(); len(choices) > 0 {
 			cmd.To = choices[0]
 		}
 		return cmd
-	case match.ActionPlaceCreature:
+	case matchaction.ActionPlaceCreature:
 		return &match.PlaceCreatureCommand{By: by, HandIndex: first(state.PlaceChoices())}
-	case match.ActionInvadeTerritory:
+	case matchaction.ActionInvadeTerritory:
 		return &match.InvadeCommand{By: by, HandIndex: first(state.InvadeChoices())}
-	case match.ActionPayToll:
+	case matchaction.ActionPayToll:
 		return &match.PayTollCommand{By: by}
-	case match.ActionLevelUpLand:
+	case matchaction.ActionLevelUpLand:
 		cmd := &match.LevelUpLandCommand{By: by, Level: 2}
 		if choices := state.LevelUpChoices(); len(choices) > 0 {
 			cmd.Position, cmd.Level = choices[0].Position, choices[0].Level
 		}
 		return cmd
-	case match.ActionExchangeCreature:
+	case matchaction.ActionExchangeCreature:
 		cmd := &match.ExchangeCreatureCommand{By: by}
 		if choices := state.ExchangeChoices(); len(choices) > 0 {
 			cmd.Position, cmd.HandIndex = choices[0].Position, choices[0].HandIndex
 		}
 		return cmd
-	case match.ActionChangeLandElement:
+	case matchaction.ActionChangeLandElement:
 		cmd := &match.ChangeLandElementCommand{By: by, Element: element.LandFire}
 		if choices := state.ElementChangeChoices(); len(choices) > 0 {
 			cmd.Position, cmd.Element = choices[0].Position, choices[0].Element
 		}
 		return cmd
-	case match.ActionMoveCreature:
+	case matchaction.ActionMoveCreature:
 		cmd := &match.MoveCreatureCommand{By: by}
 		if choices := state.MoveChoices(); len(choices) > 0 {
 			cmd.From, cmd.To = choices[0].From, choices[0].To
 		}
 		return cmd
-	case match.ActionAttackWithItem:
+	case matchaction.ActionAttackWithItem:
 		item := first(state.ItemChoices())
 		return &match.AttackCommand{By: by, ItemHandIndex: &item}
-	case match.ActionAttackWithoutItem:
+	case matchaction.ActionAttackWithoutItem:
 		return &match.AttackCommand{By: by}
-	case match.ActionDefendWithItem:
+	case matchaction.ActionDefendWithItem:
 		item := first(state.ItemChoices())
 		return &match.DefendCommand{By: by, ItemHandIndex: &item}
-	case match.ActionDefendWithoutItem:
+	case matchaction.ActionDefendWithoutItem:
 		return &match.DefendCommand{By: by}
-	case match.ActionUseCreatureAsItem:
+	case matchaction.ActionUseCreatureAsItem:
 		return &match.UseCreatureAsItemCommand{By: by, HandIndex: first(state.CreatureAsItemChoices())}
-	case match.ActionRelinquishTerritory:
+	case matchaction.ActionRelinquishTerritory:
 		cmd := &match.RelinquishTerritoryCommand{By: by}
 		if choices := state.RelinquishChoices(); len(choices) > 0 {
 			cmd.Position = choices[0]
 		}
 		return cmd
-	case match.ActionEndTurn:
+	case matchaction.ActionEndTurn:
 		return &match.EndTurnCommand{By: by}
 	}
 	t.Fatalf("unknown action %q", action)
@@ -4030,7 +4048,7 @@ func commandOf(t *testing.T, state match.Match, action match.Action) match.Comma
 func actionStates(t *testing.T) []struct {
 	name  string
 	state match.Match
-	want  []match.Action
+	want  []matchaction.Action
 } {
 	t.Helper()
 	drawn, _ := apply(t, newMatch(t, lineBoard(t), defaultRules(t)), matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
@@ -4043,45 +4061,45 @@ func actionStates(t *testing.T) []struct {
 	return []struct {
 		name  string
 		state match.Match
-		want  []match.Action
+		want  []matchaction.Action
 	}{
-		{name: "drawing", state: newMatch(t, lineBoard(t), defaultRules(t)), want: []match.Action{match.ActionDrawCard}},
-		{name: "discarding", state: discarding, want: []match.Action{match.ActionDiscardCard}},
-		{name: "rolling", state: drawn, want: []match.Action{match.ActionRollDice}},
-		{name: "rolling_with_spell", state: rollingWithSpell(t), want: []match.Action{match.ActionUseSpell, match.ActionRollDice}},
-		{name: "choosing_path", state: choosingPath, want: []match.Action{match.ActionChoosePath}},
-		{name: "placing", state: rolledTo(t, territoryBoardMatch(t), 1), want: []match.Action{match.ActionPlaceCreature, match.ActionEndTurn}},
+		{name: "drawing", state: newMatch(t, lineBoard(t), defaultRules(t)), want: []matchaction.Action{matchaction.ActionDrawCard}},
+		{name: "discarding", state: discarding, want: []matchaction.Action{matchaction.ActionDiscardCard}},
+		{name: "rolling", state: drawn, want: []matchaction.Action{matchaction.ActionRollDice}},
+		{name: "rolling_with_spell", state: rollingWithSpell(t), want: []matchaction.Action{matchaction.ActionUseSpell, matchaction.ActionRollDice}},
+		{name: "choosing_path", state: choosingPath, want: []matchaction.Action{matchaction.ActionChoosePath}},
+		{name: "placing", state: rolledTo(t, territoryBoardMatch(t), 1), want: []matchaction.Action{matchaction.ActionPlaceCreature, matchaction.ActionEndTurn}},
 		{
 			name:  "placing_after_passing_own_territory",
 			state: rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2),
-			want: []match.Action{
-				match.ActionPlaceCreature, match.ActionLevelUpLand, match.ActionExchangeCreature, match.ActionChangeLandElement,
-				match.ActionMoveCreature, match.ActionEndTurn,
+			want: []matchaction.Action{
+				matchaction.ActionPlaceCreature, matchaction.ActionLevelUpLand, matchaction.ActionExchangeCreature, matchaction.ActionChangeLandElement,
+				matchaction.ActionMoveCreature, matchaction.ActionEndTurn,
 			},
 		},
 		{
 			name:  "territory_commanding",
 			state: rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 1),
-			want: []match.Action{
-				match.ActionLevelUpLand, match.ActionExchangeCreature, match.ActionChangeLandElement, match.ActionMoveCreature, match.ActionEndTurn,
+			want: []matchaction.Action{
+				matchaction.ActionLevelUpLand, matchaction.ActionExchangeCreature, matchaction.ActionChangeLandElement, matchaction.ActionMoveCreature, matchaction.ActionEndTurn,
 			},
 		},
-		{name: "invading", state: invadingMatch(t), want: []match.Action{match.ActionInvadeTerritory, match.ActionPayToll}},
-		{name: "attacking", state: attacking(t, invadingMatch(t)), want: []match.Action{match.ActionAttackWithoutItem}},
+		{name: "invading", state: invadingMatch(t), want: []matchaction.Action{matchaction.ActionInvadeTerritory, matchaction.ActionPayToll}},
+		{name: "attacking", state: attacking(t, invadingMatch(t)), want: []matchaction.Action{matchaction.ActionAttackWithoutItem}},
 		{
 			name:  "attacking_with_item",
 			state: withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20),
-			want:  []match.Action{match.ActionAttackWithItem, match.ActionAttackWithoutItem},
+			want:  []matchaction.Action{matchaction.ActionAttackWithItem, matchaction.ActionAttackWithoutItem},
 		},
-		{name: "attacking_with_creature_as_item", state: asItem, want: []match.Action{match.ActionUseCreatureAsItem, match.ActionAttackWithoutItem}},
-		{name: "defending", state: invade(t, invadingMatch(t)), want: []match.Action{match.ActionDefendWithoutItem}},
+		{name: "attacking_with_creature_as_item", state: asItem, want: []matchaction.Action{matchaction.ActionUseCreatureAsItem, matchaction.ActionAttackWithoutItem}},
+		{name: "defending", state: invade(t, invadingMatch(t)), want: []matchaction.Action{matchaction.ActionDefendWithoutItem}},
 		{
 			name:  "defending_with_item",
 			state: withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20),
-			want:  []match.Action{match.ActionDefendWithItem, match.ActionDefendWithoutItem},
+			want:  []matchaction.Action{matchaction.ActionDefendWithItem, matchaction.ActionDefendWithoutItem},
 		},
-		{name: "relinquishing", state: indebtedMatch(t), want: []match.Action{match.ActionRelinquishTerritory}},
-		{name: "ending", state: ending, want: []match.Action{match.ActionEndTurn}},
+		{name: "relinquishing", state: indebtedMatch(t), want: []matchaction.Action{matchaction.ActionRelinquishTerritory}},
+		{name: "ending", state: ending, want: []matchaction.Action{matchaction.ActionEndTurn}},
 		{name: "ended", state: endedWithTwoPlayers(t), want: nil},
 	}
 }
@@ -4099,7 +4117,7 @@ func TestDecide_AcceptsExactlyTheActionChoices(t *testing.T) {
 	for _, tt := range actionStates(t) {
 		t.Run(tt.name, func(t *testing.T) {
 			choices := tt.state.ActionChoices()
-			for _, action := range match.Actions() {
+			for _, action := range matchaction.Actions() {
 				t.Run(string(action), func(t *testing.T) {
 					_, err := match.Decide(tt.state, commandOf(t, tt.state, action), startedAt, matchtest.NewRandom())
 					if slices.Contains(choices, action) {
