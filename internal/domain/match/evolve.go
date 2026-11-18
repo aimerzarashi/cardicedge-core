@@ -301,6 +301,9 @@ func Evolve(state State, event Event) (State, error) {
 		current.Participants[index].DiscardPile = append(slices.Clone(current.Participants[index].DiscardPile), relinquished.Card)
 		current.Territories = slices.DeleteFunc(slices.Clone(current.Territories), func(t Territory) bool { return t.Position == e.Position })
 		current.PlacedCreatures = slices.DeleteFunc(slices.Clone(current.PlacedCreatures), func(d PlacedCreature) bool { return d.ID == relinquished.ID })
+		// 倒された・動いた土地と違ってレベルを残さないのは、受け取った魔力がレベルを含む価値の払い戻しで、残すと次に置いた人が
+		// ただで引き継ぎ二重に数えるため（2026-11-18 オーナー。core#193）
+		current.LandLevels = slices.DeleteFunc(slices.Clone(current.LandLevels), func(l LandLevel) bool { return l.Position == e.Position })
 		current.Phase = current.debtPhase(index)
 	case *MagicDepletedEvent:
 		index, err := current.actor(e.Participant)

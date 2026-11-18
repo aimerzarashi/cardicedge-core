@@ -1560,15 +1560,21 @@ func TestDecide_UnpayableTollIsPaidInFullAndAsksToRelinquish(t *testing.T) {
 	require.Equal(t, []board.Position{pos(t, 2, 0), pos(t, 4, 0)}, state.RelinquishChoices())
 }
 
-func TestDecide_RelinquishingKeepsTheLandLevel(t *testing.T) {
+func TestDecide_RelinquishingResetsTheLandLevelAfterPayingForIt(t *testing.T) {
 	state := indebtedMatch(t)
 	state.LandLevels = []match.LandLevel{{Position: pos(t, 2, 0), Level: 3}}
+	magic := state.Participants[1].Magic
+	territory, ok := state.TerritoryAt(pos(t, 2, 0))
+	require.True(t, ok)
+	paid := state.TerritoryRelinquishMagic(territory)
+	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
 
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
 
 	_, occupied := state.TerritoryAt(pos(t, 2, 0))
 	require.False(t, occupied)
-	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
+	require.Equal(t, 1, state.LandLevel(pos(t, 2, 0)))
+	require.Equal(t, magic+paid, state.Participants[1].Magic)
 }
 
 func TestDecide_PlacingOnALeveledVacantLandInheritsTheLevel(t *testing.T) {
