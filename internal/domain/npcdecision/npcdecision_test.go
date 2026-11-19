@@ -175,14 +175,14 @@ func TestChoose_ChoosesEveryKindOfCommandAcrossMatchesWhenCriteriaAreWeightedZer
 	}
 }
 
-// 重みが 0 の種類は、ほかに選べる種類があれば選ばない。点の付かない段階（振る段階はスペルを使う・振る）で効く
+// 重みが 0 の種類は、ほかに選べる種類があれば選ばない。点の付かない段階（採点基準の重みがすべて 0 の振る段階はスペルを使う・振る）で効く
 // （配置・侵略の段階は採点するので、種類の重みは効かない。TestChoose_ScoredPhasesIgnoreWeightsOfActionKinds）
 func TestChoose_NeverChoosesActionsWeightedZeroWhenOthersCanBeChosen(t *testing.T) {
 	rolling := rollingWithSpell(t)
 	by, _ := rolling.AwaitingParticipant()
 	weights := npcmindset.DefaultActionWeights()
 	weights[matchaction.ActionUseSpell] = 0
-	rolling = withMindset(rolling, by, weights, npcmindset.DefaultCriterionWeights())
+	rolling = withMindset(rolling, by, weights, npcmindset.CriterionWeights{})
 
 	for seed := range uint64(20) {
 		cmd, err := npcdecision.Choose(rolling, by, rand.New(rand.NewPCG(seed, seed)))
@@ -199,12 +199,12 @@ func TestChoose_ChoosesEvenlyWhenEveryWeightIsZero(t *testing.T) {
 	require.NotNil(t, ended.Result)
 }
 
-// 重みの合計から引いた値を、並びの順に重みを積んで当てる。振る段階の並びはスペルを使う → 振る
+// 重みの合計から引いた値を、並びの順に重みを積んで当てる。振る段階（採点基準の重みがすべて 0）の並びはスペルを使う → 振る
 func TestChoose_ChoosesTheActionWhoseWeightRangeContainsTheDrawnValue(t *testing.T) {
 	rolling := rollingWithSpell(t)
 	require.Equal(t, []matchaction.Action{matchaction.ActionUseSpell, matchaction.ActionRollDice}, rolling.ActionChoices())
 	by, _ := rolling.AwaitingParticipant()
-	rolling = withMindset(rolling, by, npcmindset.ActionWeights{matchaction.ActionUseSpell: 1, matchaction.ActionRollDice: 3}, npcmindset.DefaultCriterionWeights())
+	rolling = withMindset(rolling, by, npcmindset.ActionWeights{matchaction.ActionUseSpell: 1, matchaction.ActionRollDice: 3}, npcmindset.CriterionWeights{})
 	tests := []struct {
 		name  string
 		drawn int
@@ -597,6 +597,129 @@ func weightsOnly(criteria ...npcmindset.Criterion) npcmindset.CriterionWeights {
 
 // 重みは参加者に写した思考パターンから読むので、重みを変えるテストは、写しを変えた参加者で対戦を作る
 // （対戦の途中から変えるテストは、この関数で NPC の参加者の写しだけを差し替える）
+// 振る段階で、ダメージのスペルを使え、相手の領地がある状態。手札をダメージのスペルと AT 30 のクリーチャーだけにし（ほかのスペルと比べないため）、
+// 盤面のクリーチャーをどれも倒せず取れない HP にしてから、相手の領地を 1 つ返す
+func rollingWithDamageSpell(t *testing.T) (match.Match, match.ParticipantIndex, board.Position) {
+	t.Helper()
+	damage := cardtest.Ref(t, card.SpellEntityType, 403)
+	current := advanceUntil(t, func(current match.Match, by match.ParticipantIndex) bool {
+		if current.Phase != match.PhaseRolling || current.SpellUsed || current.Participants[by].Magic < 30 {
+			return false
+		}
+		return slices.Contains(current.Participants[by].Hand, damage) && slices.ContainsFunc(current.Territories, func(territory match.Territory) bool {
+			return ownedByOther(current, by, territory.Position)
+		})
+	})
+	by, _ := current.AwaitingParticipant()
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	current.Participants[by].Hand = []card.Ref{damage, cardtest.CreatureRef(t, 201)}
+	var target board.Position
+	for _, territory := range current.Territories {
+		current = withCreatureAt(t, current, territory.Position, 0, 500)
+		if ownedByOther(current, by, territory.Position) {
+			target = territory.Position
+		}
+	}
+	return current, by, target
+}
+
+func TestChoose_UsesADamageSpellThatDestroysARivalCreature(t *testing.T) {
+	current, by, target := rollingWithDamageSpell(t)
+	current = withCreatureAt(t, current, target, 0, 20)
+
+	cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
+
+	require.NoError(t, err)
+	require.Equal(t, &match.UseSpellCommand{By: by, HandIndex: 0, TargetPosition: &target}, cmd)
+}
+
+// 倒せなくても、ダメージで相手の領地が手札で一番強い攻め（AT 30）で取れるようになるなら使う（守備評価の裏返し。2026-11-19 オーナー）
+func TestChoose_UsesADamageSpellThatLetsTheHandTakeARivalTerritory(t *testing.T) {
+	current, by, target := rollingWithDamageSpell(t)
+	territory, _ := current.TerritoryAt(target)
+	// HP と地形効果の合計が 45（攻めの 30 では取れない）で、20 減って 25（取れる）。HP は 20 より多く、倒れない
+	hitPoints := 45 - current.TerrainBonus(territory)
+	require.Greater(t, hitPoints, 20)
+	current = withCreatureAt(t, current, target, 0, hitPoints)
+	// スペルのコストちょうどにし、使った後にこのターンで侵略する魔力を残さない（このターンの先読みでなく、取れるようになった分で選ぶのを見るため）
+	current.Participants[by].Magic = 30
+
+	cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
+
+	require.NoError(t, err)
+	require.Equal(t, &match.UseSpellCommand{By: by, HandIndex: 0, TargetPosition: &target}, cmd)
+}
+
+// 倒せず取れるようにもならないダメージは、コストの分だけ振るより悪い
+func TestChoose_RollsInsteadOfADamageSpellThatChangesNothing(t *testing.T) {
+	current, by, _ := rollingWithDamageSpell(t)
+
+	cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
+
+	require.NoError(t, err)
+	require.Equal(t, &match.RollCommand{By: by}, cmd)
+}
+
+// 輪のボードで、直前のマスに戻らずに進んだ 1 マス先と 2 マス先
+func aheadOnRing(current match.Match, by match.ParticipantIndex) (next, afterNext board.Position, ok bool) {
+	step := func(from board.Position, previous *board.Position) (board.Position, bool) {
+		for _, connection := range current.Board.Connections {
+			neighbor := connection.A
+			switch from {
+			case connection.A:
+				neighbor = connection.B
+			case connection.B:
+			default:
+				continue
+			}
+			if previous == nil || neighbor != *previous {
+				return neighbor, true
+			}
+		}
+		return board.Position{}, false
+	}
+	participant := current.Participants[by]
+	if participant.Previous == nil {
+		return board.Position{}, board.Position{}, false
+	}
+	next, ok = step(participant.Position, participant.Previous)
+	if !ok {
+		return board.Position{}, board.Position{}, false
+	}
+	from := participant.Position
+	afterNext, ok = step(next, &from)
+	return next, afterNext, ok
+}
+
+// 振れば 1 マス先の強い守り手の他人の領地に止まって通行料を払い、自分の目を 2 に固定すれば 2 マス先の空き地に止まって配置できるなら、固定する
+func TestChoose_FixesOwnDiceToStopWhereItIsBetter(t *testing.T) {
+	fixed := cardtest.Ref(t, card.SpellEntityType, 402) // 目を 2 に固定する
+	current := advanceUntil(t, func(current match.Match, by match.ParticipantIndex) bool {
+		if current.Phase != match.PhaseRolling || current.SpellUsed || !slices.Contains(current.Participants[by].Hand, fixed) {
+			return false
+		}
+		next, afterNext, ok := aheadOnRing(current, by)
+		if !ok || !ownedByOther(current, by, next) {
+			return false
+		}
+		_, occupied := current.TerritoryAt(afterNext)
+		return !occupied && slices.ContainsFunc(current.Board.Tiles, func(tile board.Tile) bool { return tile.Position == afterNext && tile.Kind == board.TileKindLand })
+	})
+	by, _ := current.AwaitingParticipant()
+	next, _, _ := aheadOnRing(current, by)
+	current = withCreatureAt(t, current, next, 500, 500)
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	current.Participants[by].Hand = []card.Ref{fixed, cardtest.CreatureRef(t, 201)}
+	current.Participants[by].Magic = 1000
+	// 振れば必ず 1 マス進む
+	current.Rules.DiceMin, current.Rules.DiceMax = 1, 1
+
+	cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(1, 1)))
+
+	require.NoError(t, err)
+	require.Equal(t, &match.UseSpellCommand{By: by, HandIndex: 0, Target: &by}, cmd)
+}
+
 func withMindset(current match.Match, by match.ParticipantIndex, weights npcmindset.ActionWeights, criterionWeights npcmindset.CriterionWeights) match.Match {
 	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
 	npc := *current.Participants[by].Participant.NPC
