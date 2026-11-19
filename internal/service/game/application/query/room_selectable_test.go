@@ -72,7 +72,7 @@ func TestRoomSelectable_AcceptsOnlyWhatTheSelectionQueriesShow(t *testing.T) {
 	avatar := query.Avatar{ID: uuid.New(), Name: "アリス"}
 	deck := query.Deck{ID: uuid.New(), Name: "火"}
 	npcDeck := query.NPCDeck{ID: uuid.New(), Name: "ゴリガンのデッキ"}
-	npcMindset := query.NPCMindset{ID: uuid.New(), Name: "攻めがち"}
+	npcMindset := query.NPCMindset{ID: uuid.New(), Name: "侵略型"}
 	npcAvatar := query.NPCAvatar{ID: uuid.New(), Name: "ゴリガン", Decks: []query.NPCDeck{npcDeck}, Mindsets: []query.NPCMindset{npcMindset}}
 	board := query.Board{ID: uuid.New(), Name: "チュートリアル"}
 	selectable := selectableOf([]query.Avatar{avatar}, []query.Deck{deck}, []query.NPCAvatar{npcAvatar}, []query.Board{board})

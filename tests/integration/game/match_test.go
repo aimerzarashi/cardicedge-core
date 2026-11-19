@@ -1167,5 +1167,5 @@ func TestMatch_CopiesTheMindsetOfTheChosenNPCSeatToTheNPCParticipant(t *testing.
 	for _, weight := range copied.ActionWeights {
 		require.Equal(t, 2, weight)
 	}
-	require.Equal(t, map[string]int{"total_magic_lead": 3, "territory_count": 1, "battle_hold": 1, "magic_reserve": 1}, copied.CriterionWeights)
+	require.Equal(t, map[string]int{"own_total_magic": 3, "rival_total_magic": 1, "territory_count": 1}, copied.CriterionWeights)
 }

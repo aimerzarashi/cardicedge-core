@@ -131,7 +131,7 @@ func TestDecide_StartPutsEveryoneOnBaseWithStartingMagicAtRoundOne(t *testing.T)
 func TestDecide_StartCopiesTheMindsetOfTheNPCParticipant(t *testing.T) {
 	mindset := matchtest.NPCMindset(t, 9)
 	mindset.ActionWeights[matchaction.ActionRollDice] = npcmindsettest.Weight(t, 50)
-	mindset.CriterionWeights[npcmindset.CriterionBattleHold] = npcmindsettest.Weight(t, 0)
+	mindset.CriterionWeights[npcmindset.CriterionRivalTotalMagic] = npcmindsettest.Weight(t, 0)
 	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), mindset, []match.DeckCard{deckCard(t, 201, 3)})
 
 	state, _ := start(t, startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npc))
@@ -139,7 +139,7 @@ func TestDecide_StartCopiesTheMindsetOfTheNPCParticipant(t *testing.T) {
 	copied := state.Participants[1].Participant.NPC.Mindset
 	require.Equal(t, npcmindsettest.ID(t, 9), copied.ID)
 	require.Equal(t, 50, copied.ActionWeights[matchaction.ActionRollDice].Int())
-	require.Equal(t, 0, copied.CriterionWeights[npcmindset.CriterionBattleHold].Int())
+	require.Equal(t, 0, copied.CriterionWeights[npcmindset.CriterionRivalTotalMagic].Int())
 }
 
 // 順番は参加者の並びを乱数の元で混ぜたもの（テストの乱数の元は逆順にする）

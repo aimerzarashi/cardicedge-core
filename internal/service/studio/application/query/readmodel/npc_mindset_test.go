@@ -114,7 +114,7 @@ func TestNPCMindset_StatusEventsChangeStatusRevisionAndUpdater(t *testing.T) {
 
 // 登録のときの重みは domain の既定の値（すべて 1）で、種類・基準のすべてを持つ
 func TestNPCMindset_RegisteredHasEveryWeightOfOne(t *testing.T) {
-	state := newNPCMindsetHistory(t, uuid.New(), "ふつう").project()
+	state := newNPCMindsetHistory(t, uuid.New(), "バランス").project()
 
 	require.Len(t, state.Metadata.ActionWeights, len(matchaction.Actions()))
 	for _, action := range matchaction.Actions() {
@@ -128,11 +128,11 @@ func TestNPCMindset_RegisteredHasEveryWeightOfOne(t *testing.T) {
 
 // 重みの変更は、変えた後の全体で置き換える。版と更新した人・日時を変え、変えなかった側の重みは残る
 func TestNPCMindset_WeightsChangedReplaceWeightsRevisionAndUpdater(t *testing.T) {
-	h := newNPCMindsetHistory(t, uuid.New(), "攻めがち")
+	h := newNPCMindsetHistory(t, uuid.New(), "侵略型")
 	actionWeights := npcmindset.DefaultActionWeights()
 	actionWeights[matchaction.ActionInvadeTerritory] = npcmindsettest.Weight(t, 100)
 	criterionWeights := npcmindset.DefaultCriterionWeights()
-	criterionWeights[npcmindset.CriterionBattleHold] = npcmindsettest.Weight(t, 3)
+	criterionWeights[npcmindset.CriterionRivalTotalMagic] = npcmindsettest.Weight(t, 3)
 	h.apply(&npcmindset.SetActionWeightsCommand{Weights: actionWeights, ChangedBy: operatortest.ID(t, 11)}, npcMindsetChangedAt)
 	h.apply(&npcmindset.SetCriterionWeightsCommand{Weights: criterionWeights, ChangedBy: operatortest.ID(t, 12)}, npcMindsetChangedAt)
 
@@ -140,7 +140,7 @@ func TestNPCMindset_WeightsChangedReplaceWeightsRevisionAndUpdater(t *testing.T)
 
 	require.Equal(t, 100, state.Metadata.ActionWeights[matchaction.ActionInvadeTerritory])
 	require.Equal(t, 1, state.Metadata.ActionWeights[matchaction.ActionPayToll])
-	require.Equal(t, 3, state.Metadata.CriterionWeights[npcmindset.CriterionBattleHold])
+	require.Equal(t, 3, state.Metadata.CriterionWeights[npcmindset.CriterionRivalTotalMagic])
 	require.Equal(t, 1, state.Metadata.CriterionWeights[npcmindset.CriterionTerritoryCount])
 	require.Equal(t, int64(3), state.Metadata.Revision)
 	require.Equal(t, npcMindsetChangedAt, state.Metadata.UpdatedAt)

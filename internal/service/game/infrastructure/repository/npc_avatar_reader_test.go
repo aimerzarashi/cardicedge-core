@@ -194,7 +194,7 @@ func TestNPCAvatarReader_ListFailsWhenMindsetsIsMissing(t *testing.T) {
 func TestNPCAvatarReader_ListMindsetsReturnsOnlyPublishedRequestedMindsetsWithNames(t *testing.T) {
 	db, _ := rdbtest.NewDatabase(t)
 	ctx := rdb.WithDB(t.Context(), db)
-	published := insertNPCMindset(t, ctx, "攻めがち", readmodel.NPCMindsetStatusPublished)
+	published := insertNPCMindset(t, ctx, "侵略型", readmodel.NPCMindsetStatusPublished)
 	draft := insertNPCMindset(t, ctx, "準備中", readmodel.NPCMindsetStatusDraft)
 	retired := insertNPCMindset(t, ctx, "使用不可", readmodel.NPCMindsetStatusRetired)
 	insertNPCMindset(t, ctx, "ほかの思考パターン", readmodel.NPCMindsetStatusPublished)
@@ -202,7 +202,7 @@ func TestNPCAvatarReader_ListMindsetsReturnsOnlyPublishedRequestedMindsetsWithNa
 	got, err := repository.NewNPCAvatarReader().ListPublishedMindsets(ctx, []uuid.UUID{published, draft, retired, uuid.New()})
 
 	require.NoError(t, err)
-	require.Equal(t, []query.NPCMindset{{ID: published, Name: "攻めがち"}}, got)
+	require.Equal(t, []query.NPCMindset{{ID: published, Name: "侵略型"}}, got)
 }
 
 func TestNPCAvatarReader_ListMindsetsReturnsNothingForNoIDs(t *testing.T) {

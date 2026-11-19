@@ -35,7 +35,7 @@ func newFixture(t *testing.T) fixture {
 	t.Helper()
 	return fixture{
 		id:         npcmindsettest.ID(t, 60),
-		name:       npcmindsettest.Name(t, "ふつう"),
+		name:       npcmindsettest.Name(t, "バランス"),
 		operatorID: operatortest.ID(t, 10),
 	}
 }
@@ -128,7 +128,7 @@ func aggressiveActionWeights(t *testing.T) npcmindset.ActionWeights {
 func aggressiveCriterionWeights(t *testing.T) npcmindset.CriterionWeights {
 	t.Helper()
 	weights := npcmindset.DefaultCriterionWeights()
-	weights[npcmindset.CriterionTotalMagicLead] = npcmindsettest.Weight(t, 80)
+	weights[npcmindset.CriterionOwnTotalMagic] = npcmindsettest.Weight(t, 80)
 	return weights
 }
 
@@ -176,7 +176,7 @@ func TestDecide_RejectsRegisterWhenAlreadyRegistered(t *testing.T) {
 
 func TestDecide_RenameChangesNameWithNextVersion(t *testing.T) {
 	f := newFixture(t)
-	newName := npcmindsettest.Name(t, "攻めがち")
+	newName := npcmindsettest.Name(t, "侵略型")
 
 	state, events := apply(t, f.register(t), &npcmindset.RenameCommand{Name: newName, RenamedBy: f.operatorID}, changedAt)
 
@@ -288,11 +288,11 @@ func TestDecide_RejectsActionWeightsThatDoNotMatchTheActions(t *testing.T) {
 func TestDecide_RejectsCriterionWeightsThatDoNotMatchTheCriteria(t *testing.T) {
 	f := newFixture(t)
 	missing := npcmindset.DefaultCriterionWeights()
-	delete(missing, npcmindset.CriterionBattleHold)
+	delete(missing, npcmindset.CriterionRivalTotalMagic)
 	extra := npcmindset.DefaultCriterionWeights()
 	extra[unknownCriterion(t)] = npcmindsettest.Weight(t, 1)
 	replaced := npcmindset.DefaultCriterionWeights()
-	delete(replaced, npcmindset.CriterionBattleHold)
+	delete(replaced, npcmindset.CriterionRivalTotalMagic)
 	replaced[unknownCriterion(t)] = npcmindsettest.Weight(t, 1)
 	tests := []struct {
 		name    string
@@ -395,7 +395,7 @@ func TestDecide_RejectsEditAndDeleteUnlessDraft(t *testing.T) {
 		name string
 		cmd  npcmindset.Command
 	}{
-		{name: "rename", cmd: &npcmindset.RenameCommand{Name: npcmindsettest.Name(t, "攻めがち"), RenamedBy: f.operatorID}},
+		{name: "rename", cmd: &npcmindset.RenameCommand{Name: npcmindsettest.Name(t, "侵略型"), RenamedBy: f.operatorID}},
 		{name: "set_action_weights", cmd: f.setActionWeightsCommand(aggressiveActionWeights(t))},
 		{name: "set_criterion_weights", cmd: f.setCriterionWeightsCommand(aggressiveCriterionWeights(t))},
 		{name: "delete", cmd: f.deleteCommand()},
@@ -437,7 +437,7 @@ func TestDecide_RejectsChangesUnlessRegistered(t *testing.T) {
 		name string
 		cmd  npcmindset.Command
 	}{
-		{name: "rename", cmd: &npcmindset.RenameCommand{Name: npcmindsettest.Name(t, "攻めがち"), RenamedBy: f.operatorID}},
+		{name: "rename", cmd: &npcmindset.RenameCommand{Name: npcmindsettest.Name(t, "侵略型"), RenamedBy: f.operatorID}},
 		{name: "set_action_weights", cmd: f.setActionWeightsCommand(aggressiveActionWeights(t))},
 		{name: "set_criterion_weights", cmd: f.setCriterionWeightsCommand(aggressiveCriterionWeights(t))},
 		{name: "publish", cmd: f.publishCommand()},
@@ -498,9 +498,9 @@ func TestNewStatus_RejectsUnknownValue(t *testing.T) {
 }
 
 func TestNewName_RejectsBlankAndTooLong(t *testing.T) {
-	name, err := npcmindset.NewName("  慎重  ")
+	name, err := npcmindset.NewName("  育成型  ")
 	require.NoError(t, err)
-	require.Equal(t, "慎重", name.String())
+	require.Equal(t, "育成型", name.String())
 
 	_, err = npcmindset.NewName(strings.Repeat("あ", npcmindset.MaxNameLength))
 	require.NoError(t, err)
@@ -527,7 +527,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 			EventMeta: meta, PublicID: publicID, Name: f.name,
 			ActionWeights: npcmindset.DefaultActionWeights(), CriterionWeights: npcmindset.DefaultCriterionWeights(), RegisteredBy: f.operatorID,
 		},
-		&npcmindset.RenamedEvent{EventMeta: meta, Name: npcmindsettest.Name(t, "攻めがち"), RenamedBy: f.operatorID},
+		&npcmindset.RenamedEvent{EventMeta: meta, Name: npcmindsettest.Name(t, "侵略型"), RenamedBy: f.operatorID},
 		&npcmindset.ActionWeightsChangedEvent{EventMeta: meta, Weights: aggressiveActionWeights(t), ChangedBy: f.operatorID},
 		&npcmindset.CriterionWeightsChangedEvent{EventMeta: meta, Weights: aggressiveCriterionWeights(t), ChangedBy: f.operatorID},
 		&npcmindset.PublishedEvent{EventMeta: meta, PublishedBy: f.operatorID},
@@ -557,9 +557,9 @@ func TestUnmarshal_RejectsUnknownEventType(t *testing.T) {
 }
 
 func TestNewCriterion_RejectsUnknownValue(t *testing.T) {
-	criterion, err := npcmindset.NewCriterion("battle_hold")
+	criterion, err := npcmindset.NewCriterion("rival_total_magic")
 	require.NoError(t, err)
-	require.Equal(t, npcmindset.CriterionBattleHold, criterion)
+	require.Equal(t, npcmindset.CriterionRivalTotalMagic, criterion)
 
 	_, err = npcmindset.NewCriterion("unknown")
 	require.ErrorIs(t, err, npcmindset.ErrCriterionUnknown)

@@ -249,8 +249,8 @@ func TestSeed_CompletesSampleFromPartiallySeededState(t *testing.T) {
 			registered, err := s.npcMindsets.Register(ctx, m.NPCMindsets[1].Name)
 			require.NoError(t, err)
 			weights := []command.CriterionWeightInput{
-				{Criterion: "total_magic_lead", Weight: 3}, {Criterion: "territory_count", Weight: 1},
-				{Criterion: "battle_hold", Weight: 3}, {Criterion: "magic_reserve", Weight: 0},
+				{Criterion: "own_total_magic", Weight: 1}, {Criterion: "rival_total_magic", Weight: 2},
+				{Criterion: "territory_count", Weight: 1},
 			}
 			_, err = s.npcMindsets.SetCriterionWeights(ctx, registered.ID, registered.Revision, weights)
 			require.NoError(t, err)

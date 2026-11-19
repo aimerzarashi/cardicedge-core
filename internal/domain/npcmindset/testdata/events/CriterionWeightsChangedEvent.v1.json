@@ -1,9 +1,8 @@
 {
   "weights": {
-    "total_magic_lead": 80,
-    "territory_count": 1,
-    "battle_hold": 1,
-    "magic_reserve": 1
+    "own_total_magic": 80,
+    "rival_total_magic": 1,
+    "territory_count": 1
   },
   "changed_by": 10
 }

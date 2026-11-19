@@ -133,7 +133,7 @@ func actionWeightInputs(action string, weight int) []any {
 }
 
 func criterionWeightInputs(criterion string, weight int) []any {
-	criteria := []string{"TOTAL_MAGIC_LEAD", "TERRITORY_COUNT", "BATTLE_HOLD", "MAGIC_RESERVE"}
+	criteria := []string{"OWN_TOTAL_MAGIC", "RIVAL_TOTAL_MAGIC", "TERRITORY_COUNT"}
 	inputs := make([]any, 0, len(criteria))
 	for _, c := range criteria {
 		value := 1
@@ -150,7 +150,7 @@ func TestRegisterNpcMindset_ListsDraftNpcMindsetWithDefaultWeightsOfOne(t *testi
 	token := operators.Token(t)
 	id := npcMindsetUniqueID(t)
 
-	registered := registerNpcMindset(t, token, " ふつう-"+id+" ")
+	registered := registerNpcMindset(t, token, " バランス-"+id+" ")
 
 	require.EqualValues(t, 1, registered["revision"])
 	var connection map[string]any
@@ -163,17 +163,17 @@ func TestRegisterNpcMindset_ListsDraftNpcMindsetWithDefaultWeightsOfOne(t *testi
 	})
 	node := connection["edges"].([]any)[0].(map[string]any)["node"].(map[string]any)
 	require.Equal(t, registered["id"], node["id"])
-	require.Equal(t, "ふつう-"+id, node["name"])
+	require.Equal(t, "バランス-"+id, node["name"])
 	require.Equal(t, "DRAFT", node["status"])
 	require.Equal(t, node["registeredAt"], node["updatedAt"])
 	require.Len(t, node["actionWeights"], 19)
 	for _, weight := range node["actionWeights"].([]any) {
 		require.EqualValues(t, 1, weight.(map[string]any)["weight"])
 	}
-	// 採点基準は定義の順（総魔力の差・領地の数・勝ち見込み・魔力を残す）
+	// 採点基準は定義の順（自分の総魔力・相手の総魔力・領地の数）
 	require.Equal(t, []any{
-		map[string]any{"criterion": "TOTAL_MAGIC_LEAD", "weight": float64(1)}, map[string]any{"criterion": "TERRITORY_COUNT", "weight": float64(1)},
-		map[string]any{"criterion": "BATTLE_HOLD", "weight": float64(1)}, map[string]any{"criterion": "MAGIC_RESERVE", "weight": float64(1)},
+		map[string]any{"criterion": "OWN_TOTAL_MAGIC", "weight": float64(1)}, map[string]any{"criterion": "RIVAL_TOTAL_MAGIC", "weight": float64(1)},
+		map[string]any{"criterion": "TERRITORY_COUNT", "weight": float64(1)},
 	}, node["criterionWeights"])
 	detail := waitNpcMindset(t, token, registered["id"], 1)
 	delete(detail, "__typename")
@@ -211,27 +211,27 @@ func TestRenameNpcMindset_ShowsNewNameAndFreesOldName(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
 	id := npcMindsetUniqueID(t)
-	npcMindset := registerNpcMindset(t, token, "ふつう-"+id)
+	npcMindset := registerNpcMindset(t, token, "バランス-"+id)
 
-	renamed := npcMindsetOperation(t, token, renameNpcMindsetMutation, "renameNpcMindset", npcMindsetInput(npcMindset, map[string]any{"name": "攻めがち-" + id}))
+	renamed := npcMindsetOperation(t, token, renameNpcMindsetMutation, "renameNpcMindset", npcMindsetInput(npcMindset, map[string]any{"name": "侵略型-" + id}))
 
 	require.Equal(t, "RenameNpcMindsetSuccess", renamed["__typename"])
 	require.EqualValues(t, 2, renamed["revision"])
-	require.Equal(t, "攻めがち-"+id, waitNpcMindset(t, token, npcMindset["id"], 2)["name"])
-	registerNpcMindset(t, token, "ふつう-"+id)
+	require.Equal(t, "侵略型-"+id, waitNpcMindset(t, token, npcMindset["id"], 2)["name"])
+	registerNpcMindset(t, token, "バランス-"+id)
 }
 
 func TestSetNpcMindsetWeights_ShowsReplacedWeightsAndSameWeightsKeepRevision(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
-	npcMindset := registerNpcMindset(t, token, "攻めがち-"+npcMindsetUniqueID(t))
+	npcMindset := registerNpcMindset(t, token, "侵略型-"+npcMindsetUniqueID(t))
 
 	actions := npcMindsetOperation(t, token, setNpcMindsetActionWeightsMutation, "setNpcMindsetActionWeights",
 		npcMindsetInput(npcMindset, map[string]any{"weights": actionWeightInputs("INVADE_TERRITORY", 100)}))
 	sameActions := npcMindsetOperation(t, token, setNpcMindsetActionWeightsMutation, "setNpcMindsetActionWeights",
 		npcMindsetInput(actions, map[string]any{"weights": actionWeightInputs("INVADE_TERRITORY", 100)}))
 	criteria := npcMindsetOperation(t, token, setNpcMindsetCriterionWeightsMutation, "setNpcMindsetCriterionWeights",
-		npcMindsetInput(actions, map[string]any{"weights": criterionWeightInputs("BATTLE_HOLD", 3)}))
+		npcMindsetInput(actions, map[string]any{"weights": criterionWeightInputs("RIVAL_TOTAL_MAGIC", 3)}))
 
 	require.Equal(t, "SetNpcMindsetActionWeightsSuccess", actions["__typename"])
 	require.EqualValues(t, 2, actions["revision"])
@@ -241,13 +241,13 @@ func TestSetNpcMindsetWeights_ShowsReplacedWeightsAndSameWeightsKeepRevision(t *
 	detail := waitNpcMindset(t, token, npcMindset["id"], 3)
 	require.Contains(t, detail["actionWeights"], map[string]any{"action": "INVADE_TERRITORY", "weight": float64(100)})
 	require.Contains(t, detail["actionWeights"], map[string]any{"action": "PAY_TOLL", "weight": float64(1)})
-	require.Contains(t, detail["criterionWeights"], map[string]any{"criterion": "BATTLE_HOLD", "weight": float64(3)})
+	require.Contains(t, detail["criterionWeights"], map[string]any{"criterion": "RIVAL_TOTAL_MAGIC", "weight": float64(3)})
 }
 
 func TestSetNpcMindsetWeights_ReturnsFieldErrors(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
-	npcMindset := registerNpcMindset(t, token, "ふつう-"+npcMindsetUniqueID(t))
+	npcMindset := registerNpcMindset(t, token, "バランス-"+npcMindsetUniqueID(t))
 	missing := actionWeightInputs("", 1)[1:]
 	duplicated := append(actionWeightInputs("", 1), map[string]any{"action": "END_TURN", "weight": 1})
 
@@ -258,7 +258,7 @@ func TestSetNpcMindsetWeights_ReturnsFieldErrors(t *testing.T) {
 	duplicatedResult := npcMindsetOperation(t, token, setNpcMindsetActionWeightsMutation, "setNpcMindsetActionWeights",
 		npcMindsetInput(npcMindset, map[string]any{"weights": duplicated}))
 	criterionOutOfRange := npcMindsetOperation(t, token, setNpcMindsetCriterionWeightsMutation, "setNpcMindsetCriterionWeights",
-		npcMindsetInput(npcMindset, map[string]any{"weights": criterionWeightInputs("MAGIC_RESERVE", -1)}))
+		npcMindsetInput(npcMindset, map[string]any{"weights": criterionWeightInputs("TERRITORY_COUNT", -1)}))
 	criterionMissing := npcMindsetOperation(t, token, setNpcMindsetCriterionWeightsMutation, "setNpcMindsetCriterionWeights",
 		npcMindsetInput(npcMindset, map[string]any{"weights": criterionWeightInputs("", 1)[1:]}))
 
@@ -272,7 +272,7 @@ func TestSetNpcMindsetWeights_ReturnsFieldErrors(t *testing.T) {
 		map[string]any{"__typename": "FieldDuplicated", "field": "weights.19"},
 	}}, duplicatedResult)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
-		map[string]any{"__typename": "FieldOutOfRange", "field": "weights.3.weight", "min": float64(0), "max": float64(100)},
+		map[string]any{"__typename": "FieldOutOfRange", "field": "weights.2.weight", "min": float64(0), "max": float64(100)},
 	}}, criterionOutOfRange)
 	require.Equal(t, map[string]any{"__typename": "ValidationErrors", "errors": []any{
 		map[string]any{"__typename": "FieldRequired", "field": "weights"},
@@ -282,7 +282,7 @@ func TestSetNpcMindsetWeights_ReturnsFieldErrors(t *testing.T) {
 func TestPublishNpcMindset_PublishesRetiresAndPublishesAgain(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
-	npcMindset := registerNpcMindset(t, token, "ふつう-"+npcMindsetUniqueID(t))
+	npcMindset := registerNpcMindset(t, token, "バランス-"+npcMindsetUniqueID(t))
 
 	published := npcMindsetOperation(t, token, publishNpcMindsetMutation, "publishNpcMindset", npcMindsetInput(npcMindset, nil))
 	again := npcMindsetOperation(t, token, publishNpcMindsetMutation, "publishNpcMindset", npcMindsetInput(published, nil))
@@ -300,10 +300,10 @@ func TestNpcMindsetOperations_ReturnErrorTypesForNameStatusAndRevision(t *testin
 	t.Parallel()
 	token := operators.Token(t)
 	id := npcMindsetUniqueID(t)
-	registerNpcMindset(t, token, "ふつう-"+id)
-	npcMindset := registerNpcMindset(t, token, "攻めがち-"+id)
+	registerNpcMindset(t, token, "バランス-"+id)
+	npcMindset := registerNpcMindset(t, token, "侵略型-"+id)
 
-	used := npcMindsetOperation(t, token, renameNpcMindsetMutation, "renameNpcMindset", npcMindsetInput(npcMindset, map[string]any{"name": " ふつう-" + id}))
+	used := npcMindsetOperation(t, token, renameNpcMindsetMutation, "renameNpcMindset", npcMindsetInput(npcMindset, map[string]any{"name": " バランス-" + id}))
 	retireDraft := npcMindsetOperation(t, token, retireNpcMindsetMutation, "retireNpcMindset", npcMindsetInput(npcMindset, nil))
 	stale := npcMindsetOperation(t, token, renameNpcMindsetMutation, "renameNpcMindset", map[string]any{"id": npcMindset["id"], "revision": 7, "name": "湖-" + id})
 	published := npcMindsetOperation(t, token, publishNpcMindsetMutation, "publishNpcMindset", npcMindsetInput(npcMindset, nil))
@@ -323,7 +323,7 @@ func TestNpcMindsetOperations_ReturnErrorTypesForNameStatusAndRevision(t *testin
 func TestDeleteNpcMindset_RemovesDraftNpcMindsetAndFreesName(t *testing.T) {
 	t.Parallel()
 	token := operators.Token(t)
-	name := "ふつう-" + npcMindsetUniqueID(t)
+	name := "バランス-" + npcMindsetUniqueID(t)
 	npcMindset := registerNpcMindset(t, token, name)
 	waitNpcMindset(t, token, npcMindset["id"], 1)
 
@@ -423,7 +423,7 @@ func TestNpcMindsetOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testi
 		{name: "detail_of_unknown", token: operators.Token(t), operation: npcMindsetQuery, field: "npcMindset",
 			variables: map[string]any{"id": uuid.NewString()}, want: "NpcMindsetNotFoundError"},
 		{name: "rename_unknown", token: operators.Token(t), operation: renameNpcMindsetMutation, field: "renameNpcMindset",
-			variables: map[string]any{"input": npcMindsetInput(unknown, map[string]any{"name": "ふつう"})}, want: "NpcMindsetNotFoundError"},
+			variables: map[string]any{"input": npcMindsetInput(unknown, map[string]any{"name": "バランス"})}, want: "NpcMindsetNotFoundError"},
 		{name: "set_action_weights_unknown", token: operators.Token(t), operation: setNpcMindsetActionWeightsMutation, field: "setNpcMindsetActionWeights",
 			variables: map[string]any{"input": npcMindsetInput(unknown, actionWeights)}, want: "NpcMindsetNotFoundError"},
 		{name: "set_criterion_weights_unknown", token: operators.Token(t), operation: setNpcMindsetCriterionWeightsMutation, field: "setNpcMindsetCriterionWeights",
@@ -441,7 +441,7 @@ func TestNpcMindsetOperations_ReturnResultTypeWhenNotFoundOrNotOperator(t *testi
 		{name: "detail_by_not_operator", token: notOperator, operation: npcMindsetQuery, field: "npcMindset",
 			variables: map[string]any{"id": uuid.NewString()}, want: "ForbiddenError"},
 		{name: "register_by_not_operator", token: notOperator, operation: registerNpcMindsetMutation, field: "registerNpcMindset",
-			variables: map[string]any{"input": map[string]any{"name": "ふつう-" + npcMindsetUniqueID(t)}}, want: "ForbiddenError"},
+			variables: map[string]any{"input": map[string]any{"name": "バランス-" + npcMindsetUniqueID(t)}}, want: "ForbiddenError"},
 		{name: "set_action_weights_by_not_operator", token: notOperator, operation: setNpcMindsetActionWeightsMutation, field: "setNpcMindsetActionWeights",
 			variables: map[string]any{"input": npcMindsetInput(unknown, actionWeights)}, want: "ForbiddenError"},
 		{name: "set_avatar_mindsets_by_not_operator", token: notOperator, operation: setNpcAvatarMindsetsMutation, field: "setNpcAvatarMindsets",

@@ -23,22 +23,22 @@ func TestMatchSourceReader_ReadsWeightsOfCopiedNPCMindsetEvenWhenRetired(t *test
 	f := newPlayerFixture(t)
 	id, publicID := issueEntity(t, f, npcmindset.NewID)
 	metadata := readmodel.NPCMindsetMetadata{
-		ID: publicID, Name: "慎重", Status: readmodel.NPCMindsetStatusRetired,
+		ID: publicID, Name: "育成型", Status: readmodel.NPCMindsetStatusRetired,
 		ActionWeights:    map[matchaction.Action]int{matchaction.ActionDrawCard: 5, matchaction.ActionEndTurn: 0},
-		CriterionWeights: map[npcmindset.Criterion]int{npcmindset.CriterionMagicReserve: 3},
+		CriterionWeights: map[npcmindset.Criterion]int{npcmindset.CriterionTerritoryCount: 3},
 	}
 	raw, err := json.Marshal(metadata)
 	require.NoError(t, err)
 	exec, err := rdb.GetExecutor(f.ctx)
 	require.NoError(t, err)
-	row := models.NPCMindset{NPCMindsetID: publicID.String(), SortName: "慎重", Status: "retired", Metadata: raw}
+	row := models.NPCMindset{NPCMindsetID: publicID.String(), SortName: "育成型", Status: "retired", Metadata: raw}
 	require.NoError(t, row.Insert(f.ctx, exec, boil.Infer()))
 
 	got, err := repository.NewMatchSourceReader(identifier.NewEntityRefResolver(f.registry)).NPCMindset(f.ctx, id)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]int{"draw_card": 5, "end_turn": 0}, got.ActionWeights)
-	require.Equal(t, map[string]int{"magic_reserve": 3}, got.CriterionWeights)
+	require.Equal(t, map[string]int{"territory_count": 3}, got.CriterionWeights)
 }
 
 func TestMatchSourceReader_FailsForNPCMindsetThatWasNotCopiedOrHasNoWeights(t *testing.T) {
