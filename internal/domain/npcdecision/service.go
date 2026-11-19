@@ -15,9 +15,10 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
-// 引く・捨てる・振る前は、山札の順とサイコロ（隠れた情報）で結果が変わり、後の状態を当てると先に見ることになるので、採点せず
-// 種類ごとの重みで選ぶ。それ以外（配置・侵略・攻める・守る・手放す・領地コマンド・終わり）は、候補ごとに採点基準で点を付けて選ぶ（scoreCandidates）。
+// 引く・捨てる・振る前は、山札の順とサイコロ（隠れた情報）で結果が変わり、後の状態を当てると先に見ることになるので、当てた後の状態では
+// 採点せず、種類ごとの重みで選ぶ。それ以外（配置・侵略・攻める・守る・手放す・領地コマンド・終わり）は、候補ごとに採点基準で点を付けて選ぶ（scoreCandidates）。
 // 分かれ道の行き先は目が出た後で隠れた情報を見ないので、止まった後の一番よい行動まで進めた点で選ぶ（choosePath。core#191）。
+// 振る前は、出る目をすべて同じ重さで数えた平均で採点する（chooseBeforeRoll。core#143）。
 // 段階で分けるのは、点の付く段階と付かない段階が混ざらないようにするため
 func scored(phase match.Phase) bool {
 	switch phase {
@@ -43,6 +44,10 @@ func Choose(current match.Match, by match.ParticipantIndex, random match.Random)
 	}
 	if current.Phase == match.PhaseChoosingPath {
 		return choosePath(current, by, mindset.CriterionWeights, random)
+	}
+	// 完全ランダム型は、ほかの段階と同じく点を付けず、今までどおり種類ごとの重みで選ぶ（後回しにしたスペルも選べるように。core#179）
+	if current.Phase == match.PhaseRolling && !allZero(mindset.CriterionWeights) {
+		return chooseBeforeRoll(current, by, mindset.CriterionWeights, random)
 	}
 	if scored(current.Phase) {
 		candidates, err := candidatesOf(current, by, actions)
@@ -167,6 +172,10 @@ func command(current match.Match, by match.ParticipantIndex, action matchaction.
 
 // 戦闘が決まるまでの先読みを、乱数のぶれをならすために何回当てるか。戦闘にならない候補は 1 回。値は全員 NPC の対戦で見て決める
 const battleSamples = 8
+
+// 振る前に、出る目ごとに止まった後まで先読みするときの戦闘の見積もりの回数。目の数だけ先読みが増えるので減らす（8 回だと振る前の 1 手が
+// 0.7 秒を超えた。core#143）
+const rollLookaheadBattleSamples = 2
 
 // 候補を当てた後の状態の値。採点基準の 3 つと、全員に同じ重みで損に数える上手さの 2 つ（性格で変えないので思考パターンの重みに持たない。core#191）
 type outcome struct {
@@ -320,7 +329,7 @@ func allZero(weights npcmindset.CriterionWeights) bool {
 func scoreCandidates(origin, current match.Match, by match.ParticipantIndex, candidates []match.Command, weights npcmindset.CriterionWeights, random match.Random) ([]float64, error) {
 	scores := make([]float64, len(candidates))
 	for i, candidate := range candidates {
-		measured, err := measure(origin, current, by, candidate, weights, random)
+		measured, err := measure(origin, current, by, candidate, weights, battleSamples, random)
 		if err != nil {
 			return nil, err
 		}
@@ -329,8 +338,8 @@ func scoreCandidates(origin, current match.Match, by match.ParticipantIndex, can
 	return scores, nil
 }
 
-// 候補 1 つを当てた後の値。戦闘になる候補は、戦闘の乱数の違う先読みを battleSamples 回当てて平均する
-func measure(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, random match.Random) (outcome, error) {
+// 候補 1 つを当てた後の値。戦闘になる候補は、戦闘の乱数の違う先読みを samples 回当てて平均する
+func measure(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, samples int, random match.Random) (outcome, error) {
 	if !inBattleChoice(current) {
 		after, err := apply(current, cmd, rand.New(rand.NewPCG(0, 0)))
 		if err != nil {
@@ -341,7 +350,7 @@ func measure(origin, current match.Match, by match.ParticipantIndex, cmd match.C
 		}
 	}
 	var total outcome
-	for range battleSamples {
+	for range samples {
 		// 選択肢どうしを同じ乱数の列で比べるため、乱数の元から種だけ引く
 		seed := uint64(random.IntN(1 << 30))
 		after, err := apply(current, cmd, rand.New(rand.NewPCG(seed, seed)))
@@ -352,7 +361,7 @@ func measure(origin, current match.Match, by match.ParticipantIndex, cmd match.C
 		if err != nil {
 			return outcome{}, err
 		}
-		total = total.plus(outcomeOf(origin, settled, by), 1.0/battleSamples)
+		total = total.plus(outcomeOf(origin, settled, by), 1.0/float64(samples))
 	}
 	return total, nil
 }
@@ -432,7 +441,7 @@ func choosePath(current match.Match, by match.ParticipantIndex, weights npcminds
 	var scores []float64
 	for _, to := range current.PathChoices() {
 		cmd := &match.ChoosePathCommand{By: by, To: to}
-		value, err := pathValue(current, current, by, cmd, weights, random)
+		value, err := pathValue(current, current, by, cmd, weights, battleSamples, random)
 		if err != nil {
 			return nil, err
 		}
@@ -444,12 +453,18 @@ func choosePath(current match.Match, by match.ParticipantIndex, weights npcminds
 	return pickBest(candidates, scores, random), nil
 }
 
-// 行き先を当て、止まった後に自分が選ぶ段階なら、その候補の一番よい点を返す。自分の番が終わっていれば、当てた後の状態の点
-func pathValue(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, random match.Random) (float64, error) {
+// 行き先を当てた後の点（continuationValue）
+func pathValue(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, samples int, random match.Random) (float64, error) {
 	after, err := apply(current, cmd, rand.New(rand.NewPCG(0, 0)))
 	if err != nil {
 		return 0, err
 	}
+	return continuationValue(origin, after, by, weights, samples, random)
+}
+
+// 当てた後に自分が選ぶ段階なら、その候補の一番よい点。自分の番が終わっていれば、その状態の点
+func continuationValue(origin, after match.Match, by match.ParticipantIndex, weights npcmindset.CriterionWeights, samples int, random match.Random) (float64, error) {
+	var err error
 	awaiting, ok := after.AwaitingParticipant()
 	// 目標の魔力に届いて拠点に入ると、その行き先で対戦が終わる（終わった後も待っている人は返るが、選べる行動は無い）
 	if !ok || awaiting != by || !scored(after.Phase) || after.Phase == match.PhaseEnded {
@@ -467,10 +482,10 @@ func pathValue(origin, current match.Match, by match.ParticipantIndex, cmd match
 	for i, candidate := range candidates {
 		var value float64
 		if after.Phase == match.PhaseChoosingPath {
-			value, err = pathValue(origin, after, by, candidate, weights, random)
+			value, err = pathValue(origin, after, by, candidate, weights, samples, random)
 		} else {
 			var measured outcome
-			measured, err = measure(origin, after, by, candidate, weights, random)
+			measured, err = measure(origin, after, by, candidate, weights, samples, random)
 			value = score(after, measured, weights)
 		}
 		if err != nil {
@@ -481,6 +496,189 @@ func pathValue(origin, current match.Match, by match.ParticipantIndex, cmd match
 		}
 	}
 	return best, nil
+}
+
+// 振る前の候補（振る・スペル）を、振った後の点の平均で比べる。目は振る前に分からないので、出る目をすべて同じ重さで数える
+func chooseBeforeRoll(current match.Match, by match.ParticipantIndex, weights npcmindset.CriterionWeights, random match.Random) (match.Command, error) {
+	roll := &match.RollCommand{By: by}
+	spells := spellCandidates(current, by)
+	// 比べるものが無ければ、振った後を先読みしない（重いため）
+	if len(spells) == 0 {
+		return roll, nil
+	}
+	// 振った後の先読みは、目の出方を変えるサイコロのスペルがあるときだけ。魔力を得る・ダメージは目の出方を変えないので、使う前と後の点の差を
+	// 振る点に足す（ダメージは対象の領地の数だけ候補があり、どれも目の数だけ先読みすると、振る前の 1 手が 1 秒を超えたため。core#143）。
+	// 差を足すだけなので、得た魔力で止まった先の行動が変わる分は数えない
+	base := 0.0
+	if slices.ContainsFunc(spells, changesDice) {
+		var err error
+		if base, err = rollValue(current, current, by, weights, random); err != nil {
+			return nil, err
+		}
+	}
+	now := score(current, outcomeOf(current, current, by), weights)
+	candidates, scores := []match.Command{roll}, []float64{base}
+	for _, cmd := range spells {
+		after, err := apply(current, cmd, rand.New(rand.NewPCG(0, 0)))
+		if err != nil {
+			return nil, err
+		}
+		var value float64
+		if changesDice(cmd) {
+			if value, err = rollValue(current, after, by, weights, random); err != nil {
+				return nil, err
+			}
+		} else {
+			// 倒せないダメージは、点の差には出ない（相手のクリーチャーの傷は数えていない）。守備評価の裏返しで、相手の領地が自分の手札で
+			// 取れるようになった分を足す（2026-11-19 オーナー）。採点全体に足さないのは、侵略に失敗して守り手を削っただけの手にも点が付き、
+			// 削ってから取る調整（入れないと決めた。2026-11-18 オーナー）になるため
+			value = base + score(after, outcomeOf(current, after, by), weights) - now + newlyTakeable(current, after, by)
+		}
+		candidates, scores = append(candidates, cmd), append(scores, value)
+	}
+	return pickBest(candidates, scores, random), nil
+}
+
+// 自分にかけるサイコロのスペル（対象のプレイヤーを選ぶスペルは、今はこれだけ）
+func changesDice(cmd match.Command) bool {
+	spell, ok := cmd.(*match.UseSpellCommand)
+	return ok && spell.Target != nil
+}
+
+// 使ったときの点を付けられるスペルの候補。カードを引く（山札は隠れた情報で、手札の値打ちをまだ数えていない）と、相手にかけるサイコロの
+// スペル（相手の次のターンを見積もっていない）は入れず、使わない（2026-11-19 オーナー。core#143）
+func spellCandidates(current match.Match, by match.ParticipantIndex) []match.Command {
+	specs := current.CardSpecs()
+	var candidates []match.Command
+	for _, choice := range current.SpellChoices() {
+		spec, ok := specs[current.Participants[by].Hand[choice.HandIndex]]
+		if !ok || spec.Spell == nil {
+			continue
+		}
+		spellEffect := spec.Spell.Effect
+		switch {
+		case spellEffect.GainMagic != nil:
+			candidates = append(candidates, &match.UseSpellCommand{By: by, HandIndex: choice.HandIndex})
+		case spellEffect.Damage != nil:
+			for _, position := range choice.TargetPositions {
+				candidates = append(candidates, &match.UseSpellCommand{By: by, HandIndex: choice.HandIndex, TargetPosition: &position})
+			}
+		case spellEffect.FixedDice != nil, spellEffect.MultipleDice != nil:
+			if slices.Contains(choice.Targets, by) {
+				candidates = append(candidates, &match.UseSpellCommand{By: by, HandIndex: choice.HandIndex, Target: &by})
+			}
+		}
+	}
+	return candidates
+}
+
+// 振った後の点の、出る目の平均
+func rollValue(origin, current match.Match, by match.ParticipantIndex, weights npcmindset.CriterionWeights, random match.Random) (float64, error) {
+	total := 0.0
+	for _, face := range diceOutcomes(current, by) {
+		after, err := apply(current, &match.RollCommand{By: by}, &drawnRandom{values: face.draws})
+		if err != nil {
+			return 0, err
+		}
+		value, err := continuationValue(origin, after, by, weights, rollLookaheadBattleSamples, random)
+		if err != nil {
+			return 0, err
+		}
+		total += value * face.weight
+	}
+	return total, nil
+}
+
+// 振るときに乱数の元から引く値（目 − 最小の目）の並びと、その合計が出る割合
+type diceOutcome struct {
+	draws  []int
+	weight float64
+}
+
+// 出る目の合計ごとに 1 つずつ。進むのは合計の分なので、同じ合計の組みは 1 つにまとめる（複数振るとき、組みの数だけ先読みしないため）。
+// 振り方は match の roll と同じ（続いているスペルの効果で、目の固定・複数の個数）
+func diceOutcomes(current match.Match, by match.ParticipantIndex) []diceOutcome {
+	count := 1
+	if lasting := current.Participants[by].LastingSpellEffect; lasting != nil {
+		switch {
+		case lasting.Effect.FixedDice != nil:
+			return []diceOutcome{{weight: 1}}
+		case lasting.Effect.MultipleDice != nil:
+			count = lasting.Effect.MultipleDice.Count.Int()
+		}
+	}
+	faces := current.Rules.DiceMax - current.Rules.DiceMin + 1
+	bySum := map[int]*diceOutcome{}
+	var sums []int
+	var walk func(draws []int, sum int, weight float64)
+	walk = func(draws []int, sum int, weight float64) {
+		if len(draws) == count {
+			if outcome, ok := bySum[sum]; ok {
+				outcome.weight += weight
+				return
+			}
+			bySum[sum] = &diceOutcome{draws: slices.Clone(draws), weight: weight}
+			sums = append(sums, sum)
+			return
+		}
+		for face := range faces {
+			walk(append(draws, face), sum+face, weight/float64(faces))
+		}
+	}
+	walk(nil, 0, 1)
+	outcomes := make([]diceOutcome, 0, len(sums))
+	for _, sum := range sums {
+		outcomes = append(outcomes, *bySum[sum])
+	}
+	return outcomes
+}
+
+// 決めた値を順に返す乱数の元（振る目を決めて先読みするため）。値を使い切ったら 0 を返す（振った後に乱数を引く決まりができても止めない）
+type drawnRandom struct {
+	values []int
+	next   int
+}
+
+func (r *drawnRandom) IntN(n int) int {
+	if r.next >= len(r.values) {
+		return 0
+	}
+	value := r.values[r.next]
+	r.next++
+	return min(value, n-1)
+}
+
+func (r *drawnRandom) Shuffle(int, func(i, j int)) {}
+
+// 相手の領地のうち、前は取れず、後に自分の手札で一番強い攻め（クリーチャーの AT ＋ 手札で一番強い武器）で取れるようになったものの価値の合計。
+// 守備評価（defenseLoss）の裏返し。取れなくなった（倒して無くなった等）領地は引かない（倒した分は相手の総魔力の減りに出ていて、
+// 引くと倒すより取れる見込みを残すほうがよく見えるため）
+func newlyTakeable(before, after match.Match, by match.ParticipantIndex) float64 {
+	total := 0.0
+	for _, territory := range after.Territories {
+		if owner, ok := after.TerritoryOwner(territory); !ok || owner == by || !takeable(after, by, territory) {
+			continue
+		}
+		if was, ok := before.TerritoryAt(territory.Position); ok && takeable(before, by, was) {
+			continue
+		}
+		total += float64(after.TerritoryValue(territory))
+	}
+	return total
+}
+
+func takeable(state match.Match, by match.ParticipantIndex, territory match.Territory) bool {
+	specs := state.CardSpecs()
+	hand := state.Participants[by].Hand
+	weapon := strongestWeapon(specs, hand)
+	attack := 0
+	for _, ref := range hand {
+		if spec, ok := specs[ref]; ok && spec.Creature != nil {
+			attack = max(attack, spec.Creature.Attack.Int()+weapon)
+		}
+	}
+	placed, ok := state.PlacedCreature(territory.Creature)
+	return ok && placed.HitPoints.Int()+state.TerrainBonus(territory) <= attack
 }
 
 // 場面の候補を全部並べる。対象のある種類は、対象のすべての組みを並べる
