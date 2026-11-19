@@ -149,19 +149,19 @@ func (w ActionWeights) complete() bool {
 	return true
 }
 
-// 採点基準（2026-11-17 オーナー。core#190）。値は大きいほどよく、場面の候補の中で 0〜1 にそろえて重みを掛ける。
+// 採点基準（2026-11-17 オーナー。core#190。2026-11-19 に 3 つに組み直した。core#191）。候補を当てた後の状態の値（額）に重みを掛けて足す。
+// 0〜1 にそろえないのは、そろえると候補の中の小さな差と大きな差が同じ重さになり、額の比べ方が崩れるため（core#191 の比べ）。
+// 性格の軸は「育てる（自分の総魔力）↔ 奪う（相手の総魔力）」で、上手さ（クリーチャーの消耗・空けた土地）は全員に同じなのでここに置かない。
 // 思考パターンが何を重く見るかの語彙なので、match より下の段のここに置く
 type Criterion string
 
 const (
-	// 自分の総魔力 − 相手のうち一番高い総魔力
-	CriterionTotalMagicLead Criterion = "total_magic_lead"
-	// 自分の領地の数
+	// 自分の総魔力。大きいほどよい
+	CriterionOwnTotalMagic Criterion = "own_total_magic"
+	// 相手の総魔力の平均。小さいほどよい（1 人から奪った価値をまるごと得に数えないよう、合計ではなく平均。core#191）
+	CriterionRivalTotalMagic Criterion = "rival_total_magic"
+	// 自分の領地の数 × 土地の基本の値。大きいほどよい
 	CriterionTerritoryCount Criterion = "territory_count"
-	// 戦闘の候補だけ、戦闘の後にその領地を自分が持っている割合。戦闘にならない候補は 0
-	CriterionBattleHold Criterion = "battle_hold"
-	// 手持ちの魔力。当面は盤面の通行料の一番高い額で頭打ち
-	CriterionMagicReserve Criterion = "magic_reserve"
 )
 
 // 外から来た値を採点基準にする。基準のすべて（Criteria）にない値は誤り
@@ -177,7 +177,7 @@ func NewCriterion(value string) (Criterion, error) {
 
 // 採点基準の並び（計算の順。重みの map の順は不定なので、並びはここで固定する）
 func Criteria() []Criterion {
-	return []Criterion{CriterionTotalMagicLead, CriterionTerritoryCount, CriterionBattleHold, CriterionMagicReserve}
+	return []Criterion{CriterionOwnTotalMagic, CriterionRivalTotalMagic, CriterionTerritoryCount}
 }
 
 // 採点基準ごとの重み。思考パターンは基準のすべてを持つ

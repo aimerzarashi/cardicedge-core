@@ -14,12 +14,13 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
-// 引く・捨てる・振る前・行き先は、山札の順とサイコロ（隠れた情報）で結果が変わり、後の状態を当てると先に見ることになるので、採点せず
+// 引く・捨てる・振る前は、山札の順とサイコロ（隠れた情報）で結果が変わり、後の状態を当てると先に見ることになるので、採点せず
 // 種類ごとの重みで選ぶ。それ以外（配置・侵略・攻める・守る・手放す・領地コマンド・終わり）は、候補ごとに採点基準で点を付けて選ぶ（scoreCandidates）。
+// 分かれ道の行き先は目が出た後で隠れた情報を見ないので、止まった後の一番よい行動まで進めた点で選ぶ（choosePath。core#191）。
 // 段階で分けるのは、点の付く段階と付かない段階が混ざらないようにするため
 func scored(phase match.Phase) bool {
 	switch phase {
-	case match.PhaseDrawing, match.PhaseDiscarding, match.PhaseRolling, match.PhaseChoosingPath:
+	case match.PhaseDrawing, match.PhaseDiscarding, match.PhaseRolling:
 		return false
 	default:
 		return true
@@ -39,12 +40,15 @@ func Choose(current match.Match, by match.ParticipantIndex, random match.Random)
 	if len(actions) == 0 {
 		return nil, fmt.Errorf("npcdecision: no action choices: %w", match.ErrInvalidState)
 	}
+	if current.Phase == match.PhaseChoosingPath {
+		return choosePath(current, by, mindset.CriterionWeights, random)
+	}
 	if scored(current.Phase) {
 		candidates, err := candidatesOf(current, by, actions)
 		if err != nil {
 			return nil, err
 		}
-		scores, err := scoreCandidates(current, by, candidates, mindset.CriterionWeights, random)
+		scores, err := scoreCandidates(current, current, by, candidates, mindset.CriterionWeights, random)
 		if err != nil {
 			return nil, err
 		}
@@ -163,83 +167,133 @@ func command(current match.Match, by match.ParticipantIndex, action matchaction.
 // 戦闘が決まるまでの先読みを、乱数のぶれをならすために何回当てるか。戦闘にならない候補は 1 回。値は全員 NPC の対戦で見て決める
 const battleSamples = 8
 
+// 候補を当てた後の状態の値。採点基準の 3 つと、全員に同じ重みで損に数える上手さの 2 つ（性格で変えないので思考パターンの重みに持たない。core#191）
+type outcome struct {
+	ownTotalMagic   float64
+	rivalTotalMagic float64 // 相手の平均
+	territoryCount  float64
+	// クリーチャーの消耗（attrition）。自分の領地のクリーチャーが、判断を始めたときより弱った割合 × その領地の価値。今は HP の減りだけ（AT の低下・副作用は、
+	// 起こす効果を作るときに足す）。これが無いと、負けた移動の侵略は費用も無く元の領地に戻るので点の上でただになり、何もしないと同点のくじで選ばれていた
+	attrition float64
+	// 空けた土地。判断を始めたときにレベル 2 以上だった自分の領地が空いたら、その価値（レベルが土地に残り、次に置いた人がただで引き継ぐため）
+	vacated float64
+}
+
+func (o outcome) plus(other outcome, rate float64) outcome {
+	return outcome{
+		ownTotalMagic:   o.ownTotalMagic + other.ownTotalMagic*rate,
+		rivalTotalMagic: o.rivalTotalMagic + other.rivalTotalMagic*rate,
+		territoryCount:  o.territoryCount + other.territoryCount*rate,
+		attrition:       o.attrition + other.attrition*rate,
+		vacated:         o.vacated + other.vacated*rate,
+	}
+}
+
+// origin は判断を始めたときの状態（消耗と空けた土地は、そこから変わった分を数える）
+func outcomeOf(origin, state match.Match, by match.ParticipantIndex) outcome {
+	var result outcome
+	totals := state.TotalMagics()
+	for i, total := range totals {
+		if i == by.Int() {
+			result.ownTotalMagic = float64(total)
+			continue
+		}
+		result.rivalTotalMagic += float64(total) / float64(len(totals)-1)
+	}
+	result.territoryCount = float64(state.TerritoryCount(by))
+	for _, territory := range state.Territories {
+		if owner, ok := state.TerritoryOwner(territory); !ok || owner != by {
+			continue
+		}
+		now, ok := state.PlacedCreature(territory.Creature)
+		if !ok {
+			continue
+		}
+		before, ok := origin.PlacedCreature(territory.Creature)
+		if !ok {
+			continue
+		}
+		if lost := before.HitPoints.Int() - now.HitPoints.Int(); lost > 0 {
+			result.attrition += float64(lost) / float64(now.Base.HitPoints.Int()) * float64(state.TerritoryValue(territory))
+		}
+	}
+	for _, territory := range origin.Territories {
+		if owner, ok := origin.TerritoryOwner(territory); !ok || owner != by || origin.LandLevel(territory.Position) < 2 {
+			continue
+		}
+		if _, still := state.TerritoryAt(territory.Position); !still {
+			result.vacated += float64(origin.TerritoryValue(territory))
+		}
+	}
+	return result
+}
+
+// 点。採点基準の値（額）に重みを掛けて足し、上手さの分を引く。0〜1 にそろえない（npcmindset.Criterion の理由）。
+// 重みがすべて 0 なら上手さも数えず 0 にする（すべての候補が同じ点になり均等に選ぶ、完全ランダム型を保つため。core#179）
+func score(state match.Match, o outcome, weights npcmindset.CriterionWeights) float64 {
+	if allZero(weights) {
+		return 0
+	}
+	return float64(weights[npcmindset.CriterionOwnTotalMagic].Int())*o.ownTotalMagic -
+		float64(weights[npcmindset.CriterionRivalTotalMagic].Int())*o.rivalTotalMagic +
+		float64(weights[npcmindset.CriterionTerritoryCount].Int())*o.territoryCount*float64(state.Rules.BaseLandValue) -
+		o.attrition - o.vacated
+}
+
+func allZero(weights npcmindset.CriterionWeights) bool {
+	for _, weight := range weights {
+		if weight.Int() != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // 候補ごとに、今の状態の写しにコマンドを当てた後の状態で測る（決まりを NPC の側に書き写さないため）。
 // match.Evolve は変えるスライスと map を先に Clone してから変えるので、Match の値のまま渡せば元の状態は変わらない（テストで確かめる）。
 // Decide に渡す now はイベントの発生時刻にしか使われず、ここで出すイベントは捨てるので、ゼロ値でよい
-func scoreCandidates(current match.Match, by match.ParticipantIndex, candidates []match.Command, weights npcmindset.CriterionWeights, random match.Random) ([]float64, error) {
-	floor := 0
-	for _, territory := range current.Territories {
-		floor = max(floor, current.TerritoryToll(territory))
-	}
-	values := make([][]float64, len(candidates))
+func scoreCandidates(origin, current match.Match, by match.ParticipantIndex, candidates []match.Command, weights npcmindset.CriterionWeights, random match.Random) ([]float64, error) {
+	scores := make([]float64, len(candidates))
 	for i, candidate := range candidates {
-		samples, err := measure(current, by, candidate, floor, random)
+		measured, err := measure(origin, current, by, candidate, weights, random)
 		if err != nil {
 			return nil, err
 		}
-		values[i] = samples
-	}
-	scores := make([]float64, len(candidates))
-	for c, criterion := range npcmindset.Criteria() {
-		low, high := values[0][c], values[0][c]
-		for _, v := range values {
-			low, high = min(low, v[c]), max(high, v[c])
-		}
-		if high == low {
-			continue
-		}
-		for i, v := range values {
-			scores[i] += float64(weights[criterion].Int()) * (v[c] - low) / (high - low)
-		}
+		scores[i] = score(current, measured, weights)
 	}
 	return scores, nil
 }
 
-// 候補 1 つの基準ごとの値（Criteria の並び）。戦闘になる候補は、戦闘の乱数の違う先読みを battleSamples 回当てて平均する
-func measure(current match.Match, by match.ParticipantIndex, cmd match.Command, floor int, random match.Random) ([]float64, error) {
-	battling := inBattleChoice(current)
-	if !battling {
+// 候補 1 つを当てた後の値。戦闘になる候補は、戦闘の乱数の違う先読みを battleSamples 回当てて平均する
+func measure(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, random match.Random) (outcome, error) {
+	if !inBattleChoice(current) {
 		after, err := apply(current, cmd, rand.New(rand.NewPCG(0, 0)))
 		if err != nil {
-			return nil, err
+			return outcome{}, err
 		}
-		battling = inBattleChoice(after)
-		if !battling {
-			return values(after, by, floor, nil), nil
+		if !inBattleChoice(after) {
+			return outcomeOf(origin, after, by), nil
 		}
 	}
-	total := make([]float64, len(npcmindset.Criteria()))
+	var total outcome
 	for range battleSamples {
 		// 選択肢どうしを同じ乱数の列で比べるため、乱数の元から種だけ引く
 		seed := uint64(random.IntN(1 << 30))
 		after, err := apply(current, cmd, rand.New(rand.NewPCG(seed, seed)))
 		if err != nil {
-			return nil, err
+			return outcome{}, err
 		}
-		position := battlePosition(current, after)
-		settled, err := settle(after, by, seed)
+		settled, err := settle(origin, after, by, weights, seed)
 		if err != nil {
-			return nil, err
+			return outcome{}, err
 		}
-		for c, v := range values(settled, by, floor, position) {
-			total[c] += v / battleSamples
-		}
+		total = total.plus(outcomeOf(origin, settled, by), 1.0/battleSamples)
 	}
 	return total, nil
 }
 
 func inBattleChoice(current match.Match) bool {
 	return current.Phase == match.PhaseAttacking || current.Phase == match.PhaseDefending
-}
-
-// 戦闘の領地。戦闘の入口の状態（今か、コマンドを当てた後）の侵略が指す
-func battlePosition(states ...match.Match) *match.Territory {
-	for _, state := range states {
-		if state.Invasion != nil {
-			return &match.Territory{Position: state.Invasion.Position}
-		}
-	}
-	return nil
 }
 
 func apply(current match.Match, cmd match.Command, random match.Random) (match.Match, error) {
@@ -258,27 +312,27 @@ func apply(current match.Match, cmd match.Command, random match.Random) (match.M
 }
 
 // 戦闘のアイテムを選ぶ段階にいる間、選ぶ人の選べるもの（アイテム・援護・出さない）を当て、戦闘が決まるまで進める。
-// 自分が選ぶ番なら自分の総魔力の差が一番よくなるもの、相手が選ぶ番なら自分に一番悪くなるものを選ぶ（相手の手札は見えている前提）
-func settle(current match.Match, by match.ParticipantIndex, seed uint64) (match.Match, error) {
+// 自分が選ぶ番なら自分の点が一番よくなるもの、相手が選ぶ番なら自分の点が一番悪くなるものを選ぶ（相手の手札は見えている前提）
+func settle(origin, current match.Match, by match.ParticipantIndex, weights npcmindset.CriterionWeights, seed uint64) (match.Match, error) {
 	if !inBattleChoice(current) {
 		return current, nil
 	}
 	chooser, _ := current.AwaitingParticipant()
 	var best match.Match
-	var bestLead float64
+	var bestScore float64
 	found := false
 	for _, option := range battleOptions(current, chooser) {
 		after, err := apply(current, option, rand.New(rand.NewPCG(seed, seed)))
 		if err != nil {
 			return match.Match{}, err
 		}
-		settled, err := settle(after, by, seed)
+		settled, err := settle(origin, after, by, weights, seed)
 		if err != nil {
 			return match.Match{}, err
 		}
-		lead := totalMagicLead(settled, by)
-		if !found || (chooser == by && lead > bestLead) || (chooser != by && lead < bestLead) {
-			best, bestLead, found = settled, lead, true
+		value := score(settled, outcomeOf(origin, settled, by), weights)
+		if !found || (chooser == by && value > bestScore) || (chooser != by && value < bestScore) {
+			best, bestScore, found = settled, value, true
 		}
 	}
 	if !found {
@@ -306,45 +360,62 @@ func battleOptions(current match.Match, by match.ParticipantIndex) []match.Comma
 	return append(options, &match.DefendCommand{By: by})
 }
 
-func totalMagicLead(state match.Match, by match.ParticipantIndex) float64 {
-	totals := state.TotalMagics()
-	best := 0
-	first := true
-	for i, total := range totals {
-		if i == int(by) {
-			continue
+// 分かれ道の行き先ごとに、止まった後の一番よい行動まで進めた点で比べ、一番よい行き先を選ぶ（先の分かれ道も同じく進める）。
+// 先読みは止まったマスの行動まで（高い土地に止まりに行く・何度も削ってから取る調整はしない。2026-11-18 オーナー）
+func choosePath(current match.Match, by match.ParticipantIndex, weights npcmindset.CriterionWeights, random match.Random) (match.Command, error) {
+	var candidates []match.Command
+	var scores []float64
+	for _, to := range current.PathChoices() {
+		cmd := &match.ChoosePathCommand{By: by, To: to}
+		value, err := pathValue(current, current, by, cmd, weights, random)
+		if err != nil {
+			return nil, err
 		}
-		if first || total > best {
-			best, first = total, false
-		}
+		candidates, scores = append(candidates, cmd), append(scores, value)
 	}
-	return float64(totals[by] - best)
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("npcdecision: no path choices: %w", match.ErrInvalidState)
+	}
+	return pickBest(candidates, scores, random), nil
 }
 
-// Criteria の並びで、後の状態の基準の値を出す。position が nil なら戦闘ではなく、battle_hold は 0
-func values(state match.Match, by match.ParticipantIndex, floor int, position *match.Territory) []float64 {
-	hold := 0.0
-	if position != nil {
-		if territory, ok := state.TerritoryAt(position.Position); ok {
-			if owner, ok := state.TerritoryOwner(territory); ok && owner == by {
-				hold = 1
-			}
+// 行き先を当て、止まった後に自分が選ぶ段階なら、その候補の一番よい点を返す。自分の番が終わっていれば、当てた後の状態の点
+func pathValue(origin, current match.Match, by match.ParticipantIndex, cmd match.Command, weights npcmindset.CriterionWeights, random match.Random) (float64, error) {
+	after, err := apply(current, cmd, rand.New(rand.NewPCG(0, 0)))
+	if err != nil {
+		return 0, err
+	}
+	awaiting, ok := after.AwaitingParticipant()
+	// 目標の魔力に届いて拠点に入ると、その行き先で対戦が終わる（終わった後も待っている人は返るが、選べる行動は無い）
+	if !ok || awaiting != by || !scored(after.Phase) || after.Phase == match.PhaseEnded {
+		return score(after, outcomeOf(origin, after, by), weights), nil
+	}
+	var candidates []match.Command
+	if after.Phase == match.PhaseChoosingPath {
+		for _, to := range after.PathChoices() {
+			candidates = append(candidates, &match.ChoosePathCommand{By: by, To: to})
+		}
+	} else if candidates, err = candidatesOf(after, by, after.ActionChoices()); err != nil {
+		return 0, err
+	}
+	best := 0.0
+	for i, candidate := range candidates {
+		var value float64
+		if after.Phase == match.PhaseChoosingPath {
+			value, err = pathValue(origin, after, by, candidate, weights, random)
+		} else {
+			var measured outcome
+			measured, err = measure(origin, after, by, candidate, weights, random)
+			value = score(after, measured, weights)
+		}
+		if err != nil {
+			return 0, err
+		}
+		if i == 0 || value > best {
+			best = value
 		}
 	}
-	result := make([]float64, len(npcmindset.Criteria()))
-	for c, criterion := range npcmindset.Criteria() {
-		switch criterion {
-		case npcmindset.CriterionTotalMagicLead:
-			result[c] = totalMagicLead(state, by)
-		case npcmindset.CriterionTerritoryCount:
-			result[c] = float64(state.TerritoryCount(by))
-		case npcmindset.CriterionBattleHold:
-			result[c] = hold
-		case npcmindset.CriterionMagicReserve:
-			result[c] = float64(min(state.Participants[by].Magic, floor))
-		}
-	}
-	return result
+	return best, nil
 }
 
 // 場面の候補を全部並べる。対象のある種類は、対象のすべての組みを並べる

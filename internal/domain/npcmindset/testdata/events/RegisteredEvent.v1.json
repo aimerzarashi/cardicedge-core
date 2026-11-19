@@ -1,6 +1,6 @@
 {
   "public_id": "11111111-2222-3333-4444-555555555555",
-  "name": "ふつう",
+  "name": "バランス",
   "action_weights": {
     "draw_card": 1,
     "discard_card": 1,
@@ -23,10 +23,9 @@
     "end_turn": 1
   },
   "criterion_weights": {
-    "total_magic_lead": 1,
-    "territory_count": 1,
-    "battle_hold": 1,
-    "magic_reserve": 1
+    "own_total_magic": 1,
+    "rival_total_magic": 1,
+    "territory_count": 1
   },
   "registered_by": 10
 }

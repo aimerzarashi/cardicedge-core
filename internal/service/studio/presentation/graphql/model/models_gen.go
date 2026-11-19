@@ -4859,30 +4859,27 @@ func (e NpcDeckStatus) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// 採点基準。候補ごとに値を出し、場面の候補の中で 0〜1 にそろえて重みを掛けて足す
+// 採点基準。候補ごとに、当てた後の状態の値（額）に重みを掛けて足す
 type NpcMindsetCriterion string
 
 const (
-	// 総魔力の差（自分の総魔力 − 相手のうち一番高い総魔力）
-	NpcMindsetCriterionTotalMagicLead NpcMindsetCriterion = "TOTAL_MAGIC_LEAD"
-	// 領地の数（自分の領地の数）
+	// 自分の総魔力（大きいほどよい）
+	NpcMindsetCriterionOwnTotalMagic NpcMindsetCriterion = "OWN_TOTAL_MAGIC"
+	// 相手の総魔力（相手の平均。小さいほどよい）
+	NpcMindsetCriterionRivalTotalMagic NpcMindsetCriterion = "RIVAL_TOTAL_MAGIC"
+	// 領地の数（自分の領地の数 × 土地の基本の値）
 	NpcMindsetCriterionTerritoryCount NpcMindsetCriterion = "TERRITORY_COUNT"
-	// 勝ち見込み（戦闘の候補だけ、戦闘の後にその領地を自分が持っている割合。戦闘にならない候補は 0）
-	NpcMindsetCriterionBattleHold NpcMindsetCriterion = "BATTLE_HOLD"
-	// 魔力を残す（手持ちの魔力。当面は盤面の通行料の一番高い額で頭打ち）
-	NpcMindsetCriterionMagicReserve NpcMindsetCriterion = "MAGIC_RESERVE"
 )
 
 var AllNpcMindsetCriterion = []NpcMindsetCriterion{
-	NpcMindsetCriterionTotalMagicLead,
+	NpcMindsetCriterionOwnTotalMagic,
+	NpcMindsetCriterionRivalTotalMagic,
 	NpcMindsetCriterionTerritoryCount,
-	NpcMindsetCriterionBattleHold,
-	NpcMindsetCriterionMagicReserve,
 }
 
 func (e NpcMindsetCriterion) IsValid() bool {
 	switch e {
-	case NpcMindsetCriterionTotalMagicLead, NpcMindsetCriterionTerritoryCount, NpcMindsetCriterionBattleHold, NpcMindsetCriterionMagicReserve:
+	case NpcMindsetCriterionOwnTotalMagic, NpcMindsetCriterionRivalTotalMagic, NpcMindsetCriterionTerritoryCount:
 		return true
 	}
 	return false

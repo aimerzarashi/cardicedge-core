@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"testing"
 	"time"
 
@@ -258,11 +259,16 @@ func rollingWithSpell(t *testing.T) match.Match {
 // 全員 NPC の 2 人の対戦を、条件に合う状態まで進める（種を変えながら探す）
 func advanceUntil(t *testing.T, found func(current match.Match, by match.ParticipantIndex) bool) match.Match {
 	t.Helper()
+	return advanceUntilOn(t, ringBoard(t), found)
+}
+
+func advanceUntilOn(t *testing.T, matchBoard match.Board, found func(current match.Match, by match.ParticipantIndex) bool) match.Match {
+	t.Helper()
 	for seed := uint64(1); seed <= 300; seed++ {
 		random := rand.New(rand.NewPCG(seed, seed))
 		cmd := &match.StartCommand{
 			ID: matchtest.ID(t, 40), Participants: []match.Participant{npcParticipant(t, 1), npcParticipant(t, 2)},
-			Board: ringBoard(t), Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
+			Board: matchBoard, Rules: matchtest.RulesOf(t, 3000, 600, 300, 100, 10, 1, 6, 5),
 		}
 		var state match.State = match.InitialState()
 		var decided match.Command = cmd
@@ -308,6 +314,30 @@ func withDefender(t *testing.T, current match.Match, attack, hitPoints int) matc
 	return current
 }
 
+// 位置のクリーチャーの性能を差し替える
+func withCreatureAt(t *testing.T, current match.Match, position board.Position, attack, hitPoints int) match.Match {
+	t.Helper()
+	territory, ok := current.TerritoryAt(position)
+	require.True(t, ok)
+	current.PlacedCreatures = append([]match.PlacedCreature(nil), current.PlacedCreatures...)
+	for i := range current.PlacedCreatures {
+		if current.PlacedCreatures[i].ID == territory.Creature {
+			current.PlacedCreatures[i].Attack = creaturetest.Attack(t, attack)
+			current.PlacedCreatures[i].HitPoints = creaturetest.HitPoints(t, hitPoints)
+		}
+	}
+	return current
+}
+
+func ownedByOther(current match.Match, by match.ParticipantIndex, position board.Position) bool {
+	territory, ok := current.TerritoryAt(position)
+	if !ok {
+		return false
+	}
+	owner, ok := current.TerritoryOwner(territory)
+	return ok && owner != by
+}
+
 func invadingWithPlainCreatures(current match.Match, _ match.ParticipantIndex) bool {
 	return current.Phase == match.PhaseInvading && len(current.InvadeChoices()) > 0
 }
@@ -347,6 +377,83 @@ func TestChoose_InvadesWhenTheInvasionCertainlyWins(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, "*match.InvadeCommand", kindOf(cmd))
+	}
+}
+
+// 負けて元の領地に戻るだけの移動の侵略は、費用が無くても、戦った傷（クリーチャーの消耗）の分だけ何もしないより悪い
+// （消耗を数えないと何もしないと同じ点になり、くじで選ばれていた。core#191）
+func TestChoose_DoesNotMoveToInvadeWhenTheCreatureOnlyComesBackHurt(t *testing.T) {
+	current := advanceUntil(t, func(current match.Match, by match.ParticipantIndex) bool {
+		if current.Phase != match.PhaseTerritoryCommanding {
+			return false
+		}
+		for _, choice := range current.MoveChoices() {
+			if ownedByOther(current, by, choice.To) {
+				return true
+			}
+		}
+		return false
+	})
+	by, _ := current.AwaitingParticipant()
+	for _, choice := range current.MoveChoices() {
+		if ownedByOther(current, by, choice.To) {
+			// 倒せず、侵略したクリーチャーも倒れず、少しだけ傷を負う守り手
+			current = withCreatureAt(t, current, choice.To, 1, 500)
+		}
+	}
+	// 費用のかかる領地コマンド（レベルアップ・交換・属性の変更）を選べないようにし、費用の無い移動と終わりだけを比べる
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	current.Participants[by].Magic = 0
+
+	for seed := range uint64(8) {
+		cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		if move, ok := cmd.(*match.MoveCreatureCommand); ok {
+			require.False(t, ownedByOther(current, by, move.To))
+		}
+	}
+}
+
+// 3×3 の外周の輪に、真ん中の縦の道 (1,0)-(1,1)-(1,2) を足したボード。(1,0) と (1,2) が分かれ道になる
+func forkBoard(t *testing.T) match.Board {
+	t.Helper()
+	ringed := ringBoard(t)
+	ringed.Tiles = append(append([]board.Tile(nil), ringed.Tiles...), boardtest.Tile(t, 1, 1, "land", "fire"))
+	ringed.Connections = append(append([]board.Connection(nil), ringed.Connections...), boardtest.Connection(t, 1, 0, 1, 1), boardtest.Connection(t, 1, 1, 1, 2))
+	return ringed
+}
+
+// 行き先は、止まった後の一番よい行動まで進めた点で選ぶ。残り 1 歩で、強い守り手の他人の領地（通行料を払うしかない）と空き地に分かれるなら、空き地へ行く
+func TestChoose_ChoosesThePathWhoseStopIsBetter(t *testing.T) {
+	stops := func(current match.Match, by match.ParticipantIndex) (enemy, vacant board.Position, ok bool) {
+		var foundEnemy, foundVacant bool
+		for _, to := range current.PathChoices() {
+			land := slices.ContainsFunc(current.Board.Tiles, func(tile board.Tile) bool { return tile.Position == to && tile.Kind == board.TileKindLand })
+			switch {
+			case ownedByOther(current, by, to):
+				enemy, foundEnemy = to, true
+			case land:
+				if _, occupied := current.TerritoryAt(to); !occupied {
+					vacant, foundVacant = to, true
+				}
+			}
+		}
+		return enemy, vacant, foundEnemy && foundVacant
+	}
+	current := advanceUntilOn(t, forkBoard(t), func(current match.Match, by match.ParticipantIndex) bool {
+		_, _, ok := stops(current, by)
+		return current.Phase == match.PhaseChoosingPath && current.RemainingSteps == 1 && ok
+	})
+	by, _ := current.AwaitingParticipant()
+	enemy, vacant, _ := stops(current, by)
+	current = withCreatureAt(t, current, enemy, 500, 500)
+
+	for seed := range uint64(8) {
+		cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		require.Equal(t, &match.ChoosePathCommand{By: by, To: vacant}, cmd)
 	}
 }
 

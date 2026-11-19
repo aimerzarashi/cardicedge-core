@@ -62,7 +62,7 @@ type masterNPCAvatar struct {
 	Mindsets []string `json:"mindsets"`
 }
 
-// 採点基準ごとの重み。キーは採点基準の値（total_magic_lead・territory_count・battle_hold・magic_reserve）で、すべてを書く。
+// 採点基準ごとの重み。キーは採点基準の値（own_total_magic・rival_total_magic・territory_count）で、すべてを書く。
 // 重みの範囲と基準の名前は domain の関数で確かめる
 type masterNPCMindset struct {
 	Name             string         `json:"name"`

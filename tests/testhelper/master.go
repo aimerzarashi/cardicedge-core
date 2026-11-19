@@ -502,7 +502,7 @@ func npcMindsetMetadata(id uuid.UUID, name string, status readmodel.NPCMindsetSt
 	for _, criterion := range npcmindset.Criteria() {
 		metadata.CriterionWeights[criterion] = 1
 	}
-	metadata.CriterionWeights[npcmindset.CriterionTotalMagicLead] = criterionWeight
+	metadata.CriterionWeights[npcmindset.CriterionOwnTotalMagic] = criterionWeight
 	return metadata
 }
 

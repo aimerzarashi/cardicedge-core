@@ -74,12 +74,12 @@ func criterionWeightInputs(changed map[npcmindset.Criterion]int) []command.Crite
 func TestRegisterNPCMindset_ReturnsPublicIDAndMakesDraftWithDefaultWeights(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 
-	registered, err := newNPCMindsetHandler(t, ctx).Register(ctx, "  ふつう ")
+	registered, err := newNPCMindsetHandler(t, ctx).Register(ctx, "  バランス ")
 
 	require.NoError(t, err)
 	require.Equal(t, int64(1), registered.Revision)
 	current := restoredNPCMindset(t, ctx, registered.ID)
-	require.Equal(t, "ふつう", current.Name.String())
+	require.Equal(t, "バランス", current.Name.String())
 	require.Equal(t, npcmindset.StatusDraft, current.Status)
 	require.Equal(t, npcmindset.DefaultActionWeights(), current.ActionWeights)
 	require.Equal(t, npcmindset.DefaultCriterionWeights(), current.CriterionWeights)
@@ -131,9 +131,9 @@ func TestNPCMindsetHandler_RejectsCallWithoutOperator(t *testing.T) {
 	ctx := isolatedDatabase(t)
 	commands := newNPCMindsetHandler(t, ctx)
 
-	_, err := commands.Register(ctx, "ふつう")
+	_, err := commands.Register(ctx, "バランス")
 	require.ErrorIs(t, err, command.ErrNotOperator)
-	_, err = commands.Rename(ctx, uuid.New(), 1, "攻めがち")
+	_, err = commands.Rename(ctx, uuid.New(), 1, "侵略型")
 	require.ErrorIs(t, err, command.ErrNotOperator)
 	_, err = commands.SetActionWeights(ctx, uuid.New(), 1, nil)
 	require.ErrorIs(t, err, command.ErrNotOperator)
@@ -149,23 +149,23 @@ func TestNPCMindsetHandler_RejectsCallWithoutOperator(t *testing.T) {
 func TestRenameNPCMindset_ChangesNameAndFreesOldName(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 
-	renamed, err := commands.Rename(ctx, registered.ID, registered.Revision, "攻めがち")
+	renamed, err := commands.Rename(ctx, registered.ID, registered.Revision, "侵略型")
 
 	require.NoError(t, err)
 	require.Equal(t, registered.Revision+1, renamed.Revision)
-	require.Equal(t, "攻めがち", restoredNPCMindset(t, ctx, registered.ID).Name.String())
-	registerNPCMindset(t, ctx, commands, "ふつう")
+	require.Equal(t, "侵略型", restoredNPCMindset(t, ctx, registered.ID).Name.String())
+	registerNPCMindset(t, ctx, commands, "バランス")
 }
 
 func TestRenameNPCMindset_RejectsNameUsedByOtherNPCMindset(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registerNPCMindset(t, ctx, commands, "ふつう")
-	other := registerNPCMindset(t, ctx, commands, "攻めがち")
+	registerNPCMindset(t, ctx, commands, "バランス")
+	other := registerNPCMindset(t, ctx, commands, "侵略型")
 
-	_, err := commands.Rename(ctx, other.ID, other.Revision, "ふつう")
+	_, err := commands.Rename(ctx, other.ID, other.Revision, "バランス")
 
 	require.ErrorIs(t, err, command.ErrNPCMindsetNameAlreadyInUse)
 }
@@ -173,15 +173,15 @@ func TestRenameNPCMindset_RejectsNameUsedByOtherNPCMindset(t *testing.T) {
 func TestNPCMindsetHandler_RejectsStaleRevisionAndMissingNPCMindset(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
-	_, err := commands.Rename(ctx, registered.ID, registered.Revision, "攻めがち")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
+	_, err := commands.Rename(ctx, registered.ID, registered.Revision, "侵略型")
 	require.NoError(t, err)
 	operations := []struct {
 		name string
 		call func(id uuid.UUID, revision int64) error
 	}{
 		{name: "rename", call: func(id uuid.UUID, revision int64) error {
-			_, err := commands.Rename(ctx, id, revision, "慎重")
+			_, err := commands.Rename(ctx, id, revision, "育成型")
 			return err
 		}},
 		{name: "set_action_weights", call: func(id uuid.UUID, revision int64) error {
@@ -209,7 +209,7 @@ func TestNPCMindsetHandler_RejectsStaleRevisionAndMissingNPCMindset(t *testing.T
 func TestSetNPCMindsetActionWeights_ReplacesWeightsAndSameWeightsKeepRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 	weights := actionWeightInputs(map[matchaction.Action]int{matchaction.ActionInvadeTerritory: 100, matchaction.ActionPayToll: 0})
 
 	changed, err := commands.SetActionWeights(ctx, registered.ID, registered.Revision, weights)
@@ -229,8 +229,8 @@ func TestSetNPCMindsetActionWeights_ReplacesWeightsAndSameWeightsKeepRevision(t 
 func TestSetNPCMindsetCriterionWeights_ReplacesWeightsAndSameWeightsKeepRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
-	weights := criterionWeightInputs(map[npcmindset.Criterion]int{npcmindset.CriterionTotalMagicLead: 3, npcmindset.CriterionMagicReserve: 0})
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
+	weights := criterionWeightInputs(map[npcmindset.Criterion]int{npcmindset.CriterionOwnTotalMagic: 3, npcmindset.CriterionTerritoryCount: 0})
 
 	changed, err := commands.SetCriterionWeights(ctx, registered.ID, registered.Revision, weights)
 	same, sameErr := commands.SetCriterionWeights(ctx, changed.ID, changed.Revision, weights)
@@ -240,15 +240,15 @@ func TestSetNPCMindsetCriterionWeights_ReplacesWeightsAndSameWeightsKeepRevision
 	require.Equal(t, registered.Revision+1, changed.Revision)
 	require.Equal(t, changed, same)
 	current := restoredNPCMindset(t, ctx, registered.ID)
-	require.Equal(t, 3, current.CriterionWeights[npcmindset.CriterionTotalMagicLead].Int())
-	require.Equal(t, 0, current.CriterionWeights[npcmindset.CriterionMagicReserve].Int())
+	require.Equal(t, 3, current.CriterionWeights[npcmindset.CriterionOwnTotalMagic].Int())
+	require.Equal(t, 0, current.CriterionWeights[npcmindset.CriterionTerritoryCount].Int())
 	require.Equal(t, npcmindset.DefaultActionWeights(), current.ActionWeights)
 }
 
 func TestSetNPCMindsetActionWeights_ReturnsFieldErrors(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 	full := actionWeightInputs(nil)
 	withWeight := func(index, weight int) []command.ActionWeightInput {
 		inputs := append([]command.ActionWeightInput(nil), full...)
@@ -282,7 +282,7 @@ func TestSetNPCMindsetActionWeights_ReturnsFieldErrors(t *testing.T) {
 func TestSetNPCMindsetCriterionWeights_ReturnsFieldErrors(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 	full := criterionWeightInputs(nil)
 	withWeight := func(index, weight int) []command.CriterionWeightInput {
 		inputs := append([]command.CriterionWeightInput(nil), full...)
@@ -295,10 +295,10 @@ func TestSetNPCMindsetCriterionWeights_ReturnsFieldErrors(t *testing.T) {
 		want    []input.Error
 	}{
 		{name: "negative_weight", weights: withWeight(1, -1), want: []input.Error{&input.OutOfRange{Field: "weights.1.weight", Min: 0, Max: 100}}},
-		{name: "over_upper_limit", weights: withWeight(3, 101), want: []input.Error{&input.OutOfRange{Field: "weights.3.weight", Min: 0, Max: 100}}},
+		{name: "over_upper_limit", weights: withWeight(2, 101), want: []input.Error{&input.OutOfRange{Field: "weights.2.weight", Min: 0, Max: 100}}},
 		{name: "missing_criterion", weights: full[1:], want: []input.Error{&input.Required{Field: "weights"}}},
-		{name: "duplicated_criterion", weights: append(append([]command.CriterionWeightInput(nil), full...), full[0]), want: []input.Error{&input.Duplicated{Field: "weights.4"}}},
-		{name: "unknown_criterion", weights: append(append([]command.CriterionWeightInput(nil), full[1:]...), command.CriterionWeightInput{Criterion: "unknown", Weight: 1}), want: []input.Error{&input.InvalidFormat{Field: "weights.3"}}},
+		{name: "duplicated_criterion", weights: append(append([]command.CriterionWeightInput(nil), full...), full[0]), want: []input.Error{&input.Duplicated{Field: "weights.3"}}},
+		{name: "unknown_criterion", weights: append(append([]command.CriterionWeightInput(nil), full[1:]...), command.CriterionWeightInput{Criterion: "unknown", Weight: 1}), want: []input.Error{&input.InvalidFormat{Field: "weights.2"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -315,7 +315,7 @@ func TestSetNPCMindsetCriterionWeights_ReturnsFieldErrors(t *testing.T) {
 func TestPublishNPCMindset_MakesPublishedAndSecondCallKeepsRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 
 	published, err := commands.Publish(ctx, registered.ID, registered.Revision)
 	require.NoError(t, err)
@@ -330,7 +330,7 @@ func TestPublishNPCMindset_MakesPublishedAndSecondCallKeepsRevision(t *testing.T
 func TestRetireNPCMindset_MakesRetiredOnlyFromPublishedAndCanBePublishedAgain(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 
 	_, err := commands.Retire(ctx, registered.ID, registered.Revision)
 	require.ErrorIs(t, err, command.ErrInvalidNPCMindsetStatusTransition)
@@ -348,9 +348,9 @@ func TestRetireNPCMindset_MakesRetiredOnlyFromPublishedAndCanBePublishedAgain(t 
 func TestNPCMindsetHandler_RejectsEditingUnlessDraft(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	published := publishedNPCMindset(t, ctx, "ふつう")
+	published := publishedNPCMindset(t, ctx, "バランス")
 
-	_, err := commands.Rename(ctx, published.ID, published.Revision, "攻めがち")
+	_, err := commands.Rename(ctx, published.ID, published.Revision, "侵略型")
 	require.ErrorIs(t, err, command.ErrNPCMindsetNotDraft)
 	_, err = commands.SetActionWeights(ctx, published.ID, published.Revision, actionWeightInputs(nil))
 	require.ErrorIs(t, err, command.ErrNPCMindsetNotDraft)
@@ -362,20 +362,20 @@ func TestNPCMindsetHandler_RejectsEditingUnlessDraft(t *testing.T) {
 func TestDeleteNPCMindset_RemovesNPCMindsetAndFreesName(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCMindsetHandler(t, ctx)
-	registered := registerNPCMindset(t, ctx, commands, "ふつう")
+	registered := registerNPCMindset(t, ctx, commands, "バランス")
 
 	require.NoError(t, commands.Delete(ctx, registered.ID, registered.Revision))
 
-	_, err := commands.Rename(ctx, registered.ID, registered.Revision, "攻めがち")
+	_, err := commands.Rename(ctx, registered.ID, registered.Revision, "侵略型")
 	require.ErrorIs(t, err, command.ErrNPCMindsetNotFound)
-	registerNPCMindset(t, ctx, commands, "ふつう")
+	registerNPCMindset(t, ctx, commands, "バランス")
 }
 
 func TestSetNPCAvatarMindsets_AssignsPublishedMindsetsAndReferences(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
-	first, second := publishedNPCMindset(t, ctx, "ふつう"), publishedNPCMindset(t, ctx, "攻めがち")
+	first, second := publishedNPCMindset(t, ctx, "バランス"), publishedNPCMindset(t, ctx, "侵略型")
 
 	changed, err := commands.SetMindsets(ctx, registered.ID, registered.Revision, []uuid.UUID{second.ID, first.ID})
 
@@ -399,7 +399,7 @@ func TestSetNPCAvatarMindsets_ReplacesWholeListAndReferences(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
-	first, second := publishedNPCMindset(t, ctx, "ふつう"), publishedNPCMindset(t, ctx, "攻めがち")
+	first, second := publishedNPCMindset(t, ctx, "バランス"), publishedNPCMindset(t, ctx, "侵略型")
 	assigned, err := commands.SetMindsets(ctx, registered.ID, registered.Revision, []uuid.UUID{first.ID})
 	require.NoError(t, err)
 
@@ -420,7 +420,7 @@ func TestSetNPCAvatarMindsets_ReplacesWholeListAndReferences(t *testing.T) {
 func TestSetNPCAvatarMindsets_AllowsMindsetSharedByNPCAvatarsAndKeepsDecks(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCAvatarHandler(t, ctx)
-	mindset := publishedNPCMindset(t, ctx, "ふつう")
+	mindset := publishedNPCMindset(t, ctx, "バランス")
 	withDeck := publishableNPCAvatar(t, ctx, commands, "森の番人")
 
 	for _, registered := range []command.ChangedNPCAvatar{withDeck, registerNPCAvatar(t, ctx, commands, "炎の剣士")} {
@@ -435,7 +435,7 @@ func TestSetNPCAvatarMindsets_SameMindsetsKeepRevision(t *testing.T) {
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
-	first, second := publishedNPCMindset(t, ctx, "ふつう"), publishedNPCMindset(t, ctx, "攻めがち")
+	first, second := publishedNPCMindset(t, ctx, "バランス"), publishedNPCMindset(t, ctx, "侵略型")
 	assigned, err := commands.SetMindsets(ctx, registered.ID, registered.Revision, []uuid.UUID{first.ID, second.ID})
 	require.NoError(t, err)
 
@@ -450,7 +450,7 @@ func TestSetNPCAvatarMindsets_ReturnsFieldErrorsForDuplicateUnknownAndUnpublishe
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
 	mindsets := newNPCMindsetHandler(t, ctx)
-	published := publishedNPCMindset(t, ctx, "ふつう")
+	published := publishedNPCMindset(t, ctx, "バランス")
 	draft := registerNPCMindset(t, ctx, mindsets, "準備中")
 	retired := publishedNPCMindset(t, ctx, "使用不可")
 	_, err := mindsets.Retire(ctx, retired.ID, retired.Revision)
@@ -485,7 +485,7 @@ func TestSetNPCAvatarMindsets_KeepsAssignedMindsetThatWasRetiredAfterwards(t *te
 	ctx := signedIn(t, isolatedDatabase(t), registrant(t))
 	commands := newNPCAvatarHandler(t, ctx)
 	registered := registerNPCAvatar(t, ctx, commands, "森の番人")
-	retired, other := publishedNPCMindset(t, ctx, "ふつう"), publishedNPCMindset(t, ctx, "攻めがち")
+	retired, other := publishedNPCMindset(t, ctx, "バランス"), publishedNPCMindset(t, ctx, "侵略型")
 	assigned, err := commands.SetMindsets(ctx, registered.ID, registered.Revision, []uuid.UUID{retired.ID})
 	require.NoError(t, err)
 	_, err = newNPCMindsetHandler(t, ctx).Retire(ctx, retired.ID, retired.Revision)

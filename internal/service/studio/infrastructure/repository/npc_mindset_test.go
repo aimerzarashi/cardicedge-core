@@ -102,7 +102,7 @@ func TestNPCMindset_GetsWeightsInDefinitionOrder(t *testing.T) {
 	f := newNPCMindsetFixture(t)
 	npcMindset := f.npcMindsetState("fire", "Ｆire", readmodel.NPCMindsetStatusDraft)
 	npcMindset.Metadata.ActionWeights[matchaction.ActionEndTurn] = 7
-	npcMindset.Metadata.CriterionWeights[npcmindset.CriterionMagicReserve] = 3
+	npcMindset.Metadata.CriterionWeights[npcmindset.CriterionTerritoryCount] = 3
 
 	require.NoError(t, f.writer.Upsert(f.ctx, npcMindset))
 	got, err := repository.NewNPCMindsetReader().Get(f.ctx, npcMindset.NPCMindsetID)
@@ -117,7 +117,7 @@ func TestNPCMindset_GetsWeightsInDefinitionOrder(t *testing.T) {
 	for i, criterion := range npcmindset.Criteria() {
 		require.Equal(t, string(criterion), got.CriterionWeights[i].Criterion)
 	}
-	require.Equal(t, query.NPCMindsetCriterionWeight{Criterion: "magic_reserve", Weight: 3}, got.CriterionWeights[len(got.CriterionWeights)-1])
+	require.Equal(t, query.NPCMindsetCriterionWeight{Criterion: "territory_count", Weight: 3}, got.CriterionWeights[len(got.CriterionWeights)-1])
 }
 
 func TestNPCMindset_GetFailsForRowWithoutEveryWeight(t *testing.T) {
@@ -125,7 +125,7 @@ func TestNPCMindset_GetFailsForRowWithoutEveryWeight(t *testing.T) {
 	missingAction := f.npcMindsetState("a", "A", readmodel.NPCMindsetStatusDraft)
 	delete(missingAction.Metadata.ActionWeights, matchaction.ActionDrawCard)
 	missingCriterion := f.npcMindsetState("b", "B", readmodel.NPCMindsetStatusDraft)
-	delete(missingCriterion.Metadata.CriterionWeights, npcmindset.CriterionBattleHold)
+	delete(missingCriterion.Metadata.CriterionWeights, npcmindset.CriterionRivalTotalMagic)
 	require.NoError(t, f.writer.Upsert(f.ctx, missingAction))
 	require.NoError(t, f.writer.Upsert(f.ctx, missingCriterion))
 
