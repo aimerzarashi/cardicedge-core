@@ -909,6 +909,16 @@ func (m Match) landElement(position board.Position) element.Land {
 	return ""
 }
 
+// 領地のクリーチャーが守るときに付く地形効果の HP（属性が土地と合わなければ 0）。数え方は戦闘の地形効果（applyTerrain）と同じ。
+// 相手の地形効果を無視するアイテムは見ない（守る側からは、相手がそれを出すかを決められないため）
+func (m Match) TerrainBonus(territory Territory) int {
+	placed, ok := m.PlacedCreature(territory.Creature)
+	if !ok || !terrainMatches(m.landElement(territory.Position), placed.Base.Elements) {
+		return 0
+	}
+	return m.LandLevel(territory.Position) * m.Rules.TerrainBonusPerLevel.Int()
+}
+
 // 同じ持ち主の、同じ属性の土地の数（自分を含む）。保存せず、そのたびに数える（領地が増減するたびに持ち主の全部の領地を書き直さないため）。
 // 複は連鎖しない（2026-11-08 オーナー）
 func (m Match) TerritoryChainCount(territory Territory) int {

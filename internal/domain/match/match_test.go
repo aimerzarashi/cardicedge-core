@@ -1379,6 +1379,29 @@ func TestMatch_TerritoryValueMultipliesTheBaseTheLevelAndTheChain(t *testing.T) 
 	}
 }
 
+// 見本の領地のクリーチャーは無属性
+func TestMatch_TerrainBonusIsTheLevelTimesTheBonusWhenTheElementMatches(t *testing.T) {
+	tests := []struct {
+		name     string
+		x, level int
+		want     int
+	}{
+		{name: "matching_element", x: 6, level: 1, want: 10},
+		{name: "matching_element_on_a_raised_land", x: 6, level: 3, want: 30},
+		{name: "other_element", x: 1, level: 3, want: 0},
+		{name: "multi_does_not_match_neutral", x: 5, level: 3, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, tt.x, tt.level)
+			territory, ok := state.TerritoryAt(pos(t, tt.x, 0))
+			require.True(t, ok)
+
+			require.Equal(t, tt.want, state.TerrainBonus(territory))
+		})
+	}
+}
+
 func TestMatch_ChainAboveTheListUsesTheLastMultiplier(t *testing.T) {
 	state := newMatch(t, territoryBoard(t), defaultRules(t))
 	state.Rules.ChainMultipliers = gamerulestest.ChainMultipliers(t, 100, 150)
