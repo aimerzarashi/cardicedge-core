@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
@@ -177,6 +178,9 @@ type outcome struct {
 	attrition float64
 	// 空けた土地。判断を始めたときにレベル 2 以上だった自分の領地が空いたら、その価値（レベルが土地に残り、次に置いた人がただで引き継ぐため）
 	vacated float64
+	// 守備評価（defense）。自分の領地のうち、相手の手札で一番強い攻めに耐えきれないものの価値の合計。消耗と空けた土地だけでは、
+	// 高い土地を守るクリーチャーを交換する・強いクリーチャーを価値の高い土地に置く良し悪しが点に出なかったため（core#194）
+	defense float64
 }
 
 func (o outcome) plus(other outcome, rate float64) outcome {
@@ -186,6 +190,7 @@ func (o outcome) plus(other outcome, rate float64) outcome {
 		territoryCount:  o.territoryCount + other.territoryCount*rate,
 		attrition:       o.attrition + other.attrition*rate,
 		vacated:         o.vacated + other.vacated*rate,
+		defense:         o.defense + other.defense*rate,
 	}
 }
 
@@ -225,7 +230,67 @@ func outcomeOf(origin, state match.Match, by match.ParticipantIndex) outcome {
 			result.vacated += float64(origin.TerritoryValue(territory))
 		}
 	}
+	result.defense = defenseLoss(state, by)
 	return result
+}
+
+// 守る強さは、今の HP ＋ 地形効果（属性が合えば土地のレベルの分）で見る。手札の防具・援護は数えない（全員 NPC の対戦で、
+// 手札に防具があっても守った戦闘の 8 割以上を取られていて、数えると守れない土地を守れると見誤り、数えないほうが強かった。
+// 侵略する側は勝てると見込んだときにしか攻めないため）。攻めの強さは、相手ごとの手札のクリーチャーの AT ＋ その相手の手札で
+// 一番強い武器の AT の増減の、相手全員での一番大きい値。サイコロの届く範囲で相手を絞らない（絞る形はまだ試していない）。
+// 取られる見込みを割合にせず価値をまるごと損に数えるのは、割合（0.3）にすると効き目が無くなったため（core#194）
+func defenseLoss(state match.Match, by match.ParticipantIndex) float64 {
+	threat := strongestThreat(state, by)
+	loss := 0.0
+	for _, territory := range state.Territories {
+		if owner, ok := state.TerritoryOwner(territory); !ok || owner != by {
+			continue
+		}
+		placed, ok := state.PlacedCreature(territory.Creature)
+		if !ok {
+			continue
+		}
+		if placed.HitPoints.Int()+state.TerrainBonus(territory) <= threat {
+			loss += float64(state.TerritoryValue(territory))
+		}
+	}
+	return loss
+}
+
+func strongestThreat(state match.Match, by match.ParticipantIndex) int {
+	specs := state.CardSpecs()
+	threat := 0
+	for i, participant := range state.Participants {
+		if i == by.Int() {
+			continue
+		}
+		weapon := strongestWeapon(specs, participant.Hand)
+		for _, ref := range participant.Hand {
+			if spec, ok := specs[ref]; ok && spec.Creature != nil {
+				threat = max(threat, spec.Creature.Attack.Int()+weapon)
+			}
+		}
+	}
+	return threat
+}
+
+// 上書き・倍率は数えない（値が範囲や相手の属性で決まり、守る側から一つに決められないため。見本の武器は増減だけ）
+func strongestWeapon(specs map[card.Ref]match.CardSpec, hand []card.Ref) int {
+	best := 0
+	for _, ref := range hand {
+		spec, ok := specs[ref]
+		if !ok || spec.Item == nil {
+			continue
+		}
+		total := 0
+		for _, e := range spec.Item.Effects {
+			if e.AttackModifier != nil {
+				total += e.AttackModifier.Value.Int()
+			}
+		}
+		best = max(best, total)
+	}
+	return best
 }
 
 // 点。採点基準の値（額）に重みを掛けて足し、上手さの分を引く。0〜1 にそろえない（npcmindset.Criterion の理由）。
@@ -237,7 +302,7 @@ func score(state match.Match, o outcome, weights npcmindset.CriterionWeights) fl
 	return float64(weights[npcmindset.CriterionOwnTotalMagic].Int())*o.ownTotalMagic -
 		float64(weights[npcmindset.CriterionRivalTotalMagic].Int())*o.rivalTotalMagic +
 		float64(weights[npcmindset.CriterionTerritoryCount].Int())*o.territoryCount*float64(state.Rules.BaseLandValue) -
-		o.attrition - o.vacated
+		o.attrition - o.vacated - o.defense
 }
 
 func allZero(weights npcmindset.CriterionWeights) bool {

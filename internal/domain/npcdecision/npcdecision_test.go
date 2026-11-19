@@ -415,6 +415,44 @@ func TestChoose_DoesNotMoveToInvadeWhenTheCreatureOnlyComesBackHurt(t *testing.T
 	}
 }
 
+// 相手の手札で一番強い攻めに耐えきれない領地のクリーチャーは、耐えきれる手札のクリーチャーに交換する（交換の費用より、
+// 取られる見込みの領地の価値のほうが大きい。守備評価が無いと、交換は費用の分だけ何もしないより悪かった。core#194）
+func TestChoose_ExchangesTheCreatureThatCannotHoldItsTerritory(t *testing.T) {
+	sturdy := cardtest.CreatureRef(t, 201) // HP 40
+	current := advanceUntil(t, func(current match.Match, _ match.ParticipantIndex) bool {
+		return current.Phase == match.PhaseTerritoryCommanding && slices.ContainsFunc(current.ExchangeChoices(), func(choice match.ExchangeChoice) bool {
+			by, _ := current.AwaitingParticipant()
+			return current.Participants[by].Hand[choice.HandIndex] == sturdy
+		})
+	})
+	by, _ := current.AwaitingParticipant()
+	var position board.Position
+	for _, choice := range current.ExchangeChoices() {
+		if current.Participants[by].Hand[choice.HandIndex] == sturdy {
+			position = choice.Position
+		}
+	}
+	// AT 0 で、移動の侵略で勝って逃げる道も外す
+	current = withCreatureAt(t, current, position, 0, 1)
+	current.Participants = append([]match.ParticipantState(nil), current.Participants...)
+	// 交換だけを払えるようにし（レベルアップ・属性の変更で地形効果を足す道を外す）、相手の攻めを AT 20 のクリーチャー 1 枚にする
+	current.Participants[by].Magic = 20
+	for i := range current.Participants {
+		if i != by.Int() {
+			current.Participants[i].Hand = []card.Ref{cardtest.CreatureRef(t, 203)}
+		}
+	}
+
+	for seed := range uint64(8) {
+		cmd, err := npcdecision.Choose(current, by, rand.New(rand.NewPCG(seed, seed)))
+
+		require.NoError(t, err)
+		exchange, ok := cmd.(*match.ExchangeCreatureCommand)
+		require.True(t, ok)
+		require.Equal(t, position, exchange.Position)
+	}
+}
+
 // 3×3 の外周の輪に、真ん中の縦の道 (1,0)-(1,1)-(1,2) を足したボード。(1,0) と (1,2) が分かれ道になる
 func forkBoard(t *testing.T) match.Board {
 	t.Helper()
