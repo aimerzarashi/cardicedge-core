@@ -12,6 +12,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 )
 
@@ -90,6 +91,35 @@ func TestUpdateNPCAvatarDeckReferences_PreventsDeletingReferencedDeckUntilNPCAva
 	require.NoError(t, constraint.UpdateNPCAvatarDeckReferences(f.ctx, f.issueNPCAvatarID(t), []npcdeck.ID{deck}))
 
 	err := identifier.New(f.registry, npcdeck.NewID).Delete(f.ctx, deck)
+
+	// 失敗した文でトランザクションは中断されるが、テストの最後なので続けて使わない
+	var pgErr *pq.Error
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, pqerror.RestrictViolation, pgErr.Code)
+}
+
+func TestUpdateNPCAvatarMindsetReferences_MatchesGivenMindsets(t *testing.T) {
+	f := setup(t)
+	npcAvatar := f.issueNPCAvatarID(t)
+	first, second, third := f.issueNPCMindsetID(t), f.issueNPCMindsetID(t), f.issueNPCMindsetID(t)
+	require.NoError(t, constraint.UpdateNPCAvatarMindsetReferences(f.ctx, npcAvatar, []npcmindset.ID{first, second}))
+
+	err := constraint.UpdateNPCAvatarMindsetReferences(f.ctx, npcAvatar, []npcmindset.ID{second, third})
+
+	require.NoError(t, err)
+	require.Equal(t, []int64{second.Int64(), third.Int64()}, constrainttest.Referenced(t, f.ctx, npcavatar.MindsetReferenceType(), npcAvatar.Int64()))
+}
+
+// 参照されている NPC の思考パターンの識別子は消せない。参照する側を消すと参照も消え、消せるようになる
+func TestUpdateNPCAvatarMindsetReferences_PreventsDeletingReferencedMindsetUntilNPCAvatarIsDeleted(t *testing.T) {
+	f := setup(t)
+	npcAvatar, mindset := f.issueNPCAvatarID(t), f.issueNPCMindsetID(t)
+	require.NoError(t, constraint.UpdateNPCAvatarMindsetReferences(f.ctx, npcAvatar, []npcmindset.ID{mindset}))
+	require.NoError(t, identifier.New(f.registry, npcavatar.NewID).Delete(f.ctx, npcAvatar))
+	require.Empty(t, constrainttest.Referenced(t, f.ctx, npcavatar.MindsetReferenceType(), npcAvatar.Int64()))
+	require.NoError(t, constraint.UpdateNPCAvatarMindsetReferences(f.ctx, f.issueNPCAvatarID(t), []npcmindset.ID{mindset}))
+
+	err := identifier.New(f.registry, npcmindset.NewID).Delete(f.ctx, mindset)
 
 	// 失敗した文でトランザクションは中断されるが、テストの最後なので続けて使わない
 	var pgErr *pq.Error

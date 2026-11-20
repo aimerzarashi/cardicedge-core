@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/constraint"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board/boardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/card/cardtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/collection"
@@ -46,11 +47,12 @@ func newEndedMatchFixture(t *testing.T) matchTurnFixture {
 		_, err = f.handler.Discard(f.player, f.publicID, changed.Revision, 0)
 		require.NoError(t, err)
 	}
-	// NPC の番が進まなくなったときに、時間切れまで回り続けないように回数を区切る
-	for i := 0; f.load(t).Phase != match.PhaseEnded; i++ {
-		require.Less(t, i, 100)
-		require.NoError(t, f.npc.Play(f.ctx, f.id, f.load(t).Version))
-	}
+	// NPC の番はテストから送り、(1,1) に配置してターンを終えると、ラウンドの上限で終わる
+	npc := matchtest.Index(t, 1)
+	f.npcDo(t, &match.RollCommand{By: npc})
+	f.npcDo(t, &match.ChoosePathCommand{By: npc, To: boardtest.Position(t, 1, 1)})
+	f.npcDo(t, &match.PlaceCreatureCommand{By: npc, HandIndex: 0})
+	require.Equal(t, match.PhaseEnded, f.load(t).Phase)
 	return f
 }
 

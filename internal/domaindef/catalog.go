@@ -101,6 +101,8 @@ var Types = Catalog{
 			{ID: 2505, Name: "RetiredEvent"},
 			{ID: 2506, Name: "DecksAssignedEvent"},
 			{ID: 2507, Name: "DecksUnassignedEvent"},
+			{ID: 2508, Name: "MindsetsAssignedEvent"},
+			{ID: 2509, Name: "MindsetsUnassignedEvent"},
 		}},
 		{ID: 2600, Name: "npc_deck", Events: []EventTypeDef{
 			{ID: 2601, Name: "RegisteredEvent"},
@@ -196,6 +198,15 @@ var Types = Catalog{
 			{ID: 3049, Name: "LapCreatureHitPointsRecoveredEvent"},
 			{ID: 3050, Name: "CreatureUsedAsItemEvent"},
 		}},
+		{ID: 3100, Name: "npc_mindset", Events: []EventTypeDef{
+			{ID: 3101, Name: "RegisteredEvent"},
+			{ID: 3102, Name: "RenamedEvent"},
+			{ID: 3103, Name: "ActionWeightsChangedEvent"},
+			{ID: 3104, Name: "CriterionWeightsChangedEvent"},
+			{ID: 3105, Name: "PublishedEvent"},
+			{ID: 3106, Name: "RetiredEvent"},
+			{ID: 3107, Name: "DeletedEvent"},
+		}},
 	},
 	UniqueKeyTypes: []NamedTypeDef{
 		{ID: 1000, Name: "operator.email"},
@@ -216,6 +227,7 @@ var Types = Catalog{
 		{ID: 1016, Name: "npc_deck.name"},
 		{ID: 1017, Name: "starter_set.name"},
 		{ID: 1018, Name: "unlock.player"},
+		{ID: 1019, Name: "npc_mindset.name"},
 	},
 	ReferenceTypes: []NamedTypeDef{
 		{ID: 1000, Name: "preset_deck.card"},
@@ -225,6 +237,7 @@ var Types = Catalog{
 		{ID: 1005, Name: "starter_set.grant_deck"},
 		{ID: 1006, Name: "starter_set.board"},
 		{ID: 1007, Name: "starter_set.npc_avatar"},
+		{ID: 1008, Name: "npc_avatar.mindset"},
 	},
 	QuotaTypes: []NamedTypeDef{
 		{ID: 1000, Name: "deck.per_player"},

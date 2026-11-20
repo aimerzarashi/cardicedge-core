@@ -16,6 +16,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/orm/sqlboiler/models"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/game/application/master"
@@ -89,6 +90,40 @@ func (r *MatchSourceReader) NPCDeckCards(ctx context.Context, id npcdeck.ID) ([]
 		return nil, err
 	}
 	return r.deckCards(ctx, "npc_decks", publicID, row.Metadata)
+}
+
+// 写した npc_mindsets.metadata のうち、読む項目。studio の read model の型を import せず、この JSON の形だけを契約にする。
+// 無い行（重みを足す前に投影した行）は、0 や空にせず読み出しの誤りにするため、ポインターで受ける
+type matchMindsetMetadata struct {
+	ActionWeights    *map[string]int `json:"action_weights"`
+	CriterionWeights *map[string]int `json:"criterion_weights"`
+}
+
+// 重みは写した npc_mindsets から読む。公開中かは見ない（選んだ後に使用不可になっても、対戦は始めた時点の写しで進むため）
+func (r *MatchSourceReader) NPCMindset(ctx context.Context, id npcmindset.ID) (master.NPCMindset, error) {
+	publicID, err := r.publicID(ctx, domain.NewEntityRef(id.EntityType(), id.Int64()))
+	if err != nil {
+		return master.NPCMindset{}, err
+	}
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return master.NPCMindset{}, err
+	}
+	row, err := models.NPCMindsets(models.NPCMindsetWhere.NPCMindsetID.EQ(publicID.String())).One(ctx, exec)
+	if errors.Is(err, sql.ErrNoRows) {
+		return master.NPCMindset{}, fmt.Errorf("npc_mindsets of %s is not published to game: %w", publicID, domain.ErrEntityNotFound)
+	}
+	if err != nil {
+		return master.NPCMindset{}, err
+	}
+	var metadata matchMindsetMetadata
+	if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+		return master.NPCMindset{}, fmt.Errorf("npc_mindsets.metadata of %s: %w", publicID, err)
+	}
+	if metadata.ActionWeights == nil || metadata.CriterionWeights == nil {
+		return master.NPCMindset{}, fmt.Errorf("npc_mindsets.metadata of %s has no action_weights or criterion_weights (project the mindsets again and publish the master)", publicID)
+	}
+	return master.NPCMindset{ActionWeights: *metadata.ActionWeights, CriterionWeights: *metadata.CriterionWeights}, nil
 }
 
 func (r *MatchSourceReader) deckCards(ctx context.Context, table string, id uuid.UUID, raw []byte) ([]master.DeckCard, error) {

@@ -766,11 +766,16 @@
       "pairs": []
     }
   ],
+  "npc_mindsets": [
+    { "name": "バランス", "criterion_weights": { "own_total_magic": 1, "rival_total_magic": 1, "territory_count": 1 } },
+    { "name": "侵略型", "criterion_weights": { "own_total_magic": 1, "rival_total_magic": 2, "territory_count": 1 } },
+    { "name": "育成型", "criterion_weights": { "own_total_magic": 2, "rival_total_magic": 1, "territory_count": 1 } }
+  ],
   "npc_avatars": [
-    { "name": "見習いの魔術師", "decks": ["水・風属性デッキ"] },
-    { "name": "森の番人", "decks": ["火・地属性デッキ"] },
-    { "name": "炎の剣士", "decks": ["火・地属性デッキ"] },
-    { "name": "ゴリガン", "decks": ["火・地属性デッキ", "水・風属性デッキ"] }
+    { "name": "見習いの魔術師", "decks": ["水・風属性デッキ"], "mindsets": ["バランス", "侵略型", "育成型"] },
+    { "name": "森の番人", "decks": ["火・地属性デッキ"], "mindsets": ["バランス", "侵略型", "育成型"] },
+    { "name": "炎の剣士", "decks": ["火・地属性デッキ"], "mindsets": ["バランス", "侵略型", "育成型"] },
+    { "name": "ゴリガン", "decks": ["火・地属性デッキ", "水・風属性デッキ"], "mindsets": ["バランス", "侵略型", "育成型"] }
   ],
   "npc_decks": ["火・地属性デッキ", "水・風属性デッキ"],
   "starter_sets": [

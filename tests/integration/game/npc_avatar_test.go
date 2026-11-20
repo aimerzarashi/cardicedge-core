@@ -11,7 +11,8 @@ import (
 )
 
 const npcAvatarFields = `id name
-	decks { id name totalCount cards { count card { __typename id name cost rarity } } }`
+	decks { id name totalCount cards { count card { __typename id name cost rarity } } }
+	mindsets { id name }`
 
 const npcAvatarQuery = `query ($id: UUID!) {
 	npcAvatar(id: $id) {
@@ -55,18 +56,28 @@ func npcDeckPublished2() map[string]any {
 	}
 }
 
-// 割り当てた順に 公開中のデッキ 2・準備中・公開中のデッキ 1・使用不可 のうち、公開中のものだけ
+func npcMindsetPublished1() map[string]any {
+	return map[string]any{"id": master.NPCAvatars.MindsetPublished1.String(), "name": "公開中思考パターン1"}
+}
+
+func npcMindsetPublished2() map[string]any {
+	return map[string]any{"id": master.NPCAvatars.MindsetPublished2.String(), "name": "公開中思考パターン2"}
+}
+
+// 割り当てた順に 公開中のデッキ 2・準備中・公開中のデッキ 1・使用不可 のうち、公開中のものだけ（思考パターンも同じ）
 func publishedNPCAvatarA() map[string]any {
 	return map[string]any{
 		"id": master.NPCAvatars.PublishedA.String(), "name": "公開中A",
-		"decks": []any{npcDeckPublished2(), npcDeckPublished1()},
+		"decks":    []any{npcDeckPublished2(), npcDeckPublished1()},
+		"mindsets": []any{npcMindsetPublished1(), npcMindsetPublished2()},
 	}
 }
 
 func publishedNPCAvatarB() map[string]any {
 	return map[string]any{
 		"id": master.NPCAvatars.PublishedB.String(), "name": "公開中B",
-		"decks": []any{npcDeckPublished1()},
+		"decks":    []any{npcDeckPublished1()},
+		"mindsets": []any{npcMindsetPublished1()},
 	}
 }
 

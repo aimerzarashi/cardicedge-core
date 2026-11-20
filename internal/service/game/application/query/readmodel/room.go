@@ -104,12 +104,14 @@ type RoomNextDeclarationMetadata struct {
 }
 
 // 席 1 つ。座っている人はプレイヤーの席だけ、アバターとデッキはまだ選んでいなければ無い。
-// プレイヤーの席のアバターとデッキは avatars・decks、NPC の席は npc_avatars・npc_decks の公開 ID（席の種類で見分ける）
+// プレイヤーの席のアバターとデッキは avatars・decks、NPC の席は npc_avatars・npc_decks の公開 ID（席の種類で見分ける）。
+// 思考パターンは NPC の席だけが持つ npc_mindsets の公開 ID（NPC の席でまだ選んでいなければ無い）
 type RoomSeatMetadata struct {
-	Kind   room.SeatKind `json:"kind"`
-	Player *uuid.UUID    `json:"player,omitempty"`
-	Avatar *uuid.UUID    `json:"avatar,omitempty"`
-	Deck   *uuid.UUID    `json:"deck,omitempty"`
+	Kind    room.SeatKind `json:"kind"`
+	Player  *uuid.UUID    `json:"player,omitempty"`
+	Avatar  *uuid.UUID    `json:"avatar,omitempty"`
+	Deck    *uuid.UUID    `json:"deck,omitempty"`
+	Mindset *uuid.UUID    `json:"mindset,omitempty"`
 }
 
 // 対戦ルール。ボードは公開 ID、8 つの値は room.MatchRules と同じ名前

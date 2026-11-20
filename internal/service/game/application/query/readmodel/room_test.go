@@ -49,7 +49,7 @@ func TestRoom_EvolvesThroughEveryEventToPreparingAndReady(t *testing.T) {
 		Evolve(&room.SeatsChangedEvent{EventMeta: roomMeta(t, 2, roomChangedAt), Seats: seats}).
 		Evolve(&room.MatchRulesChangedEvent{EventMeta: roomMeta(t, 3, roomChangedAt), MatchRules: matchRules}).
 		Evolve(&room.SeatChoiceChangedEvent{EventMeta: roomMeta(t, 4, roomChangedAt), Seat: roomtest.SeatIndex(t, 0), Choice: roomtest.PlayerChoice(t, 1, 2), ChangedBy: owner}).
-		Evolve(&room.SeatChoiceChangedEvent{EventMeta: roomMeta(t, 5, roomChangedAt), Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 3, 4), ChangedBy: owner})
+		Evolve(&room.SeatChoiceChangedEvent{EventMeta: roomMeta(t, 5, roomChangedAt), Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 3, 4, 5), ChangedBy: owner})
 	// 公開しただけでは状態は変わらない（定員になって準備中に進む）
 	published := state.Evolve(&room.PublishedEvent{EventMeta: roomMeta(t, 6, roomChangedAt)})
 	preparing := published.Evolve(&room.PreparationStartedEvent{EventMeta: roomMeta(t, 7, roomChangedAt)})
@@ -64,7 +64,7 @@ func TestRoom_EvolvesThroughEveryEventToPreparingAndReady(t *testing.T) {
 	require.Equal(t, roomChangedAt, ready.UpdatedAt)
 	require.Equal(t, matchRules, *ready.MatchRules)
 	require.Equal(t, roomtest.PlayerChoice(t, 1, 2), *ready.Seats[0].Choice)
-	require.Equal(t, roomtest.NPCChoice(t, 3, 4), *ready.Seats[1].Choice)
+	require.Equal(t, roomtest.NPCChoice(t, 3, 4, 5), *ready.Seats[1].Choice)
 	require.Equal(t, owner, ready.Seats[0].Player)
 	require.Equal(t, "部屋", ready.Name.String())
 	require.Equal(t, "新しい名前", renamed.Name.String())

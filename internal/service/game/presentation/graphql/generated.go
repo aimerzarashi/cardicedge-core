@@ -307,11 +307,6 @@ type ComplexityRoot struct {
 		Revision func(childComplexity int) int
 	}
 
-	FieldCountMismatch struct {
-		Expected func(childComplexity int) int
-		Field    func(childComplexity int) int
-	}
-
 	FieldInvalidFormat struct {
 		Field func(childComplexity int) int
 	}
@@ -336,6 +331,11 @@ type ComplexityRoot struct {
 	}
 
 	FieldTooLong struct {
+		Field func(childComplexity int) int
+		Max   func(childComplexity int) int
+	}
+
+	FieldTooMany struct {
 		Field func(childComplexity int) int
 		Max   func(childComplexity int) int
 	}
@@ -413,6 +413,7 @@ type ComplexityRoot struct {
 	}
 
 	Match struct {
+		ActionChoices         func(childComplexity int) int
 		AwaitingParticipant   func(childComplexity int) int
 		Board                 func(childComplexity int) int
 		CreatureAsItemChoices func(childComplexity int) int
@@ -1146,9 +1147,10 @@ type ComplexityRoot struct {
 	}
 
 	NpcAvatar struct {
-		Decks func(childComplexity int) int
-		ID    func(childComplexity int) int
-		Name  func(childComplexity int) int
+		Decks    func(childComplexity int) int
+		ID       func(childComplexity int) int
+		Mindsets func(childComplexity int) int
+		Name     func(childComplexity int) int
 	}
 
 	NpcAvatarNotFoundError struct {
@@ -1165,6 +1167,11 @@ type ComplexityRoot struct {
 	NpcDeckCard struct {
 		Card  func(childComplexity int) int
 		Count func(childComplexity int) int
+	}
+
+	NpcMindset struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
 	}
 
 	NullifyReceivedDamageEffect struct {
@@ -1358,6 +1365,7 @@ type ComplexityRoot struct {
 		ChoiceChangeable func(childComplexity int) int
 		Deck             func(childComplexity int) int
 		Kind             func(childComplexity int) int
+		Mindset          func(childComplexity int) int
 		PlayerID         func(childComplexity int) int
 	}
 
@@ -2330,19 +2338,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ExchangeMatchCreatureSuccess.Revision(childComplexity), true
 
-	case "FieldCountMismatch.expected":
-		if e.ComplexityRoot.FieldCountMismatch.Expected == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldCountMismatch.Expected(childComplexity), true
-	case "FieldCountMismatch.field":
-		if e.ComplexityRoot.FieldCountMismatch.Field == nil {
-			break
-		}
-
-		return e.ComplexityRoot.FieldCountMismatch.Field(childComplexity), true
-
 	case "FieldInvalidFormat.field":
 		if e.ComplexityRoot.FieldInvalidFormat.Field == nil {
 			break
@@ -2408,6 +2403,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FieldTooLong.Max(childComplexity), true
+
+	case "FieldTooMany.field":
+		if e.ComplexityRoot.FieldTooMany.Field == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooMany.Field(childComplexity), true
+	case "FieldTooMany.max":
+		if e.ComplexityRoot.FieldTooMany.Max == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FieldTooMany.Max(childComplexity), true
 
 	case "FieldTooSmall.field":
 		if e.ComplexityRoot.FieldTooSmall.Field == nil {
@@ -2603,6 +2611,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LevelUpMatchLandSuccess.Revision(childComplexity), true
 
+	case "Match.actionChoices":
+		if e.ComplexityRoot.Match.ActionChoices == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.ActionChoices(childComplexity), true
 	case "Match.awaitingParticipant":
 		if e.ComplexityRoot.Match.AwaitingParticipant == nil {
 			break
@@ -5764,6 +5778,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.NpcAvatar.ID(childComplexity), true
+	case "NpcAvatar.mindsets":
+		if e.ComplexityRoot.NpcAvatar.Mindsets == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcAvatar.Mindsets(childComplexity), true
 	case "NpcAvatar.name":
 		if e.ComplexityRoot.NpcAvatar.Name == nil {
 			break
@@ -5815,6 +5835,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.NpcDeckCard.Count(childComplexity), true
+
+	case "NpcMindset.id":
+		if e.ComplexityRoot.NpcMindset.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcMindset.ID(childComplexity), true
+	case "NpcMindset.name":
+		if e.ComplexityRoot.NpcMindset.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.NpcMindset.Name(childComplexity), true
 
 	case "NullifyReceivedDamageEffect.constraints":
 		if e.ComplexityRoot.NullifyReceivedDamageEffect.Constraints == nil {
@@ -6480,6 +6513,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomSeat.Kind(childComplexity), true
+	case "RoomSeat.mindset":
+		if e.ComplexityRoot.RoomSeat.Mindset == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomSeat.Mindset(childComplexity), true
 	case "RoomSeat.playerId":
 		if e.ComplexityRoot.RoomSeat.PlayerID == nil {
 			break
@@ -7083,6 +7122,8 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_awaitingParticipant(ctx, field)
 	case "phase":
 		return ec.fieldContext_Match_phase(ctx, field)
+	case "actionChoices":
+		return ec.fieldContext_Match_actionChoices(ctx, field)
 	case "dice":
 		return ec.fieldContext_Match_dice(ctx, field)
 	case "remainingSteps":
@@ -7453,6 +7494,8 @@ func (ec *executionContext) childFields_NpcAvatar(ctx context.Context, field gra
 		return ec.fieldContext_NpcAvatar_name(ctx, field)
 	case "decks":
 		return ec.fieldContext_NpcAvatar_decks(ctx, field)
+	case "mindsets":
+		return ec.fieldContext_NpcAvatar_mindsets(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type NpcAvatar", field.Name)
 }
@@ -7479,6 +7522,16 @@ func (ec *executionContext) childFields_NpcDeckCard(ctx context.Context, field g
 		return ec.fieldContext_NpcDeckCard_count(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type NpcDeckCard", field.Name)
+}
+
+func (ec *executionContext) childFields_NpcMindset(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_NpcMindset_id(ctx, field)
+	case "name":
+		return ec.fieldContext_NpcMindset_name(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type NpcMindset", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -7635,6 +7688,8 @@ func (ec *executionContext) childFields_RoomSeat(ctx context.Context, field grap
 		return ec.fieldContext_RoomSeat_avatar(ctx, field)
 	case "deck":
 		return ec.fieldContext_RoomSeat_deck(ctx, field)
+	case "mindset":
+		return ec.fieldContext_RoomSeat_mindset(ctx, field)
 	case "choiceChangeable":
 		return ec.fieldContext_RoomSeat_choiceChangeable(ctx, field)
 	}
@@ -11565,52 +11620,6 @@ func (ec *executionContext) fieldContext_ExchangeMatchCreatureSuccess_revision(_
 	return graphql.NewScalarFieldContext("ExchangeMatchCreatureSuccess", field, false, false, "Int")
 }
 
-func (ec *executionContext) _FieldCountMismatch_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldCountMismatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldCountMismatch_field(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Field, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldCountMismatch_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldCountMismatch", field, false, false, "String")
-}
-
-func (ec *executionContext) _FieldCountMismatch_expected(ctx context.Context, field graphql.CollectedField, obj *model.FieldCountMismatch) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FieldCountMismatch_expected(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Expected, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_FieldCountMismatch_expected(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("FieldCountMismatch", field, false, false, "Int")
-}
-
 func (ec *executionContext) _FieldInvalidFormat_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldInvalidFormat) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11839,6 +11848,52 @@ func (ec *executionContext) _FieldTooLong_max(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_FieldTooLong_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FieldTooLong", field, false, false, "Int")
+}
+
+func (ec *executionContext) _FieldTooMany_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooMany) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooMany_field(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Field, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooMany_field(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooMany", field, false, false, "String")
+}
+
+func (ec *executionContext) _FieldTooMany_max(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooMany) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FieldTooMany_max(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Max, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FieldTooMany_max(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FieldTooMany", field, false, false, "Int")
 }
 
 func (ec *executionContext) _FieldTooSmall_field(ctx context.Context, field graphql.CollectedField, obj *model.FieldTooSmall) (ret graphql.Marshaler) {
@@ -12781,6 +12836,29 @@ func (ec *executionContext) _Match_phase(ctx context.Context, field graphql.Coll
 }
 func (ec *executionContext) fieldContext_Match_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Match", field, false, false, "MatchPhase")
+}
+
+func (ec *executionContext) _Match_actionChoices(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_actionChoices(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ActionChoices, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []model.MatchAction) graphql.Marshaler {
+			return ec.marshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_actionChoices(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Match", field, false, false, "MatchAction")
 }
 
 func (ec *executionContext) _Match_dice(ctx context.Context, field graphql.CollectedField, obj *model.Match) (ret graphql.Marshaler) {
@@ -25760,6 +25838,38 @@ func (ec *executionContext) fieldContext_NpcAvatar_decks(_ context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _NpcAvatar_mindsets(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatar) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcAvatar_mindsets(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Mindsets, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.NpcMindset) graphql.Marshaler {
+			return ec.marshalNNpcMindset2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcMindsetᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcAvatar_mindsets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "NpcAvatar",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_NpcMindset(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _NpcAvatarNotFoundError_message(ctx context.Context, field graphql.CollectedField, obj *model.NpcAvatarNotFoundError) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -25937,6 +26047,52 @@ func (ec *executionContext) _NpcDeckCard_count(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_NpcDeckCard_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("NpcDeckCard", field, false, false, "Int")
+}
+
+func (ec *executionContext) _NpcMindset_id(ctx context.Context, field graphql.CollectedField, obj *model.NpcMindset) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcMindset_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcMindset_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcMindset", field, false, false, "UUID")
+}
+
+func (ec *executionContext) _NpcMindset_name(ctx context.Context, field graphql.CollectedField, obj *model.NpcMindset) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_NpcMindset_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_NpcMindset_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("NpcMindset", field, false, false, "String")
 }
 
 func (ec *executionContext) _NullifyReceivedDamageEffect_kind(ctx context.Context, field graphql.CollectedField, obj *model.NullifyReceivedDamageEffect) (ret graphql.Marshaler) {
@@ -28600,6 +28756,38 @@ func (ec *executionContext) fieldContext_RoomSeat_deck(_ context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _RoomSeat_mindset(ctx context.Context, field graphql.CollectedField, obj *model.RoomSeat) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSeat_mindset(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Mindset, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.RoomNamed) graphql.Marshaler {
+			return ec.marshalORoomNamed2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐRoomNamed(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSeat_mindset(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoomSeat",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RoomNamed(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RoomSeat_choiceChangeable(ctx context.Context, field graphql.CollectedField, obj *model.RoomSeat) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -30718,7 +30906,7 @@ func (ec *executionContext) unmarshalInputChangeRoomSeatChoiceInput(ctx context.
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "revision", "seat", "avatarId", "deckId"}
+	fieldsInOrder := [...]string{"id", "revision", "seat", "avatarId", "deckId", "mindsetId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -30760,6 +30948,13 @@ func (ec *executionContext) unmarshalInputChangeRoomSeatChoiceInput(ctx context.
 				return it, err
 			}
 			it.DeckID = data
+		case "mindsetId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("mindsetId"))
+			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MindsetID = data
 		}
 	}
 	return it, nil
@@ -33595,6 +33790,13 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldTooSmall(ctx, sel, obj)
+	case model.FieldTooMany:
+		return ec._FieldTooMany(ctx, sel, &obj)
+	case *model.FieldTooMany:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._FieldTooMany(ctx, sel, obj)
 	case model.FieldTooLong:
 		return ec._FieldTooLong(ctx, sel, &obj)
 	case *model.FieldTooLong:
@@ -33637,13 +33839,6 @@ func (ec *executionContext) _FieldError(ctx context.Context, sel ast.SelectionSe
 			return graphql.Null
 		}
 		return ec._FieldInvalidFormat(ctx, sel, obj)
-	case model.FieldCountMismatch:
-		return ec._FieldCountMismatch(ctx, sel, &obj)
-	case *model.FieldCountMismatch:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._FieldCountMismatch(ctx, sel, obj)
 	default:
 		if typedObj, ok := obj.(graphql.Marshaler); ok {
 			return typedObj
@@ -37040,44 +37235,6 @@ func (ec *executionContext) _ExchangeMatchCreatureSuccess(ctx context.Context, s
 	return out
 }
 
-var fieldCountMismatchImplementors = []string{"FieldCountMismatch", "FieldError"}
-
-func (ec *executionContext) _FieldCountMismatch(ctx context.Context, sel ast.SelectionSet, obj *model.FieldCountMismatch) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, fieldCountMismatchImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := graphql.NewDeferredGroup(ctx)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("FieldCountMismatch")
-		case "field":
-			out.Values[i] = ec._FieldCountMismatch_field(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "expected":
-			out.Values[i] = ec._FieldCountMismatch_expected(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	if n := len(deferred.Defers); n > 0 {
-		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
-		ec.ProcessDeferredGroup(deferred)
-	}
-
-	return out
-}
-
 var fieldInvalidFormatImplementors = []string{"FieldInvalidFormat", "FieldError"}
 
 func (ec *executionContext) _FieldInvalidFormat(ctx context.Context, sel ast.SelectionSet, obj *model.FieldInvalidFormat) graphql.Marshaler {
@@ -37276,6 +37433,44 @@ func (ec *executionContext) _FieldTooLong(ctx context.Context, sel ast.Selection
 			}
 		case "max":
 			out.Values[i] = ec._FieldTooLong_max(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var fieldTooManyImplementors = []string{"FieldTooMany", "FieldError"}
+
+func (ec *executionContext) _FieldTooMany(ctx context.Context, sel ast.SelectionSet, obj *model.FieldTooMany) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fieldTooManyImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FieldTooMany")
+		case "field":
+			out.Values[i] = ec._FieldTooMany_field(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "max":
+			out.Values[i] = ec._FieldTooMany_max(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -37891,6 +38086,11 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "phase":
 			out.Values[i] = ec._Match_phase(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "actionChoices":
+			out.Values[i] = ec._Match_actionChoices(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -42663,6 +42863,11 @@ func (ec *executionContext) _NpcAvatar(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "mindsets":
+			out.Values[i] = ec._NpcAvatar_mindsets(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -42779,6 +42984,44 @@ func (ec *executionContext) _NpcDeckCard(ctx context.Context, sel ast.SelectionS
 			}
 		case "count":
 			out.Values[i] = ec._NpcDeckCard_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var npcMindsetImplementors = []string{"NpcMindset"}
+
+func (ec *executionContext) _NpcMindset(ctx context.Context, sel ast.SelectionSet, obj *model.NpcMindset) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, npcMindsetImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("NpcMindset")
+		case "id":
+			out.Values[i] = ec._NpcMindset_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._NpcMindset_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -44201,6 +44444,11 @@ func (ec *executionContext) _RoomSeat(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "deck":
 			out.Values[i] = ec._RoomSeat_deck(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "mindset":
+			out.Values[i] = ec._RoomSeat_mindset(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -46102,6 +46350,46 @@ func (ec *executionContext) marshalNLevelUpMatchLandResult2gitlabᚗcomᚋaimerz
 	return ec._LevelUpMatchLandResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx context.Context, v any) (model.MatchAction, error) {
+	var res model.MatchAction
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx context.Context, sel ast.SelectionSet, v model.MatchAction) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx context.Context, v any) ([]model.MatchAction, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]model.MatchAction, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNMatchAction2ᚕgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchActionᚄ(ctx context.Context, sel ast.SelectionSet, v []model.MatchAction) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchAction2gitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAction(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNMatchAvatar2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐMatchAvatar(ctx context.Context, sel ast.SelectionSet, v *model.MatchAvatar) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "MatchAvatar!")
@@ -46625,6 +46913,30 @@ func (ec *executionContext) marshalNNpcDeckCard2ᚖgitlabᚗcomᚋaimerzarashi�
 		return graphql.Null
 	}
 	return ec._NpcDeckCard(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNNpcMindset2ᚕᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcMindsetᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.NpcMindset) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNNpcMindset2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcMindset(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNNpcMindset2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐNpcMindset(ctx context.Context, sel ast.SelectionSet, v *model.NpcMindset) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "NpcMindset!")
+		return graphql.Null
+	}
+	return ec._NpcMindset(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPageInfo2ᚖgitlabᚗcomᚋaimerzarashiᚋdiecardomainᚋcoreᚋinternalᚋserviceᚋgameᚋpresentationᚋgraphqlᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {

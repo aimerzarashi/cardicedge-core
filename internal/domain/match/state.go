@@ -8,6 +8,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/creature"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/element"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -791,19 +792,53 @@ func (m Match) RelinquishChoices() []board.Position {
 	return choices
 }
 
-// 手放せる領地のうち、価値が最も低いものの位置。同じ価値なら先にできた領地（2026-11-08 オーナー。NPC の選び方）
-func (m Match) LowestValueRelinquishChoice() (board.Position, bool) {
-	var lowest *Territory
-	for _, position := range m.RelinquishChoices() {
-		territory, ok := m.TerritoryAt(position)
-		if ok && (lowest == nil || m.TerritoryValue(territory) < m.TerritoryValue(*lowest)) {
-			lowest = &territory
+// 操作を待っている人が今選べる行動の種類。対象の選択肢が空の種類は入れない（ターンを終える・通行料を払う・アイテムを出さないは、
+// 受け付ける段階ならいつも入る）。止まった後は、画面の並び（止まったマスの行動 → 領地コマンド → ターンを終える）の順
+func (m Match) ActionChoices() []matchaction.Action {
+	if _, ok := m.AwaitingParticipant(); !ok {
+		return nil
+	}
+	var actions []matchaction.Action
+	add := func(action matchaction.Action, available bool) {
+		if available {
+			actions = append(actions, action)
 		}
 	}
-	if lowest == nil {
-		return board.Position{}, false
+	switch m.Phase {
+	case PhaseDrawing:
+		add(matchaction.ActionDrawCard, true)
+	case PhaseDiscarding:
+		add(matchaction.ActionDiscardCard, true)
+	case PhaseRolling:
+		add(matchaction.ActionUseSpell, len(m.SpellChoices()) > 0)
+		add(matchaction.ActionRollDice, true)
+	case PhaseChoosingPath:
+		add(matchaction.ActionChoosePath, len(m.PathChoices()) > 0)
+	case PhasePlacing:
+		add(matchaction.ActionPlaceCreature, len(m.PlaceChoices()) > 0)
+	case PhaseInvading:
+		add(matchaction.ActionInvadeTerritory, len(m.InvadeChoices()) > 0)
+		add(matchaction.ActionPayToll, true)
+	case PhaseAttacking:
+		add(matchaction.ActionAttackWithItem, len(m.ItemChoices()) > 0)
+		add(matchaction.ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
+		add(matchaction.ActionAttackWithoutItem, true)
+	case PhaseDefending:
+		add(matchaction.ActionDefendWithItem, len(m.ItemChoices()) > 0)
+		add(matchaction.ActionUseCreatureAsItem, len(m.CreatureAsItemChoices()) > 0)
+		add(matchaction.ActionDefendWithoutItem, true)
+	case PhaseRelinquishing:
+		add(matchaction.ActionRelinquishTerritory, len(m.RelinquishChoices()) > 0)
 	}
-	return lowest.Position, true
+	if m.acceptsTerritoryCommand() {
+		add(matchaction.ActionLevelUpLand, len(m.LevelUpChoices()) > 0)
+		add(matchaction.ActionExchangeCreature, len(m.ExchangeChoices()) > 0)
+		add(matchaction.ActionChangeLandElement, len(m.ElementChangeChoices()) > 0)
+		add(matchaction.ActionMoveCreature, len(m.MoveChoices()) > 0)
+	}
+	// 侵略の段階で終えられないのは、止まった他人の領地では通行料を払うか侵略するかを必ず選ぶため（払うがターンを終えるを兼ねる）
+	add(matchaction.ActionEndTurn, m.Phase == PhasePlacing || m.Phase == PhaseTerritoryCommanding || m.Phase == PhaseEnding)
+	return actions
 }
 
 func (m Match) territoriesOf(index ParticipantIndex) []Territory {
@@ -872,6 +907,16 @@ func (m Match) landElement(position board.Position) element.Land {
 		}
 	}
 	return ""
+}
+
+// 領地のクリーチャーが守るときに付く地形効果の HP（属性が土地と合わなければ 0）。数え方は戦闘の地形効果（applyTerrain）と同じ。
+// 相手の地形効果を無視するアイテムは見ない（守る側からは、相手がそれを出すかを決められないため）
+func (m Match) TerrainBonus(territory Territory) int {
+	placed, ok := m.PlacedCreature(territory.Creature)
+	if !ok || !terrainMatches(m.landElement(territory.Position), placed.Base.Elements) {
+		return 0
+	}
+	return m.LandLevel(territory.Position) * m.Rules.TerrainBonusPerLevel.Int()
 }
 
 // 同じ持ち主の、同じ属性の土地の数（自分を含む）。保存せず、そのたびに数える（領地が増減するたびに持ち主の全部の領地を書き直さないため）。

@@ -9,6 +9,8 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/identifier"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/service/studio/application/query"
@@ -36,6 +38,13 @@ func newNPCAvatarFixture(t *testing.T) npcAvatarFixture {
 func (f npcAvatarFixture) issueNPCDeck(t *testing.T) (npcdeck.ID, uuid.UUID) {
 	t.Helper()
 	id, publicID, err := identifier.New(f.registry, npcdeck.NewID).Issue(f.ctx)
+	require.NoError(t, err)
+	return id, publicID
+}
+
+func (f npcAvatarFixture) issueNPCMindset(t *testing.T) (npcmindset.ID, uuid.UUID) {
+	t.Helper()
+	id, publicID, err := identifier.New(f.registry, npcmindset.NewID).Issue(f.ctx)
 	require.NoError(t, err)
 	return id, publicID
 }
@@ -112,6 +121,33 @@ func TestNPCAvatar_GetsDeckPublicIDsInGivenOrder(t *testing.T) {
 	require.Equal(t, []uuid.UUID{secondPublicID, firstPublicID}, got.Decks)
 	require.NoError(t, emptyErr)
 	require.Empty(t, gotEmpty.Decks)
+}
+
+// 使う思考パターンもデッキと同じ。内部 ID で持ち、公開 ID に引き直して、持つ順のまま返す。使わないものは空
+func TestNPCAvatar_GetsMindsetPublicIDsInGivenOrder(t *testing.T) {
+	f := newNPCAvatarFixture(t)
+	first, firstPublicID := f.issueNPCMindset(t)
+	second, secondPublicID := f.issueNPCMindset(t)
+	npcAvatar := f.npcAvatarState("fire", "Ｆire", readmodel.NPCAvatarStatusDraft)
+	npcAvatar.Mindsets = []npcmindset.ID{second, first}
+	empty := f.put(t, "water", "Water", readmodel.NPCAvatarStatusDraft)
+
+	require.NoError(t, f.writer.Upsert(f.ctx, npcAvatar))
+	got, err := repository.NewNPCAvatarReader().Get(f.ctx, npcAvatar.NPCAvatarID)
+	gotEmpty, emptyErr := repository.NewNPCAvatarReader().Get(f.ctx, empty.NPCAvatarID)
+
+	require.NoError(t, err)
+	require.Equal(t, []uuid.UUID{secondPublicID, firstPublicID}, got.Mindsets)
+	require.NoError(t, emptyErr)
+	require.Empty(t, gotEmpty.Mindsets)
+}
+
+func TestNPCAvatar_UpsertFailsForMindsetWithoutPublicID(t *testing.T) {
+	f := newNPCAvatarFixture(t)
+	npcAvatar := f.npcAvatarState("fire", "Ｆire", readmodel.NPCAvatarStatusDraft)
+	npcAvatar.Mindsets = []npcmindset.ID{npcmindsettest.ID(t, 999999)}
+
+	require.Error(t, f.writer.Upsert(f.ctx, npcAvatar))
 }
 
 func TestNPCAvatar_UpsertFailsForDeckWithoutPublicID(t *testing.T) {

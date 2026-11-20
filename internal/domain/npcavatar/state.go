@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 )
 
 type State interface {
@@ -23,6 +24,8 @@ type NPCAvatar struct {
 	Status   Status
 	// 使うデッキ（変えるか Decide が比べるのと、公開の条件を application が確かめるために持つ）
 	Decks []npcdeck.ID
+	// 使う思考パターン（Decks と同じ理由で持つ）
+	Mindsets []npcmindset.ID
 }
 
 func (NPCAvatar) isNPCAvatarState() {}

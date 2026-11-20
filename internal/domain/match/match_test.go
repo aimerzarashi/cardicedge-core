@@ -26,8 +26,11 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules/gamerulestest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match/matchtest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar/npcavatartest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck/npcdecktest"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset/npcmindsettest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player/playertest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell/spelltest"
 )
@@ -68,7 +71,7 @@ func playerParticipant(t *testing.T) match.Participant {
 // NPC（カード 201 が 3 枚）
 func npcParticipant(t *testing.T) match.Participant {
 	t.Helper()
-	return match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 3)})
+	return match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 3)})
 }
 
 func startCommand(t *testing.T, rules match.Rules, participants ...match.Participant) *match.StartCommand {
@@ -122,6 +125,21 @@ func TestDecide_StartPutsEveryoneOnBaseWithStartingMagicAtRoundOne(t *testing.T)
 		require.Equal(t, boardtest.Position(t, 0, 0), participant.Position)
 		require.Equal(t, 600, participant.Magic)
 	}
+}
+
+// 始めた後に思考パターンのマスタを変えても対戦に響かないよう、ID と重みの値を参加者に写す
+func TestDecide_StartCopiesTheMindsetOfTheNPCParticipant(t *testing.T) {
+	mindset := matchtest.NPCMindset(t, 9)
+	mindset.ActionWeights[matchaction.ActionRollDice] = npcmindsettest.Weight(t, 50)
+	mindset.CriterionWeights[npcmindset.CriterionRivalTotalMagic] = npcmindsettest.Weight(t, 0)
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), mindset, []match.DeckCard{deckCard(t, 201, 3)})
+
+	state, _ := start(t, startCommand(t, matchtest.Rules(t, 1, 6, 2), playerParticipant(t), npc))
+
+	copied := state.Participants[1].Participant.NPC.Mindset
+	require.Equal(t, npcmindsettest.ID(t, 9), copied.ID)
+	require.Equal(t, 50, copied.ActionWeights[matchaction.ActionRollDice].Int())
+	require.Equal(t, 0, copied.CriterionWeights[npcmindset.CriterionRivalTotalMagic].Int())
 }
 
 // 順番は参加者の並びを乱数の元で混ぜたもの（テストの乱数の元は逆順にする）
@@ -1166,7 +1184,7 @@ func placingMatch(t *testing.T, participants ...match.Participant) match.Match {
 func TestDecide_StoppingOnVacantLandOffersTheCreaturesThatCanBePaid(t *testing.T) {
 	// NPC のデッキ: カード 201（コスト 10）と 299（コスト 990。開始時の魔力 600 では払えない）。山札は逆順に混ざるので、
 	// 配った 1 枚が 299、引いた 1 枚が 201
-	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 1), deckCard(t, 299, 1)})
 	state := placingMatch(t, playerParticipant(t), npc)
 
 	require.Equal(t, refs(t, 299, 201), state.Participants[1].Hand)
@@ -1207,7 +1225,7 @@ func TestDecide_PlaceRejectsCardsThatCannotBePlaced(t *testing.T) {
 	itemSpec := match.CardSpec{Cost: cardtest.Cost(t, 10), Rarity: card.RarityNormal}
 	item := match.DeckCard{Card: cardtest.Ref(t, card.ItemEntityType, 250), Quantity: cardtest.DeckQuantity(t, 1), Spec: itemSpec}
 	// 山札は逆順に混ざるので、手札は先頭から 299・250（アイテム）・201
-	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
+	npc := match.NewNPCParticipant(npcavatartest.ID(t, 7), npcdecktest.ID(t, 8), matchtest.NPCMindset(t, 9), []match.DeckCard{deckCard(t, 201, 1), item, deckCard(t, 299, 1)})
 	state := placingMatch(t, playerParticipant(t), npc)
 	hand := state.Participants[1].Hand
 	require.Equal(t, cardtest.CreatureRef(t, 299), hand[0])
@@ -1357,6 +1375,29 @@ func TestMatch_TerritoryValueMultipliesTheBaseTheLevelAndTheChain(t *testing.T) 
 				state = withTerritory(t, state, territory.owner, territory.x, territory.level)
 			}
 			require.Equal(t, tt.want, valueAt(t, state, tt.x))
+		})
+	}
+}
+
+// 見本の領地のクリーチャーは無属性
+func TestMatch_TerrainBonusIsTheLevelTimesTheBonusWhenTheElementMatches(t *testing.T) {
+	tests := []struct {
+		name     string
+		x, level int
+		want     int
+	}{
+		{name: "matching_element", x: 6, level: 1, want: 10},
+		{name: "matching_element_on_a_raised_land", x: 6, level: 3, want: 30},
+		{name: "other_element", x: 1, level: 3, want: 0},
+		{name: "multi_does_not_match_neutral", x: 5, level: 3, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, tt.x, tt.level)
+			territory, ok := state.TerritoryAt(pos(t, tt.x, 0))
+			require.True(t, ok)
+
+			require.Equal(t, tt.want, state.TerrainBonus(territory))
 		})
 	}
 }
@@ -1542,15 +1583,21 @@ func TestDecide_UnpayableTollIsPaidInFullAndAsksToRelinquish(t *testing.T) {
 	require.Equal(t, []board.Position{pos(t, 2, 0), pos(t, 4, 0)}, state.RelinquishChoices())
 }
 
-func TestDecide_RelinquishingKeepsTheLandLevel(t *testing.T) {
+func TestDecide_RelinquishingResetsTheLandLevelAfterPayingForIt(t *testing.T) {
 	state := indebtedMatch(t)
 	state.LandLevels = []match.LandLevel{{Position: pos(t, 2, 0), Level: 3}}
+	magic := state.Participants[1].Magic
+	territory, ok := state.TerritoryAt(pos(t, 2, 0))
+	require.True(t, ok)
+	paid := state.TerritoryRelinquishMagic(territory)
+	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
 
 	state, _ = apply(t, state, matchtest.NewRandom(), &match.RelinquishTerritoryCommand{By: matchtest.Index(t, 1), Position: pos(t, 2, 0)})
 
 	_, occupied := state.TerritoryAt(pos(t, 2, 0))
 	require.False(t, occupied)
-	require.Equal(t, 3, state.LandLevel(pos(t, 2, 0)))
+	require.Equal(t, 1, state.LandLevel(pos(t, 2, 0)))
+	require.Equal(t, magic+paid, state.Participants[1].Magic)
 }
 
 func TestDecide_PlacingOnALeveledVacantLandInheritsTheLevel(t *testing.T) {
@@ -1652,21 +1699,6 @@ func TestDecide_RelinquishingTheLastTerritoryWhileNegativeDepletesTheMagic(t *te
 	require.Equal(t, 600, state.Participants[1].Magic)
 	// 残っているのは相手の領地だけ
 	require.Len(t, state.Territories, 1)
-}
-
-func TestMatch_LowestValueRelinquishChoiceTakesTheCheapestThenTheEarliest(t *testing.T) {
-	state := withTerritory(t, newMatch(t, territoryBoard(t), defaultRules(t)), 0, 1, 1)
-	state = withTerritory(t, state, 1, 2, 2)
-	state = withTerritory(t, state, 1, 4, 1)
-	state = withTerritory(t, state, 1, 5, 1)
-	state = withMagic(state, 1, 10)
-	state, _ = drawAndRoll(t, state, 1, 1)
-	state, _ = payToll(t, state, 1)
-
-	position, ok := state.LowestValueRelinquishChoice()
-
-	require.True(t, ok)
-	require.Equal(t, pos(t, 4, 0), position)
 }
 
 func TestDecide_TargetMagicCountsTheValueOfTerritories(t *testing.T) {
@@ -3949,4 +3981,181 @@ func TestDecide_CreatureDestroyedOnTheBoardActivatesItsDestructionEffects(t *tes
 	require.Equal(t, magicBefore+200, state.Participants[0].Magic)
 	require.Contains(t, state.Participants[0].Hand, cardtest.CreatureRef(t, 201))
 	require.Empty(t, state.Participants[0].DiscardPile)
+}
+
+// 行動の種類から、選択肢の最初の対象で操作を作る。選択肢が空なら手札の 0 番・(0,0) を当てる（受け付けられないことを確かめるため）
+func commandOf(t *testing.T, state match.Match, action matchaction.Action) match.Command {
+	t.Helper()
+	by, _ := state.AwaitingParticipant()
+	first := func(choices []int) int {
+		if len(choices) == 0 {
+			return 0
+		}
+		return choices[0]
+	}
+	switch action {
+	case matchaction.ActionDrawCard:
+		return &match.DrawCommand{By: by}
+	case matchaction.ActionDiscardCard:
+		return &match.DiscardCommand{By: by, HandIndex: 0}
+	case matchaction.ActionUseSpell:
+		cmd := &match.UseSpellCommand{By: by}
+		if choices := state.SpellChoices(); len(choices) > 0 {
+			cmd.HandIndex = choices[0].HandIndex
+			if len(choices[0].Targets) > 0 {
+				cmd.Target = &choices[0].Targets[0]
+			}
+			if len(choices[0].TargetPositions) > 0 {
+				cmd.TargetPosition = &choices[0].TargetPositions[0]
+			}
+		}
+		return cmd
+	case matchaction.ActionRollDice:
+		return &match.RollCommand{By: by}
+	case matchaction.ActionChoosePath:
+		cmd := &match.ChoosePathCommand{By: by}
+		if choices := state.PathChoices(); len(choices) > 0 {
+			cmd.To = choices[0]
+		}
+		return cmd
+	case matchaction.ActionPlaceCreature:
+		return &match.PlaceCreatureCommand{By: by, HandIndex: first(state.PlaceChoices())}
+	case matchaction.ActionInvadeTerritory:
+		return &match.InvadeCommand{By: by, HandIndex: first(state.InvadeChoices())}
+	case matchaction.ActionPayToll:
+		return &match.PayTollCommand{By: by}
+	case matchaction.ActionLevelUpLand:
+		cmd := &match.LevelUpLandCommand{By: by, Level: 2}
+		if choices := state.LevelUpChoices(); len(choices) > 0 {
+			cmd.Position, cmd.Level = choices[0].Position, choices[0].Level
+		}
+		return cmd
+	case matchaction.ActionExchangeCreature:
+		cmd := &match.ExchangeCreatureCommand{By: by}
+		if choices := state.ExchangeChoices(); len(choices) > 0 {
+			cmd.Position, cmd.HandIndex = choices[0].Position, choices[0].HandIndex
+		}
+		return cmd
+	case matchaction.ActionChangeLandElement:
+		cmd := &match.ChangeLandElementCommand{By: by, Element: element.LandFire}
+		if choices := state.ElementChangeChoices(); len(choices) > 0 {
+			cmd.Position, cmd.Element = choices[0].Position, choices[0].Element
+		}
+		return cmd
+	case matchaction.ActionMoveCreature:
+		cmd := &match.MoveCreatureCommand{By: by}
+		if choices := state.MoveChoices(); len(choices) > 0 {
+			cmd.From, cmd.To = choices[0].From, choices[0].To
+		}
+		return cmd
+	case matchaction.ActionAttackWithItem:
+		item := first(state.ItemChoices())
+		return &match.AttackCommand{By: by, ItemHandIndex: &item}
+	case matchaction.ActionAttackWithoutItem:
+		return &match.AttackCommand{By: by}
+	case matchaction.ActionDefendWithItem:
+		item := first(state.ItemChoices())
+		return &match.DefendCommand{By: by, ItemHandIndex: &item}
+	case matchaction.ActionDefendWithoutItem:
+		return &match.DefendCommand{By: by}
+	case matchaction.ActionUseCreatureAsItem:
+		return &match.UseCreatureAsItemCommand{By: by, HandIndex: first(state.CreatureAsItemChoices())}
+	case matchaction.ActionRelinquishTerritory:
+		cmd := &match.RelinquishTerritoryCommand{By: by}
+		if choices := state.RelinquishChoices(); len(choices) > 0 {
+			cmd.Position = choices[0]
+		}
+		return cmd
+	case matchaction.ActionEndTurn:
+		return &match.EndTurnCommand{By: by}
+	}
+	t.Fatalf("unknown action %q", action)
+	return nil
+}
+
+// 段階ごとの代表の状態
+func actionStates(t *testing.T) []struct {
+	name  string
+	state match.Match
+	want  []matchaction.Action
+} {
+	t.Helper()
+	drawn, _ := apply(t, newMatch(t, lineBoard(t), defaultRules(t)), matchtest.NewRandom(), &match.DrawCommand{By: matchtest.Index(t, 1)})
+	overLimit, _ := drawAndRoll(t, newMatch(t, lineBoard(t), defaultRules(t)), 1, 1)
+	discarding, _ := endTurn(t, withHand(t, overLimit, 1, 1, 2, 3, 4, 5, 6, 7), 1)
+	choosingPath, _ := drawAndRoll(t, newMatch(t, forkBoard(t), defaultRules(t)), 1, 3)
+	ending, _ := choose(t, choosingPath, 1, 1, 1)
+	asItem := withCreatureEffects(t, attacking(t, invadingMatch(t)), []effect.Effect{effecttest.UseCreatureAsItem(t, "earth")}, nil)
+	asItem = withCreatureInHand(t, asItem, 1, 151, 20, 30, 30, "earth")
+	return []struct {
+		name  string
+		state match.Match
+		want  []matchaction.Action
+	}{
+		{name: "drawing", state: newMatch(t, lineBoard(t), defaultRules(t)), want: []matchaction.Action{matchaction.ActionDrawCard}},
+		{name: "discarding", state: discarding, want: []matchaction.Action{matchaction.ActionDiscardCard}},
+		{name: "rolling", state: drawn, want: []matchaction.Action{matchaction.ActionRollDice}},
+		{name: "rolling_with_spell", state: rollingWithSpell(t), want: []matchaction.Action{matchaction.ActionUseSpell, matchaction.ActionRollDice}},
+		{name: "choosing_path", state: choosingPath, want: []matchaction.Action{matchaction.ActionChoosePath}},
+		{name: "placing", state: rolledTo(t, territoryBoardMatch(t), 1), want: []matchaction.Action{matchaction.ActionPlaceCreature, matchaction.ActionEndTurn}},
+		{
+			name:  "placing_after_passing_own_territory",
+			state: rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 2),
+			want: []matchaction.Action{
+				matchaction.ActionPlaceCreature, matchaction.ActionLevelUpLand, matchaction.ActionExchangeCreature, matchaction.ActionChangeLandElement,
+				matchaction.ActionMoveCreature, matchaction.ActionEndTurn,
+			},
+		},
+		{
+			name:  "territory_commanding",
+			state: rolledTo(t, withTerritory(t, territoryBoardMatch(t), 1, 1, 1), 1),
+			want: []matchaction.Action{
+				matchaction.ActionLevelUpLand, matchaction.ActionExchangeCreature, matchaction.ActionChangeLandElement, matchaction.ActionMoveCreature, matchaction.ActionEndTurn,
+			},
+		},
+		{name: "invading", state: invadingMatch(t), want: []matchaction.Action{matchaction.ActionInvadeTerritory, matchaction.ActionPayToll}},
+		{name: "attacking", state: attacking(t, invadingMatch(t)), want: []matchaction.Action{matchaction.ActionAttackWithoutItem}},
+		{
+			name:  "attacking_with_item",
+			state: withItemInHand(t, attacking(t, invadingMatch(t)), 1, 301, 20),
+			want:  []matchaction.Action{matchaction.ActionAttackWithItem, matchaction.ActionAttackWithoutItem},
+		},
+		{name: "attacking_with_creature_as_item", state: asItem, want: []matchaction.Action{matchaction.ActionUseCreatureAsItem, matchaction.ActionAttackWithoutItem}},
+		{name: "defending", state: invade(t, invadingMatch(t)), want: []matchaction.Action{matchaction.ActionDefendWithoutItem}},
+		{
+			name:  "defending_with_item",
+			state: withItemInHand(t, invade(t, invadingMatch(t)), 0, 301, 20),
+			want:  []matchaction.Action{matchaction.ActionDefendWithItem, matchaction.ActionDefendWithoutItem},
+		},
+		{name: "relinquishing", state: indebtedMatch(t), want: []matchaction.Action{matchaction.ActionRelinquishTerritory}},
+		{name: "ending", state: ending, want: []matchaction.Action{matchaction.ActionEndTurn}},
+		{name: "ended", state: endedWithTwoPlayers(t), want: nil},
+	}
+}
+
+func TestMatch_ActionChoicesListTheActionsOfThePhase(t *testing.T) {
+	for _, tt := range actionStates(t) {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tt.state.ActionChoices())
+		})
+	}
+}
+
+// 一覧と Decide の判断がずれないこと。一覧にある種類は選択肢の最初の対象で受け付けられ、一覧に無い種類は断られる
+func TestDecide_AcceptsExactlyTheActionChoices(t *testing.T) {
+	for _, tt := range actionStates(t) {
+		t.Run(tt.name, func(t *testing.T) {
+			choices := tt.state.ActionChoices()
+			for _, action := range matchaction.Actions() {
+				t.Run(string(action), func(t *testing.T) {
+					_, err := match.Decide(tt.state, commandOf(t, tt.state, action), startedAt, matchtest.NewRandom())
+					if slices.Contains(choices, action) {
+						require.NoError(t, err)
+					} else {
+						require.Error(t, err)
+					}
+				})
+			}
+		})
+	}
 }

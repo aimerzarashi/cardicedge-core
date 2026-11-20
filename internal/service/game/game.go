@@ -20,6 +20,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/startergrant"
@@ -89,11 +90,11 @@ func New(registry *domaindef.Registry, config Config) *Game {
 	collectionQuery := query.NewCollectionHandler(repository.NewCollectionReader().List)
 	cardQuery := query.NewCardHandler(repository.NewCardReader().Get)
 	unlockQuery := query.NewUnlockHandler(unlockReader.ListBoardsByPlayer)
-	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks)
+	npcAvatarQuery := query.NewNPCAvatarHandler(npcAvatarReader.ListUnlockedByPlayer, npcAvatarReader.ListPublishedDecks, npcAvatarReader.ListPublishedMindsets)
 	roomReader := repository.NewRoomReader()
 	matchSources := repository.NewMatchSourceReader(entityRefs)
 	matchStore := eventstore.New(registry, match.NewID, match.NewEventType, match.InitialState, match.Evolve)
-	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID))
+	matchAccess := query.NewMatchAccess(matchStore, identifier.New(registry, match.NewID), identifier.New(registry, player.NewID), roomReader.OwnsMatch)
 	matchEventLoader := eventstore.NewEventLoader(registry, match.NewID, match.NewEventType)
 	matchNames := repository.NewMatchNameReader()
 	collections := command.NewCollectionHandler(
@@ -146,6 +147,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			matchSources.Board,
 			matchSources.PlayerDeckCards,
 			matchSources.NPCDeckCards,
+			matchSources.NPCMindset,
 			matchSources.CardSpecs,
 			newRandom,
 			now,
@@ -180,6 +182,7 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			entityRefs,
 			repository.NewMatchNameReader().Load,
 			roomReader.FindByMatch,
+			roomReader.OwnsMatch,
 		),
 		matchEvents: query.NewMatchEventsHandler(matchAccess.Authorize, func(ctx context.Context, id match.ID) ([]match.Event, error) {
 			loaded, err := matchEventLoader.LoadEvents(ctx, id.Int64())
@@ -215,11 +218,12 @@ func New(registry *domaindef.Registry, config Config) *Game {
 			identifier.New(registry, room.NewID),
 			identifier.New(registry, match.NewID),
 			command.RoomReferences{
-				Avatars:    identifier.New(registry, avatar.NewID),
-				Decks:      identifier.New(registry, deck.NewID),
-				NPCAvatars: identifier.New(registry, npcavatar.NewID),
-				NPCDecks:   identifier.New(registry, npcdeck.NewID),
-				Boards:     identifier.New(registry, board.NewID),
+				Avatars:     identifier.New(registry, avatar.NewID),
+				Decks:       identifier.New(registry, deck.NewID),
+				NPCAvatars:  identifier.New(registry, npcavatar.NewID),
+				NPCDecks:    identifier.New(registry, npcdeck.NewID),
+				NPCMindsets: identifier.New(registry, npcmindset.NewID),
+				Boards:      identifier.New(registry, board.NewID),
 			},
 			entityRefs,
 			// 席・対戦ルールに選べるものは、画面の選択肢を出す query（Player.avatars・decks・npcAvatars・boards）と同じハンドラーを通して調べる

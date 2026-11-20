@@ -59,6 +59,8 @@ type RoomSeat {
   avatar: RoomNamed
   "選んだデッキ（プレイヤーの席は座っている人のデッキ、NPC の席は NPC のアバターに割り当てたデッキ。まだ選んでいなければ null）"
   deck: RoomNamed
+  "選んだ思考パターン（NPC の席だけ。NPC のアバターに割り当てた思考パターン。プレイヤーの席と、まだ選んでいなければ null）"
+  mindset: RoomNamed
   "見ている人がこの席のアバターとデッキを選び直せるか（changeRoomSeatChoice）。部屋の詳細（room）だけが返し、一覧（myRooms）では null"
   choiceChangeable: Boolean
 }
@@ -280,7 +282,7 @@ input ChangeRoomSeatsInput {
   id: UUID!
   "画面が見ていた部屋の revision"
   revision: Int!
-  "席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる"
+  "席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 0〜1 つで、多ければ FieldTooMany の max。0 は全員 NPC の部屋で、作った人は参加せずに対戦を見る）。並びを変えたら、席の選択はすべて外れる"
   seats: [RoomSeatKind!]!
 }
 
@@ -365,6 +367,8 @@ input ChangeRoomSeatChoiceInput {
   avatarId: UUID!
   "デッキの公開用の ID（プレイヤーの席は座っている人のデッキ（Player.decks に出るもの）、NPC の席は選んだ NPC のアバターに割り当てた公開中のデッキ（Player.npcAvatars の decks に出るもの））"
   deckId: UUID!
+  "思考パターンの公開用の ID（NPC の席だけ必須で、選んだ NPC のアバターに割り当てた公開中の思考パターン（Player.npcAvatars の mindsets に出るもの）。プレイヤーの席に付けると入力の誤り）"
+  mindsetId: UUID
 }
 
 "席のアバターとデッキを選んだ（同じ選択なら何も変えず、revision も進まない）"
@@ -377,7 +381,7 @@ type ChangeRoomSeatChoiceSuccess {
 
 """
 changeRoomSeatChoice の結果（公開前、または公開前に決めていなければ準備中）。選んだ時の 1 回だけ、選べるものかを確かめる（準備完了の時には確かめ直さない）。
-入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキを確かめる）
+入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキと思考パターンを確かめる。mindsetId は NPC の席で無ければ FieldRequired、選べなければ FieldNotFound、プレイヤーの席に付けると FieldInvalidFormat）
 """
 union ChangeRoomSeatChoiceResult =
     ChangeRoomSeatChoiceSuccess

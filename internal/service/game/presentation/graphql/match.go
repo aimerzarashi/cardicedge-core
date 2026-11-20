@@ -112,6 +112,10 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 	if err != nil {
 		return nil, err
 	}
+	actionChoices, err := fromMatchActions(match.ActionChoices)
+	if err != nil {
+		return nil, err
+	}
 	converted := &model.Match{
 		ID: match.ID, Revision: int(match.Revision), Round: match.Round,
 		Rules: &model.MatchPlayRules{
@@ -125,7 +129,7 @@ func fromQueryMatch(match query.Match) (*model.Match, error) {
 		Participants: participants, CurrentParticipant: match.CurrentParticipant, AwaitingParticipant: match.AwaitingParticipant,
 		RewardPacks: fromQueryRewardPacks(match.RewardPacks),
 		RoomID:      match.RoomID, Number: match.Number,
-		Phase: phase, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
+		Phase: phase, ActionChoices: actionChoices, Dice: match.Dice, RemainingSteps: match.RemainingSteps, PathChoices: fromQueryPositions(match.PathChoices),
 		SpellChoices: fromSpellChoices(match.SpellChoices), PlaceChoices: match.PlaceChoices, InvadeChoices: match.InvadeChoices, ItemChoices: match.ItemChoices, CreatureAsItemChoices: match.CreatureAsItemChoices,
 		RelinquishChoices: fromQueryPositions(match.RelinquishChoices), Territories: territories,
 		LandLevels: fromQueryLandLevels(match.LandLevels), MoveChoices: fromQueryMoveChoices(match.MoveChoices), LevelUpChoices: fromQueryLevelUpChoices(match.LevelUpChoices), ExchangeChoices: fromQueryExchangeChoices(match.ExchangeChoices),
@@ -247,6 +251,62 @@ func fromMatchPhase(phase query.MatchPhase) (model.MatchPhase, error) {
 		return model.MatchPhaseEnded, nil
 	default:
 		return "", fmt.Errorf("graphql: unknown match phase: %q", phase)
+	}
+}
+
+func fromMatchActions(actions []query.MatchAction) ([]model.MatchAction, error) {
+	converted := make([]model.MatchAction, len(actions))
+	for i, action := range actions {
+		var err error
+		if converted[i], err = fromMatchAction(action); err != nil {
+			return nil, err
+		}
+	}
+	return converted, nil
+}
+
+func fromMatchAction(action query.MatchAction) (model.MatchAction, error) {
+	switch action {
+	case query.MatchActionDrawCard:
+		return model.MatchActionDrawCard, nil
+	case query.MatchActionDiscardCard:
+		return model.MatchActionDiscardCard, nil
+	case query.MatchActionUseSpell:
+		return model.MatchActionUseSpell, nil
+	case query.MatchActionRollDice:
+		return model.MatchActionRollDice, nil
+	case query.MatchActionChoosePath:
+		return model.MatchActionChoosePath, nil
+	case query.MatchActionPlaceCreature:
+		return model.MatchActionPlaceCreature, nil
+	case query.MatchActionInvadeTerritory:
+		return model.MatchActionInvadeTerritory, nil
+	case query.MatchActionPayToll:
+		return model.MatchActionPayToll, nil
+	case query.MatchActionLevelUpLand:
+		return model.MatchActionLevelUpLand, nil
+	case query.MatchActionExchangeCreature:
+		return model.MatchActionExchangeCreature, nil
+	case query.MatchActionChangeLandElement:
+		return model.MatchActionChangeLandElement, nil
+	case query.MatchActionMoveCreature:
+		return model.MatchActionMoveCreature, nil
+	case query.MatchActionAttackWithItem:
+		return model.MatchActionAttackWithItem, nil
+	case query.MatchActionAttackWithoutItem:
+		return model.MatchActionAttackWithoutItem, nil
+	case query.MatchActionDefendWithItem:
+		return model.MatchActionDefendWithItem, nil
+	case query.MatchActionDefendWithoutItem:
+		return model.MatchActionDefendWithoutItem, nil
+	case query.MatchActionUseCreatureAsItem:
+		return model.MatchActionUseCreatureAsItem, nil
+	case query.MatchActionRelinquishTerritory:
+		return model.MatchActionRelinquishTerritory, nil
+	case query.MatchActionEndTurn:
+		return model.MatchActionEndTurn, nil
+	default:
+		return "", fmt.Errorf("graphql: unknown match action: %q", action)
 	}
 }
 

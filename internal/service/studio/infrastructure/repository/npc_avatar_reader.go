@@ -103,6 +103,6 @@ func toNPCAvatar(id uuid.UUID, raw []byte) (query.NPCAvatar, error) {
 	return query.NPCAvatar{
 		ID: metadata.ID, Name: metadata.Name, Status: metadata.Status,
 		Revision: metadata.Revision, RegisteredAt: metadata.RegisteredAt, RegisteredBy: metadata.RegisteredBy,
-		UpdatedAt: metadata.UpdatedAt, UpdatedBy: metadata.UpdatedBy, Decks: metadata.Decks,
+		UpdatedAt: metadata.UpdatedAt, UpdatedBy: metadata.UpdatedBy, Decks: metadata.Decks, Mindsets: metadata.Mindsets,
 	}, nil
 }

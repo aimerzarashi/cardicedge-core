@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/gamerules"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
@@ -367,6 +368,16 @@ type PlayerParticipant struct {
 type NPCParticipant struct {
 	Avatar npcavatar.ID `json:"avatar"`
 	Deck   npcdeck.ID   `json:"deck"`
+	// NPC は必ず思考パターンを持つ（持たない NPC を作れないようにするため、null を許さない）
+	Mindset NPCMindset `json:"mindset"`
+}
+
+// 始めた時点の思考パターンの写し。重みの値も写す（始めた後に studio で重みを変えても、記録したイベントだけで同じ対戦を再生できるようにするため。
+// カードの性能の写し CardSpec と同じ理由）。値の型は npcmindset パッケージのものをそのまま使う
+type NPCMindset struct {
+	ID               npcmindset.ID               `json:"id"`
+	ActionWeights    npcmindset.ActionWeights    `json:"action_weights"`
+	CriterionWeights npcmindset.CriterionWeights `json:"criterion_weights"`
 }
 
 // 参加者 1 人。プレイヤーか NPC かのどちらか 1 つだけを持つ（項目をまたぐ決まりがあるので生成関数でだけ作る）。
@@ -381,8 +392,8 @@ func NewPlayerParticipant(playerID player.ID, avatarID avatar.ID, deckID deck.ID
 	return Participant{Player: &PlayerParticipant{Player: playerID, Avatar: avatarID, Deck: deckID}, Cards: cards}
 }
 
-func NewNPCParticipant(avatarID npcavatar.ID, deckID npcdeck.ID, cards []DeckCard) Participant {
-	return Participant{NPC: &NPCParticipant{Avatar: avatarID, Deck: deckID}, Cards: cards}
+func NewNPCParticipant(avatarID npcavatar.ID, deckID npcdeck.ID, mindset NPCMindset, cards []DeckCard) Participant {
+	return Participant{NPC: &NPCParticipant{Avatar: avatarID, Deck: deckID, Mindset: mindset}, Cards: cards}
 }
 
 // 山札にする並び（カードを枚数の分だけ並べる。混ぜる前）

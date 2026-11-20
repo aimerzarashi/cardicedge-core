@@ -15,6 +15,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/platform/rdb"
@@ -25,11 +26,12 @@ import (
 
 // 公開 ID を game の内部 ID に引き直す（席の選択・対戦ルールのボードは、同じ境界の内部 ID で持つ）
 type RoomReferences struct {
-	Avatars    domain.Identifier[avatar.ID]
-	Decks      domain.Identifier[deck.ID]
-	NPCAvatars domain.Identifier[npcavatar.ID]
-	NPCDecks   domain.Identifier[npcdeck.ID]
-	Boards     domain.Identifier[board.ID]
+	Avatars     domain.Identifier[avatar.ID]
+	Decks       domain.Identifier[deck.ID]
+	NPCAvatars  domain.Identifier[npcavatar.ID]
+	NPCDecks    domain.Identifier[npcdeck.ID]
+	NPCMindsets domain.Identifier[npcmindset.ID]
+	Boards      domain.Identifier[board.ID]
 }
 
 // 席・対戦ルールに選べるもの。画面の選択肢を出す query（Player.avatars・decks・npcAvatars・boards）と同じ条件を、同じハンドラーを通して
@@ -40,6 +42,7 @@ type RoomSelectable interface {
 	HasDeck(ctx context.Context, playerID uuid.UUID, deckID uuid.UUID) (bool, error)
 	HasNPCAvatar(ctx context.Context, playerID uuid.UUID, npcAvatarID uuid.UUID) (bool, error)
 	HasNPCDeck(ctx context.Context, playerID uuid.UUID, npcAvatarID uuid.UUID, npcDeckID uuid.UUID) (bool, error)
+	HasNPCMindset(ctx context.Context, playerID uuid.UUID, npcAvatarID uuid.UUID, npcMindsetID uuid.UUID) (bool, error)
 	HasBoard(ctx context.Context, playerID uuid.UUID, boardID uuid.UUID) (bool, error)
 }
 
@@ -147,8 +150,8 @@ func (c *RoomHandler) Create(ctx context.Context, name string) (ChangedRoom, err
 }
 
 // 席の並びを決める（公開前だけ）。席の並びを変えたら、席ごとの選択はすべて外れる。
-// 入力の誤りは input.Errors（段階ごと。席の数が全体のルールの範囲の外なら OutOfRange、範囲の中でプレイヤーの席の数が決まりと違えば
-// CountMismatch。項目名は seats）。ほかのエラーは ErrRoomNotFound（無い・入っていない部屋）、ErrRevisionConflict、
+// 入力の誤りは input.Errors（段階ごと。席の数が全体のルールの範囲の外なら OutOfRange、範囲の中でプレイヤーの席が上限より多ければ
+// TooMany。項目名は seats）。ほかのエラーは ErrRoomNotFound（無い・入っていない部屋）、ErrRevisionConflict、
 // ErrRoomStatusNotAllowed、ErrRoomNotResponsible
 func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision int64, seats []RoomSeatKind) (ChangedRoom, error) {
 	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
@@ -170,8 +173,8 @@ func (c *RoomHandler) ChangeSeats(ctx context.Context, id uuid.UUID, revision in
 		switch {
 		case errors.Is(err, room.ErrTooFewSeats), errors.Is(err, room.ErrTooManySeats):
 			return nil, input.Errors{&input.OutOfRange{Field: "seats", Min: minPlayers.Int(), Max: maxPlayers.Int()}}
-		case errors.Is(err, room.ErrPlayerSeatCount):
-			return nil, input.Errors{&input.CountMismatch{Field: "seats", Expected: room.PlayerSeatCount}}
+		case errors.Is(err, room.ErrTooManyPlayerSeats):
+			return nil, input.Errors{&input.TooMany{Field: "seats", Max: room.MaxPlayerSeats}}
 		case err != nil:
 			return nil, err
 		}
@@ -267,11 +270,12 @@ func (c *RoomHandler) selectBoard(ctx context.Context, current room.Room, boardP
 
 // 席のアバターとデッキを選ぶ（公開前、または公開前に決めていなければ準備中）。席の種類で、選ぶものが変わる:
 // プレイヤーの席は座っている人のアバターとデッキ（Player.avatars・decks に出るもの）、NPC の席は作った人が解放した公開中の NPC のアバターと、
-// そのアバターに割り当てた公開中のデッキ（Player.npcAvatars に出るもの）。選んだ時の 1 回だけ確かめる。
+// そのアバターに割り当てた公開中のデッキと思考パターン（Player.npcAvatars の decks・mindsets に出るもの）。選んだ時の 1 回だけ確かめる。
 // 席が決まっていなければ ErrRoomSeatsNotDecided。入力の誤りは input.Errors（段階ごと。席が範囲の外なら OutOfRange・項目名 seat。
-// 次に、アバターとデッキが選べるものに無ければ NotFound・項目名 avatarId・deckId。NPC の席は、アバターが選べるときだけデッキを確かめる）。
+// 次に、アバターとデッキが選べるものに無ければ NotFound・項目名 avatarId・deckId。NPC の席は、アバターが選べるときだけデッキと思考パターンを確かめ、
+// 思考パターンが無ければ Required・項目名 mindsetId、選べるものに無ければ NotFound・項目名 mindsetId。プレイヤーの席に思考パターンを付けたら InvalidFormat・項目名 mindsetId）。
 // ほかのエラーは ChangeMatchRules と同じ
-func (c *RoomHandler) ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID) (ChangedRoom, error) {
+func (c *RoomHandler) ChangeSeatChoice(ctx context.Context, id uuid.UUID, revision int64, seat int, avatarID uuid.UUID, deckID uuid.UUID, mindsetID *uuid.UUID) (ChangedRoom, error) {
 	return c.change(ctx, id, revision, func(ctx context.Context, current room.Room, actor player.ID) (room.Command, error) {
 		if len(current.Seats) == 0 {
 			return nil, room.ErrSeatsNotDecided
@@ -283,9 +287,9 @@ func (c *RoomHandler) ChangeSeatChoice(ctx context.Context, id uuid.UUID, revisi
 		target := current.Seats[seatIndex].Seat
 		var choice room.SeatChoice
 		if target.Kind == room.SeatKindPlayer {
-			choice, err = c.choosePlayerSeat(ctx, target.Player, avatarID, deckID)
+			choice, err = c.choosePlayerSeat(ctx, target.Player, avatarID, deckID, mindsetID)
 		} else {
-			choice, err = c.chooseNPCSeat(ctx, current.Owner, avatarID, deckID)
+			choice, err = c.chooseNPCSeat(ctx, current.Owner, avatarID, deckID, mindsetID)
 		}
 		if err != nil {
 			return nil, err
@@ -294,12 +298,15 @@ func (c *RoomHandler) ChangeSeatChoice(ctx context.Context, id uuid.UUID, revisi
 	})
 }
 
-func (c *RoomHandler) choosePlayerSeat(ctx context.Context, seatPlayer player.ID, avatarPublicID uuid.UUID, deckPublicID uuid.UUID) (room.SeatChoice, error) {
+func (c *RoomHandler) choosePlayerSeat(ctx context.Context, seatPlayer player.ID, avatarPublicID uuid.UUID, deckPublicID uuid.UUID, mindsetPublicID *uuid.UUID) (room.SeatChoice, error) {
 	playerPublicID, err := c.playerPublicID(ctx, seatPlayer)
 	if err != nil {
 		return room.SeatChoice{}, err
 	}
 	invalid := input.Errors{}
+	if mindsetPublicID != nil {
+		invalid = append(invalid, &input.InvalidFormat{Field: "mindsetId"})
+	}
 	hasAvatar, err := c.selectable.HasAvatar(ctx, playerPublicID, avatarPublicID)
 	if err != nil {
 		return room.SeatChoice{}, err
@@ -328,7 +335,7 @@ func (c *RoomHandler) choosePlayerSeat(ctx context.Context, seatPlayer player.ID
 	return room.NewPlayerSeatChoice(avatarID, deckID), nil
 }
 
-func (c *RoomHandler) chooseNPCSeat(ctx context.Context, owner player.ID, avatarPublicID uuid.UUID, deckPublicID uuid.UUID) (room.SeatChoice, error) {
+func (c *RoomHandler) chooseNPCSeat(ctx context.Context, owner player.ID, avatarPublicID uuid.UUID, deckPublicID uuid.UUID, mindsetPublicID *uuid.UUID) (room.SeatChoice, error) {
 	ownerPublicID, err := c.playerPublicID(ctx, owner)
 	if err != nil {
 		return room.SeatChoice{}, err
@@ -340,12 +347,28 @@ func (c *RoomHandler) chooseNPCSeat(ctx context.Context, owner player.ID, avatar
 	if !hasAvatar {
 		return room.SeatChoice{}, input.Errors{&input.NotFound{Field: "avatarId"}}
 	}
+	invalid := input.Errors{}
 	hasDeck, err := c.selectable.HasNPCDeck(ctx, ownerPublicID, avatarPublicID, deckPublicID)
 	if err != nil {
 		return room.SeatChoice{}, err
 	}
 	if !hasDeck {
-		return room.SeatChoice{}, input.Errors{&input.NotFound{Field: "deckId"}}
+		invalid = append(invalid, &input.NotFound{Field: "deckId"})
+	}
+	if mindsetPublicID == nil {
+		// NPC は必ず思考パターンを持つ（null を許さない）
+		invalid = append(invalid, &input.Required{Field: "mindsetId"})
+	} else {
+		hasMindset, err := c.selectable.HasNPCMindset(ctx, ownerPublicID, avatarPublicID, *mindsetPublicID)
+		if err != nil {
+			return room.SeatChoice{}, err
+		}
+		if !hasMindset {
+			invalid = append(invalid, &input.NotFound{Field: "mindsetId"})
+		}
+	}
+	if len(invalid) > 0 {
+		return room.SeatChoice{}, invalid
 	}
 	npcAvatarID, err := c.references.NPCAvatars.Resolve(ctx, avatarPublicID)
 	if err != nil {
@@ -355,7 +378,11 @@ func (c *RoomHandler) chooseNPCSeat(ctx context.Context, owner player.ID, avatar
 	if err != nil {
 		return room.SeatChoice{}, err
 	}
-	return room.NewNPCSeatChoice(npcAvatarID, npcDeckID), nil
+	npcMindsetID, err := c.references.NPCMindsets.Resolve(ctx, *mindsetPublicID)
+	if err != nil {
+		return room.SeatChoice{}, err
+	}
+	return room.NewNPCSeatChoice(npcAvatarID, npcDeckID, npcMindsetID), nil
 }
 
 // 公開する（公開前だけ。作った人だけ）。席の並びが決まっていなければ ErrRoomSeatsNotDecided。対戦ルールと席の選択は、決まっていなくても公開できる

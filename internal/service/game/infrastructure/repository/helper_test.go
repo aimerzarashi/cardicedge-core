@@ -75,6 +75,16 @@ func insertNamedNPCAvatar(t *testing.T, ctx context.Context, id uuid.UUID, name 
 	insertNPCAvatar(t, ctx, name, metadata)
 }
 
+func insertNamedNPCMindset(t *testing.T, ctx context.Context, id uuid.UUID, name string) {
+	t.Helper()
+	raw, err := json.Marshal(readmodel.NPCMindsetMetadata{ID: id, Name: name, Status: readmodel.NPCMindsetStatusPublished})
+	require.NoError(t, err)
+	exec, err := rdb.GetExecutor(ctx)
+	require.NoError(t, err)
+	row := models.NPCMindset{NPCMindsetID: id.String(), SortName: name, Status: string(readmodel.NPCMindsetStatusPublished), Metadata: raw}
+	require.NoError(t, row.Insert(ctx, exec, boil.Infer()))
+}
+
 func insertNamedNPCDeck(t *testing.T, ctx context.Context, id uuid.UUID, name string) {
 	t.Helper()
 	raw, err := json.Marshal(readmodel.NPCDeckMetadata{ID: id, Name: name, Status: readmodel.NPCDeckStatusPublished, Cards: []readmodel.DeckCard{}})

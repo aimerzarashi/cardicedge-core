@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/starterset"
 )
 
@@ -115,12 +116,65 @@ func TestSampleMaster_HasFourNPCAvatarsUsingNPCDecks(t *testing.T) {
 	m, err := loadMaster(sampleMasterJSON)
 	require.NoError(t, err)
 
+	mindsets := []string{"バランス", "侵略型", "育成型"}
 	require.Equal(t, []masterNPCAvatar{
-		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}},
-		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}},
-		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}},
-		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ", "水・風属性デッキ"}},
+		{Name: "見習いの魔術師", Decks: []string{"水・風属性デッキ"}, Mindsets: mindsets},
+		{Name: "森の番人", Decks: []string{"火・地属性デッキ"}, Mindsets: mindsets},
+		{Name: "炎の剣士", Decks: []string{"火・地属性デッキ"}, Mindsets: mindsets},
+		{Name: "ゴリガン", Decks: []string{"火・地属性デッキ", "水・風属性デッキ"}, Mindsets: mindsets},
 	}, m.NPCAvatars)
+}
+
+// 見本の思考パターンは 3 つ。行動の種類ごとの重みは書かず（登録のときのすべて 1）、採点基準ごとの重みだけを書く
+// （自分の総魔力・相手の総魔力・領地の数。性格は育てる（自分）↔ 奪う（相手）の重みの比で分ける）
+func TestSampleMaster_HasThreeNPCMindsetsWithCriterionWeights(t *testing.T) {
+	m, err := loadMaster(sampleMasterJSON)
+	require.NoError(t, err)
+
+	weights := func(own, rival, territory int) map[string]int {
+		return map[string]int{"own_total_magic": own, "rival_total_magic": rival, "territory_count": territory}
+	}
+	require.Equal(t, []masterNPCMindset{
+		{Name: "バランス", CriterionWeights: weights(1, 1, 1)},
+		{Name: "侵略型", CriterionWeights: weights(1, 2, 1)},
+		{Name: "育成型", CriterionWeights: weights(2, 1, 1)},
+	}, m.NPCMindsets)
+}
+
+func TestLoadMaster_RejectsInvalidNPCMindsets(t *testing.T) {
+	full := map[string]int{"own_total_magic": 1, "rival_total_magic": 1, "territory_count": 1}
+	without := func(key string) map[string]int {
+		weights := map[string]int{}
+		for k, v := range full {
+			if k != key {
+				weights[k] = v
+			}
+		}
+		return weights
+	}
+	tests := []struct {
+		name        string
+		npcMindsets []masterNPCMindset
+	}{
+		{name: "blank_name", npcMindsets: []masterNPCMindset{{Name: " ", CriterionWeights: full}}},
+		{name: "too_long_name", npcMindsets: []masterNPCMindset{{Name: strings.Repeat("あ", npcmindset.MaxNameLength+1), CriterionWeights: full}}},
+		{name: "duplicated_name", npcMindsets: []masterNPCMindset{{Name: "バランス", CriterionWeights: full}, {Name: "バランス", CriterionWeights: full}}},
+		{name: "duplicated_after_normalization", npcMindsets: []masterNPCMindset{{Name: "ＡＢＣ", CriterionWeights: full}, {Name: " abc", CriterionWeights: full}}},
+		{name: "missing_criterion", npcMindsets: []masterNPCMindset{{Name: "バランス", CriterionWeights: without("rival_total_magic")}}},
+		{name: "unknown_criterion", npcMindsets: []masterNPCMindset{{Name: "バランス", CriterionWeights: map[string]int{"own_total_magic": 1, "rival_total_magic": 1, "territory_count": 1, "unknown": 1}}}},
+		{name: "negative_weight", npcMindsets: []masterNPCMindset{{Name: "バランス", CriterionWeights: map[string]int{"own_total_magic": -1, "rival_total_magic": 1, "territory_count": 1}}}},
+		{name: "weight_over_upper_limit", npcMindsets: []masterNPCMindset{{Name: "バランス", CriterionWeights: map[string]int{"own_total_magic": 101, "rival_total_magic": 1, "territory_count": 1}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := loadMaster(sampleMasterJSON)
+			require.NoError(t, err)
+			m.NPCMindsets = tt.npcMindsets
+			m.NPCAvatars = nil
+
+			require.Error(t, m.validate())
+		})
+	}
 }
 
 func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
@@ -136,6 +190,8 @@ func TestLoadMaster_RejectsInvalidNPCAvatars(t *testing.T) {
 		{name: "no_decks", npcAvatars: []masterNPCAvatar{{Name: "森の番人"}}},
 		{name: "unknown_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{"x"}}}},
 		{name: "duplicated_deck", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: []string{fireDeck[0], fireDeck[0]}}}},
+		{name: "unknown_mindset", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: fireDeck, Mindsets: []string{"x"}}}},
+		{name: "duplicated_mindset", npcAvatars: []masterNPCAvatar{{Name: "森の番人", Decks: fireDeck, Mindsets: []string{"バランス", "バランス"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

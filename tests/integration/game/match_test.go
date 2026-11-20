@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -34,7 +35,7 @@ const matchQuery = `query ($id: UUID!) {
 			itemChoices
 			creatureAsItemChoices
 			invasion { position { x y } card { id name } hitPoints }
-			phase dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } placeChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
+			phase actionChoices dice remainingSteps pathChoices { x y } spellChoices { handIndex targets targetPositions { x y } } placeChoices relinquishChoices { x y } landLevels { position { x y } level } levelUpChoices { position { x y } level magic } exchangeChoices { position { x y } handIndex magic } elementChangeChoices { position { x y } element magic } moveChoices { from { x y } to { x y } } outcome { winners ranks reason } rewardPacks { key name }
 			territories { position { x y } owner level value toll relinquishMagic creature { id hitPoints card { id name cost rarity elements attack hitPoints } } }
 		}
 		... on MatchNotFoundError { message }
@@ -51,8 +52,18 @@ const roomMatchQuery = `query ($id: UUID!) {
 // 席 0 がプレイヤー、続く npcs 個の席が NPC（どの NPC の席も同じ NPC とデッキ）
 func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[string]any)) string {
 	t.Helper()
+	matchID, _ := startMatchWithSeats(t, p, true, npcs, adjustRules)
+	return matchID
+}
+
+// 席の並びを決めて対戦を始める。withPlayer が false なら全員 NPC の部屋で、作った人は参加しない。部屋の ID も返す
+func startMatchWithSeats(t *testing.T, p roomPlayer, withPlayer bool, npcs int, adjustRules func(map[string]any)) (matchID, roomID string) {
+	t.Helper()
 	id, revision := createRoom(t, p.token)
-	seats := []string{"PLAYER"}
+	var seats []string
+	if withPlayer {
+		seats = append(seats, "PLAYER")
+	}
 	for range npcs {
 		seats = append(seats, "NPC")
 	}
@@ -62,21 +73,25 @@ func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[strin
 		adjustRules(rules)
 	}
 	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomMatchRules", rules), "changeRoomMatchRules")
-	revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-		"id": id, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.deck["id"],
-	}), "changeRoomSeatChoice")
-	for seat := 1; seat <= npcs; seat++ {
+	firstNPCSeat := 0
+	if withPlayer {
 		revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
-			"id": id, "revision": revision, "seat": seat, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"],
+			"id": id, "revision": revision, "seat": 0, "avatarId": p.avatar["id"], "deckId": p.deck["id"],
+		}), "changeRoomSeatChoice")
+		firstNPCSeat = 1
+	}
+	for seat := firstNPCSeat; seat < firstNPCSeat+npcs; seat++ {
+		revision = roomRevision(t, roomOperation(t, p.token, "changeRoomSeatChoice", map[string]any{
+			"id": id, "revision": revision, "seat": seat, "avatarId": p.npc["id"], "deckId": p.npc["decks"].([]any)[0].(map[string]any)["id"], "mindsetId": p.npcMindset()["id"],
 		}), "changeRoomSeatChoice")
 	}
 	revision = roomRevision(t, roomOperation(t, p.token, "publishRoom", map[string]any{"id": id, "revision": revision}), "publishRoom")
 	roomOperation(t, p.token, "declareRoomReady", map[string]any{"id": id, "revision": revision})
 
-	var matchID string
 	testhelper.Eventually(t, func(c *assert.CollectT) {
 		result, err := client.TryData(t.Context(), p.token, roomMatchQuery, map[string]any{"id": id}, "room")
-		if !assert.NoError(c, err) || !assert.Equal(c, "PLAYING", result["status"]) {
+		// 全員 NPC の対戦はすぐ終わって次を決める状態に進むことがあるので、対戦が結び付いていれば状態は問わない
+		if !assert.NoError(c, err) || !assert.NotEqual(c, "PREPARING", result["status"]) {
 			return
 		}
 		linked, ok := result["match"].(map[string]any)
@@ -85,7 +100,38 @@ func startMatch(t *testing.T, p roomPlayer, npcs int, adjustRules func(map[strin
 		}
 		matchID = linked["id"].(string)
 	})
-	return matchID
+	return matchID, id
+}
+
+// プレイヤーの席の無い部屋では、NPC だけの対戦を思考パターンが最後まで進め、戦利品を選ぶ人がいないので部屋は次を決める状態に進む。
+// 作った人は参加していなくても対戦を読め、ほかのプレイヤーは読めない（2026-11-17 オーナー。core#179）
+func TestMatch_OwnerWatchesTheMatchOfOnlyNPCsToTheEnd(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID, roomID := startMatchWithSeats(t, p, false, 2, func(rules map[string]any) { rules["roundLimit"] = 2 })
+
+	ended := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
+	stranger := newPlayerToken(t)
+	registerPlayer(t, stranger)
+	hidden := client.Data(t, stranger, matchQuery, map[string]any{"id": matchID}, "match")
+	events := matchEvents(t, p.token, matchID, 0)
+
+	participants := ended["participants"].([]any)
+	require.Len(t, participants, 2)
+	for _, participant := range participants {
+		require.Equal(t, "NPC", participant.(map[string]any)["kind"])
+	}
+	require.NotNil(t, ended["outcome"])
+	require.Empty(t, ended["rewardPacks"])
+	require.Equal(t, "MatchEventList", events["__typename"])
+	require.NotEmpty(t, events["events"])
+	require.Equal(t, "MatchNotFoundError", hidden["__typename"])
+	testhelper.Eventually(t, func(c *assert.CollectT) {
+		result, err := client.TryData(t.Context(), p.token, roomMatchQuery, map[string]any{"id": roomID}, "room")
+		if assert.NoError(c, err) {
+			assert.Equal(c, "DECIDING_NEXT", result["status"])
+		}
+	})
 }
 
 // 部屋の最後の準備完了で、ポリシーが部屋の条件の写しから対戦を作る。参加者のプレイヤーだけが読め、山札の並びは見せない
@@ -200,77 +246,76 @@ func matchRevision(t *testing.T, result map[string]any, name string) int {
 	return int(result["revision"].(float64))
 }
 
-// プレイヤーの番で、段階に合う操作を 1 つする。ドメインの決まり（来たマスには戻らない等）を画面に持たせないため、
-// 分かれ道は core が出す pathChoices から選ぶ。次の revision を返す
-func playMatchPhase(t *testing.T, token, matchID string, m map[string]any) int {
+// プレイヤーの番で、core が出す actionChoices から操作を 1 つする（段階を見ない。どの段階でどの操作を選べるかを画面に持たせないため）。
+// 止まったマスの行動（配置・侵略）を先に選び、無ければ版で領地コマンドを回してどの操作も通し、それも無ければ払う・終える。
+// 対象は core が出す選択肢の最初。次の revision を返す
+func playMatchAction(t *testing.T, token, matchID string, m map[string]any) int {
 	t.Helper()
 	revision := int(m["revision"].(float64))
 	input := map[string]any{"id": matchID, "revision": revision}
-	switch m["phase"] {
-	case "DRAWING":
-		return matchRevision(t, matchOperation(t, token, "drawMatchCard", input), "drawMatchCard")
-	case "DISCARDING":
-		input["handIndex"] = 0
-		return matchRevision(t, matchOperation(t, token, "discardMatchCard", input), "discardMatchCard")
-	case "ROLLING":
-		return matchRevision(t, matchOperation(t, token, "rollMatchDice", input), "rollMatchDice")
-	case "CHOOSING_PATH":
-		choices := m["pathChoices"].([]any)
+	actions := m["actionChoices"].([]any)
+	require.NotEmpty(t, actions)
+	has := func(action string) bool { return slices.Contains(actions, any(action)) }
+	first := func(name string) map[string]any {
+		choices := m[name].([]any)
 		require.NotEmpty(t, choices)
-		input["to"] = choices[0]
-		return matchRevision(t, matchOperation(t, token, "chooseMatchPath", input), "chooseMatchPath")
-	case "PLACING":
-		// 配置できるものがあれば core が出す placeChoices の最初を配置し（そのままターンを終える）、無ければ配置せずにターンを終える
-		if choices := m["placeChoices"].([]any); len(choices) > 0 {
-			input["handIndex"] = choices[0]
-			return matchRevision(t, matchOperation(t, token, "placeMatchCreature", input), "placeMatchCreature")
-		}
-		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
-	case "INVADING":
-		// 出せるものがあれば core が出す invadeChoices の最初で侵略し、無ければ通行料を払う
-		if choices := m["invadeChoices"].([]any); len(choices) > 0 {
-			input["handIndex"] = choices[0]
-			return matchRevision(t, matchOperation(t, token, "invadeMatchTerritory", input), "invadeMatchTerritory")
-		}
-		return matchRevision(t, matchOperation(t, token, "payMatchToll", input), "payMatchToll")
-	case "ATTACKING":
-		require.NotNil(t, m["invasion"])
-		return matchRevision(t, matchOperation(t, token, "attackMatchTerritory", input), "attackMatchTerritory")
-	case "DEFENDING":
-		require.NotNil(t, m["invasion"])
-		return matchRevision(t, matchOperation(t, token, "defendMatchTerritory", input), "defendMatchTerritory")
-	case "TERRITORY_COMMANDING":
-		// 版を 4 で割った余りで移動・属性の変更・交換・レベルアップを分けて、どの操作も通す。選べるものが無ければ何もしない
-		if choices := m["moveChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%4 == 2 {
-			choice := choices[0].(map[string]any)
-			input["from"], input["to"] = choice["from"], choice["to"]
-			return matchRevision(t, matchOperation(t, token, "moveMatchCreature", input), "moveMatchCreature")
-		}
-		if choices := m["elementChangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%3 == 1 {
-			choice := choices[0].(map[string]any)
-			input["position"], input["element"] = choice["position"], choice["element"]
-			return matchRevision(t, matchOperation(t, token, "changeMatchLandElement", input), "changeMatchLandElement")
-		}
-		if choices := m["exchangeChoices"].([]any); len(choices) > 0 && int(m["revision"].(float64))%3 == 0 {
-			choice := choices[0].(map[string]any)
-			input["position"], input["handIndex"] = choice["position"], choice["handIndex"]
-			return matchRevision(t, matchOperation(t, token, "exchangeMatchCreature", input), "exchangeMatchCreature")
-		}
-		if choices := m["levelUpChoices"].([]any); len(choices) > 0 {
-			choice := choices[0].(map[string]any)
-			input["position"], input["level"] = choice["position"], choice["level"]
-			return matchRevision(t, matchOperation(t, token, "levelUpMatchLand", input), "levelUpMatchLand")
-		}
-		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
-	case "RELINQUISHING":
-		choices := m["relinquishChoices"].([]any)
-		require.NotEmpty(t, choices)
-		input["position"] = choices[0]
-		return matchRevision(t, matchOperation(t, token, "relinquishMatchTerritory", input), "relinquishMatchTerritory")
-	case "ENDING":
-		return matchRevision(t, matchOperation(t, token, "endMatchTurn", input), "endMatchTurn")
+		choice, _ := choices[0].(map[string]any)
+		return choice
 	}
-	require.FailNow(t, "unexpected phase")
+	firstIndex := func(name string) any {
+		choices := m[name].([]any)
+		require.NotEmpty(t, choices)
+		return choices[0]
+	}
+	operate := func(name string) int { return matchRevision(t, matchOperation(t, token, name, input), name) }
+	switch {
+	case has("DRAW_CARD"):
+		return operate("drawMatchCard")
+	case has("DISCARD_CARD"):
+		input["handIndex"] = 0
+		return operate("discardMatchCard")
+	case has("ROLL_DICE"):
+		return operate("rollMatchDice")
+	case has("CHOOSE_PATH"):
+		input["to"] = firstIndex("pathChoices")
+		return operate("chooseMatchPath")
+	case has("PLACE_CREATURE"):
+		input["handIndex"] = firstIndex("placeChoices")
+		return operate("placeMatchCreature")
+	case has("INVADE_TERRITORY"):
+		input["handIndex"] = firstIndex("invadeChoices")
+		return operate("invadeMatchTerritory")
+	case has("ATTACK_WITHOUT_ITEM"):
+		require.NotNil(t, m["invasion"])
+		return operate("attackMatchTerritory")
+	case has("DEFEND_WITHOUT_ITEM"):
+		require.NotNil(t, m["invasion"])
+		return operate("defendMatchTerritory")
+	case has("RELINQUISH_TERRITORY"):
+		input["position"] = firstIndex("relinquishChoices")
+		return operate("relinquishMatchTerritory")
+	case has("MOVE_CREATURE") && revision%4 == 2:
+		choice := first("moveChoices")
+		input["from"], input["to"] = choice["from"], choice["to"]
+		return operate("moveMatchCreature")
+	case has("CHANGE_LAND_ELEMENT") && revision%3 == 1:
+		choice := first("elementChangeChoices")
+		input["position"], input["element"] = choice["position"], choice["element"]
+		return operate("changeMatchLandElement")
+	case has("EXCHANGE_CREATURE") && revision%3 == 0:
+		choice := first("exchangeChoices")
+		input["position"], input["handIndex"] = choice["position"], choice["handIndex"]
+		return operate("exchangeMatchCreature")
+	case has("LEVEL_UP_LAND"):
+		choice := first("levelUpChoices")
+		input["position"], input["level"] = choice["position"], choice["level"]
+		return operate("levelUpMatchLand")
+	case has("PAY_TOLL"):
+		return operate("payMatchToll")
+	case has("END_TURN"):
+		return operate("endMatchTurn")
+	}
+	require.FailNow(t, fmt.Sprintf("unexpected actions: %v", actions))
 	return 0
 }
 
@@ -293,7 +338,7 @@ func TestMatch_PlayerAndNPCPlayTheMatchToTheEndThroughGraphQL(t *testing.T) {
 			break
 		}
 		assertOperationsAreRejected(t, p.token, stranger, matchID, m)
-		next := playMatchPhase(t, p.token, matchID, m)
+		next := playMatchAction(t, p.token, matchID, m)
 		// 配置の段階は、配置しても配置しなくてもターンが終わる
 		if m["phase"] != "ENDING" && m["phase"] != "PLACING" {
 			continue
@@ -584,7 +629,7 @@ func playUntilEnded(t *testing.T, p roomPlayer, matchID string) map[string]any {
 		if m["phase"] == "ENDED" {
 			return m
 		}
-		playMatchPhase(t, p.token, matchID, m)
+		playMatchAction(t, p.token, matchID, m)
 	}
 }
 
@@ -740,7 +785,7 @@ func TestMatchEvents_TurnEventsCarryTheParticipantWhoActed(t *testing.T) {
 		if m["phase"] == "ENDED" {
 			break
 		}
-		playMatchPhase(t, p.token, matchID, m)
+		playMatchAction(t, p.token, matchID, m)
 	}
 
 	events := matchEvents(t, p.token, matchID, 0)["events"].([]any)
@@ -786,7 +831,7 @@ func TestMatchEvents_ChangesUpToTheCurrentRevisionAddUpToTheMatch(t *testing.T) 
 		if m["phase"] == "ENDED" {
 			break
 		}
-		playMatchPhase(t, p.token, matchID, m)
+		playMatchAction(t, p.token, matchID, m)
 	}
 
 	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
@@ -890,7 +935,7 @@ func TestMatch_PlacedCreaturesBecomeTheTerritoriesTheEventsSay(t *testing.T) {
 			wrong := matchOperation(t, p.token, "relinquishMatchTerritory", map[string]any{"id": matchID, "revision": m["revision"], "position": map[string]any{"x": 0, "y": 0}})
 			require.Equal(t, "MatchPhaseNotAllowedError", wrong["__typename"])
 		}
-		playMatchPhase(t, p.token, matchID, m)
+		playMatchAction(t, p.token, matchID, m)
 	}
 
 	final := waitMatch(t, p.token, matchID, func(m map[string]any) bool { return m["phase"] == "ENDED" })
@@ -1088,4 +1133,39 @@ func requireDeltaWithinModifier(t *testing.T, basis map[string]any, attackDelta,
 	if basis["hitPointsModifier"].(float64) >= 0 {
 		require.Equal(t, basis["hitPointsModifier"], hitPointsDelta)
 	}
+}
+
+// 始めた後に studio で重みを変えても同じ対戦を再生できるよう、NPC の席が選んだ思考パターンの ID と重みの値が、
+// 始まった対戦の NPC の参加者に写る（対戦の作成のイベントを、保存された payload で確かめる）
+func TestMatch_CopiesTheMindsetOfTheChosenNPCSeatToTheNPCParticipant(t *testing.T) {
+	t.Parallel()
+	p := newRoomPlayer(t)
+	matchID, _ := startMatchWithSeats(t, p, true, 1, nil)
+
+	var raw []byte
+	err := gameDB.QueryRowContext(t.Context(),
+		`SELECT e.payload FROM domain_events e JOIN domain_entities d ON d.id = e.entity_id WHERE d.public_id = $1 AND e.aggregate_version = 1`, matchID).Scan(&raw)
+
+	require.NoError(t, err)
+	var created struct {
+		Participants []struct {
+			NPC *struct {
+				Mindset struct {
+					ID               int64          `json:"id"`
+					ActionWeights    map[string]int `json:"action_weights"`
+					CriterionWeights map[string]int `json:"criterion_weights"`
+				} `json:"mindset"`
+			} `json:"npc"`
+		} `json:"participants"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &created))
+	require.Len(t, created.Participants, 2)
+	require.Nil(t, created.Participants[0].NPC)
+	copied := created.Participants[1].NPC.Mindset
+	require.Equal(t, master.NPCAvatars.InternalMindsetPublished1.Int64(), copied.ID)
+	require.Len(t, copied.ActionWeights, 19)
+	for _, weight := range copied.ActionWeights {
+		require.Equal(t, 2, weight)
+	}
+	require.Equal(t, map[string]int{"own_total_magic": 3, "rival_total_magic": 1, "territory_count": 1}, copied.CriterionWeights)
 }

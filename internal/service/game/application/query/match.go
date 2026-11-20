@@ -13,11 +13,12 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/board"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/effect"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/matchaction"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/player"
 )
 
-// 公開 ID に当たる対戦が、そのプレイヤーの対戦として無い（無い・参加していない対戦。存在を明かさないため区別しない）
+// 公開 ID に当たる対戦が、そのプレイヤーの読める対戦として無い（無い・参加も部屋の持ち主でもない対戦。存在を明かさないため区別しない）
 var ErrMatchNotFound = errors.New("query: match not found")
 
 type MatchParticipantKind string
@@ -43,6 +44,31 @@ const (
 	MatchPhaseTerritoryCommanding MatchPhase = "territory_commanding"
 	MatchPhaseEnding              MatchPhase = "ending"
 	MatchPhaseEnded               MatchPhase = "ended"
+)
+
+// 操作を待っている人が今選べる行動の種類（matchaction.Action）
+type MatchAction string
+
+const (
+	MatchActionDrawCard            MatchAction = "draw_card"
+	MatchActionDiscardCard         MatchAction = "discard_card"
+	MatchActionUseSpell            MatchAction = "use_spell"
+	MatchActionRollDice            MatchAction = "roll_dice"
+	MatchActionChoosePath          MatchAction = "choose_path"
+	MatchActionPlaceCreature       MatchAction = "place_creature"
+	MatchActionInvadeTerritory     MatchAction = "invade_territory"
+	MatchActionPayToll             MatchAction = "pay_toll"
+	MatchActionLevelUpLand         MatchAction = "level_up_land"
+	MatchActionExchangeCreature    MatchAction = "exchange_creature"
+	MatchActionChangeLandElement   MatchAction = "change_land_element"
+	MatchActionMoveCreature        MatchAction = "move_creature"
+	MatchActionAttackWithItem      MatchAction = "attack_with_item"
+	MatchActionAttackWithoutItem   MatchAction = "attack_without_item"
+	MatchActionDefendWithItem      MatchAction = "defend_with_item"
+	MatchActionDefendWithoutItem   MatchAction = "defend_without_item"
+	MatchActionUseCreatureAsItem   MatchAction = "use_creature_as_item"
+	MatchActionRelinquishTerritory MatchAction = "relinquish_territory"
+	MatchActionEndTurn             MatchAction = "end_turn"
 )
 
 type MatchEndReason string
@@ -227,6 +253,8 @@ type Match struct {
 	// 今操作を待っている参加者。守る段階だけは領地の持ち主で、ほかは今の番の人
 	AwaitingParticipant *int
 	Phase               MatchPhase
+	// 操作を待っている人が今選べる行動の種類。終わった後は空
+	ActionChoices []MatchAction
 	// このターンに振った目。振る前は nil
 	Dice           *int
 	RemainingSteps int
@@ -278,7 +306,7 @@ type MatchNames struct {
 type LoadMatchNamesFunc func(ctx context.Context, avatarIDs, npcAvatarIDs, cardIDs []uuid.UUID) (MatchNames, error)
 
 // 対戦を、read model ではなくイベントストアから読み直した集約の状態から返す（対戦に read model を作らない。組み立ての決まりを 1 か所にするため）。
-// 参加者のプレイヤーだけが読める
+// 参加者のプレイヤーと、対戦を始めた部屋を作った人だけが読める（MatchAccess）
 type MatchHandler struct {
 	access     *MatchAccess
 	entityRefs domain.EntityRefResolver
@@ -293,8 +321,9 @@ func NewMatchHandler(
 	entityRefs domain.EntityRefResolver,
 	loadNames LoadMatchNamesFunc,
 	findRoom FindRoomByMatchFunc,
+	ownsRoomOfMatch OwnsRoomOfMatchFunc,
 ) *MatchHandler {
-	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players), entityRefs: entityRefs, loadNames: loadNames, findRoom: findRoom}
+	return &MatchHandler{access: NewMatchAccess(eventStore, matches, players, ownsRoomOfMatch), entityRefs: entityRefs, loadNames: loadNames, findRoom: findRoom}
 }
 
 // 参加していない対戦も、無いのと同じ ErrMatchNotFound にする
@@ -495,7 +524,14 @@ func (q *MatchHandler) build(ctx context.Context, publicID uuid.UUID, current ma
 		Phase: phase, RemainingSteps: current.RemainingSteps, PathChoices: []BoardPosition{}, RewardPacks: []MatchRewardPack{},
 		SpellChoices: []MatchSpellChoice{}, PlaceChoices: []int{}, InvadeChoices: []int{}, ItemChoices: []int{}, CreatureAsItemChoices: []int{}, RelinquishChoices: fromBoardPositions(current.RelinquishChoices()), Territories: []MatchTerritory{},
 		LandLevels: []MatchLandLevel{}, LevelUpChoices: []MatchLevelUpChoice{}, ExchangeChoices: []MatchExchangeChoice{}, ElementChangeChoices: []MatchElementChangeChoice{},
-		MoveChoices: []MatchMoveChoice{},
+		MoveChoices: []MatchMoveChoice{}, ActionChoices: []MatchAction{},
+	}
+	for _, action := range current.ActionChoices() {
+		converted, err := fromMatchAction(action)
+		if err != nil {
+			return Match{}, err
+		}
+		result.ActionChoices = append(result.ActionChoices, converted)
 	}
 	for _, choice := range current.MoveChoices() {
 		result.MoveChoices = append(result.MoveChoices, MatchMoveChoice{
@@ -639,6 +675,51 @@ func fromMatchPhase(phase match.Phase) (MatchPhase, error) {
 		return MatchPhaseEnded, nil
 	default:
 		return "", fmt.Errorf("query: unexpected match phase: %q", phase)
+	}
+}
+
+func fromMatchAction(action matchaction.Action) (MatchAction, error) {
+	switch action {
+	case matchaction.ActionDrawCard:
+		return MatchActionDrawCard, nil
+	case matchaction.ActionDiscardCard:
+		return MatchActionDiscardCard, nil
+	case matchaction.ActionUseSpell:
+		return MatchActionUseSpell, nil
+	case matchaction.ActionRollDice:
+		return MatchActionRollDice, nil
+	case matchaction.ActionChoosePath:
+		return MatchActionChoosePath, nil
+	case matchaction.ActionPlaceCreature:
+		return MatchActionPlaceCreature, nil
+	case matchaction.ActionInvadeTerritory:
+		return MatchActionInvadeTerritory, nil
+	case matchaction.ActionPayToll:
+		return MatchActionPayToll, nil
+	case matchaction.ActionLevelUpLand:
+		return MatchActionLevelUpLand, nil
+	case matchaction.ActionExchangeCreature:
+		return MatchActionExchangeCreature, nil
+	case matchaction.ActionChangeLandElement:
+		return MatchActionChangeLandElement, nil
+	case matchaction.ActionMoveCreature:
+		return MatchActionMoveCreature, nil
+	case matchaction.ActionAttackWithItem:
+		return MatchActionAttackWithItem, nil
+	case matchaction.ActionAttackWithoutItem:
+		return MatchActionAttackWithoutItem, nil
+	case matchaction.ActionDefendWithItem:
+		return MatchActionDefendWithItem, nil
+	case matchaction.ActionDefendWithoutItem:
+		return MatchActionDefendWithoutItem, nil
+	case matchaction.ActionUseCreatureAsItem:
+		return MatchActionUseCreatureAsItem, nil
+	case matchaction.ActionRelinquishTerritory:
+		return MatchActionRelinquishTerritory, nil
+	case matchaction.ActionEndTurn:
+		return MatchActionEndTurn, nil
+	default:
+		return "", fmt.Errorf("query: unexpected match action: %q", action)
 	}
 }
 

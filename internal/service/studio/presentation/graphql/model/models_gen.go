@@ -155,6 +155,11 @@ type DeleteNpcDeckResult interface {
 	IsDeleteNpcDeckResult()
 }
 
+// NPC の思考パターンの削除の結果（準備中のものだけ消せる）
+type DeleteNpcMindsetResult interface {
+	IsDeleteNpcMindsetResult()
+}
+
 // プリセットデッキの削除の結果
 type DeletePresetDeckResult interface {
 	IsDeletePresetDeckResult()
@@ -221,6 +226,16 @@ type NpcDecksResult interface {
 	IsNpcDecksResult()
 }
 
+// NPC の思考パターンの詳細の結果
+type NpcMindsetResult interface {
+	IsNpcMindsetResult()
+}
+
+// NPC の思考パターンの一覧の結果
+type NpcMindsetsResult interface {
+	IsNpcMindsetsResult()
+}
+
 // プリセットデッキの詳細の結果
 type PresetDeckResult interface {
 	IsPresetDeckResult()
@@ -256,6 +271,11 @@ type PublishNpcAvatarResult interface {
 // NPC のデッキの公開の結果（準備中・使用不可から公開中にできる）
 type PublishNpcDeckResult interface {
 	IsPublishNpcDeckResult()
+}
+
+// NPC の思考パターンの公開の結果（準備中・使用不可から公開中にできる。満たす条件は無い）
+type PublishNpcMindsetResult interface {
+	IsPublishNpcMindsetResult()
 }
 
 // スターターセットの公開の結果（準備中・使用不可から公開中にできる）。
@@ -306,6 +326,11 @@ type RegisterNpcDeckResult interface {
 	IsRegisterNpcDeckResult()
 }
 
+// NPC の思考パターンの登録の結果
+type RegisterNpcMindsetResult interface {
+	IsRegisterNpcMindsetResult()
+}
+
 // プリセットデッキの登録の結果
 type RegisterPresetDeckResult interface {
 	IsRegisterPresetDeckResult()
@@ -339,6 +364,11 @@ type RenameNpcAvatarResult interface {
 // NPC のデッキの名前の変更の結果（準備中のものだけ変えられる）
 type RenameNpcDeckResult interface {
 	IsRenameNpcDeckResult()
+}
+
+// NPC の思考パターンの名前の変更の結果（準備中のものだけ変えられる）
+type RenameNpcMindsetResult interface {
+	IsRenameNpcMindsetResult()
 }
 
 // プリセットデッキの名前の変更の結果
@@ -376,6 +406,11 @@ type RetireNpcDeckResult interface {
 	IsRetireNpcDeckResult()
 }
 
+// NPC の思考パターンの使用不可の結果
+type RetireNpcMindsetResult interface {
+	IsRetireNpcMindsetResult()
+}
+
 // スターターセットの使用不可の結果
 type RetireStarterSetResult interface {
 	IsRetireStarterSetResult()
@@ -393,9 +428,28 @@ type SetNpcAvatarDecksResult interface {
 	IsSetNpcAvatarDecksResult()
 }
 
+// NPC のアバターへの使う思考パターンの割り当ての結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は mindsetIds.<番号>。同じ思考パターンの 2 つ目以降は重複、無い・削除した思考パターンは存在しない、
+// 新しく入れる公開中でない思考パターンは使えない）
+type SetNpcAvatarMindsetsResult interface {
+	IsSetNpcAvatarMindsetsResult()
+}
+
 // NPC のデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない。準備中のものだけ変えられる）
 type SetNpcDeckCardCountsResult interface {
 	IsSetNpcDeckCardCountsResult()
+}
+
+// NPC の思考パターンの行動の種類ごとの重みの変更の結果（準備中のものだけ変えられる）。
+// 入力の誤りは ValidationErrors（項目名は weights.<番号>。同じ種類の 2 つ目以降は重複、範囲外の重みは weights.<番号>.weight の範囲外、
+// 種類が足りないときは weights が必須）
+type SetNpcMindsetActionWeightsResult interface {
+	IsSetNpcMindsetActionWeightsResult()
+}
+
+// NPC の思考パターンの採点基準ごとの重みの変更の結果（準備中のものだけ変えられる）。入力の誤りの項目名は行動の種類の重みと同じ
+type SetNpcMindsetCriterionWeightsResult interface {
+	IsSetNpcMindsetCriterionWeightsResult()
 }
 
 // プリセットデッキのカードの枚数の変更の結果（一覧のどれか 1 つでも誤りがあれば、何も変えない）
@@ -1356,6 +1410,22 @@ type DeleteNpcDeckSuccess struct {
 
 func (DeleteNpcDeckSuccess) IsDeleteNpcDeckResult() {}
 
+// NPC の思考パターンを削除する入力
+type DeleteNpcMindsetInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+}
+
+// NPC の思考パターンを削除した（名前はほかの NPC の思考パターンが使えるようになる）
+type DeleteNpcMindsetSuccess struct {
+	// 削除した NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+}
+
+func (DeleteNpcMindsetSuccess) IsDeleteNpcMindsetResult() {}
+
 // プリセットデッキを削除する入力
 type DeletePresetDeckInput struct {
 	// プリセットデッキの公開用の ID
@@ -1737,6 +1807,8 @@ func (ForbiddenError) IsRenameNpcAvatarResult() {}
 
 func (ForbiddenError) IsSetNpcAvatarDecksResult() {}
 
+func (ForbiddenError) IsSetNpcAvatarMindsetsResult() {}
+
 func (ForbiddenError) IsDeleteNpcAvatarResult() {}
 
 func (ForbiddenError) IsPublishNpcAvatarResult() {}
@@ -1760,6 +1832,24 @@ func (ForbiddenError) IsDeleteNpcDeckResult() {}
 func (ForbiddenError) IsPublishNpcDeckResult() {}
 
 func (ForbiddenError) IsRetireNpcDeckResult() {}
+
+func (ForbiddenError) IsNpcMindsetsResult() {}
+
+func (ForbiddenError) IsNpcMindsetResult() {}
+
+func (ForbiddenError) IsRegisterNpcMindsetResult() {}
+
+func (ForbiddenError) IsRenameNpcMindsetResult() {}
+
+func (ForbiddenError) IsSetNpcMindsetActionWeightsResult() {}
+
+func (ForbiddenError) IsSetNpcMindsetCriterionWeightsResult() {}
+
+func (ForbiddenError) IsDeleteNpcMindsetResult() {}
+
+func (ForbiddenError) IsPublishNpcMindsetResult() {}
+
+func (ForbiddenError) IsRetireNpcMindsetResult() {}
 
 func (ForbiddenError) IsPresetDecksResult() {}
 
@@ -1985,6 +2075,14 @@ type InvalidNpcDeckStatusTransitionError struct {
 
 func (InvalidNpcDeckStatusTransitionError) IsRetireNpcDeckResult() {}
 
+// 準備中の NPC の思考パターンを使用不可にしようとした（準備中から移れるのは公開中だけ）
+type InvalidNpcMindsetStatusTransitionError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (InvalidNpcMindsetStatusTransitionError) IsRetireNpcMindsetResult() {}
+
 // 準備中のスターターセットを使用不可にしようとした（準備中から移れるのは公開中だけ）
 type InvalidStarterSetStatusTransitionError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
@@ -2165,7 +2263,7 @@ func (NpcAvatarNameAlreadyInUseError) IsRegisterNpcAvatarResult() {}
 
 func (NpcAvatarNameAlreadyInUseError) IsRenameNpcAvatarResult() {}
 
-// 準備中でない NPC のアバターの名前・使うデッキを変える、または削除しようとした（準備中のものだけ変えられる）
+// 準備中でない NPC のアバターの名前・使うデッキ・使う思考パターンを変える、または削除しようとした（準備中のものだけ変えられる）
 type NpcAvatarNotDraftError struct {
 	// 開発者向けの説明（画面にそのまま出す文言ではない）
 	Message string `json:"message"`
@@ -2174,6 +2272,8 @@ type NpcAvatarNotDraftError struct {
 func (NpcAvatarNotDraftError) IsRenameNpcAvatarResult() {}
 
 func (NpcAvatarNotDraftError) IsSetNpcAvatarDecksResult() {}
+
+func (NpcAvatarNotDraftError) IsSetNpcAvatarMindsetsResult() {}
 
 func (NpcAvatarNotDraftError) IsDeleteNpcAvatarResult() {}
 
@@ -2188,6 +2288,8 @@ func (NpcAvatarNotFoundError) IsNpcAvatarResult() {}
 func (NpcAvatarNotFoundError) IsRenameNpcAvatarResult() {}
 
 func (NpcAvatarNotFoundError) IsSetNpcAvatarDecksResult() {}
+
+func (NpcAvatarNotFoundError) IsSetNpcAvatarMindsetsResult() {}
 
 func (NpcAvatarNotFoundError) IsDeleteNpcAvatarResult() {}
 
@@ -2262,6 +2364,130 @@ func (NpcDeckNotFoundError) IsDeleteNpcDeckResult() {}
 func (NpcDeckNotFoundError) IsPublishNpcDeckResult() {}
 
 func (NpcDeckNotFoundError) IsRetireNpcDeckResult() {}
+
+// NPC の思考パターン
+type NpcMindset struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前（登録・変更したときの表記。前後の空白は除く。状態によらず、すべての NPC の思考パターンの中で一意）
+	Name string `json:"name"`
+	// 状態（準備中・公開中・使用不可）
+	Status NpcMindsetStatus `json:"status"`
+	// 行動の種類ごとの重み（種類のすべてを持つ。並びは行動の種類の定義の順）。重みは 0〜100 の整数で、0 はその種類を選ばない。点の付かない段階（引く・捨てる・振る前・行き先を選ぶ）で効く
+	ActionWeights []*NpcMindsetActionWeight `json:"actionWeights"`
+	// 採点基準ごとの重み（基準のすべてを持つ）。重みは 0〜100 の整数で、0 はその基準を見ない。点の付く段階（配置・侵略・攻める・守る・手放す・領地コマンド・ターンを終える）で効く
+	CriterionWeights []*NpcMindsetCriterionWeight `json:"criterionWeights"`
+	// 更新の番号（画面が見ていた版。変える・消す操作の入力にそのまま渡す。利用者には見せない）
+	Revision int `json:"revision"`
+	// 登録した日時
+	RegisteredAt time.Time `json:"registeredAt"`
+	// 最後に変更した日時（変更していなければ登録した日時）
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (NpcMindset) IsNpcMindsetResult() {}
+
+// 行動の種類とその重み
+type NpcMindsetActionWeight struct {
+	// 行動の種類
+	Action MatchAction `json:"action"`
+	// 重み（0〜100）
+	Weight int `json:"weight"`
+}
+
+// 行動の種類とその重みの入力
+type NpcMindsetActionWeightInput struct {
+	// 行動の種類
+	Action MatchAction `json:"action"`
+	// 重み（0〜100 の整数）
+	Weight int `json:"weight"`
+}
+
+// NPC の思考パターンの一覧の 1 ページ（名前の順）
+type NpcMindsetConnection struct {
+	// このページの NPC の思考パターン
+	Edges []*NpcMindsetEdge `json:"edges"`
+	// ページの情報
+	PageInfo *PageInfo `json:"pageInfo"`
+}
+
+func (NpcMindsetConnection) IsNpcMindsetsResult() {}
+
+// 採点基準とその重み
+type NpcMindsetCriterionWeight struct {
+	// 採点基準
+	Criterion NpcMindsetCriterion `json:"criterion"`
+	// 重み（0〜100）
+	Weight int `json:"weight"`
+}
+
+// 採点基準とその重みの入力
+type NpcMindsetCriterionWeightInput struct {
+	// 採点基準
+	Criterion NpcMindsetCriterion `json:"criterion"`
+	// 重み（0〜100 の整数）
+	Weight int `json:"weight"`
+}
+
+// NPC の思考パターンの一覧の 1 件と、その位置
+type NpcMindsetEdge struct {
+	// この 1 件の位置（次のページを取るときに after に渡す）
+	Cursor string `json:"cursor"`
+	// NPC の思考パターン
+	Node *NpcMindset `json:"node"`
+}
+
+// NPC の思考パターンの一覧の絞り込み
+type NpcMindsetFilter struct {
+	// 名前に含まれる文字（前後の空白を除き、全角・半角、大文字・小文字の違いは無視する。空・空白だけは入力の誤り。50 文字まで）
+	NameContains *string `json:"nameContains,omitempty"`
+	// 状態（指定が無ければすべて。空のリストは入力の誤り）
+	Statuses []NpcMindsetStatus `json:"statuses,omitempty"`
+}
+
+// 名前が、ほかの NPC の思考パターンですでに使われている（状態によらない）。カード名と同じ比べ方（前後の空白を除き、全角・半角、大文字・小文字の違いを同じとみなす）
+type NpcMindsetNameAlreadyInUseError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcMindsetNameAlreadyInUseError) IsRegisterNpcMindsetResult() {}
+
+func (NpcMindsetNameAlreadyInUseError) IsRenameNpcMindsetResult() {}
+
+// 準備中でない NPC の思考パターンの名前・重みを変える、または削除しようとした（準備中のものだけ変えられる）
+type NpcMindsetNotDraftError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcMindsetNotDraftError) IsRenameNpcMindsetResult() {}
+
+func (NpcMindsetNotDraftError) IsSetNpcMindsetActionWeightsResult() {}
+
+func (NpcMindsetNotDraftError) IsSetNpcMindsetCriterionWeightsResult() {}
+
+func (NpcMindsetNotDraftError) IsDeleteNpcMindsetResult() {}
+
+// NPC の思考パターンが無い（削除したものを含む）
+type NpcMindsetNotFoundError struct {
+	// 開発者向けの説明（画面にそのまま出す文言ではない）
+	Message string `json:"message"`
+}
+
+func (NpcMindsetNotFoundError) IsNpcMindsetResult() {}
+
+func (NpcMindsetNotFoundError) IsRenameNpcMindsetResult() {}
+
+func (NpcMindsetNotFoundError) IsSetNpcMindsetActionWeightsResult() {}
+
+func (NpcMindsetNotFoundError) IsSetNpcMindsetCriterionWeightsResult() {}
+
+func (NpcMindsetNotFoundError) IsDeleteNpcMindsetResult() {}
+
+func (NpcMindsetNotFoundError) IsPublishNpcMindsetResult() {}
+
+func (NpcMindsetNotFoundError) IsRetireNpcMindsetResult() {}
 
 // 受けるダメージを 0 にする
 type NullifyReceivedDamageEffect struct {
@@ -2459,6 +2685,24 @@ type PublishNpcDeckSuccess struct {
 
 func (PublishNpcDeckSuccess) IsPublishNpcDeckResult() {}
 
+// NPC の思考パターンを公開する入力
+type PublishNpcMindsetInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+}
+
+// NPC の思考パターンを公開中にした（すでに公開中なら何も変えず、revision も進まない）
+type PublishNpcMindsetSuccess struct {
+	// 公開した NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 公開した NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (PublishNpcMindsetSuccess) IsPublishNpcMindsetResult() {}
+
 // スターターセットを公開する入力
 type PublishStarterSetInput struct {
 	// スターターセットの公開用の ID
@@ -2608,6 +2852,22 @@ type RegisterNpcDeckSuccess struct {
 
 func (RegisterNpcDeckSuccess) IsRegisterNpcDeckResult() {}
 
+// NPC の思考パターンを登録する入力
+type RegisterNpcMindsetInput struct {
+	// 名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC の思考パターンを登録した（準備中）
+type RegisterNpcMindsetSuccess struct {
+	// 登録した NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 登録した NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RegisterNpcMindsetSuccess) IsRegisterNpcMindsetResult() {}
+
 // プリセットデッキを登録する入力
 type RegisterPresetDeckInput struct {
 	// 名前（1〜50 文字。前後の空白は除いて保存する）
@@ -2733,6 +2993,26 @@ type RenameNpcDeckSuccess struct {
 }
 
 func (RenameNpcDeckSuccess) IsRenameNpcDeckResult() {}
+
+// NPC の思考パターンの名前を変える入力
+type RenameNpcMindsetInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+	// 新しい名前（1〜20 文字。前後の空白は除いて保存する）
+	Name string `json:"name"`
+}
+
+// NPC の思考パターンの名前を変えた（同じ名前なら何も変えず、revision も進まない）
+type RenameNpcMindsetSuccess struct {
+	// 変えた NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RenameNpcMindsetSuccess) IsRenameNpcMindsetResult() {}
 
 // プリセットデッキの名前を変える入力
 type RenamePresetDeckInput struct {
@@ -2864,6 +3144,24 @@ type RetireNpcDeckSuccess struct {
 
 func (RetireNpcDeckSuccess) IsRetireNpcDeckResult() {}
 
+// NPC の思考パターンを使用不可にする入力
+type RetireNpcMindsetInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+}
+
+// NPC の思考パターンを使用不可にした（すでに使用不可なら何も変えず、revision も進まない）
+type RetireNpcMindsetSuccess struct {
+	// 使用不可にした NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 使用不可にした NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (RetireNpcMindsetSuccess) IsRetireNpcMindsetResult() {}
+
 // スターターセットを使用不可にする入力
 type RetireStarterSetInput struct {
 	// スターターセットの公開用の ID
@@ -2949,6 +3247,8 @@ func (RevisionConflictError) IsRenameNpcAvatarResult() {}
 
 func (RevisionConflictError) IsSetNpcAvatarDecksResult() {}
 
+func (RevisionConflictError) IsSetNpcAvatarMindsetsResult() {}
+
 func (RevisionConflictError) IsDeleteNpcAvatarResult() {}
 
 func (RevisionConflictError) IsPublishNpcAvatarResult() {}
@@ -2964,6 +3264,18 @@ func (RevisionConflictError) IsDeleteNpcDeckResult() {}
 func (RevisionConflictError) IsPublishNpcDeckResult() {}
 
 func (RevisionConflictError) IsRetireNpcDeckResult() {}
+
+func (RevisionConflictError) IsRenameNpcMindsetResult() {}
+
+func (RevisionConflictError) IsSetNpcMindsetActionWeightsResult() {}
+
+func (RevisionConflictError) IsSetNpcMindsetCriterionWeightsResult() {}
+
+func (RevisionConflictError) IsDeleteNpcMindsetResult() {}
+
+func (RevisionConflictError) IsPublishNpcMindsetResult() {}
+
+func (RevisionConflictError) IsRetireNpcMindsetResult() {}
 
 func (RevisionConflictError) IsRenamePresetDeckResult() {}
 
@@ -3043,6 +3355,26 @@ type SetNpcAvatarDecksSuccess struct {
 
 func (SetNpcAvatarDecksSuccess) IsSetNpcAvatarDecksResult() {}
 
+// NPC のアバターに使う思考パターンを割り当てる入力
+type SetNpcAvatarMindsetsInput struct {
+	// NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC のアバターの revision
+	Revision int `json:"revision"`
+	// 使う NPC の思考パターンの公開用の ID（今の一覧をこの一覧に置き換える。今の一覧に無いものは後ろに足し、この一覧に無いものは外す。並べ替えだけでは変わらない。0 件でもよい。同じ思考パターンは 2 回入れられない。新しく入れる思考パターンは公開中のものだけ）
+	MindsetIds []uuid.UUID `json:"mindsetIds"`
+}
+
+// NPC のアバターに使う思考パターンを割り当てた（同じ思考パターンの集まりなら何も変えず、revision も進まない）
+type SetNpcAvatarMindsetsSuccess struct {
+	// 変えた NPC のアバターの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC のアバターの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetNpcAvatarMindsetsSuccess) IsSetNpcAvatarMindsetsResult() {}
+
 // NPC のデッキのカードの枚数を変える入力
 type SetNpcDeckCardCountsInput struct {
 	// NPC のデッキの公開用の ID
@@ -3062,6 +3394,46 @@ type SetNpcDeckCardCountsSuccess struct {
 }
 
 func (SetNpcDeckCardCountsSuccess) IsSetNpcDeckCardCountsResult() {}
+
+// 行動の種類ごとの重みを変える入力
+type SetNpcMindsetActionWeightsInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+	// 行動の種類ごとの重み（今の重みをこの一覧に置き換える。種類のすべてを 1 回ずつ入れる）
+	Weights []*NpcMindsetActionWeightInput `json:"weights"`
+}
+
+// NPC の思考パターンの行動の種類ごとの重みを変えた（同じ重みなら何も変えず、revision も進まない）
+type SetNpcMindsetActionWeightsSuccess struct {
+	// 変えた NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetNpcMindsetActionWeightsSuccess) IsSetNpcMindsetActionWeightsResult() {}
+
+// 採点基準ごとの重みを変える入力
+type SetNpcMindsetCriterionWeightsInput struct {
+	// NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 画面が見ていた NPC の思考パターンの revision
+	Revision int `json:"revision"`
+	// 採点基準ごとの重み（今の重みをこの一覧に置き換える。基準のすべてを 1 回ずつ入れる）
+	Weights []*NpcMindsetCriterionWeightInput `json:"weights"`
+}
+
+// NPC の思考パターンの採点基準ごとの重みを変えた（同じ重みなら何も変えず、revision も進まない）
+type SetNpcMindsetCriterionWeightsSuccess struct {
+	// 変えた NPC の思考パターンの公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 変えた NPC の思考パターンの revision（内容は返さない。画面は詳細を読み直し、詳細の revision を持つ）
+	Revision int `json:"revision"`
+}
+
+func (SetNpcMindsetCriterionWeightsSuccess) IsSetNpcMindsetCriterionWeightsResult() {}
 
 // プリセットデッキのカードの枚数を変える入力
 type SetPresetDeckCardCountsInput struct {
@@ -3465,6 +3837,8 @@ func (ValidationErrors) IsRenameNpcAvatarResult() {}
 
 func (ValidationErrors) IsSetNpcAvatarDecksResult() {}
 
+func (ValidationErrors) IsSetNpcAvatarMindsetsResult() {}
+
 func (ValidationErrors) IsPublishNpcAvatarResult() {}
 
 func (ValidationErrors) IsNpcDecksResult() {}
@@ -3478,6 +3852,16 @@ func (ValidationErrors) IsRenameNpcDeckResult() {}
 func (ValidationErrors) IsSetNpcDeckCardCountsResult() {}
 
 func (ValidationErrors) IsPublishNpcDeckResult() {}
+
+func (ValidationErrors) IsNpcMindsetsResult() {}
+
+func (ValidationErrors) IsRegisterNpcMindsetResult() {}
+
+func (ValidationErrors) IsRenameNpcMindsetResult() {}
+
+func (ValidationErrors) IsSetNpcMindsetActionWeightsResult() {}
+
+func (ValidationErrors) IsSetNpcMindsetCriterionWeightsResult() {}
 
 func (ValidationErrors) IsPresetDecksResult() {}
 
@@ -4242,6 +4626,115 @@ func (e ItemCategory) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// 行動の種類（対戦で選べる行動。game の MatchAction と同じ値）。対象（手札・領地・行き先）には重みを付けず、種類だけに付ける
+type MatchAction string
+
+const (
+	// カードを引く
+	MatchActionDrawCard MatchAction = "DRAW_CARD"
+	// 手札を捨てる
+	MatchActionDiscardCard MatchAction = "DISCARD_CARD"
+	// スペルを使う
+	MatchActionUseSpell MatchAction = "USE_SPELL"
+	// サイコロを振る
+	MatchActionRollDice MatchAction = "ROLL_DICE"
+	// 行き先を選ぶ
+	MatchActionChoosePath MatchAction = "CHOOSE_PATH"
+	// クリーチャーを配置する
+	MatchActionPlaceCreature MatchAction = "PLACE_CREATURE"
+	// 侵略する
+	MatchActionInvadeTerritory MatchAction = "INVADE_TERRITORY"
+	// 通行料を払う
+	MatchActionPayToll MatchAction = "PAY_TOLL"
+	// 土地のレベルを上げる
+	MatchActionLevelUpLand MatchAction = "LEVEL_UP_LAND"
+	// クリーチャーを交換する
+	MatchActionExchangeCreature MatchAction = "EXCHANGE_CREATURE"
+	// 土地の属性を変える
+	MatchActionChangeLandElement MatchAction = "CHANGE_LAND_ELEMENT"
+	// クリーチャーを移動する
+	MatchActionMoveCreature MatchAction = "MOVE_CREATURE"
+	// アイテムを出して攻める
+	MatchActionAttackWithItem MatchAction = "ATTACK_WITH_ITEM"
+	// アイテムを出さずに攻める
+	MatchActionAttackWithoutItem MatchAction = "ATTACK_WITHOUT_ITEM"
+	// アイテムを出して守る
+	MatchActionDefendWithItem MatchAction = "DEFEND_WITH_ITEM"
+	// アイテムを出さずに守る
+	MatchActionDefendWithoutItem MatchAction = "DEFEND_WITHOUT_ITEM"
+	// アイテムの代わりに手札のクリーチャーを出す（援護）
+	MatchActionUseCreatureAsItem MatchAction = "USE_CREATURE_AS_ITEM"
+	// 領地を手放す
+	MatchActionRelinquishTerritory MatchAction = "RELINQUISH_TERRITORY"
+	// ターンを終える（配置の段階では配置しない、領地コマンドの段階では何もしない）
+	MatchActionEndTurn MatchAction = "END_TURN"
+)
+
+var AllMatchAction = []MatchAction{
+	MatchActionDrawCard,
+	MatchActionDiscardCard,
+	MatchActionUseSpell,
+	MatchActionRollDice,
+	MatchActionChoosePath,
+	MatchActionPlaceCreature,
+	MatchActionInvadeTerritory,
+	MatchActionPayToll,
+	MatchActionLevelUpLand,
+	MatchActionExchangeCreature,
+	MatchActionChangeLandElement,
+	MatchActionMoveCreature,
+	MatchActionAttackWithItem,
+	MatchActionAttackWithoutItem,
+	MatchActionDefendWithItem,
+	MatchActionDefendWithoutItem,
+	MatchActionUseCreatureAsItem,
+	MatchActionRelinquishTerritory,
+	MatchActionEndTurn,
+}
+
+func (e MatchAction) IsValid() bool {
+	switch e {
+	case MatchActionDrawCard, MatchActionDiscardCard, MatchActionUseSpell, MatchActionRollDice, MatchActionChoosePath, MatchActionPlaceCreature, MatchActionInvadeTerritory, MatchActionPayToll, MatchActionLevelUpLand, MatchActionExchangeCreature, MatchActionChangeLandElement, MatchActionMoveCreature, MatchActionAttackWithItem, MatchActionAttackWithoutItem, MatchActionDefendWithItem, MatchActionDefendWithoutItem, MatchActionUseCreatureAsItem, MatchActionRelinquishTerritory, MatchActionEndTurn:
+		return true
+	}
+	return false
+}
+
+func (e MatchAction) String() string {
+	return string(e)
+}
+
+func (e *MatchAction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchAction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchAction", str)
+	}
+	return nil
+}
+
+func (e MatchAction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchAction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchAction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 // NPC のアバターの状態。準備中は名前と使うデッキを自由に変えられる。公開中の数に上限は無い。
 // 公開中にできるのは、使うデッキに公開中のものが 1 つ以上あるとき。使用不可は新しい対戦に使わない
 type NpcAvatarStatus string
@@ -4361,6 +4854,129 @@ func (e *NpcDeckStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e NpcDeckStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 採点基準。候補ごとに、当てた後の状態の値（額）に重みを掛けて足す
+type NpcMindsetCriterion string
+
+const (
+	// 自分の総魔力（大きいほどよい）
+	NpcMindsetCriterionOwnTotalMagic NpcMindsetCriterion = "OWN_TOTAL_MAGIC"
+	// 相手の総魔力（相手の平均。小さいほどよい）
+	NpcMindsetCriterionRivalTotalMagic NpcMindsetCriterion = "RIVAL_TOTAL_MAGIC"
+	// 領地の数（自分の領地の数 × 土地の基本の値）
+	NpcMindsetCriterionTerritoryCount NpcMindsetCriterion = "TERRITORY_COUNT"
+)
+
+var AllNpcMindsetCriterion = []NpcMindsetCriterion{
+	NpcMindsetCriterionOwnTotalMagic,
+	NpcMindsetCriterionRivalTotalMagic,
+	NpcMindsetCriterionTerritoryCount,
+}
+
+func (e NpcMindsetCriterion) IsValid() bool {
+	switch e {
+	case NpcMindsetCriterionOwnTotalMagic, NpcMindsetCriterionRivalTotalMagic, NpcMindsetCriterionTerritoryCount:
+		return true
+	}
+	return false
+}
+
+func (e NpcMindsetCriterion) String() string {
+	return string(e)
+}
+
+func (e *NpcMindsetCriterion) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = NpcMindsetCriterion(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid NpcMindsetCriterion", str)
+	}
+	return nil
+}
+
+func (e NpcMindsetCriterion) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *NpcMindsetCriterion) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e NpcMindsetCriterion) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// NPC の思考パターンの状態。準備中は名前と重みを自由に変えられる。公開中の数に上限は無い。公開中にするのに満たす条件は無い。
+// 使用不可は新しい対戦に使わない（すでに割り当てたアバターからは外すまで見える）
+type NpcMindsetStatus string
+
+const (
+	// 準備中（登録したときの状態）
+	NpcMindsetStatusDraft NpcMindsetStatus = "DRAFT"
+	// 公開中
+	NpcMindsetStatusPublished NpcMindsetStatus = "PUBLISHED"
+	// 使用不可
+	NpcMindsetStatusRetired NpcMindsetStatus = "RETIRED"
+)
+
+var AllNpcMindsetStatus = []NpcMindsetStatus{
+	NpcMindsetStatusDraft,
+	NpcMindsetStatusPublished,
+	NpcMindsetStatusRetired,
+}
+
+func (e NpcMindsetStatus) IsValid() bool {
+	switch e {
+	case NpcMindsetStatusDraft, NpcMindsetStatusPublished, NpcMindsetStatusRetired:
+		return true
+	}
+	return false
+}
+
+func (e NpcMindsetStatus) String() string {
+	return string(e)
+}
+
+func (e *NpcMindsetStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = NpcMindsetStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid NpcMindsetStatus", str)
+	}
+	return nil
+}
+
+func (e NpcMindsetStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *NpcMindsetStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e NpcMindsetStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

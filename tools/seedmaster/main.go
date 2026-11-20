@@ -22,6 +22,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/item"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/operator"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/presetdeck"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/spell"
@@ -102,6 +103,7 @@ type seeder struct {
 	boards         *command.BoardHandler
 	npcAvatars     *command.NPCAvatarHandler
 	npcDecks       *command.NPCDeckHandler
+	npcMindsets    *command.NPCMindsetHandler
 	starterSets    *command.StarterSetHandler
 	cards          *query.CardHandler
 	presetDeckList *query.PresetDeckHandler
@@ -109,6 +111,7 @@ type seeder struct {
 	boardList      *query.BoardHandler
 	npcAvatarList  *query.NPCAvatarHandler
 	npcDeckList    *query.NPCDeckHandler
+	npcMindsetList *query.NPCMindsetHandler
 	starterSetList *query.StarterSetHandler
 }
 
@@ -123,6 +126,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 	boardReader := repository.NewBoardReader()
 	npcAvatarReader := repository.NewNPCAvatarReader()
 	npcDeckReader := repository.NewNPCDeckReader()
+	npcMindsetReader := repository.NewNPCMindsetReader()
 	starterSetReader := repository.NewStarterSetReader()
 	creatureStore := eventstore.New(registry, creature.NewID, creature.NewEventType, creature.InitialState, creature.Evolve)
 	itemStore := eventstore.New(registry, item.NewID, item.NewEventType, item.InitialState, item.Evolve)
@@ -205,6 +209,14 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 			constraint.UpdateNPCAvatarName,
 			constraint.UpdateNPCAvatarDeckReferences,
 			command.NewNPCDeckStatusReader(eventstore.New(registry, npcdeck.NewID, npcdeck.NewEventType, npcdeck.InitialState, npcdeck.Evolve)).Statuses,
+			constraint.UpdateNPCAvatarMindsetReferences,
+			command.NewNPCMindsetStatusReader(eventstore.New(registry, npcmindset.NewID, npcmindset.NewEventType, npcmindset.InitialState, npcmindset.Evolve)).Statuses,
+			now,
+		),
+		npcMindsets: command.NewNPCMindsetHandler(
+			eventstore.New(registry, npcmindset.NewID, npcmindset.NewEventType, npcmindset.InitialState, npcmindset.Evolve),
+			identifier.New(registry, npcmindset.NewID),
+			constraint.UpdateNPCMindsetName,
 			now,
 		),
 		npcDecks: command.NewNPCDeckHandler(
@@ -225,6 +237,7 @@ func newSeeder(registry *domaindef.Registry) *seeder {
 		boardList:      query.NewBoardHandler(boardReader.List, boardReader.Get),
 		npcAvatarList:  query.NewNPCAvatarHandler(npcAvatarReader.List, npcAvatarReader.Get),
 		npcDeckList:    query.NewNPCDeckHandler(npcDeckReader.List, npcDeckReader.Get),
+		npcMindsetList: query.NewNPCMindsetHandler(npcMindsetReader.List, npcMindsetReader.Get),
 		starterSetList: query.NewStarterSetHandler(starterSetReader.List, starterSetReader.Get),
 	}
 }
@@ -250,12 +263,16 @@ func (s *seeder) seed(ctx context.Context, m master) error {
 	if err := s.seedBoards(ctx, m.Boards); err != nil {
 		return err
 	}
-	// NPC のアバターは、公開中の NPC のデッキを割り当てて公開するため、NPC のデッキより後に作る
+	// NPC のアバターは、公開中の NPC のデッキと思考パターンを割り当てて公開するため、NPC のデッキ・思考パターンより後に作る
 	npcDeckIDs, err := s.seedNPCDecks(ctx, m.NPCDecks, deckIDs)
 	if err != nil {
 		return err
 	}
-	if err := s.seedNPCAvatars(ctx, m.NPCAvatars, npcDeckIDs); err != nil {
+	npcMindsetIDs, err := s.seedNPCMindsets(ctx, m.NPCMindsets)
+	if err != nil {
+		return err
+	}
+	if err := s.seedNPCAvatars(ctx, m.NPCAvatars, npcDeckIDs, npcMindsetIDs); err != nil {
 		return err
 	}
 	// スターターセットは、公開中の配布デッキとボードを指定するため、どちらよりも後に作る
@@ -526,8 +543,8 @@ func (s *seeder) listStarterSets(ctx context.Context) (map[string]query.StarterS
 
 // 登録して使うデッキを割り当て、公開する。何度流しても同じ結果になるよう、同じ名前の NPC のアバターがあれば登録しない。
 // 割り当てと公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない。
-// すでにデッキを持たずに公開済みのものにも、後から割り当てない）。割り当ては同じデッキの集まりなら何も起きないため、準備中のものには毎回呼ぶ
-func (s *seeder) seedNPCAvatars(ctx context.Context, avatars []masterNPCAvatar, npcDeckIDs map[string]uuid.UUID) error {
+// すでにデッキや思考パターンを持たずに公開済みのものにも、後から割り当てない）。割り当ては同じ集まりなら何も起きないため、準備中のものには毎回呼ぶ
+func (s *seeder) seedNPCAvatars(ctx context.Context, avatars []masterNPCAvatar, npcDeckIDs, npcMindsetIDs map[string]uuid.UUID) error {
 	existing, err := s.listNPCAvatars(ctx)
 	if err != nil {
 		return err
@@ -570,6 +587,21 @@ func (s *seeder) seedNPCAvatars(ctx context.Context, avatars []masterNPCAvatar, 
 		})
 		if err != nil {
 			return fmt.Errorf("assign decks to npc avatar %q: %w", name, err)
+		}
+		current.Revision = assigned.Revision
+		mindsetIDs := make([]uuid.UUID, 0, len(avatar.Mindsets))
+		for _, mindset := range avatar.Mindsets {
+			mindsetIDs = append(mindsetIDs, npcMindsetIDs[mindset])
+		}
+		assigned, err = s.changeNPCAvatar(ctx, name, current, func(revision int64) (command.ChangedNPCAvatar, error) {
+			changed, err := s.npcAvatars.SetMindsets(ctx, current.ID, revision, mindsetIDs)
+			if err == nil && changed.Revision != revision {
+				slog.InfoContext(ctx, "assigned mindsets to npc avatar", "name", name, "mindsets", avatar.Mindsets)
+			}
+			return changed, err
+		})
+		if err != nil {
+			return fmt.Errorf("assign mindsets to npc avatar %q: %w", name, err)
 		}
 		current.Revision = assigned.Revision
 		if _, err := s.changeNPCAvatar(ctx, name, current, func(revision int64) (command.ChangedNPCAvatar, error) {
@@ -1114,4 +1146,123 @@ func (s *seeder) seedGameRules(ctx context.Context) error {
 		}
 		return models.GameRules().Exists(ctx, exec)
 	})
+}
+
+// 登録して採点基準ごとの重みを入れ、公開する。何度流しても同じ結果になるよう、同じ名前の思考パターンがあれば登録しない。
+// 重みの変更と公開は、準備中のまま止まったものだけ続ける（公開中・使用不可のものは触らない。使用不可にしたものを、流し直しで公開に戻さない）。
+// 行動の種類ごとの重みは、登録のときの値（すべて 1）のままにする。名前から公開 ID を引く表を返す
+func (s *seeder) seedNPCMindsets(ctx context.Context, mindsets []masterNPCMindset) (map[string]uuid.UUID, error) {
+	existing, err := s.listNPCMindsets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, mindset := range mindsets {
+		name := mindset.Name
+		key := domain.NormalizeName(name)
+		current, ok := existing[key]
+		if !ok {
+			registered, err := s.npcMindsets.Register(ctx, name)
+			if errors.Is(err, command.ErrNPCMindsetNameAlreadyInUse) {
+				// 登録済みだが read model にまだ無い（投影の遅れ）
+				err = waitFor(ctx, "npc_mindsets", func() (bool, error) {
+					existing, err = s.listNPCMindsets(ctx)
+					_, ok := existing[key]
+					return ok, err
+				})
+				current = existing[key]
+			} else if err == nil {
+				current = query.NPCMindset{ID: registered.ID, Status: readmodel.NPCMindsetStatusDraft, Revision: registered.Revision}
+				slog.InfoContext(ctx, "registered npc mindset", "name", name)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("register npc mindset %q: %w", name, err)
+			}
+		}
+		if current.Status != readmodel.NPCMindsetStatusDraft {
+			continue
+		}
+		weights := make([]command.CriterionWeightInput, 0, len(npcmindset.Criteria()))
+		for _, criterion := range npcmindset.Criteria() {
+			weights = append(weights, command.CriterionWeightInput{Criterion: string(criterion), Weight: mindset.CriterionWeights[string(criterion)]})
+		}
+		changed, err := s.changeNPCMindset(ctx, name, current, func(revision int64) (command.ChangedNPCMindset, error) {
+			changed, err := s.npcMindsets.SetCriterionWeights(ctx, current.ID, revision, weights)
+			if err == nil && changed.Revision != revision {
+				slog.InfoContext(ctx, "set criterion weights of npc mindset", "name", name, "criterion_weights", mindset.CriterionWeights)
+			}
+			return changed, err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("set criterion weights of npc mindset %q: %w", name, err)
+		}
+		current.Revision = changed.Revision
+		if _, err := s.changeNPCMindset(ctx, name, current, func(revision int64) (command.ChangedNPCMindset, error) {
+			changed, err := s.npcMindsets.Publish(ctx, current.ID, revision)
+			if err == nil {
+				slog.InfoContext(ctx, "published npc mindset", "name", name)
+			}
+			return changed, err
+		}); err != nil {
+			return nil, fmt.Errorf("publish npc mindset %q: %w", name, err)
+		}
+	}
+	ids := make(map[string]uuid.UUID, len(mindsets))
+	err = waitFor(ctx, "npc_mindsets", func() (bool, error) {
+		existing, err := s.listNPCMindsets(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, mindset := range mindsets {
+			// 無い（投影がまだ行を書いていない）ものも待つ。無いと状態は空の値で、準備中と比べるだけでは抜けてしまう
+			published, ok := existing[domain.NormalizeName(mindset.Name)]
+			if !ok || published.Status == readmodel.NPCMindsetStatusDraft {
+				return false, nil
+			}
+			ids[mindset.Name] = published.ID
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// read model は投影の遅れで古いことがあり、その revision で操作すると先に変えられたになるため、追いつくのを待って読み直す（changeNPCAvatar と同じ）
+func (s *seeder) changeNPCMindset(ctx context.Context, name string, current query.NPCMindset, change func(revision int64) (command.ChangedNPCMindset, error)) (command.ChangedNPCMindset, error) {
+	key := domain.NormalizeName(name)
+	for {
+		changed, err := change(current.Revision)
+		if !errors.Is(err, command.ErrRevisionConflict) {
+			return changed, err
+		}
+		stale := current.Revision
+		if err := waitFor(ctx, "npc_mindsets", func() (bool, error) {
+			existing, err := s.listNPCMindsets(ctx)
+			current = existing[key]
+			return current.Revision > stale, err
+		}); err != nil {
+			return command.ChangedNPCMindset{}, err
+		}
+	}
+}
+
+// 正規化した名前（重複の判定と同じ）から NPC の思考パターンを引く表
+func (s *seeder) listNPCMindsets(ctx context.Context) (map[string]query.NPCMindset, error) {
+	npcMindsets := map[string]query.NPCMindset{}
+	var after *string
+	for {
+		first := pagination.MaxFirst
+		page, err := s.npcMindsetList.List(ctx, query.NPCMindsetFilter{}, &first, after)
+		if err != nil {
+			return nil, err
+		}
+		for _, edge := range page.Edges {
+			npcMindsets[domain.NormalizeName(edge.Node.Name)] = edge.Node
+		}
+		if !page.PageInfo.HasNextPage {
+			return npcMindsets, nil
+		}
+		after = page.PageInfo.EndCursor
+	}
 }

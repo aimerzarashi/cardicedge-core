@@ -20,7 +20,7 @@ import (
 )
 
 // core_game の rooms（部屋の read model）を読む。席のアバター・デッキ・ボードの名前は rooms に書き写さず、読むときに avatars・decks・
-// npc_avatars・npc_decks・boards から引く（名前が変わっても、部屋の表示に反映されるため）。
+// npc_avatars・npc_decks・npc_mindsets・boards から引く（名前が変わっても、部屋の表示に反映されるため）。
 // 部屋に入れるのは今は作った人だけなので、持ち主で絞る（ほかの人が参加できるようになるときに、入っている人で絞る）
 type RoomReader struct{}
 
@@ -125,7 +125,7 @@ func (r *RoomReader) Get(ctx context.Context, playerID uuid.UUID, roomID uuid.UU
 
 // 公開 ID から、見せる名前を引く表
 type roomNames struct {
-	avatars, decks, npcAvatars, npcDecks, boards map[uuid.UUID]string
+	avatars, decks, npcAvatars, npcDecks, npcMindsets, boards map[uuid.UUID]string
 }
 
 // どの表の metadata にも名前は name の項目にある
@@ -134,7 +134,7 @@ type namedMetadata struct {
 }
 
 func loadRoomNames(ctx context.Context, exec rdb.Executor, rooms []readmodel.RoomMetadata) (roomNames, error) {
-	var avatarIDs, deckIDs, npcAvatarIDs, npcDeckIDs, boardIDs []uuid.UUID
+	var avatarIDs, deckIDs, npcAvatarIDs, npcDeckIDs, npcMindsetIDs, boardIDs []uuid.UUID
 	for _, metadata := range rooms {
 		for _, seat := range metadata.Seats {
 			if seat.Avatar == nil || seat.Deck == nil {
@@ -142,6 +142,9 @@ func loadRoomNames(ctx context.Context, exec rdb.Executor, rooms []readmodel.Roo
 			}
 			if seat.Kind == room.SeatKindNPC {
 				npcAvatarIDs, npcDeckIDs = append(npcAvatarIDs, *seat.Avatar), append(npcDeckIDs, *seat.Deck)
+				if seat.Mindset != nil {
+					npcMindsetIDs = append(npcMindsetIDs, *seat.Mindset)
+				}
 			} else {
 				avatarIDs, deckIDs = append(avatarIDs, *seat.Avatar), append(deckIDs, *seat.Deck)
 			}
@@ -173,6 +176,12 @@ func loadRoomNames(ctx context.Context, exec rdb.Executor, rooms []readmodel.Roo
 	if names.npcDecks, err = namesOf(npcDeckIDs, func(args []any) ([]rowName, error) {
 		rows, err := models.NPCDecks(qm.WhereIn(models.NPCDeckColumns.NPCDeckID+" IN ?", args...)).All(ctx, exec)
 		return mapRows(rows, err, func(row *models.NPCDeck) rowName { return rowName{row.NPCDeckID, row.Metadata} })
+	}); err != nil {
+		return roomNames{}, err
+	}
+	if names.npcMindsets, err = namesOf(npcMindsetIDs, func(args []any) ([]rowName, error) {
+		rows, err := models.NPCMindsets(qm.WhereIn(models.NPCMindsetColumns.NPCMindsetID+" IN ?", args...)).All(ctx, exec)
+		return mapRows(rows, err, func(row *models.NPCMindset) rowName { return rowName{row.NPCMindsetID, row.Metadata} })
 	}); err != nil {
 		return roomNames{}, err
 	}
@@ -259,6 +268,13 @@ func toRoom(metadata readmodel.RoomMetadata, names roomNames) (query.Room, error
 			}
 			converted.Avatar = &query.RoomNamed{ID: *seat.Avatar, Name: avatarName}
 			converted.Deck = &query.RoomNamed{ID: *seat.Deck, Name: deckName}
+			if seat.Mindset != nil {
+				mindsetName, ok := names.npcMindsets[*seat.Mindset]
+				if !ok {
+					return query.Room{}, fmt.Errorf("mindset %s of a seat is not found", *seat.Mindset)
+				}
+				converted.Mindset = &query.RoomNamed{ID: *seat.Mindset, Name: mindsetName}
+			}
 		}
 		result.Seats = append(result.Seats, converted)
 	}
@@ -322,6 +338,25 @@ func (r *RoomReader) FindByMatch(ctx context.Context, matchID uuid.UUID) (uuid.U
 		return uuid.Nil, 0, false, fmt.Errorf("rooms.metadata matches of %s does not contain %s", roomID, matchID)
 	}
 	return roomID, index + 1, true, nil
+}
+
+// その人が作った部屋で始めた対戦か（部屋を作った人は、参加していない全員 NPC の対戦も見られるため。2026-11-17 オーナー。core#179）。
+// 索引（idx_rooms_matches）に合わせ、FindByMatch と同じ包含で探す
+func (r *RoomReader) OwnsMatch(ctx context.Context, playerID uuid.UUID, matchID uuid.UUID) (bool, error) {
+	exec, err := rdb.GetExecutor(ctx)
+	if err != nil {
+		return false, err
+	}
+	contained, err := json.Marshal([]uuid.UUID{matchID})
+	if err != nil {
+		return false, err
+	}
+	var owns bool
+	err = exec.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM rooms WHERE owner_player_id = $1 AND metadata -> 'matches' @> $2::jsonb)", playerID.String(), string(contained)).Scan(&owns)
+	if err != nil {
+		return false, err
+	}
+	return owns, nil
 }
 
 func toRoomStatus(status readmodel.RoomStatus) (query.RoomStatus, error) {

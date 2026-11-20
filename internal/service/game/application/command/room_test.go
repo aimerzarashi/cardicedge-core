@@ -17,6 +17,7 @@ import (
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/match"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcavatar"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcdeck"
+	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/npcmindset"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domain/room/roomtest"
 	"gitlab.com/aimerzarashi/diecardomain/core/internal/domaindef"
@@ -33,7 +34,9 @@ type fakeSelectable struct {
 	avatars, decks, npcAvatars, boards map[uuid.UUID]bool
 	// NPC のアバターごとの、割り当てた公開中のデッキ
 	npcDecks map[uuid.UUID]map[uuid.UUID]bool
-	askedFor []uuid.UUID
+	// NPC のアバターごとの、割り当てた公開中の思考パターン
+	npcMindsets map[uuid.UUID]map[uuid.UUID]bool
+	askedFor    []uuid.UUID
 }
 
 func (s *fakeSelectable) HasAvatar(_ context.Context, playerID uuid.UUID, avatarID uuid.UUID) (bool, error) {
@@ -56,6 +59,11 @@ func (s *fakeSelectable) HasNPCDeck(_ context.Context, playerID uuid.UUID, npcAv
 	return s.npcAvatars[npcAvatarID] && s.npcDecks[npcAvatarID][npcDeckID], nil
 }
 
+func (s *fakeSelectable) HasNPCMindset(_ context.Context, playerID uuid.UUID, npcAvatarID uuid.UUID, npcMindsetID uuid.UUID) (bool, error) {
+	s.askedFor = append(s.askedFor, playerID)
+	return s.npcAvatars[npcAvatarID] && s.npcMindsets[npcAvatarID][npcMindsetID], nil
+}
+
 func (s *fakeSelectable) HasBoard(_ context.Context, playerID uuid.UUID, boardID uuid.UUID) (bool, error) {
 	s.askedFor = append(s.askedFor, playerID)
 	return s.boards[boardID], nil
@@ -68,7 +76,7 @@ type roomFixture struct {
 	selectable *fakeSelectable
 	registry   *domaindef.Registry
 	// 選べるもの（公開 ID）
-	avatar, deck, npcAvatar, npcDeck, board uuid.UUID
+	avatar, deck, npcAvatar, npcDeck, npcMindset, board uuid.UUID
 }
 
 func newRoomFixture(t *testing.T) roomFixture {
@@ -85,7 +93,7 @@ func newRoomFixtureWithRules(t *testing.T, getRules rules.GetRulesFunc) roomFixt
 		ctx: ctx, owner: registeredPlayer(t, ctx, "owner"), registry: registry,
 		selectable: &fakeSelectable{
 			avatars: map[uuid.UUID]bool{}, decks: map[uuid.UUID]bool{}, npcAvatars: map[uuid.UUID]bool{}, boards: map[uuid.UUID]bool{},
-			npcDecks: map[uuid.UUID]map[uuid.UUID]bool{},
+			npcDecks: map[uuid.UUID]map[uuid.UUID]bool{}, npcMindsets: map[uuid.UUID]map[uuid.UUID]bool{},
 		},
 	}
 	f.avatar = selectable(t, ctx, registry, avatar.NewID, f.selectable.avatars)
@@ -94,13 +102,15 @@ func newRoomFixtureWithRules(t *testing.T, getRules rules.GetRulesFunc) roomFixt
 	f.board = selectable(t, ctx, registry, board.NewID, f.selectable.boards)
 	f.npcDeck = selectable(t, ctx, registry, npcdeck.NewID, map[uuid.UUID]bool{})
 	f.selectable.npcDecks[f.npcAvatar] = map[uuid.UUID]bool{f.npcDeck: true}
+	f.npcMindset = selectable(t, ctx, registry, npcmindset.NewID, map[uuid.UUID]bool{})
+	f.selectable.npcMindsets[f.npcAvatar] = map[uuid.UUID]bool{f.npcMindset: true}
 	f.handler = command.NewRoomHandler(
 		eventstore.New(registry, room.NewID, room.NewEventType, room.InitialState, room.Evolve),
 		identifier.New(registry, room.NewID),
 		identifier.New(registry, match.NewID),
 		command.RoomReferences{
 			Avatars: identifier.New(registry, avatar.NewID), Decks: identifier.New(registry, deck.NewID),
-			NPCAvatars: identifier.New(registry, npcavatar.NewID), NPCDecks: identifier.New(registry, npcdeck.NewID),
+			NPCAvatars: identifier.New(registry, npcavatar.NewID), NPCDecks: identifier.New(registry, npcdeck.NewID), NPCMindsets: identifier.New(registry, npcmindset.NewID),
 			Boards: identifier.New(registry, board.NewID),
 		},
 		identifier.NewEntityRefResolver(registry),
@@ -175,9 +185,9 @@ func (f roomFixture) fullyDecided(t *testing.T) command.ChangedRoom {
 	current := f.withSeats(t)
 	current, err := f.handler.ChangeMatchRules(f.owner, current.ID, current.Revision, f.rulesInput())
 	require.NoError(t, err)
-	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 0, f.avatar, f.deck)
+	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 0, f.avatar, f.deck, nil)
 	require.NoError(t, err)
-	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 1, f.npcAvatar, f.npcDeck)
+	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 1, f.npcAvatar, f.npcDeck, &f.npcMindset)
 	require.NoError(t, err)
 	return current
 }
@@ -251,7 +261,7 @@ func TestRoomHandler_RejectsStaleRevisionOnEveryOperation(t *testing.T) {
 			return err
 		}},
 		{name: "change_seat_choice", call: func() error {
-			_, err := f.handler.ChangeSeatChoice(f.owner, current.ID, stale, 0, f.avatar, f.deck)
+			_, err := f.handler.ChangeSeatChoice(f.owner, current.ID, stale, 0, f.avatar, f.deck, nil)
 			return err
 		}},
 		{name: "publish", call: func() error { _, err := f.handler.Publish(f.owner, current.ID, stale); return err }},
@@ -294,8 +304,7 @@ func TestRoomChangeSeats_ReturnsInputErrorsInStages(t *testing.T) {
 	}{
 		{name: "too_few_seats", seats: []command.RoomSeatKind{player}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
 		{name: "too_many_seats", seats: []command.RoomSeatKind{player, npc, npc, npc, npc}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
-		{name: "no_player_seat", seats: []command.RoomSeatKind{npc, npc}, want: []input.Error{&input.CountMismatch{Field: "seats", Expected: 1}}},
-		{name: "two_player_seats", seats: []command.RoomSeatKind{player, player, npc}, want: []input.Error{&input.CountMismatch{Field: "seats", Expected: 1}}},
+		{name: "two_player_seats", seats: []command.RoomSeatKind{player, player, npc}, want: []input.Error{&input.TooMany{Field: "seats", Max: 1}}},
 		// 席の数が範囲の外なら、プレイヤーの席の数は確かめない
 		{name: "seat_count_is_checked_first", seats: []command.RoomSeatKind{npc, npc, npc, npc, npc}, want: []input.Error{&input.OutOfRange{Field: "seats", Min: 2, Max: 4}}},
 		{name: "unknown_kind", seats: []command.RoomSeatKind{player, "team"}, want: []input.Error{&input.InvalidFormat{Field: "seats.1"}}},
@@ -389,9 +398,9 @@ func TestRoomChangeSeatChoice_DecidesChoicesOfPlayerSeatAndNPCSeat(t *testing.T)
 	f := newRoomFixture(t)
 	current := f.withSeats(t)
 
-	current, err := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 0, f.avatar, f.deck)
+	current, err := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 0, f.avatar, f.deck, nil)
 	require.NoError(t, err)
-	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 1, f.npcAvatar, f.npcDeck)
+	current, err = f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 1, f.npcAvatar, f.npcDeck, &f.npcMindset)
 	require.NoError(t, err)
 
 	require.Equal(t, int64(4), current.Revision)
@@ -404,6 +413,9 @@ func TestRoomChangeSeatChoice_DecidesChoicesOfPlayerSeatAndNPCSeat(t *testing.T)
 	npcDeckID, err := identifier.New(f.registry, npcdeck.NewID).Resolve(f.ctx, f.npcDeck)
 	require.NoError(t, err)
 	require.Equal(t, npcDeckID, seats[1].Choice.NPC.Deck)
+	npcMindsetID, err := identifier.New(f.registry, npcmindset.NewID).Resolve(f.ctx, f.npcMindset)
+	require.NoError(t, err)
+	require.Equal(t, npcMindsetID, seats[1].Choice.NPC.Mindset)
 }
 
 func TestRoomChangeSeatChoice_ReturnsSeatErrors(t *testing.T) {
@@ -411,9 +423,9 @@ func TestRoomChangeSeatChoice_ReturnsSeatErrors(t *testing.T) {
 	noSeats := f.create(t)
 	current := f.withSeats(t)
 
-	_, undecided := f.handler.ChangeSeatChoice(f.owner, noSeats.ID, noSeats.Revision, 0, f.avatar, f.deck)
-	_, outOfRange := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 2, f.avatar, f.deck)
-	_, negative := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, -1, f.avatar, f.deck)
+	_, undecided := f.handler.ChangeSeatChoice(f.owner, noSeats.ID, noSeats.Revision, 0, f.avatar, f.deck, nil)
+	_, outOfRange := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, 2, f.avatar, f.deck, nil)
+	_, negative := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, -1, f.avatar, f.deck, nil)
 
 	require.ErrorIs(t, undecided, command.ErrRoomSeatsNotDecided)
 	for _, err := range []error{outOfRange, negative} {
@@ -429,7 +441,9 @@ func TestRoomChangeSeatChoice_ReturnsNotFoundForUnselectableValues(t *testing.T)
 		seat   int
 		avatar func(f roomFixture) uuid.UUID
 		deck   func(f roomFixture) uuid.UUID
-		want   []input.Error
+		// 思考パターン。nil は付けない
+		mindset func(f roomFixture) *uuid.UUID
+		want    []input.Error
 	}{
 		{name: "player_seat_avatar_not_own", seat: 0, avatar: unknownID, deck: func(f roomFixture) uuid.UUID { return f.deck }, want: []input.Error{&input.NotFound{Field: "avatarId"}}},
 		{name: "player_seat_deck_not_own", seat: 0, avatar: func(f roomFixture) uuid.UUID { return f.avatar }, deck: unknownID, want: []input.Error{&input.NotFound{Field: "deckId"}}},
@@ -438,14 +452,18 @@ func TestRoomChangeSeatChoice_ReturnsNotFoundForUnselectableValues(t *testing.T)
 		{name: "npc_seat_player_avatar", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.avatar }, deck: func(f roomFixture) uuid.UUID { return f.npcDeck }, want: []input.Error{&input.NotFound{Field: "avatarId"}}},
 		// NPC のアバターが選べないときは、デッキを確かめない
 		{name: "npc_seat_avatar_not_unlocked_skips_deck", seat: 1, avatar: unknownID, deck: unknownID, want: []input.Error{&input.NotFound{Field: "avatarId"}}},
-		{name: "npc_seat_deck_not_assigned", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.npcAvatar }, deck: func(f roomFixture) uuid.UUID { return f.deck }, want: []input.Error{&input.NotFound{Field: "deckId"}}},
+		{name: "npc_seat_deck_not_assigned", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.npcAvatar }, deck: func(f roomFixture) uuid.UUID { return f.deck }, mindset: ownMindset, want: []input.Error{&input.NotFound{Field: "deckId"}}},
+		{name: "npc_seat_mindset_missing", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.npcAvatar }, deck: func(f roomFixture) uuid.UUID { return f.npcDeck }, mindset: withoutMindset, want: []input.Error{&input.Required{Field: "mindsetId"}}},
+		{name: "npc_seat_mindset_not_assigned", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.npcAvatar }, deck: func(f roomFixture) uuid.UUID { return f.npcDeck }, mindset: unknownMindset, want: []input.Error{&input.NotFound{Field: "mindsetId"}}},
+		{name: "npc_seat_deck_and_mindset_not_assigned", seat: 1, avatar: func(f roomFixture) uuid.UUID { return f.npcAvatar }, deck: unknownID, mindset: unknownMindset, want: []input.Error{&input.NotFound{Field: "deckId"}, &input.NotFound{Field: "mindsetId"}}},
+		{name: "player_seat_with_mindset", seat: 0, avatar: func(f roomFixture) uuid.UUID { return f.avatar }, deck: func(f roomFixture) uuid.UUID { return f.deck }, mindset: ownMindset, want: []input.Error{&input.InvalidFormat{Field: "mindsetId"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newRoomFixture(t)
 			current := f.withSeats(t)
 
-			_, err := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, tt.seat, tt.avatar(f), tt.deck(f))
+			_, err := f.handler.ChangeSeatChoice(f.owner, current.ID, current.Revision, tt.seat, tt.avatar(f), tt.deck(f), mindsetOf(tt.mindset, f))
 
 			invalid, ok := input.AsErrors(err)
 			require.True(t, ok)
@@ -453,6 +471,27 @@ func TestRoomChangeSeatChoice_ReturnsNotFoundForUnselectableValues(t *testing.T)
 			require.Nil(t, f.load(t, current.ID).Seats[tt.seat].Choice)
 		})
 	}
+}
+
+// 行に書かなければ思考パターンを付けない（プレイヤーの席と、アバターが選べない NPC の席）
+func mindsetOf(mindset func(f roomFixture) *uuid.UUID, f roomFixture) *uuid.UUID {
+	if mindset == nil {
+		return nil
+	}
+	return mindset(f)
+}
+
+func ownMindset(f roomFixture) *uuid.UUID {
+	return &f.npcMindset
+}
+
+func withoutMindset(roomFixture) *uuid.UUID {
+	return nil
+}
+
+func unknownMindset(roomFixture) *uuid.UUID {
+	id := uuid.New()
+	return &id
 }
 
 func unknownID(roomFixture) uuid.UUID {
@@ -473,7 +512,7 @@ func TestRoomPublish_MovesToPreparingAndLocksWhatWasDecided(t *testing.T) {
 	require.True(t, loaded.Seats[0].ChoiceLocked)
 	_, changeSeats := f.handler.ChangeSeats(f.owner, current.ID, published.Revision, playerAndNPC)
 	_, changeRules := f.handler.ChangeMatchRules(f.owner, current.ID, published.Revision, f.rulesInput())
-	_, changeChoice := f.handler.ChangeSeatChoice(f.owner, current.ID, published.Revision, 0, f.avatar, f.deck)
+	_, changeChoice := f.handler.ChangeSeatChoice(f.owner, current.ID, published.Revision, 0, f.avatar, f.deck, nil)
 	_, publishAgain := f.handler.Publish(f.owner, current.ID, published.Revision)
 	require.ErrorIs(t, changeSeats, command.ErrRoomStatusNotAllowed)
 	require.ErrorIs(t, changeRules, command.ErrRoomConditionLocked)
@@ -503,9 +542,9 @@ func TestRoomDeclareReady_DecidesRestInPreparingAndLocksOwnChoicesAfterReady(t *
 	_, notDecided := f.handler.DeclareReady(f.owner, current.ID, published.Revision)
 	next, err := f.handler.ChangeMatchRules(f.owner, current.ID, published.Revision, f.rulesInput())
 	require.NoError(t, err)
-	next, err = f.handler.ChangeSeatChoice(f.owner, current.ID, next.Revision, 0, f.avatar, f.deck)
+	next, err = f.handler.ChangeSeatChoice(f.owner, current.ID, next.Revision, 0, f.avatar, f.deck, nil)
 	require.NoError(t, err)
-	next, err = f.handler.ChangeSeatChoice(f.owner, current.ID, next.Revision, 1, f.npcAvatar, f.npcDeck)
+	next, err = f.handler.ChangeSeatChoice(f.owner, current.ID, next.Revision, 1, f.npcAvatar, f.npcDeck, &f.npcMindset)
 	require.NoError(t, err)
 	// 準備完了までは選び直せる
 	rechosen := f.rulesInput()
@@ -514,7 +553,7 @@ func TestRoomDeclareReady_DecidesRestInPreparingAndLocksOwnChoicesAfterReady(t *
 	require.NoError(t, err)
 	ready, err := f.handler.DeclareReady(f.owner, current.ID, next.Revision)
 	_, afterReadyRules := f.handler.ChangeMatchRules(f.owner, current.ID, ready.Revision, f.rulesInput())
-	_, afterReadyChoice := f.handler.ChangeSeatChoice(f.owner, current.ID, ready.Revision, 1, f.npcAvatar, f.npcDeck)
+	_, afterReadyChoice := f.handler.ChangeSeatChoice(f.owner, current.ID, ready.Revision, 1, f.npcAvatar, f.npcDeck, &f.npcMindset)
 	_, readyAgain := f.handler.DeclareReady(f.owner, current.ID, ready.Revision)
 
 	require.ErrorIs(t, notDecided, command.ErrRoomConditionsNotDecided)

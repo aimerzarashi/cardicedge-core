@@ -65,6 +65,20 @@ func (s *RoomSelectable) HasNPCDeck(ctx context.Context, playerID uuid.UUID, npc
 	}), nil
 }
 
+// NPC のアバターに割り当てた公開中の思考パターン（Player.npcAvatars の mindsets に出るもの）。アバターが選べなければ選べない
+func (s *RoomSelectable) HasNPCMindset(ctx context.Context, playerID uuid.UUID, npcAvatarID uuid.UUID, npcMindsetID uuid.UUID) (bool, error) {
+	avatar, err := s.npcAvatars.GetUnlocked(ctx, playerID, npcAvatarID)
+	if errors.Is(err, ErrNPCAvatarNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(avatar.Mindsets, func(mindset NPCMindset) bool {
+		return mindset.ID == npcMindsetID
+	}), nil
+}
+
 // プレイヤーが解放した公開中のボード（Player.boards に出るもの）
 func (s *RoomSelectable) HasBoard(ctx context.Context, playerID uuid.UUID, boardID uuid.UUID) (bool, error) {
 	boards, err := s.unlocks.ListBoardsByPlayer(ctx, playerID)

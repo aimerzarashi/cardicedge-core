@@ -66,7 +66,7 @@ type ChangeRoomMatchRulesResult interface {
 }
 
 // changeRoomSeatChoice の結果（公開前、または公開前に決めていなければ準備中）。選んだ時の 1 回だけ、選べるものかを確かめる（準備完了の時には確かめ直さない）。
-// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキを確かめる）
+// 入力の誤りは ValidationErrors（段階ごと。席が範囲の外なら seat の FieldOutOfRange、次に avatarId・deckId の FieldNotFound。NPC の席は、アバターが選べるときだけデッキと思考パターンを確かめる。mindsetId は NPC の席で無ければ FieldRequired、選べなければ FieldNotFound、プレイヤーの席に付けると FieldInvalidFormat）
 type ChangeRoomSeatChoiceResult interface {
 	IsChangeRoomSeatChoiceResult()
 }
@@ -645,6 +645,8 @@ type ChangeRoomSeatChoiceInput struct {
 	AvatarID uuid.UUID `json:"avatarId"`
 	// デッキの公開用の ID（プレイヤーの席は座っている人のデッキ（Player.decks に出るもの）、NPC の席は選んだ NPC のアバターに割り当てた公開中のデッキ（Player.npcAvatars の decks に出るもの））
 	DeckID uuid.UUID `json:"deckId"`
+	// 思考パターンの公開用の ID（NPC の席だけ必須で、選んだ NPC のアバターに割り当てた公開中の思考パターン（Player.npcAvatars の mindsets に出るもの）。プレイヤーの席に付けると入力の誤り）
+	MindsetID *uuid.UUID `json:"mindsetId,omitempty"`
 }
 
 // 席のアバターとデッキを選んだ（同じ選択なら何も変えず、revision も進まない）
@@ -663,7 +665,7 @@ type ChangeRoomSeatsInput struct {
 	ID uuid.UUID `json:"id"`
 	// 画面が見ていた部屋の revision
 	Revision int `json:"revision"`
-	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 1 つ FieldCountMismatch の expected）。並びを変えたら、席の選択はすべて外れる
+	// 席の並び（席の数は全体のルールの人数の範囲 FieldOutOfRange の min・max、プレイヤーの席は 0〜1 つで、多ければ FieldTooMany の max。0 は全員 NPC の部屋で、作った人は参加せずに対戦を見る）。並びを変えたら、席の選択はすべて外れる
 	Seats []RoomSeatKind `json:"seats"`
 }
 
@@ -1034,19 +1036,6 @@ type ExchangeMatchCreatureSuccess struct {
 
 func (ExchangeMatchCreatureSuccess) IsExchangeMatchCreatureResult() {}
 
-// 入力の一覧の個数が、決まりの個数と違う（例: 部屋のプレイヤーの席の数）
-type FieldCountMismatch struct {
-	// 誤りのある入力の項目
-	Field string `json:"field"`
-	// 決まりの個数
-	Expected int `json:"expected"`
-}
-
-func (FieldCountMismatch) IsFieldError() {}
-
-// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
-func (this FieldCountMismatch) GetField() string { return this.Field }
-
 // 入力の形が正しくない（ページの位置（カーソル）が読めない等）
 type FieldInvalidFormat struct {
 	// 誤りのある入力の項目
@@ -1120,6 +1109,19 @@ func (FieldTooLong) IsFieldError() {}
 
 // 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
 func (this FieldTooLong) GetField() string { return this.Field }
+
+// 入力の一覧の中の、ある種類の個数が上限より多い（例: 部屋のプレイヤーの席）
+type FieldTooMany struct {
+	// 誤りのある入力の項目
+	Field string `json:"field"`
+	// 上限の個数
+	Max int `json:"max"`
+}
+
+func (FieldTooMany) IsFieldError() {}
+
+// 誤りのある入力の項目（GraphQL の引数・入力の項目名と同じ。入れ子の入力は filter.nameContains、一覧の中は cards.0.cardId のように . でつなぐ）
+func (this FieldTooMany) GetField() string { return this.Field }
 
 // 入力が下限より小さい（上限は無い）
 type FieldTooSmall struct {
@@ -1349,6 +1351,8 @@ type Match struct {
 	AwaitingParticipant *int `json:"awaitingParticipant,omitempty"`
 	// 対戦の段階。今の番の人が次にする操作を表す
 	Phase MatchPhase `json:"phase"`
+	// 操作を待っている人が今選べる行動の種類（awaitingParticipant の操作。対象の選択肢が空の種類は入らない。終わった後は空）
+	ActionChoices []MatchAction `json:"actionChoices"`
 	// このターンに振ったサイコロの目（振る前は null）
 	Dice *int `json:"dice,omitempty"`
 	// このターンに残っている歩数
@@ -3284,6 +3288,8 @@ type NpcAvatar struct {
 	Name string `json:"name"`
 	// 使うデッキ（割り当てた順。公開中のものだけ）
 	Decks []*NpcDeck `json:"decks"`
+	// 使う思考パターン（割り当てた順。公開中のものだけ）。部屋の NPC の席で、デッキと一緒にこの中から 1 つ選ぶ
+	Mindsets []*NpcMindset `json:"mindsets"`
 }
 
 func (NpcAvatar) IsNpcAvatarResult() {}
@@ -3314,6 +3320,15 @@ type NpcDeckCard struct {
 	Card CardInfo `json:"card"`
 	// 枚数
 	Count int `json:"count"`
+}
+
+// NPC の思考パターン（公開中のもの）。NPC のアバターを通してだけ出る。行動の種類ごとの重みと採点基準ごとの重みは、
+// 対戦を始めるときに NPC の参加者へ写され、NPC が選ぶのに使う（game の画面には出さない）
+type NpcMindset struct {
+	// 公開用の ID
+	ID uuid.UUID `json:"id"`
+	// 名前
+	Name string `json:"name"`
 }
 
 // 受けるダメージを 0 にする
@@ -3891,6 +3906,8 @@ type RoomSeat struct {
 	Avatar *RoomNamed `json:"avatar,omitempty"`
 	// 選んだデッキ（プレイヤーの席は座っている人のデッキ、NPC の席は NPC のアバターに割り当てたデッキ。まだ選んでいなければ null）
 	Deck *RoomNamed `json:"deck,omitempty"`
+	// 選んだ思考パターン（NPC の席だけ。NPC のアバターに割り当てた思考パターン。プレイヤーの席と、まだ選んでいなければ null）
+	Mindset *RoomNamed `json:"mindset,omitempty"`
 	// 見ている人がこの席のアバターとデッキを選び直せるか（changeRoomSeatChoice）。部屋の詳細（room）だけが返し、一覧（myRooms）では null
 	ChoiceChangeable *bool `json:"choiceChangeable,omitempty"`
 }
@@ -4704,6 +4721,115 @@ func (e *ItemCategory) UnmarshalJSON(b []byte) error {
 }
 
 func (e ItemCategory) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// 操作を待っている人が今選べる行動の種類。対象（手札・領地・行き先）は種類ごとの選択肢（placeChoices 等）から選ぶ。種類と mutation は 1 対 1
+type MatchAction string
+
+const (
+	// カードを引く（drawMatchCard）
+	MatchActionDrawCard MatchAction = "DRAW_CARD"
+	// 手札を捨てる（discardMatchCard。手札のどれでも）
+	MatchActionDiscardCard MatchAction = "DISCARD_CARD"
+	// スペルを使う（useMatchSpell。spellChoices から選ぶ）
+	MatchActionUseSpell MatchAction = "USE_SPELL"
+	// サイコロを振る（rollMatchDice）
+	MatchActionRollDice MatchAction = "ROLL_DICE"
+	// 行き先を選ぶ（chooseMatchPath。pathChoices から選ぶ）
+	MatchActionChoosePath MatchAction = "CHOOSE_PATH"
+	// クリーチャーを配置する（placeMatchCreature。placeChoices から選ぶ）
+	MatchActionPlaceCreature MatchAction = "PLACE_CREATURE"
+	// 侵略する（invadeMatchTerritory。invadeChoices から選ぶ）
+	MatchActionInvadeTerritory MatchAction = "INVADE_TERRITORY"
+	// 通行料を払う（payMatchToll。払うとターンを終える）
+	MatchActionPayToll MatchAction = "PAY_TOLL"
+	// 土地のレベルを上げる（levelUpMatchLand。levelUpChoices から選ぶ）
+	MatchActionLevelUpLand MatchAction = "LEVEL_UP_LAND"
+	// クリーチャーを交換する（exchangeMatchCreature。exchangeChoices から選ぶ）
+	MatchActionExchangeCreature MatchAction = "EXCHANGE_CREATURE"
+	// 土地の属性を変える（changeMatchLandElement。elementChangeChoices から選ぶ）
+	MatchActionChangeLandElement MatchAction = "CHANGE_LAND_ELEMENT"
+	// クリーチャーを移動する（moveMatchCreature。moveChoices から選ぶ）
+	MatchActionMoveCreature MatchAction = "MOVE_CREATURE"
+	// アイテムを出して攻める（attackMatchTerritory の itemHandIndex を itemChoices から選ぶ）
+	MatchActionAttackWithItem MatchAction = "ATTACK_WITH_ITEM"
+	// アイテムを出さずに攻める（attackMatchTerritory の itemHandIndex を null）
+	MatchActionAttackWithoutItem MatchAction = "ATTACK_WITHOUT_ITEM"
+	// アイテムを出して守る（defendMatchTerritory の itemHandIndex を itemChoices から選ぶ）
+	MatchActionDefendWithItem MatchAction = "DEFEND_WITH_ITEM"
+	// アイテムを出さずに守る（defendMatchTerritory の itemHandIndex を null）
+	MatchActionDefendWithoutItem MatchAction = "DEFEND_WITHOUT_ITEM"
+	// アイテムの代わりに手札のクリーチャーを出す（援護。useMatchCreatureAsItem。creatureAsItemChoices から選ぶ。攻める段階と守る段階）
+	MatchActionUseCreatureAsItem MatchAction = "USE_CREATURE_AS_ITEM"
+	// 領地を手放す（relinquishMatchTerritory。relinquishChoices から選ぶ）
+	MatchActionRelinquishTerritory MatchAction = "RELINQUISH_TERRITORY"
+	// ターンを終える（endMatchTurn。配置の段階では配置しない、領地コマンドの段階では何もしない）
+	MatchActionEndTurn MatchAction = "END_TURN"
+)
+
+var AllMatchAction = []MatchAction{
+	MatchActionDrawCard,
+	MatchActionDiscardCard,
+	MatchActionUseSpell,
+	MatchActionRollDice,
+	MatchActionChoosePath,
+	MatchActionPlaceCreature,
+	MatchActionInvadeTerritory,
+	MatchActionPayToll,
+	MatchActionLevelUpLand,
+	MatchActionExchangeCreature,
+	MatchActionChangeLandElement,
+	MatchActionMoveCreature,
+	MatchActionAttackWithItem,
+	MatchActionAttackWithoutItem,
+	MatchActionDefendWithItem,
+	MatchActionDefendWithoutItem,
+	MatchActionUseCreatureAsItem,
+	MatchActionRelinquishTerritory,
+	MatchActionEndTurn,
+}
+
+func (e MatchAction) IsValid() bool {
+	switch e {
+	case MatchActionDrawCard, MatchActionDiscardCard, MatchActionUseSpell, MatchActionRollDice, MatchActionChoosePath, MatchActionPlaceCreature, MatchActionInvadeTerritory, MatchActionPayToll, MatchActionLevelUpLand, MatchActionExchangeCreature, MatchActionChangeLandElement, MatchActionMoveCreature, MatchActionAttackWithItem, MatchActionAttackWithoutItem, MatchActionDefendWithItem, MatchActionDefendWithoutItem, MatchActionUseCreatureAsItem, MatchActionRelinquishTerritory, MatchActionEndTurn:
+		return true
+	}
+	return false
+}
+
+func (e MatchAction) String() string {
+	return string(e)
+}
+
+func (e *MatchAction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchAction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchAction", str)
+	}
+	return nil
+}
+
+func (e MatchAction) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchAction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchAction) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

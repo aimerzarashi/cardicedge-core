@@ -16,7 +16,7 @@ func fromQueryNPCAvatar(npcAvatar query.NPCAvatar) (*model.NpcAvatar, error) {
 	}
 	return &model.NpcAvatar{
 		ID: npcAvatar.ID, Name: npcAvatar.Name, Status: status, Revision: int(npcAvatar.Revision),
-		RegisteredAt: npcAvatar.RegisteredAt, UpdatedAt: npcAvatar.UpdatedAt, DeckIDs: npcAvatar.Decks,
+		RegisteredAt: npcAvatar.RegisteredAt, UpdatedAt: npcAvatar.UpdatedAt, DeckIDs: npcAvatar.Decks, MindsetIDs: npcAvatar.Mindsets,
 	}, nil
 }
 

@@ -89,7 +89,7 @@ func playerChoice(t *testing.T) room.SeatChoice {
 
 func npcChoice(t *testing.T) room.SeatChoice {
 	t.Helper()
-	return roomtest.NPCChoice(t, 3, 4)
+	return roomtest.NPCChoice(t, 3, 4, 5)
 }
 
 func choose(t *testing.T, state room.State, seat int, choice room.SeatChoice) room.State {
@@ -157,8 +157,8 @@ func TestNewSeatKinds_ChecksSeatCountThenPlayerSeatCount(t *testing.T) {
 		{name: "four_seats", kinds: []room.SeatKind{player, npc, npc, npc}},
 		{name: "too_few_seats", kinds: []room.SeatKind{player}, want: room.ErrTooFewSeats},
 		{name: "too_many_seats", kinds: []room.SeatKind{player, npc, npc, npc, npc}, want: room.ErrTooManySeats},
-		{name: "no_player_seat", kinds: []room.SeatKind{npc, npc}, want: room.ErrPlayerSeatCount},
-		{name: "two_player_seats", kinds: []room.SeatKind{player, player}, want: room.ErrPlayerSeatCount},
+		{name: "no_player_seat", kinds: []room.SeatKind{npc, npc}},
+		{name: "two_player_seats", kinds: []room.SeatKind{player, player}, want: room.ErrTooManyPlayerSeats},
 		// 席の数が範囲の外なら、プレイヤーの席の数は確かめない
 		{name: "seat_count_is_checked_first", kinds: []room.SeatKind{npc, npc, npc, npc, npc}, want: room.ErrTooManySeats},
 	}
@@ -313,7 +313,7 @@ func TestDecide_ChangeSeatChoiceDecidesAndRechoosesPerSeat(t *testing.T) {
 
 	state, events := apply(t, state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 1), Choice: npcChoice(t)})
 	_, same := apply(t, state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 1), Choice: npcChoice(t)})
-	rechosen := roomtest.NPCChoice(t, 3, 9)
+	rechosen := roomtest.NPCChoice(t, 3, 9, 5)
 	state = choose(t, state, 1, rechosen)
 
 	require.Equal(t, []room.Event{&room.SeatChoiceChangedEvent{
@@ -347,16 +347,28 @@ func TestDecide_ChangeSeatChoiceRejectsInvalidSeats(t *testing.T) {
 	}
 }
 
+// 思考パターンだけを選び直しても、選択が変わったのでイベントを作る（NPC の席の選択に思考パターンの ID が入るため）
+func TestDecide_ChangeSeatChoiceRechoosingOnlyTheMindsetEmitsEvent(t *testing.T) {
+	state := choose(t, withSeats(t), 1, npcChoice(t))
+	rechosen := roomtest.NPCChoice(t, 3, 4, 6)
+
+	state, events := apply(t, state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 1), Choice: rechosen})
+
+	require.Len(t, events, 1)
+	require.Equal(t, rechosen, *state.(room.Room).Seats[1].Choice)
+	require.NotEqual(t, npcChoice(t), rechosen)
+}
+
 func TestDecide_ChangeSeatChoiceKeepsChoiceDecidedBeforePublishButLetsPreparingDecideTheRest(t *testing.T) {
 	// プレイヤーの席だけ公開前に決める。NPC の席は準備中に決める
 	state := publish(t, choose(t, withSeats(t), 0, playerChoice(t)))
 
 	_, locked := room.Decide(state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 0), Choice: roomtest.PlayerChoice(t, 5, 6)}, changedAt)
 	decided := choose(t, state, 1, npcChoice(t))
-	rechosen := choose(t, decided, 1, roomtest.NPCChoice(t, 3, 9))
+	rechosen := choose(t, decided, 1, roomtest.NPCChoice(t, 3, 9, 5))
 
 	require.ErrorIs(t, locked, room.ErrConditionLocked)
-	require.Equal(t, roomtest.NPCChoice(t, 3, 9), *rechosen.(room.Room).Seats[1].Choice)
+	require.Equal(t, roomtest.NPCChoice(t, 3, 9, 5), *rechosen.(room.Room).Seats[1].Choice)
 }
 
 // 作った人だけの部屋では準備完了ですぐ対戦が始まるので、ゲストの席がある部屋で、ゲストがまだのうちに作った人が準備完了する
@@ -366,7 +378,7 @@ func TestDecide_ChangeSeatChoiceRejectsAfterReadyOfResponsiblePerson(t *testing.
 	state = choose(t, state, 1, npcChoice(t))
 	state, _ = apply(t, state, &room.DeclareReadyCommand{Player: owner(t)})
 
-	_, err := room.Decide(state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 3, 9)}, changedAt)
+	_, err := room.Decide(state, &room.ChangeSeatChoiceCommand{ChangedBy: owner(t), Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 3, 9, 5)}, changedAt)
 	_, rules := room.Decide(state, &room.ChangeMatchRulesCommand{ChangedBy: owner(t), MatchRules: roomtest.MatchRules(t, boardtest.ID(t, 6))}, changedAt)
 
 	require.ErrorIs(t, err, room.ErrAlreadyReady)
@@ -664,7 +676,7 @@ func TestEvent_PayloadMatchesGoldenV1(t *testing.T) {
 		&room.CreatedEvent{EventMeta: meta, Player: owner(t), Name: roomtest.Name(t, "はじめての部屋")},
 		&room.SeatsChangedEvent{EventMeta: meta, Seats: []room.Seat{{Kind: room.SeatKindPlayer, Player: owner(t)}, {Kind: room.SeatKindNPC}}},
 		&room.MatchRulesChangedEvent{EventMeta: meta, MatchRules: matchRules(t)},
-		&room.SeatChoiceChangedEvent{EventMeta: meta, Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 7, 8), ChangedBy: owner(t)},
+		&room.SeatChoiceChangedEvent{EventMeta: meta, Seat: roomtest.SeatIndex(t, 1), Choice: roomtest.NPCChoice(t, 7, 8, 6), ChangedBy: owner(t)},
 		&room.PublishedEvent{EventMeta: meta},
 		&room.PreparationStartedEvent{EventMeta: meta},
 		&room.ReadyDeclaredEvent{EventMeta: meta, Player: owner(t)},
